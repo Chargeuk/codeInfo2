@@ -599,13 +599,6 @@
         },
         {
           "type": "llm",
-          "label": "Reset Review Cycle State",
-          "agentType": "planning_agent_lite",
-          "identifier": "planner_lite",
-          "markdownFile": "reset_review_cycle_state.md"
-        },
-        {
-          "type": "llm",
           "label": "Checkpoint Push Before Review Loop",
           "agentType": "planning_agent_lite",
           "identifier": "planner_lite",

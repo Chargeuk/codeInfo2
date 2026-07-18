@@ -316,6 +316,36 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
         self.assertEqual(pointer["overall_validation_status"], "partial")
         self.assertTrue(pointer["partial"])
 
+    def test_publishes_validated_comments_as_structured_findings(self) -> None:
+        repo, log_root, pass_dir, prepared_base = self.make_fixture()
+        comments_path = pass_dir / "comments-0000.json"
+        comments = json.loads(comments_path.read_text(encoding="utf-8"))
+        comments["summary"]["issues_found"] = 1
+        comments["comments"] = [
+            {
+                "path": "server/src/flows/review.ts",
+                "line_range": {"start": 42, "end": 42},
+                "priority": "HIGH",
+                "category": "correctness",
+                "title": "Preserve deferred candidates",
+                "content": "The candidate can disappear after a skipped merge.",
+                "recommendation": "Keep it in explicit routing state.",
+                "confidence": 0.98,
+            }
+        ]
+        comments_path.write_text(json.dumps(comments), encoding="utf-8")
+
+        pointer, _, _ = publish_open_code_review.build_open_code_review_pointer(
+            repo_root=repo,
+            prepared_base_path=prepared_base,
+            pass_dir=pass_dir,
+            ocr_log_root=log_root,
+        )
+
+        self.assertEqual(len(pointer["findings"]), 1)
+        self.assertEqual(pointer["findings"][0]["severity"], "HIGH")
+        self.assertEqual(pointer["findings"][0]["line"], 42)
+
     def test_rejects_bundle_identity_mismatch(self) -> None:
         repo, log_root, pass_dir, prepared_base = self.make_fixture()
         comments_path = pass_dir / "comments-0000.json"

@@ -6,10 +6,27 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  parseCodexReviewFindings,
   resolveCodexReviewModel,
   resolveCodexReviewReasoningEffort,
   runCodexReviewStep,
 } from '../../flows/codexReview.js';
+
+test('parses Codex markdown findings into server-owned structured findings', () => {
+  const findings = parseCodexReviewFindings(
+    '- [P1] Preserve fast findings — [review.ts](/repo/server/src/flows/review.ts:42) drops candidates.\n' +
+      '- [P2] Retry cleanly — Retry the pass without losing state.\n',
+  );
+  assert.equal(findings.length, 2);
+  assert.deepEqual(findings[0], {
+    title: 'Preserve fast findings',
+    severity: 'P1',
+    detail:
+      '[review.ts](/repo/server/src/flows/review.ts:42) drops candidates.',
+    path: '/repo/server/src/flows/review.ts',
+    line: 42,
+  });
+});
 
 const HEAD_SHA = 'd30c1246d30c1246d30c1246d30c1246d30c1246';
 const BASE_SHA = 'a10ca1b2a10ca1b2a10ca1b2a10ca1b2a10ca1b2';

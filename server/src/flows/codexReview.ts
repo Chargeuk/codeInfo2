@@ -94,6 +94,7 @@ export type CodexReviewPointer = {
   review_context_source_plan_sha256: string;
   review_excluded_paths: string[];
   review_output_file: string;
+  findings: CodexStructuredFinding[];
   findings_file: string | null;
   merge_output_file: string | null;
   merged_into_canonical_findings: boolean;
@@ -101,6 +102,36 @@ export type CodexReviewPointer = {
   status: 'completed';
   started_at: string;
   completed_at: string;
+};
+
+export type CodexStructuredFinding = {
+  title: string;
+  severity: string;
+  detail: string;
+  path: string | null;
+  line: number | null;
+};
+
+export const parseCodexReviewFindings = (
+  markdown: string,
+): CodexStructuredFinding[] => {
+  const findings: CodexStructuredFinding[] = [];
+  const findingPattern = /^- \[([^\]]+)\]\s+(.+?)(?:\s+[—–]\s+(.+))?$/gmu;
+  for (const match of markdown.matchAll(findingPattern)) {
+    const severity = (match[1] ?? '').trim();
+    const title = (match[2] ?? '').trim();
+    if (!severity || !title) continue;
+    const detail = (match[3] ?? title).trim();
+    const location = /\[[^\]]+\]\(([^():\s]+):(\d+)\)/u.exec(detail);
+    findings.push({
+      title,
+      severity,
+      detail,
+      path: location?.[1] ?? null,
+      line: location ? Number(location[2]) : null,
+    });
+  }
+  return findings;
 };
 
 export type CodexReviewStepResult = {
@@ -664,11 +695,27 @@ export async function runCodexReviewStep(
     reviewStatePath,
     resolvedDeps,
   );
+  const activeCycle = await readJsonIfExists<Record<string, unknown>>(
+    path.join(
+      repoRoot,
+      'codeInfoStatus',
+      'flow-state',
+      'active-review-cycle.json',
+    ),
+    resolvedDeps,
+  );
   const canonicalReviewPassId = preparedBase.artifact.review_pass_id;
-  const reviewCycleId = resolveApplicableReviewCycleId({
-    storyNumber,
-    reviewState,
-  });
+  const activeReviewCycleId =
+    activeCycle?.story_id === storyNumber &&
+    activeCycle.plan_path === planPath &&
+    activeCycle.parent_execution_id ===
+      preparedBase.artifact.parent_execution_id &&
+    typeof activeCycle.review_cycle_id === 'string'
+      ? activeCycle.review_cycle_id
+      : null;
+  const reviewCycleId =
+    activeReviewCycleId ??
+    resolveApplicableReviewCycleId({ storyNumber, reviewState });
   const shortHead = headCommit.slice(0, 10);
   const passTimestamp = formatUtcTimestamp(startedAt);
   const passSeed = sanitizePassSeed(canonicalReviewPassId);
@@ -754,6 +801,9 @@ export async function runCodexReviewStep(
   }
 
   const completedAtIso = resolvedDeps.now().toISOString();
+  const structuredFindings = parseCodexReviewFindings(
+    await resolvedDeps.readFile(reviewOutputPath, 'utf8'),
+  );
   const pointer = buildPointer({
     preparedBase: preparedBase.artifact,
     currentBranch,
@@ -768,6 +818,7 @@ export async function runCodexReviewStep(
     repoRoot,
     startedAtIso,
     completedAtIso,
+    structuredFindings,
   });
 
   const activePreparedBase = await readPreparedReviewBase(
@@ -817,6 +868,7 @@ const buildPointer = (params: {
   repoRoot: string;
   startedAtIso: string;
   completedAtIso: string;
+  structuredFindings: CodexStructuredFinding[];
 }): CodexReviewPointer => ({
   schema_version: 2,
   story_id: params.preparedBase.story_id,
@@ -865,6 +917,7 @@ const buildPointer = (params: {
     params.preparedBase.review_context_source_plan_sha256,
   review_excluded_paths: params.preparedBase.review_excluded_paths,
   review_output_file: toPosixRelative(params.repoRoot, params.reviewOutputPath),
+  findings: params.structuredFindings,
   findings_file: null,
   merge_output_file: null,
   merged_into_canonical_findings: false,

@@ -41,6 +41,7 @@ type FixtureOptions = {
   waveScope?: boolean;
   ocrCoverageShape?: 'nested' | 'top-level' | 'missing' | 'conflicting';
   ocrBundleShape?: 'canonical' | 'legacy' | 'conflicting' | 'malformed';
+  ocrInlineFindings?: Array<Record<string, unknown>>;
 };
 
 const argumentValue = (args: string[], flag: string): string => {
@@ -521,6 +522,7 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
       review_output_file: 'codeInfoTmp/reviews/ocr.md',
       overall_validation_status: invalidIndexes.size > 0 ? 'partial' : 'valid',
       partial: invalidIndexes.size > 0,
+      findings: options.ocrInlineFindings ?? [],
       status: 'completed',
     }),
   );
@@ -1505,6 +1507,20 @@ test('validateReviewArtifacts keeps valid OCR bundles when another bundle fails'
     await writeFixture(repoRoot, {
       ocrBundleCount: 2,
       invalidOcrBundleIndexes: [1],
+      ocrInlineFindings: [
+        {
+          bundle_id: `sha256:${'1'.padStart(64, '0')}`,
+          title: 'Usable bundle finding',
+          path: 'changed-0.ts',
+          severity: 'P1',
+        },
+        {
+          bundle_id: `sha256:${'2'.padStart(64, '0')}`,
+          title: 'Rejected bundle finding',
+          path: 'changed-1.ts',
+          severity: 'P1',
+        },
+      ],
     });
     const result = await validateReviewArtifacts({
       workingRepositoryPath: repoRoot,
@@ -1514,6 +1530,14 @@ test('validateReviewArtifacts keeps valid OCR bundles when another bundle fails'
     assert.equal(result.pointer_results[0]?.status, 'partial');
     assert.equal(result.pointer_results[0]?.usable, true);
     assert.equal(result.pointer_results[0]?.usable_bundle_ids.length, 1);
+    assert.deepEqual(result.pointer_results[0]?.validated_findings, [
+      {
+        bundle_id: `sha256:${'1'.padStart(64, '0')}`,
+        title: 'Usable bundle finding',
+        path: 'changed-0.ts',
+        severity: 'P1',
+      },
+    ]);
     assert.match(result.warnings.join('\n'), /validation failed/u);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });

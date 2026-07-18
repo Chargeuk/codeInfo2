@@ -1,0 +1,53 @@
+{
+  "description": "Run isolated per-repository diagnostic reviewers without final story disposition, repair, task-up, or convergence ownership.",
+  "steps": [
+    {
+      "type": "initializeReviewCycle",
+      "label": "Initialize Isolated Diagnostic Review",
+      "mode": "diagnostic",
+      "outputKey": "diagnostic_review"
+    },
+    {
+      "type": "prepareReviewTargets",
+      "label": "Snapshot Diagnostic Review Targets",
+      "outputKey": "diagnostic_review_wave"
+    },
+    {
+      "type": "prepareReviewSet",
+      "label": "Prepare Diagnostic Review Set",
+      "snapshotFrom": "diagnostic_review_wave",
+      "outputKey": "diagnostic_review_set",
+      "reviewPhase": "standalone",
+      "reviewFlowNames": ["codex_review", "open_code_review"]
+    },
+    {
+      "type": "subflowWave",
+      "label": "Run Diagnostic Review Wave",
+      "failureMode": "best_effort",
+      "groups": [
+        {
+          "kind": "matrix",
+          "id": "diagnostic_target_reviews",
+          "itemsFrom": "diagnostic_review_wave.targets",
+          "itemName": "target",
+          "flowNames": ["codex_review", "open_code_review"],
+          "bindings": {
+            "workingFolderFrom": "target.repo_root",
+            "input": {
+              "target": "target",
+              "review_wave": "diagnostic_review_wave",
+              "review_set": "diagnostic_review_set"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "validateReviewWave",
+      "label": "Validate Diagnostic Review Wave",
+      "snapshotFrom": "diagnostic_review_wave",
+      "reviewSetFrom": "diagnostic_review_set",
+      "reviewPhase": "standalone"
+    }
+  ]
+}

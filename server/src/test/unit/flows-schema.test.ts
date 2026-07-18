@@ -28,6 +28,7 @@ describe('flow schema (v1)', () => {
     pointerKeys?: string[];
     ensureCanonicalFallback?: boolean;
     reviewPhase?: string;
+    mode?: string;
     crossRepositoryFlowName?: string;
     groups?: Array<{
       kind?: string;
@@ -431,6 +432,7 @@ describe('flow schema (v1)', () => {
     const flowFiles = [
       'flows/codex_review.json',
       'flows/cross_repository_review.json',
+      'flows/diagnostic_review_cycle.json',
       'flows/minor_review_fix_path.json',
       'flows/review_artifacts_main.json',
       'flows/review_disposition_current_artifacts.json',
@@ -461,6 +463,7 @@ describe('flow schema (v1)', () => {
     );
     const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
     const topLevel = parsed.steps ?? [];
+    const initializer = topLevel[0];
     const fastLoop = topLevel.find(
       (step) => step.label === 'Fast Review Convergence Loop',
     );
@@ -474,6 +477,8 @@ describe('flow schema (v1)', () => {
       (step) => step.label === 'Run Slow Review Wave',
     );
 
+    assert.equal(initializer?.type, 'initializeReviewCycle');
+    assert.equal(initializer?.mode, 'final');
     assert.equal(fastSet?.reviewPhase, 'fast');
     assert.deepEqual(fastSet?.reviewFlowNames, [
       'codex_review',
@@ -937,17 +942,18 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('review flows use reset and classifier disposition before findings repair and scoped task-up', async () => {
-    const flowFiles = [
-      'flows/review_plan.json',
+  test('review flows initialize state before classifier disposition, findings repair, and scoped task-up', async () => {
+    const finalReviewFlowFiles = [
       'flows/implement_next_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
-      'flows/ingest_external_review_plan.json',
     ] as const;
 
-    for (const flowFile of flowFiles) {
+    for (const flowFile of finalReviewFlowFiles) {
       const markers = (await loadExpandedFlowSteps(flowFile)).map((step) => {
+        if (step.type === 'initializeReviewCycle') {
+          return `initializeReviewCycle:${step.mode}`;
+        }
         if (step.type === 'llm') {
           return step.markdownFile;
         }
@@ -957,7 +963,7 @@ describe('flow schema (v1)', () => {
         return undefined;
       });
 
-      const resetIndex = markers.indexOf('reset_review_cycle_state.md');
+      const initializeIndex = markers.indexOf('initializeReviewCycle:final');
       const classifyIndex = markers.indexOf('classify_review_disposition.md');
       const ensureIndex = markers.indexOf(
         'ensure_review_findings_became_tasks.md',
@@ -965,9 +971,14 @@ describe('flow schema (v1)', () => {
       const taskUpIndex = markers.indexOf('task_up_review_tasks');
 
       assert.notEqual(
-        resetIndex,
+        initializeIndex,
         -1,
-        `${flowFile} should include review-cycle reset`,
+        `${flowFile} should include native final review-cycle initialization`,
+      );
+      assert.equal(
+        markers.includes('reset_review_cycle_state.md'),
+        false,
+        `${flowFile} should leave reset ownership to the review subflow`,
       );
       assert.notEqual(
         classifyIndex,
@@ -985,10 +996,33 @@ describe('flow schema (v1)', () => {
         `${flowFile} should include scoped review task-up`,
       );
       assert.ok(
-        resetIndex < classifyIndex &&
+        initializeIndex < classifyIndex &&
           classifyIndex < ensureIndex &&
           ensureIndex < taskUpIndex,
-        `${flowFile} should run reset, then classifier disposition, then repair findings tasks, then scoped task-up`,
+        `${flowFile} should initialize, then classify, repair findings tasks, and run scoped task-up`,
+      );
+    }
+
+    const standaloneDispositionFlows = [
+      'flows/review_plan.json',
+      'flows/ingest_external_review_plan.json',
+    ] as const;
+
+    for (const flowFile of standaloneDispositionFlows) {
+      const markers = (await loadExpandedFlowSteps(flowFile)).map(
+        (step) => step.markdownFile,
+      );
+      const resetIndex = markers.indexOf('reset_review_cycle_state.md');
+      const classifyIndex = markers.indexOf('classify_review_disposition.md');
+
+      assert.notEqual(
+        resetIndex,
+        -1,
+        `${flowFile} should retain its standalone reset`,
+      );
+      assert.ok(
+        resetIndex < classifyIndex,
+        `${flowFile} should reset before classifier disposition`,
       );
     }
   });

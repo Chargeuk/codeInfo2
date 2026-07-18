@@ -2,6 +2,12 @@
   "description": "Run bounded fast review waves across every story repository, then one heavyweight slow review wave before combined settlement.",
   "steps": [
     {
+      "type": "initializeReviewCycle",
+      "label": "Initialize Fresh Final Review Cycle",
+      "mode": "final",
+      "outputKey": "review_cycle"
+    },
+    {
       "type": "startLoop",
       "label": "Fast Review Convergence Loop",
       "maxIterations": 5,

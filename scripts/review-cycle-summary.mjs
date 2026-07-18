@@ -40,6 +40,7 @@ export const buildReviewRetryOwnershipId = ({
   workingFolder,
   sourceId,
   customTitle,
+  flowName = 'two_phase_review_cycle',
 }) => {
   const digest = createHash('sha256')
     .update(
@@ -47,6 +48,7 @@ export const buildReviewRetryOwnershipId = ({
         workingFolder,
         sourceId: sourceId ?? null,
         customTitle: customTitle ?? null,
+        flowName,
       }),
     )
     .digest('hex')
@@ -137,12 +139,14 @@ export const waitForReviewCycle = async ({
   workingFolder,
   sourceId,
   customTitle,
+  flowName = 'two_phase_review_cycle',
   conversationId: attachedConversationId,
   resumeOrphaned = false,
   retryOwnershipId = buildReviewRetryOwnershipId({
     workingFolder,
     sourceId,
     customTitle,
+    flowName,
   }),
   pollMs = DEFAULT_POLL_MS,
   cancelAfterNoProgressMs = null,
@@ -153,19 +157,16 @@ export const waitForReviewCycle = async ({
 }) => {
   let conversationId = attachedConversationId;
   if (!conversationId) {
-    const startResponse = await fetchImpl(
-      `${baseUrl}/flows/two_phase_review_cycle/run`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          working_folder: workingFolder,
-          retryOwnershipId,
-          ...(sourceId ? { sourceId } : {}),
-          ...(customTitle ? { customTitle } : {}),
-        }),
-      },
-    );
+    const startResponse = await fetchImpl(`${baseUrl}/flows/${flowName}/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        working_folder: workingFolder,
+        retryOwnershipId,
+        ...(sourceId ? { sourceId } : {}),
+        ...(customTitle ? { customTitle } : {}),
+      }),
+    });
     const started = await readJsonResponse(startResponse, 'Review start');
     if (!started || typeof started.conversationId !== 'string') {
       throw new Error('Review start did not return a conversationId.');
@@ -197,7 +198,7 @@ export const waitForReviewCycle = async ({
       Array.isArray(status.resumeStepPath)
     ) {
       const resumeResponse = await fetchImpl(
-        `${baseUrl}/flows/two_phase_review_cycle/run`,
+        `${baseUrl}/flows/${flowName}/run`,
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -273,6 +274,12 @@ const main = async () => {
           'Explicitly resume an interrupted attached run from its server-provided safe checkpoint.',
       },
       {
+        name: 'diagnostic',
+        type: 'boolean',
+        description:
+          'Run the isolated diagnostic review flow without final disposition or convergence ownership.',
+      },
+      {
         name: 'poll-ms',
         type: 'string',
         description: `Status poll interval (default ${DEFAULT_POLL_MS}).`,
@@ -344,6 +351,9 @@ const main = async () => {
       workingFolder: launch.workingFolder,
       sourceId: launch.sourceId,
       customTitle: values['custom-title'],
+      flowName: values.diagnostic
+        ? 'diagnostic_review_cycle'
+        : 'two_phase_review_cycle',
       conversationId: values['conversation-id'],
       resumeOrphaned: Boolean(values['resume-orphaned']),
       pollMs,
@@ -367,13 +377,19 @@ const main = async () => {
       },
     });
     const passed = result.status.status === 'ok';
+    const skipped = result.status.terminalOutcome === 'not_applicable';
     await run.closeLog();
     run.protocol.emitFinal({
       status: passed ? 'passed' : 'failed',
-      reason: passed ? 'terminal_review_success' : 'terminal_review_failure',
+      reason: skipped
+        ? 'terminal_review_skipped'
+        : passed
+          ? 'terminal_review_success'
+          : 'terminal_review_failure',
       extraFields: {
         conversation_id: result.conversationId,
         terminal_status: result.status.status,
+        terminal_outcome: result.status.terminalOutcome ?? null,
       },
     });
     return passed ? 0 : 1;

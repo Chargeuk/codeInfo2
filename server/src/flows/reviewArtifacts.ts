@@ -1476,6 +1476,14 @@ export async function validateReviewArtifacts(
           signal: params.signal,
         });
         result.usable_bundle_ids = ocr.usableBundleIds;
+        result.validated_findings = structuredFindings.findings.filter(
+          (finding) =>
+            finding !== null &&
+            typeof finding === 'object' &&
+            !Array.isArray(finding) &&
+            typeof finding.bundle_id === 'string' &&
+            ocr.usableBundleIds.includes(finding.bundle_id),
+        );
         result.status = ocr.partial ? 'partial' : 'passed';
       } else {
         result.status = 'passed';

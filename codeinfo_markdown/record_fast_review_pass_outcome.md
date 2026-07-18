@@ -5,6 +5,7 @@ Record one successfully classified fast-review pass and snapshot the accepted mi
 <critical_rules>
 
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
+- Read `codeInfoStatus/flow-state/active-review-cycle.json` second and require its final-review cycle, story, plan, and parent execution to match the disposition state and current review set exactly.
 - Then read `codeInfoStatus/flow-state/review-disposition-state.json` and the exact current `review_pass_id` stored there.
 - When `codeInfoTmp/reviews/<story-number>-current-review-set.json` exists, read it and the matching `current-review-wave-validation.json`; otherwise read the legacy `current-review-validation.json`.
 - Update only `codeInfoStatus/flow-state/review-disposition-state.json`.
@@ -28,7 +29,7 @@ Record one successfully classified fast-review pass and snapshot the accepted mi
 10. Set `fast_current_pass_expected_job_count`, `fast_current_pass_completed_job_count`, `fast_current_pass_partial_job_count`, `fast_current_pass_failed_job_count`, and `fast_current_pass_missing_job_count`. Count `stale` and `invalid` results with failed jobs. Set `fast_current_pass_coverage_complete` only when every expected job completed, and set `fast_current_pass_coverage_trusted` only when the complete artifact identity and one-to-one job set are trustworthy.
 11. Missing, stale, or malformed coverage evidence must fail forward: record zero completed jobs, `fast_current_pass_coverage_complete: false`, and `fast_current_pass_coverage_trusted: false` instead of stopping. Use a trustworthy manifest's expected count when available; otherwise use zero without claiming completion.
 12. Set `fast_review_coverage_exhausted` to true only when coverage is incomplete on pass five; otherwise set it to false. Set `fast_phase_complete` to false. The deterministic post-fix checker owns deciding whether the phase may advance.
-13. Set `needs_review_rerun_before_close` to true when either the captured minor count is greater than zero or coverage is incomplete, provided `fast_review_pass_count` is less than 5. Otherwise set it to false.
+13. Set `needs_review_rerun_before_close` to true when the captured minor count is greater than zero, coverage is incomplete, or `deferred_review_candidates` is non-empty, provided `fast_review_pass_count` is less than 5. Otherwise set it to false. Deferred candidates are not clean convergence.
 14. Keep `needs_final_minor_fix_revalidation_task` false until both fast and slow phases are complete.
 15. Keep `safe_to_exit_review_loop_without_tasking` false while the two-phase review cycle is active.
 16. Preserve all finding arrays, counts, review identity, cumulative minor-fix history, `minor_fix_audit_schema_version`, every existing `minor_fix_pass_audits` entry, task-up state, final-revalidation ownership fields, and any legacy reviewer-coverage fields from a resumable pre-wave state.
@@ -38,6 +39,7 @@ Record one successfully classified fast-review pass and snapshot the accepted mi
 <failure_modes>
 
 - If review decisions are not durably recorded for the exact current pass, make no changes and report that the existing decision-recording retry gate must run.
+- If active-cycle identity does not match, make no changes. Preserve every current reviewer candidate as deferred routing state and require another pass while the five-pass budget remains.
 - If adding the current pass would exceed five distinct fast-review pass IDs, make no changes and report invalid fast-phase control state.
 - If the count is missing, non-integer, negative, or disagrees with `unresolved_minor_batchable_findings`, make no changes and report the contradiction.
 - Do not stop merely because validation data is missing, stale, or malformed. Record incomplete job coverage so the deterministic loop retries while passes remain.

@@ -145,6 +145,7 @@ import {
   type FlowPrepareReviewBaseStep,
   type FlowReingestStep,
   type FlowResetStep,
+  type FlowInitializeReviewCycleStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
   type FlowSubflowWaveStep,
@@ -173,6 +174,7 @@ import {
 } from './repositoryCandidateOrder.js';
 import { validateReviewArtifacts } from './reviewArtifacts.js';
 import { prepareReviewBase } from './reviewBase.js';
+import { initializeReviewCycle } from './reviewCycleLifecycle.js';
 import { prepareReviewSet, type ReviewSetManifest } from './reviewSet.js';
 import { validateReviewTargetContract } from './reviewTargetContract.js';
 import { prepareReviewTargets } from './reviewTargets.js';
@@ -1967,6 +1969,7 @@ const buildFlowCommandMetadata = (params: {
     | FlowContinueStep
     | FlowCommandStep
     | FlowResetStep
+    | FlowInitializeReviewCycleStep
     | FlowPrepareReviewTargetsStep
     | FlowValidateReviewTargetStep
     | FlowCrossRepositoryReviewGateStep
@@ -6120,6 +6123,94 @@ async function runFlowUnlocked(params: {
     return 'failed';
   };
 
+  const runInitializeReviewCycleStep = async (
+    step: FlowInitializeReviewCycleStep,
+    command: TurnCommandMetadata,
+  ): Promise<{ status: TurnStatus; exitFlow: boolean }> => {
+    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+      params.repositoryContext,
+    );
+    const instruction = `Initialize ${step.mode} review cycle`;
+    if (!reviewRepositoryPath) {
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        response:
+          'Skipped review initialization because no working repository path was resolved.',
+        command,
+      });
+      return { status: 'ok', exitFlow: true };
+    }
+    const inflightState = createInflight({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: params.providerId,
+      model: params.modelId,
+      source: params.source,
+      command,
+    });
+    try {
+      const result = await initializeReviewCycle({
+        workingRepositoryPath: reviewRepositoryPath,
+        parentExecutionId: params.executionId,
+        mode: step.mode,
+        signal: inflightState.abortController.signal,
+      });
+      flowValues[step.outputKey] = normalizeFlowInput({
+        action: result.action,
+        review_mode: step.mode,
+        story_id: result.storyId,
+        plan_path: result.planPath,
+        readiness: result.readiness,
+        ...(result.cycle ?? {}),
+      });
+      const exitFlow = result.action === 'skipped_incomplete_story';
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        response: exitFlow
+          ? `Skipped final review because story work remains: ${result.readiness.incomplete_tasks.length} incomplete task(s), ${result.readiness.unchecked_work.length} unchecked implementation or testing item(s).`
+          : result.action === 'diagnostic'
+            ? 'Initialized isolated diagnostic review without final-review disposition ownership.'
+            : `${result.action === 'resumed' ? 'Resumed' : 'Initialized'} review cycle ${result.cycle?.review_cycle_id}.`,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return { status: 'ok', exitFlow };
+    } catch (error) {
+      if (inflightState.abortController.signal.aborted) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+        return { status: 'stopped', exitFlow: false };
+      }
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        response: `Skipped review initialization because lifecycle preflight was unavailable: ${error instanceof Error ? error.message : String(error)}`,
+        command,
+      });
+      return { status: 'ok', exitFlow: true };
+    }
+  };
+
   const runPrepareReviewSetStep = async (
     step: FlowPrepareReviewSetStep,
     command: TurnCommandMetadata,
@@ -7591,6 +7682,27 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
+      if (step.type === 'initializeReviewCycle') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        const result = await runInitializeReviewCycleStep(step, command);
+        if (shouldStopAfter(result.status)) {
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return result.status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        if (result.exitFlow) terminalOutcome = 'not_applicable';
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        if (result.exitFlow) return 'ok';
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
       if (step.type === 'prepareReviewSet') {
         const command = buildFlowCommandMetadata({
           step,
@@ -8557,6 +8669,7 @@ export type FlowRunObservedStatus = {
   conversationId: string;
   status: 'running' | 'ok' | 'stopped' | 'failed' | 'orphaned';
   terminal: boolean;
+  terminalOutcome: FlowResumeState['terminalOutcome'] | null;
   executionId: string | null;
   activeSince: string | null;
   latestAssistantAt: string | null;
@@ -8680,6 +8793,7 @@ export async function getFlowRunStatus(
     conversationId: normalizedConversationId,
     status,
     terminal: status !== 'running',
+    terminalOutcome: resumeState?.terminalOutcome ?? null,
     executionId: resumeState?.executionId ?? null,
     activeSince: ownership?.startedAt ?? null,
     latestAssistantAt: latestAssistant?.createdAt?.toISOString?.() ?? null,

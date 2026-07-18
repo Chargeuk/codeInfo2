@@ -70,6 +70,13 @@ export type FlowResetStep = {
   identifier: string;
 };
 
+export type FlowInitializeReviewCycleStep = {
+  type: 'initializeReviewCycle';
+  label?: string;
+  mode: 'final' | 'diagnostic';
+  outputKey: string;
+};
+
 export type FlowPrepareReviewBaseStep = {
   type: 'prepareReviewBase';
   label?: string;
@@ -180,6 +187,7 @@ export type FlowStep =
   | FlowContinueStep
   | FlowCommandStep
   | FlowResetStep
+  | FlowInitializeReviewCycleStep
   | FlowPrepareReviewTargetsStep
   | FlowValidateReviewTargetStep
   | FlowCrossRepositoryReviewGateStep
@@ -277,6 +285,15 @@ const FlowPrepareReviewBaseStepSchema = z
     outputKey: trimmedNonEmptyString,
     basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
     initializeReviewPointers: z.boolean().optional(),
+  })
+  .strict();
+
+const FlowInitializeReviewCycleStepSchema = z
+  .object({
+    type: z.literal('initializeReviewCycle'),
+    label: trimmedNonEmptyString.optional(),
+    mode: z.enum(['final', 'diagnostic']),
+    outputKey: trimmedNonEmptyString,
   })
   .strict();
 
@@ -547,6 +564,7 @@ function flowStepUnionSchema() {
     FlowContinueStepSchema,
     FlowCommandStepSchema,
     FlowResetStepSchema,
+    FlowInitializeReviewCycleStepSchema,
     FlowPrepareReviewTargetsStepSchema,
     FlowValidateReviewTargetStepSchema,
     FlowCrossRepositoryReviewGateStepSchema,

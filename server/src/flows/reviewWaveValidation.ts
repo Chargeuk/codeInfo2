@@ -119,6 +119,7 @@ const targetSnapshotIsCurrent = async (
     return (
       current.review_wave_id === snapshot.review_wave_id &&
       current.parent_execution_id === snapshot.parent_execution_id &&
+      current.review_cycle_id === snapshot.review_cycle_id &&
       current.targets_sha256 === snapshot.targets_sha256
     );
   } catch (error) {
@@ -262,6 +263,7 @@ export async function validateReviewWave(
   params.signal?.throwIfAborted();
   if (
     params.reviewSet.review_wave_id !== params.snapshot.review_wave_id ||
+    params.reviewSet.review_cycle_id !== params.snapshot.review_cycle_id ||
     params.reviewSet.targets_sha256 !== params.snapshot.targets_sha256 ||
     params.reviewSet.expected_job_count !==
       params.reviewSet.expected_jobs.length ||

@@ -27,6 +27,7 @@ class FlowControlReviewTests(unittest.TestCase):
         *,
         review_state: dict[str, object] | None,
         minor_fix_result: dict[str, object] | None = None,
+        active_cycle: dict[str, object] | None = None,
     ) -> Path:
         tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(tmpdir.cleanup)
@@ -41,6 +42,10 @@ class FlowControlReviewTests(unittest.TestCase):
         if minor_fix_result is not None:
             (flow_state / "minor-review-fix-result.json").write_text(
                 json.dumps(minor_fix_result, indent=2)
+            )
+        if active_cycle is not None:
+            (flow_state / "active-review-cycle.json").write_text(
+                json.dumps(active_cycle, indent=2)
             )
         return repo
 
@@ -186,7 +191,7 @@ class FlowControlReviewTests(unittest.TestCase):
             outcome.reason_code, "fast_review_converged_without_minor_findings"
         )
 
-    def test_fast_review_exits_when_phase_already_advanced(self) -> None:
+    def test_fast_review_does_not_claim_convergence_from_non_fast_phase(self) -> None:
         repo = self.make_repo(
             review_state={
                 "review_phase": "slow",
@@ -197,8 +202,45 @@ class FlowControlReviewTests(unittest.TestCase):
 
         outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
 
-        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(outcome.answer, "no")
         self.assertEqual(outcome.reason_code, "fast_review_phase_not_active")
+
+    def test_fast_review_requires_current_cycle_and_recorded_current_pass(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "story_number": "0000001",
+                "plan_path": "planning/0000001-story.md",
+                "review_phase": "fast",
+                "fast_review_pass_count": 1,
+                "fast_reviewed_pass_ids": [self.REVIEW_PASS_ID],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_job_count": 1,
+                "fast_current_pass_completed_job_count": 1,
+                "fast_current_pass_partial_job_count": 0,
+                "fast_current_pass_failed_job_count": 0,
+                "fast_current_pass_missing_job_count": 0,
+                "fast_current_pass_coverage_complete": True,
+                "fast_current_pass_coverage_trusted": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "review_decision_recording": {
+                    "review_pass_id": self.REVIEW_PASS_ID,
+                    "outcome": "retry_required",
+                },
+            },
+            active_cycle={
+                "review_mode": "final",
+                "story_id": "0000001",
+                "plan_path": "planning/0000001-story.md",
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_counter_state_invalid")
 
     def test_fast_review_repeats_before_fifth_pass_after_draining_findings(self) -> None:
         repo = self.make_repo(
@@ -274,6 +316,30 @@ class FlowControlReviewTests(unittest.TestCase):
 
         self.assertEqual(outcome.answer, "no")
         self.assertEqual(outcome.reason_code, "fast_review_minor_findings_not_drained")
+
+    def test_fast_review_repeats_while_candidates_are_deferred(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 1,
+                "fast_reviewed_pass_ids": ["pass-1"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 2,
+                "fast_current_pass_reviewers_complete": True,
+                "needs_minor_fix_path": False,
+                "deferred_review_candidates": [
+                    {"id": "candidate-1", "summary": "Deferred candidate"}
+                ],
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_candidates_deferred")
 
     def test_fast_review_retries_incomplete_reviewer_coverage(self) -> None:
         repo = self.make_repo(

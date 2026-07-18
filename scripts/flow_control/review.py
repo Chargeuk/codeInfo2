@@ -15,6 +15,7 @@ from flow_state_utils import ScopeResolutionError, load_json_file, resolve_path
 DEFAULT_REVIEW_STATE = "codeInfoStatus/flow-state/review-disposition-state.json"
 DEFAULT_MINOR_FIX_RESULT = "codeInfoStatus/flow-state/minor-review-fix-result.json"
 DEFAULT_CURRENT_PLAN = "codeInfoStatus/flow-state/current-plan.json"
+DEFAULT_ACTIVE_REVIEW_CYCLE = "codeInfoStatus/flow-state/active-review-cycle.json"
 
 
 def _load_review_state(
@@ -491,11 +492,32 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
         return no("fast_review_state_unreadable", error=error)
 
     if payload.get("review_phase") != "fast":
-        return yes("fast_review_phase_not_active", **_review_context(payload))
+        return no("fast_review_phase_not_active", **_review_context(payload))
+
+    active_cycle = _load_optional_json(DEFAULT_ACTIVE_REVIEW_CYCLE)
+    strict_cycle = isinstance(active_cycle, dict)
+    payload_story = payload.get("story_number")
+    canonical_payload_story = (
+        str(payload_story).zfill(7)
+        if isinstance(payload_story, (str, int)) and not isinstance(payload_story, bool)
+        else None
+    )
+    if strict_cycle and (
+        active_cycle.get("review_mode") != "final"
+        or active_cycle.get("review_cycle_id") != payload.get("review_cycle_id")
+        or active_cycle.get("parent_execution_id")
+        != payload.get("parent_execution_id")
+        or active_cycle.get("story_id") != canonical_payload_story
+        or active_cycle.get("plan_path") != payload.get("plan_path")
+    ):
+        return no("fast_review_active_cycle_mismatch", **_review_context(payload))
 
     pass_count = payload.get("fast_review_pass_count")
     entry_minor_count = payload.get("fast_current_pass_minor_count_before_fix")
     reviewed_pass_ids = payload.get("fast_reviewed_pass_ids")
+    review_pass_id = payload.get("review_pass_id")
+    decision_recording = payload.get("review_decision_recording")
+    deferred_candidates = payload.get("deferred_review_candidates", [])
     generic_coverage_fields = (
         "fast_current_pass_expected_job_count",
         "fast_current_pass_completed_job_count",
@@ -591,6 +613,19 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
             for review_pass_id in reviewed_pass_ids
         )
         or len(set(reviewed_pass_ids)) != len(reviewed_pass_ids)
+        or (
+            strict_cycle
+            and (
+                not isinstance(review_pass_id, str)
+                or not review_pass_id.strip()
+                or reviewed_pass_ids[-1] != review_pass_id
+                or not isinstance(decision_recording, dict)
+                or decision_recording.get("review_pass_id") != review_pass_id
+                or decision_recording.get("outcome")
+                not in {"recorded", "no_decisions"}
+            )
+        )
+        or not isinstance(deferred_candidates, list)
         or not coverage_valid
     ):
         return no("fast_review_counter_state_invalid", **_review_context(payload))
@@ -608,6 +643,9 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
             "fast_review_requires_complete_job_coverage",
             **_review_context(payload),
         )
+
+    if deferred_candidates:
+        return no("fast_review_candidates_deferred", **_review_context(payload))
 
     if entry_minor_count == 0:
         return yes(

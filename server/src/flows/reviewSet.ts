@@ -36,6 +36,8 @@ export type ReviewSetManifest = {
   story_id: string;
   review_wave_id: string;
   parent_execution_id: string;
+  review_cycle_id?: string;
+  review_mode?: 'final' | 'diagnostic';
   targets_sha256: string;
   plan_host_root: string;
   review_phase?: ReviewPhase;
@@ -283,6 +285,7 @@ const targetSnapshotIsCurrent = async (
     return (
       current.review_wave_id === snapshot.review_wave_id &&
       current.parent_execution_id === snapshot.parent_execution_id &&
+      current.review_cycle_id === snapshot.review_cycle_id &&
       current.targets_sha256 === snapshot.targets_sha256
     );
   } catch {
@@ -363,6 +366,12 @@ export async function prepareReviewSet(
     story_id: params.snapshot.story_id,
     review_wave_id: params.snapshot.review_wave_id,
     parent_execution_id: params.snapshot.parent_execution_id,
+    ...(params.snapshot.review_cycle_id
+      ? { review_cycle_id: params.snapshot.review_cycle_id }
+      : {}),
+    ...(params.snapshot.review_mode
+      ? { review_mode: params.snapshot.review_mode }
+      : {}),
     targets_sha256: params.snapshot.targets_sha256,
     plan_host_root: params.snapshot.plan_host_root,
     review_phase: reviewPhase,

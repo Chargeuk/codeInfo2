@@ -5,6 +5,7 @@ Advance one active two-phase review cycle from its bounded fast-review phase to 
 <critical_rules>
 
 - Read `codeInfoStatus/flow-state/current-plan.json` first, then `codeInfoStatus/flow-state/review-disposition-state.json`.
+- Also read `codeInfoStatus/flow-state/active-review-cycle.json` and require exact final-cycle identity before advancing.
 - Update only `codeInfoStatus/flow-state/review-disposition-state.json`.
 - Do not edit the plan, review artifacts, code, tests, or configuration.
 - Do not commit or push.
@@ -24,6 +25,7 @@ Advance one active two-phase review cycle from its bounded fast-review phase to 
 8. Preserve every fast job-coverage count, trust/completeness flag, and exhaustion flag through the slow phase.
 9. Preserve operationally blocked minor findings visibly. The combined finalizer must not allow clean completion while any remain.
 10. Require `unresolved_minor_batchable_findings` to be empty before advancing. Do not silently discard a remaining minor finding.
+    10a. Require `deferred_review_candidates` to be empty for an early convergence transition. On the fifth-pass limit, preserve any deferred candidates and route them forward with the combined disposition rather than discarding them.
 11. Reset only current-pass identity and decision-recording fields that the next slow classifier will replace. Do not clear cumulative review-cycle history or task-up ownership fields.
 12. Set `needs_review_rerun_before_close`, `needs_final_minor_fix_revalidation_task`, and `safe_to_exit_review_loop_without_tasking` to false while slow review is pending.
 

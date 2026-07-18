@@ -14,6 +14,7 @@ test('flow run status endpoint exposes terminal ownership state', async () => {
         conversationId,
         status: 'running',
         terminal: false,
+        terminalOutcome: 'not_applicable',
         executionId: 'execution-1',
         activeSince: '2026-07-16T12:00:00.000Z',
         latestAssistantAt: null,
@@ -28,6 +29,7 @@ test('flow run status endpoint exposes terminal ownership state', async () => {
     .expect(200);
   assert.equal(response.body.status, 'running');
   assert.equal(response.body.terminal, false);
+  assert.equal(response.body.terminalOutcome, 'not_applicable');
 });
 
 test('flow run stop endpoint reports accepted and inactive runs distinctly', async () => {

@@ -362,6 +362,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             for step in cycle["steps"]
             if step.get("label") == "Fast Review Convergence Loop"
         )
+        initializer = cycle["steps"][0]
         fast_set = next(
             step for step in fast_loop["steps"] if step["type"] == "prepareReviewSet"
         )
@@ -382,6 +383,8 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/shared/review-wave-consumer-contract.md"
         )
 
+        self.assertEqual(initializer["type"], "initializeReviewCycle")
+        self.assertEqual(initializer["mode"], "final")
         self.assertEqual(fast_set["reviewPhase"], "fast")
         self.assertEqual(
             fast_set["reviewFlowNames"], ["codex_review", "open_code_review"]

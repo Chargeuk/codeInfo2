@@ -144,7 +144,7 @@ def _selected_source_headings(context: dict[str, Any]) -> list[str]:
 
 def _bundle_pointer(
     *, pass_dir: Path, bundle: dict[str, Any], index: int
-) -> tuple[dict[str, str], int, bool]:
+) -> tuple[dict[str, str], int, bool, list[dict[str, Any]]]:
     label = f"manifest.bundles[{index}]"
     bundle_id = _required_string(bundle, "bundle_id", label)
     summary = bundle.get("summary")
@@ -181,9 +181,55 @@ def _bundle_pointer(
     files_reviewed = _required_integer(
         comments_summary, "files_reviewed", f"bundle {bundle_id} comments.summary"
     )
-    _required_integer(
+    issues_found = _required_integer(
         comments_summary, "issues_found", f"bundle {bundle_id} comments.summary"
     )
+    raw_comments = comments.get("comments")
+    if not isinstance(raw_comments, list) or len(raw_comments) != issues_found:
+        raise ValueError(
+            f"bundle {bundle_id} comments must contain exactly {issues_found} entries"
+        )
+    structured_findings: list[dict[str, Any]] = []
+    for comment_index, raw_comment in enumerate(raw_comments):
+        if not isinstance(raw_comment, dict):
+            raise ValueError(
+                f"bundle {bundle_id} comments[{comment_index}] is malformed"
+            )
+        title = raw_comment.get("title")
+        priority = raw_comment.get("priority")
+        comment_path = raw_comment.get("path")
+        if not isinstance(title, str) or not title.strip():
+            raise ValueError(
+                f"bundle {bundle_id} comments[{comment_index}].title is missing"
+            )
+        if not isinstance(priority, str) or not priority.strip():
+            raise ValueError(
+                f"bundle {bundle_id} comments[{comment_index}].priority is missing"
+            )
+        if not isinstance(comment_path, str) or not comment_path.strip():
+            raise ValueError(
+                f"bundle {bundle_id} comments[{comment_index}].path is missing"
+            )
+        line = raw_comment.get("line")
+        if not isinstance(line, int) or isinstance(line, bool):
+            line_range = raw_comment.get("line_range")
+            line = (
+                line_range.get("start")
+                if isinstance(line_range, dict)
+                and isinstance(line_range.get("start"), int)
+                and not isinstance(line_range.get("start"), bool)
+                else None
+            )
+        structured_findings.append(
+            {
+                **raw_comment,
+                "bundle_id": bundle_id,
+                "title": title.strip(),
+                "severity": priority.strip(),
+                "path": comment_path.strip(),
+                "line": line,
+            }
+        )
     if files_reviewed != reviewable_files:
         raise ValueError(
             f"bundle {bundle_id} comments reviewed {files_reviewed} files; "
@@ -205,6 +251,7 @@ def _bundle_pointer(
         },
         reviewable_files,
         valid,
+        structured_findings,
     )
 
 
@@ -302,10 +349,11 @@ def build_open_code_review_pointer(
     bundles: list[dict[str, str]] = []
     reviewed_files = 0
     seen_bundle_ids: set[str] = set()
+    findings: list[dict[str, Any]] = []
     for index, raw_bundle in enumerate(manifest_bundles):
         if not isinstance(raw_bundle, dict):
             raise ValueError(f"manifest.bundles[{index}] is malformed")
-        pointer_bundle, bundle_reviewable_files, valid = _bundle_pointer(
+        pointer_bundle, bundle_reviewable_files, valid, bundle_findings = _bundle_pointer(
             pass_dir=resolved_pass_dir, bundle=raw_bundle, index=index
         )
         bundle_id = pointer_bundle["bundle_id"]
@@ -315,6 +363,7 @@ def build_open_code_review_pointer(
         bundles.append(pointer_bundle)
         if valid:
             reviewed_files += bundle_reviewable_files
+            findings.extend(bundle_findings)
     if reviewed_files + skipped_files > reviewable_files:
         raise ValueError("OCR reviewed and skipped file counts exceed reviewable files")
     failed_files = reviewable_files - reviewed_files - skipped_files
@@ -414,6 +463,7 @@ def build_open_code_review_pointer(
         "overall_validation_status": overall_status,
         "partial": partial,
         "review_output_file": aggregate_target.relative_to(root).as_posix(),
+        "findings": findings,
         "findings_file": None,
         "merged_into_canonical_findings": False,
         "merged_findings_file": None,

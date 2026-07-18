@@ -126,6 +126,35 @@ test('review runner gives equivalent launches the same retry ownership', () => {
     buildReviewRetryOwnershipId(launch),
     buildReviewRetryOwnershipId({ ...launch, workingFolder: '/other' }),
   );
+  assert.notEqual(
+    buildReviewRetryOwnershipId(launch),
+    buildReviewRetryOwnershipId({
+      ...launch,
+      flowName: 'diagnostic_review_cycle',
+    }),
+  );
+});
+
+test('diagnostic review uses its isolated flow endpoint', async () => {
+  const calls = [];
+  await waitForReviewCycle({
+    baseUrl: 'http://server',
+    workingFolder: '/repo',
+    flowName: 'diagnostic_review_cycle',
+    pollMs: 1,
+    sleep: async () => {},
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url, method: options.method ?? 'GET' });
+      if (url.endsWith('/run')) {
+        return response(202, { conversationId: 'diagnostic-1' });
+      }
+      return response(200, { status: 'ok', terminal: true });
+    },
+  });
+  assert.equal(
+    calls[0]?.url,
+    'http://server/flows/diagnostic_review_cycle/run',
+  );
 });
 
 test('review runner attaches to an accepted conversation without starting a copy', async () => {

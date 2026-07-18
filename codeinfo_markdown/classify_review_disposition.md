@@ -14,6 +14,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - Never infer, normalize, repair, or substitute machine identity fields. When at least one reviewer remains usable, record failed, missing, partial, or stale sibling-reviewer coverage as a non-blocking entry in `classification_notes`, continue classifying trustworthy findings, and do not create an `incomplete_review_blockers` entry solely for that lost coverage. Use `incomplete_review_blockers` only when no reviewer is usable or the surviving artifacts do not provide a trustworthy canonical review basis. When no reviewer is usable, do not claim there were no findings.
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
+- When `codeInfoStatus/flow-state/active-review-cycle.json` exists, read it immediately after `current-plan.json`. Require exact canonical story, plan, parent execution, and `review_mode: "final"` agreement with the current review artifacts. Use its `review_cycle_id` as authoritative; never preserve or mint a different cycle ID for that launch.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before classifying the review.
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Do not discover review artifacts by timestamp.
@@ -47,7 +48,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 6. Read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 7. Read the `findings_file` referenced by the review handoff directly from disk, for example with `cat <findings_file>`, or safely infer it from the handoff and artifact naming only when necessary.
 8. Read `saturation_file` and `challenge_file` when present or safely inferable. Treat them as additive context, not as replacements for the findings artifact.
-9. Read the previous `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Preserve prior minor-fix loop history only when it clearly belongs to the same story and same canonical plan.
+9. Read the previous `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Preserve prior minor-fix loop history only when it belongs to the exact active `review_cycle_id`, story, canonical plan, and parent execution.
 
 </scope_rules>
 
@@ -224,8 +225,21 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
       "id": "<finding id or note id>",
       "summary": "<short summary>",
       "reason": "<why no task or minor fix is needed>",
-      "review_sources": ["<canonical source objects when validated wave provenance exists>"],
-      "source_references": ["<existing artifact source references when no canonical source object exists>"]
+      "review_sources": [
+        "<canonical source objects when validated wave provenance exists>"
+      ],
+      "source_references": [
+        "<existing artifact source references when no canonical source object exists>"
+      ]
+    }
+  ],
+  "deferred_review_candidates": [
+    {
+      "id": "<stable candidate id>",
+      "severity": "<source severity>",
+      "summary": "<candidate title>",
+      "reason": "<why adjudication was deferred>",
+      "review_sources": ["<canonical source objects>"]
     }
   ],
   "incomplete_review_blockers": [
@@ -273,16 +287,17 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `needs_minor_fix_path` is true whenever unresolved minor-batchable findings remain, even when task-required findings or incomplete-review blockers already exist from earlier minor-fix attempts in the same review cycle.
 - `needs_task_up_path` is true when unresolved task-required findings or incomplete-review blockers exist.
 - Any populated `resolution_commit` or `minor_fix_commit_shas` value must be an exact full 40-character git commit SHA, not a short SHA and not a guessed expansion.
-- `reset_review_cycle_state.md` runs before every fresh `Review Findings Disposition Loop`, so any previous state that still exists here should be treated as same-active-loop carry-forward only.
+- The native `initializeReviewCycle` flow step owns fresh-cycle reset and archives prior disposition state before reviewers launch. Treat any remaining previous state as carry-forward only when it matches the authoritative active-cycle marker exactly.
 - `review_cycle_id` must use the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
-- `review_cycle_id` must stay stable for one active review loop. Preserve it only when the previous state clearly belongs to the same still-active review loop for the same story and same canonical `plan_path`. Otherwise mint a fresh cycle id when writing new classifier state.
+- `review_cycle_id` must stay stable for one active review loop. When the active-cycle marker exists, copy its ID exactly. Only legacy standalone review without that marker may mint a fresh cycle ID.
 - `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_audit_schema_version`, `minor_fix_pass_audits`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state only when they clearly belong to the same still-active review loop for the same story and plan. Otherwise initialize the audit schema at version `1` with an empty pass list and initialize the remaining fields as empty, null, or false.
 - For the same active two-phase cycle, preserve `review_phase`, `fast_review_pass_count`, `fast_reviewed_pass_ids`, `fast_current_pass_minor_count_before_fix`, all `fast_current_pass_*job_count`, `fast_current_pass_coverage_*`, and legacy `fast_current_pass_*reviewer*` fields, `fast_review_coverage_exhausted`, `fast_phase_complete`, and `slow_review_completed`. The dedicated fast-pass recorder and phase-transition prompts own those fields.
 - Treat those two-phase fields as optional extensions to the JSON shape above. Do not initialize them in this classifier when `review_phase` is absent; the first fast-pass recorder owns creating them, and standalone review flows must remain phase-free.
 - Preserve and deduplicate same-cycle `unresolved_task_required_findings` and `incomplete_review_blockers` across fast passes and into the slow pass because task-up deliberately runs once after both phases. Do not discard a serious fast-review finding merely because the current canonical artifact belongs to a later pass.
 - Copy every validated aggregated finding `sources` object into its routed entry as `review_sources`. Preserve that array unchanged when moving the finding between actionable, resolved, blocked, or rejected buckets, and deduplicate only exact repeats of the full canonical source identity.
+- Keep `deferred_review_candidates` as an array. Put every otherwise usable reviewer candidate that could not be adjudicated into this array with its title, severity, reason, and complete `review_sources`; remove an entry only after it is routed into another explicit finding bucket. A merge skip, phase mismatch, or best-effort child skip must never erase a candidate from all routing buckets.
 - Treat unresolved minor findings as current-pass work. Preserve cumulative resolved-minor history, but build the current minor queue from the current validated findings plus any still-visible operationally blocked minor state.
-- Do not try to close a new review cycle by scanning the canonical plan for an older completed final revalidation task from an earlier cycle. Fresh review-loop starts are separated by `reset_review_cycle_state.md`.
+- Do not try to close a new review cycle by scanning the canonical plan for an older completed final revalidation task from an earlier cycle. The native `initializeReviewCycle` step separates fresh final-review starts; standalone disposition-only flows use `reset_review_cycle_state.md`.
 - `operationally_blocked_minor_findings` is not part of the initial endorsed-finding classification from the findings artifact. It is a later review-loop state bucket populated only after an inline minor-fix attempt ends with `status: "blocked"`.
 - During the fast phase, do not promote a valid minor finding to task-required merely because an earlier fast pass fixed other minor findings. The bounded fast-review controller permits up to five successfully recorded reviewer passes and owns deciding when that phase stops.
 - During the slow phase, classify the one slow pass normally and leave its minor findings in the minor queue for the existing fix path. Do not request another slow reviewer invocation.

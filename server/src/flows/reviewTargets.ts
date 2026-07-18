@@ -46,6 +46,8 @@ export type ReviewTargetSnapshot = {
   plan_host_root: string;
   review_wave_id: string;
   parent_execution_id: string;
+  review_cycle_id?: string;
+  review_mode?: 'final' | 'diagnostic';
   targets_sha256: string;
   targets: ReviewTarget[];
   created_at: string;
@@ -167,6 +169,39 @@ export async function prepareReviewTargets(
     'current-plan.plan_path',
   );
   const storyId = deriveCanonicalStoryId(planPath);
+  let activeCycle: Record<string, unknown> | null = null;
+  try {
+    const parsed: unknown = JSON.parse(
+      await resolvedDeps.readFile(
+        path.join(
+          planHostRoot,
+          'codeInfoStatus',
+          'flow-state',
+          'active-review-cycle.json',
+        ),
+        'utf8',
+      ),
+    );
+    activeCycle =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  const activeCycleMatches =
+    activeCycle?.story_id === storyId &&
+    activeCycle.plan_path === planPath &&
+    activeCycle.parent_execution_id === params.parentExecutionId &&
+    typeof activeCycle.review_cycle_id === 'string' &&
+    (activeCycle.review_mode === 'final' ||
+      activeCycle.review_mode === 'diagnostic');
+  const reviewCycleId = activeCycleMatches
+    ? (activeCycle?.review_cycle_id as string)
+    : undefined;
+  const reviewMode = activeCycleMatches
+    ? (activeCycle?.review_mode as 'final' | 'diagnostic')
+    : undefined;
   const branchedFrom =
     typeof currentPlan.branched_from === 'string' &&
     currentPlan.branched_from.trim()
@@ -275,6 +310,12 @@ export async function prepareReviewTargets(
     plan_host_root: planHostRoot,
     review_wave_id: reviewWaveId,
     parent_execution_id: params.parentExecutionId,
+    ...(reviewCycleId && reviewMode
+      ? {
+          review_cycle_id: reviewCycleId,
+          review_mode: reviewMode,
+        }
+      : {}),
     targets_sha256: hashFlowInput(normalizeFlowInput(targetsForHash)),
     targets,
     created_at: now.toISOString(),

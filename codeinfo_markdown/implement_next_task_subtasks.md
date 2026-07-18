@@ -14,6 +14,8 @@ Do not finish this step until every unchecked subtask is complete or the task is
 
 When an unchecked subtask requires launching `two_phase_review_cycle` through the supported main stack, use `npm run review:cycle:summary -- --working-folder <repository-path>` as the owning command. Do not issue a detached HTTP 202 request followed by bounded polling. While the wrapper reports `agent_action: wait`, keep waiting and do not run Compose shutdown; the wrapper must observe terminal server-owned flow state before this step may finish.
 
+Before any such launch, run `python3 "$CODEINFO_ROOT/scripts/check_review_plan_contract.py"`. The final `two_phase_review_cycle` is not valid unfinished task work: if the helper reports a violation, do not launch it as implementation. Preserve the task honestly for plan repair or use `npm run review:diagnostic:summary -- --working-folder <repository-path>` when the task asks only for diagnostic reviewer evidence; that isolated flow must not mutate final review disposition, advance fast/slow phases, create final-review tasks, or claim story convergence. The server-owned final-cycle initializer is authoritative and will also return a normal skipped outcome when implementation or mandatory testing remains.
+
 </task>
 
 <scope_rules>

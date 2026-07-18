@@ -1,8 +1,10 @@
 # Goal
 
-Start a fresh active review-loop state before a brand-new `Review Findings Disposition Loop` begins.
+Start a fresh active review-loop state before a standalone `Review Findings Disposition Loop` begins.
 
 This step exists to prevent stale review-loop memory from an earlier completed review cycle from leaking into the next fresh review cycle for the same story.
+
+The two-phase final-review flow owns this lifecycle natively through `initializeReviewCycle`; callers of that subflow must not run this LLM reset as a second owner.
 
 <critical_rules>
 

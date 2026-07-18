@@ -1202,20 +1202,21 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 9. [x] Add review-cycle single-flight attachment and wrapper lifecycle ownership so duplicate Story 64 starts attach to one server run, every heartbeat exposes the conversation identity, wrapper loss does not cancel server-owned work, explicit cancellation remains available, and reattachment never affects `compose:local`.
 10. [x] Make review artifact and disposition publication execution-owned: keep working outputs versioned, promote stable `current-*` pointers only for the active review execution, and skip superseded publications or state writes without failing the flow.
 11. [x] Reconcile interrupted review runs on server startup by releasing stale active ownership, preserving terminal diagnostics, and allowing an explicit best-effort resume from the next safe checkpoint without automatically duplicating reviewer work.
+12. [ ] Address the seven unresolved current-pass `should_fix` findings in the bounded Story 64 surfaces: `stable-review-artifact-stale-writer-race`, `retry-ownership-post-success-crash-window`, `resume-input-silent-normalization-bypass`, `review-launch-source-working-folder-mismatch`, `codex-pointer-unowned-preflight-deletion`, `resume-input-stale-precedence-without-hash`, and `fixed-delay-negative-subflow-proof`. Keep each repair within the accepted finding's cited seam, add or update focused regression coverage, and do not broaden the work into the rejected or non-actionable findings.
 
 #### Testing
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [x] In `codeInfo2`, run `npm run build:summary:server`.
-2. [x] In `codeInfo2`, run `npm run build:summary:client`.
-3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
-4. [x] Start the supported main stack with `npm run compose:up`.
-5. [x] Stop the supported main stack with `npm run compose:down`.
-6. [x] In `codeInfo2`, run `npm run lint`.
-7. [x] In `codeInfo2`, run `npm run format:check`.
-8. [x] Run focused loop, review-wrapper, run-admission, cancellation, artifact-promotion, disposition-state, and restart-reconciliation tests covering early exit, fifth-iteration normal exit, impossible sixth iteration, duplicate attachment, superseded publication, and best-effort continuation.
-9. [x] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
+1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
+2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
+3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [ ] Start the supported main stack with `npm run compose:up`.
+5. [ ] Stop the supported main stack with `npm run compose:down`.
+6. [ ] In `codeInfo2`, run `npm run lint`.
+7. [ ] In `codeInfo2`, run `npm run format:check`.
+8. [ ] Run focused loop, review-wrapper, run-admission, cancellation, artifact-promotion, disposition-state, and restart-reconciliation tests covering early exit, fifth-iteration normal exit, impossible sixth iteration, duplicate attachment, superseded publication, and best-effort continuation.
+9. [ ] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
 
 #### Manual Testing Guidance
 
@@ -1225,6 +1226,8 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Confirm the completed repair path does not duplicate final tasks or alter the approved Story 64 interaction contract. If provider authentication requires human-controlled two-factor authentication, follow repository guidance and document the allowed skip without attempting re-authentication.
 
 #### Implementation Notes
+
+- **BLOCKER** Implementation-plus-automated-proof audit found seven unresolved current-pass `should_fix` findings after the recorded terminal review run: `stable-review-artifact-stale-writer-race`, `retry-ownership-post-success-crash-window`, `resume-input-silent-normalization-bypass`, `review-launch-source-working-folder-mismatch`, `codex-pointer-unowned-preflight-deletion`, `resume-input-stale-precedence-without-hash`, and `fixed-delay-negative-subflow-proof`. The evidence checked was `codeInfoStatus/flow-state/review-disposition-state.json` (`unresolved_minor_batchable_findings: 7`, `needs_minor_fix_path: true`, `needs_review_rerun_before_close: false`, and no incomplete-review blockers), the completed current review/review-set/wave-validation artifacts, and the current-pass accepted findings block. Subtask 12 remained open after audit normalization because these story-owned repairs were not implemented; all nine final validation items were reopened because the repairs will make the prior proof stale. Implementation cannot continue honestly without this bounded repair work, narrower ownership, or planner intervention.
 
 - **RESOLVED ISSUE** `npm run review:cycle:summary -- --working-folder /Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` reached terminal `ok` for conversation `0c6c65e7-800e-4e3e-a6ac-190320bfdf47`. The regenerated current review and matching review set share wave `0000064-rw-20260718T110435Z-126b394e`; the pointer is `completed` with 13 structured findings plus its retained Markdown artifact, and the review set is `completed` with 1/1 jobs and no missing or failed coverage. The disposition state reports trusted fast-pass coverage (3/3), zero incomplete review blockers, and no unresolved task-required findings, so the prior preparation-only artifact blocker is retired.
 

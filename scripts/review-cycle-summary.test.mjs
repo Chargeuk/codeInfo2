@@ -52,6 +52,32 @@ test('review runner resolves a host working folder to its server repository iden
   assert.equal(calls.length, 2);
 });
 
+test('review runner rejects a source id belonging to a different repository', async () => {
+  await assert.rejects(
+    resolveReviewLaunch({
+      baseUrl: 'http://server',
+      workingFolder: '/host/repo-a',
+      sourceId: '/data/repo-b',
+      fetchImpl: async () =>
+        response(200, {
+          repos: [
+            {
+              id: '/data/repo-a',
+              containerPath: '/data/repo-a',
+              hostPath: '/host/repo-a',
+            },
+            {
+              id: '/data/repo-b',
+              containerPath: '/data/repo-b',
+              hostPath: '/host/repo-b',
+            },
+          ],
+        }),
+    }),
+    /identify different ingested repositories/u,
+  );
+});
+
 test('review runner waits through nonterminal status until terminal success', async () => {
   const calls = [];
   const statuses = [

@@ -46,6 +46,16 @@ const createFixture = async () => {
     targets,
     created_at: '2026-07-14T12:00:00.000Z',
   };
+  await fs.writeFile(
+    path.join(
+      root,
+      'repo-a',
+      'codeInfoTmp',
+      'reviews',
+      '0000064-current-review-targets.json',
+    ),
+    JSON.stringify(snapshot),
+  );
   const flows = ['codex_review', 'open_code_review'];
   const expectedJobs = [
     ...targets.flatMap((target) =>
@@ -611,7 +621,9 @@ test('slow review wave closes with complete target coverage and no cross-reposit
     const mainReviewFindings = (
       result.finalized.aggregated_findings ?? []
     ).filter((finding) =>
-      finding.sources.some((source) => source.flow_name === 'review_artifacts_main'),
+      finding.sources.some(
+        (source) => source.flow_name === 'review_artifacts_main',
+      ),
     );
     assert.equal(mainReviewFindings.length, 2);
     assert.equal(

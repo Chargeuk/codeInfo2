@@ -80,9 +80,24 @@ export const resolveReviewLaunch = async ({
   }
 
   if (sourceId) {
+    const matchingSource = repos.find(
+      (repo) =>
+        repo &&
+        (repo.containerPath === sourceId ||
+          repo.hostPath === sourceId ||
+          repo.id === sourceId),
+    );
+    if (
+      !matchingSource ||
+      matchingSource.containerPath !== matchingRepo.containerPath
+    ) {
+      throw new Error(
+        `Working folder and source id identify different ingested repositories: ${workingFolder} vs ${sourceId}`,
+      );
+    }
     return {
       workingFolder: matchingRepo.containerPath,
-      sourceId,
+      sourceId: matchingSource.containerPath,
     };
   }
 

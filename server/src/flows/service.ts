@@ -981,7 +981,9 @@ const parseFlowResumeState = (
         );
         return legacyActiveSubflow ? [legacyActiveSubflow] : [];
       })();
+  const hasPersistedInput = Object.prototype.hasOwnProperty.call(flow, 'input');
   const input = tryNormalizeFlowInput(flow.input);
+  if (hasPersistedInput && flow.input !== undefined && !input) return null;
   const values = tryNormalizeFlowInput(flow.values);
   const subflowWaveProgress = normalizeSubflowWaveProgress(
     flow.subflowWaveProgress,
@@ -4874,8 +4876,7 @@ async function runFlowUnlocked(params: {
           command,
         });
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error ? error.message : String(error);
         await emitFailedFlowStep({
           flowConversationId: params.conversationId,
           inflightId: stepInflightId,
@@ -8129,6 +8130,17 @@ export async function startFlowRun(
         'Resumed flow input does not match the persisted immutable input.',
       );
     }
+    if (resumeState?.input && !resumeState.inputHash) {
+      if (
+        !requestedInput ||
+        JSON.stringify(resumeState.input) !== JSON.stringify(requestedInput)
+      ) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'Persisted resume input lacks a trusted input hash and cannot be reused.',
+        );
+      }
+    }
     effectiveFlowInput = resumeState?.input ?? requestedInput;
     effectiveFlowInputHash =
       resumeState?.inputHash ??
@@ -8475,7 +8487,7 @@ export async function startFlowRun(
       cleanupPendingConversationCancel({ conversationId, runToken });
       const releaseConversationLockFn =
         params.releaseConversationLockFn ?? releaseConversationLock;
-      const released = releaseConversationLockFn(conversationId, runToken);
+      let released = false;
       if (retryOwnershipId && !resumeStepPath && completedSuccessfully) {
         const completedResult = {
           flowName,
@@ -8506,6 +8518,7 @@ export async function startFlowRun(
           result: completedResult,
         });
       }
+      released = releaseConversationLockFn(conversationId, runToken);
       if (retryOwnershipId && !resumeStepPath) {
         clearFreshRunRetryOwnership({
           flowName,
@@ -8659,9 +8672,9 @@ export async function getFlowRunStatus(
     ? ('running' as const)
     : resumeState?.restartReconciliation?.status === 'interrupted'
       ? ('orphaned' as const)
-    : persistedChildrenStillRunning
-      ? ('orphaned' as const)
-      : (latestAssistant?.status ?? 'orphaned');
+      : persistedChildrenStillRunning
+        ? ('orphaned' as const)
+        : (latestAssistant?.status ?? 'orphaned');
 
   return {
     conversationId: normalizedConversationId,

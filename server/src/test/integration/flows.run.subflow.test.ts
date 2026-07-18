@@ -20,6 +20,7 @@ import {
   __setProviderBootstrapStatusForTests,
 } from '../../config/runtimeConfig.js';
 import { validateReviewArtifacts } from '../../flows/reviewArtifacts.js';
+import { hashFlowInput } from '../../flows/flowInput.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
@@ -61,6 +62,7 @@ class SubflowChat extends ChatInterface {
       flags: Record<string, unknown>;
       conversationId: string;
     }) => void,
+    private readonly slowChildGate?: Promise<void>,
   ) {
     super();
   }
@@ -84,7 +86,8 @@ class SubflowChat extends ChatInterface {
     this.emit('thread', { type: 'thread', threadId: conversationId });
 
     if (message.includes('slow child')) {
-      await delay(this.slowDelayMs);
+      if (this.slowChildGate) await this.slowChildGate;
+      else await delay(this.slowDelayMs);
       if (abortIfNeeded()) return;
     }
 
@@ -489,11 +492,15 @@ test('subflow step launches multiple child flows in parallel and waits for all o
       steps: [subflowStep('Run Child Batch', 'child-fast', 'child-slow')],
     });
 
+    let releaseSlowChild!: () => void;
+    const slowChildGate = new Promise<void>((resolve) => {
+      releaseSlowChild = resolve;
+    });
     const result = await startFlowRun({
       flowName: 'parent-parallel',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(140),
+      chatFactory: () => new SubflowChat(140, undefined, slowChildGate),
     });
 
     const activeSubflows = await waitForActiveSubflowCount(
@@ -532,7 +539,6 @@ test('subflow step launches multiple child flows in parallel and waits for all o
     assert.ok(slowChild?._id);
 
     await waitForConversationAssistantStatus(String(fastChild?._id), 'ok');
-    await delay(40);
     const parentTurnsBeforeSlowChildCompletes =
       memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
@@ -541,6 +547,7 @@ test('subflow step launches multiple child flows in parallel and waits for all o
       ),
       false,
     );
+    releaseSlowChild();
 
     const finalAssistant = await waitForAssistantStatus(
       result.conversationId,
@@ -633,17 +640,17 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
       result.conversationId,
       5,
     );
-    assert.deepEqual(
-      activeSubflows.map((entry) => entry.instanceId).sort(),
-      [
-        'cross:cross-review',
-        'reviews:0:codex-review',
-        'reviews:0:main-review',
-        'reviews:1:codex-review',
-        'reviews:1:main-review',
-      ],
+    assert.deepEqual(activeSubflows.map((entry) => entry.instanceId).sort(), [
+      'cross:cross-review',
+      'reviews:0:codex-review',
+      'reviews:0:main-review',
+      'reviews:1:codex-review',
+      'reviews:1:main-review',
+    ]);
+    assert.equal(
+      new Set(activeSubflows.map((entry) => entry.conversationId)).size,
+      5,
     );
-    assert.equal(new Set(activeSubflows.map((entry) => entry.conversationId)).size, 5);
     assert.deepEqual(
       activeSubflows.find(
         (entry) => entry.instanceId === 'reviews:0:main-review',
@@ -971,8 +978,14 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
     });
     const input = { targets: [{ id: 'a' }, { id: 'b' }] };
     const jobs = [
-      { instanceId: 'locals:0:wave-resume-local', flowName: 'wave-resume-local' },
-      { instanceId: 'locals:1:wave-resume-local', flowName: 'wave-resume-local' },
+      {
+        instanceId: 'locals:0:wave-resume-local',
+        flowName: 'wave-resume-local',
+      },
+      {
+        instanceId: 'locals:1:wave-resume-local',
+        flowName: 'wave-resume-local',
+      },
       { instanceId: 'cross:wave-resume-cross', flowName: 'wave-resume-cross' },
     ];
     const activeSubflows: Record<string, unknown>[] = [];
@@ -1012,6 +1025,7 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
           stepPath: [],
           loopStack: [],
           input,
+          inputHash: hashFlowInput(input),
           activeSubflows,
           agentConversations: {},
           agentThreads: {},
@@ -2845,7 +2859,7 @@ test('codexReview steps skip cleanly when Codex is unavailable and later parent 
     await waitFor(() =>
       executions.includes('parent after skipped codex review'),
     );
-    assert.equal(existsSync(pointerPath), false);
+    assert.equal(existsSync(pointerPath), true);
     const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
       assistantTurns.some(
@@ -2906,7 +2920,7 @@ test('codexReview steps skip cleanly when no review model can be resolved and la
     await waitFor(() =>
       executions.includes('parent after skipped missing-model codex review'),
     );
-    assert.equal(existsSync(pointerPath), false);
+    assert.equal(existsSync(pointerPath), true);
     const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
       assistantTurns.some(
@@ -2983,7 +2997,7 @@ exit 1
     await waitFor(() =>
       executions.includes('parent after failed codex review'),
     );
-    assert.equal(existsSync(pointerPath), false);
+    assert.equal(existsSync(pointerPath), true);
     const assistantTurns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
       assistantTurns.some(
@@ -3589,14 +3603,22 @@ test('subflow waits for the full child flow and still continues best-effort afte
     });
 
     const executions: string[] = [];
+    let releaseSlowChild!: () => void;
+    const slowChildGate = new Promise<void>((resolve) => {
+      releaseSlowChild = resolve;
+    });
     const result = await startFlowRun({
       flowName: 'parent-fail-later',
       customTitle: 'Parent Review',
       source: 'REST',
       chatFactory: () =>
-        new SubflowChat(160, ({ message }) => {
-          executions.push(message);
-        }),
+        new SubflowChat(
+          160,
+          ({ message }) => {
+            executions.push(message);
+          },
+          slowChildGate,
+        ),
     });
 
     const childConversation = await waitFor(() => {
@@ -3617,13 +3639,13 @@ test('subflow waits for the full child flow and still continues best-effort afte
       String(childConversation?._id),
       'ok',
     );
-    await delay(40);
     const parentTurnsWhileChildContinues =
       memoryTurns.get(result.conversationId) ?? [];
     assert.equal(
       parentTurnsWhileChildContinues.some((turn) => turn.role === 'assistant'),
       false,
     );
+    releaseSlowChild();
 
     await waitFor(() =>
       executions.includes('parent after later child failure'),

@@ -40,6 +40,29 @@ const defaultDeps: ValidationDeps = {
   validateReviewArtifacts,
 };
 
+const stablePromotionLocks = new Map<string, Promise<void>>();
+
+const withStablePromotionLock = async <T>(
+  key: string,
+  operation: () => Promise<T>,
+): Promise<T> => {
+  const previous = stablePromotionLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  stablePromotionLocks.set(key, current);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (stablePromotionLocks.get(key) === current) {
+      stablePromotionLocks.delete(key);
+    }
+  }
+};
+
 const isObject = (value: unknown): value is FlowJsonObject =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
@@ -606,19 +629,23 @@ export async function validateReviewWave(
     atomicWriteJson(versionedValidationPath, validation, atomicDeps),
     atomicWriteJson(versionedReviewSetPath, finalized, atomicDeps),
   ]);
-  const snapshotIsCurrent = await targetSnapshotIsCurrent(
-    params.snapshot,
-    resolvedDeps,
-  );
-  const stableUpdated = closeoutAllowed && snapshotIsCurrent !== false;
-  await Promise.all([
-    ...(stableUpdated
-      ? [
+  const stableUpdated = closeoutAllowed
+    ? await withStablePromotionLock(reviewSetPath, async () => {
+        const current = await targetSnapshotIsCurrent(
+          params.snapshot,
+          resolvedDeps,
+        );
+        if (current !== true) return false;
+        await Promise.all([
           atomicWriteJson(validationPath, validation, atomicDeps),
           atomicWriteJson(reviewSetPath, finalized, atomicDeps),
-        ]
-      : []),
-  ]);
+        ]);
+        return (
+          (await targetSnapshotIsCurrent(params.snapshot, resolvedDeps)) ===
+          true
+        );
+      })
+    : false;
   return {
     finalized,
     validation,

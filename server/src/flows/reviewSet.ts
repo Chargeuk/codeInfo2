@@ -137,6 +137,29 @@ const defaultDeps: ReviewSetDeps = {
   now: () => new Date(),
 };
 
+const stablePromotionLocks = new Map<string, Promise<void>>();
+
+const withStablePromotionLock = async <T>(
+  key: string,
+  operation: () => Promise<T>,
+): Promise<T> => {
+  const previous = stablePromotionLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  stablePromotionLocks.set(key, current);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (stablePromotionLocks.get(key) === current) {
+      stablePromotionLocks.delete(key);
+    }
+  }
+};
+
 const relativeReviewPath = (repoRoot: string, filename: string) =>
   path.posix.join('codeInfoTmp', 'reviews', filename);
 
@@ -259,6 +282,7 @@ const targetSnapshotIsCurrent = async (
     ) as Partial<ReviewTargetSnapshot>;
     return (
       current.review_wave_id === snapshot.review_wave_id &&
+      current.parent_execution_id === snapshot.parent_execution_id &&
       current.targets_sha256 === snapshot.targets_sha256
     );
   } catch {
@@ -377,12 +401,16 @@ export async function prepareReviewSet(
     writeFile: resolvedDeps.writeFile,
   };
   await atomicWriteJson(versionedPath, manifest, atomicDeps);
-  const stableUpdated = await targetSnapshotIsCurrent(
-    params.snapshot,
-    resolvedDeps,
-  );
-  if (stableUpdated) {
+  const stableUpdated = await withStablePromotionLock(stablePath, async () => {
+    const current = await targetSnapshotIsCurrent(
+      params.snapshot,
+      resolvedDeps,
+    );
+    if (!current) return false;
     await atomicWriteJson(stablePath, manifest, atomicDeps);
-  }
+    return (
+      (await targetSnapshotIsCurrent(params.snapshot, resolvedDeps)) === true
+    );
+  });
   return { manifest, stablePath, versionedPath, stableUpdated };
 }

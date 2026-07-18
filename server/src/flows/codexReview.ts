@@ -358,7 +358,9 @@ export async function clearCodexReviewPointerFile(
     resolvedDeps,
   );
   const pointerPath = buildStablePointerPath(pointerContext);
-  await resolvedDeps.rm(pointerPath, { force: true });
+  // A preflight caller has not established ownership of the existing stable
+  // pointer. Preserve it until the new run publishes an identity-matching
+  // replacement; unconditional deletion can erase another run's evidence.
   return pointerPath;
 }
 

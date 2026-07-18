@@ -23,6 +23,7 @@ export type FlowMessage = {
 export type FlowStartLoopStep = {
   type: 'startLoop';
   label?: string;
+  maxIterations?: number;
   steps: FlowStep[];
 };
 
@@ -209,6 +210,7 @@ const FlowStartLoopStepSchema = z
   .object({
     type: z.literal('startLoop'),
     label: trimmedNonEmptyString.optional(),
+    maxIterations: z.number().int().positive().optional(),
     steps: z.array(z.lazy(() => FlowStepSchema)).min(1),
   })
   .strict();

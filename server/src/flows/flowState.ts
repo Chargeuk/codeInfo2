@@ -6,6 +6,20 @@ export type FlowPendingLoopControl = {
   loopStepPath: number[];
 };
 
+export type FlowLoopExit = {
+  loopStepPath: number[];
+  iteration: number;
+  reason: 'break' | 'max_iterations';
+};
+
+export type FlowRestartReconciliation = {
+  status: 'interrupted';
+  reconciledAt: string;
+  resumeStepPath: number[];
+  interruptedSubflowCount: number;
+  interruptedWaveRunningCount: number;
+};
+
 export type FreshRunRetryOwnershipCompletion = {
   retryOwnershipId: string;
   sourceId?: string;
@@ -58,6 +72,8 @@ export type FlowResumeState = {
   executionId: string;
   stepPath: number[];
   loopStack: Array<{ loopStepPath: number[]; iteration: number }>;
+  lastLoopExit?: FlowLoopExit;
+  restartReconciliation?: FlowRestartReconciliation;
   pendingLoopControl?: FlowPendingLoopControl;
   activeSubflows?: FlowActiveSubflow[];
   subflowWaveProgress?: FlowSubflowWaveProgress;

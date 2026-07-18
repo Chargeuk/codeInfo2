@@ -80,6 +80,30 @@ const readPointer = async (
   }
 };
 
+const targetSnapshotIsCurrent = async (
+  snapshot: ReviewTargetSnapshot,
+  deps: ValidationDeps,
+) => {
+  const stablePath = buildReviewArtifactPath({
+    repoRoot: snapshot.plan_host_root,
+    storyId: snapshot.story_id,
+    outputKey: 'current-review-targets',
+  });
+  try {
+    const current = JSON.parse(
+      await deps.readFile(stablePath, 'utf8'),
+    ) as Partial<ReviewTargetSnapshot>;
+    return (
+      current.review_wave_id === snapshot.review_wave_id &&
+      current.parent_execution_id === snapshot.parent_execution_id &&
+      current.targets_sha256 === snapshot.targets_sha256
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+};
+
 const findingValues = (pointer: FlowJsonObject): FlowJsonValue[] => {
   if (Array.isArray(pointer.findings)) return pointer.findings;
   return isObject(pointer.findings) && Array.isArray(pointer.findings.findings)
@@ -581,7 +605,14 @@ export async function validateReviewWave(
   await Promise.all([
     atomicWriteJson(versionedValidationPath, validation, atomicDeps),
     atomicWriteJson(versionedReviewSetPath, finalized, atomicDeps),
-    ...(closeoutAllowed
+  ]);
+  const snapshotIsCurrent = await targetSnapshotIsCurrent(
+    params.snapshot,
+    resolvedDeps,
+  );
+  const stableUpdated = closeoutAllowed && snapshotIsCurrent !== false;
+  await Promise.all([
+    ...(stableUpdated
       ? [
           atomicWriteJson(validationPath, validation, atomicDeps),
           atomicWriteJson(reviewSetPath, finalized, atomicDeps),
@@ -595,5 +626,6 @@ export async function validateReviewWave(
     versionedValidationPath,
     reviewSetPath,
     versionedReviewSetPath,
+    stableUpdated,
   };
 }

@@ -18,6 +18,7 @@ test('flow run status endpoint exposes terminal ownership state', async () => {
         activeSince: '2026-07-16T12:00:00.000Z',
         latestAssistantAt: null,
         subflowWaveProgress: null,
+        resumeStepPath: null,
       }),
     }),
   );

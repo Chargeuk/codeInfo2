@@ -491,7 +491,7 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
         return no("fast_review_state_unreadable", error=error)
 
     if payload.get("review_phase") != "fast":
-        return no("fast_review_phase_not_active", **_review_context(payload))
+        return yes("fast_review_phase_not_active", **_review_context(payload))
 
     pass_count = payload.get("fast_review_pass_count")
     entry_minor_count = payload.get("fast_current_pass_minor_count_before_fix")

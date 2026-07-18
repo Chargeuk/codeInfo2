@@ -1197,6 +1197,11 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 4. [x] Repair the supported main-proof runtime handoff so the persisted Story 64 root-flow conversation is available to the main-stack Mongo service and the existing resume lookup resolves it using the current Story 64 conversation identifier; stop with a documented blocker if the supported stack cannot access that persisted state without inventing a new runtime path.
 5. [ ] Regenerate the authoritative Story 64 `current-review` pointer and slow-wave/review-set artifacts with the repaired main-review producer and runtime handoff, then reconcile `aggregated_findings` and the disposition state so the 15 validated Markdown findings are represented in server-owned structured findings with matching source identity; retain the Markdown artifact and leave the mismatch visibly blocked if the generated pair still disagrees.
 6. [x] In `client/src/components/chat/ConversationList.tsx`, repair the `conversation-run-chip`/`conversation-wave-target-chip` metadata row so a narrow (`390px`) drawer preserves a separate, uniquely identifying visible target label for long root and child review rows. Keep the root source as `flags.flow.input.target.target_id` and the child source as `flags.flowChild.targetId`; constrain or abbreviate the non-target chips before the target chip, and render a deterministic target representation that retains the differentiating final segment (such as `additional-1` or `additional-2`) rather than ellipsizing both targets to the same prefix. Preserve the desktop row layout and existing chip test IDs.
+7. [x] Add a generic `startLoop.maxIterations` contract whose limit exit follows the same normal `ok` continuation path as an early break, configure the fast review loop for five iterations, and preserve diagnostic exit metadata without creating a failure or stop outcome.
+8. [x] Make the fast-to-slow transition best-effort and deterministic so already-complete, contradictory, incomplete, or limit-exhausted fast state exits the loop and continues through the same slow-phase steps with warnings rather than livelocking.
+9. [x] Add review-cycle single-flight attachment and wrapper lifecycle ownership so duplicate Story 64 starts attach to one server run, every heartbeat exposes the conversation identity, wrapper loss does not cancel server-owned work, explicit cancellation remains available, and reattachment never affects `compose:local`.
+10. [x] Make review artifact and disposition publication execution-owned: keep working outputs versioned, promote stable `current-*` pointers only for the active review execution, and skip superseded publications or state writes without failing the flow.
+11. [x] Reconcile interrupted review runs on server startup by releasing stale active ownership, preserving terminal diagnostics, and allowing an explicit best-effort resume from the next safe checkpoint without automatically duplicating reviewer work.
 
 #### Testing
 
@@ -1206,10 +1211,11 @@ Final-task repair scope: the whole approved story is in scope for failures found
 2. [x] In `codeInfo2`, run `npm run build:summary:client`.
 3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
 4. [x] Start the supported main stack with `npm run compose:up`.
-5. [x] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
-6. [x] Stop the supported main stack with `npm run compose:down`.
-7. [x] In `codeInfo2`, run `npm run lint`.
-8. [x] In `codeInfo2`, run `npm run format:check`.
+5. [x] Stop the supported main stack with `npm run compose:down`.
+6. [x] In `codeInfo2`, run `npm run lint`.
+7. [x] In `codeInfo2`, run `npm run format:check`.
+8. [x] Run focused loop, review-wrapper, run-admission, cancellation, artifact-promotion, disposition-state, and restart-reconciliation tests covering early exit, fifth-iteration normal exit, impossible sixth iteration, duplicate attachment, superseded publication, and best-effort continuation.
+9. [x] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
 
 #### Manual Testing Guidance
 
@@ -1219,6 +1225,30 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Confirm the completed repair path does not duplicate final tasks or alter the approved Story 64 interaction contract. If provider authentication requires human-controlled two-factor authentication, follow repository guidance and document the allowed skip without attempting re-authentication.
 
 #### Implementation Notes
+
+- The heartbeat identity refinement was followed by another canonical full-suite run: client 900/900, server unit 2643/2643, server Cucumber 138/138, and e2e 77/77 all passed, as did the shared server, client, main Compose, and e2e Compose builds.
+
+- Restart reconciliation was tightened after final review so it preserves the persisted child identities while marking the parent interrupted; the existing resume path can therefore accept already-terminal children and fail forward past children that lost process ownership, without relaunching either set. The focused restart/reattachment tests passed 2/2, server build, lint, and format passed, and the final full parallel rerun again passed client 900/900, server unit 2643/2643, server Cucumber 138/138, and e2e 77/77.
+
+- Testing items 4-5 are complete: `npm run compose:up` started the supported main stack healthy, `/health` confirmed Mongo connectivity, `/flows` exposed the repository-backed `two_phase_review_cycle` as enabled, and the baked flow reported `maxIterations: 5`. `npm run compose:down` then removed only the main stack; port 5010 is down while the `compose:local` server remains healthy on port 5510 with all local containers untouched.
+
+- Testing item 9 is complete: the first full parallel run exposed one fixture catalog expectation that did not include the new `loop-max-iterations` fixture; its focused `/flows` suite then passed 26/26. The required full rerun passed client 900/900, server unit 2643/2643, server Cucumber 138/138, and e2e 77/77, with all shared builds successful.
+
+- Testing item 3 is complete: `npm run compose:build:summary` built both supported main-stack images successfully, including the updated flow assets and server startup reconciliation; the wrapper reported clean success and required no log inspection.
+
+- Testing item 2 is complete: `npm run build:summary:client` passed its typecheck and production build; log inspection confirmed the only warning is the existing Vite large-chunk advisory for the 1,730.31 kB main bundle.
+
+- Testing item 6 is complete: the first lint run found two import-order warnings in the startup hook and its focused test; after ordering those imports, `npm run lint` passed with zero warnings.
+
+- Testing item 7 is complete: the first formatting check identified only the changed review wrapper, Prettier rewrote it mechanically, the repository-wide rerun passed, and the two new untracked test fixtures were separately formatted and checked.
+
+- Subtasks 10-11 and Testing item 8 are complete. Review-wave validation always retains versioned evidence but now promotes stable review-set and validation pointers only while the exact wave, parent execution, and target digest still own `current-review-targets`; superseded completion is a clean skip. Server startup recognizes that process-local ownership is gone, records interruption diagnostics and the saved safe step path, and preserves tracked child identities so an explicit `--resume-orphaned` can accept terminal children and fail forward past interrupted children without launching duplicate reviewer work; reconciliation errors warn and do not block startup. Focused server coverage passes 109/109, wrapper coverage passes 6/6, and review-control coverage passes 36/36.
+
+- Testing item 1 is complete: the first server build exposed the new status response field missing from one route fixture; after adding the expected nullable resume checkpoint, `npm run build:summary:server` passed cleanly with no warnings.
+
+- Subtasks 7-9 are implemented. `startLoop.maxIterations` persists a diagnostic `lastLoopExit` and leaves the loop through the ordinary continuation path; `two_phase_review_cycle` caps the fast loop at five and its phase gate treats already-advanced state as complete. The review summary wrapper now supplies a deterministic retry-ownership identity, so a repeated launch reuses the accepted server conversation, supports direct `--conversation-id` attachment, and includes that identity on continuing heartbeat output; its only automatic stop request remains the explicitly selected no-progress cancellation option. Focused wrapper tests pass 6/6 and focused Python review-control tests pass 36/36.
+
+- User-authorized incident repair is now modeled in Task 28 Subtasks 7-11 and Testing items 8-9. The repair preserves the flow contract that recoverable work continues best-effort: the fifth loop iteration exits through the same normal continuation path as early convergence, duplicate launches attach, superseded writes skip, and only explicit cancellation stops the owning run. The existing Subtask 5 authoritative artifact reconciliation remains open until the repaired main-stack cycle completes.
 
 - Testing item 8 is complete: the first `npm run format:check` identified the earlier Story 64 `ConversationList.tsx` target-chip work, Prettier applied a mechanical rewrite to that file, and the repository-wide rerun passed.
 

@@ -269,6 +269,7 @@ test('complete review wave finalizes exact coverage and retains severity conflic
 
     assert.equal(result.finalized.status, 'completed');
     assert.equal(result.finalized.closeout_allowed, true);
+    assert.equal(result.stableUpdated, true);
     assert.equal(result.finalized.coverage.completed_jobs, 5);
     assert.equal(result.finalized.job_results?.length, 5);
     assert.equal(
@@ -309,6 +310,64 @@ test('complete review wave finalizes exact coverage and retains severity conflic
     assert.deepEqual(
       JSON.parse(await fs.readFile(result.reviewSetPath, 'utf8')),
       result.finalized,
+    );
+  } finally {
+    await fs.rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('superseded complete wave keeps versioned evidence without replacing stable pointers', async () => {
+  const fixture = await createFixture();
+  try {
+    const reviewsRoot = path.join(
+      fixture.snapshot.plan_host_root,
+      'codeInfoTmp',
+      'reviews',
+    );
+    const stableTargetsPath = path.join(
+      reviewsRoot,
+      '0000064-current-review-targets.json',
+    );
+    const stableReviewSetPath = path.join(
+      reviewsRoot,
+      '0000064-current-review-set.json',
+    );
+    const stableValidationPath = path.join(
+      reviewsRoot,
+      '0000064-current-review-wave-validation.json',
+    );
+    await Promise.all([
+      fs.writeFile(
+        stableTargetsPath,
+        JSON.stringify({
+          ...fixture.snapshot,
+          review_wave_id: '0000064-rw-newer',
+          parent_execution_id: 'execution-newer',
+        }),
+      ),
+      fs.writeFile(stableReviewSetPath, JSON.stringify({ stable: 'newer' })),
+      fs.writeFile(stableValidationPath, JSON.stringify({ stable: 'newer' })),
+    ]);
+
+    const result = await validateReviewWave(
+      { snapshot: fixture.snapshot, reviewSet: fixture.reviewSet },
+      { validateReviewArtifacts: fixture.validateTargetArtifacts },
+    );
+
+    assert.equal(result.finalized.closeout_allowed, true);
+    assert.equal(result.stableUpdated, false);
+    assert.deepEqual(
+      JSON.parse(await fs.readFile(stableReviewSetPath, 'utf8')),
+      { stable: 'newer' },
+    );
+    assert.deepEqual(
+      JSON.parse(await fs.readFile(stableValidationPath, 'utf8')),
+      { stable: 'newer' },
+    );
+    assert.equal(
+      JSON.parse(await fs.readFile(result.versionedReviewSetPath, 'utf8'))
+        .review_wave_id,
+      fixture.snapshot.review_wave_id,
     );
   } finally {
     await fs.rm(fixture.root, { recursive: true, force: true });

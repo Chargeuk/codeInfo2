@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 import { createSummaryWrapperRun } from './summary-wrapper-runner.mjs';
@@ -35,6 +36,24 @@ const progressFingerprint = (status) =>
     subflowWaveProgress: status.subflowWaveProgress,
   });
 
+export const buildReviewRetryOwnershipId = ({
+  workingFolder,
+  sourceId,
+  customTitle,
+}) => {
+  const digest = createHash('sha256')
+    .update(
+      JSON.stringify({
+        workingFolder,
+        sourceId: sourceId ?? null,
+        customTitle: customTitle ?? null,
+      }),
+    )
+    .digest('hex')
+    .slice(0, 24);
+  return `review-cycle-${digest}`;
+};
+
 export const resolveReviewLaunch = async ({
   baseUrl,
   workingFolder,
@@ -68,7 +87,10 @@ export const resolveReviewLaunch = async ({
   }
 
   const flowsResponse = await fetchImpl(`${baseUrl}/flows`);
-  const flowsBody = await readJsonResponse(flowsResponse, 'Flow catalog lookup');
+  const flowsBody = await readJsonResponse(
+    flowsResponse,
+    'Flow catalog lookup',
+  );
   const flows = Array.isArray(flowsBody?.flows) ? flowsBody.flows : [];
   const candidates = flows.filter(
     (flow) =>
@@ -100,6 +122,13 @@ export const waitForReviewCycle = async ({
   workingFolder,
   sourceId,
   customTitle,
+  conversationId: attachedConversationId,
+  resumeOrphaned = false,
+  retryOwnershipId = buildReviewRetryOwnershipId({
+    workingFolder,
+    sourceId,
+    customTitle,
+  }),
   pollMs = DEFAULT_POLL_MS,
   cancelAfterNoProgressMs = null,
   fetchImpl = fetch,
@@ -107,27 +136,31 @@ export const waitForReviewCycle = async ({
   now = Date.now,
   onStatus = () => {},
 }) => {
-  const startResponse = await fetchImpl(
-    `${baseUrl}/flows/two_phase_review_cycle/run`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        working_folder: workingFolder,
-        ...(sourceId ? { sourceId } : {}),
-        ...(customTitle ? { customTitle } : {}),
-      }),
-    },
-  );
-  const started = await readJsonResponse(startResponse, 'Review start');
-  if (!started || typeof started.conversationId !== 'string') {
-    throw new Error('Review start did not return a conversationId.');
+  let conversationId = attachedConversationId;
+  if (!conversationId) {
+    const startResponse = await fetchImpl(
+      `${baseUrl}/flows/two_phase_review_cycle/run`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          working_folder: workingFolder,
+          retryOwnershipId,
+          ...(sourceId ? { sourceId } : {}),
+          ...(customTitle ? { customTitle } : {}),
+        }),
+      },
+    );
+    const started = await readJsonResponse(startResponse, 'Review start');
+    if (!started || typeof started.conversationId !== 'string') {
+      throw new Error('Review start did not return a conversationId.');
+    }
+    conversationId = started.conversationId;
   }
-
-  const conversationId = started.conversationId;
   let lastFingerprint = '';
   let lastProgressAt = now();
   let stopRequested = false;
+  let resumeRequested = false;
 
   while (true) {
     const response = await fetchImpl(
@@ -142,7 +175,28 @@ export const waitForReviewCycle = async ({
       lastProgressAt = now();
     }
 
-    if (status.terminal) {
+    if (
+      status.status === 'orphaned' &&
+      resumeOrphaned &&
+      !resumeRequested &&
+      Array.isArray(status.resumeStepPath)
+    ) {
+      const resumeResponse = await fetchImpl(
+        `${baseUrl}/flows/two_phase_review_cycle/run`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            conversationId,
+            resumeStepPath: status.resumeStepPath,
+            working_folder: workingFolder,
+            ...(sourceId ? { sourceId } : {}),
+          }),
+        },
+      );
+      await readJsonResponse(resumeResponse, 'Review resume');
+      resumeRequested = true;
+    } else if (status.terminal) {
       return { conversationId, status };
     }
 
@@ -192,6 +246,18 @@ const main = async () => {
         description: 'Optional flow conversation title.',
       },
       {
+        name: 'conversation-id',
+        type: 'string',
+        description:
+          'Attach to an accepted review conversation instead of starting another copy.',
+      },
+      {
+        name: 'resume-orphaned',
+        type: 'boolean',
+        description:
+          'Explicitly resume an interrupted attached run from its server-provided safe checkpoint.',
+      },
+      {
         name: 'poll-ms',
         type: 'string',
         description: `Status poll interval (default ${DEFAULT_POLL_MS}).`,
@@ -218,8 +284,14 @@ const main = async () => {
     return 0;
   }
   const values = parsed.values;
-  if (!values['working-folder']) {
+  if (!values['working-folder'] && !values['conversation-id']) {
     return run.failCli('--working-folder is required.');
+  }
+  if (values['resume-orphaned'] && !values['conversation-id']) {
+    return run.failCli('--resume-orphaned requires --conversation-id.');
+  }
+  if (values['resume-orphaned'] && !values['working-folder']) {
+    return run.failCli('--resume-orphaned requires --working-folder.');
   }
 
   let pollMs;
@@ -242,19 +314,29 @@ const main = async () => {
   run.startHeartbeat();
   try {
     const baseUrl = values['base-url'] ?? DEFAULT_BASE_URL;
-    const launch = await resolveReviewLaunch({
-      baseUrl,
-      workingFolder: values['working-folder'],
-      sourceId: values['source-id'],
-    });
+    const launch = values['working-folder']
+      ? await resolveReviewLaunch({
+          baseUrl,
+          workingFolder: values['working-folder'],
+          sourceId: values['source-id'],
+        })
+      : {
+          workingFolder: undefined,
+          sourceId: values['source-id'],
+        };
     const result = await waitForReviewCycle({
       baseUrl,
       workingFolder: launch.workingFolder,
       sourceId: launch.sourceId,
       customTitle: values['custom-title'],
+      conversationId: values['conversation-id'],
+      resumeOrphaned: Boolean(values['resume-orphaned']),
       pollMs,
       cancelAfterNoProgressMs,
       onStatus: ({ conversationId, status, stopRequested }) => {
+        run.protocol.setHeartbeatFields({
+          conversation_id: conversationId,
+        });
         run.protocol.setPhase(
           stopRequested ? 'waiting_for_stop' : `review_${status.status}`,
         );

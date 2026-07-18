@@ -14,23 +14,24 @@ Advance one active two-phase review cycle from its bounded fast-review phase to 
 
 <transition_rules>
 
-1. Require `review_phase: "fast"`, a valid `fast_review_pass_count` from 1 through 5, matching unique `fast_reviewed_pass_ids`, and `needs_minor_fix_path: false`.
-2. Require internally consistent manifest-driven job coverage. Advance with incomplete coverage only when `fast_review_pass_count` is 5 and `fast_review_coverage_exhausted` is true. Accept the legacy two-reviewer coverage fields only for a resumable state that has no generic job-coverage fields.
-3. Set `review_phase` to `slow` and `fast_phase_complete` to true.
-4. Set `slow_review_completed` to false.
-5. Preserve cumulative `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_audit_schema_version`, and every fast-pass `minor_fix_pass_audits` entry.
-6. Preserve unresolved task-required findings and incomplete-review blockers accumulated from usable fast-review passes so the shared post-phase task-up path can process them once.
-7. Preserve every fast job-coverage count, trust/completeness flag, and exhaustion flag through the slow phase.
-8. Preserve operationally blocked minor findings visibly. The combined finalizer must not allow clean completion while any remain.
-9. Require `unresolved_minor_batchable_findings` to be empty before advancing. Do not silently discard a remaining minor finding.
-10. Reset only current-pass identity and decision-recording fields that the next slow classifier will replace. Do not clear cumulative review-cycle history or task-up ownership fields.
-11. Set `needs_review_rerun_before_close`, `needs_final_minor_fix_revalidation_task`, and `safe_to_exit_review_loop_without_tasking` to false while slow review is pending.
+1. If `review_phase` is already `slow` and `fast_phase_complete` is true, treat the transition as an idempotent success, make no changes, and report that slow review remains pending.
+2. Otherwise require `review_phase: "fast"`, a valid `fast_review_pass_count` from 1 through 5, matching unique `fast_reviewed_pass_ids`, and `needs_minor_fix_path: false`.
+3. Require internally consistent manifest-driven job coverage. Advance with incomplete coverage only when `fast_review_pass_count` is 5 and `fast_review_coverage_exhausted` is true. Accept the legacy two-reviewer coverage fields only for a resumable state that has no generic job-coverage fields.
+4. Set `review_phase` to `slow` and `fast_phase_complete` to true.
+5. Set `slow_review_completed` to false.
+6. Preserve cumulative `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_audit_schema_version`, and every fast-pass `minor_fix_pass_audits` entry.
+7. Preserve unresolved task-required findings and incomplete-review blockers accumulated from usable fast-review passes so the shared post-phase task-up path can process them once.
+8. Preserve every fast job-coverage count, trust/completeness flag, and exhaustion flag through the slow phase.
+9. Preserve operationally blocked minor findings visibly. The combined finalizer must not allow clean completion while any remain.
+10. Require `unresolved_minor_batchable_findings` to be empty before advancing. Do not silently discard a remaining minor finding.
+11. Reset only current-pass identity and decision-recording fields that the next slow classifier will replace. Do not clear cumulative review-cycle history or task-up ownership fields.
+12. Set `needs_review_rerun_before_close`, `needs_final_minor_fix_revalidation_task`, and `safe_to_exit_review_loop_without_tasking` to false while slow review is pending.
 
 </transition_rules>
 
 <failure_modes>
 
-- If the fast phase is not active, its counters or coverage are invalid, incomplete coverage has not reached the fifth-pass bound, or minor findings remain undrained, make no changes and report the exact contradiction.
+- If the phase is neither an active fast phase nor an already-completed fast-to-slow transition, its counters or coverage are invalid, incomplete coverage has not reached the fifth-pass bound, or minor findings remain undrained, make no changes and report the exact contradiction.
 - If state belongs to a different story or plan than `current-plan.json`, make no changes and require review state repair.
 
 </failure_modes>

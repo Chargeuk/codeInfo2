@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  buildReviewRetryOwnershipId,
   resolveReviewLaunch,
   waitForReviewCycle,
 } from './review-cycle-summary.mjs';
@@ -82,6 +83,86 @@ test('review runner waits through nonterminal status until terminal success', as
     calls.some((call) => call.url.endsWith('/stop')),
     false,
   );
+});
+
+test('review runner gives equivalent launches the same retry ownership', () => {
+  const launch = {
+    workingFolder: '/repo',
+    sourceId: '/repo',
+    customTitle: 'Review story',
+  };
+
+  assert.equal(
+    buildReviewRetryOwnershipId(launch),
+    buildReviewRetryOwnershipId({ ...launch }),
+  );
+  assert.notEqual(
+    buildReviewRetryOwnershipId(launch),
+    buildReviewRetryOwnershipId({ ...launch, workingFolder: '/other' }),
+  );
+});
+
+test('review runner attaches to an accepted conversation without starting a copy', async () => {
+  const calls = [];
+  const result = await waitForReviewCycle({
+    baseUrl: 'http://server',
+    conversationId: 'conversation-existing',
+    pollMs: 1,
+    sleep: async () => {},
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url, method: options.method ?? 'GET' });
+      return response(200, { status: 'ok', terminal: true });
+    },
+  });
+
+  assert.equal(result.conversationId, 'conversation-existing');
+  assert.deepEqual(calls, [
+    {
+      url: 'http://server/flows/runs/conversation-existing',
+      method: 'GET',
+    },
+  ]);
+});
+
+test('review runner resumes an orphan only when explicitly requested', async () => {
+  const calls = [];
+  const statuses = [
+    {
+      status: 'orphaned',
+      terminal: true,
+      resumeStepPath: [0, 2],
+    },
+    { status: 'ok', terminal: true },
+  ];
+  const result = await waitForReviewCycle({
+    baseUrl: 'http://server',
+    workingFolder: '/repo',
+    sourceId: '/repo',
+    conversationId: 'conversation-orphaned',
+    resumeOrphaned: true,
+    pollMs: 1,
+    sleep: async () => {},
+    fetchImpl: async (url, options = {}) => {
+      calls.push({
+        url,
+        method: options.method ?? 'GET',
+        body: options.body ? JSON.parse(options.body) : undefined,
+      });
+      if (url.endsWith('/run')) {
+        return response(202, { conversationId: 'conversation-orphaned' });
+      }
+      return response(200, statuses.shift());
+    },
+  });
+
+  assert.equal(result.status.status, 'ok');
+  assert.equal(calls.filter((call) => call.url.endsWith('/run')).length, 1);
+  assert.deepEqual(calls.find((call) => call.url.endsWith('/run'))?.body, {
+    conversationId: 'conversation-orphaned',
+    resumeStepPath: [0, 2],
+    working_folder: '/repo',
+    sourceId: '/repo',
+  });
 });
 
 test('review runner requests cancellation only after an explicit stall threshold', async () => {

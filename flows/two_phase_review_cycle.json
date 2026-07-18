@@ -4,6 +4,7 @@
     {
       "type": "startLoop",
       "label": "Fast Review Convergence Loop",
+      "maxIterations": 5,
       "steps": [
         {
           "type": "prepareReviewTargets",

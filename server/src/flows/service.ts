@@ -996,11 +996,64 @@ const parseFlowResumeState = (
         }
       : null
     : null;
+  const lastLoopExit = isRecord(flow.lastLoopExit)
+    ? (() => {
+        const reason = normalizeOptionalString(flow.lastLoopExit.reason);
+        const iteration = flow.lastLoopExit.iteration;
+        if (
+          (reason !== 'break' && reason !== 'max_iterations') ||
+          typeof iteration !== 'number' ||
+          !Number.isInteger(iteration) ||
+          iteration < 1
+        ) {
+          return null;
+        }
+        return {
+          loopStepPath: normalizeNumberArray(flow.lastLoopExit.loopStepPath),
+          iteration,
+          reason,
+        } as const;
+      })()
+    : null;
+  const restartReconciliation = isRecord(flow.restartReconciliation)
+    ? (() => {
+        const reconciledAt = normalizeOptionalString(
+          flow.restartReconciliation.reconciledAt,
+        );
+        const interruptedSubflowCount =
+          flow.restartReconciliation.interruptedSubflowCount;
+        const interruptedWaveRunningCount =
+          flow.restartReconciliation.interruptedWaveRunningCount;
+        if (
+          flow.restartReconciliation.status !== 'interrupted' ||
+          !reconciledAt ||
+          typeof interruptedSubflowCount !== 'number' ||
+          !Number.isInteger(interruptedSubflowCount) ||
+          interruptedSubflowCount < 0 ||
+          typeof interruptedWaveRunningCount !== 'number' ||
+          !Number.isInteger(interruptedWaveRunningCount) ||
+          interruptedWaveRunningCount < 0
+        ) {
+          return null;
+        }
+        return {
+          status: 'interrupted' as const,
+          reconciledAt,
+          resumeStepPath: normalizeNumberArray(
+            flow.restartReconciliation.resumeStepPath,
+          ),
+          interruptedSubflowCount,
+          interruptedWaveRunningCount,
+        };
+      })()
+    : null;
 
   return {
     executionId: executionId ?? crypto.randomUUID(),
     stepPath,
     loopStack,
+    ...(lastLoopExit ? { lastLoopExit } : {}),
+    ...(restartReconciliation ? { restartReconciliation } : {}),
     ...(pendingLoopControl
       ? {
           pendingLoopControl,
@@ -3008,6 +3061,7 @@ const buildFlowResumeState = (params: {
   runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
+  lastLoopExit?: FlowResumeState['lastLoopExit'];
   pendingLoopControl?: FlowPendingLoopControl | null;
   activeSubflows?: FlowResumeState['activeSubflows'];
   subflowWaveProgress?: FlowSubflowWaveProgress;
@@ -3054,6 +3108,15 @@ const buildFlowResumeState = (params: {
       loopStepPath: [...frame.loopStepPath],
       iteration: frame.iteration,
     })),
+    ...(params.lastLoopExit
+      ? {
+          lastLoopExit: {
+            loopStepPath: [...params.lastLoopExit.loopStepPath],
+            iteration: params.lastLoopExit.iteration,
+            reason: params.lastLoopExit.reason,
+          },
+        }
+      : {}),
     ...(params.pendingLoopControl
       ? {
           pendingLoopControl: {
@@ -3119,6 +3182,7 @@ const persistFlowResumeState = async (params: {
   runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
+  lastLoopExit?: FlowResumeState['lastLoopExit'];
   pendingLoopControl?: FlowPendingLoopControl | null;
   activeSubflows?: FlowResumeState['activeSubflows'];
   subflowWaveProgress?: FlowSubflowWaveProgress;
@@ -3134,6 +3198,7 @@ const persistFlowResumeState = async (params: {
     runtimeState: params.runtimeState,
     stepPath: params.stepPath,
     loopStack: params.loopStack,
+    lastLoopExit: params.lastLoopExit,
     pendingLoopControl: params.pendingLoopControl,
     activeSubflows: params.activeSubflows,
     subflowWaveProgress: params.subflowWaveProgress,
@@ -4189,6 +4254,7 @@ async function runFlowUnlocked(params: {
   );
   let subflowWaveProgress = params.resumeState?.subflowWaveProgress;
   let terminalOutcome = params.resumeState?.terminalOutcome;
+  let lastLoopExit = params.resumeState?.lastLoopExit;
   let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
   if (params.resumeState) {
@@ -4212,6 +4278,7 @@ async function runFlowUnlocked(params: {
       runtimeState,
       stepPath,
       loopStack,
+      lastLoopExit,
       pendingLoopControl,
       activeSubflows,
       subflowWaveProgress,
@@ -7158,6 +7225,31 @@ async function runFlowUnlocked(params: {
       continueBoundaryLoopKey = getStepPathKey(nextPath);
     }
     while (true) {
+      if (
+        step.maxIterations !== undefined &&
+        loopFrame.iteration >= step.maxIterations
+      ) {
+        lastLoopExit = {
+          loopStepPath: [...nextPath],
+          iteration: loopFrame.iteration,
+          reason: 'max_iterations',
+        };
+        append({
+          level: 'warn',
+          message: 'flows.run.loop_max_iterations_reached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            conversationId: params.conversationId,
+            loopStepPath: nextPath,
+            iteration: loopFrame.iteration,
+            maxIterations: step.maxIterations,
+          },
+        });
+        loopStack.pop();
+        break;
+      }
       const pendingCancelBeforeIteration = consumePendingConversationCancel({
         conversationId: params.conversationId,
         runToken: params.runToken,
@@ -7179,6 +7271,11 @@ async function runFlowUnlocked(params: {
         continue;
       }
       if (outcome === 'break') {
+        lastLoopExit = {
+          loopStepPath: [...nextPath],
+          iteration: loopFrame.iteration,
+          reason: 'break',
+        };
         loopStack.pop();
         break;
       }
@@ -8221,6 +8318,7 @@ export async function startFlowRun(
         loopStepPath: [...frame.loopStepPath],
         iteration: frame.iteration,
       })),
+      lastLoopExit: resumeState?.lastLoopExit,
       pendingLoopControl: resumeState?.pendingLoopControl
         ? {
             kind: resumeState.pendingLoopControl.kind,
@@ -8450,7 +8548,78 @@ export type FlowRunObservedStatus = {
   activeSince: string | null;
   latestAssistantAt: string | null;
   subflowWaveProgress: FlowSubflowWaveProgress | null;
+  resumeStepPath: number[] | null;
 };
+
+export const reconcileInterruptedFlowResumeStateForStartup = (
+  resumeState: FlowResumeState,
+  reconciledAt = new Date().toISOString(),
+): FlowResumeState | null => {
+  const interruptedSubflowCount = resumeState.activeSubflows?.length ?? 0;
+  const interruptedWaveRunningCount =
+    resumeState.subflowWaveProgress?.running ?? 0;
+  if (interruptedSubflowCount === 0 && interruptedWaveRunningCount === 0) {
+    return null;
+  }
+  return {
+    ...resumeState,
+    restartReconciliation: {
+      status: 'interrupted',
+      reconciledAt,
+      resumeStepPath: [...resumeState.stepPath],
+      interruptedSubflowCount,
+      interruptedWaveRunningCount,
+    },
+  };
+};
+
+export async function reconcileInterruptedFlowRunsForStartup(): Promise<number> {
+  if (shouldUseMemoryPersistence()) return 0;
+  const conversations = (await ConversationModel.find({
+    $or: [
+      { 'flags.flow.activeSubflows.0': { $exists: true } },
+      { 'flags.flow.subflowWaveProgress.running': { $gt: 0 } },
+    ],
+  })
+    .lean()
+    .exec()) as Conversation[];
+  let reconciledCount = 0;
+  const reconciledAt = new Date().toISOString();
+  for (const conversation of conversations) {
+    const resumeState = parseFlowResumeState(
+      isRecord(conversation.flags)
+        ? (conversation.flags as Record<string, unknown>)
+        : undefined,
+    );
+    if (!resumeState) continue;
+    const reconciled = reconcileInterruptedFlowResumeStateForStartup(
+      resumeState,
+      reconciledAt,
+    );
+    if (!reconciled) continue;
+    await updateConversationFlowState({
+      conversationId: conversation._id,
+      flow: reconciled,
+    });
+    reconciledCount += 1;
+    append({
+      level: 'warn',
+      message: 'flows.run.reconciled_after_restart',
+      timestamp: reconciledAt,
+      source: 'server',
+      context: {
+        conversationId: conversation._id,
+        flowName: conversation.flowName,
+        resumeStepPath: reconciled.restartReconciliation?.resumeStepPath,
+        interruptedSubflowCount:
+          reconciled.restartReconciliation?.interruptedSubflowCount,
+        interruptedWaveRunningCount:
+          reconciled.restartReconciliation?.interruptedWaveRunningCount,
+      },
+    });
+  }
+  return reconciledCount;
+}
 
 export async function getFlowRunStatus(
   conversationId: string,
@@ -8488,6 +8657,8 @@ export async function getFlowRunStatus(
   );
   const status = ownership
     ? ('running' as const)
+    : resumeState?.restartReconciliation?.status === 'interrupted'
+      ? ('orphaned' as const)
     : persistedChildrenStillRunning
       ? ('orphaned' as const)
       : (latestAssistant?.status ?? 'orphaned');
@@ -8500,6 +8671,10 @@ export async function getFlowRunStatus(
     activeSince: ownership?.startedAt ?? null,
     latestAssistantAt: latestAssistant?.createdAt?.toISOString?.() ?? null,
     subflowWaveProgress: resumeState?.subflowWaveProgress ?? null,
+    resumeStepPath:
+      resumeState?.restartReconciliation?.resumeStepPath ??
+      resumeState?.stepPath ??
+      null,
   };
 }
 

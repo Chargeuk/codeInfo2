@@ -519,6 +519,62 @@ test('haltFlow break stops the complete flow instead of advancing outer steps', 
   );
 });
 
+test('startLoop maxIterations exits normally and advances to the next step', async () => {
+  await withFlowServer(
+    () => 'ok',
+    async ({ baseUrl }) => {
+      const conversationId = 'flow-loop-max-iterations';
+      await supertest(baseUrl)
+        .post('/flows/loop-max-iterations/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('After bounded loop.'),
+          ),
+        15000,
+      );
+      await waitForRuntimeCleanup(conversationId);
+
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Bounded loop iteration.'),
+        ).length,
+        2,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' && turn.content.includes('After bounded loop.'),
+        ).length,
+        1,
+      );
+      const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+        | {
+            lastLoopExit?: {
+              loopStepPath?: number[];
+              iteration?: number;
+              reason?: string;
+            };
+          }
+        | undefined;
+      assert.deepEqual(flowState?.lastLoopExit, {
+        loopStepPath: [0],
+        iteration: 2,
+        reason: 'max_iterations',
+      });
+      await cleanupConversationRuntime(conversationId);
+    },
+  );
+});
+
 test('continue step skips remaining iteration steps and starts the next iteration', async () => {
   let continueCount = 0;
   await withFlowServer(

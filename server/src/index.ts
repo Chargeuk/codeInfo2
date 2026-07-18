@@ -27,6 +27,7 @@ import {
 } from './config/startupEnv.js';
 import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.js';
 import './flows/flowSchema.js';
+import { reconcileInterruptedFlowRunsForStartup } from './flows/service.js';
 import './ingest/index.js';
 import { setIngestDeps } from './ingest/ingestJob.js';
 import './mongo/astCoverage.js';
@@ -445,6 +446,19 @@ const start = async () => {
   });
   if (isMongoConnected()) {
     await recoverIngestQueueForStartup();
+    try {
+      const reconciledFlowRuns =
+        await reconcileInterruptedFlowRunsForStartup();
+      baseLogger.info(
+        { reconciledFlowRuns },
+        'flows startup reconciliation complete',
+      );
+    } catch (error) {
+      baseLogger.warn(
+        { error },
+        'flows startup reconciliation skipped after recoverable error',
+      );
+    }
   }
 
   const httpServer = http.createServer(app);

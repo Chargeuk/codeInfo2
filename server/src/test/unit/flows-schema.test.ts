@@ -1440,6 +1440,52 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
+  test('startLoop accepts a positive integer maxIterations', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'startLoop',
+            maxIterations: 5,
+            steps: [
+              {
+                type: 'llm',
+                agentType: 'coding_agent',
+                identifier: 'bounded',
+                messages: [{ role: 'user', content: ['Run once.'] }],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+  });
+
+  test('startLoop rejects non-positive maxIterations', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'startLoop',
+            maxIterations: 0,
+            steps: [
+              {
+                type: 'llm',
+                agentType: 'coding_agent',
+                identifier: 'bounded',
+                messages: [{ role: 'user', content: ['Run once.'] }],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
   test('breakOn only accepts yes or no', () => {
     const json = JSON.stringify({
       steps: [

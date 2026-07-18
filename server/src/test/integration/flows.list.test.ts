@@ -224,6 +224,7 @@ describe('GET /flows', () => {
         'llm-basic',
         'loop-break',
         'loop-continue',
+        'loop-max-iterations',
         'multi-agent',
         'valid-flow',
       ]);

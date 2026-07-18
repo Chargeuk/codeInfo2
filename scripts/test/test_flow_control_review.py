@@ -186,6 +186,20 @@ class FlowControlReviewTests(unittest.TestCase):
             outcome.reason_code, "fast_review_converged_without_minor_findings"
         )
 
+    def test_fast_review_exits_when_phase_already_advanced(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "slow",
+                "fast_phase_complete": True,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(outcome.reason_code, "fast_review_phase_not_active")
+
     def test_fast_review_repeats_before_fifth_pass_after_draining_findings(self) -> None:
         repo = self.make_repo(
             review_state={

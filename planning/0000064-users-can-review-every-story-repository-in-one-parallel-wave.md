@@ -1385,3 +1385,264 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 - **RESOLVED ISSUE** Subtask 5 remains the first unchecked subtask after repeated supported fresh-wave attempts. The current pointer remains `preparing` for wave `0000064-rw-20260716T194026Z-73fc624a`, with no findings or evidence file; the matching review set remains `prepared` with `completed_jobs: 0`, `failed_jobs: 0`, and `missing_jobs: 3`. The supported stack, persisted source handoff, producer contract, and bounded reviewer flow have been exercised repeatedly, but no terminal identity-matching structured findings exist, so reconciling the 15 findings would require fabricated or stale evidence. Keep Task 28 `__in_progress__`; do not split, reorder, re-own, or widen the task—external reviewer execution must publish terminal artifacts before work can continue.
 - **BLOCKING ANSWER** Fresh blocker-repair research confirms a proof/test-harness seam owned by Task 28 Subtask 5, not a product, shared-baseline, runtime-handoff, or task-shape defect. The current wave pointer is still `preparing` with no findings artifact and its matching prepared review set is `0/3` completed with `3` missing jobs. Repository evidence proves the intended boundary: `reviewSet.ts` initializes missing coverage, `reviewArtifacts.ts::readValidatedFindings()` accepts only inline findings or JSON, `reviewWaveValidation.ts` requires exact wave/target identity and every expected job completed before `closeout_allowed`, and focused wave/artifact/disposition tests preserve partial and stale coverage as non-clean; `scripts/publish_open_code_review.py` provides the same JSON-pointer/Markdown separation. The ingested `open-code-review-chergeuk` precedent separately models machine-readable `ValidationResult`/`ScanManifest` and JSON reports from Markdown rendering, and preserves partial scope and validation mismatches as invalid or partial rather than success. Context7's official Node contract confirms `execFile` completes its callback only on child termination, reports `AbortError` on cancellation, and can wait indefinitely when child stdin is not closed; the official Codex app-server lifecycle distinguishes `exitedReviewMode` from terminal `turn/completed`; exact issue research documents timeout-without-verdict ambiguity in [Codex #14335](https://github.com/openai/codex/issues/14335) and non-TTY stdin hangs in [Codex #20919](https://github.com/openai/codex/issues/20919), while the local runner already closes stdin. The chosen fix fits the local contracts: preserve this incomplete wave, create a fresh immutable target/review-set/wave identity, run supported reviewers until terminal success/failure/interruption, publish validated findings inline or through a JSON `findings_file` while retaining Markdown, then validate identity and reconcile the 15 findings. Longer waits, same-wave retries, treating `preparing`/HTTP 202/silence as completion, parsing Markdown, fabricating JSON, reusing stale artifacts, changing resume logic, sharing runtime state, or broad-wrapper retries are rejected because they bypass terminal, coverage, isolation, or provenance guarantees; no prerequisite or plan repair is indicated.
+
+## Code Review Findings
+
+- Review pass: `0000064-20260718T110435Z-667918bd32-4f07756e`
+- Review cycle: `0000064-rc-20260715T234622Z-3ff7dd09`
+- Comparison context: local `HEAD` `667918bd3279c9f47da1e9bcbbc19c26fb560703` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
+- Wave coverage and target ownership: slow wave `0000064-rw-20260718T110435Z-126b394e` completed its one expected `current_repository` target job with usable server-owned validation; no jobs failed, were missing, or were partial, cross-repository review was not required, and closeout was allowed. Every aggregated finding is owned by target `current_repository` at `/data/codeinfo2/codeInfo2`.
+- Severity conflicts: the validated aggregate contains 13 findings and records zero severity conflicts; every finding has one validated `Main Review` source.
+- Provenance note: the saturation and challenge passes added no actionable finding. The ignored list retains the six routed current-pass rejections plus 18 explicitly non-adopted current-pass risk or challenge candidates under their existing artifact references.
+
+### Accepted
+
+#### 1. Malformed saved resume input can bypass immutable-input validation
+
+- Finding ID: `resume-input-silent-normalization-bypass`
+- Found by: Main Review
+- Description: Resume parsing can discard a malformed saved `flow.input` and then use newly requested input while retaining the saved input hash.
+- Example: A persisted run with malformed input can restart with the request input even though its stored hash still represents the original immutable input.
+- Why accepted: This is a current-story regression in the resume contract. The bounded parser and service seam can receive one inline repair attempt without redefining the contract.
+
+#### 2. Review launch can mix one source catalog with another working folder
+
+- Finding ID: `review-launch-source-working-folder-mismatch`
+- Found by: Main Review
+- Description: A review command can select flows from one source while running them against a different working folder.
+- Example: `--working-folder A --source-id B` can load source B's review catalog while targeting repository A.
+- Why accepted: The story introduced this launch path and requires a consistent source-to-repository binding. Restoring that established binding is bounded current-story work.
+
+#### 3. Codex retry cleanup can delete a pointer it does not own
+
+- Finding ID: `codex-pointer-unowned-preflight-deletion`
+- Found by: Main Review
+- Description: Retry cleanup can remove the stable Codex pointer before provider and model preflight proves that the retry owns the pointer.
+- Example: An old retry can delete the current stable pointer and then skip because its provider or model is unavailable.
+- Why accepted: Pointer ownership is part of the story's retry isolation contract. The cleanup helper or pointer seam can receive one bounded inline repair attempt.
+
+#### 4. An older review wave can overwrite newer stable artifacts
+
+- Finding ID: `stable-review-artifact-stale-writer-race`
+- Found by: Main Review
+- Description: An older wave can pass its currency check and later overwrite newer stable review-set, wave-validation, or target-validation artifacts.
+- Example: A newer wave publishes its current artifacts after the older wave checks currency but before the older wave performs its final writes.
+- Why accepted: The in-scope issue is limited to Story 64's stable review-set, wave-validation, and target-validation publication. It was initially task-required and is promoted for one honest inline attempt; the original coordination concern remains a constraint and does not permit a broader artifact-system refactor.
+
+#### 5. Legacy saved input can override an explicit resume request without a hash
+
+- Finding ID: `resume-input-stale-precedence-without-hash`
+- Found by: Main Review
+- Description: A legacy persisted input that has no hash can silently take precedence over explicit input supplied for a resumed run.
+- Example: A caller supplies new resume input, but the service chooses the older saved input because there is no saved hash with which to detect the conflict.
+- Why accepted: This violates the story's established input and hash precedence contract. The bounded resume seam can receive one inline repair attempt.
+
+#### 6. A post-success crash can duplicate a parent review wave
+
+- Finding ID: `retry-ownership-post-success-crash-window`
+- Found by: Main Review
+- Description: A crash after the parent flow succeeds but before durable completion ownership is recorded can let a retry launch the same parent wave again.
+- Example: `runFlowUnlocked` completes, the process stops before writing the completion marker, and the next retry starts a duplicate parent review wave.
+- Why accepted: The in-scope issue is the new review-cycle launcher and its `retryOwnershipId`, not a generalized retry redesign. It was initially task-required and is promoted for one honest inline attempt while that original durability constraint remains binding.
+
+#### 7. Fixed-delay negative subflow proof is scheduler-dependent
+
+- Finding ID: `fixed-delay-negative-subflow-proof`
+- Found by: Main Review
+- Description: A negative subflow test relies on a fixed 40 ms delay rather than an observable synchronization point.
+- Example: A slow scheduler can make the assertion run before the intended parent-terminal condition has actually been demonstrated.
+- Why accepted: This is a localized proof gap in story-owned tests. Replacing the delay with a deterministic latch and explicit compatibility or parent-terminal proof is bounded inline work.
+
+### Ignored for This Story
+
+#### 8. Review polling interval has no upper bound
+
+- Finding ID or Review reference: `review-poll-interval-unbounded`
+- Found by: Main Review
+- Description: The review CLI accepts arbitrarily large polling intervals.
+- Example: A very large interval can make status updates and cancellation observation appear stalled.
+- Why ignored: Rejection gate 8 applies: this is general CLI-duration hardening rather than a Story 64 requirement. It is ignored for this story and may be captured as separate follow-up work.
+
+#### 9. Blank review summary base URL has no explicit policy
+
+- Finding ID or Review reference: `review-summary-empty-base-url`
+- Found by: Main Review
+- Description: The wrapper does not define a new default-or-error policy for a blank summary base URL.
+- Example: An empty configured base URL leaves generated review links without a newly selected fallback behavior.
+- Why ignored: Rejection gate 7 applies: choosing a fallback or error would change visible wrapper behavior that this story did not approve. It is ignored for this story and may be captured separately if a product decision is made.
+
+#### 10. Codex validation warnings are not surfaced by the adapter
+
+- Finding ID or Review reference: `codex-agent-warning-dropped`
+- Found by: Main Review
+- Description: The Codex adapter does not expose every validation warning to callers.
+- Example: A non-fatal agent validation warning can remain available in lower-level validation data without appearing in the adapter response.
+- Why ignored: Rejection gate 5 applies: this is a pre-existing optional proof gap, and the review did not reproduce a current-story failure. It is ignored for this story only.
+
+#### 11. Flow-step validation does not surface every warning
+
+- Finding ID or Review reference: `validation-warnings-dropped-at-flow-step`
+- Found by: Main Review
+- Description: The flow step retains validation warnings in artifacts but does not add a new user-visible warning channel.
+- Example: A warning can be preserved in validation output without being copied into the flow-step result.
+- Why ignored: Rejection gates 5 and 7 apply: this is pre-existing behavior, and expanding the visible result contract was not approved. It is ignored for this story only.
+
+#### 12. Startup reconciliation query is not bounded
+
+- Finding ID or Review reference: `startup-reconciliation-unbounded-query`
+- Found by: Main Review
+- Description: Startup reconciliation can inspect all interrupted runs without new paging or readiness limits.
+- Example: A very large backlog could make reconciliation take longer before normal startup work proceeds.
+- Why ignored: Rejection gate 8 applies: backlog indexing, paging, and readiness hardening are outside the story's bounded recovery scenarios. It is ignored for this story and may be captured as separate follow-up work.
+
+#### 13. OpenCode log-root construction repeats a path segment
+
+- Finding ID or Review reference: `opencode-log-root-duplicated`
+- Found by: Main Review
+- Description: The OpenCode log-root path construction repeats a literal path segment even though the resulting paths currently agree.
+- Example: The base and current-path literals both resolve to the same established mounted layout.
+- Why ignored: Rejection gate 8 applies: this is a cleanup and portability preference with no proven current-head failure. It is ignored for this story only.
+
+#### 14. Additional subflow-wave orchestration edge cases
+
+- Finding ID or Review reference: `Rejected Risk Notes: runSubflowJobs / runSubflowWaveStep orchestration edge cases`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review challenged duplicate admission, terminal waiting, cancellation, and stale ownership beyond the canonical findings.
+- Example: No concrete example was recorded in the validated review evidence.
+- Why ignored: Direct guards cover the challenged paths; provider silence remains a real scheduling state, and the distinct actionable ownership risks are already recorded above. No additional finding was adopted.
+
+#### 15. Additional review-target and review-set preparation edge cases
+
+- Finding ID or Review reference: `Rejected Risk Notes: prepareReviewTargets / prepareReviewSet edge cases`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review challenged duplicate roots, invalid branches, partial preparation, and large target sets.
+- Example: No concrete example was recorded in the validated review evidence.
+- Why ignored: Existing guards and tests cover these cases, and the one distinct stable-publication race is already accepted. No separate current-story issue was adopted.
+
+#### 16. Additional review-wave validation edge cases
+
+- Finding ID or Review reference: `Rejected Risk Notes: validateReviewWave edge cases`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review challenged missing, partial, stale, and malformed validation pointers beyond the canonical findings.
+- Example: No concrete example was recorded in the validated review evidence.
+- Why ignored: The validation gates and tests cover the challenged cases; the distinct stale-writer and warning observations are already represented by recorded decisions. No additional finding was adopted.
+
+#### 17. Additional startup-reconciliation malformed and bulk cases
+
+- Finding ID or Review reference: `Rejected Risk Notes: reconcileInterruptedFlowRunsForStartup edge cases`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review challenged zero, malformed, high-volume, and recovery startup-reconciliation inputs.
+- Example: A malformed interrupted-run record is skipped by the existing reconciliation guard.
+- Why ignored: Malformed records already have a direct skip path, and the separate unbounded-query concern is already ignored above. No additional current-story issue was adopted.
+
+#### 18. Mocked route and orchestrator seams
+
+- Finding ID or Review reference: `Rejected Risk Notes: changed route/orchestrator tests and mocked seams`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review challenged whether route tests mocked away status and stop behavior that should be proven in production.
+- Example: The tests mock mapping seams while the production route still performs validation and delegation.
+- Why ignored: The production route retains the relevant validation and delegation behavior, so the review did not establish a separate defect.
+
+#### 19. Premature routing or provider fallback failure
+
+- Finding ID or Review reference: `Rejected Risk Notes: routing-selection and early-failure paths`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review challenged whether routing failures made later valid candidates unreachable.
+- Example: A pinned provider branch intentionally does not cross-fallback to a different provider.
+- Why ignored: The fallback paths were traced and later eligible candidates remain reachable; the pinned-provider behavior is intentional. No finding was adopted.
+
+#### 20. Already-aborted helper side effects
+
+- Finding ID or Review reference: `Rejected Risk Notes: already-aborted helper handling`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review challenged whether helpers could perform side effects after receiving an already-aborted signal.
+- Example: The reviewed helpers inspect the abort signal around their side-effect boundaries.
+- Why ignored: The existing before-and-after signal checks address the challenged risk, so no separate defect was established.
+
+#### 21. Missing additional repositories or retained design assets
+
+- Finding ID or Review reference: `Rejected Risk Notes: additional repositories and design assets`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review checked whether the story omitted an additional repository or retained visual design asset.
+- Example: The validated scope names no additional repository and the story retains no screenshots or other design artifacts.
+- Why ignored: The absence matches the approved repository and artifact scope and does not establish an issue.
+
+#### 22. Narrow consistency and portability observations
+
+- Finding ID or Review reference: `Rejected Risk Notes: narrow consistency and portability checks`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review checked documentation links and cancellation-aware test doubles for a narrow consistency defect.
+- Example: Reviewed documentation contains no absolute local link, and cancellation mocks observe abort signals.
+- Why ignored: The challenged consistency and portability defects were not present, so no issue was adopted.
+
+#### 23. Untrusted-boundary injection or path traversal
+
+- Finding ID or Review reference: `Rejected Risk Notes: untrusted-boundary audit`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review audited command arguments, script restrictions, artifact containment, output allowlists, and working-folder validation.
+- Example: External commands use argument arrays and artifact outputs are constrained to allowed paths.
+- Why ignored: The audit did not establish injection or traversal; the distinct source-to-working-folder mismatch is already accepted above.
+
+#### 24. Additional idempotency or replay defect
+
+- Finding ID or Review reference: `Rejected Risk Notes: idempotency and replay pass`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review challenged ordinary same-process replay and duplicate-execution guards beyond the canonical findings.
+- Example: Same-process replay paths retain explicit ownership and completion checks.
+- Why ignored: The distinct crash-window, stable-publication, and resume defects are already recorded above; no additional replay issue was adopted.
+
+#### 25. Additional time-coordination defect
+
+- Finding ID or Review reference: `Rejected Risk Notes: time-coordination audit`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review challenged polling and a short cancellation grace period as possible timing correctness dependencies.
+- Example: The grace path rechecks cancellation and persisted state before making its decision.
+- Why ignored: Polling is the authoritative boundary and the grace path rechecks state; the broader polling-domain concern is already ignored above. No extra finding was adopted.
+
+#### 26. Additional changed-test weakness
+
+- Finding ID or Review reference: `Rejected Risk Notes: changed-test audit`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review checked Cucumber step roles, cleanup, and abort-aware fakes for another false-positive proof path.
+- Example: The reviewed fakes observe abort signals and the scenario cleanup is explicit.
+- Why ignored: Those test paths remained honest; the distinct fixed-delay proof gap is already accepted above.
+
+#### 27. UI affordance parity mismatch
+
+- Finding ID or Review reference: `Rejected Risk Notes: UI affordance parity`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review checked whether new repository and flow chips disrupted existing row actions or selection behavior.
+- Example: The chips are read-only while row actions and selection remain unchanged.
+- Why ignored: The reviewed UI preserves the existing affordances, so no parity defect was established.
+
+#### 28. Field-role or identity conflation
+
+- Finding ID or Review reference: `Rejected Risk Notes: field-role stability`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review checked whether instance, target, and display identities were conflated.
+- Example: `instanceId`, `targetId`, and display labels remain separate fields in the reviewed paths.
+- Why ignored: The field roles remain distinct, and all concrete identity issues found by the pass are already represented above.
+
+#### 29. Redundant bulk side effects
+
+- Finding ID or Review reference: `Rejected Risk Notes: bulk side-effect cardinality`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-findings.md` — Rejected Risk Notes
+- Description: The review checked whether bulk paths repeated side effects unnecessarily.
+- Example: Per-target and per-job writes correspond to distinct target and job records, and their failures remain explicit.
+- Why ignored: The observed cardinality is intentional and no redundant bulk side effect was established.
+
+#### 30. Challenge pass found no dishonest step-role mutation
+
+- Finding ID or Review reference: `Challenge pass 2: Step-role honesty`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-remaining-blind-spot-challenge.md` — Challenge pass 2
+- Description: The challenge checked whether assertion steps secretly mutated scenario state.
+- Example: `Then` steps assert only; state changes remain in `Given`, `When`, or cleanup hooks.
+- Why ignored: The challenge found the step roles honest and did not adopt a finding.
+
+#### 31. Challenge pass found no stale-hint precedence defect
+
+- Finding ID or Review reference: `Challenge pass 7: Stale-hint precedence`
+- Found by: `codeInfoTmp/reviews/0000064-20260718T110435Z-667918bd32-4f07756e-remaining-blind-spot-challenge.md` — Challenge pass 7
+- Description: The challenge checked whether an older degraded or cancelled hint could override a fresher prepared comparison base.
+- Example: The plan-host hint is used only as a fallback, and freshness checks reject mismatched identities.
+- Why ignored: The challenge found the precedence and freshness checks safe and did not adopt a finding.

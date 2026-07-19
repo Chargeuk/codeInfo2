@@ -448,24 +448,24 @@ const start = async () => {
     await recoverIngestQueueForStartup();
   }
 
+  if (isMongoConnected()) {
+    try {
+      const reconciledFlowRuns = await reconcileInterruptedFlowRunsForStartup();
+      baseLogger.info(
+        { reconciledFlowRuns },
+        'flows startup reconciliation complete',
+      );
+    } catch (error) {
+      baseLogger.warn(
+        { error },
+        'flows startup reconciliation skipped after recoverable error',
+      );
+    }
+  }
+
   const httpServer = http.createServer(app);
   wsServer = attachWs({ httpServer });
   server = httpServer.listen(Number(CODEINFO_SERVER_PORT), () => {
-    if (isMongoConnected()) {
-      void reconcileInterruptedFlowRunsForStartup()
-        .then((reconciledFlowRuns) => {
-          baseLogger.info(
-            { reconciledFlowRuns },
-            'flows startup reconciliation complete',
-          );
-        })
-        .catch((error) => {
-          baseLogger.warn(
-            { error },
-            'flows startup reconciliation skipped after recoverable error',
-          );
-        });
-    }
     baseLogger.info(`Server on ${CODEINFO_SERVER_PORT}`);
     baseLogger.info(
       {

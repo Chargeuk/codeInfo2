@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 
 import type { FlowResumeState } from '../../flows/flowState.js';
 import { reconcileInterruptedFlowResumeStateForStartup } from '../../flows/service.js';
+
+const serverRoot = process.cwd();
 
 const baseState = (): FlowResumeState => ({
   executionId: 'execution-1',
@@ -98,4 +102,16 @@ test('startup reconciliation marks a pending-only wave as interrupted', () => {
     2,
   );
   assert.equal(reconciled.runLifecycle?.status, 'orphaned');
+});
+
+test('server waits for startup reconciliation before accepting HTTP traffic', () => {
+  const indexSource = fs.readFileSync(path.join(serverRoot, 'src/index.ts'), 'utf8');
+  const reconciliationIndex = indexSource.indexOf(
+    'await reconcileInterruptedFlowRunsForStartup()',
+  );
+  const listenIndex = indexSource.indexOf('server = httpServer.listen');
+
+  assert.notEqual(reconciliationIndex, -1);
+  assert.notEqual(listenIndex, -1);
+  assert.ok(reconciliationIndex < listenIndex);
 });

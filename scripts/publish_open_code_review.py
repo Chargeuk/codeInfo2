@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -80,6 +81,33 @@ def _required_integer(record: dict[str, Any], field: str, label: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError(f"{label}.{field} must be a non-negative integer")
     return value
+
+
+def _committed_diff_paths(
+    repo_root: Path, comparison_base_commit: str, head_commit: str
+) -> set[str]:
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "diff",
+                "--name-only",
+                "--no-renames",
+                comparison_base_commit,
+                head_commit,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        raise ValueError(f"committed diff paths could not be read: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "unknown git error"
+        raise ValueError(f"committed diff paths could not be read: {detail}")
+    return {path for path in result.stdout.splitlines() if path}
 
 
 def _assert_contained(root: Path, candidate: Path, label: str) -> Path:
@@ -349,10 +377,30 @@ def build_open_code_review_pointer(
     bundles: list[dict[str, str]] = []
     reviewed_files = 0
     seen_bundle_ids: set[str] = set()
+    manifest_file_paths: set[str] = set()
     findings: list[dict[str, Any]] = []
     for index, raw_bundle in enumerate(manifest_bundles):
         if not isinstance(raw_bundle, dict):
             raise ValueError(f"manifest.bundles[{index}] is malformed")
+        bundle_label = f"manifest.bundles[{index}]"
+        bundle_summary = raw_bundle.get("summary")
+        if not isinstance(bundle_summary, dict):
+            raise ValueError(f"{bundle_label}.summary is missing")
+        bundle_total_files = _required_integer(
+            bundle_summary, "total_files", f"{bundle_label}.summary"
+        )
+        bundle_files = raw_bundle.get("files")
+        if not isinstance(bundle_files, list) or len(bundle_files) != bundle_total_files:
+            raise ValueError(f"{bundle_label}.files conflict with its summary")
+        for file_index, raw_file in enumerate(bundle_files):
+            if not isinstance(raw_file, dict):
+                raise ValueError(f"{bundle_label}.files[{file_index}] is malformed")
+            file_path = _required_string(
+                raw_file, "path", f"{bundle_label}.files[{file_index}]"
+            )
+            if file_path in manifest_file_paths:
+                raise ValueError(f"OCR manifest contains duplicate file {file_path}")
+            manifest_file_paths.add(file_path)
         pointer_bundle, bundle_reviewable_files, valid, bundle_findings = _bundle_pointer(
             pass_dir=resolved_pass_dir, bundle=raw_bundle, index=index
         )
@@ -366,6 +414,20 @@ def build_open_code_review_pointer(
             findings.extend(bundle_findings)
     if reviewed_files + skipped_files > reviewable_files:
         raise ValueError("OCR reviewed and skipped file counts exceed reviewable files")
+    committed_paths = _committed_diff_paths(
+        root,
+        _required_string(prepared_base, "comparison_base_commit", "prepared review base"),
+        _required_string(prepared_base, "head_commit", "prepared review base"),
+    )
+    if manifest_file_paths != committed_paths:
+        missing_paths = sorted(committed_paths - manifest_file_paths)
+        unexpected_paths = sorted(manifest_file_paths - committed_paths)
+        details: list[str] = []
+        if missing_paths:
+            details.append("missing " + ", ".join(missing_paths))
+        if unexpected_paths:
+            details.append("unexpected " + ", ".join(unexpected_paths))
+        raise ValueError("OCR manifest committed diff paths conflict: " + "; ".join(details))
     failed_files = reviewable_files - reviewed_files - skipped_files
     partial = (
         manifest["partial"]

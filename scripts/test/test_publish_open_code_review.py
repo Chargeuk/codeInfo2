@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -17,6 +18,16 @@ import publish_open_code_review
 
 
 class PublishOpenCodeReviewTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.committed_paths = {"server/src/flows/review.ts"}
+        self.committed_paths_patcher = mock.patch.object(
+            publish_open_code_review,
+            "_committed_diff_paths",
+            return_value=self.committed_paths,
+        )
+        self.committed_paths_patcher.start()
+        self.addCleanup(self.committed_paths_patcher.stop)
+
     def make_fixture(
         self,
         *,
@@ -24,6 +35,15 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
         invalid_bundle_indexes: set[int] | None = None,
         wave_scope: bool = False,
     ) -> tuple[Path, Path, Path, Path]:
+        self.committed_paths.clear()
+        self.committed_paths.update(
+            {
+                "server/src/flows/review.ts"
+                if index == 0
+                else f"server/src/flows/review-{index}.ts"
+                for index in range(bundle_count)
+            }
+        )
         tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(tmpdir.cleanup)
         workspace = Path(tmpdir.name)
@@ -102,6 +122,11 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
         manifest_bundles = []
         for index in range(bundle_count):
             bundle_id = f"sha256:{index + 1:064d}"
+            file_path = (
+                "server/src/flows/review.ts"
+                if index == 0
+                else f"server/src/flows/review-{index}.ts"
+            )
             manifest_bundles.append(
                 {
                     "bundle_id": bundle_id,
@@ -110,6 +135,12 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
                         "reviewable_files": 1,
                         "excluded_files": 0,
                     },
+                    "files": [
+                        {
+                            "path": file_path,
+                            "reviewable": True,
+                        }
+                    ],
                 }
             )
             (pass_dir / f"comments-{index:04d}.json").write_text(
@@ -315,6 +346,18 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
         self.assertEqual(pointer["coverage"]["failed_files"], 1)
         self.assertEqual(pointer["overall_validation_status"], "partial")
         self.assertTrue(pointer["partial"])
+
+    def test_rejects_manifest_that_omits_a_committed_diff_path(self) -> None:
+        repo, log_root, pass_dir, prepared_base = self.make_fixture()
+        self.committed_paths.add("server/src/flows/review-wave.ts")
+
+        with self.assertRaisesRegex(ValueError, "missing server/src/flows/review-wave.ts"):
+            publish_open_code_review.build_open_code_review_pointer(
+                repo_root=repo,
+                prepared_base_path=prepared_base,
+                pass_dir=pass_dir,
+                ocr_log_root=log_root,
+            )
 
     def test_publishes_validated_comments_as_structured_findings(self) -> None:
         repo, log_root, pass_dir, prepared_base = self.make_fixture()

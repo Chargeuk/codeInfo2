@@ -2179,3 +2179,41 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Automated proof item 8 passed on 2026-07-19: `npm run format` completed successfully and Prettier reported all tracked supported files unchanged.
 - Implementation-plus-automated-proof audit: the fresh bounded packet, current repository state, latest implementation/proof commits, and proof artifacts confirm all four subtasks and all eight testing items are complete. The cancellation change is within the approved story surface and automated proof confirms the existing client terminal-status behavior; no story-caused preserved-behavior regression or unapproved user-facing drift was found. Parser output reports no live blocker, so Task 36 is now honestly `__done__` and ready for manual testing.
 - Final-task manual proof restarted the freshness-unknown main stack, then expanded to the story's currently available one-target scope. After archiving one stale orphaned diagnostic test conversation, a fresh `diagnostic_review_cycle` launched its two-child wave; Stop produced `running: 0, stopped: 2`, the terminal `Stopped` state, and the enabled Send action on desktop and 390px mobile. The initial new-conversation fetch returned one transient 404 before the server created the conversation; the subsequent Playwright desktop/mobile pass had no console errors. Health passed and the main stack shut down cleanly. The declared scope has no additional repositories, so three-target/cross-repository paths were not re-proven in this pass; prior proof remains necessary for those unavailable current-scope cases. Playwright staging `manual-testing/0000064/36/proof-01-desktop-stopped-wave.png` failed with `ENOENT` in its runtime and no scratch screenshot was retained under `codeInfoTmp/manual-testing/0000064/36/`; no additional subtasks were needed.
+
+## Code Review Findings
+
+- Review pass: `0000064-20260719T212516Z-52af6cfac4-32769dc2`
+- Review cycle: `0000064-rc-20260719T212516Z-7280f8e7`
+- Comparison context: local `HEAD` `52af6cfac4bc5cd3abd91e83cb18bf6eadf5ee66` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
+- Wave coverage and target ownership: fast wave `0000064-rw-20260719T212516Z-d2271003` expected 3 jobs and completed 2; the `current_repository--codex_review` target job completed with usable server-owned validation, the `current_repository--open_code_review` target job was stale because its coverage did not match the OCR manifest, and the singleton `story--cross_repository_review` job completed `not_applicable` without usable server-owned validation. `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` is the owner of all three findings. The review set requires cross-repository coverage and therefore remains `closeout_allowed: false`.
+- Severity conflicts and provenance: the validated aggregate contains 3 current-pass findings and 0 severity conflicts; each finding has one validated `Codex Review` source. The fallback findings artifact contains no additional rejected or non-adopted candidates, so no current-pass item was added to the ignored category. The incomplete cross-repository coverage remains disposition state, not an accepted or ignored issue.
+
+### Accepted
+
+#### 1. Interrupted children with earlier completed steps are falsely treated as terminal
+
+- Finding ID: `829f2dbe9adb33dd2a27976ed3965d3c5f9e1c2abac8309325a94bd1cb56bbbd`
+- Found by: Codex Review
+- Description: After restart, the wave can treat a child as terminal because it reads the latest assistant-step status instead of the child’s overall lifecycle, skipping the child’s remaining review steps.
+- Example: A child interrupted after one successful intermediate step can be marked successful by the parent without resuming its remaining steps.
+- Why accepted: The validated P1 finding is part of Story 64’s cancellation and resume lifecycle. Its routed reason requires planned lifecycle and restart proof, while the promoted minor path gives it one bounded inline resolution opportunity before task-up.
+
+#### 2. Review initialization failures silently bypass the entire review cycle
+
+- Finding ID: `63b72dde79951ac23ce584197326f258d12b7bada9aa81b53fff5f4b9f74594b`
+- Found by: Codex Review
+- Description: A non-cancellation initialization exception is emitted as successful and exits the flow, allowing the parent to continue without running the fast or slow review.
+- Example: A review initialization failure can return `{ status: 'ok', exitFlow: true }`, so later closeout proceeds even though no review wave ran.
+- Why accepted: The validated P1 finding affects Story 64’s review-cycle initialization, lifecycle failure propagation, and closeout authority. Its routed reason requires coordinated proof, while the promoted minor path gives it one bounded inline resolution opportunity before task-up.
+
+#### 3. Open Code Review validates a different diff when base and head have diverged
+
+- Finding ID: `1d7b6fd25a1781d1620eb1e549d1406520b5f31b1681e050be32b72b3ce35bc1`
+- Found by: Codex Review
+- Description: Open Code Review computes committed paths with a two-endpoint diff while the other review surfaces use a three-dot comparison, so the reviewed path set can differ when base and head diverge.
+- Example: A path present only on the base can be included by `git diff <base> <head>` even though `git diff <base>...<head>` excludes it, causing OCR to validate a different manifest.
+- Why accepted: The validated P2 finding is within Story 64’s target-scoped Open Code Review and artifact/diff identity contract. Its routed reason limits the inline work to the established same-repository publisher seam and focused divergent-history proof.
+
+### Ignored for This Story
+
+- None.

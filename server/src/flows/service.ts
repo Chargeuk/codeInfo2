@@ -6394,9 +6394,6 @@ async function runFlowUnlocked(params: {
         expectedReviewPhase: step.reviewPhase,
         signal: inflightState.abortController.signal,
       });
-      if (!step.reviewSetFrom.includes('.')) {
-        flowValues[step.reviewSetFrom] = normalizeFlowInput(result.finalized);
-      }
       await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,

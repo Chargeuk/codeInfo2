@@ -222,13 +222,14 @@ const publishMain = async (repoRoot: string) => {
   await fs.writeFile(path.join(reviewDir, 'evidence.md'), '# Evidence\n');
   await writeJson(path.join(reviewDir, 'findings.json'), {
     findings: [
-      {
-        id: 'finding-accepted',
-        title: 'Guard the validated decision join',
+      ...Array.from({ length: 4 }, (_, index) => ({
+        id: `finding-accepted-${index}`,
+        title: `Guard the validated decision join ${index}`,
         severity: 'should_fix',
         path: 'app.ts',
-        line: 1,
-      },
+        line: index + 1,
+        detail: 'x'.repeat(20 * 1024),
+      })),
     ],
   });
   const repository = {
@@ -678,9 +679,10 @@ test('production one-target review loop validates four jobs and durably records 
         }),
       });
       await waitForCompletion(result.conversationId);
+      return result.conversationId;
     };
 
-    await run();
+    const firstConversationId = await run();
     const firstSnapshot = await readJson(
       path.join(
         reviewDirFor(repoRoot),
@@ -695,6 +697,27 @@ test('production one-target review loop validates four jobs and durably records 
     );
     const firstJobs = firstSet.job_results as JsonObject[];
     assert.equal(firstJobs.length, 4);
+    assert.equal(
+      (firstSet.aggregated_findings as JsonObject[]).length,
+      5,
+      'the canonical finalized manifest retains oversized finding detail',
+    );
+    assert.equal(
+      (firstJobs[0]?.validation as JsonObject | undefined)
+        ?.validated_findings,
+      undefined,
+      'wave validation retains metadata while canonical findings own detail',
+    );
+    const persistedFlowValues = (
+      memoryConversations.get(firstConversationId)?.flags as
+        | { flow?: { values?: { review_set?: JsonObject } } }
+        | undefined
+    )?.flow?.values;
+    assert.equal(
+      persistedFlowValues?.review_set?.job_results,
+      undefined,
+      'the parent flow retains its compact prepared manifest after validation',
+    );
     assert.equal(
       firstJobs
         .filter((job) => job.target_id !== null)

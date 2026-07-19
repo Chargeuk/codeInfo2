@@ -522,13 +522,15 @@ export async function validateReviewWave(
       continue;
     }
     const status = jobStatusFromValidation(pointerValidation);
+    const { validated_findings: _validatedFindings, ...validationMetadata } =
+      pointerValidation;
     results.push({
       ...job,
       status,
       pointer_path: pointerPath,
       validation_file: targetValidation?.validationFile ?? null,
       validation: {
-        ...pointerValidation,
+        ...validationMetadata,
         validation_mode: 'wave_target',
         story_id: targetResult.story_id,
         plan_path: targetResult.plan_path,

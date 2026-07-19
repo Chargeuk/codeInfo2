@@ -1690,7 +1690,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ### Task 29. Fix linting
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 
@@ -1711,3 +1711,4 @@ Testing step to ONLY check the linting after some manual fixes
 #### Implementation Notes
 
 - Subtask complete: ran `npm run lint`; ESLint passed with exit code 0 and no issues were reported, so no source changes were required.
+- Audit complete: the implementation and automated lint proof are evidenced by the completed checklist and recorded successful run; no source changes or user-facing behavior drift were introduced, and no blocker remains.

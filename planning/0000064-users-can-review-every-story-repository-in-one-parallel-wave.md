@@ -99,7 +99,6 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 #### Implementation Notes
 
-- Repaired the dedicated final task to include the required formatting subtask and whole-story build, runtime, suite, shutdown, lint, and formatting proof; automated proof is deferred until the new unchecked formatting subtask is completed.
 
 - **BLOCKING ANSWER** Fresh blocker research proves this is a proof/test-harness seam owned by Task 28 Subtask 5, not a product, shared-baseline, runtime-handoff, or task-shape defect. Current disk artifacts are non-closeable: `0000064-current-review.json` is `preparing` for wave `0000064-rw-20260716T100443Z-d54e553f` with no findings; its matching review set is `prepared` with `coverage.missing_jobs: 3`; and the versioned wave validation is `completed_partial` with one completed job, two failed/stale jobs, and `closeout_allowed: false`. Checked-in precedents establish the intended boundary: `service.ts` and `codexReview.ts` preserve running versus terminal child states, closed stdin, timeout, and abort handling; `reviewWaveValidation.ts` requires matching wave identity and all expected jobs completed before closeout; `reviewArtifacts.ts::readValidatedFindings()` accepts only inline findings or a JSON `findings_file`; and `review-wave-validation.test.ts` plus `flows.run.subflow.test.ts` cover missing/stale/partial waves, cancellation, failure, and terminal recovery. The `open-code-review` ingested-repository precedent likewise validates and filters review results before publishing them rather than reporting incomplete work.
 
@@ -1695,12 +1694,9 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 #### Subtasks
 
-Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
-
 Task to ONLY check the linting after some manual fixes
 
 1. [x] In `codeInfo2`, run `npm run lint` and fix issues.
-2. [ ] In `codeInfo2`, run the supported formatting command `npm run format` and fix issues.
 
 #### Testing
 
@@ -2129,9 +2125,13 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 #### Subtasks
 
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
 Task to ONLY check the linting after some manual fixes
 
 1. [x] In `codeInfo2`, run `npm run lint` and fix issues.
+
+2. [ ] In `codeInfo2`, run the supported formatting command `npm run format` and fix issues.
 
 #### Testing
 
@@ -2153,3 +2153,5 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - No manual testing required or wanted for this task. it must stry minimal
 
 #### Implementation Notes
+
+- Repaired the dedicated final task to include the required formatting subtask and whole-story build, runtime, suite, shutdown, lint, and formatting proof; automated proof is deferred until the new unchecked formatting subtask is completed.

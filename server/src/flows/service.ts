@@ -2695,6 +2695,20 @@ const getFlowConversationTerminalStatus = async (params: {
     );
   }
 
+  const conversation = await getConversation(params.conversationId);
+  const resumeState = parseFlowResumeState(
+    isRecord(conversation?.flags?.flow)
+      ? (conversation.flags.flow as Record<string, unknown>)
+      : undefined,
+  );
+  if (
+    resumeState?.restartReconciliation?.status === 'interrupted' ||
+    resumeState?.runLifecycle?.status === 'running' ||
+    resumeState?.runLifecycle?.status === 'orphaned'
+  ) {
+    return null;
+  }
+
   if (shouldUseMemoryPersistence()) {
     const turns = memoryTurns.get(params.conversationId) ?? [];
     for (let index = turns.length - 1; index >= 0; index -= 1) {

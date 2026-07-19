@@ -1712,3 +1712,4 @@ Testing step to ONLY check the linting after some manual fixes
 
 - Subtask complete: ran `npm run lint`; ESLint passed with exit code 0 and no issues were reported, so no source changes were required.
 - Audit complete: the implementation and automated lint proof are evidenced by the completed checklist and recorded successful run; no source changes or user-facing behavior drift were introduced, and no blocker remains.
+- Manual testing assessed as not applicable: Task 29 only verifies static lint output and has no runnable, browser-visible, or network-visible behavior; as the final task, full-story manual proof remains not applicable for the same reason. No manual runtime was started.

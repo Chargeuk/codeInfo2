@@ -2293,3 +2293,35 @@ Escalated review items requiring combined task-up:
 ### Ignored for This Story
 
 - None.
+
+### Task 38. Record Minor Review Fixes From Pass 0000064-20260719T223932Z-95741e5d79-c6e7c46c
+
+- Task Status: `__done__`
+
+#### Overview
+
+This completed audit records the terminal inline outcomes for this review pass.
+
+Escalated review items requiring combined task-up:
+
+- None.
+
+#### Subtasks
+
+1. [x] Fixed `632874705e890b70ad33a672f3f588a9c65fe06eaba62b5ea3c49ac6cd699909` — Story-owned compose changes removed the built-in markdown bind mount needed by packaged review flows. (`current_repository`); modified `docker-compose.yml`, `server/src/test/unit/host-network-compose-contract.test.ts`.
+2. [x] Fixed `c175ba2d0564cd6f46d156a35714f3ad84630b51ad481bb9ffe637f6e017911a` — The server accepted resume traffic before startup reconciliation completed. (`current_repository`); modified `server/src/index.ts`, `server/src/test/unit/flows-startup-reconciliation.test.ts`.
+3. [x] Fixed `f243a30a8eb7c868c137b9c0f30e0c358a01ecc64cb8cf99dd71e5bc9632dc7a` — A crash between child launch and parent-state persistence can duplicate wave jobs during resume. (`current_repository`); modified `server/src/flows/service.ts`, `server/src/test/integration/flows.run.subflow.test.ts`.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --test-name "restart recovery reattaches a launched wave child when the parent crashed before persisting it"` in `current_repository` — passed. The focused crash-window recovery regression passed; the parent reattaches the persisted child by execution and instance identity and does not launch a second conversation.
+2. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows-startup-reconciliation.test.ts` in `current_repository` — passed. The focused wrapper built the server and passed all 4 startup-reconciliation tests, including the listener-ordering regression guard.
+3. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/host-network-compose-contract.test.ts` in `current_repository` — passed. 7 focused compose contract tests passed, including the restored read-only codeinfo_markdown mount and its source bind-mount count.
+
+#### Implementation Notes
+
+- Review Task Role: `minor_fix_loop_audit`
+- Review Cycle Id: `0000064-rc-20260719T212516Z-7280f8e7`
+- Review Pass Id: `0000064-20260719T223932Z-95741e5d79-c6e7c46c`
+- Review Phase: `fast`
+- This task is a completed historical audit and does not replace final story revalidation.

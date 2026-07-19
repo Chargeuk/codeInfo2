@@ -5165,6 +5165,57 @@ async function runFlowUnlocked(params: {
         Boolean(activeSubflow),
       );
     const jobByInstanceId = new Map(jobs.map((job) => [job.instanceId, job]));
+    const resumeInterruptedWaveChild = async (
+      childRun: FlowActiveSubflow,
+    ): Promise<FlowActiveSubflow | null> => {
+      if (
+        !isWave ||
+        params.resumeState?.restartReconciliation?.status !== 'interrupted'
+      ) {
+        return null;
+      }
+
+      const childConversation = await getConversation(childRun.conversationId);
+      if (childConversation?.flowName !== childRun.flowName) return null;
+      const childResumeState = parseFlowResumeState(
+        isRecord(childConversation.flags)
+          ? (childConversation.flags as Record<string, unknown>)
+          : undefined,
+      );
+      if (!childResumeState) return null;
+
+      let resumedRunToken: string | undefined;
+      await startFlowRun({
+        flowName: childRun.flowName,
+        sourceId: params.repositoryContext.flowSourceId,
+        flowPath: params.flowPath,
+        codexReviewModelId: params.codexReviewModelId,
+        working_folder:
+          childRun.workingFolder ??
+          params.repositoryContext.workingRepositoryPath,
+        input: childRun.input,
+        customTitle: childRun.title,
+        parentWave: {
+          executionId: params.executionId,
+          instanceId: activeInstanceId(childRun),
+          ...(childRun.targetId ? { targetId: childRun.targetId } : {}),
+          displayName: childRun.title ?? childRun.flowName,
+        },
+        conversationId: childRun.conversationId,
+        resumeStepPath:
+          childResumeState.restartReconciliation?.resumeStepPath ??
+          childResumeState.stepPath,
+        source: params.source,
+        chatFactory: params.chatFactory,
+        listIngestedRepositories:
+          params.repositoryContext.listIngestedRepositories,
+        onOwnershipReady: ({ runToken }) => {
+          resumedRunToken = runToken;
+        },
+      });
+      if (!resumedRunToken) return null;
+      return { ...childRun, runToken: resumedRunToken };
+    };
     const buildTrackedSubflowTitle = (job: SubflowWaveJob) =>
       rememberedSubflowsByInstance.get(job.instanceId)?.title ??
       buildSubflowConversationTitle({
@@ -5400,6 +5451,11 @@ async function runFlowUnlocked(params: {
         });
         if (status || getActiveRunOwnership(childRun.conversationId)) {
           resumableChildRuns.push(childRun);
+          continue;
+        }
+        const resumedChildRun = await resumeInterruptedWaveChild(childRun);
+        if (resumedChildRun) {
+          resumableChildRuns.push(resumedChildRun);
           continue;
         }
         recordChildOutcome({

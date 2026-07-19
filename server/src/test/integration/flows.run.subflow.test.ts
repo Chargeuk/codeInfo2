@@ -346,12 +346,14 @@ const activeSubflowState = (params: {
   flowName: string;
   conversationId: string;
   runToken: string;
+  instanceId?: string;
   title?: string;
 }) => ({
   stepPath: params.stepPath,
   flowName: params.flowName,
   conversationId: params.conversationId,
   runToken: params.runToken,
+  ...(params.instanceId ? { instanceId: params.instanceId } : {}),
   ...(params.title ? { title: params.title } : {}),
 });
 
@@ -4611,6 +4613,142 @@ test('resume tolerates stale subflows that have no active child run or terminal 
     assert.match(
       String(finalAssistant?.content ?? ''),
       /best effort: 0 succeeded, 1 failed/u,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('restart recovery resumes an interrupted wave child in its existing conversation', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-restart-recovery-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-wave-restart',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-wave-restart',
+      steps: [
+        {
+          type: 'subflowWave',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'restart',
+              flowName: 'child-wave-restart',
+            },
+          ],
+        },
+      ],
+    });
+
+    const childConversationId = 'wave-restart-child-conversation';
+    const parentConversationId = 'wave-restart-parent-conversation';
+    const now = new Date();
+    memoryConversations.set(childConversationId, {
+      _id: childConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Restarted Wave Child',
+      flowName: 'child-wave-restart',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'wave-restart-child-execution',
+          stepPath: [],
+          loopStack: [],
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Restarted Wave Parent',
+      flowName: 'parent-wave-restart',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'wave-restart-parent-execution',
+          stepPath: [],
+          loopStack: [],
+          restartReconciliation: {
+            status: 'interrupted',
+            reconciledAt: now.toISOString(),
+            resumeStepPath: [],
+            interruptedSubflowCount: 1,
+            interruptedWaveRunningCount: 1,
+          },
+          activeSubflows: [
+            activeSubflowState({
+              stepPath: [0],
+              flowName: 'child-wave-restart',
+              conversationId: childConversationId,
+              runToken: 'interrupted-wave-child-run-token',
+              instanceId: 'restart:child-wave-restart',
+              title: 'Restarted Wave Parent-child-wave-restart',
+            }),
+          ],
+          subflowWaveProgress: {
+            stepPath: [0],
+            expected: 1,
+            running: 1,
+            completed: 0,
+            failed: 0,
+            stopped: 0,
+            notApplicable: 0,
+            jobs: [
+              {
+                instanceId: 'restart:child-wave-restart',
+                flowName: 'child-wave-restart',
+                title: 'Restarted Wave Parent-child-wave-restart',
+                status: 'running',
+              },
+            ],
+            updatedAt: now.toISOString(),
+          },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-wave-restart',
+      conversationId: parentConversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25),
+    });
+
+    assert.equal(resumed.conversationId, parentConversationId);
+    await waitForAssistantStatus(parentConversationId, 'ok');
+    await waitForAssistantStatus(childConversationId, 'ok');
+    assert.equal(
+      memoryConversations.get(childConversationId)?.flowName,
+      'child-wave-restart',
+    );
+    assert.equal(
+      Array.from(memoryConversations.values()).filter(
+        (conversation) => conversation.flowName === 'child-wave-restart',
+      ).length,
+      1,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

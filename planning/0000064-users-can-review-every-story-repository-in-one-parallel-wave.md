@@ -1784,3 +1784,38 @@ Testing step to ONLY check the linting after some manual fixes
 - Review pass `0000064-20260719T100027Z-040c43d7f6-0e3d4ebc`; finding `b92320f553ab7922313614cb9c0c1753b08e92761bde701f886c19de9d9cc11a`; repository `current_repository`; interrupted wave children now resume without duplicate child conversations; changed files `server/src/flows/service.ts`, `server/src/test/integration/flows.run.subflow.test.ts`; commit `13e8deff9b3a7cbc6500567ebcc4bf83a2b0c431`; targeted proof `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts` passed (all 49 focused subflow integration tests, including restart recovery); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 - Review pass `0000064-20260719T100027Z-040c43d7f6-0e3d4ebc`; finding `65d50c0e704e6567f021c9a1a08a0c831b17e6469a311677e9252b0d6c247402`; repository `current_repository`; outcome `skipped` because stored state confirms partial-wave publication is already implemented and no tracked source change was needed; changed files `none`; commit `none`; stored targeted proof `npm run test:summary:server:unit -- --file server/src/test/unit/review-wave-validation.test.ts` passed (including the partial-and-stale canonical publication regression); stale finding removed from the minor queue without marking it resolved or creating a numbered task.
 - Review pass `0000064-20260719T100027Z-040c43d7f6-0e3d4ebc`; finding `266a2007dfe8faf7f1864982cb056b28877da471218fcc240a3af25449237772`; repository `current_repository`; finalized review manifests remain artifact-backed instead of entering bounded flow state, and redundant raw finding detail is omitted from per-job validation metadata; changed files `server/src/flows/service.ts`, `server/src/flows/reviewWaveValidation.ts`, `server/src/test/integration/review-production-loop.test.ts`; commit `08891227e7442cbe91093e2644b9a723417139c0`; targeted proof `npm run test:summary:server:unit -- --file server/src/test/integration/review-production-loop.test.ts` passed (oversized finalized-manifest regression) and `npm run test:summary:server:unit -- --file server/src/test/unit/review-wave-validation.test.ts` passed (all 9 review-wave validation tests); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
+
+### Task 30. Record Minor Review Fixes From Pass 0000064-20260719T100027Z-040c43d7f6-0e3d4ebc
+
+- Task Status: `__done__`
+
+#### Overview
+
+This completed audit records the terminal inline outcomes for this review pass.
+
+Escalated review items requiring combined task-up:
+
+- None.
+
+#### Subtasks
+
+1. [x] Fixed `19c0ef365de42e2a27620308365de60dba67a22ae17c78e39b0782f38bc670ef` — Partial or failed wave results are hidden from the canonical handoff (`current_repository`); modified `server/src/flows/reviewWaveValidation.ts`, `server/src/test/unit/review-wave-validation.test.ts`.
+2. [x] Fixed `266a2007dfe8faf7f1864982cb056b28877da471218fcc240a3af25449237772` — Finalized review manifests remain in canonical artifacts instead of bounded flow state, and redundant raw finding detail is omitted from per-job validation metadata. (`current_repository`); modified `server/src/flows/reviewWaveValidation.ts`, `server/src/flows/service.ts`, `server/src/test/integration/review-production-loop.test.ts`.
+3. [x] Fixed `b92320f553ab7922313614cb9c0c1753b08e92761bde701f886c19de9d9cc11a` — Restart recovery cannot resume interrupted wave children (`current_repository`); modified `server/src/flows/service.ts`, `server/src/test/integration/flows.run.subflow.test.ts`.
+4. [x] Fixed `d5e614037a7d68afb59ddd0031c6305fa13d91106b1ae34dafaac9249534d8e2` — Reject OpenCode manifests whose bundle paths do not exactly account for the prepared committed diff. (`current_repository`); modified `scripts/publish_open_code_review.py`, `scripts/test/test_publish_open_code_review.py`.
+5. [x] Fixed `f2dba913f06f2b7b54bdcc511b258d2f97410d0ca97426fcb9636a62e3941fbe` — Malformed cross-repository output can permit a clean multi-target closeout (`current_repository`); modified `server/src/flows/reviewWaveValidation.ts`, `server/src/test/unit/review-wave-validation.test.ts`.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts` in `current_repository` — passed. Focused server-unit wrapper passed all 49 subflow integration tests, including restart recovery without a duplicate child conversation.
+2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/review-production-loop.test.ts` in `current_repository` — passed. Focused production review-loop wrapper passed the oversized finalized-manifest regression.
+3. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/review-wave-validation.test.ts` in `current_repository` — passed. Focused server-unit wrapper passed all 9 review-wave validation tests.
+4. [x] `python3 -m unittest scripts.test.test_publish_open_code_review` in `current_repository` — passed. 14 focused publisher tests passed, including the committed-path omission regression.
+
+#### Implementation Notes
+
+- Review Task Role: `minor_fix_loop_audit`
+- Review Cycle Id: `0000064-rc-20260719T100026Z-847d9186`
+- Review Pass Id: `0000064-20260719T100027Z-040c43d7f6-0e3d4ebc`
+- Review Phase: `fast`
+- This task is a completed historical audit and does not replace final story revalidation.

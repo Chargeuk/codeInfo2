@@ -1713,3 +1713,65 @@ Testing step to ONLY check the linting after some manual fixes
 - Subtask complete: ran `npm run lint`; ESLint passed with exit code 0 and no issues were reported, so no source changes were required.
 - Audit complete: the implementation and automated lint proof are evidenced by the completed checklist and recorded successful run; no source changes or user-facing behavior drift were introduced, and no blocker remains.
 - Manual testing assessed as not applicable: Task 29 only verifies static lint output and has no runnable, browser-visible, or network-visible behavior; as the final task, full-story manual proof remains not applicable for the same reason. No manual runtime was started.
+
+## Code Review Findings
+
+- Review pass: `0000064-20260719T100027Z-040c43d7f6-0e3d4ebc`
+- Review cycle: `0000064-rc-20260719T100026Z-847d9186`
+- Comparison context: local `HEAD` `040c43d7f650d74417699292f22830d73560f537` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
+- Wave coverage and ownership: fast wave `0000064-rw-20260719T100027Z-8573b46e` expected three jobs and completed all three with zero failed, missing, or invalid jobs. The sole prepared target and implementation owner is `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`; its cross-repository result is the validated singleton `not_applicable` outcome because the target count is one.
+- Severity conflicts and provenance: the validated aggregate contains six findings and zero severity conflicts. The Codex Review and Open Code Review target-local validations match the exact story, session, pass, parent, wave, target, HEAD, and comparison-base identities. The main review was not requested in this validation phase, and the fallback findings artifact is the canonical merge target for the usable Codex and Open Code Review results; the referenced merge artifacts recorded no rejected or deferred current-pass candidates.
+
+### Accepted
+
+#### 1. Malformed cross-repository output can permit a clean multi-target closeout
+
+- Finding ID: `f2dba913f06f2b7b54bdcc511b258d2f97410d0ca97426fcb9636a62e3941fbe`
+- Found by: Codex Review
+- Description: The validator can treat a cross-repository result as complete using only a few identity fields and `status: completed`, without checking the required schema, target coverage, relationships, or finding ownership.
+- Example: An artifact can claim `completed` while omitting the inspected target set, allowing `closeout_allowed` to become true without proving multi-target coverage.
+- Why accepted: Story 64 explicitly requires validated cross-repository coverage and prevents a clean multi-target closeout when that coverage is invalid.
+
+#### 2. Partial or failed wave results are hidden from the canonical handoff
+
+- Finding ID: `19c0ef365de42e2a27620308365de60dba67a22ae17c78e39b0782f38bc670ef`
+- Found by: Codex Review
+- Description: A partial wave can leave the stable review set at its earlier prepared state instead of publishing the finalized coverage and findings that validation produced.
+- Example: If one child is partial, downstream disposition may see a prepared manifest and no matching finalized validation, so it cannot record the missing or invalid coverage honestly.
+- Why accepted: Story 64 requires the canonical review-set manifest and coverage state to remain visible for every wave outcome.
+
+#### 3. Restart recovery cannot resume interrupted wave children
+
+- Finding ID: `b92320f553ab7922313614cb9c0c1753b08e92761bde701f886c19de9d9cc11a`
+- Found by: Codex Review
+- Description: After restart, interrupted children can retain remembered instance IDs that block relaunch, while earlier assistant activity can be mistaken for terminal completion.
+- Example: A child interrupted before a terminal turn can be marked failed but still be skipped on resume because its old instance ID remains registered.
+- Why accepted: Story 64 explicitly requires cancellation and resume to reattach active wave children without skipping interrupted review work or launching duplicates.
+
+#### 4. Publish finalized partial waves to the stable review-set artifacts
+
+- Finding ID: `65d50c0e704e6567f021c9a1a08a0c831b17e6469a311677e9252b0d6c247402`
+- Found by: Open Code Review
+- Description: Finalized review-set and validation artifacts are promoted only when closeout is allowed, so a partial wave can leave stale prepared artifacts in the stable locations.
+- Example: A wave with a missing or failed child can have usable partial findings, but the stable paths still expose the earlier prepared manifest instead of that finalized partial result.
+- Why accepted: Story 64 requires post-wave validation to preserve honest partial coverage and canonical artifact state even when closeout is not allowed.
+
+#### 5. Do not run finalized review sets through the 64 KiB child-input limit
+
+- Finding ID: `266a2007dfe8faf7f1864982cb056b28877da471218fcc240a3af25449237772`
+- Found by: Open Code Review
+- Description: The complete finalized review set is passed through a 64 KiB flow-input limit even though review outputs can legitimately be larger.
+- Example: A valid wave with enough detailed findings can fail in `normalizeFlowInput` after validation has already produced its artifacts.
+- Why accepted: Story 64 requires bounded child inputs while preserving complete validated review output, so finalized aggregate data must not be lost to the child-input ceiling.
+
+#### 6. Reject manifests that silently omit committed diff paths
+
+- Finding ID: `d5e614037a7d68afb59ddd0031c6305fa13d91106b1ae34dafaac9249534d8e2`
+- Found by: Open Code Review
+- Description: The publisher can report complete coverage from declared counts without proving that every committed path is represented or explicitly excluded.
+- Example: The prepared diff contains 149 paths while the generated manifest accounts for 148 and omits `codeInfoStatus/flow-state/current-plan.json` from both reviewed and skipped paths.
+- Why accepted: Story 64 explicitly requires target-local review coverage and canonical artifacts to account for the reviewed repository contents.
+
+### Ignored for This Story
+
+- None.

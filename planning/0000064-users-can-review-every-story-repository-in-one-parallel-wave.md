@@ -1690,7 +1690,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ### Task 29. Fix linting
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 
 #### Subtasks
 

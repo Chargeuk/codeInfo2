@@ -131,9 +131,9 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.doesNotMatch(mainServer, /\.\/codex_agents:/u);
   assert.doesNotMatch(mainServer, /\.\/flows-sandbox:/u);
   assert.doesNotMatch(mainServer, /\.\/scripts:\/app\/scripts/u);
-  assert.doesNotMatch(
+  assert.match(
     mainServer,
-    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown/u,
+    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u,
   );
   assert.match(
     mainServer,
@@ -161,7 +161,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,
   );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
-  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=3/u);
+  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4/u);
   assert.match(
     mainServer,
     /CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012,5013/u,

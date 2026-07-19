@@ -1819,3 +1819,197 @@ Escalated review items requiring combined task-up:
 - Review Pass Id: `0000064-20260719T100027Z-040c43d7f6-0e3d4ebc`
 - Review Phase: `fast`
 - This task is a completed historical audit and does not replace final story revalidation.
+
+## Code Review Findings
+
+- Review pass: `0000064-20260719T135300Z-05ceb47091-43e2cbc8`
+- Review cycle: `0000064-rc-20260719T100026Z-847d9186`
+- Comparison context: local `HEAD` `05ceb470914282402ab3e8f0f38650292e86b997` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, remote `origin`, and remote fetch status `success`.
+- Wave coverage and ownership: `current_repository` is the only stored target and implementation owner. The fast wave `0000064-rw-20260719T131929Z-3a41d405` is `completed_partial` with `closeout_allowed: false`; the slow wave `0000064-rw-20260719T135300Z-baa17781` is `invalid` with `closeout_allowed: false`. The current handoff is `partial`, its fallback findings artifact says the main review was unavailable, and no validated current-pass review source is available for routing.
+- Confidence note: the disposition state has five `incomplete_review_blockers`, but its routed finding arrays and counts are zero while `needs_task_up_path` and `has_unresolved_task_required_findings` are true. This plan records the blocker bucket as incomplete review state only; it does not treat any fallback-artifact candidate as accepted or ignored.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+- None.
+
+### Task 31. Complete Current Story 64 Review Coverage Before Closeout
+
+- Task Status: `__to_do__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `review_finding_repair`
+- Prerequisite: Tasks 1-30 remain historical story work; complete this bounded review-coverage repair before the fresh final revalidation task.
+- Review Pass ID: `0000064-20260719T135300Z-05ceb47091-43e2cbc8`
+- Review Cycle ID: `0000064-rc-20260719T100026Z-847d9186`
+
+#### Overview
+
+The stored current review outcome is incomplete, not clean. The handoff and disposition state agree on Story 64, the plan, review session, review pass, parent execution, current HEAD, and `origin/main` comparison base, but the fast and slow review artifacts do not provide a usable closeout: the fast wave is partial and the slow wave is invalid, both with `closeout_allowed: false`. The disposition state routes no findings because no server-owned current-pass finding is validated; its five incomplete-review blockers are the only task-up inputs. Complete or deterministically preserve this exact review coverage outcome before any later disposition pass treats review findings as actionable, and never claim clean closeout from the fallback Markdown artifact.
+
+#### Non-Goals
+
+- Do not implement the raw candidates mentioned by any fallback or challenge artifact; they have no validated current-pass routing identity.
+- Do not change Story 64 user-facing behavior, the existing `subflow` contract, the review topology, or the single-repository scope.
+- Do not reuse the failed fast or invalid slow wave identities, invent findings, or treat partial/invalid coverage as a clean result.
+
+#### Addresses Findings
+
+- `review-wave-identity-mismatch` -> produce or preserve a matching fast review-set and wave-validation pair for the exact story, phase, parent execution, target hash, HEAD, and comparison base.
+- `missing-current-wave-coverage` -> obtain usable completed or partial target-local results plus the required singleton cross-repository result for the fast wave, or keep the missing coverage explicitly non-closeable.
+- `current-slow-wave-identity-mismatch` -> produce a matching slow review-set and wave-validation pair for the exact current review session and pass.
+- `missing-current-slow-wave-coverage` -> obtain the expected target-local slow result and aggregate its validated outcome, or keep the slow phase explicitly invalid/incomplete.
+- `fast-review-coverage-exhausted` -> preserve the bounded exhaustion result and prevent the review loop from claiming convergence without the required terminal coverage.
+- Current review pass `0000064-20260719T135300Z-05ceb47091-43e2cbc8` -> keep the one structured findings block above as the sole decision record; do not create a second findings summary.
+
+#### Task Exit Criteria
+
+- A fresh immutable target snapshot and fresh fast/slow wave identities use the stored Story 64 repository scope and current HEAD/base; older identities are not reused.
+- The fast phase validates both target-local jobs and the singleton cross-repository result with server-owned usability and exact identity fields, while the slow phase validates its one target-local job with the same gates.
+- If usable findings exist, only the matching server-owned aggregate and its complete source objects enter disposition; fallback Markdown and artifact-only candidates remain unrouted.
+- If any expected job remains missing, failed, stale, or unusable, the plan and disposition state retain `closeout_allowed: false`, the relevant blocker, and an honest incomplete outcome rather than claiming no findings.
+- The current review pass has exactly one structured `## Code Review Findings` block, and the next final task is the only final revalidation owner for this review cycle.
+
+#### Risk Ownership
+
+- Implementation owner: `codeInfo2` owns the target snapshot, review-set/wave validation, canonical artifact handoff, and disposition boundary.
+- Scope boundary: this task repairs review evidence integrity and routing state only; it must not widen approved Story 64 behavior.
+
+#### Owner Map
+
+- `codeInfo2`: `server/src/flows/reviewSet.ts`, `server/src/flows/reviewWaveValidation.ts`, review pointer/validation producers and consumers, and the current review disposition handoff.
+
+#### Requirement-To-Proof Mapping
+
+- Fast coverage -> the review-set and wave-validation artifacts must enumerate the two target-local jobs and singleton cross-repository job, preserve usable results and sources, and reject clean closeout for missing or invalid cells.
+- Slow coverage -> the final slow artifacts must enumerate the one heavyweight target-local job and reject closeout when its result is missing or invalid.
+- Identity and provenance -> every consumed result must match story, phase, wave, pass/session, parent execution, target, HEAD, comparison base, and server-owned validation identity before aggregation.
+- Disposition -> only validated server-owned findings are routed; incomplete coverage remains visible in state and in the single current-pass plan block.
+
+#### Proof Mapping
+
+- The five disposition blockers -> fresh matching fast/slow artifacts, server-owned per-job validation, and explicit non-closeable fallback state.
+- Current review pass -> the exact findings block above, the matching disposition state, and Task 32's whole-story revalidation.
+
+#### Affected Repositories
+
+- `codeInfo2` only. `current-plan.json` declares no additional repositories, so no cross-target implementation owner or cross-repository proof task is required for this current finding.
+- Affected proof surfaces are the server review-wave and artifact contracts, the review-cycle wrapper, canonical review artifacts, and the existing Story 64 plan/disposition state.
+
+#### Documentation Locations
+
+- Canonical review decisions: the single current-pass `## Code Review Findings` block in this plan.
+- Review evidence and routing: `codeInfoTmp/reviews/0000064-current-review.json`, its fallback findings artifact, the referenced current-pass challenge/evidence artifacts, and `codeInfoStatus/flow-state/review-disposition-state.json`.
+
+#### Subtasks
+
+1. [ ] Prepare a fresh immutable Story 64 target snapshot from the stored `current-plan.json` scope and current repository HEAD/base, then create fresh fast and slow review-set/wave identities without reusing the invalid identities recorded in the current blockers.
+2. [ ] Run the supported two-phase review path so every expected fast target-local job, the singleton cross-repository fast job, and the expected slow target-local job reach a terminal server-owned validation outcome or are explicitly preserved as missing/failed/invalid.
+3. [ ] Reconcile only the exact matching review-set and wave-validation artifacts into disposition state, preserving every validated finding and complete `review_sources` object; leave fallback-artifact candidates unrouted when the authoritative artifacts cannot be reconciled.
+4. [ ] Update the existing current-pass outcome and disposition flags without creating another findings block: record usable routed findings if they exist, otherwise retain the five blocker identities and `closeout_allowed: false` so the review cannot exit cleanly.
+
+#### Testing
+
+1. [ ] In `codeInfo2`, run `npm run build:summary:server` before the review-flow proof.
+2. [ ] In `codeInfo2`, run `npm run compose:build:summary`, then start the supported main stack with `npm run compose:up`.
+3. [ ] Run `npm run review:cycle:summary -- --working-folder /Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` and verify the regenerated artifacts use fresh identities and the exact stored Story 64 scope.
+4. [ ] Run `npm run test:summary:server:unit -- --skip-build --file server/src/test/unit/review-wave-validation.test.ts --file server/src/test/unit/review-set.test.ts --file server/src/test/unit/review-target-contract.test.ts --file server/src/test/unit/review-artifacts.test.ts` to prove identity gates, coverage classification, source-preserving aggregation, and non-closeable incomplete results.
+5. [ ] Stop the supported main stack with `npm run compose:down` after the review-flow proof, without touching any `compose:local` services.
+6. [ ] Run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` and verify this pass has one findings block, blocker coverage remains visible when evidence is incomplete, and Task 32 is the only final revalidation owner.
+
+#### Manual Testing Guidance
+
+- No separate browser proof is required for this review-evidence task. If the supported main stack is used, use only `npm run compose:up` and `npm run compose:down`, preserve any active local stack, and record an allowed authentication skip rather than attempting re-authentication when repository guidance requires human-controlled two-factor authentication.
+
+#### Implementation Notes
+
+- Created as the bounded incomplete-review follow-up for the five validated blockers in the current disposition state. The state reports task-up required while routed finding arrays remain empty; this task preserves that mismatch as incomplete review state instead of promoting fallback candidates.
+- The task owns one repository only. No additional repository is in stored scope, so cross-target implementation proof is not required.
+
+### Task 32. Re-Validate Story 64 After Current Review Coverage Repair
+
+- Task Status: `__to_do__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `final_revalidation`
+- Prerequisite: Task 31 is complete and its current-pass review artifacts and disposition state are durable before this task starts.
+- Review Pass ID: `0000064-20260719T135300Z-05ceb47091-43e2cbc8`
+- Review Cycle ID: `0000064-rc-20260719T100026Z-847d9186`
+
+#### Overview
+
+This is the sole final revalidation task for the active Story 64 review cycle. Revalidate the whole story, Task 31's repaired current-pass review outcome, the exact current-pass `Code Review Findings` block, and the five findings resolved inline during the same cycle: `d5e614037a7d68afb59ddd0031c6305fa13d91106b1ae34dafaac9249534d8e2`, `f2dba913f06f2b7b54bdcc511b258d2f97410d0ca97426fcb9636a62e3941fbe`, `19c0ef365de42e2a27620308365de60dba67a22ae17c78e39b0782f38bc670ef`, `b92320f553ab7922313614cb9c0c1753b08e92761bde701f886c19de9d9cc11a`, and `266a2007dfe8faf7f1864982cb056b28877da471218fcc240a3af25449237772`. Do not create another final task for the inline minor fixes, and do not close the story while the current review outcome is incomplete or any listed proof is stale.
+
+#### Non-Goals
+
+- Do not add product behavior, broaden Story 64, or turn the five resolved minor findings into new numbered tasks.
+- Do not treat a successful build or test as permission to ignore invalid review coverage, missing provenance, or an incomplete current-pass outcome.
+
+#### Addresses Findings
+
+- Current pass `0000064-20260719T135300Z-05ceb47091-43e2cbc8` and blockers `review-wave-identity-mismatch`, `missing-current-wave-coverage`, `current-slow-wave-identity-mismatch`, `missing-current-slow-wave-coverage`, and `fast-review-coverage-exhausted` -> whole-story proof after Task 31.
+- Resolved minor findings `d5e614037a7d68afb59ddd0031c6305fa13d91106b1ae34dafaac9249534d8e2`, `f2dba913f06f2b7b54bdcc511b258d2f97410d0ca97426fcb9636a62e3941fbe`, `19c0ef365de42e2a27620308365de60dba67a22ae17c78e39b0782f38bc670ef`, `b92320f553ab7922313614cb9c0c1753b08e92761bde701f886c19de9d9cc11a`, and `266a2007dfe8faf7f1864982cb056b28877da471218fcc240a3af25449237772` -> re-run their affected whole-story proof without creating duplicate tasks.
+
+#### Task Exit Criteria
+
+- Task 31 is complete, the current-pass findings block appears exactly once, and disposition state names this task as the only final revalidation owner for review cycle `0000064-rc-20260719T100026Z-847d9186`.
+- The whole Story 64 implementation and all five inline-resolved minor repairs are covered by the full build, supported runtime lifecycle, all relevant full suites, lint, and formatting checks below.
+- The final outcome is either a fully validated current review with honest routed findings or an explicitly incomplete non-closeable outcome; no clean closeout is claimed from missing or invalid coverage.
+
+#### Risk Ownership
+
+- Administrative owner: `codeInfo2` owns whole-story closeout proof and any practical story-caused repair found by these checks.
+- This task may repair a story-caused failure exposed by final validation, but it must not widen approved behavior or reopen older tasks solely because their code is implicated.
+
+#### Owner Map
+
+- `codeInfo2`: server review-wave/runtime surfaces, client flow/sidebar surfaces, flow-control scripts, server Cucumber suite, client suite, Playwright e2e suite, and supported main Compose stack.
+
+#### Requirement-To-Proof Mapping
+
+- Story 64 acceptance criteria -> the full server/client/Compose builds, supported main-stack lifecycle, complete client/server/Cucumber/e2e suites, lint, and formatting below.
+- Current review cycle and resolved minor findings -> Task 31's artifact/disposition outcome plus the same full proof after the latest repair.
+
+#### Proof Mapping
+
+- Task 31 -> current review identity, coverage, server-owned source validation, and non-closeable incomplete-state proof.
+- Whole story -> full build, supported startup, all relevant full automated suites, matching shutdown, lint, and formatting.
+
+#### Affected Repositories
+
+- `codeInfo2` only. No additional repository is in the stored plan scope.
+- Proof inventory: server workspace and review-flow artifacts, client workspace and flow/sidebar surfaces, flow-control scripts, server Cucumber suite, client suite, Playwright e2e suite, and the supported main Compose stack.
+
+#### Documentation Locations
+
+- Final review outcome: the current-pass `## Code Review Findings` block and `review-disposition-state.json`.
+- Final proof: this task's checked Testing items and Implementation Notes.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] In `codeInfo2`, run `npm run lint` and fix story-caused issues.
+2. [ ] In `codeInfo2`, run `npm run format:check` and fix story-caused issues.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
+2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
+3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [ ] Start the supported main stack with `npm run compose:up`.
+5. [ ] Run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, and full Playwright e2e suite.
+6. [ ] Stop the supported main stack with `npm run compose:down`.
+7. [ ] In `codeInfo2`, run `npm run lint`.
+8. [ ] In `codeInfo2`, run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+- Use the supported main stack only through `npm run compose:up` and `npm run compose:down` after the supported builds. Recheck Story 64's one-target and three-target review identity, cancellation/resume behavior, target artifact isolation, cross-repository finding behavior, and the absence of duplicate final-task ownership. If provider authentication requires human-controlled two-factor authentication, document the allowed skip without attempting re-authentication.
+
+#### Implementation Notes
+
+- Created as the one fresh final revalidation owner for review cycle `0000064-rc-20260719T100026Z-847d9186`; it covers the whole story, Task 31, and all five inline-resolved minor findings.

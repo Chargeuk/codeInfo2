@@ -99,6 +99,8 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 
 #### Implementation Notes
 
+- Repaired the dedicated final task to include the required formatting subtask and whole-story build, runtime, suite, shutdown, lint, and formatting proof; automated proof is deferred until the new unchecked formatting subtask is completed.
+
 - **BLOCKING ANSWER** Fresh blocker research proves this is a proof/test-harness seam owned by Task 28 Subtask 5, not a product, shared-baseline, runtime-handoff, or task-shape defect. Current disk artifacts are non-closeable: `0000064-current-review.json` is `preparing` for wave `0000064-rw-20260716T100443Z-d54e553f` with no findings; its matching review set is `prepared` with `coverage.missing_jobs: 3`; and the versioned wave validation is `completed_partial` with one completed job, two failed/stale jobs, and `closeout_allowed: false`. Checked-in precedents establish the intended boundary: `service.ts` and `codexReview.ts` preserve running versus terminal child states, closed stdin, timeout, and abort handling; `reviewWaveValidation.ts` requires matching wave identity and all expected jobs completed before closeout; `reviewArtifacts.ts::readValidatedFindings()` accepts only inline findings or a JSON `findings_file`; and `review-wave-validation.test.ts` plus `flows.run.subflow.test.ts` cover missing/stale/partial waves, cancellation, failure, and terminal recovery. The `open-code-review` ingested-repository precedent likewise validates and filters review results before publishing them rather than reporting incomplete work.
 
   External confirmation matches the local contract: Context7's official Node.js documentation says `execFile` callbacks run when the child terminates and aborts surface as `AbortError`; DeepWiki's `openai/codex` lifecycle distinguishes progress events such as `turn/started` and `item/started` from terminal `turn/completed` states (`completed`, `interrupted`, or `failed`). Targeted issue research confirms timeout-without-verdict ambiguity in [Codex issue #14335](https://github.com/openai/codex/issues/14335) and a separate non-TTY stdin hang in [Codex issue #20919](https://github.com/openai/codex/issues/20919); the local `execFileWithClosedStdin()` already addresses the latter, so it is not the remaining fix. The chosen solution is to preserve the incomplete wave as blocker evidence, create a fresh immutable target snapshot and wave/review-set identity at the current HEAD/base, rerun the supported fast/slow publication path, and reconcile only after terminal child outcomes plus matching pointer, review-set, validation, structured-findings, and server-owned source identities agree. This fits the current repository because the validator and runner already implement those gates and the artifacts show the exact non-terminal/stale state. Arbitrary longer waits, retrying the same wave, treating silence or HTTP 202 as completion, parsing Markdown downstream, fabricating JSON, or changing resume/product code are rejected because they bypass the existing terminal, coverage, and provenance contracts. No prerequisite task or plan split is justified; the live blocker remains until supported reviewer execution produces terminal artifacts.
@@ -1693,9 +1695,12 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 #### Subtasks
 
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
 Task to ONLY check the linting after some manual fixes
 
 1. [x] In `codeInfo2`, run `npm run lint` and fix issues.
+2. [ ] In `codeInfo2`, run the supported formatting command `npm run format` and fix issues.
 
 #### Testing
 
@@ -2117,3 +2122,34 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - The final full parallel suite passed: client 900/900, server unit/integration 2651/2651, server Cucumber 138/138, and Playwright e2e 77/77. Two earlier full-suite attempts exposed and then verified repairs for structural loop checkpoint preservation and the exact final-task marker prompt contract.
 - Final repository lint passed with zero warnings or errors; no further source repair was required.
 - Final Prettier verification passed across every tracked supported file type; no formatting repair was required.
+
+### Task 36. Fix linting
+
+- Task Status: `__in_progress__`
+
+#### Subtasks
+
+Task to ONLY check the linting after some manual fixes
+
+1. [x] In `codeInfo2`, run `npm run lint` and fix issues.
+
+#### Testing
+
+Testing step to ONLY check the linting after some manual fixes
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
+2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
+3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [ ] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
+5. [ ] In `codeInfo2`, run the full client, server unit, server cucumber, shell, host-network, and e2e automated suites with `npm run test:summary:all:parallel`, `npm run test:summary:shell`, and `npm run test:summary:host-network:main`.
+6. [ ] In `codeInfo2`, stop the main stack with `npm run compose:down`.
+7. [ ] Run `npm run lint`.
+8. [ ] Run `npm run format`.
+
+#### Manual Testing Guidance
+
+- No manual testing required or wanted for this task. it must stry minimal
+
+#### Implementation Notes

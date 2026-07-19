@@ -2252,3 +2252,41 @@ Escalated review items requiring combined task-up:
 - Review Pass Id: `0000064-20260719T212516Z-52af6cfac4-32769dc2`
 - Review Phase: `fast`
 - This task is a completed historical audit and does not replace final story revalidation.
+
+## Code Review Findings
+
+- Review pass: `0000064-20260719T223932Z-95741e5d79-c6e7c46c`
+- Review cycle: `0000064-rc-20260719T212516Z-7280f8e7`
+- Comparison context: local `HEAD` `95741e5d79b328f0ade94b61769ce6742b64e6b1` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
+- Wave coverage and ownership: fast wave `0000064-rw-20260719T223932Z-4aced681` expected three jobs and completed two. `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` is the sole prepared target and implementation owner; Codex Review completed with usable validation, Open Code Review is stale/unusable, and the required cross-repository result is `not_applicable` for the singleton target without usable required coverage. The wave is `completed_partial` with `closeout_allowed: false`.
+- Severity conflicts and provenance: the validated aggregate contains three findings, all `P1`, with zero severity conflicts. Every accepted finding has one validated `Codex Review` source for `current_repository`; no current-pass rejected or non-adopted artifact candidates were recorded.
+
+### Accepted
+
+#### 1. Story-owned compose changes removed the built-in markdown bind mount
+
+- Finding ID: `632874705e890b70ad33a672f3f588a9c65fe06eaba62b5ea3c49ac6cd699909`
+- Found by: Codex Review
+- Description: The story-owned compose configuration no longer mounts the built-in markdown assets into the server, so packaged review flows can fail when the target repository does not provide that markdown tree.
+- Example: A built-in flow running against a repository without its own `codeinfo_markdown` tree reaches a `markdownFile` step and cannot find `/app/codeinfo_markdown`.
+- Why accepted: The story removed the existing bind mount, and restoring that story-owned mount is a bounded in-scope correction for the review runtime. The broader Dockerfile packaging suggestion is not adopted automatically.
+
+#### 2. A crash before parent-state persistence can duplicate wave jobs
+
+- Finding ID: `f243a30a8eb7c868c137b9c0f30e0c358a01ecc64cb8cf99dd71e5bc9632dc7a`
+- Found by: Codex Review
+- Description: If a child starts and the parent crashes before saving its conversation and run identity, resume can launch a second child for the same wave instance.
+- Example: The child remains discoverable through `flowChild` metadata while the parent still marks the job pending, so resume has no saved identity to reattach to.
+- Why accepted: Story 64 explicitly requires resume without duplicate launches, and this finding concerns the story-owned wave lifecycle. The original broader lifecycle-proof constraint remains applicable.
+
+#### 3. Startup reconciliation runs after the server becomes ready
+
+- Finding ID: `c175ba2d0564cd6f46d156a35714f3ad84630b51ad481bb9ffe637f6e017911a`
+- Found by: Codex Review
+- Description: The server announces readiness before startup reconciliation has recorded interrupted wave state, allowing resume traffic to arrive during the recovery gap.
+- Example: A health check or wrapper can request resume before `restartReconciliation` is written, causing remembered children to be recorded as failed.
+- Why accepted: Story 64 explicitly requires reliable cancellation and resume recovery for review waves, and this story-owned startup ordering can violate that contract. The original lifecycle/readiness proof constraint remains applicable.
+
+### Ignored for This Story
+
+- None.

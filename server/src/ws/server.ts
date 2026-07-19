@@ -646,6 +646,13 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
             });
             return;
           }
+          const ownership = getActiveRunOwnership(message.conversationId);
+          if (ownership) {
+            registerPendingConversationCancel({
+              conversationId: message.conversationId,
+              runToken: ownership.runToken,
+            });
+          }
           logPublish('DEV-0000046:T6:cancel-explicit-stop', {
             requestId: message.requestId,
             connectionId,

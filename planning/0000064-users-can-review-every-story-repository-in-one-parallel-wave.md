@@ -2133,9 +2133,9 @@ Task to ONLY check the linting after some manual fixes
 
 2. [x] In `codeInfo2`, run the supported formatting command `npm run format` and fix issues.
 
-3. [ ] In `server/src/flows/service.ts`, repair the `subflowWave` parent-cancellation teardown used by `diagnostic_review_cycle`: after `server/src/ws/server.ts` accepts the active parent run token, propagate the stop to every active child, reconcile the persisted wave progress to `running: 0` with stopped children, and emit one terminal stopped result for the parent so the Flows UI leaves its disabled `Stop`/`stopping` state and retains the resumable checkpoint.
+3. [x] In `server/src/flows/service.ts`, repair the `subflowWave` parent-cancellation teardown used by `diagnostic_review_cycle`: after `server/src/ws/server.ts` accepts the active parent run token, propagate the stop to every active child, reconcile the persisted wave progress to `running: 0` with stopped children, retain the resumable checkpoint, and emit exactly one terminal parent result with status `stopped`. That terminal result is the contract consumed by `client/src/pages/FlowsPage.tsx`: do not add a client-only timeout or state override; it must clear `showStop`/`isStopping` so the existing `ComposerSendButton` changes from the disabled red Stop control back to the enabled Send/run action while the transcript retains `Stopped` on desktop and at the 390px mobile layout.
 
-4. [ ] In `server/src/test/integration/flows.run.subflow.test.ts`, extend the `stopping a subflow wave stops every repeated matrix and singleton child` regression to assert the parent reaches its terminal stopped result with no active jobs left in persisted `subflowWaveProgress`; cover the production cancellation lifecycle rather than only child assistant statuses.
+4. [x] In `server/src/test/integration/flows.run.subflow.test.ts`, extend the `stopping a subflow wave stops every repeated matrix and singleton child` regression to assert the parent reaches one terminal `stopped` result, with no active jobs left in persisted `subflowWaveProgress`; cover the production cancellation lifecycle and client-visible terminal status rather than only child assistant statuses.
 
 #### Testing
 
@@ -2154,7 +2154,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 #### Manual Testing Guidance
 
-- No manual testing required or wanted for this task. it must stry minimal
+- No broad manual-test matrix is required for this final repair. After the server regression passes, use the existing `diagnostic_review_cycle` parent run only for a targeted desktop and 390px mobile confirmation: after Stop is requested, the red Stop control may remain disabled only while cancellation is pending; the single terminal `Stopped` parent result must restore the normal enabled Send/run action without losing the resumable checkpoint. Do not add a client-only visual workaround if that terminal lifecycle contract is absent.
 
 #### Implementation Notes
 
@@ -2172,3 +2172,5 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Automated proof is complete for Task 36: all eight testing items are checked, with no live blocker; the later audit may determine task completion status.
 - Audit: the fresh bounded packet and parser confirm both subtasks and all eight testing items are complete with no live blocker. The implementation-plus-proof pass introduced no source-file changes or story-caused user-facing behavior drift, so Task 36 is honestly complete and ready for the manual-testing phase.
 - Manual full-story proof restarted the supported main stack because no freshness marker could prove the prior runtime current. `diagnostic_review_cycle` created one immutable target snapshot and launched its two-child wave, but Stop for active parent `3fa621ce-216d-4442-905c-d517b116940f` remained disabled/stopping after the server logged the matching `cancel_inflight` and abort. The live wave still reported active work instead of a terminal stopped parent, so the concrete server reconciliation repair and regression coverage above were added; the full suite and final format checks were reopened before a later manual retest. Playwright screenshot staging was attempted at `manual-testing/0000064/36/proof-01-diagnostic-wave.png` but its runtime lacked that directory, so no scratch artifact was retained.
+- Preflight visual refinement pass ran against the supported Flows surface: clarified the server-to-`FlowsPage` terminal-status seam, the existing `ComposerSendButton` Stop-to-Send recovery, and the matching 390px mobile behavior; no code was changed in this step.
+- Explicit WebSocket cancellation now preserves the active parent run token after a successful inflight abort, allowing `subflowWave` to stop every child and finalize one server-owned stopped parent result. The integration regression now exercises that cancellation ordering and asserts the parent stopped turn, zero active children, zero persisted running jobs, and stopped child entries; targeted server unit checks passed for both the regression and WebSocket cancellation path.

@@ -9,7 +9,10 @@ import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import { registerPendingConversationCancel } from '../../chat/inflightRegistry.js';
+import {
+  abortInflight,
+  registerPendingConversationCancel,
+} from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -927,13 +930,46 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
       runToken: parentRunToken as string,
     });
 
-    await waitForAssistantStatus(result.conversationId, 'stopped');
+    const cancelled = abortInflight({
+      conversationId: result.conversationId,
+      inflightId: result.inflightId,
+    });
+    assert.equal(cancelled.ok, true);
+
+    const parentAssistant = await waitForAssistantStatus(
+      result.conversationId,
+      'stopped',
+    );
+    assert.equal(parentAssistant?.status, 'stopped');
+    assert.match(parentAssistant?.content ?? '', /^Stopped subflow wave:/u);
+    const parentStoppedTurns = (
+      memoryTurns.get(result.conversationId) ?? []
+    ).filter((turn) => turn.role === 'assistant' && turn.status === 'stopped');
+    assert.equal(parentStoppedTurns.length, 1);
     await Promise.all(
       activeSubflows.map((entry) =>
         waitForConversationAssistantStatus(
           String(entry.conversationId),
           'stopped',
         ),
+      ),
+    );
+    const parentFlow = (
+      memoryConversations.get(result.conversationId)?.flags as {
+        flow?: {
+          activeSubflows?: unknown[];
+          subflowWaveProgress?: {
+            running?: number;
+            jobs?: Array<{ status?: string }>;
+          };
+        };
+      }
+    )?.flow;
+    assert.equal(parentFlow?.activeSubflows?.length ?? 0, 0);
+    assert.equal(parentFlow?.subflowWaveProgress?.running, 0);
+    assert.ok(
+      parentFlow?.subflowWaveProgress?.jobs?.every(
+        (job) => job.status === 'stopped',
       ),
     );
   } finally {

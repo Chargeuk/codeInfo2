@@ -2131,7 +2131,7 @@ Task to ONLY check the linting after some manual fixes
 
 1. [x] In `codeInfo2`, run `npm run lint` and fix issues.
 
-2. [ ] In `codeInfo2`, run the supported formatting command `npm run format` and fix issues.
+2. [x] In `codeInfo2`, run the supported formatting command `npm run format` and fix issues.
 
 #### Testing
 
@@ -2146,7 +2146,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 5. [ ] In `codeInfo2`, run the full client, server unit, server cucumber, shell, host-network, and e2e automated suites with `npm run test:summary:all:parallel`, `npm run test:summary:shell`, and `npm run test:summary:host-network:main`.
 6. [ ] In `codeInfo2`, stop the main stack with `npm run compose:down`.
 7. [ ] Run `npm run lint`.
-8. [ ] Run `npm run format`.
+8. [x] Run `npm run format`.
 
 #### Manual Testing Guidance
 
@@ -2157,3 +2157,4 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Repaired the dedicated final task to include the required formatting subtask and whole-story build, runtime, suite, shutdown, lint, and formatting proof; automated proof is deferred until the new unchecked formatting subtask is completed.
 - Audit: the fresh Task 36 packet, current plan and task handoffs, current git state, and the final-task repair commit were checked. The only implementation subtask remains the supported `npm run format` repair, and the expanded build, stack startup, full automated suites, shutdown, lint, and formatting proof have not been recorded after that repair.
 - **RESOLVED ISSUE** The generic incomplete-proof blocker is retired: `npm run build:summary:server` passed cleanly on 2026-07-19. Task 36 remains `__in_progress__` for the remaining listed subtask and automated proof steps.
+- Formatting subtask complete: ran `npm run format`; Prettier reported every tracked supported file as unchanged, so no formatting repairs were needed.

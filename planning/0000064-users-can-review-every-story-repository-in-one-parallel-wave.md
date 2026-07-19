@@ -1696,16 +1696,18 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 Task to ONLY check the linting after some manual fixes
 
-1. [ ] In `codeInfo2`, run `npm run lint` and fix issues.
+1. [x] In `codeInfo2`, run `npm run lint` and fix issues.
 
 #### Testing
 
 Testing step to ONLY check the linting after some manual fixes
 
-1. [ ] Run `npm run lint`.
+1. [x] Run `npm run lint`.
 
 #### Manual Testing Guidance
 
 - No manual testing required or wanted for this task. it must stry minimal
 
 #### Implementation Notes
+
+- Subtask complete: ran `npm run lint`; ESLint passed with exit code 0 and no issues were reported, so no source changes were required.

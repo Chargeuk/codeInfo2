@@ -409,6 +409,73 @@ afterEach(async () => {
   memoryTurns.clear();
 });
 
+test('review initialization failures fail the flow instead of silently skipping the review cycle', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-initialization-failure-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      '{ malformed current plan',
+      'utf8',
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-initialization-failure',
+      steps: [
+        {
+          type: 'initializeReviewCycle',
+          label: 'Initialize Final Review',
+          outputKey: 'review-cycle',
+          mode: 'final',
+        },
+        llmStep('must not run after review initialization failure'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'review-initialization-failure',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    const failedTurn = await waitForAssistantStatus(
+      result.conversationId,
+      'failed',
+    );
+    assert.match(failedTurn?.content ?? '', /Review initialization failed:/u);
+    assert.equal(
+      executions.includes('must not run after review initialization failure'),
+      false,
+    );
+    const failure = JSON.parse(
+      await fs.readFile(
+        path.join(
+          repoDir,
+          'codeInfoStatus',
+          'flow-state',
+          'review-initialization-failure.json',
+        ),
+        'utf8',
+      ),
+    ) as { status?: string };
+    assert.equal(failure.status, 'failed');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('subflow step launches a child flow, waits for completion, and uses the generated child title', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-ok-'));
   process.env.FLOWS_DIR = tmpDir;

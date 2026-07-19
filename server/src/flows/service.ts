@@ -6332,7 +6332,7 @@ async function runFlowUnlocked(params: {
             {
               schema_version: 'codeinfo-review-initialization-failure/v1',
               parent_execution_id: params.executionId,
-              status: 'skipped',
+              status: 'failed',
               reason: error instanceof Error ? error.message : String(error),
               completed_at: new Date().toISOString(),
             },
@@ -6343,17 +6343,18 @@ async function runFlowUnlocked(params: {
         );
         await fs.rename(temporaryPath, failurePath);
       }
-      await emitCompletedFlowStep({
+      await emitFailedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
         instruction,
         modelId: params.modelId,
         providerId: params.providerId,
         source: params.source,
-        response: `Skipped review initialization because lifecycle preflight was unavailable: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Review initialization failed: ${error instanceof Error ? error.message : String(error)}`,
+        errorCode: 'INVALID_REQUEST',
         command,
       });
-      return { status: 'ok', exitFlow: true };
+      return { status: 'failed', exitFlow: false };
     }
   };
 

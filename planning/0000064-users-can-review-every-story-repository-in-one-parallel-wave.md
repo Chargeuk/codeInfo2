@@ -2121,7 +2121,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ### Task 36. Fix linting
 
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 
 #### Subtasks
 
@@ -2133,6 +2133,10 @@ Task to ONLY check the linting after some manual fixes
 
 2. [x] In `codeInfo2`, run the supported formatting command `npm run format` and fix issues.
 
+3. [ ] In `server/src/flows/service.ts`, repair the `subflowWave` parent-cancellation teardown used by `diagnostic_review_cycle`: after `server/src/ws/server.ts` accepts the active parent run token, propagate the stop to every active child, reconcile the persisted wave progress to `running: 0` with stopped children, and emit one terminal stopped result for the parent so the Flows UI leaves its disabled `Stop`/`stopping` state and retains the resumable checkpoint.
+
+4. [ ] In `server/src/test/integration/flows.run.subflow.test.ts`, extend the `stopping a subflow wave stops every repeated matrix and singleton child` regression to assert the parent reaches its terminal stopped result with no active jobs left in persisted `subflowWaveProgress`; cover the production cancellation lifecycle rather than only child assistant statuses.
+
 #### Testing
 
 Testing step to ONLY check the linting after some manual fixes
@@ -2143,10 +2147,10 @@ Final-task repair scope: the whole approved story is in scope for failures found
 2. [x] In `codeInfo2`, run `npm run build:summary:client`.
 3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
 4. [x] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
-5. [x] In `codeInfo2`, run the full client, server unit, server cucumber, shell, host-network, and e2e automated suites with `npm run test:summary:all:parallel`, `npm run test:summary:shell`, and `npm run test:summary:host-network:main`.
+5. [ ] In `codeInfo2`, run the full client, server unit, server cucumber, shell, host-network, and e2e automated suites with `npm run test:summary:all:parallel`, `npm run test:summary:shell`, and `npm run test:summary:host-network:main`.
 6. [x] In `codeInfo2`, stop the main stack with `npm run compose:down`.
 7. [x] Run `npm run lint`.
-8. [x] Run `npm run format`.
+8. [ ] Run `npm run format`.
 
 #### Manual Testing Guidance
 
@@ -2167,3 +2171,4 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Final lint proof passed on 2026-07-19 with zero warnings or errors.
 - Automated proof is complete for Task 36: all eight testing items are checked, with no live blocker; the later audit may determine task completion status.
 - Audit: the fresh bounded packet and parser confirm both subtasks and all eight testing items are complete with no live blocker. The implementation-plus-proof pass introduced no source-file changes or story-caused user-facing behavior drift, so Task 36 is honestly complete and ready for the manual-testing phase.
+- Manual full-story proof restarted the supported main stack because no freshness marker could prove the prior runtime current. `diagnostic_review_cycle` created one immutable target snapshot and launched its two-child wave, but Stop for active parent `3fa621ce-216d-4442-905c-d517b116940f` remained disabled/stopping after the server logged the matching `cancel_inflight` and abort. The live wave still reported active work instead of a terminal stopped parent, so the concrete server reconciliation repair and regression coverage above were added; the full suite and final format checks were reopened before a later manual retest. Playwright screenshot staging was attempted at `manual-testing/0000064/36/proof-01-diagnostic-wave.png` but its runtime lacked that directory, so no scratch artifact was retained.

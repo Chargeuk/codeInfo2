@@ -2220,3 +2220,35 @@ Final-task repair scope: the whole approved story is in scope for failures found
 ### Ignored for This Story
 
 - None.
+
+### Task 37. Record Minor Review Fixes From Pass 0000064-20260719T212516Z-52af6cfac4-32769dc2
+
+- Task Status: `__done__`
+
+#### Overview
+
+This completed audit records the terminal inline outcomes for this review pass.
+
+Escalated review items requiring combined task-up:
+
+- None.
+
+#### Subtasks
+
+1. [x] Fixed `1d7b6fd25a1781d1620eb1e549d1406520b5f31b1681e050be32b72b3ce35bc1` — Open Code Review validates a different diff when base and head have diverged (`current_repository`); modified `scripts/publish_open_code_review.py`, `scripts/test/test_publish_open_code_review.py`.
+2. [x] Fixed `63b72dde79951ac23ce584197326f258d12b7bada9aa81b53fff5f4b9f74594b` — Review initialization failures silently bypass the entire review cycle (`current_repository`); modified `server/src/flows/service.ts`, `server/src/test/integration/flows.run.subflow.test.ts`.
+3. [x] Fixed `829f2dbe9adb33dd2a27976ed3965d3c5f9e1c2abac8309325a94bd1cb56bbbd` — Interrupted children with earlier completed steps are no longer classified as terminal while their persisted lifecycle remains running, orphaned, or explicitly interrupted. (`current_repository`); modified `server/src/flows/service.ts`.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts` in `current_repository` — passed. 49 focused subflow integration tests passed.
+2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --test-name "review initialization failures fail the flow instead of silently skipping the review cycle"` in `current_repository` — passed. The focused regression test passed; malformed current-plan state now fails initialization, prevents subsequent steps, and records a failed marker.
+3. [x] `python3 -m unittest scripts/test/test_publish_open_code_review.py` in `current_repository` — passed. 17 focused publisher tests passed, including a real-Git divergent-history regression proving that only the feature-side three-dot diff is required.
+
+#### Implementation Notes
+
+- Review Task Role: `minor_fix_loop_audit`
+- Review Cycle Id: `0000064-rc-20260719T212516Z-7280f8e7`
+- Review Pass Id: `0000064-20260719T212516Z-52af6cfac4-32769dc2`
+- Review Phase: `fast`
+- This task is a completed historical audit and does not replace final story revalidation.

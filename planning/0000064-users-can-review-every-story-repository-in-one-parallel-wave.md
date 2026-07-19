@@ -2140,12 +2140,12 @@ Testing step to ONLY check the linting after some manual fixes
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
 1. [x] In `codeInfo2`, run `npm run build:summary:server`.
-2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
-3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
-4. [ ] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
-5. [ ] In `codeInfo2`, run the full client, server unit, server cucumber, shell, host-network, and e2e automated suites with `npm run test:summary:all:parallel`, `npm run test:summary:shell`, and `npm run test:summary:host-network:main`.
-6. [ ] In `codeInfo2`, stop the main stack with `npm run compose:down`.
-7. [ ] Run `npm run lint`.
+2. [x] In `codeInfo2`, run `npm run build:summary:client`.
+3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [x] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
+5. [x] In `codeInfo2`, run the full client, server unit, server cucumber, shell, host-network, and e2e automated suites with `npm run test:summary:all:parallel`, `npm run test:summary:shell`, and `npm run test:summary:host-network:main`.
+6. [x] In `codeInfo2`, stop the main stack with `npm run compose:down`.
+7. [x] Run `npm run lint`.
 8. [x] Run `npm run format`.
 
 #### Manual Testing Guidance
@@ -2159,3 +2159,10 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - **RESOLVED ISSUE** The generic incomplete-proof blocker is retired: `npm run build:summary:server` passed cleanly on 2026-07-19. Task 36 remains `__in_progress__` for the remaining listed subtask and automated proof steps.
 - Formatting subtask complete: ran `npm run format`; Prettier reported every tracked supported file as unchanged, so no formatting repairs were needed.
 - Audit: both implementation subtasks are complete from the recorded lint and formatting evidence, with no source-file changes or story-caused user-facing behavior drift found in the current implementation pass. Testing items 2-7 remain open for later automated proof, so Task 36 stays `__in_progress__`; no blocker is needed because all implementation subtasks are complete and this audit does not own automated-proof completion.
+- Client build proof passed on 2026-07-19; typecheck and Vite production build completed successfully, with only the existing large-chunk warning.
+- Compose build proof passed on 2026-07-19; both images built successfully with zero failed items.
+- Main Compose stack startup passed on 2026-07-19; preflight succeeded and the server reached healthy readiness.
+- Full automated proof passed on 2026-07-19: client 900/900, server unit 2651/2651, server Cucumber 138/138, e2e 77/77, shell 20/20, and the main-stack host-network probe passed.
+- Main Compose stack shutdown passed on 2026-07-19; all started containers and the network were removed.
+- Final lint proof passed on 2026-07-19 with zero warnings or errors.
+- Automated proof is complete for Task 36: all eight testing items are checked, with no live blocker; the later audit may determine task completion status.

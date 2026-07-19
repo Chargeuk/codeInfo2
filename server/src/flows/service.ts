@@ -1138,6 +1138,42 @@ const getFlowChildExecutionId = (
   return null;
 };
 
+const getFlowChildWaveIdentity = (
+  conversation: Conversation | null | undefined,
+): { executionId: string; instanceId: string } | null => {
+  const flags = conversation?.flags;
+  const flowChild = isRecord(flags?.flowChild) ? flags.flowChild : null;
+  const executionId = normalizeOptionalString(flowChild?.executionId);
+  const instanceId = normalizeOptionalString(flowChild?.instanceId);
+  return executionId && instanceId ? { executionId, instanceId } : null;
+};
+
+const findFlowWaveChildren = async (params: {
+  executionId: string;
+  instanceIds: string[];
+}): Promise<Conversation[]> => {
+  const instanceIds = new Set(params.instanceIds);
+  const matchesParentWave = (conversation: Conversation) => {
+    const identity = getFlowChildWaveIdentity(conversation);
+    return (
+      identity?.executionId === params.executionId &&
+      instanceIds.has(identity.instanceId)
+    );
+  };
+
+  if (shouldUseMemoryPersistence()) {
+    return Array.from(memoryConversations.values()).filter(matchesParentWave);
+  }
+
+  const conversations = (await ConversationModel.find({
+    'flags.flowChild.executionId': params.executionId,
+    'flags.flowChild.instanceId': { $in: params.instanceIds },
+  })
+    .lean()
+    .exec()) as Conversation[];
+  return conversations.filter(matchesParentWave);
+};
+
 const getSavedRequestedProviderId = (
   conversation: Conversation | null | undefined,
 ): string | undefined => {
@@ -5214,6 +5250,7 @@ async function runFlowUnlocked(params: {
     const parentConversation = await getConversation(params.conversationId);
     const activeInstanceId = (activeSubflow: FlowActiveSubflow) =>
       activeSubflow.instanceId ?? activeSubflow.flowName;
+    const jobByInstanceId = new Map(jobs.map((job) => [job.instanceId, job]));
     const rememberedSubflowsByInstance = new Map(
       getActiveSubflowsForStep(nextPath)
         .filter((activeSubflow) =>
@@ -5226,12 +5263,40 @@ async function runFlowUnlocked(params: {
           activeSubflow,
         ]),
     );
+    if (isWave) {
+      const persistedChildren = await findFlowWaveChildren({
+        executionId: params.executionId,
+        instanceIds: jobs.map((job) => job.instanceId),
+      });
+      for (const childConversation of persistedChildren) {
+        const identity = getFlowChildWaveIdentity(childConversation);
+        if (!identity || rememberedSubflowsByInstance.has(identity.instanceId)) {
+          continue;
+        }
+        const job = jobByInstanceId.get(identity.instanceId);
+        if (!job || childConversation.flowName !== job.flowName) continue;
+
+        rememberedSubflowsByInstance.set(identity.instanceId, {
+          stepPath: [...nextPath],
+          flowName: job.flowName,
+          conversationId: childConversation._id,
+          runToken:
+            getActiveRunOwnership(childConversation._id)?.runToken ??
+            `recovered-wave-child:${childConversation._id}`,
+          instanceId: job.instanceId,
+          ...(job.targetId ? { targetId: job.targetId } : {}),
+          ...(job.workingFolder ? { workingFolder: job.workingFolder } : {}),
+          ...(job.input ? { input: job.input } : {}),
+          ...(job.inputHash ? { inputHash: job.inputHash } : {}),
+          title: childConversation.title,
+        });
+      }
+    }
     const childRuns = jobs
       .map((job) => rememberedSubflowsByInstance.get(job.instanceId))
       .filter((activeSubflow): activeSubflow is FlowActiveSubflow =>
         Boolean(activeSubflow),
       );
-    const jobByInstanceId = new Map(jobs.map((job) => [job.instanceId, job]));
     const resumeInterruptedWaveChild = async (
       childRun: FlowActiveSubflow,
     ): Promise<FlowActiveSubflow | null> => {

@@ -4858,6 +4858,136 @@ test('restart recovery resumes an interrupted wave child in its existing convers
   }
 });
 
+test('restart recovery reattaches a launched wave child when the parent crashed before persisting it', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-crash-window-recovery-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-wave-crash-window',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-wave-crash-window',
+      steps: [
+        {
+          type: 'subflowWave',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'crash-window',
+              flowName: 'child-wave-crash-window',
+            },
+          ],
+        },
+      ],
+    });
+
+    const childConversationId = 'wave-crash-window-child-conversation';
+    const parentConversationId = 'wave-crash-window-parent-conversation';
+    const parentExecutionId = 'wave-crash-window-parent-execution';
+    const instanceId = 'crash-window:child-wave-crash-window';
+    const now = new Date();
+    memoryConversations.set(childConversationId, {
+      _id: childConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Crash Window Wave Child',
+      flowName: 'child-wave-crash-window',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'wave-crash-window-child-execution',
+          stepPath: [],
+          loopStack: [],
+          runLifecycle: { status: 'running', updatedAt: now.toISOString() },
+          agentConversations: {},
+          agentThreads: {},
+        },
+        flowChild: {
+          executionId: parentExecutionId,
+          instanceId,
+          displayName: 'child-wave-crash-window',
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Crash Window Wave Parent',
+      flowName: 'parent-wave-crash-window',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: parentExecutionId,
+          stepPath: [],
+          loopStack: [],
+          restartReconciliation: {
+            status: 'interrupted',
+            reconciledAt: now.toISOString(),
+            resumeStepPath: [],
+            interruptedSubflowCount: 0,
+            interruptedWaveRunningCount: 1,
+          },
+          subflowWaveProgress: {
+            stepPath: [0],
+            expected: 1,
+            running: 1,
+            completed: 0,
+            failed: 0,
+            stopped: 0,
+            notApplicable: 0,
+            jobs: [
+              {
+                instanceId,
+                flowName: 'child-wave-crash-window',
+                title: 'Crash Window Wave Child',
+                status: 'running',
+              },
+            ],
+            updatedAt: now.toISOString(),
+          },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-wave-crash-window',
+      conversationId: parentConversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25),
+    });
+
+    assert.equal(resumed.conversationId, parentConversationId);
+    await waitForAssistantStatus(parentConversationId, 'ok');
+    await waitForAssistantStatus(childConversationId, 'ok');
+    assert.equal(
+      Array.from(memoryConversations.values()).filter(
+        (conversation) => conversation.flowName === 'child-wave-crash-window',
+      ).length,
+      1,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('resume tolerates stale legacy activeSubflow state that has no active child run or terminal result', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-legacy-'),

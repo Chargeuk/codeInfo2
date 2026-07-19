@@ -1775,3 +1775,7 @@ Testing step to ONLY check the linting after some manual fixes
 ### Ignored for This Story
 
 - None.
+
+## Minor Review Fixes
+
+- Review pass `0000064-20260719T100027Z-040c43d7f6-0e3d4ebc`; finding `d5e614037a7d68afb59ddd0031c6305fa13d91106b1ae34dafaac9249534d8e2`; repository `current_repository`; OpenCode manifests now reject bundle paths that do not exactly account for the prepared committed diff; changed files `scripts/publish_open_code_review.py`, `scripts/test/test_publish_open_code_review.py`; commit `7abf6fe296ac754a5ffec1d9cee291ab3a395baa`; targeted proof `python3 -m unittest scripts.test.test_publish_open_code_review` passed (14 focused publisher tests, including the committed-path omission regression); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`

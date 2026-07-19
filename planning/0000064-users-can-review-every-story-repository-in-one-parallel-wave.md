@@ -2121,7 +2121,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ### Task 36. Fix linting
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 
@@ -2177,3 +2177,4 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Implementation-only audit: fresh Task 36 handoffs, the bounded task packet, parser output, current git state, and the latest cancellation commit show all four implementation subtasks complete. The approved server cancellation and regression changes introduce no unapproved user-facing behavior drift; Testing items 5 and 8 remain intentionally unchecked for the later automated-proof pass, so Task 36 remains `__in_progress__` with no live blocker and is ready for automated proof.
 - Automated proof item 5 passed on 2026-07-19: the full client, server unit, server Cucumber, e2e, shell, and main-stack host-network suites passed (900/900, 2651/2651, 138/138, 77/77, 20/20, and probe passed).
 - Automated proof item 8 passed on 2026-07-19: `npm run format` completed successfully and Prettier reported all tracked supported files unchanged.
+- Implementation-plus-automated-proof audit: the fresh bounded packet, current repository state, latest implementation/proof commits, and proof artifacts confirm all four subtasks and all eight testing items are complete. The cancellation change is within the approved story surface and automated proof confirms the existing client terminal-status behavior; no story-caused preserved-behavior regression or unapproved user-facing drift was found. Parser output reports no live blocker, so Task 36 is now honestly `__done__` and ready for manual testing.

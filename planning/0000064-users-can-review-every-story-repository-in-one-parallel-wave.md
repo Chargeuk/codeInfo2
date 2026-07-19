@@ -2139,7 +2139,7 @@ Testing step to ONLY check the linting after some manual fixes
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
+1. [x] In `codeInfo2`, run `npm run build:summary:server`.
 2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
 3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
 4. [ ] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
@@ -2156,4 +2156,4 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 - Repaired the dedicated final task to include the required formatting subtask and whole-story build, runtime, suite, shutdown, lint, and formatting proof; automated proof is deferred until the new unchecked formatting subtask is completed.
 - Audit: the fresh Task 36 packet, current plan and task handoffs, current git state, and the final-task repair commit were checked. The only implementation subtask remains the supported `npm run format` repair, and the expanded build, stack startup, full automated suites, shutdown, lint, and formatting proof have not been recorded after that repair.
-- **BLOCKER** Task 36 remains open after audit normalization because unchecked subtask 2 (`In codeInfo2, run the supported formatting command npm run format and fix issues`) and Testing items 1 (`npm run build:summary:server`), 2 (`npm run build:summary:client`), 3 (`npm run compose:build:summary`), 4 (`npm run compose:up`), 5 (`npm run test:summary:all:parallel`, `npm run test:summary:shell`, and `npm run test:summary:host-network:main`), 6 (`npm run compose:down`), 7 (`npm run lint`), and 8 (`npm run format`) are still unchecked. Evidence checked was the fresh bounded Task 36 packet, the current handoffs, the clean git state at the final-task repair commits, and the existing note that automated proof is deferred; implementation and automated proof cannot continue honestly without completing this bounded work or planner intervention.
+- **RESOLVED ISSUE** The generic incomplete-proof blocker is retired: `npm run build:summary:server` passed cleanly on 2026-07-19. Task 36 remains `__in_progress__` for the remaining listed subtask and automated proof steps.

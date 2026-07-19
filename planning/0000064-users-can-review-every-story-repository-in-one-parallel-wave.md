@@ -2121,7 +2121,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ### Task 36. Fix linting
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 
 #### Subtasks
 
@@ -2166,3 +2166,4 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Main Compose stack shutdown passed on 2026-07-19; all started containers and the network were removed.
 - Final lint proof passed on 2026-07-19 with zero warnings or errors.
 - Automated proof is complete for Task 36: all eight testing items are checked, with no live blocker; the later audit may determine task completion status.
+- Audit: the fresh bounded packet and parser confirm both subtasks and all eight testing items are complete with no live blocker. The implementation-plus-proof pass introduced no source-file changes or story-caused user-facing behavior drift, so Task 36 is honestly complete and ready for the manual-testing phase.

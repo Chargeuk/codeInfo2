@@ -164,6 +164,8 @@ const createFixture = async () => {
       parent_execution_id: snapshot.parent_execution_id,
       targets_sha256: snapshot.targets_sha256,
       target_count: targets.length,
+      inspected_target_ids: targets.map((target) => target.target_id),
+      relationship_coverage: { 'current_repository->repo-b': 'inspected' },
       status: 'completed',
       findings: [],
       rejected_risks: [],

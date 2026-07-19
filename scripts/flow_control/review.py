@@ -575,10 +575,9 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
             )
         elif coverage_valid:
             coverage_valid = coverage_complete is False
-        if coverage_valid:
-            coverage_valid = coverage_exhausted == (
-                not coverage_complete and pass_count == 5
-            )
+        # Coverage exhaustion is durable disposition evidence, not a loop
+        # counter invariant. A degraded provider may be terminal before pass 5
+        # when usable sibling evidence has converged.
     else:
         expected_reviewer_count = payload.get(
             "fast_current_pass_expected_reviewer_count"
@@ -633,27 +632,23 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
     if payload.get("needs_minor_fix_path") is True:
         return no("fast_review_minor_findings_not_drained", **_review_context(payload))
 
-    if not coverage_complete:
-        if pass_count >= 5:
-            return yes(
-                "fast_review_fifth_pass_coverage_exhausted",
-                **_review_context(payload),
-            )
-        return no(
-            "fast_review_requires_complete_job_coverage",
-            **_review_context(payload),
-        )
-
     if deferred_candidates:
         return no("fast_review_candidates_deferred", **_review_context(payload))
 
     if entry_minor_count == 0:
         return yes(
-            "fast_review_converged_without_minor_findings",
+            "fast_review_converged_without_minor_findings"
+            if coverage_complete
+            else "fast_review_converged_with_degraded_provider_coverage",
             **_review_context(payload),
         )
 
     if pass_count >= 5:
-        return yes("fast_review_fifth_pass_drained", **_review_context(payload))
+        return yes(
+            "fast_review_fifth_pass_drained"
+            if coverage_complete
+            else "fast_review_fifth_pass_degraded_coverage_drained",
+            **_review_context(payload),
+        )
 
     return no("fast_review_requires_another_pass", **_review_context(payload))

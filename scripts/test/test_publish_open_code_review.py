@@ -27,6 +27,11 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
         )
         self.committed_paths_patcher.start()
         self.addCleanup(self.committed_paths_patcher.stop)
+        self.ignored_paths_patcher = mock.patch.object(
+            publish_open_code_review, "_ignored_paths", return_value=set()
+        )
+        self.ignored_paths = self.ignored_paths_patcher.start()
+        self.addCleanup(self.ignored_paths_patcher.stop)
 
     def make_fixture(
         self,
@@ -358,6 +363,43 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
                 pass_dir=pass_dir,
                 ocr_log_root=log_root,
             )
+
+    def test_accounts_for_tracked_but_ignored_runtime_handoff_paths(self) -> None:
+        repo, log_root, pass_dir, prepared_base = self.make_fixture()
+        ignored_path = "codeInfoStatus/flow-state/current-plan.json"
+        self.committed_paths.add(ignored_path)
+        self.ignored_paths.return_value = {ignored_path}
+
+        pointer, _, _ = publish_open_code_review.build_open_code_review_pointer(
+            repo_root=repo,
+            prepared_base_path=prepared_base,
+            pass_dir=pass_dir,
+            ocr_log_root=log_root,
+        )
+
+        self.assertEqual(pointer["coverage"]["total_files"], 2)
+        self.assertEqual(pointer["coverage"]["excluded_files"], 1)
+        self.assertEqual(
+            pointer["coverage"]["publisher_excluded_paths"], [ignored_path]
+        )
+        self.assertFalse(pointer["partial"])
+
+    def test_publishes_terminal_failure_instead_of_leaving_pending_pointer(self) -> None:
+        repo, log_root, _pass_dir, prepared_base = self.make_fixture()
+
+        publish_open_code_review.publish_terminal_open_code_failure(
+            repo_root=repo,
+            prepared_base_path=prepared_base,
+            error="manifest could not be reconciled",
+            ocr_log_root=log_root,
+        )
+
+        pointer = json.loads(
+            (repo / "codeInfoTmp/reviews/0000013-current-open-code-review.json").read_text()
+        )
+        self.assertEqual(pointer["status"], "failed")
+        self.assertTrue(pointer["partial"])
+        self.assertEqual(pointer["failure_reason"], "manifest could not be reconciled")
 
     def test_publishes_validated_comments_as_structured_findings(self) -> None:
         repo, log_root, pass_dir, prepared_base = self.make_fixture()

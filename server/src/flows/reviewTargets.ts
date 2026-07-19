@@ -87,6 +87,30 @@ const defaultDeps: ReviewTargetDeps = {
   randomHex: () => crypto.randomBytes(4).toString('hex'),
 };
 
+const stableTargetPromotionLocks = new Map<string, Promise<void>>();
+
+const withStableTargetPromotionLock = async <T>(
+  key: string,
+  operation: () => Promise<T>,
+): Promise<T> => {
+  const previous = stableTargetPromotionLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = previous.then(() => current);
+  stableTargetPromotionLocks.set(key, queued);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (stableTargetPromotionLocks.get(key) === queued) {
+      stableTargetPromotionLocks.delete(key);
+    }
+  }
+};
+
 const nonEmptyString = (value: unknown, label: string): string => {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error(`${label} is missing.`);
@@ -94,7 +118,11 @@ const nonEmptyString = (value: unknown, label: string): string => {
   return value.trim();
 };
 
-const additionalRepositoryPaths = (value: unknown): string[] => {
+type AdditionalRepositoryTarget = { path: string; branchedFrom?: string };
+
+const additionalRepositoryTargets = (
+  value: unknown,
+): AdditionalRepositoryTarget[] => {
   if (value === undefined) return [];
   if (!Array.isArray(value)) {
     throw new Error('current-plan.additional_repositories must be an array.');
@@ -105,10 +133,23 @@ const additionalRepositoryPaths = (value: unknown): string[] => {
         `current-plan.additional_repositories[${index}] must be an object.`,
       );
     }
-    return nonEmptyString(
+    const repositoryPath = nonEmptyString(
       (entry as { path?: unknown }).path,
       `current-plan.additional_repositories[${index}].path`,
     );
+    const rawBase = (entry as { branched_from?: unknown }).branched_from;
+    if (
+      rawBase !== undefined &&
+      (typeof rawBase !== 'string' || !rawBase.trim())
+    ) {
+      throw new Error(
+        `current-plan.additional_repositories[${index}].branched_from must be a non-empty string when supplied.`,
+      );
+    }
+    return {
+      path: repositoryPath,
+      ...(typeof rawBase === 'string' ? { branchedFrom: rawBase.trim() } : {}),
+    };
   });
 };
 
@@ -207,9 +248,9 @@ export async function prepareReviewTargets(
     currentPlan.branched_from.trim()
       ? currentPlan.branched_from.trim()
       : null;
-  const requestedPaths = [
-    planHostRoot,
-    ...additionalRepositoryPaths(currentPlan.additional_repositories),
+  const requestedTargets: AdditionalRepositoryTarget[] = [
+    { path: planHostRoot, ...(branchedFrom ? { branchedFrom } : {}) },
+    ...additionalRepositoryTargets(currentPlan.additional_repositories),
   ];
   const listed = await resolvedDeps.listIngestedRepositories();
   const listedByRealPath = new Map<string, (typeof listed.repos)[number]>();
@@ -227,7 +268,8 @@ export async function prepareReviewTargets(
   const seenRoots = new Set<string>();
   const seenAliases = new Set<string>();
   const targets: ReviewTarget[] = [];
-  for (const [index, requestedPath] of requestedPaths.entries()) {
+  for (const [index, requestedTarget] of requestedTargets.entries()) {
+    const requestedPath = requestedTarget.path;
     params.signal?.throwIfAborted();
     const mapped = await resolvedDeps.resolveWorkingDirectory(requestedPath);
     if (!mapped) {
@@ -274,7 +316,7 @@ export async function prepareReviewTargets(
     const base = await resolveBaseComparison({
       repoRoot: realRoot,
       currentBranch: branch,
-      branchedFrom: branchedFrom ?? undefined,
+      branchedFrom: requestedTarget.branchedFrom ?? branchedFrom ?? undefined,
       deps: { execFile: resolvedDeps.execFile },
       signal: params.signal,
     });
@@ -336,6 +378,18 @@ export async function prepareReviewTargets(
     writeFile: resolvedDeps.writeFile,
   };
   await atomicWriteJson(versionedPath, snapshot, atomicDeps);
-  await atomicWriteJson(stablePath, snapshot, atomicDeps);
+  await withStableTargetPromotionLock(stablePath, async () => {
+    let currentCreatedAt = '';
+    try {
+      const current = JSON.parse(
+        await resolvedDeps.readFile(stablePath, 'utf8'),
+      ) as Partial<ReviewTargetSnapshot>;
+      currentCreatedAt = current.created_at ?? '';
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    if (currentCreatedAt > snapshot.created_at) return;
+    await atomicWriteJson(stablePath, snapshot, atomicDeps);
+  });
   return { snapshot, stablePath, versionedPath };
 }

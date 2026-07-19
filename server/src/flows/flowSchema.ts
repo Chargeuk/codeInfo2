@@ -139,6 +139,7 @@ export type FlowValidateReviewArtifactsStep = {
   label?: string;
   pointerKeys: string[];
   ensureCanonicalFallback?: boolean;
+  finalizeCurrentReview?: boolean;
 };
 
 export type FlowSubflowStep = {
@@ -416,6 +417,7 @@ const FlowValidateReviewArtifactsStepSchema = z
     label: trimmedNonEmptyString.optional(),
     pointerKeys: z.array(trimmedNonEmptyString).min(1),
     ensureCanonicalFallback: z.boolean().optional(),
+    finalizeCurrentReview: z.boolean().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {

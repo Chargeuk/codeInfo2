@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   buildReviewRetryOwnershipId,
+  normalizeBaseUrl,
+  parseTimerMs,
   resolveReviewLaunch,
   waitForReviewCycle,
 } from './review-cycle-summary.mjs';
@@ -133,6 +135,34 @@ test('review runner gives equivalent launches the same retry ownership', () => {
       flowName: 'diagnostic_review_cycle',
     }),
   );
+});
+
+test('separate wrapper launches receive distinct retry ownership identities', () => {
+  const launch = { workingFolder: '/repo', sourceId: '/repo' };
+  assert.notEqual(
+    buildReviewRetryOwnershipId({ ...launch, launchNonce: 'first' }),
+    buildReviewRetryOwnershipId({ ...launch, launchNonce: 'second' }),
+  );
+});
+
+test('base URL defaults on blank input and rejects non-http protocols', () => {
+  assert.equal(normalizeBaseUrl('  '), 'http://localhost:5010');
+  assert.equal(
+    normalizeBaseUrl('https://example.test/'),
+    'https://example.test',
+  );
+  assert.throws(() => normalizeBaseUrl('file:///tmp/server'), /http or https/u);
+});
+
+test('timer arguments stay inside the integer setTimeout domain', () => {
+  assert.equal(parseTimerMs('1', '--poll-ms'), 1);
+  assert.equal(parseTimerMs('2147483647', '--poll-ms'), 2_147_483_647);
+  for (const invalid of ['0', '1.5', '2147483648', 'NaN']) {
+    assert.throws(
+      () => parseTimerMs(invalid, '--poll-ms'),
+      /must be an integer/u,
+    );
+  }
 });
 
 test('diagnostic review uses its isolated flow endpoint', async () => {

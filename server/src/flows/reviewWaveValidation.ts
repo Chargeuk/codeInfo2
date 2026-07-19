@@ -2,13 +2,13 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { CROSS_REPOSITORY_REVIEW_SCHEMA_VERSION } from './crossRepositoryReview.js';
 import { normalizeFlowInput } from './flowInput.js';
 import {
   validateReviewArtifacts,
   type ReviewArtifactsValidationResult,
   type ReviewPointerValidationResult,
 } from './reviewArtifacts.js';
-import { CROSS_REPOSITORY_REVIEW_SCHEMA_VERSION } from './crossRepositoryReview.js';
 import { atomicWriteJson, buildReviewArtifactPath } from './reviewIdentity.js';
 import type {
   AggregatedReviewFinding,
@@ -106,18 +106,49 @@ const readPointer = async (
 
 const isUsableCrossRepositoryResult = (
   pointer: FlowJsonObject,
-  targetCount: number,
-) =>
-  pointer.schema_version === CROSS_REPOSITORY_REVIEW_SCHEMA_VERSION &&
-  pointer.target_count === targetCount &&
-  (pointer.status === 'completed' ||
-    pointer.status === 'completed_partial' ||
-    (pointer.status === 'not_applicable' && targetCount === 1)) &&
-  Array.isArray(pointer.findings) &&
-  Array.isArray(pointer.rejected_risks) &&
-  Array.isArray(pointer.residual_uncertainty) &&
-  typeof pointer.completed_at === 'string' &&
-  pointer.completed_at.length > 0;
+  targetIds: string[],
+) => {
+  const targetCount = targetIds.length;
+  const inspectedTargetIds = Array.isArray(pointer.inspected_target_ids)
+    ? pointer.inspected_target_ids.filter(
+        (value): value is string =>
+          typeof value === 'string' && value.length > 0,
+      )
+    : [];
+  const inspectedCoverageValid =
+    targetCount === 1 && pointer.status === 'not_applicable'
+      ? true
+      : inspectedTargetIds.length === targetCount &&
+        new Set(inspectedTargetIds).size === targetCount &&
+        inspectedTargetIds.every((targetId) => targetIds.includes(targetId)) &&
+        isObject(pointer.relationship_coverage) &&
+        Object.keys(pointer.relationship_coverage).length > 0;
+  const findingTargetsValid = findingValues(pointer).every((finding) => {
+    if (!isObject(finding) || !Array.isArray(finding.target_ids)) return false;
+    const findingTargetIds = finding.target_ids.filter(
+      (value): value is string => typeof value === 'string' && value.length > 0,
+    );
+    return (
+      findingTargetIds.length > 0 &&
+      new Set(findingTargetIds).size === findingTargetIds.length &&
+      findingTargetIds.every((targetId) => targetIds.includes(targetId))
+    );
+  });
+  return (
+    pointer.schema_version === CROSS_REPOSITORY_REVIEW_SCHEMA_VERSION &&
+    pointer.target_count === targetCount &&
+    (pointer.status === 'completed' ||
+      pointer.status === 'completed_partial' ||
+      (pointer.status === 'not_applicable' && targetCount === 1)) &&
+    Array.isArray(pointer.findings) &&
+    Array.isArray(pointer.rejected_risks) &&
+    Array.isArray(pointer.residual_uncertainty) &&
+    inspectedCoverageValid &&
+    findingTargetsValid &&
+    typeof pointer.completed_at === 'string' &&
+    pointer.completed_at.length > 0
+  );
+};
 
 const targetSnapshotIsCurrent = async (
   snapshot: ReviewTargetSnapshot,
@@ -382,20 +413,20 @@ export async function validateReviewWave(
         pointer.targets_sha256 === params.snapshot.targets_sha256;
       const structurallyValid = isUsableCrossRepositoryResult(
         pointer,
-        params.snapshot.targets.length,
+        params.snapshot.targets.map((target) => target.target_id),
       );
       const status = !identityMatches
         ? 'stale'
         : !structurallyValid
           ? 'invalid'
           : pointer.status === 'completed'
-          ? 'completed'
-          : pointer.status === 'completed_partial'
-            ? 'partial'
-            : pointer.status === 'not_applicable' &&
-                params.snapshot.targets.length === 1
-              ? 'completed'
-              : 'invalid';
+            ? 'completed'
+            : pointer.status === 'completed_partial'
+              ? 'partial'
+              : pointer.status === 'not_applicable' &&
+                  params.snapshot.targets.length === 1
+                ? 'completed'
+                : 'invalid';
       results.push({
         ...job,
         status,
@@ -522,8 +553,9 @@ export async function validateReviewWave(
       continue;
     }
     const status = jobStatusFromValidation(pointerValidation);
-    const { validated_findings: _validatedFindings, ...validationMetadata } =
+    const { validated_findings: validatedFindings, ...validationMetadata } =
       pointerValidation;
+    void validatedFindings;
     results.push({
       ...job,
       status,
@@ -657,17 +689,23 @@ export async function validateReviewWave(
     atomicWriteJson(versionedValidationPath, validation, atomicDeps),
     atomicWriteJson(versionedReviewSetPath, finalized, atomicDeps),
   ]);
-  const stableUpdated = await withStablePromotionLock(reviewSetPath, async () => {
-    const current = await targetSnapshotIsCurrent(params.snapshot, resolvedDeps);
-    if (current !== true) return false;
-    await Promise.all([
-      atomicWriteJson(validationPath, validation, atomicDeps),
-      atomicWriteJson(reviewSetPath, finalized, atomicDeps),
-    ]);
-    return (
-      (await targetSnapshotIsCurrent(params.snapshot, resolvedDeps)) === true
-    );
-  });
+  const stableUpdated = await withStablePromotionLock(
+    reviewSetPath,
+    async () => {
+      const current = await targetSnapshotIsCurrent(
+        params.snapshot,
+        resolvedDeps,
+      );
+      if (current !== true) return false;
+      await Promise.all([
+        atomicWriteJson(validationPath, validation, atomicDeps),
+        atomicWriteJson(reviewSetPath, finalized, atomicDeps),
+      ]);
+      return (
+        (await targetSnapshotIsCurrent(params.snapshot, resolvedDeps)) === true
+      );
+    },
+  );
   return {
     finalized,
     validation,

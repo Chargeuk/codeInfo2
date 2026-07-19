@@ -110,6 +110,26 @@ def _committed_diff_paths(
     return {path for path in result.stdout.splitlines() if path}
 
 
+def _ignored_paths(repo_root: Path, paths: set[str]) -> set[str]:
+    """Return committed paths intentionally excluded by repository ignore policy."""
+    if not paths:
+        return set()
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "check-ignore", "--no-index", "--stdin"],
+            input="\n".join(sorted(paths)) + "\n",
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        raise ValueError(f"ignored committed diff paths could not be read: {exc}") from exc
+    if result.returncode not in {0, 1}:
+        detail = result.stderr.strip() or result.stdout.strip() or "unknown git error"
+        raise ValueError(f"ignored committed diff paths could not be read: {detail}")
+    return {path for path in result.stdout.splitlines() if path in paths}
+
+
 def _assert_contained(root: Path, candidate: Path, label: str) -> Path:
     try:
         resolved_root = root.resolve(strict=True)
@@ -419,15 +439,22 @@ def build_open_code_review_pointer(
         _required_string(prepared_base, "comparison_base_commit", "prepared review base"),
         _required_string(prepared_base, "head_commit", "prepared review base"),
     )
-    if manifest_file_paths != committed_paths:
-        missing_paths = sorted(committed_paths - manifest_file_paths)
-        unexpected_paths = sorted(manifest_file_paths - committed_paths)
+    missing_committed_paths = committed_paths - manifest_file_paths
+    ignored_committed_paths = _ignored_paths(root, missing_committed_paths)
+    unaccounted_paths = missing_committed_paths - ignored_committed_paths
+    unexpected_paths = manifest_file_paths - committed_paths
+    if unaccounted_paths or unexpected_paths:
+        missing_paths = sorted(unaccounted_paths)
+        unexpected_paths = sorted(unexpected_paths)
         details: list[str] = []
         if missing_paths:
             details.append("missing " + ", ".join(missing_paths))
         if unexpected_paths:
             details.append("unexpected " + ", ".join(unexpected_paths))
         raise ValueError("OCR manifest committed diff paths conflict: " + "; ".join(details))
+    publisher_excluded_files = len(ignored_committed_paths)
+    total_files += publisher_excluded_files
+    excluded_files += publisher_excluded_files
     failed_files = reviewable_files - reviewed_files - skipped_files
     partial = (
         manifest["partial"]
@@ -521,6 +548,7 @@ def build_open_code_review_pointer(
             "excluded_files": excluded_files,
             "skipped_files": skipped_files,
             "failed_files": failed_files,
+            "publisher_excluded_paths": sorted(ignored_committed_paths),
         },
         "overall_validation_status": overall_status,
         "partial": partial,
@@ -574,6 +602,38 @@ def publish_open_code_review(
     }
 
 
+def publish_terminal_open_code_failure(
+    *,
+    repo_root: str | Path,
+    prepared_base_path: str | Path,
+    error: str,
+    ocr_log_root: str | Path = OCR_LOG_ROOT,
+) -> None:
+    """Replace a pending pointer with an honest terminal failure handoff."""
+    root = Path(repo_root).resolve(strict=True)
+    review_root = root / "codeInfoTmp" / "reviews"
+    prepared_path = _assert_contained(
+        review_root, Path(prepared_base_path), "prepared review base"
+    )
+    prepared = _read_object(prepared_path, "prepared review base")
+    story_id = _required_string(prepared, "story_id", "prepared review base")
+    pointer = {
+        **prepared,
+        "schema_version": POINTER_SCHEMA_VERSION,
+        "status": "failed",
+        "partial": True,
+        "overall_validation_status": "invalid",
+        "findings": [],
+        "findings_file": None,
+        "failure_reason": error,
+        "completed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    stable_pointer = review_root / f"{story_id}-current-open-code-review.json"
+    log_root = Path(ocr_log_root).resolve(strict=True)
+    _atomic_write_json(stable_pointer, pointer)
+    _atomic_write_json(log_root / "current-open-code-review.json", pointer)
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -584,6 +644,15 @@ def main() -> int:
             validate_only=args.validate_only,
         )
     except (OSError, ValueError) as exc:
+        if not args.validate_only:
+            try:
+                publish_terminal_open_code_failure(
+                    repo_root=args.repo_root,
+                    prepared_base_path=args.prepared_base,
+                    error=str(exc),
+                )
+            except (OSError, ValueError):
+                pass
         json.dump({"valid": False, "error": str(exc)}, sys.stderr)
         sys.stderr.write("\n")
         return 1

@@ -45,12 +45,12 @@ test('expandSubflowWaveJobs creates matrix and singleton jobs with stable bindin
   assert.deepEqual(
     jobs.map((job) => job.instanceId),
     [
-      'reviews:0:main',
-      'reviews:0:codex',
-      'reviews:0:ocr',
-      'reviews:1:main',
-      'reviews:1:codex',
-      'reviews:1:ocr',
+      'reviews:client:main',
+      'reviews:client:codex',
+      'reviews:client:ocr',
+      'reviews:server:main',
+      'reviews:server:codex',
+      'reviews:server:ocr',
       'cross:cross_review',
     ],
   );

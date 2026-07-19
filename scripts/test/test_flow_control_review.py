@@ -341,7 +341,7 @@ class FlowControlReviewTests(unittest.TestCase):
         self.assertEqual(outcome.answer, "no")
         self.assertEqual(outcome.reason_code, "fast_review_candidates_deferred")
 
-    def test_fast_review_retries_incomplete_reviewer_coverage(self) -> None:
+    def test_fast_review_converges_with_usable_sibling_and_incomplete_coverage(self) -> None:
         repo = self.make_repo(
             review_state={
                 "review_phase": "fast",
@@ -359,9 +359,9 @@ class FlowControlReviewTests(unittest.TestCase):
 
         outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
 
-        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.answer, "yes")
         self.assertEqual(
-            outcome.reason_code, "fast_review_requires_complete_job_coverage"
+            outcome.reason_code, "fast_review_converged_with_degraded_provider_coverage"
         )
 
     def test_fast_review_stops_retrying_incomplete_coverage_after_fifth_pass(self) -> None:
@@ -390,7 +390,7 @@ class FlowControlReviewTests(unittest.TestCase):
 
         self.assertEqual(outcome.answer, "yes")
         self.assertEqual(
-            outcome.reason_code, "fast_review_fifth_pass_coverage_exhausted"
+            outcome.reason_code, "fast_review_converged_with_degraded_provider_coverage"
         )
 
     def test_fast_review_rejects_inconsistent_reviewer_coverage_state(self) -> None:
@@ -441,7 +441,7 @@ class FlowControlReviewTests(unittest.TestCase):
             outcome.reason_code, "fast_review_converged_without_minor_findings"
         )
 
-    def test_fast_review_retries_incomplete_manifest_driven_wave_coverage(self) -> None:
+    def test_fast_review_converges_with_incomplete_manifest_driven_wave_coverage(self) -> None:
         repo = self.make_repo(
             review_state={
                 "review_phase": "fast",
@@ -463,12 +463,12 @@ class FlowControlReviewTests(unittest.TestCase):
 
         outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
 
-        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.answer, "yes")
         self.assertEqual(
-            outcome.reason_code, "fast_review_requires_complete_job_coverage"
+            outcome.reason_code, "fast_review_converged_with_degraded_provider_coverage"
         )
 
-    def test_fast_review_retries_untrusted_wave_coverage(self) -> None:
+    def test_fast_review_exits_to_slow_when_no_provider_coverage_is_usable(self) -> None:
         repo = self.make_repo(
             review_state={
                 "review_phase": "fast",
@@ -490,9 +490,9 @@ class FlowControlReviewTests(unittest.TestCase):
 
         outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
 
-        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.answer, "yes")
         self.assertEqual(
-            outcome.reason_code, "fast_review_requires_complete_job_coverage"
+            outcome.reason_code, "fast_review_converged_with_degraded_provider_coverage"
         )
 
     def test_fast_review_exits_after_fifth_incomplete_wave_with_exhaustion(self) -> None:
@@ -526,7 +526,7 @@ class FlowControlReviewTests(unittest.TestCase):
 
         self.assertEqual(outcome.answer, "yes")
         self.assertEqual(
-            outcome.reason_code, "fast_review_fifth_pass_coverage_exhausted"
+            outcome.reason_code, "fast_review_converged_with_degraded_provider_coverage"
         )
 
     def test_fast_review_rejects_inconsistent_wave_job_counts(self) -> None:

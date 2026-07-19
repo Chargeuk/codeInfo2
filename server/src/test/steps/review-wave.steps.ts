@@ -144,7 +144,7 @@ When('I expand the production mixed review wave', async () => {
   firstPassHashes = jobs.map((job) => job.inputHash ?? '');
 });
 
-Then('the review wave contains {int} concurrent jobs', (count: number) => {
+Then('the review wave expands to {int} job descriptors', (count: number) => {
   assert.equal(jobs.length, count);
 });
 

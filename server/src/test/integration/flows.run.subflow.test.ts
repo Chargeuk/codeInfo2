@@ -644,10 +644,10 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
     );
     assert.deepEqual(activeSubflows.map((entry) => entry.instanceId).sort(), [
       'cross:cross-review',
-      'reviews:0:codex-review',
-      'reviews:0:main-review',
-      'reviews:1:codex-review',
-      'reviews:1:main-review',
+      'reviews:client:codex-review',
+      'reviews:client:main-review',
+      'reviews:server:codex-review',
+      'reviews:server:main-review',
     ]);
     assert.equal(
       new Set(activeSubflows.map((entry) => entry.conversationId)).size,
@@ -655,7 +655,7 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
     );
     assert.deepEqual(
       activeSubflows.find(
-        (entry) => entry.instanceId === 'reviews:0:main-review',
+        (entry) => entry.instanceId === 'reviews:client:main-review',
       )?.input,
       {
         review_target: {
@@ -697,7 +697,7 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
     const clientChild = memoryConversations.get(
       String(
         activeSubflows.find(
-          (entry) => entry.instanceId === 'reviews:0:main-review',
+          (entry) => entry.instanceId === 'reviews:client:main-review',
         )?.conversationId,
       ),
     );
@@ -714,7 +714,7 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
             flow?: { executionId?: string };
           }
         ).flow?.executionId,
-        instanceId: 'reviews:0:main-review',
+        instanceId: 'reviews:client:main-review',
         targetId: 'client',
         displayName: 'main-review [client]',
       },
@@ -981,11 +981,11 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
     const input = { targets: [{ id: 'a' }, { id: 'b' }] };
     const jobs = [
       {
-        instanceId: 'locals:0:wave-resume-local',
+        instanceId: 'locals:a:wave-resume-local',
         flowName: 'wave-resume-local',
       },
       {
-        instanceId: 'locals:1:wave-resume-local',
+        instanceId: 'locals:b:wave-resume-local',
         flowName: 'wave-resume-local',
       },
       { instanceId: 'cross:wave-resume-cross', flowName: 'wave-resume-cross' },
@@ -2942,7 +2942,7 @@ test('codexReview steps skip cleanly when no review model can be resolved and la
   }
 });
 
-test('codexReview clears a stale pointer when the Codex run fails and later parent steps still run', async () => {
+test('codexReview preserves the prior pointer when the Codex run fails and later parent steps still run', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-codex-review-skip-failing-run-'),
   );
@@ -3006,7 +3006,7 @@ exit 1
         (turn) =>
           turn.role === 'assistant' &&
           turn.status === 'ok' &&
-          String(turn.content).includes('Codex review skipped.'),
+          String(turn.content).includes('ended without a usable artifact'),
       ),
       true,
     );

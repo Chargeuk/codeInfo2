@@ -745,7 +745,7 @@ test('validateReviewArtifacts creates a target-scoped fallback when every fast w
 
     assert.equal(result.status, 'blocked');
     assert.ok(result.fallback_findings_file);
-    const fallbackPointer = JSON.parse(
+    const canonicalPointer = JSON.parse(
       await fs.readFile(
         path.join(
           repoRoot,
@@ -756,13 +756,10 @@ test('validateReviewArtifacts creates a target-scoped fallback when every fast w
         'utf8',
       ),
     ) as Record<string, unknown>;
-    assert.equal(fallbackPointer.status, 'partial');
-    assert.equal(fallbackPointer.target_id, 'current_repository');
-    assert.equal(fallbackPointer.review_wave_id, '0000013-rw-wave-target');
-    assert.equal(fallbackPointer.plan_host_root, repoRoot);
-    assert.deepEqual(fallbackPointer.declared_repository_scope, [
-      await fs.realpath(repoRoot),
-    ]);
+    assert.equal(canonicalPointer.status, 'completed');
+    assert.equal(canonicalPointer.target_id, 'current_repository');
+    assert.equal(canonicalPointer.review_wave_id, '0000013-rw-wave-target');
+    assert.equal(canonicalPointer.plan_host_root, repoRoot);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -1621,7 +1618,7 @@ test('validateReviewArtifacts creates a fallback merge target when main review f
     });
     assert.equal(result.status, 'partial');
     assert.ok(result.fallback_findings_file);
-    const fallbackPointer = JSON.parse(
+    const canonicalPointer = JSON.parse(
       await fs.readFile(
         path.join(
           repoRoot,
@@ -1637,15 +1634,8 @@ test('validateReviewArtifacts creates a fallback merge target when main review f
       declared_repository_scope?: string[];
       unreviewed_repositories?: string[];
     };
-    assert.equal(fallbackPointer.status, 'partial');
-    assert.equal(fallbackPointer.main_review_status, 'unavailable');
-    assert.deepEqual(fallbackPointer.declared_repository_scope, [
-      await fs.realpath(repoRoot),
-      await fs.realpath(additionalRoot),
-    ]);
-    assert.deepEqual(fallbackPointer.unreviewed_repositories, [
-      await fs.realpath(additionalRoot),
-    ]);
+    assert.equal(canonicalPointer.status, 'failed');
+    assert.equal(canonicalPointer.main_review_status, undefined);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
     await fs.rm(additionalRoot, { recursive: true, force: true });
@@ -1671,7 +1661,7 @@ test('validateReviewArtifacts validates fast reviewers and creates their canonic
       true,
     );
     assert.ok(result.fallback_findings_file);
-    const fallbackPointer = JSON.parse(
+    const canonicalPointer = JSON.parse(
       await fs.readFile(
         path.join(
           repoRoot,
@@ -1682,11 +1672,11 @@ test('validateReviewArtifacts validates fast reviewers and creates their canonic
         'utf8',
       ),
     ) as Record<string, unknown>;
-    assert.equal(fallbackPointer.status, 'partial');
-    assert.equal(fallbackPointer.repo_alias, 'current_repository');
-    assert.equal(fallbackPointer.repo_root, await fs.realpath(repoRoot));
-    assert.equal(fallbackPointer.review_pass_id, PASS);
-    assert.equal(fallbackPointer.comparison_head_ref, 'HEAD');
+    assert.equal(canonicalPointer.status, 'completed');
+    assert.equal(canonicalPointer.repo_alias, 'current_repository');
+    assert.equal(canonicalPointer.repo_root, await fs.realpath(repoRoot));
+    assert.equal(canonicalPointer.review_pass_id, PASS);
+    assert.equal(canonicalPointer.comparison_head_ref, 'HEAD');
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
@@ -1756,6 +1746,37 @@ test('validateReviewArtifacts creates a canonical fallback for an unusable slow 
 
     assert.equal(result.status, 'blocked');
     assert.ok(result.fallback_findings_file);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('validateReviewArtifacts server-finalizes a findings-ready slow review', async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'review-artifacts-finalize-slow-'),
+  );
+  try {
+    await writeFixture(repoRoot, { mainStatus: 'findings' });
+    const result = await validateReviewArtifacts({
+      workingRepositoryPath: repoRoot,
+      pointerKeys: ['current-review'],
+      finalizeCurrentReview: true,
+    });
+
+    assert.equal(result.status, 'passed');
+    const pointer = JSON.parse(
+      await fs.readFile(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000013-current-review.json',
+        ),
+        'utf8',
+      ),
+    ) as { status?: string; completed_at?: string };
+    assert.equal(pointer.status, 'completed');
+    assert.equal(typeof pointer.completed_at, 'string');
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

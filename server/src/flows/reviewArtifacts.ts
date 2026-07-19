@@ -1299,28 +1299,6 @@ const createFallbackCanonicalFindings = async (params: {
       '',
     ].join('\n'),
   );
-  const currentRepository = Object.fromEntries(
-    CURRENT_REPOSITORY_FIELDS.map((field) => [field, params.prepared[field]]),
-  );
-  await atomicWriteJson(
-    buildReviewArtifactPath({
-      repoRoot: params.repoRoot,
-      storyId: params.prepared.story_id,
-      outputKey: 'current-review',
-    }),
-    {
-      ...params.prepared,
-      schema_version: 2,
-      evidence_file: null,
-      findings_file: relativeFindingsPath,
-      repos: [currentRepository],
-      declared_repository_scope: params.declaredRepositoryScope.resolvedPaths,
-      unreviewed_repositories: unreviewedRepositories,
-      main_review_status: 'unavailable',
-      review_coverage_warnings: coverageWarnings,
-      status: 'partial',
-    },
-  );
   return relativeFindingsPath;
 };
 
@@ -1331,6 +1309,7 @@ export async function validateReviewArtifacts(
     validationMode?: 'legacy' | 'wave_target';
     storyId?: string;
     ensureCanonicalFallback?: boolean;
+    finalizeCurrentReview?: boolean;
     signal?: AbortSignal;
   },
   deps: Partial<ReviewArtifactsDeps> = {},
@@ -1429,7 +1408,11 @@ export async function validateReviewArtifacts(
       if (validationMode === 'wave_target') {
         assertWaveTargetScopeMatches(prepared.artifact, pointer, pointerKey);
       }
-      if (pointer.status !== 'completed') {
+      const serverMayFinalizeCurrentReview =
+        params.finalizeCurrentReview === true &&
+        pointerKey === 'current-review' &&
+        pointer.status === 'findings';
+      if (pointer.status !== 'completed' && !serverMayFinalizeCurrentReview) {
         throw new Error(
           `${pointerKey} has non-complete status ${String(pointer.status)}.`,
         );
@@ -1464,6 +1447,11 @@ export async function validateReviewArtifacts(
         throw new Error(
           'current-review must declare structured findings inline or through a JSON findings_file.',
         );
+      }
+      if (serverMayFinalizeCurrentReview) {
+        pointer.status = 'completed';
+        pointer.completed_at = new Date().toISOString();
+        await atomicWriteJson(pointerPath, pointer);
       }
       if (pointerKey === 'current-open-code-review') {
         const ocr = await validateOcrArtifacts({

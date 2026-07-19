@@ -45,6 +45,12 @@
       "agentType": "review_agent_lite",
       "identifier": "reviewer_blindspot",
       "commandName": "target_review_blind_spot_challenge"
+    },
+    {
+      "type": "validateReviewArtifacts",
+      "label": "Finalize Main Review Artifacts",
+      "pointerKeys": ["current-review"],
+      "finalizeCurrentReview": true
     }
   ]
 }

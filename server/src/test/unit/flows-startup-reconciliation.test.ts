@@ -73,3 +73,29 @@ test('startup reconciliation leaves a non-running checkpoint untouched', () => {
 
   assert.equal(reconcileInterruptedFlowResumeStateForStartup(state), null);
 });
+
+test('startup reconciliation marks a pending-only wave as interrupted', () => {
+  const state = baseState();
+  state.activeSubflows = undefined;
+  state.subflowWaveProgress = {
+    ...state.subflowWaveProgress!,
+    running: 0,
+    completed: 0,
+    jobs: state.subflowWaveProgress!.jobs.map((job) => ({
+      ...job,
+      status: 'pending',
+    })),
+  };
+
+  const reconciled = reconcileInterruptedFlowResumeStateForStartup(
+    state,
+    '2026-07-18T09:00:00.000Z',
+  );
+
+  assert(reconciled);
+  assert.equal(
+    reconciled.restartReconciliation?.interruptedWaveRunningCount,
+    2,
+  );
+  assert.equal(reconciled.runLifecycle?.status, 'orphaned');
+});

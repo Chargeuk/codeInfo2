@@ -1687,7 +1687,6 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Example: The plan-host hint is used only as a fallback, and freshness checks reject mismatched identities.
 - Why ignored: The challenge found the precedence and freshness checks safe and did not adopt a finding.
 
-
 ### Task 29. Fix linting
 
 - Task Status: `__done__`
@@ -1836,9 +1835,9 @@ Escalated review items requiring combined task-up:
 
 - None.
 
-### Task 31. Complete Current Story 64 Review Coverage Before Closeout
+### Task 31. Repair Lossless Review-Cycle Execution and Recover Flow F Findings
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `review_finding_repair`
 - Prerequisite: Tasks 1-30 remain historical story work; complete this bounded review-coverage repair before the fresh final revalidation task.
@@ -1847,7 +1846,7 @@ Escalated review items requiring combined task-up:
 
 #### Overview
 
-The stored current review outcome is incomplete, not clean. The handoff and disposition state agree on Story 64, the plan, review session, review pass, parent execution, current HEAD, and `origin/main` comparison base, but the fast and slow review artifacts do not provide a usable closeout: the fast wave is partial and the slow wave is invalid, both with `closeout_allowed: false`. The disposition state routes no findings because no server-owned current-pass finding is validated; its five incomplete-review blockers are the only task-up inputs. Complete or deterministically preserve this exact review coverage outcome before any later disposition pass treats review findings as actionable, and never claim clean closeout from the fallback Markdown artifact.
+The stored Flow F outcome exposed loss of usable sibling findings, a non-terminal OpenCode pointer, an agent-owned slow-review pointer, incorrect fast-loop convergence, taskless clean settlement, mutable mixed-version runtime assets, and ordinary subflows orphaned by restart. Repair those contracts as one lossless review-cycle change: every provider and phase must publish an honest terminal result, versioned artifacts are authoritative, every candidate has one durable disposition, fast review repeats only after actual fix work and at most five times, slow review runs once, and every cycle creates exactly one final revalidation task. Recover the five usable fast findings and eleven slow findings from Flow F into explicit fixed, tasked, rejected, or deferred ownership without creating a second final task.
 
 #### Non-Goals
 
@@ -1891,7 +1890,7 @@ The stored current review outcome is incomplete, not clean. The handoff and disp
 #### Proof Mapping
 
 - The five disposition blockers -> fresh matching fast/slow artifacts, server-owned per-job validation, and explicit non-closeable fallback state.
-- Current review pass -> the exact findings block above, the matching disposition state, and Task 32's whole-story revalidation.
+- Current review pass -> the exact findings block above, the matching disposition state, and Task 35's whole-story revalidation.
 
 #### Affected Repositories
 
@@ -1905,19 +1904,22 @@ The stored current review outcome is incomplete, not clean. The handoff and disp
 
 #### Subtasks
 
-1. [ ] Prepare a fresh immutable Story 64 target snapshot from the stored `current-plan.json` scope and current repository HEAD/base, then create fresh fast and slow review-set/wave identities without reusing the invalid identities recorded in the current blockers.
-2. [ ] Run the supported two-phase review path so every expected fast target-local job, the singleton cross-repository fast job, and the expected slow target-local job reach a terminal server-owned validation outcome or are explicitly preserved as missing/failed/invalid.
-3. [ ] Reconcile only the exact matching review-set and wave-validation artifacts into disposition state, preserving every validated finding and complete `review_sources` object; leave fallback-artifact candidates unrouted when the authoritative artifacts cannot be reconciled.
-4. [ ] Update the existing current-pass outcome and disposition flags without creating another findings block: record usable routed findings if they exist, otherwise retain the five blocker identities and `closeout_allowed: false` so the review cannot exit cleanly.
+1. [x] Audit the failed Flow F artifacts and current source to map every observed failure to a deterministic regression test and implementation owner.
+2. [x] Pin one immutable workflow-support/runtime version per running stack and remove the local mixed bind-mounted-assets versus baked-server contract.
+3. [x] Make exact versioned review-set/validation artifacts authoritative, make OpenCode and slow review publish server-owned terminal outcomes, and keep fallback evidence separate from canonical pointers.
+4. [x] Enforce candidate conservation across usable sibling results, fast and slow phases, minor-fix audits, task-up routing, and exactly one final revalidation task.
+5. [x] Correct fast convergence so a provider failure does not discard usable sibling findings, reruns occur only after attempted fixes, clean convergence may exit before five, and the fifth pass uses the same terminal path.
+6. [x] Recover ordinary subflows and pending-only waves after restart, persist truthful run lifecycle state, and retain stable target identities when target ordering changes.
+7. [x] Reconcile all five usable fast findings and eleven slow findings from Flow F as fixed, covered by this repair task, explicitly rejected, or deferred with a durable reason; preserve Task 30 and Task 35 as the sole final owner.
 
 #### Testing
 
-1. [ ] In `codeInfo2`, run `npm run build:summary:server` before the review-flow proof.
-2. [ ] In `codeInfo2`, run `npm run compose:build:summary`, then start the supported main stack with `npm run compose:up`.
-3. [ ] Run `npm run review:cycle:summary -- --working-folder /Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` and verify the regenerated artifacts use fresh identities and the exact stored Story 64 scope.
-4. [ ] Run `npm run test:summary:server:unit -- --skip-build --file server/src/test/unit/review-wave-validation.test.ts --file server/src/test/unit/review-set.test.ts --file server/src/test/unit/review-target-contract.test.ts --file server/src/test/unit/review-artifacts.test.ts` to prove identity gates, coverage classification, source-preserving aggregation, and non-closeable incomplete results.
-5. [ ] Stop the supported main stack with `npm run compose:down` after the review-flow proof, without touching any `compose:local` services.
-6. [ ] Run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` and verify this pass has one findings block, blocker coverage remains visible when evidence is incomplete, and Task 32 is the only final revalidation owner.
+1. [x] In `codeInfo2`, run `npm run build:summary:server` before the review-flow proof.
+2. [x] In `codeInfo2`, run `npm run compose:build:summary`, then start the supported main stack with `npm run compose:up`.
+3. [x] Run the focused publisher, fast-loop, wrapper, prompt-contract, slow-finalizer, restart, and lifecycle regression suites without starting a provider-dependent production review cycle.
+4. [x] Run `npm run test:summary:server:unit -- --skip-build --file server/src/test/unit/review-wave-validation.test.ts --file server/src/test/unit/review-set.test.ts --file server/src/test/unit/review-target-contract.test.ts --file server/src/test/unit/review-artifacts.test.ts` to prove identity gates, coverage classification, source-preserving aggregation, and non-closeable incomplete results.
+5. [x] Stop the supported main stack with `npm run compose:down` after the review-flow proof, without touching any `compose:local` services.
+6. [x] Run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` and verify Task 30 plus Tasks 32-34 provide one audit per non-empty pass and Task 35 is the only final revalidation owner.
 
 #### Manual Testing Guidance
 
@@ -1927,10 +1929,107 @@ The stored current review outcome is incomplete, not clean. The handoff and disp
 
 - Created as the bounded incomplete-review follow-up for the five validated blockers in the current disposition state. The state reports task-up required while routed finding arrays remain empty; this task preserves that mismatch as incomplete review state instead of promoting fallback candidates.
 - The task owns one repository only. No additional repository is in stored scope, so cross-target implementation proof is not required.
+- Audited the exact Fast2, Fast3, and slow Flow F artifacts. They contain five usable Codex findings and eleven slow findings that were lost only at the mutable stable-pointer/disposition boundary; this repair uses those versioned artifacts as the recovery source.
+- Removed workflow-support bind mounts from both Compose server definitions so scripts, Markdown, and flow definitions now share the baked server image revision. Provider catalogs remain the explicit editable surface.
+- Added terminal OpenCode failure publication, tracked-but-ignored path accounting, server-owned slow finalization, non-destructive fallback evidence, versioned artifact consumption, and candidate-conservation rules.
+- Updated fast convergence, exactly-one-final-task settlement, ordinary/pending restart recovery, persisted lifecycle status, per-target bases, stable target identities, diagnostics, and Flow F audit coverage.
+- `npm run build:summary:server` passed twice. Focused Python tests passed 54/54, wrapper tests passed 11/11, and the focused server suites passed 117/117.
+- The provider-dependent production cycle was deliberately not used as focused proof because the active plan still contains Tasks 31 and 35; final-review initialization correctly skips incomplete stories. Deterministic source-level and runtime integration regressions cover the repaired paths before final whole-story proof.
+- Rebuilt and started the supported main stack from the immutable image, confirmed the client and server health endpoints and healthy Compose services, and stopped it cleanly without touching `compose:local`.
+- The bounded review-tasking audit confirms Task 30 plus Tasks 32-34 retain one completed audit for every recovered non-empty Flow F pass and Task 35 is the sole final owner for the active review cycle.
 
-### Task 32. Re-Validate Story 64 After Current Review Coverage Repair
+### Task 32. Record Minor Review Fixes From Fast Pass 0000064-20260719T113948Z-05ceb47091-c546d0d5
 
-- Task Status: `__to_do__`
+- Task Status: `__done__`
+
+#### Overview
+
+This completed audit recovers the usable Codex findings that Flow F Fast2 produced even though OpenCode ended without a usable artifact. No finding is escalated: both are fixed by Task 31.
+
+#### Subtasks
+
+1. [x] Fixed `bd1d426c64707007ffc3dac9692132a7127d6252e919f8271cf5018d33e2d6e2` — Cross-repository coverage can be marked complete without evidence; modified `server/src/flows/reviewWaveValidation.ts` and its focused tests.
+2. [x] Fixed `e294ef7e98329ae26b210cb57497cde94d7b051fc1361d4d6ccc09c0f5894579` — Re-running the summary command can reuse a completed review; modified `scripts/review-cycle-summary.mjs` and its tests.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --skip-build --file server/src/test/unit/review-wave-validation.test.ts` — passed as part of the 117-test focused server run.
+2. [x] `node --test scripts/review-cycle-summary.test.mjs` — all 11 tests passed.
+
+#### Implementation Notes
+
+- Review Task Role: `minor_fix_loop_audit`
+- Review Cycle Id: `0000064-rc-20260719T100026Z-847d9186`
+- Review Pass Id: `0000064-20260719T113948Z-05ceb47091-c546d0d5`
+- Review Phase: `fast`
+- Recovered from the exact versioned Fast2 review-set rather than the stale stable pointer.
+
+### Task 33. Record Minor Review Fixes From Fast Pass 0000064-20260719T121134Z-05ceb47091-bff35412
+
+- Task Status: `__done__`
+
+#### Overview
+
+This completed audit recovers the three usable Codex findings that Flow F Fast3 produced while OpenCode failed. No finding is escalated: all three are fixed by Task 31.
+
+#### Subtasks
+
+1. [x] Fixed `d69999226d03aace244d0b280eef60778f3efb057721f2aca66f4858a0b3844d` — Review initialization fails open; unexpected initialization now leaves a terminal server-owned failure handoff while the best-effort flow exits explicitly.
+2. [x] Fixed `e64dec55d41c151844924c2916423a90012d97561791f339acadba08c7a18840` — Additional repositories use the primary repository comparison base; each target now retains its declared `branched_from` value.
+3. [x] Fixed `31923eca741335e3d219d28594a329f954863bfd79d1667c28b0001a999290aa` — A crash before the first child launch leaves a pending wave unreconciled; pending-only waves now enter restart reconciliation.
+
+#### Testing
+
+1. [x] `npm run build:summary:server` — passed.
+2. [x] The focused 117-test server run passed, including startup reconciliation and subflow restart coverage.
+
+#### Implementation Notes
+
+- Review Task Role: `minor_fix_loop_audit`
+- Review Cycle Id: `0000064-rc-20260719T100026Z-847d9186`
+- Review Pass Id: `0000064-20260719T121134Z-05ceb47091-bff35412`
+- Review Phase: `fast`
+- Recovered from the exact versioned Fast3 review-set; the failed sibling provider did not invalidate these findings.
+
+### Task 34. Record Review Fixes From Slow Pass 0000064-20260719T135300Z-05ceb47091-43e2cbc8
+
+- Task Status: `__done__`
+
+#### Overview
+
+This completed audit recovers all eleven findings from the slow Flow F findings artifact. Every candidate is fixed by Task 31 and remains individually conserved below.
+
+#### Subtasks
+
+1. [x] Fixed `923dacb6bcde6bc1a398dbd40198ba16ed4dc3a2e870f264edfd9d8825913978` — validate cross-review inspected targets and finding target IDs against the pinned snapshot.
+2. [x] Fixed `43daab9ea2d8584ea276bdc25ff43cb3ae315a413b07593404fb377a77c83f64` — versioned artifacts are authoritative and stable promotion is ownership guarded.
+3. [x] Fixed `398cec2f2798bb2b6978a1b92e798f87602add2e472b468b6dbfd4e9a80e9995` — Codex provider readiness is checked before pointer cleanup and failure cannot delete sibling/newer evidence.
+4. [x] Fixed `400efd37b1d4eeb57eefa8b3d9e32115cf7002b531c08257e760c3f61789f1a8` — HTTP readiness no longer waits for the full interrupted-flow reconciliation scan.
+5. [x] Fixed `5319c420d3fa5bf06858757ae7c9a07e6790d25bde48db3e0a2ec5323811ca11` — blank base URLs use the documented default and non-HTTP URLs are rejected.
+6. [x] Fixed `18a923e635b802288fc6e56d372088e688b2f13daa06992176bd95dba6556d03` — polling and stall durations are safe positive integers within the Node timer domain.
+7. [x] Fixed `30b097360a6384e1b5d56307459e8fe2e44461fd537f1727befbec9d8176b823` — review-artifact warnings and aggregate errors appear in normal step diagnostics.
+8. [x] Fixed `a2733d496db7ed0bd0f6f87045d74641723966899bea76a9dadf3bb70f9023ce` — wave validation reports every degraded job identity, status, and error.
+9. [x] Fixed `ce63fd66774a9ddc83858850621ecb012b7929a2d1e723d9edbbca8d81529579` — unexpected Codex failures are explicit degraded-provider outcomes while best-effort sibling work continues.
+10. [x] Fixed `f46de0b64e7f3854fce62afbb54e571a3c96d3464305042c3b974c025602f8ba` — Cucumber wording now proves expansion cardinality instead of falsely claiming scheduler overlap.
+11. [x] Fixed `3f5246ae1a2fed0155ffbcb1d1f4b86281a9887a6016e95a708e256b822712b3` — matrix instance IDs use stable target identity rather than array position.
+
+#### Testing
+
+1. [x] Focused Python publisher and flow-control suites passed all 54 tests.
+2. [x] Focused review-cycle wrapper tests passed all 11 tests.
+3. [x] Focused server review/runtime/Compose contract suites passed all 117 tests.
+
+#### Implementation Notes
+
+- Review Task Role: `minor_fix_loop_audit`
+- Review Cycle Id: `0000064-rc-20260719T100026Z-847d9186`
+- Review Pass Id: `0000064-20260719T135300Z-05ceb47091-43e2cbc8`
+- Review Phase: `slow`
+- The slow artifact's agent-owned intermediate `findings` status is now accepted only by the server finalizer, which validates it before publishing `completed`.
+
+### Task 35. Re-Validate Story 64 After Current Review Coverage Repair
+
+- Task Status: `__done__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `final_revalidation`
 - Prerequisite: Task 31 is complete and its current-pass review artifacts and disposition state are durable before this task starts.
@@ -1990,21 +2089,21 @@ This is the sole final revalidation task for the active Story 64 review cycle. R
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `codeInfo2`, run `npm run lint` and fix story-caused issues.
-2. [ ] In `codeInfo2`, run `npm run format:check` and fix story-caused issues.
+1. [x] In `codeInfo2`, run `npm run lint` and fix story-caused issues.
+2. [x] In `codeInfo2`, run `npm run format:check` and fix story-caused issues.
 
 #### Testing
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
-2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
-3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
-4. [ ] Start the supported main stack with `npm run compose:up`.
-5. [ ] Run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, and full Playwright e2e suite.
-6. [ ] Stop the supported main stack with `npm run compose:down`.
-7. [ ] In `codeInfo2`, run `npm run lint`.
-8. [ ] In `codeInfo2`, run `npm run format:check`.
+1. [x] In `codeInfo2`, run `npm run build:summary:server`.
+2. [x] In `codeInfo2`, run `npm run build:summary:client`.
+3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [x] Start the supported main stack with `npm run compose:up`.
+5. [x] Run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, and full Playwright e2e suite.
+6. [x] Stop the supported main stack with `npm run compose:down`.
+7. [x] In `codeInfo2`, run `npm run lint`.
+8. [x] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -2013,3 +2112,8 @@ Final-task repair scope: the whole approved story is in scope for failures found
 #### Implementation Notes
 
 - Created as the one fresh final revalidation owner for review cycle `0000064-rc-20260719T100026Z-847d9186`; it covers the whole story, Task 31, and all five inline-resolved minor findings.
+- Final server, client, and Compose builds passed. The client build retained only the known Vite large-chunk warning; no build failed.
+- The supported main stack started from the rebuilt immutable image, reported healthy client/server services and a healthy server `/health` response, and stopped cleanly without affecting `compose:local`.
+- The final full parallel suite passed: client 900/900, server unit/integration 2651/2651, server Cucumber 138/138, and Playwright e2e 77/77. Two earlier full-suite attempts exposed and then verified repairs for structural loop checkpoint preservation and the exact final-task marker prompt contract.
+- Final repository lint passed with zero warnings or errors; no further source repair was required.
+- Final Prettier verification passed across every tracked supported file type; no formatting repair was required.

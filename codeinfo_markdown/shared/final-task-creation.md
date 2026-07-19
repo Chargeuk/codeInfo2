@@ -62,7 +62,7 @@ Use this repository-agnostic contract whenever a task-up command or flow creates
 - When unresolved task-required review findings create a contiguous block of repair tasks, append one fresh dedicated final revalidation task after that block. Its affected-surface inventory covers the whole story plus every current-cycle review repair, including minor findings already fixed inline.
 - Record the serious review task-up final task in `task_up_owned_final_revalidation_task_title`, set `final_revalidation_owned_by_task_up_path` to true, and set `needs_final_minor_fix_revalidation_task` to false so the cycle has one closeout owner.
 - The scoped `task_up_review_tasks` command may repair the already-created final task's shape and full-suite inventory, but it must not create a second current-cycle final task.
-- The minor-fix-only path creates or updates one final task only when inline minor fixes were made, no unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remain, and `needs_final_minor_fix_revalidation_task` is true.
+- The post-review path creates or updates one final task whenever no unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remain and `needs_final_minor_fix_revalidation_task` is true, including clean cycles with no inline fixes.
 - Identify a minor-fix final task by the active `review_cycle_id`, not merely by title or position. If `final_revalidation_owned_by_task_up_path` is true, the minor-fix-only path must be a no-op.
 
 </review_cycle_rules>

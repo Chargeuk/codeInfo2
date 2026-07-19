@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 import { createSummaryWrapperRun } from './summary-wrapper-runner.mjs';
@@ -6,15 +6,28 @@ import { writeLogLine } from './summary-wrapper-protocol.mjs';
 
 const DEFAULT_BASE_URL = 'http://localhost:5010';
 const DEFAULT_POLL_MS = 5_000;
+const MAX_TIMER_MS = 2_147_483_647;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const parsePositiveNumber = (value, name) => {
+export const parseTimerMs = (value, name) => {
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive number.`);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > MAX_TIMER_MS) {
+    throw new Error(
+      `${name} must be an integer from 1 through ${MAX_TIMER_MS} milliseconds.`,
+    );
   }
   return parsed;
+};
+
+export const normalizeBaseUrl = (value) => {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  const selected = normalized || DEFAULT_BASE_URL;
+  const parsed = new URL(selected);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('--base-url must use http or https.');
+  }
+  return parsed.toString().replace(/\/$/u, '');
 };
 
 const readJsonResponse = async (response, label) => {
@@ -41,6 +54,7 @@ export const buildReviewRetryOwnershipId = ({
   sourceId,
   customTitle,
   flowName = 'two_phase_review_cycle',
+  launchNonce = null,
 }) => {
   const digest = createHash('sha256')
     .update(
@@ -49,6 +63,7 @@ export const buildReviewRetryOwnershipId = ({
         sourceId: sourceId ?? null,
         customTitle: customTitle ?? null,
         flowName,
+        launchNonce,
       }),
     )
     .digest('hex')
@@ -147,6 +162,7 @@ export const waitForReviewCycle = async ({
     sourceId,
     customTitle,
     flowName,
+    launchNonce: randomUUID(),
   }),
   pollMs = DEFAULT_POLL_MS,
   cancelAfterNoProgressMs = null,
@@ -320,10 +336,10 @@ const main = async () => {
   let cancelAfterNoProgressMs = null;
   try {
     pollMs = values['poll-ms']
-      ? parsePositiveNumber(values['poll-ms'], '--poll-ms')
+      ? parseTimerMs(values['poll-ms'], '--poll-ms')
       : DEFAULT_POLL_MS;
     cancelAfterNoProgressMs = values['cancel-after-no-progress-ms']
-      ? parsePositiveNumber(
+      ? parseTimerMs(
           values['cancel-after-no-progress-ms'],
           '--cancel-after-no-progress-ms',
         )
@@ -335,7 +351,7 @@ const main = async () => {
   run.protocol.setPhase('starting_review');
   run.startHeartbeat();
   try {
-    const baseUrl = values['base-url'] ?? DEFAULT_BASE_URL;
+    const baseUrl = normalizeBaseUrl(values['base-url']);
     const launch = values['working-folder']
       ? await resolveReviewLaunch({
           baseUrl,

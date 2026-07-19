@@ -130,10 +130,10 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.doesNotMatch(mainServer, /\.\/codeinfo_agents:/u);
   assert.doesNotMatch(mainServer, /\.\/codex_agents:/u);
   assert.doesNotMatch(mainServer, /\.\/flows-sandbox:/u);
-  assert.match(mainServer, /\.\/scripts:\/app\/scripts:ro/u);
-  assert.match(
+  assert.doesNotMatch(mainServer, /\.\/scripts:\/app\/scripts/u);
+  assert.doesNotMatch(
     mainServer,
-    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u,
+    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown/u,
   );
   assert.match(
     mainServer,
@@ -161,7 +161,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,
   );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
-  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=5/u);
+  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=3/u);
   assert.match(
     mainServer,
     /CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012,5013/u,
@@ -217,13 +217,13 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localServer, /\.\/codex:\/app\/codex/u);
   assert.match(localServer, /\.\/codeinfo_agents:\/app\/codeinfo_agents/u);
   assert.match(localServer, /\.\/codex_agents:\/app\/codex_agents/u);
-  assert.match(localServer, /\.\/scripts:\/app\/scripts:ro/u);
-  assert.match(
+  assert.doesNotMatch(localServer, /\.\/scripts:\/app\/scripts/u);
+  assert.doesNotMatch(
     localServer,
-    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u,
+    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown/u,
   );
-  assert.match(localServer, /\.\/flows:\/app\/flows/u);
-  assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
+  assert.doesNotMatch(localServer, /\.\/flows:\/app\/flows/u);
+  assert.doesNotMatch(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
   assert.match(localServer, /CODEINFO_WEB_MCP_PORT=5513/u);
   assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
@@ -245,7 +245,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     localServer,
     /\$\{CODEINFO_DOCKER_SOCKET_PATH:-\/var\/run\/docker\.sock\}:\/var\/run\/docker\.sock/u,
   );
-  assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=6/u);
+  assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
   assert.match(
     localServer,
     /CODEINFO_RUNTIME_SERVER_PORTS=5510,5511,5512,5513/u,

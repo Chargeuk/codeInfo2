@@ -111,7 +111,7 @@ export const expandSubflowWaveJobs = (params: {
       const bindings = buildBindings({ root, bindings: group.bindings });
       group.flowNames.forEach((flowName) => {
         jobs.push({
-          instanceId: `${group.id}:${index}:${flowName}`,
+          instanceId: `${group.id}:${targetId}:${flowName}`,
           flowName,
           targetId,
           displayName: `${flowName} [${targetId}]`,

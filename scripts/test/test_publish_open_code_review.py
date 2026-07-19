@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -15,6 +16,45 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import publish_open_code_review
+
+
+class CommittedDiffPathsTests(unittest.TestCase):
+    def test_uses_three_dot_range_when_prepared_base_has_diverged(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+
+            def git(*args: str) -> str:
+                return subprocess.run(
+                    ["git", "-C", str(repo), *args],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+
+            git("init", "-q")
+            git("config", "user.email", "test@example.com")
+            git("config", "user.name", "Test User")
+            git("checkout", "-q", "-b", "main")
+            (repo / "base.txt").write_text("base\n", encoding="utf-8")
+            git("add", "base.txt")
+            git("commit", "-qm", "base")
+            git("checkout", "-q", "-b", "feature/review")
+            (repo / "feature.txt").write_text("feature\n", encoding="utf-8")
+            git("add", "feature.txt")
+            git("commit", "-qm", "feature change")
+            head_commit = git("rev-parse", "HEAD^{commit}")
+            git("checkout", "-q", "main")
+            (repo / "main.txt").write_text("main\n", encoding="utf-8")
+            git("add", "main.txt")
+            git("commit", "-qm", "main change")
+            comparison_base_commit = git("rev-parse", "HEAD^{commit}")
+
+            self.assertEqual(
+                publish_open_code_review._committed_diff_paths(
+                    repo, comparison_base_commit, head_commit
+                ),
+                {"feature.txt"},
+            )
 
 
 class PublishOpenCodeReviewTests(unittest.TestCase):

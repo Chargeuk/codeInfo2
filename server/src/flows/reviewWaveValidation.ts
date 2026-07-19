@@ -8,6 +8,7 @@ import {
   type ReviewArtifactsValidationResult,
   type ReviewPointerValidationResult,
 } from './reviewArtifacts.js';
+import { CROSS_REPOSITORY_REVIEW_SCHEMA_VERSION } from './crossRepositoryReview.js';
 import { atomicWriteJson, buildReviewArtifactPath } from './reviewIdentity.js';
 import type {
   AggregatedReviewFinding,
@@ -102,6 +103,21 @@ const readPointer = async (
     throw error;
   }
 };
+
+const isUsableCrossRepositoryResult = (
+  pointer: FlowJsonObject,
+  targetCount: number,
+) =>
+  pointer.schema_version === CROSS_REPOSITORY_REVIEW_SCHEMA_VERSION &&
+  pointer.target_count === targetCount &&
+  (pointer.status === 'completed' ||
+    pointer.status === 'completed_partial' ||
+    (pointer.status === 'not_applicable' && targetCount === 1)) &&
+  Array.isArray(pointer.findings) &&
+  Array.isArray(pointer.rejected_risks) &&
+  Array.isArray(pointer.residual_uncertainty) &&
+  typeof pointer.completed_at === 'string' &&
+  pointer.completed_at.length > 0;
 
 const targetSnapshotIsCurrent = async (
   snapshot: ReviewTargetSnapshot,
@@ -364,9 +380,15 @@ export async function validateReviewWave(
         pointer.review_wave_id === params.snapshot.review_wave_id &&
         pointer.parent_execution_id === params.snapshot.parent_execution_id &&
         pointer.targets_sha256 === params.snapshot.targets_sha256;
+      const structurallyValid = isUsableCrossRepositoryResult(
+        pointer,
+        params.snapshot.targets.length,
+      );
       const status = !identityMatches
         ? 'stale'
-        : pointer.status === 'completed'
+        : !structurallyValid
+          ? 'invalid'
+          : pointer.status === 'completed'
           ? 'completed'
           : pointer.status === 'completed_partial'
             ? 'partial'
@@ -380,9 +402,11 @@ export async function validateReviewWave(
         pointer_path: pointerPath,
         validation_file: null,
         validation: null,
-        error: identityMatches
-          ? null
-          : 'Cross-repository pointer identity is stale.',
+        error: !identityMatches
+          ? 'Cross-repository pointer identity is stale.'
+          : !structurallyValid
+            ? 'Cross-repository pointer does not satisfy the required result schema.'
+            : null,
       });
       if (status === 'completed' || status === 'partial') {
         for (const finding of findingValues(pointer)) {

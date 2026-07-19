@@ -158,12 +158,17 @@ const createFixture = async () => {
   await fs.writeFile(
     crossPointer,
     JSON.stringify({
+      schema_version: 'codeinfo-cross-repository-review/v1',
       story_id: snapshot.story_id,
       review_wave_id: snapshot.review_wave_id,
       parent_execution_id: snapshot.parent_execution_id,
       targets_sha256: snapshot.targets_sha256,
+      target_count: targets.length,
       status: 'completed',
       findings: [],
+      rejected_risks: [],
+      residual_uncertainty: [],
+      completed_at: '2026-07-14T12:01:00.000Z',
     }),
   );
   const validateTargetArtifacts = async (params: {
@@ -560,6 +565,37 @@ test('multi-target review cannot close cleanly without usable cross-repository c
     );
 
     assert.equal(result.finalized.cross_repository_status, 'missing');
+    assert.equal(result.finalized.closeout_allowed, false);
+    assert.equal(result.finalized.status, 'completed_partial');
+  } finally {
+    await fs.rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('multi-target review cannot close cleanly with a malformed cross-repository result', async () => {
+  const fixture = await createFixture();
+  try {
+    await fs.writeFile(
+      fixture.crossPointer,
+      JSON.stringify({
+        story_id: fixture.snapshot.story_id,
+        review_wave_id: fixture.snapshot.review_wave_id,
+        parent_execution_id: fixture.snapshot.parent_execution_id,
+        targets_sha256: fixture.snapshot.targets_sha256,
+        status: 'completed',
+        findings: [],
+      }),
+    );
+
+    const result = await validateReviewWave(
+      {
+        snapshot: fixture.snapshot,
+        reviewSet: fixture.reviewSet,
+      },
+      { validateReviewArtifacts: fixture.validateTargetArtifacts },
+    );
+
+    assert.equal(result.finalized.cross_repository_status, 'invalid');
     assert.equal(result.finalized.closeout_allowed, false);
     assert.equal(result.finalized.status, 'completed_partial');
   } finally {

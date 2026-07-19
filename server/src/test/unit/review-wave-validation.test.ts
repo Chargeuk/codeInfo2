@@ -469,7 +469,7 @@ test('cross-repository findings retain story-scoped review provenance', async ()
   }
 });
 
-test('partial and stale target results preserve usable sibling findings but block closeout', async () => {
+test('partial and stale target results publish the current canonical handoff but block closeout', async () => {
   const fixture = await createFixture();
   try {
     const stableReviewSetPath = path.join(
@@ -518,6 +518,7 @@ test('partial and stale target results preserve usable sibling findings but bloc
 
     assert.equal(result.finalized.status, 'completed_partial');
     assert.equal(result.finalized.closeout_allowed, false);
+    assert.equal(result.stableUpdated, true);
     assert.equal(result.finalized.coverage.missing_jobs, 1);
     assert.equal(result.finalized.coverage.failed_jobs, 1);
     assert.equal((result.finalized.aggregated_findings?.length ?? 0) > 0, true);
@@ -536,11 +537,11 @@ test('partial and stale target results preserve usable sibling findings but bloc
     );
     assert.deepEqual(
       JSON.parse(await fs.readFile(stableReviewSetPath, 'utf8')),
-      { stable: 'newer' },
+      result.finalized,
     );
     assert.deepEqual(
       JSON.parse(await fs.readFile(stableValidationPath, 'utf8')),
-      { stable: 'newer' },
+      result.validation,
     );
     assert.equal(
       JSON.parse(await fs.readFile(result.versionedReviewSetPath, 'utf8'))

@@ -655,23 +655,17 @@ export async function validateReviewWave(
     atomicWriteJson(versionedValidationPath, validation, atomicDeps),
     atomicWriteJson(versionedReviewSetPath, finalized, atomicDeps),
   ]);
-  const stableUpdated = closeoutAllowed
-    ? await withStablePromotionLock(reviewSetPath, async () => {
-        const current = await targetSnapshotIsCurrent(
-          params.snapshot,
-          resolvedDeps,
-        );
-        if (current !== true) return false;
-        await Promise.all([
-          atomicWriteJson(validationPath, validation, atomicDeps),
-          atomicWriteJson(reviewSetPath, finalized, atomicDeps),
-        ]);
-        return (
-          (await targetSnapshotIsCurrent(params.snapshot, resolvedDeps)) ===
-          true
-        );
-      })
-    : false;
+  const stableUpdated = await withStablePromotionLock(reviewSetPath, async () => {
+    const current = await targetSnapshotIsCurrent(params.snapshot, resolvedDeps);
+    if (current !== true) return false;
+    await Promise.all([
+      atomicWriteJson(validationPath, validation, atomicDeps),
+      atomicWriteJson(reviewSetPath, finalized, atomicDeps),
+    ]);
+    return (
+      (await targetSnapshotIsCurrent(params.snapshot, resolvedDeps)) === true
+    );
+  });
   return {
     finalized,
     validation,

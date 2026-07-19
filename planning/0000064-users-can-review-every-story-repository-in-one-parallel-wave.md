@@ -2147,10 +2147,10 @@ Final-task repair scope: the whole approved story is in scope for failures found
 2. [x] In `codeInfo2`, run `npm run build:summary:client`.
 3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
 4. [x] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
-5. [ ] In `codeInfo2`, run the full client, server unit, server cucumber, shell, host-network, and e2e automated suites with `npm run test:summary:all:parallel`, `npm run test:summary:shell`, and `npm run test:summary:host-network:main`.
+5. [x] In `codeInfo2`, run the full client, server unit, server cucumber, shell, host-network, and e2e automated suites with `npm run test:summary:all:parallel`, `npm run test:summary:shell`, and `npm run test:summary:host-network:main`.
 6. [x] In `codeInfo2`, stop the main stack with `npm run compose:down`.
 7. [x] Run `npm run lint`.
-8. [ ] Run `npm run format`.
+8. [x] Run `npm run format`.
 
 #### Manual Testing Guidance
 
@@ -2175,3 +2175,5 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Preflight visual refinement pass ran against the supported Flows surface: clarified the server-to-`FlowsPage` terminal-status seam, the existing `ComposerSendButton` Stop-to-Send recovery, and the matching 390px mobile behavior; no code was changed in this step.
 - Explicit WebSocket cancellation now preserves the active parent run token after a successful inflight abort, allowing `subflowWave` to stop every child and finalize one server-owned stopped parent result. The integration regression now exercises that cancellation ordering and asserts the parent stopped turn, zero active children, zero persisted running jobs, and stopped child entries; targeted server unit checks passed for both the regression and WebSocket cancellation path.
 - Implementation-only audit: fresh Task 36 handoffs, the bounded task packet, parser output, current git state, and the latest cancellation commit show all four implementation subtasks complete. The approved server cancellation and regression changes introduce no unapproved user-facing behavior drift; Testing items 5 and 8 remain intentionally unchecked for the later automated-proof pass, so Task 36 remains `__in_progress__` with no live blocker and is ready for automated proof.
+- Automated proof item 5 passed on 2026-07-19: the full client, server unit, server Cucumber, e2e, shell, and main-stack host-network suites passed (900/900, 2651/2651, 138/138, 77/77, 20/20, and probe passed).
+- Automated proof item 8 passed on 2026-07-19: `npm run format` completed successfully and Prettier reported all tracked supported files unchanged.

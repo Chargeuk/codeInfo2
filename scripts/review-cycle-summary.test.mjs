@@ -17,6 +17,14 @@ const response = (status, body) => ({
   },
 });
 
+const flowStatus = (status, terminal, overrides = {}) => ({
+  status,
+  terminal,
+  latestAssistantAt: null,
+  subflowWaveProgress: null,
+  ...overrides,
+});
+
 test('review runner resolves a host working folder to its server repository identity', async () => {
   const calls = [];
   const result = await resolveReviewLaunch({
@@ -120,13 +128,11 @@ test('review runner does not bind a unique foreign review flow to the requested 
 test('review runner waits through nonterminal status until terminal success', async () => {
   const calls = [];
   const statuses = [
-    { status: 'running', terminal: false, subflowWaveProgress: null },
-    {
-      status: 'running',
-      terminal: false,
+    flowStatus('running', false),
+    flowStatus('running', false, {
       subflowWaveProgress: { running: 2, completed: 0, updatedAt: 'later' },
-    },
-    { status: 'ok', terminal: true, subflowWaveProgress: null },
+    }),
+    flowStatus('ok', true),
   ];
   const result = await waitForReviewCycle({
     baseUrl: 'http://server',
@@ -147,6 +153,22 @@ test('review runner waits through nonterminal status until terminal success', as
   assert.equal(
     calls.some((call) => call.url.endsWith('/stop')),
     false,
+  );
+});
+
+test('review runner rejects malformed successful status responses with an actionable diagnostic', async () => {
+  await assert.rejects(
+    waitForReviewCycle({
+      baseUrl: 'http://server',
+      workingFolder: '/repo',
+      pollMs: 1,
+      sleep: async () => {},
+      fetchImpl: async (url) =>
+        url.endsWith('/run')
+          ? response(202, { conversationId: 'conversation-malformed' })
+          : response(200, { terminal: false }),
+    }),
+    /Review status returned an invalid response shape; missing status, latestAssistantAt, subflowWaveProgress/u,
   );
 });
 
@@ -215,7 +237,7 @@ test('diagnostic review uses its isolated flow endpoint', async () => {
       if (url.endsWith('/run')) {
         return response(202, { conversationId: 'diagnostic-1' });
       }
-      return response(200, { status: 'ok', terminal: true });
+      return response(200, flowStatus('ok', true));
     },
   });
   assert.equal(
@@ -233,7 +255,7 @@ test('review runner attaches to an accepted conversation without starting a copy
     sleep: async () => {},
     fetchImpl: async (url, options = {}) => {
       calls.push({ url, method: options.method ?? 'GET' });
-      return response(200, { status: 'ok', terminal: true });
+      return response(200, flowStatus('ok', true));
     },
   });
 
@@ -249,12 +271,8 @@ test('review runner attaches to an accepted conversation without starting a copy
 test('review runner resumes an orphan only when explicitly requested', async () => {
   const calls = [];
   const statuses = [
-    {
-      status: 'orphaned',
-      terminal: true,
-      resumeStepPath: [0, 2],
-    },
-    { status: 'ok', terminal: true },
+    flowStatus('orphaned', true, { resumeStepPath: [0, 2] }),
+    flowStatus('ok', true),
   ];
   const result = await waitForReviewCycle({
     baseUrl: 'http://server',
@@ -291,9 +309,9 @@ test('review runner requests cancellation only after an explicit stall threshold
   const calls = [];
   let now = 0;
   const statuses = [
-    { status: 'running', terminal: false, subflowWaveProgress: null },
-    { status: 'running', terminal: false, subflowWaveProgress: null },
-    { status: 'stopped', terminal: true, subflowWaveProgress: null },
+    flowStatus('running', false),
+    flowStatus('running', false),
+    flowStatus('stopped', true),
   ];
   const result = await waitForReviewCycle({
     baseUrl: 'http://server',

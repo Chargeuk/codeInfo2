@@ -111,3 +111,51 @@ test('review artifact paths reject traversal and JSON publication is atomic', as
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
+
+test('failed atomic JSON writes and renames remove their temporary artifacts', async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'review-identity-'));
+  const target = path.join(repoRoot, 'review.json');
+  try {
+    await assert.rejects(
+      atomicWriteJson(
+        target,
+        { state: 'write-failure' },
+        {
+          mkdir: fs.mkdir,
+          writeFile: (async (filePath, data) => {
+            await fs.writeFile(filePath, data);
+            throw new Error('injected write failure');
+          }) as typeof fs.writeFile,
+          rename: fs.rename,
+        },
+      ),
+      /injected write failure/u,
+    );
+    assert.deepEqual(
+      (await fs.readdir(repoRoot)).filter((name) => name.endsWith('.tmp')),
+      [],
+    );
+
+    await assert.rejects(
+      atomicWriteJson(
+        target,
+        { state: 'rename-failure' },
+        {
+          mkdir: fs.mkdir,
+          writeFile: fs.writeFile,
+          rename: (async () => {
+            throw new Error('injected rename failure');
+          }) as typeof fs.rename,
+        },
+      ),
+      /injected rename failure/u,
+    );
+    assert.deepEqual(
+      (await fs.readdir(repoRoot)).filter((name) => name.endsWith('.tmp')),
+      [],
+    );
+    await assert.rejects(fs.readFile(target), /ENOENT/u);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});

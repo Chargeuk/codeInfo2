@@ -31,7 +31,13 @@ export const normalizeBaseUrl = (value) => {
 };
 
 const readJsonResponse = async (response, label) => {
-  const body = await response.json().catch(() => null);
+  let body = null;
+  let malformed = false;
+  try {
+    body = await response.json();
+  } catch {
+    malformed = true;
+  }
   if (!response.ok) {
     const message =
       body && typeof body.message === 'string'
@@ -39,15 +45,37 @@ const readJsonResponse = async (response, label) => {
         : `${label} returned HTTP ${response.status}.`;
     throw new Error(message);
   }
+  if (malformed) throw new Error(`${label} returned malformed JSON.`);
   return body;
 };
 
-const progressFingerprint = (status) =>
-  JSON.stringify({
+const progressFingerprint = (status) => {
+  if (!status || typeof status !== 'object' || Array.isArray(status)) {
+    throw new Error('Review status returned an invalid response object.');
+  }
+  const requiredFields = ['status', 'latestAssistantAt', 'subflowWaveProgress'];
+  const missingFields = requiredFields.filter(
+    (field) => !Object.prototype.hasOwnProperty.call(status, field),
+  );
+  if (
+    missingFields.length > 0 ||
+    typeof status.status !== 'string' ||
+    status.status.trim().length === 0
+  ) {
+    throw new Error(
+      `Review status returned an invalid response shape${
+        missingFields.length > 0
+          ? `; missing ${missingFields.join(', ')}`
+          : '; status must be a non-blank string'
+      }.`,
+    );
+  }
+  return JSON.stringify({
     status: status.status,
     latestAssistantAt: status.latestAssistantAt,
     subflowWaveProgress: status.subflowWaveProgress,
   });
+};
 
 export const buildReviewRetryOwnershipId = ({
   workingFolder,

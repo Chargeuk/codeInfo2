@@ -123,6 +123,80 @@ test('fresh final review archives stale disposition and resume preserves the cyc
   );
 });
 
+test('competing final review initialization preserves the winning active cycle and prior disposition', async () => {
+  const repo = await makeRepo();
+  const stateRoot = path.join(repo, 'codeInfoStatus', 'flow-state');
+  const oldCycle = '0000064-rc-20260715T000000Z-11111111';
+  await fs.writeFile(
+    path.join(stateRoot, 'review-disposition-state.json'),
+    JSON.stringify({ review_cycle_id: oldCycle, review_phase: 'slow' }),
+  );
+
+  let releaseActiveRename!: () => void;
+  const activeRenameReleased = new Promise<void>((resolve) => {
+    releaseActiveRename = resolve;
+  });
+  let activeRenameReached!: () => void;
+  const activeRenameStarted = new Promise<void>((resolve) => {
+    activeRenameReached = resolve;
+  });
+  const first = initializeReviewCycle(
+    {
+      workingRepositoryPath: repo,
+      parentExecutionId: 'execution-winner',
+      mode: 'final',
+    },
+    {
+      now: () => new Date('2026-07-18T12:00:00.000Z'),
+      randomHex: () => '22222222',
+      rename: async (source, destination) => {
+        if (destination === path.join(stateRoot, 'active-review-cycle.json')) {
+          activeRenameReached();
+          await activeRenameReleased;
+        }
+        await fs.rename(source, destination);
+      },
+    },
+  );
+  await activeRenameStarted;
+  const loser = initializeReviewCycle(
+    {
+      workingRepositoryPath: repo,
+      parentExecutionId: 'execution-loser',
+      mode: 'final',
+    },
+    {
+      now: () => new Date('2026-07-18T12:00:01.000Z'),
+      randomHex: () => '33333333',
+    },
+  );
+  releaseActiveRename();
+
+  const initialized = await first;
+  await assert.rejects(
+    loser,
+    /already owned by parent execution execution-winner/u,
+  );
+  assert.equal(initialized.cycle?.parent_execution_id, 'execution-winner');
+  const active = JSON.parse(
+    await fs.readFile(path.join(stateRoot, 'active-review-cycle.json'), 'utf8'),
+  ) as { review_cycle_id: string; parent_execution_id: string };
+  assert.equal(active.review_cycle_id, initialized.cycle?.review_cycle_id);
+  assert.equal(active.parent_execution_id, 'execution-winner');
+  const archived = JSON.parse(
+    await fs.readFile(
+      path.join(
+        stateRoot,
+        'review-cycles',
+        oldCycle,
+        'review-disposition-state.json',
+      ),
+      'utf8',
+    ),
+  ) as { review_cycle_id: string };
+  assert.equal(archived.review_cycle_id, oldCycle);
+});
+
 test('incomplete final review exits without resetting prior state', async () => {
   const repo = await makeRepo(
     completePlan

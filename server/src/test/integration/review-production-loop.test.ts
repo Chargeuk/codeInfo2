@@ -853,6 +853,7 @@ test('production three-target review loop closes only after every target and cro
   installDeterministicCodexAvailabilityBootstrap();
   memoryConversations.clear();
   memoryTurns.clear();
+  let decisionRecordedAfterCompleteCoverage = false;
   try {
     await fs.mkdir(flowRoot, { recursive: true });
     await Promise.all(
@@ -899,8 +900,20 @@ test('production three-target review loop closes only after every target and cro
         message.includes(
           "Record the current review pass's accepted and ignored issue decisions",
         )
-      )
+      ) {
+        const current = await readJson(
+          path.join(
+            reviewDirFor(repoRoot),
+            `${storyId}-current-review-set.json`,
+          ),
+        );
+        const currentJobs = current.job_results as JsonObject[];
+        decisionRecordedAfterCompleteCoverage =
+          current.closeout_allowed === true &&
+          current.cross_repository_status === 'completed' &&
+          currentJobs.every((job) => job.status === 'completed');
         await recordDecisions(repoRoot);
+      }
     };
     const result = await startFlowRun({
       flowName: 'production-review-loop',
@@ -935,6 +948,38 @@ test('production three-target review loop closes only after every target and cro
     );
     assert.equal(finalized.cross_repository_status, 'completed');
     assert.equal(finalized.closeout_allowed, true);
+    assert.equal(finalized.story_id, snapshot.story_id);
+    assert.equal(finalized.review_wave_id, snapshot.review_wave_id);
+    assert.equal(finalized.parent_execution_id, snapshot.parent_execution_id);
+    assert.equal(finalized.targets_sha256, snapshot.targets_sha256);
+    for (const job of jobs.filter(
+      (candidate) => candidate.target_id !== null,
+    )) {
+      const target = (snapshot.targets as JsonObject[]).find(
+        (candidate) => candidate.target_id === job.target_id,
+      );
+      assert(target);
+      const validation = job.validation as JsonObject;
+      assert.equal(validation.story_id, snapshot.story_id);
+      assert.equal(
+        validation.parent_execution_id,
+        snapshot.parent_execution_id,
+      );
+      assert.equal(validation.review_wave_id, snapshot.review_wave_id);
+      assert.equal(validation.target_id, target.target_id);
+      assert.equal(validation.head_commit, target.head_commit);
+      assert.equal(
+        validation.comparison_base_commit,
+        target.comparison_base_commit,
+      );
+      assert.equal(typeof validation.review_session_id, 'string');
+      assert.equal(typeof validation.review_pass_id, 'string');
+      assert.equal(
+        String(job.validation_file).startsWith(String(target.repo_root)),
+        true,
+      );
+    }
+    assert.equal(decisionRecordedAfterCompleteCoverage, true);
     assert.equal(
       await readJson(dispositionPath(repoRoot)).then(
         (state) => (state.review_decision_recording as JsonObject).outcome,

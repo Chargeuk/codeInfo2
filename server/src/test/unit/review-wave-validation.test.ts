@@ -290,6 +290,19 @@ test('complete review wave finalizes exact coverage and retains severity conflic
     assert.equal(result.stableUpdated, true);
     assert.equal(result.finalized.coverage.completed_jobs, 5);
     assert.equal(result.finalized.job_results?.length, 5);
+    assert.equal(result.finalized.story_id, fixture.snapshot.story_id);
+    assert.equal(
+      result.finalized.review_wave_id,
+      fixture.snapshot.review_wave_id,
+    );
+    assert.equal(
+      result.finalized.parent_execution_id,
+      fixture.snapshot.parent_execution_id,
+    );
+    assert.equal(
+      result.finalized.targets_sha256,
+      fixture.snapshot.targets_sha256,
+    );
     assert.equal(
       result.finalized.job_results
         ?.filter((job) => job.target_id !== null)
@@ -301,6 +314,34 @@ test('complete review wave finalizes exact coverage and retains severity conflic
         ),
       true,
     );
+    for (const job of result.finalized.job_results?.filter(
+      (candidate) => candidate.target_id !== null,
+    ) ?? []) {
+      const target = fixture.snapshot.targets.find(
+        (candidate) => candidate.target_id === job.target_id,
+      );
+      assert(target);
+      assert.equal(job.validation?.story_id, fixture.snapshot.story_id);
+      assert.equal(job.validation?.plan_path, fixture.snapshot.plan_path);
+      assert.equal(
+        job.validation?.parent_execution_id,
+        fixture.snapshot.parent_execution_id,
+      );
+      assert.equal(
+        job.validation?.review_wave_id,
+        fixture.snapshot.review_wave_id,
+      );
+      assert.equal(
+        job.validation?.review_session_id,
+        `${target.target_id}-session`,
+      );
+      assert.equal(job.validation?.review_pass_id, `${target.target_id}-pass`);
+      assert.equal(job.validation?.head_commit, target.head_commit);
+      assert.equal(
+        job.validation?.comparison_base_commit,
+        target.comparison_base_commit,
+      );
+    }
     assert.equal(result.finalized.aggregated_findings?.length, 2);
     assert.equal(
       result.finalized.aggregated_findings?.every(
@@ -348,12 +389,23 @@ test('wave validation rejects target results with a stale comparison base', asyn
       (job) => job.target_id === 'current_repository',
     );
     assert.equal(staleJobs?.length, 2);
-    assert.equal(staleJobs?.every((job) => job.status === 'stale'), true);
+    assert.equal(
+      staleJobs?.every((job) => job.status === 'stale'),
+      true,
+    );
     assert.equal(
       staleJobs?.every(
         (job) => job.error === 'Target review validation identity is stale.',
       ),
       true,
+    );
+    assert.equal(
+      staleJobs?.every((job) => job.validation === null),
+      true,
+    );
+    assert.equal(
+      fixture.snapshot.targets[0]?.comparison_base_commit,
+      'c'.repeat(40),
     );
   } finally {
     await fs.rm(fixture.root, { recursive: true, force: true });

@@ -833,7 +833,10 @@ const normalizeActiveSubflow = (value: unknown): FlowActiveSubflow | null => {
   const runToken = normalizeOptionalString(value.runToken);
   if (!flowName || !conversationId || !runToken) return null;
   const input = tryNormalizeFlowInput(value.input);
-  const hasPersistedInput = Object.prototype.hasOwnProperty.call(value, 'input');
+  const hasPersistedInput = Object.prototype.hasOwnProperty.call(
+    value,
+    'input',
+  );
   if (hasPersistedInput && value.input !== undefined && !input) return null;
   return {
     stepPath: normalizeNumberArray(value.stepPath),
@@ -976,9 +979,9 @@ const parseFlowResumeState = (
   );
   const persistedActiveSubflows = Array.isArray(flow.activeSubflows)
     ? flow.activeSubflows
-    : [
-        (flow as { activeSubflow?: unknown }).activeSubflow,
-      ].filter((item) => item !== undefined);
+    : [(flow as { activeSubflow?: unknown }).activeSubflow].filter(
+        (item) => item !== undefined,
+      );
   const hasMalformedPersistedChildInput = persistedActiveSubflows.some(
     (item) =>
       isRecord(item) &&
@@ -5300,7 +5303,10 @@ async function runFlowUnlocked(params: {
       });
       for (const childConversation of persistedChildren) {
         const identity = getFlowChildWaveIdentity(childConversation);
-        if (!identity || rememberedSubflowsByInstance.has(identity.instanceId)) {
+        if (
+          !identity ||
+          rememberedSubflowsByInstance.has(identity.instanceId)
+        ) {
           continue;
         }
         const job = jobByInstanceId.get(identity.instanceId);
@@ -8878,6 +8884,7 @@ export async function startFlowRun(
       const releaseConversationLockFn =
         params.releaseConversationLockFn ?? releaseConversationLock;
       let released = false;
+      let retryCompletionDurable = true;
       if (retryOwnershipId && !resumeStepPath && completedSuccessfully) {
         const completedResult = {
           flowName,
@@ -8887,18 +8894,23 @@ export async function startFlowRun(
           modelId,
           ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
         };
-        try {
-          await persistFreshRunRetryOwnershipCompletion({
-            conversationId,
-            retryOwnershipId,
-            launch: retryOwnershipLaunch,
-            result: completedResult,
-          });
-        } catch (error) {
-          baseLogger.error(
-            { flowName, conversationId, inflightId, error },
-            'fresh run retry completion persistence failed',
-          );
+        retryCompletionDurable = false;
+        for (let attempt = 1; attempt <= 2; attempt += 1) {
+          try {
+            await persistFreshRunRetryOwnershipCompletion({
+              conversationId,
+              retryOwnershipId,
+              launch: retryOwnershipLaunch,
+              result: completedResult,
+            });
+            retryCompletionDurable = true;
+            break;
+          } catch (error) {
+            baseLogger.error(
+              { flowName, conversationId, inflightId, attempt, error },
+              'fresh run retry completion persistence failed',
+            );
+          }
         }
         rememberFreshRunRetryOwnershipCompletion({
           flowName,
@@ -8908,8 +8920,10 @@ export async function startFlowRun(
           result: completedResult,
         });
       }
-      released = releaseConversationLockFn(conversationId, runToken);
-      if (retryOwnershipId && !resumeStepPath) {
+      if (retryCompletionDurable) {
+        released = releaseConversationLockFn(conversationId, runToken);
+      }
+      if (retryOwnershipId && !resumeStepPath && retryCompletionDurable) {
         clearFreshRunRetryOwnership({
           flowName,
           sourceId,

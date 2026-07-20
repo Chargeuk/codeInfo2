@@ -24,7 +24,7 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { startFlowRun } from '../../flows/service.js';
+import { getFlowRunStatus, startFlowRun } from '../../flows/service.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
@@ -502,6 +502,10 @@ test('haltFlow break stops the complete flow instead of advancing outer steps', 
       );
       await waitForRuntimeCleanup(conversationId);
 
+      const status = await getFlowRunStatus(conversationId);
+      assert.equal(status?.status, 'stopped');
+      assert.equal(status?.terminal, true);
+
       assert.equal(
         turns.some((turn) =>
           turn.content.includes('This step must not execute'),
@@ -511,6 +515,55 @@ test('haltFlow break stops the complete flow instead of advancing outer steps', 
       assert.equal(
         turns.some((turn) =>
           turn.content.includes('This top-level step must not execute'),
+        ),
+        false,
+      );
+      await cleanupConversationRuntime(conversationId);
+    },
+  );
+});
+
+test('exitFlow break exits the complete flow as a successful best-effort result', async () => {
+  await withFlowServer(
+    (message) =>
+      message.includes('Exit complete flow successfully?')
+        ? JSON.stringify({ answer: 'yes' })
+        : 'unexpected',
+    async ({ baseUrl }) => {
+      const conversationId = 'flow-exit-break';
+      await supertest(baseUrl)
+        .post('/flows/exit-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'assistant' && turn.content.includes('"yes"'),
+          ),
+        15000,
+      );
+      await waitForRuntimeCleanup(conversationId);
+
+      const status = await getFlowRunStatus(conversationId);
+      assert.equal(status?.status, 'ok');
+      assert.equal(status?.terminal, true);
+      assert.equal(status?.terminalOutcome, 'not_applicable');
+      assert.equal(
+        turns.some((turn) =>
+          turn.content.includes(
+            'This step must not execute after a best-effort exit',
+          ),
+        ),
+        false,
+      );
+      assert.equal(
+        turns.some((turn) =>
+          turn.content.includes(
+            'This top-level step must not execute after a best-effort exit',
+          ),
         ),
         false,
       );
@@ -552,7 +605,8 @@ test('startLoop maxIterations exits normally and advances to the next step', asy
       assert.equal(
         turns.filter(
           (turn) =>
-            turn.role === 'user' && turn.content.includes('After bounded loop.'),
+            turn.role === 'user' &&
+            turn.content.includes('After bounded loop.'),
         ).length,
         1,
       );

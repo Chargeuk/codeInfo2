@@ -33,6 +33,10 @@ function getServiceBlock(content: string, serviceName: string): string {
   return block.join('\n');
 }
 
+function countOccurrences(content: string, value: string): number {
+  return content.split(value).length - 1;
+}
+
 function collectProductionFlowAgentTypes(
   flowName: string,
   seen = new Set<string>(),
@@ -91,7 +95,7 @@ test('root compose inventory for Task 11 remains scoped to the checked-in files'
   ]);
 });
 
-test('main stays image-baked while local host-network compose exposes the live dev overlay mounts', () => {
+test('compose stacks expose harness instructions while local uses live workflow overlays', () => {
   const dockerfile = readRepoFile('server/Dockerfile');
   const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
@@ -130,7 +134,7 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.doesNotMatch(mainServer, /\.\/codeinfo_agents:/u);
   assert.doesNotMatch(mainServer, /\.\/codex_agents:/u);
   assert.doesNotMatch(mainServer, /\.\/flows-sandbox:/u);
-  assert.doesNotMatch(mainServer, /\.\/scripts:\/app\/scripts/u);
+  assert.match(mainServer, /\.\/scripts:\/app\/scripts:ro/u);
   assert.match(
     mainServer,
     /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u,
@@ -161,7 +165,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     /CODEINFO_HOST_INGEST_DIR=\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}/u,
   );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
-  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=4/u);
+  assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=5/u);
   assert.match(
     mainServer,
     /CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012,5013/u,
@@ -217,13 +221,35 @@ test('main stays image-baked while local host-network compose exposes the live d
   assert.match(localServer, /\.\/codex:\/app\/codex/u);
   assert.match(localServer, /\.\/codeinfo_agents:\/app\/codeinfo_agents/u);
   assert.match(localServer, /\.\/codex_agents:\/app\/codex_agents/u);
-  assert.doesNotMatch(localServer, /\.\/scripts:\/app\/scripts/u);
-  assert.doesNotMatch(
+  assert.match(localServer, /\.\/scripts:\/app\/scripts:ro/u);
+  assert.match(
     localServer,
-    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown/u,
+    /\.\/codeinfo_markdown:\/app\/codeinfo_markdown:ro/u,
   );
-  assert.doesNotMatch(localServer, /\.\/flows:\/app\/flows/u);
-  assert.doesNotMatch(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
+  assert.match(localServer, /\.\/flows:\/app\/flows/u);
+  assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
+  assert.equal(countOccurrences(localServer, './scripts:/app/scripts:ro'), 1);
+  assert.equal(
+    countOccurrences(
+      localServer,
+      './codeinfo_markdown:/app/codeinfo_markdown:ro',
+    ),
+    1,
+  );
+  assert.equal(countOccurrences(localServer, './flows:/app/flows'), 1);
+  assert.equal(
+    countOccurrences(localServer, './flows-sandbox:/app/flows-sandbox'),
+    1,
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(
+        repoRoot,
+        'codeinfo_markdown/shared/review-wave-consumer-contract.md',
+      ),
+    ),
+    true,
+  );
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
   assert.match(localServer, /CODEINFO_WEB_MCP_PORT=5513/u);
   assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
@@ -245,7 +271,7 @@ test('main stays image-baked while local host-network compose exposes the live d
     localServer,
     /\$\{CODEINFO_DOCKER_SOCKET_PATH:-\/var\/run\/docker\.sock\}:\/var\/run\/docker\.sock/u,
   );
-  assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=2/u);
+  assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=6/u);
   assert.match(
     localServer,
     /CODEINFO_RUNTIME_SERVER_PORTS=5510,5511,5512,5513/u,

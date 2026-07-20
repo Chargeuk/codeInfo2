@@ -20,6 +20,8 @@ describe('flow schema (v1)', () => {
     identifier?: string;
     continueOnFailure?: boolean;
     continueOn?: string;
+    haltFlow?: boolean;
+    exitFlow?: boolean;
     steps?: FlowStep[];
     commandName?: string;
     markdownFile?: string;
@@ -1562,6 +1564,78 @@ describe('flow schema (v1)', () => {
           : undefined,
         true,
       );
+    }
+  });
+
+  test('break accepts exitFlow for successful best-effort exits', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'break',
+            agentType: 'loop_control_agent',
+            identifier: 'loop',
+            question: 'Exit successfully?',
+            breakOn: 'yes',
+            exitFlow: true,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+    if (parsed.ok) {
+      assert.equal(parsed.flow.steps[0]?.type, 'break');
+      assert.equal(
+        parsed.flow.steps[0]?.type === 'break'
+          ? parsed.flow.steps[0].exitFlow
+          : undefined,
+        true,
+      );
+    }
+  });
+
+  test('break rejects simultaneous haltFlow and exitFlow', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'break',
+            agentType: 'loop_control_agent',
+            identifier: 'loop',
+            question: 'Choose one terminal behavior?',
+            breakOn: 'yes',
+            haltFlow: true,
+            exitFlow: true,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
+  test('story implementation flows exit successfully instead of halting on durable blockers', async () => {
+    for (const relativePath of [
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ]) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const blockerExit = flattenSteps(parsed.steps ?? []).find(
+        (step) =>
+          step.type === 'break' &&
+          step.label ===
+            'Exit story flow successfully while durable blocker remains',
+      );
+
+      assert.ok(blockerExit, `${relativePath} should define a blocker exit`);
+      assert.equal(blockerExit.type, 'break');
+      if (blockerExit.type === 'break') {
+        assert.equal(blockerExit.exitFlow, true);
+        assert.equal(blockerExit.haltFlow, undefined);
+      }
     }
   });
 

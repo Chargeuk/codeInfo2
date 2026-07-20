@@ -43,6 +43,7 @@ export type FlowBreakStep = {
   question: string;
   breakOn: 'yes' | 'no';
   haltFlow?: boolean;
+  exitFlow?: boolean;
   decisionScript?: string;
 };
 
@@ -245,9 +246,19 @@ const FlowBreakStepSchema = z
     question: trimmedNonEmptyString,
     breakOn: z.union([z.literal('yes'), z.literal('no')]),
     haltFlow: z.boolean().optional(),
+    exitFlow: z.boolean().optional(),
     decisionScript: trimmedNonEmptyString.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.haltFlow && value.exitFlow) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['exitFlow'],
+        message: 'break steps cannot set both haltFlow and exitFlow.',
+      });
+    }
+  });
 
 const FlowContinueStepSchema = z
   .object({

@@ -3151,7 +3151,7 @@ const emitCompletedFlowStep = async (params: {
   });
 };
 
-type FlowStepOutcome = TurnStatus | 'break' | 'continue';
+type FlowStepOutcome = TurnStatus | 'break' | 'continue' | 'exit';
 
 type LoopFrame = {
   loopStepPath: number[];
@@ -7787,7 +7787,9 @@ async function runFlowUnlocked(params: {
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
+        if (shouldBreak && step.exitFlow) terminalOutcome = 'not_applicable';
         await persistRuntimeResumeState(lastCompletedStepPath);
+        if (shouldBreak && step.exitFlow) return 'exit';
         if (shouldBreak && step.haltFlow) return 'stopped';
         if (shouldBreak) return 'break';
         continue;
@@ -8273,21 +8275,43 @@ async function runFlowUnlocked(params: {
     return 'ok';
   };
 
+  const persistTerminalOutcomeBeforeCleanup = async (
+    outcome: FlowStepOutcome,
+  ): Promise<TurnStatus> => {
+    const normalizedOutcome: TurnStatus =
+      outcome === 'stopped'
+        ? 'stopped'
+        : outcome === 'failed'
+          ? 'failed'
+          : 'ok';
+    runLifecycle.status = normalizedOutcome;
+    runLifecycle.updatedAt = new Date().toISOString();
+    await persistRuntimeResumeState(lastCompletedStepPath);
+    return normalizedOutcome;
+  };
+
   try {
     const outcome = await runSteps(params.flow.steps, [], resumeStepPath);
+    if (outcome === 'exit') {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowUnlocked.return.exit',
+        conversationId: params.conversationId,
+      });
+      return await persistTerminalOutcomeBeforeCleanup(outcome);
+    }
     if (outcome !== 'ok') {
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'runFlowUnlocked.return.non_ok',
         conversationId: params.conversationId,
         detail: `outcome=${outcome}`,
       });
-      return outcome;
+      return await persistTerminalOutcomeBeforeCleanup(outcome);
     }
     params.onStopUnwindCheckpoint?.({
       checkpoint: 'runFlowUnlocked.return.ok',
       conversationId: params.conversationId,
     });
-    return 'ok' as const;
+    return await persistTerminalOutcomeBeforeCleanup(outcome);
   } finally {
     finalizeFlowRuntime();
   }
@@ -8800,14 +8824,6 @@ export async function startFlowRun(
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
-      await persistFlowRunLifecycleStatus(
-        conversationId,
-        runOutcome === 'stopped'
-          ? 'stopped'
-          : runOutcome === 'failed'
-            ? 'failed'
-            : 'ok',
-      );
       completedSuccessfully = runOutcome === 'ok';
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.afterRunFlowUnlocked',

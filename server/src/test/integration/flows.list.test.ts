@@ -217,6 +217,7 @@ describe('GET /flows', () => {
       );
       assert.deepEqual(names, [
         'command-step',
+        'exit-break',
         'halt-break',
         'hot-reload',
         'invalid-json',

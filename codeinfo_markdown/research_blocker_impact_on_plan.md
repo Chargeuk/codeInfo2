@@ -61,6 +61,8 @@ If there is or was a blocker, decide whether it reveals any of the following:
 - a recurring blocker-family mismatch, classified as product or story seam, proof or test harness seam, shared wrapper or baseline seam, manual or runtime environment seam, or task-shape or planning seam;
 - later tasks that now require renumbering or reference updates.
 
+For a Compose or runtime-handoff blocker, identify the active configuration from `CODEINFO_RUNTIME_COMPOSE_FILE` and compare it with the relevant Dockerfile before assigning ownership. If that checked-in file omits a required harness mapping, treat the repair as repository-owned executable work even when applying the new mapping still requires a later container recreation. Do not classify the problem as external merely because a different Compose variant already contains the mapping.
+
 </decision_rules>
 
 <blocker_history_rules>
@@ -171,6 +173,7 @@ If this step rewrites, narrows, or re-owns a task in a way that makes all of tha
 - Do not let one task accumulate multiple generations of long blocker prose when a fresh successor task would give a cleaner handoff.
 - Prefer one concise historical summary plus one current blocker state over repeated full blocker narratives in the same task.
 - Do not invent unnecessary extra work; keep repairs aligned to the KISS principle and only add what is required to unblock honest execution.
+- Never stop or restart `compose:local` from this planning step. When a checked-in local-runtime repair needs container recreation, make the repair and leave a precise restart handoff while allowing the enclosing flow to exit successfully with its incomplete plan state preserved.
 
 </behavior_rules>
 

@@ -1796,6 +1796,8 @@ Testing step to ONLY check the linting after some manual fixes
 
 - Review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`; finding `0000064-wave-base-identity-not-checked`; repository `current_repository`; wave validation now enforces each target's pinned comparison base and rejects stale-base results; changed files `server/src/flows/reviewWaveValidation.ts`, `server/src/test/unit/review-wave-validation.test.ts`; commit `94fbd5990f0e7af2c6cf1236eda7909de15c43ec`; targeted proof `npm run test:summary:server:unit -- --file server/src/test/unit/review-wave-validation.test.ts` passed (the focused server-unit wrapper passed all 10 review-wave validation tests, including stale comparison-base rejection); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 
+- Review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`; finding `0000064-implicit-source-fallback-cross-binds-working-folder`; repository `current_repository`; implicit review launch fallback now preserves the requested working-folder identity instead of binding a foreign flow source; changed files `scripts/review-cycle-summary.mjs`, `scripts/review-cycle-summary.test.mjs`; commit `c1022a7c2eaca9090dd42e7860dd2f5086d664d3`; targeted proof `node --test scripts/review-cycle-summary.test.mjs` passed (all 12 focused launcher tests, including the foreign singleton-source regression); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
+
 ### Task 30. Record Minor Review Fixes From Pass 0000064-20260719T100027Z-040c43d7f6-0e3d4ebc
 
 - Task Status: `__done__`

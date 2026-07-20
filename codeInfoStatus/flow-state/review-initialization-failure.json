@@ -1,0 +1,7 @@
+{
+  "schema_version": "codeinfo-review-initialization-failure/v1",
+  "parent_execution_id": "8689362d-e7c2-4d7c-9a95-57e9b79bea30",
+  "status": "failed",
+  "reason": "Final review cycle 0000064-rc-20260719T212516Z-7280f8e7 is already owned by parent execution 09b8e450-98bf-4367-8b25-36b879580245.",
+  "completed_at": "2026-07-20T13:47:01.498Z"
+}

@@ -8,7 +8,7 @@ Start the multi-step review sequence for the current story by gathering evidence
 - Re-read `codeInfoStatus/flow-state/current-plan.json` from disk and treat it as the SOLE source of review scope for this flow.
 - Resolve the active `plan_path`, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-evidence`. Use its repository scope, story contract, task index, and final-task proof packet before continuing.
 - After deriving the story number from that canonical `plan_path`, check for `codeInfoTmp/reviews/<story-number>-current-review-base.json`. When that artifact exists, treat it as the authoritative current-repository comparison contract for this flow. Do not re-fetch or re-resolve the current repository base branch once that artifact has been loaded.
-- The prepared review base is also the server-owned review-session contract. Require its exact seven-digit `story_id`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `plan_path`, full `head_commit`, and `comparison_base_commit`. The bounded helper's `story_id` must match it exactly. Never use numeric `story_number` in an artifact path or generate a replacement session/pass ID.
+- The prepared review base is also the server-owned review-session contract. Require its exact seven-digit `story_id`, `review_session_id`, `review_pass_id`, `review_cycle_id` and `review_wave_id` when wave-bound, `plan_path`, full `head_commit`, and `comparison_base_commit`. The bounded helper's `story_id` must match it exactly. Never use numeric `story_number` in an artifact path or generate a replacement session/pass ID.
 - Never infer, normalize, repair, or substitute story/session/pass/HEAD/base identity.
 - Before publishing the stable current-review handoff, re-read the prepared base and require the complete identity tuple to remain unchanged. Write the handoff atomically. If the active session changed, stop without overwriting the newer pointer.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
@@ -149,7 +149,6 @@ The handoff file MUST contain at least:
 - `plan_path`
 - `review_session_id`
 - `review_pass_id`
-- `parent_execution_id`
 - `target_id`, `review_wave_id`, and `plan_host_root` copied exactly from the prepared review base when that base is wave-bound
 - top-level `head_commit` and `comparison_base_commit` copied exactly from the prepared review base
 - top-level `repo_alias`, `repo_root`, `branch`, `branched_from`, `logical_base_branch`, `resolved_base_branch`, `resolved_base_source`, `remote_name`, `remote_fetch_status`, optional `remote_fetch_error` and `remote_fetch_exit_code`, `local_fallback_reason`, `comparison_base_ref`, `comparison_head_ref`, and `comparison_rule` copied exactly from the prepared review base

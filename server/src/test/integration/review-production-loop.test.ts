@@ -167,6 +167,18 @@ const initializeRepository = async (
       '',
       '- Planning files are not review evidence.',
       '',
+      '### Task 1. Complete',
+      '',
+      '- Task Status: `__done__`',
+      '',
+      '#### Subtasks',
+      '',
+      '1. [x] Implemented.',
+      '',
+      '#### Testing',
+      '',
+      '1. [x] Proven.',
+      '',
     ].join('\n'),
   );
   await execFile('git', ['add', '.'], { cwd: repoRoot });
@@ -397,8 +409,8 @@ const publishCrossRepository = async (repoRoot: string) => {
     {
       schema_version: 'codeinfo-cross-repository-review/v1',
       story_id: storyId,
+      review_cycle_id: snapshot.review_cycle_id,
       review_wave_id: snapshot.review_wave_id,
-      parent_execution_id: snapshot.parent_execution_id,
       targets_sha256: snapshot.targets_sha256,
       target_count: (snapshot.targets as JsonObject[]).length,
       inspected_target_ids: (snapshot.targets as JsonObject[]).map((target) =>
@@ -463,7 +475,6 @@ const classify = async (repoRoot: string) => {
     plan_path: planPath,
     review_session_id: base.review_session_id,
     review_pass_id: base.review_pass_id,
-    parent_execution_id: base.parent_execution_id,
     head_commit: base.head_commit,
     comparison_base_commit: base.comparison_base_commit,
     review_cycle_id: '64-rc-20260714T200000Z-1234abcd',
@@ -577,6 +588,11 @@ const writeProductionFixtureFlows = async (
     ]),
   ]);
   await writeFlow(flowRoot, 'production-review-loop', [
+    {
+      type: 'initializeReviewCycle',
+      mode: 'final',
+      outputKey: 'review_cycle',
+    },
     { type: 'prepareReviewTargets', outputKey: 'review_wave' },
     {
       type: 'prepareReviewSet',
@@ -950,7 +966,6 @@ test('production three-target review loop closes only after every target and cro
     assert.equal(finalized.closeout_allowed, true);
     assert.equal(finalized.story_id, snapshot.story_id);
     assert.equal(finalized.review_wave_id, snapshot.review_wave_id);
-    assert.equal(finalized.parent_execution_id, snapshot.parent_execution_id);
     assert.equal(finalized.targets_sha256, snapshot.targets_sha256);
     for (const job of jobs.filter(
       (candidate) => candidate.target_id !== null,
@@ -961,10 +976,6 @@ test('production three-target review loop closes only after every target and cro
       assert(target);
       const validation = job.validation as JsonObject;
       assert.equal(validation.story_id, snapshot.story_id);
-      assert.equal(
-        validation.parent_execution_id,
-        snapshot.parent_execution_id,
-      );
       assert.equal(validation.review_wave_id, snapshot.review_wave_id);
       assert.equal(validation.target_id, target.target_id);
       assert.equal(validation.head_commit, target.head_commit);

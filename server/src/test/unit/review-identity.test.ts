@@ -22,7 +22,6 @@ test('review identity preserves the canonical padded story namespace', () => {
     planPath: 'planning/0000013-example.md',
     headCommit: HEAD,
     comparisonBaseCommit: BASE,
-    parentExecutionId: 'execution-13',
     now: new Date('2026-07-13T10:27:26.000Z'),
     randomHex: 'c0ffee12',
   });
@@ -31,6 +30,7 @@ test('review identity preserves the canonical padded story namespace', () => {
   assert.equal(identity.story_id, '0000013');
   assert.match(identity.review_session_id, /^0000013-rs-/u);
   assert.match(identity.review_pass_id, /^0000013-/u);
+  assert.equal('parent_execution_id' in identity, false);
   assert.equal(
     path.basename(
       buildReviewArtifactPath({
@@ -57,7 +57,6 @@ test('review identity rejects malformed and mismatched machine identity', () => 
     planPath: 'planning/0000013-example.md',
     headCommit: HEAD,
     comparisonBaseCommit: BASE,
-    parentExecutionId: 'execution-13',
     now: new Date('2026-07-13T10:27:26.000Z'),
     randomHex: 'c0ffee12',
   });

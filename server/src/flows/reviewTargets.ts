@@ -45,7 +45,6 @@ export type ReviewTargetSnapshot = {
   branched_from: string | null;
   plan_host_root: string;
   review_wave_id: string;
-  parent_execution_id: string;
   review_cycle_id?: string;
   review_mode?: 'final' | 'diagnostic';
   targets_sha256: string;
@@ -181,7 +180,6 @@ const formatTimestamp = (value: Date): string =>
 export async function prepareReviewTargets(
   params: {
     workingRepositoryPath: string;
-    parentExecutionId: string;
     signal?: AbortSignal;
   },
   deps: Partial<ReviewTargetDeps> = {},
@@ -233,8 +231,8 @@ export async function prepareReviewTargets(
   const activeCycleMatches =
     activeCycle?.story_id === storyId &&
     activeCycle.plan_path === planPath &&
-    activeCycle.parent_execution_id === params.parentExecutionId &&
     typeof activeCycle.review_cycle_id === 'string' &&
+    (activeCycle.status === 'in_progress' || activeCycle.status === undefined) &&
     (activeCycle.review_mode === 'final' ||
       activeCycle.review_mode === 'diagnostic');
   const reviewCycleId = activeCycleMatches
@@ -351,7 +349,6 @@ export async function prepareReviewTargets(
     branched_from: branchedFrom,
     plan_host_root: planHostRoot,
     review_wave_id: reviewWaveId,
-    parent_execution_id: params.parentExecutionId,
     ...(reviewCycleId && reviewMode
       ? {
           review_cycle_id: reviewCycleId,

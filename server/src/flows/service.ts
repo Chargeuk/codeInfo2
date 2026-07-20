@@ -174,7 +174,10 @@ import {
 } from './repositoryCandidateOrder.js';
 import { validateReviewArtifacts } from './reviewArtifacts.js';
 import { prepareReviewBase } from './reviewBase.js';
-import { initializeReviewCycle } from './reviewCycleLifecycle.js';
+import {
+  finalizeActiveReviewCycle,
+  initializeReviewCycle,
+} from './reviewCycleLifecycle.js';
 import { prepareReviewSet, type ReviewSetManifest } from './reviewSet.js';
 import { validateReviewTargetContract } from './reviewTargetContract.js';
 import { prepareReviewTargets } from './reviewTargets.js';
@@ -5528,6 +5531,33 @@ async function runFlowUnlocked(params: {
         launchesMultipleChildren ? 'Completed subflows' : 'Completed subflow',
       )} (best effort: ${parts.join(', ')})`;
     };
+    const recordReviewCycleOutcome = async (paramsForOutcome: {
+      flowName: string;
+      status: TurnStatus;
+      terminalOutcome?: FlowResumeState['terminalOutcome'];
+      reason?: string;
+    }) => {
+      if (
+        paramsForOutcome.flowName !== 'two_phase_review_cycle' ||
+        paramsForOutcome.terminalOutcome === 'not_applicable'
+      )
+        return;
+      const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+        params.repositoryContext,
+      );
+      if (!reviewRepositoryPath) return;
+      await finalizeActiveReviewCycle({
+        workingRepositoryPath: reviewRepositoryPath,
+        status: paramsForOutcome.status === 'ok' ? 'completed' : 'incomplete',
+        ...(paramsForOutcome.status === 'ok'
+          ? {}
+          : {
+              reason:
+                paramsForOutcome.reason ??
+                `Two-phase review subflow ended with status ${paramsForOutcome.status}.`,
+            }),
+      });
+    };
 
     const stopSubflowBeforeLaunch = async (): Promise<boolean> => {
       const pendingCancel = getPendingConversationCancel(params.conversationId);
@@ -5684,10 +5714,16 @@ async function runFlowUnlocked(params: {
           childConversationId = started.conversationId;
 
           if (!childConversationId || !childRunToken) {
+            const reason = `Subflow ${job.displayName} did not start correctly.`;
             recordChildOutcome({
               instanceId: job.instanceId,
               status: 'failed',
-              reason: `Subflow ${job.displayName} did not start correctly.`,
+              reason,
+            });
+            await recordReviewCycleOutcome({
+              flowName: job.flowName,
+              status: 'failed',
+              reason,
             });
             publishCurrentWaveProgress();
             await persistRuntimeResumeState(lastCompletedStepPath);
@@ -5712,14 +5748,20 @@ async function runFlowUnlocked(params: {
           publishCurrentWaveProgress();
           await persistRuntimeResumeState(lastCompletedStepPath);
         } catch (error) {
+          const reason = isFlowRunError(error)
+            ? (error.reason ?? error.code)
+            : error instanceof Error
+              ? error.message
+              : `Subflow ${job.displayName} failed to start.`;
           recordChildOutcome({
             instanceId: job.instanceId,
             status: 'failed',
-            reason: isFlowRunError(error)
-              ? (error.reason ?? error.code)
-              : error instanceof Error
-                ? error.message
-                : `Subflow ${job.displayName} failed to start.`,
+            reason,
+          });
+          await recordReviewCycleOutcome({
+            flowName: job.flowName,
+            status: 'failed',
+            reason,
           });
           publishCurrentWaveProgress();
           await persistRuntimeResumeState(lastCompletedStepPath);
@@ -5762,9 +5804,9 @@ async function runFlowUnlocked(params: {
           }),
         );
         let progressChanged = false;
-        childStatuses.forEach(({ childRun, status, terminalOutcome }) => {
+        for (const { childRun, status, terminalOutcome } of childStatuses) {
           const instanceId = activeInstanceId(childRun);
-          if (!status || childOutcomes.has(instanceId)) return;
+          if (!status || childOutcomes.has(instanceId)) continue;
           recordChildOutcome({
             instanceId,
             status:
@@ -5772,8 +5814,13 @@ async function runFlowUnlocked(params: {
                 ? 'not_applicable'
                 : status,
           });
+          await recordReviewCycleOutcome({
+            flowName: childRun.flowName,
+            status,
+            terminalOutcome,
+          });
           progressChanged = true;
-        });
+        }
         if (progressChanged) {
           publishCurrentWaveProgress();
           await persistRuntimeResumeState(lastCompletedStepPath);
@@ -6377,7 +6424,6 @@ async function runFlowUnlocked(params: {
     try {
       const result = await initializeReviewCycle({
         workingRepositoryPath: reviewRepositoryPath,
-        parentExecutionId: params.executionId,
         mode: step.mode,
         signal: inflightState.abortController.signal,
       });
@@ -6398,7 +6444,7 @@ async function runFlowUnlocked(params: {
           ? `Skipped final review because story work remains: ${result.readiness.incomplete_tasks.length} incomplete task(s), ${result.readiness.unchecked_work.length} unchecked implementation or testing item(s).`
           : result.action === 'diagnostic'
             ? 'Initialized isolated diagnostic review without final-review disposition ownership.'
-            : `${result.action === 'resumed' ? 'Resumed' : 'Initialized'} review cycle ${result.cycle?.review_cycle_id}.`,
+            : `Initialized review cycle ${result.cycle?.review_cycle_id}.`,
         modelId: params.modelId,
         providerId: params.providerId,
         source: params.source,
@@ -6432,7 +6478,6 @@ async function runFlowUnlocked(params: {
           `${JSON.stringify(
             {
               schema_version: 'codeinfo-review-initialization-failure/v1',
-              parent_execution_id: params.executionId,
               status: 'failed',
               reason: error instanceof Error ? error.message : String(error),
               completed_at: new Date().toISOString(),
@@ -6829,7 +6874,6 @@ async function runFlowUnlocked(params: {
       const result = await prepareReviewTargets(
         {
           workingRepositoryPath: reviewRepositoryPath,
-          parentExecutionId: params.executionId,
           signal: inflightSignal,
         },
         {
@@ -6972,7 +7016,6 @@ async function runFlowUnlocked(params: {
         workingRepositoryPath: reviewRepositoryPath,
         outputKey: step.outputKey,
         basePolicy: step.basePolicy,
-        parentExecutionId: params.executionId,
         initializeReviewPointers: step.initializeReviewPointers,
         signal: inflightSignal,
       });

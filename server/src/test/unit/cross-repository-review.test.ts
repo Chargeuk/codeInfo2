@@ -27,7 +27,6 @@ const buildFixture = async (targetCount: number, invalidTargets = 0) => {
     branched_from: 'main',
     plan_host_root: root,
     review_wave_id: '0000064-rw-test',
-    parent_execution_id: 'execution-64',
     targets_sha256: 'a'.repeat(64),
     targets,
     created_at: '2026-07-14T12:00:00.000Z',
@@ -36,7 +35,6 @@ const buildFixture = async (targetCount: number, invalidTargets = 0) => {
     schema_version: 'codeinfo-review-set/v1',
     story_id: snapshot.story_id,
     review_wave_id: snapshot.review_wave_id,
-    parent_execution_id: snapshot.parent_execution_id,
     targets_sha256: snapshot.targets_sha256,
     plan_host_root: root,
     target_count: targetCount,
@@ -120,7 +118,6 @@ test('a superseded singleton keeps its versioned result without replacing the cu
         JSON.stringify({
           ...fixture.snapshot,
           review_wave_id: '0000064-rw-newer',
-          parent_execution_id: 'execution-newer',
         }),
       ),
       fs.writeFile(

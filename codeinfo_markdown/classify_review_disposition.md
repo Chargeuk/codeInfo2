@@ -10,11 +10,11 @@ This step is a traffic controller only. It must not fix findings, task up findin
 
 - When `codeInfoTmp/reviews/<story-number>-current-review-set.json` exists, read it with the matching `current-review-wave-validation.json`, require exact wave identity, and classify only completed or partial job results and their aggregated findings.
 - A review set with `closeout_allowed: false` cannot produce a clean/no-findings classification. Missing or unusable cross-repository coverage is an `incomplete_review_blockers` entry when `cross_repository_required` is true; its intentional absence from a slow wave with `cross_repository_required: false` is not a blocker.
-- In wave mode, classify only completed or partial review-set jobs whose embedded server-owned validation is usable and exactly matches the target, wave, canonical seven-digit story, plan, review session, review pass, parent execution, HEAD, and comparison base; do not require the legacy plan-host `current-review-validation.json`. When no review set exists, read the prepared review base and `codeInfoTmp/reviews/<story-number>-current-review-validation.json`, accept overall `passed` or `partial` legacy validation for the exact canonical handoff identity, and classify findings only from reviewer entries marked usable.
+- In wave mode, classify only completed or partial review-set jobs whose embedded server-owned validation is usable and exactly matches the target, review cycle, wave, canonical seven-digit story, plan, review session, review pass, HEAD, and comparison base; do not require the legacy plan-host `current-review-validation.json`. When no review set exists, read the prepared review base and `codeInfoTmp/reviews/<story-number>-current-review-validation.json`, accept overall `passed` or `partial` legacy validation for the exact canonical handoff identity, and classify findings only from reviewer entries marked usable.
 - Never infer, normalize, repair, or substitute machine identity fields. When at least one reviewer remains usable, record failed, missing, partial, or stale sibling-reviewer coverage as a non-blocking entry in `classification_notes`, continue classifying trustworthy findings, and do not create an `incomplete_review_blockers` entry solely for that lost coverage. Use `incomplete_review_blockers` only when no reviewer is usable or the surviving artifacts do not provide a trustworthy canonical review basis. When no reviewer is usable, do not claim there were no findings.
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
-- When `codeInfoStatus/flow-state/active-review-cycle.json` exists, read it immediately after `current-plan.json`. Require exact canonical story, plan, parent execution, and `review_mode: "final"` agreement with the current review artifacts. Use its `review_cycle_id` as authoritative; never preserve or mint a different cycle ID for that launch.
+- When `codeInfoStatus/flow-state/active-review-cycle.json` exists, read it immediately after `current-plan.json`. Require exact canonical story, plan, `status: "in_progress"`, and `review_mode: "final"` agreement with the current review artifacts. Use its `review_cycle_id` as authoritative; never preserve or mint a different cycle ID for that launch.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before classifying the review.
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Do not discover review artifacts by timestamp.
@@ -48,7 +48,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 6. Read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 7. Read the `findings_file` referenced by the review handoff directly from disk, for example with `cat <findings_file>`, or safely infer it from the handoff and artifact naming only when necessary.
 8. Read `saturation_file` and `challenge_file` when present or safely inferable. Treat them as additive context, not as replacements for the findings artifact.
-9. Read the previous `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Preserve prior minor-fix loop history only when it belongs to the exact active `review_cycle_id`, story, canonical plan, and parent execution.
+9. Read the previous `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Preserve prior minor-fix loop history only when it belongs to the exact active `review_cycle_id`, story, and canonical plan.
 
 </scope_rules>
 
@@ -138,7 +138,6 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
   "story_number": "<story number from plan_path>",
   "plan_path": "<canonical plan path>",
   "review_session_id": "<validated server-owned review session ID>",
-  "parent_execution_id": "<validated parent flow execution ID>",
   "head_commit": "<validated full current repository HEAD>",
   "comparison_base_commit": "<validated full current repository comparison base>",
   "review_cycle_id": "<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>",

@@ -64,7 +64,6 @@ const fixture = async (targetCount = 3) => {
     branched_from: 'main',
     plan_host_root: roots[0] as string,
     review_wave_id: '0000064-rw-test-wave',
-    parent_execution_id: 'execution-64',
     targets_sha256: sha256('c'),
     targets,
     created_at: '2026-07-14T12:00:00.000Z',

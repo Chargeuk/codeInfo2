@@ -54,7 +54,6 @@ export type CodexReviewPointer = {
   story_id: string;
   plan_path: string;
   review_session_id: string;
-  parent_execution_id: string;
   review_cycle_id: string | null;
   canonical_review_pass_id: string;
   codex_review_pass_id: string;
@@ -708,12 +707,14 @@ export async function runCodexReviewStep(
   const activeReviewCycleId =
     activeCycle?.story_id === storyNumber &&
     activeCycle.plan_path === planPath &&
-    activeCycle.parent_execution_id ===
-      preparedBase.artifact.parent_execution_id &&
-    typeof activeCycle.review_cycle_id === 'string'
+    (activeCycle.status === 'in_progress' || activeCycle.status === undefined) &&
+    typeof activeCycle.review_cycle_id === 'string' &&
+    (!preparedBase.artifact.review_cycle_id ||
+      preparedBase.artifact.review_cycle_id === activeCycle.review_cycle_id)
       ? activeCycle.review_cycle_id
       : null;
   const reviewCycleId =
+    preparedBase.artifact.review_cycle_id ??
     activeReviewCycleId ??
     resolveApplicableReviewCycleId({ storyNumber, reviewState });
   const shortHead = headCommit.slice(0, 10);
@@ -874,7 +875,6 @@ const buildPointer = (params: {
   story_id: params.preparedBase.story_id,
   plan_path: params.preparedBase.plan_path,
   review_session_id: params.preparedBase.review_session_id,
-  parent_execution_id: params.preparedBase.parent_execution_id,
   review_cycle_id: params.reviewCycleId,
   canonical_review_pass_id: params.canonicalReviewPassId,
   codex_review_pass_id: params.codexReviewPassId,

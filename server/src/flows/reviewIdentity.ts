@@ -18,7 +18,6 @@ export const ReviewIdentitySchema = z
     review_pass_id: z.string().regex(SAFE_ID_PATTERN),
     head_commit: z.string().regex(FULL_COMMIT_PATTERN),
     comparison_base_commit: z.string().regex(FULL_COMMIT_PATTERN),
-    parent_execution_id: z.string().trim().min(1),
   })
   .strict();
 
@@ -111,7 +110,6 @@ export const createReviewIdentity = (params: {
   planPath: string;
   headCommit: string;
   comparisonBaseCommit: string;
-  parentExecutionId: string;
   now: Date;
   randomHex?: string;
 }): ReviewIdentity => {
@@ -129,7 +127,6 @@ export const createReviewIdentity = (params: {
     review_pass_id: `${storyId}-${timestamp}-${shortHead}-${suffix}`,
     head_commit: params.headCommit,
     comparison_base_commit: params.comparisonBaseCommit,
-    parent_execution_id: params.parentExecutionId,
   });
 };
 
@@ -146,7 +143,6 @@ export const readReviewIdentity = (
       : source.review_pass_id,
     head_commit: source.head_commit,
     comparison_base_commit: source.comparison_base_commit,
-    parent_execution_id: source.parent_execution_id,
   });
 
 export const assertReviewIdentityMatches = (

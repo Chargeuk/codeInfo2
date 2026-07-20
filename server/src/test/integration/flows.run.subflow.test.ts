@@ -469,8 +469,246 @@ test('review initialization failures fail the flow instead of silently skipping 
         ),
         'utf8',
       ),
-    ) as { status?: string };
+    ) as Record<string, unknown>;
     assert.equal(failure.status, 'failed');
+    assert.equal('parent_execution_id' in failure, false);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('a final review skipped for incomplete story work does not relabel an older cycle as completed', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-skipped-incomplete-story-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      `${REVIEW_PLAN_MARKDOWN}\n### Task 1. Incomplete\n\n- Task Status: \`__in_progress__\`\n\n#### Subtasks\n\n1. [ ] Implement this first.\n`,
+      'utf8',
+    );
+    const activePath = path.join(
+      repoDir,
+      'codeInfoStatus',
+      'flow-state',
+      'active-review-cycle.json',
+    );
+    const priorCycle = {
+      schema_version: 'codeinfo-active-review-cycle/v2',
+      review_cycle_id: '0000027-rc-20260719T212516Z-7280f8e7',
+      review_mode: 'final',
+      story_id: '0000027',
+      plan_path: 'planning/0000027-codex-review.md',
+      status: 'incomplete',
+      created_at: '2026-07-19T21:25:16.322Z',
+      completed_at: '2026-07-19T21:26:16.322Z',
+      incomplete_reason: 'Prior review was interrupted.',
+    };
+    await fs.writeFile(activePath, JSON.stringify(priorCycle), 'utf8');
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'two_phase_review_cycle',
+      steps: [
+        {
+          type: 'initializeReviewCycle',
+          outputKey: 'review-cycle',
+          mode: 'final',
+        },
+        llmStep('reviewer must not run for incomplete story work'),
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-parent-skipped',
+      steps: [
+        { type: 'subflow', flowNames: ['two_phase_review_cycle'] },
+        llmStep('parent continued after skipped review'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'review-parent-skipped',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(() =>
+      executions.includes('parent continued after skipped review'),
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    assert.equal(
+      executions.includes('reviewer must not run for incomplete story work'),
+      false,
+    );
+    assert.equal(
+      executions.includes('parent continued after skipped review'),
+      true,
+    );
+    assert.deepEqual(
+      JSON.parse(await fs.readFile(activePath, 'utf8')),
+      priorCycle,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('a failed two-phase review marks its cycle incomplete while the parent continues', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-incomplete-cycle-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      `${REVIEW_PLAN_MARKDOWN}\n### Task 1. Complete\n\n- Task Status: \`__done__\`\n\n#### Subtasks\n\n1. [x] Implemented.\n\n#### Testing\n\n1. [x] Proven.\n`,
+      'utf8',
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'two_phase_review_cycle',
+      steps: [
+        {
+          type: 'initializeReviewCycle',
+          outputKey: 'review-cycle',
+          mode: 'final',
+        },
+        llmStep('child fail'),
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-parent-incomplete',
+      steps: [
+        { type: 'subflow', flowNames: ['two_phase_review_cycle'] },
+        llmStep('parent continued after failed review'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'review-parent-incomplete',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() =>
+      executions.includes('parent continued after failed review'),
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    assert.equal(
+      executions.includes('parent continued after failed review'),
+      true,
+    );
+    const active = JSON.parse(
+      await fs.readFile(
+        path.join(
+          repoDir,
+          'codeInfoStatus',
+          'flow-state',
+          'active-review-cycle.json',
+        ),
+        'utf8',
+      ),
+    ) as Record<string, unknown>;
+    assert.equal(active.status, 'incomplete');
+    assert.match(String(active.incomplete_reason), /status failed/u);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('an orphaned execution-owned review cycle cannot block a later best-effort review flow', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-orphaned-cycle-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      `${REVIEW_PLAN_MARKDOWN}\n### Task 1. Complete\n\n- Task Status: \`__done__\`\n\n#### Subtasks\n\n1. [x] Implemented.\n\n#### Testing\n\n1. [x] Proven.\n`,
+      'utf8',
+    );
+    const stateRoot = path.join(repoDir, 'codeInfoStatus', 'flow-state');
+    await fs.writeFile(
+      path.join(stateRoot, 'active-review-cycle.json'),
+      JSON.stringify({
+        schema_version: 'codeinfo-active-review-cycle/v1',
+        review_cycle_id: '0000027-rc-20260719T212516Z-7280f8e7',
+        review_mode: 'final',
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        parent_execution_id: 'orphaned-run-g',
+        created_at: '2026-07-19T21:25:16.322Z',
+      }),
+      'utf8',
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'two_phase_review_cycle',
+      steps: [
+        {
+          type: 'initializeReviewCycle',
+          label: 'Initialize Final Review',
+          outputKey: 'review-cycle',
+          mode: 'final',
+        },
+        llmStep('reviewer launched after orphaned cycle'),
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-parent',
+      steps: [
+        { type: 'subflow', flowNames: ['two_phase_review_cycle'] },
+        llmStep('parent continued after review'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'review-parent',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() => executions.includes('parent continued after review'));
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    assert.equal(executions.includes('reviewer launched after orphaned cycle'), true);
+    assert.equal(executions.includes('parent continued after review'), true);
+    const active = JSON.parse(
+      await fs.readFile(path.join(stateRoot, 'active-review-cycle.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    assert.equal(active.schema_version, 'codeinfo-active-review-cycle/v2');
+    assert.equal(active.status, 'completed');
+    assert.equal('parent_execution_id' in active, false);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -833,7 +1071,6 @@ test('subflow wave reports a generic child not-applicable terminal outcome', asy
       branched_from: 'main',
       plan_host_root: tmpDir,
       review_wave_id: '0000064-rw-not-applicable',
-      parent_execution_id: 'execution-64',
       targets_sha256: 'b'.repeat(64),
       targets: [target],
       created_at: '2026-07-14T12:00:00.000Z',
@@ -842,7 +1079,6 @@ test('subflow wave reports a generic child not-applicable terminal outcome', asy
       schema_version: 'codeinfo-review-set/v1',
       story_id: snapshot.story_id,
       review_wave_id: snapshot.review_wave_id,
-      parent_execution_id: snapshot.parent_execution_id,
       targets_sha256: snapshot.targets_sha256,
       plan_host_root: tmpDir,
       target_count: 1,
@@ -3139,7 +3375,6 @@ test('validateReviewArtifacts records stale child evidence and continues the par
       plan_path: 'planning/0000027-codex-review.md',
       review_session_id: '0000027-rs-20260713T102726Z-d30c1246-session',
       review_pass_id: '0000027-20260713T102726Z-d30c1246-session',
-      parent_execution_id: 'parent-execution-27',
       head_commit: headCommit,
       comparison_base_commit: headCommit,
     };

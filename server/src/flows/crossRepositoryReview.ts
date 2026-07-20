@@ -71,7 +71,6 @@ const targetSnapshotIsCurrent = async (
     ) as Partial<ReviewTargetSnapshot>;
     return (
       current.review_wave_id === snapshot.review_wave_id &&
-      current.parent_execution_id === snapshot.parent_execution_id &&
       current.review_cycle_id === snapshot.review_cycle_id &&
       current.targets_sha256 === snapshot.targets_sha256
     );
@@ -140,8 +139,10 @@ export async function gateCrossRepositoryReview(
   const result = normalizeFlowInput({
     schema_version: CROSS_REPOSITORY_REVIEW_SCHEMA_VERSION,
     story_id: targetSnapshot.story_id,
+    ...(targetSnapshot.review_cycle_id
+      ? { review_cycle_id: targetSnapshot.review_cycle_id }
+      : {}),
     review_wave_id: targetSnapshot.review_wave_id,
-    parent_execution_id: targetSnapshot.parent_execution_id,
     targets_sha256: targetSnapshot.targets_sha256,
     target_count: 1,
     status: 'not_applicable',

@@ -42,7 +42,6 @@ const createFixture = async () => {
     branched_from: 'main',
     plan_host_root: roots[0] as string,
     review_wave_id: '0000064-rw-validation',
-    parent_execution_id: 'execution-64',
     targets_sha256: 'a'.repeat(64),
     targets,
     created_at: '2026-07-14T12:00:00.000Z',
@@ -78,7 +77,6 @@ const createFixture = async () => {
     schema_version: 'codeinfo-review-set/v1',
     story_id: snapshot.story_id,
     review_wave_id: snapshot.review_wave_id,
-    parent_execution_id: snapshot.parent_execution_id,
     targets_sha256: snapshot.targets_sha256,
     plan_host_root: snapshot.plan_host_root,
     review_phase: 'fast',
@@ -123,7 +121,6 @@ const createFixture = async () => {
         pointerPath(target.repo_root, key),
         JSON.stringify({
           story_id: snapshot.story_id,
-          parent_execution_id: snapshot.parent_execution_id,
           review_wave_id: snapshot.review_wave_id,
           target_id: target.target_id,
           head_commit: target.head_commit,
@@ -162,7 +159,6 @@ const createFixture = async () => {
       schema_version: 'codeinfo-cross-repository-review/v1',
       story_id: snapshot.story_id,
       review_wave_id: snapshot.review_wave_id,
-      parent_execution_id: snapshot.parent_execution_id,
       targets_sha256: snapshot.targets_sha256,
       target_count: targets.length,
       inspected_target_ids: targets.map((target) => target.target_id),
@@ -197,7 +193,6 @@ const createFixture = async () => {
         ) as Record<string, unknown>;
         const identityMatches =
           pointer.story_id === snapshot.story_id &&
-          pointer.parent_execution_id === snapshot.parent_execution_id &&
           pointer.review_wave_id === snapshot.review_wave_id &&
           pointer.target_id === target.target_id &&
           pointer.head_commit === target.head_commit;
@@ -244,7 +239,6 @@ const createFixture = async () => {
       review_pass_id: `${target.target_id}-pass`,
       head_commit: target.head_commit,
       comparison_base_commit: 'b'.repeat(40),
-      parent_execution_id: snapshot.parent_execution_id,
       target_id: target.target_id,
       repo_alias: target.repo_alias,
       review_wave_id: snapshot.review_wave_id,
@@ -296,10 +290,6 @@ test('complete review wave finalizes exact coverage and retains severity conflic
       fixture.snapshot.review_wave_id,
     );
     assert.equal(
-      result.finalized.parent_execution_id,
-      fixture.snapshot.parent_execution_id,
-    );
-    assert.equal(
       result.finalized.targets_sha256,
       fixture.snapshot.targets_sha256,
     );
@@ -323,10 +313,6 @@ test('complete review wave finalizes exact coverage and retains severity conflic
       assert(target);
       assert.equal(job.validation?.story_id, fixture.snapshot.story_id);
       assert.equal(job.validation?.plan_path, fixture.snapshot.plan_path);
-      assert.equal(
-        job.validation?.parent_execution_id,
-        fixture.snapshot.parent_execution_id,
-      );
       assert.equal(
         job.validation?.review_wave_id,
         fixture.snapshot.review_wave_id,
@@ -438,7 +424,6 @@ test('superseded complete wave keeps versioned evidence without replacing stable
         JSON.stringify({
           ...fixture.snapshot,
           review_wave_id: '0000064-rw-newer',
-          parent_execution_id: 'execution-newer',
         }),
       ),
       fs.writeFile(stableReviewSetPath, JSON.stringify({ stable: 'newer' })),
@@ -662,7 +647,6 @@ test('multi-target review cannot close cleanly with a malformed cross-repository
       JSON.stringify({
         story_id: fixture.snapshot.story_id,
         review_wave_id: fixture.snapshot.review_wave_id,
-        parent_execution_id: fixture.snapshot.parent_execution_id,
         targets_sha256: fixture.snapshot.targets_sha256,
         status: 'completed',
         findings: [],

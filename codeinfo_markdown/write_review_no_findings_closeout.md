@@ -10,6 +10,7 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
+- Read `codeInfoStatus/flow-state/active-review-cycle.json` and, when present, `codeInfoStatus/flow-state/review-initialization-failure.json` immediately afterward.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before deciding whether to edit the relevant closeout section.
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Use the stored review handoff plus the artifacts it references as the source of review context.
@@ -24,6 +25,9 @@ This step is the clean-closeout writer only. It must not create review-fix tasks
 </critical_rules>
 
 <clean_closeout_rules>
+
+- Require the active review cycle to match the canonical story and plan and have `status: "completed"`. Require `review-initialization-failure.json` to be absent. If either requirement fails, make no plan change: an incomplete or failed review is not a no-findings review even when the best-effort parent flow succeeded.
+- Never use a flow execution ID as closeout evidence or review identity.
 
 - Before applying the ordinary clean-closeout checks, inspect the bounded plan packet for a structured `## Code Review Findings` block whose `Review pass` metadata value matches the active `review_pass_id`. If that block exists, it is the durable outcome for this pass, including ignored-only decisions: do not append or repair a `Post-Implementation Code Review` section for the same pass. If a same-pass legacy closeout already exists, remove only that duplicate legacy section; preserve every historical review-pass section unchanged. Commit that narrow removal when it changes the plan, then finish this step.
 - If any of these remain true, make no plan change and report that the review is not ready for clean closeout:

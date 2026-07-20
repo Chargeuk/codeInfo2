@@ -505,8 +505,6 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
     if strict_cycle and (
         active_cycle.get("review_mode") != "final"
         or active_cycle.get("review_cycle_id") != payload.get("review_cycle_id")
-        or active_cycle.get("parent_execution_id")
-        != payload.get("parent_execution_id")
         or active_cycle.get("story_id") != canonical_payload_story
         or active_cycle.get("plan_path") != payload.get("plan_path")
     ):

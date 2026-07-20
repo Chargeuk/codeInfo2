@@ -212,10 +212,10 @@ const writeFixture = async (repoRoot: string, options: FixtureOptions = {}) => {
     review_pass_id: PASS,
     head_commit: head,
     comparison_base_commit: base,
-    parent_execution_id: 'execution-13',
     ...(options.waveScope
       ? {
           target_id: 'current_repository',
+          review_cycle_id: '0000013-rc-wave-target',
           review_wave_id: '0000013-rw-wave-target',
           plan_host_root: repoRoot,
         }
@@ -704,6 +704,7 @@ test('validateReviewArtifacts validates a wave target without an ambient current
     assert.equal(result.status, 'passed');
     assert.equal(result.validation_mode, 'wave_target');
     assert.equal(result.target_id, 'current_repository');
+    assert.equal(result.review_cycle_id, '0000013-rc-wave-target');
     assert.equal(result.review_wave_id, '0000013-rw-wave-target');
     assert.equal(result.plan_host_root, repoRoot);
     assert.equal(
@@ -789,6 +790,7 @@ test('validateReviewArtifacts publishes usable wave-target validation for transi
     assert.equal(result.status, 'passed');
     assert.equal(result.validation_mode, 'wave_target');
     assert.equal(result.target_id, 'current_repository');
+    assert.equal(result.review_cycle_id, '0000013-rc-wave-target');
     assert.equal(result.review_wave_id, '0000013-rw-wave-target');
     assert.equal(result.plan_host_root, repoRoot);
     assert.equal(result.pointer_results[0]?.usable, true);

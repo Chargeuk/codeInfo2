@@ -17,6 +17,22 @@ def read_text(relative_path: str) -> str:
 
 
 class ReviewPromptContractTests(unittest.TestCase):
+    def test_post_review_closeout_requires_completed_cycle_state(self) -> None:
+        generator = read_text(
+            "codeinfo_markdown/generate_or_update_minor_fix_revalidation_task.md"
+        )
+        closeout = read_text(
+            "codeinfo_markdown/write_review_no_findings_closeout.md"
+        )
+        for text in (generator, closeout):
+            self.assertIn("active-review-cycle.json", text)
+            self.assertIn("review-initialization-failure.json", text)
+            self.assertIn('status: "completed"', text)
+            self.assertNotIn("parent_execution_id", text)
+        self.assertIn("Recover Incomplete Story", generator)
+        self.assertIn("one normal final whole-story revalidation task", generator)
+        self.assertIn("not a no-findings review", closeout)
+
     def test_internal_review_prompts_bind_to_server_owned_identity(self) -> None:
         prompt_paths = (
             "codeinfo_markdown/review_evidence_gate/01-core.md",
@@ -28,7 +44,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             with self.subTest(prompt_path=prompt_path):
                 text = read_text(prompt_path)
                 self.assertIn("review_session_id", text)
-                self.assertIn("parent_execution_id", text)
+                self.assertNotIn("parent_execution_id", text)
                 self.assertIn("seven-digit", text)
                 self.assertRegex(text, r"(?i)(never|may not|do not).*infer")
 
@@ -44,7 +60,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             "plan_path",
             "review_session_id",
             "review_pass_id",
-            "parent_execution_id",
+            "review_cycle_id",
             "head_commit",
             "comparison_base_commit",
         ):
@@ -106,7 +122,8 @@ class ReviewPromptContractTests(unittest.TestCase):
         for required in (
             "review_session_id",
             "canonical_review_pass_id",
-            "parent_execution_id",
+            "review_cycle_id",
+            "review_wave_id",
             "planning/**",
             "current-open-code-review.json",
         ):
@@ -565,7 +582,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             "plan_path",
             "review_session_id",
             "review_pass_id",
-            "parent_execution_id",
+            "review_cycle_id",
             "head_commit",
             "comparison_base_commit",
         ):
@@ -585,7 +602,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             record_text,
         )
         self.assertIn(
-            "Do not require `story_id`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, or `comparison_base_commit` to exist in `current-plan.json`",
+            "Do not require `story_id`, `review_session_id`, `review_pass_id`, `head_commit`, or `comparison_base_commit` to exist in `current-plan.json`",
             record_text,
         )
         self.assertIn(

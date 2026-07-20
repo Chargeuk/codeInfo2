@@ -76,7 +76,7 @@ export type ReviewArtifactsValidationResult = {
   review_pass_id: string;
   head_commit: string;
   comparison_base_commit: string;
-  parent_execution_id: string;
+  review_cycle_id?: string;
   target_id?: string;
   repo_alias?: string;
   review_wave_id?: string;
@@ -288,6 +288,7 @@ const assertWaveTargetScopeMatches = (
   pointerKey: string,
 ): void => {
   if (
+    !expected.review_cycle_id ||
     !expected.review_wave_id ||
     !expected.target_id ||
     !expected.plan_host_root
@@ -295,6 +296,7 @@ const assertWaveTargetScopeMatches = (
     throw new Error('Prepared wave-target review scope is incomplete.');
   }
   for (const field of [
+    'review_cycle_id',
     'review_wave_id',
     'target_id',
     'plan_host_root',
@@ -1554,6 +1556,9 @@ export async function validateReviewArtifacts(
       ? {
           target_id: prepared.artifact.target_id,
           repo_alias: prepared.artifact.repo_alias,
+          ...(prepared.artifact.review_cycle_id
+            ? { review_cycle_id: prepared.artifact.review_cycle_id }
+            : {}),
           review_wave_id: prepared.artifact.review_wave_id,
           plan_host_root: prepared.artifact.plan_host_root,
         }

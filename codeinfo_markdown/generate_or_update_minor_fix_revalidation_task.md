@@ -8,6 +8,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
+- Read `codeInfoStatus/flow-state/active-review-cycle.json` and, when present, `codeInfoStatus/flow-state/review-initialization-failure.json` immediately afterward. Review-cycle status is authoritative and is never inferred from the parent flow's successful best-effort status.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks` before deciding whether to edit the plan.
 - Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`, especially its minor-fix-only eligibility, identity, and duplicate-prevention rules.
@@ -17,6 +18,8 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - A cycle with no minor fixes still creates or updates its one final whole-story revalidation task.
+- A missing, `in_progress`, or `incomplete` current cycle, or a current initialization-failure artifact, is incomplete review coverage rather than a no-findings result. Create or update one normal recovery task plus one normal final whole-story revalidation task, then leave both open so task execution can continue autonomously.
+- Do not use or require a flow execution ID when selecting, creating, or validating either task. Concurrent top-level story flows are unsupported.
 - Do not create a final minor-fix revalidation task while unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remain.
 - Do not run automated proof in this step.
 - Do not perform manual testing.
@@ -26,6 +29,14 @@ This is a post-review-loop step. It runs only after the review loop has finished
 </critical_rules>
 
 <generation_rules>
+
+- Before ordinary disposition routing, require the active cycle to match the canonical story and plan and have `status: "completed"`; also require `review-initialization-failure.json` to be absent. If this check fails:
+  - add or update exactly one task titled `Recover Incomplete Story <story-number> Review Cycle`, keyed by the current `review_cycle_id` when available and otherwise by the canonical story and current failure reason;
+  - preserve the incomplete status or initialization reason in that task's Implementation Notes and make its work rerun the two-phase review after repairing any reproducible workflow defect;
+  - add or update exactly one `Re-Validate Story <story-number> After Review` task after the recovery task, with the whole-story supported validation obligations from the shared final-task contract;
+  - do not write or imply a no-findings result;
+  - set `review_created_tasks_added_or_updated` true and `safe_to_exit_review_loop_without_tasking` false when a usable disposition state exists, and preserve one deduplicated incomplete-review blocker for the failure;
+  - finish this step after committing the task changes; do not apply the ordinary clean-cycle generation rules below.
 
 - If `needs_final_minor_fix_revalidation_task` is not true:
   - make no plan change;
@@ -101,7 +112,7 @@ When no task is needed and no unresolved work remains:
 <failure_modes>
 
 - If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, stop and say the current-plan handoff must be regenerated.
-- If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, stop and say the review disposition state must be regenerated.
+- If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, use the incomplete-cycle recovery path when the active-cycle or initialization-failure evidence proves review did not complete; otherwise stop and say the review disposition state must be regenerated.
 - If `review-disposition-state.json` lacks a usable `review_cycle_id`, repair that state before deciding whether to reuse or create the task.
 - If the canonical plan is missing or branch story scope has drifted, stop and say the current-plan handoff is stale and must be regenerated.
 - If state says final revalidation is needed and `resolved_minor_findings` is empty, create the clean-cycle final task and state that it owns whole-story proof after a no-fix review outcome.

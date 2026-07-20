@@ -81,7 +81,6 @@ test('prepareReviewTargets snapshots one and three canonical repository targets'
         const result = await prepareReviewTargets(
           {
             workingRepositoryPath: fixture.primary,
-            parentExecutionId: 'execution-64',
           },
           {
             listIngestedRepositories: async () => ({
@@ -148,7 +147,6 @@ test('prepareReviewTargets rejects duplicate roots and story-mismatched branches
       prepareReviewTargets(
         {
           workingRepositoryPath: fixture.primary,
-          parentExecutionId: 'execution-64',
         },
         dependencies,
       ),
@@ -166,7 +164,6 @@ test('prepareReviewTargets rejects duplicate roots and story-mismatched branches
       prepareReviewTargets(
         {
           workingRepositoryPath: fixture.primary,
-          parentExecutionId: 'execution-65',
         },
         dependencies,
       ),
@@ -183,7 +180,6 @@ test('a saved target snapshot remains pinned when a repository HEAD later moves'
     const result = await prepareReviewTargets(
       {
         workingRepositoryPath: fixture.primary,
-        parentExecutionId: 'execution-64',
       },
       {
         listIngestedRepositories: async () => ({

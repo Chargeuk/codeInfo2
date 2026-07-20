@@ -25,6 +25,7 @@ export type PreparedReviewBase = ReviewIdentity & {
   branched_from: string | null;
   repo_alias: string;
   target_id?: string;
+  review_cycle_id?: string;
   review_wave_id?: string;
   plan_host_root?: string;
   repo_root: string;
@@ -69,6 +70,7 @@ export type ExplicitReviewBaseScope = {
   planPath: string;
   storyNumber: string;
   branchedFrom: string | null;
+  reviewCycleId?: string;
   reviewWaveId: string;
   target: {
     targetId: string;
@@ -566,7 +568,6 @@ export async function prepareReviewBase(
     workingRepositoryPath: string;
     outputKey: string;
     basePolicy?: FlowReviewBasePolicy;
-    parentExecutionId?: string;
     initializeReviewPointers?: boolean;
     explicitScope?: ExplicitReviewBaseScope;
     signal?: AbortSignal;
@@ -701,9 +702,6 @@ export async function prepareReviewBase(
     planPath,
     headCommit,
     comparisonBaseCommit: baseResolution.comparisonBaseCommit,
-    parentExecutionId:
-      params.parentExecutionId ??
-      `standalone-${startedAt.getTime()}-${resolvedDeps.randomHex(4)}`,
     now: startedAt,
     randomHex: resolvedDeps.randomHex(4),
   });
@@ -716,6 +714,9 @@ export async function prepareReviewBase(
     ...(params.explicitScope
       ? {
           target_id: params.explicitScope.target.targetId,
+          ...(params.explicitScope.reviewCycleId
+            ? { review_cycle_id: params.explicitScope.reviewCycleId }
+            : {}),
           review_wave_id: params.explicitScope.reviewWaveId,
           plan_host_root: params.explicitScope.planHostRoot,
         }

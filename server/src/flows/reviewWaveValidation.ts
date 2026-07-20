@@ -165,7 +165,6 @@ const targetSnapshotIsCurrent = async (
     ) as Partial<ReviewTargetSnapshot>;
     return (
       current.review_wave_id === snapshot.review_wave_id &&
-      current.parent_execution_id === snapshot.parent_execution_id &&
       current.review_cycle_id === snapshot.review_cycle_id &&
       current.targets_sha256 === snapshot.targets_sha256
     );
@@ -408,8 +407,8 @@ export async function validateReviewWave(
       }
       const identityMatches =
         pointer.story_id === params.snapshot.story_id &&
+        pointer.review_cycle_id === params.snapshot.review_cycle_id &&
         pointer.review_wave_id === params.snapshot.review_wave_id &&
-        pointer.parent_execution_id === params.snapshot.parent_execution_id &&
         pointer.targets_sha256 === params.snapshot.targets_sha256;
       const structurallyValid = isUsableCrossRepositoryResult(
         pointer,
@@ -534,8 +533,7 @@ export async function validateReviewWave(
       targetResult.validation_mode === 'wave_target' &&
       targetResult.story_id === params.snapshot.story_id &&
       targetResult.plan_path === params.snapshot.plan_path &&
-      targetResult.parent_execution_id ===
-        params.snapshot.parent_execution_id &&
+      targetResult.review_cycle_id === params.snapshot.review_cycle_id &&
       targetResult.target_id === target.target_id &&
       targetResult.repo_alias === target.repo_alias &&
       targetResult.review_wave_id === params.snapshot.review_wave_id &&
@@ -571,7 +569,9 @@ export async function validateReviewWave(
         review_pass_id: targetResult.review_pass_id,
         head_commit: targetResult.head_commit,
         comparison_base_commit: targetResult.comparison_base_commit,
-        parent_execution_id: targetResult.parent_execution_id,
+        ...(targetResult.review_cycle_id
+          ? { review_cycle_id: targetResult.review_cycle_id }
+          : {}),
         target_id: target.target_id,
         repo_alias: target.repo_alias,
         review_wave_id: params.snapshot.review_wave_id,
@@ -643,8 +643,10 @@ export async function validateReviewWave(
     schema_version: REVIEW_WAVE_VALIDATION_SCHEMA_VERSION,
     story_id: params.snapshot.story_id,
     plan_path: params.snapshot.plan_path,
+    ...(params.snapshot.review_cycle_id
+      ? { review_cycle_id: params.snapshot.review_cycle_id }
+      : {}),
     review_wave_id: params.snapshot.review_wave_id,
-    parent_execution_id: params.snapshot.parent_execution_id,
     targets_sha256: params.snapshot.targets_sha256,
     review_phase: params.reviewSet.review_phase ?? 'standalone',
     cross_repository_required: crossRepositoryRequired,

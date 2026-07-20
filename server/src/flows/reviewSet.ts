@@ -35,7 +35,6 @@ export type ReviewSetManifest = {
   schema_version: typeof REVIEW_SET_SCHEMA_VERSION;
   story_id: string;
   review_wave_id: string;
-  parent_execution_id: string;
   review_cycle_id?: string;
   review_mode?: 'final' | 'diagnostic';
   targets_sha256: string;
@@ -90,7 +89,7 @@ export type ReviewWaveJobValidation = ReviewPointerValidationResult & {
   review_pass_id: string;
   head_commit: string;
   comparison_base_commit: string;
-  parent_execution_id: string;
+  review_cycle_id?: string;
   target_id: string;
   repo_alias: string;
   review_wave_id: string;
@@ -200,13 +199,13 @@ const prepareOneTarget = async (params: {
     const base: PrepareReviewBaseResult = await params.deps.prepareReviewBase({
       workingRepositoryPath: params.target.repo_root,
       outputKey: 'current-review-base',
-      parentExecutionId: params.snapshot.parent_execution_id,
       initializeReviewPointers: true,
       explicitScope: {
         planHostRoot: params.snapshot.plan_host_root,
         planPath: params.snapshot.plan_path,
         storyNumber: params.snapshot.story_id,
         branchedFrom: params.snapshot.branched_from,
+        reviewCycleId: params.snapshot.review_cycle_id,
         reviewWaveId: params.snapshot.review_wave_id,
         target: {
           targetId: params.target.target_id,
@@ -284,7 +283,6 @@ const targetSnapshotIsCurrent = async (
     ) as Partial<ReviewTargetSnapshot>;
     return (
       current.review_wave_id === snapshot.review_wave_id &&
-      current.parent_execution_id === snapshot.parent_execution_id &&
       current.review_cycle_id === snapshot.review_cycle_id &&
       current.targets_sha256 === snapshot.targets_sha256
     );
@@ -365,7 +363,6 @@ export async function prepareReviewSet(
     schema_version: REVIEW_SET_SCHEMA_VERSION,
     story_id: params.snapshot.story_id,
     review_wave_id: params.snapshot.review_wave_id,
-    parent_execution_id: params.snapshot.parent_execution_id,
     ...(params.snapshot.review_cycle_id
       ? { review_cycle_id: params.snapshot.review_cycle_id }
       : {}),

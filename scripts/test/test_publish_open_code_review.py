@@ -128,7 +128,10 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
             "plan_path": plan_path,
             "review_session_id": f"{story_id}-rs-session",
             "review_pass_id": canonical_pass_id,
-            "parent_execution_id": "parent-execution",
+            "review_cycle_id": f"{story_id}-rc-cycle",
+            "review_wave_id": f"{story_id}-rw-wave",
+            "target_id": "current_repository",
+            "plan_host_root": str(repo),
             "comparison_base_commit": "a" * 40,
             "head_commit": "b" * 40,
             "repo_alias": "current_repository",
@@ -256,6 +259,9 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
         )
         self.assertEqual(pointer, log_pointer)
         self.assertEqual(pointer["schema_version"], "codeinfo-open-code-review/v1")
+        self.assertNotIn("parent_execution_id", pointer)
+        prepared = json.loads(prepared_base.read_text(encoding="utf-8"))
+        self.assertEqual(pointer["review_cycle_id"], prepared["review_cycle_id"])
         self.assertEqual(len(pointer["bundles"]), 2)
         self.assertNotIn("bundle_artifacts", pointer)
         self.assertEqual(

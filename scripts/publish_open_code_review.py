@@ -45,7 +45,12 @@ SCOPE_FIELDS = (
     "review_context_source_plan_sha256",
     "review_excluded_paths",
 )
-WAVE_SCOPE_FIELDS = ("target_id", "review_wave_id", "plan_host_root")
+WAVE_SCOPE_FIELDS = (
+    "target_id",
+    "review_cycle_id",
+    "review_wave_id",
+    "plan_host_root",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -492,7 +497,6 @@ def build_open_code_review_pointer(
 
     for field in (
         "review_session_id",
-        "parent_execution_id",
         "comparison_base_commit",
         "head_commit",
     ):
@@ -530,7 +534,6 @@ def build_open_code_review_pointer(
         "plan_path": plan_path,
         "review_session_id": prepared_base["review_session_id"],
         "canonical_review_pass_id": canonical_pass_id,
-        "parent_execution_id": prepared_base["parent_execution_id"],
         "open_code_review_pass_id": pass_id,
         "comparison_base_commit": prepared_base["comparison_base_commit"],
         "head_commit": prepared_base["head_commit"],

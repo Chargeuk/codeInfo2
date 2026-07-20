@@ -143,7 +143,7 @@ test('every production review loop produces the complete wave validation contrac
     'job_results',
     'aggregated_findings',
     'closeout_allowed',
-    'parent_execution_id',
+    'review_cycle_id',
   ]) {
     assert.match(producer, new RegExp(`\\b${field}\\b`, 'u'));
   }
@@ -190,7 +190,7 @@ test('every reachable wave-mode prompt shares the authoritative consumer contrac
     'review_wave_id',
     'review_session_id',
     'review_pass_id',
-    'parent_execution_id',
+    'review_cycle_id',
     'usable_bundle_ids',
   ]) {
     assert.match(contract, new RegExp(field.replace('.', '\\.'), 'u'));

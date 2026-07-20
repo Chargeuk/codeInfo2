@@ -6,9 +6,10 @@ import { resolveReviewRepositoryRoot } from './reviewBase.js';
 import { atomicWriteJson, deriveCanonicalStoryId } from './reviewIdentity.js';
 
 export const ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION =
-  'codeinfo-active-review-cycle/v1';
+  'codeinfo-active-review-cycle/v2';
 
 export type ReviewCycleMode = 'final' | 'diagnostic';
+export type ReviewCycleStatus = 'in_progress' | 'completed' | 'incomplete';
 
 export type ActiveReviewCycle = {
   schema_version: typeof ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION;
@@ -16,8 +17,10 @@ export type ActiveReviewCycle = {
   review_mode: ReviewCycleMode;
   story_id: string;
   plan_path: string;
-  parent_execution_id: string;
+  status: ReviewCycleStatus;
   created_at: string;
+  completed_at?: string;
+  incomplete_reason?: string;
 };
 
 export type ReviewPlanReadiness = {
@@ -131,72 +134,9 @@ const timestampId = (value: Date) =>
     .replace(/[-:]/gu, '')
     .replace(/\.\d{3}Z$/u, 'Z');
 
-const reviewCycleInitializationLocks = new Map<string, Promise<void>>();
-const REVIEW_CYCLE_LOCK_STALE_MS = 5 * 60 * 1000;
-
-const acquireReviewCycleFileLock = async (
-  activePath: string,
-): Promise<() => Promise<void>> => {
-  const lockPath = `${activePath}.lock`;
-  const openLock = async (allowStaleRecovery: boolean) => {
-    try {
-      return await fs.open(lockPath, 'wx');
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-      if (allowStaleRecovery) {
-        const lockStat = await fs.stat(lockPath).catch(() => null);
-        if (
-          lockStat &&
-          Date.now() - lockStat.mtimeMs > REVIEW_CYCLE_LOCK_STALE_MS
-        ) {
-          await fs.rm(lockPath, { force: true });
-          return openLock(false);
-        }
-      }
-      throw new Error(
-        'A final review cycle initialization is already in progress for this repository.',
-      );
-    }
-  };
-  const handle = await openLock(true);
-  await handle.writeFile(
-    `${JSON.stringify({ pid: process.pid, acquired_at: new Date().toISOString() })}\n`,
-  );
-  return async () => {
-    await handle.close().catch(() => undefined);
-    await fs.rm(lockPath, { force: true }).catch(() => undefined);
-  };
-};
-
-const withReviewCycleInitializationLock = async <T>(
-  key: string,
-  operation: () => Promise<T>,
-): Promise<T> => {
-  const previous = reviewCycleInitializationLocks.get(key) ?? Promise.resolve();
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const queued = previous.then(() => gate);
-  reviewCycleInitializationLocks.set(key, queued);
-  await previous;
-  let releaseFileLock: (() => Promise<void>) | undefined;
-  try {
-    releaseFileLock = await acquireReviewCycleFileLock(key);
-    return await operation();
-  } finally {
-    await releaseFileLock?.();
-    release();
-    if (reviewCycleInitializationLocks.get(key) === queued) {
-      reviewCycleInitializationLocks.delete(key);
-    }
-  }
-};
-
 export async function initializeReviewCycle(
   params: {
     workingRepositoryPath: string;
-    parentExecutionId: string;
     mode: ReviewCycleMode;
     signal?: AbortSignal;
   },
@@ -242,99 +182,119 @@ export async function initializeReviewCycle(
     };
   }
   const activePath = path.join(flowStateRoot, 'active-review-cycle.json');
-  return withReviewCycleInitializationLock(activePath, async () => {
-    params.signal?.throwIfAborted();
-    const active = await readJsonIfPresent(activePath, resolvedDeps);
-    const ownsCurrentFinalCycle =
-      active?.schema_version === ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION &&
-      active.story_id === storyId &&
-      active.plan_path === planPath &&
-      active.review_mode === 'final' &&
-      typeof active.review_cycle_id === 'string';
-    if (ownsCurrentFinalCycle) {
-      if (active.parent_execution_id === params.parentExecutionId) {
-        return {
-          action: 'resumed' as const,
-          repoRoot,
-          storyId,
-          planPath,
-          readiness,
-          cycle: active as ActiveReviewCycle,
-        };
-      }
-      throw new Error(
-        `Final review cycle ${String(active.review_cycle_id)} is already owned by parent execution ${String(active.parent_execution_id)}.`,
-      );
-    }
-    if (!readiness.eligible) {
-      return {
-        action: 'skipped_incomplete_story' as const,
-        repoRoot,
-        storyId,
-        planPath,
-        readiness,
-        cycle: null,
-      };
-    }
-
-    const dispositionPath = path.join(
-      flowStateRoot,
-      'review-disposition-state.json',
-    );
-    let priorDisposition: Record<string, unknown> | null = null;
-    try {
-      priorDisposition = await readJsonIfPresent(dispositionPath, resolvedDeps);
-    } catch (error) {
-      if (!(error instanceof SyntaxError)) throw error;
-    }
-    const priorCycleId =
-      typeof priorDisposition?.review_cycle_id === 'string' &&
-      priorDisposition.review_cycle_id.trim()
-        ? priorDisposition.review_cycle_id.trim()
-        : typeof active?.review_cycle_id === 'string' &&
-            active.review_cycle_id.trim()
-          ? active.review_cycle_id.trim()
-          : null;
-    if (
-      priorDisposition &&
-      priorCycleId &&
-      reviewCycleIdPattern.test(priorCycleId)
-    ) {
-      await atomicWriteJson(
-        path.join(
-          flowStateRoot,
-          'review-cycles',
-          priorCycleId,
-          'review-disposition-state.json',
-        ),
-        priorDisposition,
-        resolvedDeps,
-      );
-    }
-    await unlinkIfPresent(dispositionPath, resolvedDeps);
-    await unlinkIfPresent(
-      path.join(flowStateRoot, 'minor-review-fix-result.json'),
-      resolvedDeps,
-    );
-
-    const createdAt = resolvedDeps.now();
-    const cycle: ActiveReviewCycle = {
-      schema_version: ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION,
-      review_cycle_id: `${storyId}-rc-${timestampId(createdAt)}-${resolvedDeps.randomHex()}`,
-      review_mode: 'final',
-      story_id: storyId,
-      plan_path: planPath,
-      parent_execution_id: params.parentExecutionId,
-      created_at: createdAt.toISOString(),
-    };
-    await atomicWriteJson(activePath, cycle, resolvedDeps);
+  if (!readiness.eligible) {
     return {
-      action: 'initialized' as const,
+      action: 'skipped_incomplete_story' as const,
       repoRoot,
       storyId,
       planPath,
       readiness,
-      cycle,
+      cycle: null,
     };
-  });
+  }
+  params.signal?.throwIfAborted();
+  const active = await readJsonIfPresent(activePath, resolvedDeps);
+
+  const dispositionPath = path.join(
+    flowStateRoot,
+    'review-disposition-state.json',
+  );
+  let priorDisposition: Record<string, unknown> | null = null;
+  try {
+    priorDisposition = await readJsonIfPresent(dispositionPath, resolvedDeps);
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+  }
+  const priorCycleId =
+    typeof priorDisposition?.review_cycle_id === 'string' &&
+    priorDisposition.review_cycle_id.trim()
+      ? priorDisposition.review_cycle_id.trim()
+      : typeof active?.review_cycle_id === 'string' && active.review_cycle_id.trim()
+        ? active.review_cycle_id.trim()
+        : null;
+  if (priorDisposition && priorCycleId && reviewCycleIdPattern.test(priorCycleId)) {
+    await atomicWriteJson(
+      path.join(
+        flowStateRoot,
+        'review-cycles',
+        priorCycleId,
+        'review-disposition-state.json',
+      ),
+      priorDisposition,
+      resolvedDeps,
+    );
+  }
+  await unlinkIfPresent(dispositionPath, resolvedDeps);
+  await unlinkIfPresent(
+    path.join(flowStateRoot, 'minor-review-fix-result.json'),
+    resolvedDeps,
+  );
+  await unlinkIfPresent(
+    path.join(flowStateRoot, 'review-initialization-failure.json'),
+    resolvedDeps,
+  );
+
+  const createdAt = resolvedDeps.now();
+  const cycle: ActiveReviewCycle = {
+    schema_version: ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION,
+    review_cycle_id: `${storyId}-rc-${timestampId(createdAt)}-${resolvedDeps.randomHex()}`,
+    review_mode: 'final',
+    story_id: storyId,
+    plan_path: planPath,
+    status: 'in_progress',
+    created_at: createdAt.toISOString(),
+  };
+  await atomicWriteJson(activePath, cycle, resolvedDeps);
+  return {
+    action: 'initialized' as const,
+    repoRoot,
+    storyId,
+    planPath,
+    readiness,
+    cycle,
+  };
+}
+
+export async function finalizeActiveReviewCycle(
+  params: {
+    workingRepositoryPath: string;
+    status: Exclude<ReviewCycleStatus, 'in_progress'>;
+    reason?: string;
+  },
+  deps: Partial<ReviewCycleLifecycleDeps> = {},
+): Promise<ActiveReviewCycle | null> {
+  const resolvedDeps = { ...defaultDeps, ...deps };
+  const repoRoot = await resolveReviewRepositoryRoot(params.workingRepositoryPath);
+  const activePath = path.join(
+    repoRoot,
+    'codeInfoStatus',
+    'flow-state',
+    'active-review-cycle.json',
+  );
+  const active = await readJsonIfPresent(activePath, resolvedDeps);
+  if (
+    !active ||
+    typeof active.review_cycle_id !== 'string' ||
+    typeof active.story_id !== 'string' ||
+    typeof active.plan_path !== 'string' ||
+    active.review_mode !== 'final' ||
+    typeof active.created_at !== 'string'
+  ) {
+    return null;
+  }
+  const completed: ActiveReviewCycle = {
+    schema_version: ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION,
+    review_cycle_id: active.review_cycle_id,
+    review_mode: 'final',
+    story_id: active.story_id,
+    plan_path: active.plan_path,
+    status: params.status,
+    created_at: active.created_at,
+    completed_at: resolvedDeps.now().toISOString(),
+    ...(params.status === 'incomplete' && params.reason
+      ? { incomplete_reason: params.reason }
+      : {}),
+  };
+  await atomicWriteJson(activePath, completed, resolvedDeps);
+  return completed;
 }

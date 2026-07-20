@@ -99,7 +99,6 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       {
         workingRepositoryPath: repoRoot,
         outputKey: 'current-review-base',
-        parentExecutionId: 'execution-27',
         initializeReviewPointers: true,
       },
       {
@@ -115,7 +114,6 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       '0000027-current-review-base.json',
     );
     assert.equal(result.artifact.story_id, '0000027');
-    assert.equal(result.artifact.parent_execution_id, 'execution-27');
     assert.equal(
       result.artifact.review_session_id,
       '0000027-rs-20260705T163000Z-d30c1246d3-c0ffee12',
@@ -124,6 +122,7 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       result.artifact.review_pass_id,
       '0000027-20260705T163000Z-d30c1246d3-c0ffee12',
     );
+    assert.equal('parent_execution_id' in result.artifact, false);
     assert.equal(result.artifact.comparison_base_ref, 'origin/main');
     assert.equal(result.artifact.comparison_base_commit, BASE_SHA);
     assert.equal(result.artifact.remote_fetch_status, 'success');
@@ -211,7 +210,6 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       {
         workingRepositoryPath: repoRoot,
         outputKey: 'current-review-base',
-        parentExecutionId: 'execution-27',
         initializeReviewPointers: true,
         explicitScope: {
           planHostRoot: repoRoot,
@@ -271,7 +269,6 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
         {
           workingRepositoryPath: repoRoot,
           outputKey: 'current-review-base',
-          parentExecutionId: 'execution-27',
           explicitScope: {
             planHostRoot: repoRoot,
             planPath: 'planning/0000027-codex-review.md',

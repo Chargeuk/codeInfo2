@@ -2635,9 +2635,70 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Preflight visual refinement: inspected the Story 64 Flow workspace at desktop and 390px mobile widths; clarified the parent wave-count, target-qualified child-title, terminal stopped-to-Send, and mobile composer seams in manual-proof guidance. No code was changed in this step.
 - Manual proof: Expanded to full-story proof because Task 41 is final and fully checked. Restarted the stale main stack with `npm run compose:build` and `npm run compose:up`, confirmed `:5010/health` and `:5001`, and shut it down cleanly with `npm run compose:down`. Fresh UI hydration showed the one-target terminal `Stopped` state with enabled `Send`, and the persisted three-target proof showed seven prepared jobs across three targets, `Wave 7/7`, and successful wave validation; the referenced primary and two additional fixture worktrees still exist. At 390px the Flow shell had no horizontal overflow and the 32px Send control remained reachable; console warnings/errors were absent. Screenshot capture was attempted with Playwright staging `manual-testing/0000064/41/proof-01-one-target-stopped-send.png` and the task scratch destination `codeInfoTmp/manual-testing/0000064/41/`, but the Playwright runtime rejected the nested staging path and Chrome denied the target-repository path, so no retained screenshot was saved; this did not reveal a task-owned failure or require new subtasks.
 
+### Task 42. Make Review Cycles Independent From Flow Executions
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+
+#### Overview
+
+Remove durable review-state ownership by ephemeral flow execution IDs. A review cycle, wave, pass, target, and reviewed commit identify review work; concurrent top-level story flows are explicitly unsupported and do not require ownership negotiation. Preserve best-effort flow execution while preventing failed or incomplete review cycles from being reported as clean closeout.
+
+#### Non-Goals
+
+- Do not add locking, leasing, joining, or conflict resolution for concurrent top-level story flows.
+- Do not remove runtime execution IDs from conversation/runtime diagnostics.
+- Do not weaken cycle, wave, target, repository, or commit identity validation.
+
+#### Task Exit Criteria
+
+- Newly written durable review artifacts do not use a parent flow execution ID as ownership or validation identity.
+- A stale or orphaned prior review cycle cannot block a new final review cycle.
+- Review initialization and reviewer failures continue best-effort, but incomplete review cannot produce a clean no-findings closeout.
+- Successful convergence and the five-pass limit route through the same final review-tasking outcome.
+
+#### Subtasks
+
+1. [x] Replace parent-execution ownership in review lifecycle initialization with durable review-cycle state.
+2. [x] Replace parent-execution artifact joins with cycle, wave, pass, target, and commit identity.
+3. [x] Add explicit cycle-level status for in-progress, completed, and incomplete review outcomes, while retaining a separate initialization-failure handoff.
+4. [x] Gate post-review tasking and clean closeout on the current cycle's durable completion state while preserving best-effort flow continuation.
+5. [x] Update review prompts, helpers, schemas, and legacy-read behavior to match the execution-independent contract.
+6. [x] Add regression coverage for stale cycles, initialization/reviewer failure, clean convergence, iteration-limit convergence, and cross-cycle artifact rejection.
+
+#### Testing
+
+1. [x] Run focused server review lifecycle, review wave, production-loop, and subflow integration tests.
+2. [x] Run focused Python review flow-control and publisher tests.
+3. [x] Run `npm run build:summary:server`.
+4. [x] Run `npm run build:summary:client`.
+5. [x] Run `npm run test:summary:all:parallel`.
+6. [x] Run `npm run lint`.
+7. [x] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Task opened after run J exposed that an orphaned run G execution still owned `active-review-cycle.json`, preventing any reviewer from launching while the best-effort parent continued into clean closeout.
+- Testing item 3: `npm run build:summary:server` passed after removing execution ownership from the production review lifecycle and updating the compiled TypeScript fixtures.
+- Testing item 3 final rerun: the server summary build passed again after cycle-aware reviewer scope propagation and best-effort subflow outcome recording were complete.
+- Testing item 2: `python3 -m unittest scripts.test.test_review_prompt_contracts scripts.test.test_publish_open_code_review scripts.test.test_flow_control_review` passed all 86 focused Python contract, publisher, and review-control tests after adding completed-cycle closeout assertions.
+- Testing item 1: Focused server wrappers passed 5 review-cycle lifecycle tests, 10 review-wave validation tests, 2 production-loop tests, and all 56 subflow integration tests, including the orphaned G-style cycle, failed-review best-effort, and incomplete-story skip regressions.
+- Testing item 1 regression rerun: Fixed four legacy wave fixtures that omitted `review_cycle_id`; all 46 review-artifact tests and both production-loop tests then passed with the semantic cycle contract.
+- Subtask 1: Removed execution ownership and initialization locks; every eligible final review now creates a fresh cycle, archives prior disposition state, and replaces stale active state atomically.
+- Subtask 2: Removed parent execution from durable review schemas and joins, carrying `review_cycle_id` through targets, prepared bases, reviewer pointers, review sets, cross-repository results, and wave validation instead.
+- Subtask 3: Added durable `in_progress`, `completed`, and `incomplete` cycle status with completion time and an optional incomplete reason.
+- Subtask 4: Kept subflows best-effort while making their parent record two-phase review completion before post-review routing; task generation now recovers incomplete review and clean closeout requires a completed cycle with no initialization failure.
+- Subtask 4 final audit: A `not_applicable` child outcome now remains a true skip and leaves older cycle evidence unchanged, rather than being mistaken for a successful completed review.
+- Subtask 5: Updated TypeScript, Python, and prompt contracts to ignore legacy execution fields, stop writing them, and validate semantic review identity instead.
+- Subtask 6: Added regressions for the orphaned G-to-J handoff, failed-review continuation, cycle finalization, cycle-aware artifact validation, prompt closeout gates, and execution-free writers; existing convergence and five-pass flow-control coverage remains authoritative for identical exit routing.
+- Testing item 4: `npm run build:summary:client` passed typecheck and production build; the wrapper reported only the existing large-chunk advisory.
+- Testing item 5: The final `npm run test:summary:all:parallel` run passed client 900/900, server unit 2673/2673, server Cucumber 138/138, and e2e 77/77 on the exact completed implementation. An earlier attempt hit an unrelated temporary-directory cleanup race and one transient `ERR_NETWORK_CHANGED`; both failed cases passed targeted reruns before subsequent clean full-suite runs.
+- Testing item 6: `npm run lint` passed after the new best-effort subflow regressions were strengthened to assert that their parent conversations reach terminal `ok`; the focused subflow suite subsequently passed 56/56 with the incomplete-story skip case.
+- Testing item 7: `npm run format:check` passed with all tracked files matching Prettier style.
+
 ## Final Summary
 
-1. What has been changed: Story 64 is complete and the plan now captures the final closeout state for the cross-repository review-wave work, including the final validation pass, lint and format proof, and the curated manual-proof bundle at `codeInfoStatus/manual-proof/0000064/`.
-2. Why it changed: The story delivered the parallel review-wave flow so review coverage, target ownership, and handoff recording can be validated from the plan on disk instead of from earlier runtime assumptions.
-3. Simple explanation of complex logic: The main complexity was in the wave-validation and publication path, which now keeps review targets, comparison bases, recovery/reconciliation, and per-pass evidence aligned so the system can safely aggregate multi-step review results without losing identity or scope.
-4. Reviewer focus: Pay particular attention to the review-cycle handoff integrity, the final validation and recovery seams, and the manual-proof bundle for Story 64, since those artifacts are the on-disk proof that the final state matches the implemented review workflow.
+1. What has been changed: Story 64 now runs cross-repository review waves using durable cycle, wave, pass, target, repository, and commit identity instead of assigning durable artifacts to the top-level flow execution that happened to create them.
+2. Why it changed: Runs G and J demonstrated that an orphaned execution owner could prevent later reviewers from starting while the best-effort parent continued far enough to resemble a clean review.
+3. Simple explanation of complex logic: Each eligible final review starts a fresh cycle. Reviewer success marks that cycle complete, reviewer or startup failure marks it incomplete, the parent flow keeps going, and downstream tasking treats incomplete work as recovery work rather than as proof that no findings exist.
+4. Reviewer focus: Verify the execution-independent lifecycle in `reviewCycleLifecycle.ts`, the best-effort outcome recording in `service.ts`, cycle propagation through reviewer artifacts, and the completed-cycle gates in the post-review prompts.

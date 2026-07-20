@@ -44,7 +44,6 @@ const PLAN_CONTENT =
 const PLAN_SHA = crypto.createHash('sha256').update(PLAN_CONTENT).digest('hex');
 const REVIEW_SESSION_ID = '0000027-rs-20260705T160000Z-d30c1246-session';
 const REVIEW_PASS_ID = '0000027-20260705T160000Z-d30c1246-session';
-const PARENT_EXECUTION_ID = 'parent-execution-27';
 
 const preparedIdentity = (comparisonBaseCommit = BASE_SHA) => ({
   schema_version: 2,
@@ -52,7 +51,6 @@ const preparedIdentity = (comparisonBaseCommit = BASE_SHA) => ({
   plan_path: 'planning/0000027-codex-review.md',
   review_session_id: REVIEW_SESSION_ID,
   review_pass_id: REVIEW_PASS_ID,
-  parent_execution_id: PARENT_EXECUTION_ID,
   head_commit: HEAD_SHA,
   comparison_base_commit: comparisonBaseCommit,
 });

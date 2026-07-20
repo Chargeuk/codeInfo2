@@ -23,7 +23,7 @@ let tempRoot: string | undefined;
 let snapshot: ReviewTargetSnapshot | undefined;
 let reviewSet: ReviewSetManifest | undefined;
 let jobs: SubflowWaveJob[] = [];
-let firstPassHashes: string[] = [];
+let firstPassInputIdentities: string[] = [];
 let gateAction: string | undefined;
 let jobStatuses: string[] = [];
 let missingVisible = false;
@@ -43,6 +43,11 @@ const findWaveStep = (
     }
   }
   return undefined;
+};
+
+const childInputIdentity = (job: SubflowWaveJob): string => {
+  assert.ok(job.inputHash, `Expected ${job.instanceId} to have an input hash.`);
+  return JSON.stringify([job.instanceId, job.inputHash]);
 };
 
 const createPass = async (targetCount: number, pass = 1) => {
@@ -271,7 +276,7 @@ When('I expand the production mixed review wave', async () => {
     step: waveStep,
     input: { fast_review_wave: snapshot, fast_review_set: reviewSet },
   });
-  firstPassHashes = jobs.map((job) => job.inputHash ?? '');
+  firstPassInputIdentities = jobs.map(childInputIdentity);
 });
 
 Then('the review wave expands to {int} job descriptors', (count: number) => {
@@ -373,10 +378,18 @@ Then('every target has exactly one slow main review job', () => {
 });
 
 Then('no second-pass child reuses its first-pass input identity', () => {
-  assert.equal(jobs.length, firstPassHashes.length);
-  jobs.forEach((job, index) => {
-    assert.notEqual(job.inputHash, firstPassHashes[index]);
-  });
+  assert.equal(jobs.length, firstPassInputIdentities.length);
+  const firstPassIdentities = new Set(firstPassInputIdentities);
+  const secondPassIdentities = new Set(jobs.map(childInputIdentity));
+
+  assert.equal(firstPassIdentities.size, firstPassInputIdentities.length);
+  assert.equal(secondPassIdentities.size, jobs.length);
+  assert.equal(
+    [...secondPassIdentities].some((identity) =>
+      firstPassIdentities.has(identity),
+    ),
+    false,
+  );
 });
 
 When('I evaluate review-wave closeout', async () => {
@@ -473,7 +486,7 @@ After(async () => {
   snapshot = undefined;
   reviewSet = undefined;
   jobs = [];
-  firstPassHashes = [];
+  firstPassInputIdentities = [];
   gateAction = undefined;
   jobStatuses = [];
   missingVisible = false;

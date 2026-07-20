@@ -1798,6 +1798,8 @@ Testing step to ONLY check the linting after some manual fixes
 
 - Review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`; finding `0000064-implicit-source-fallback-cross-binds-working-folder`; repository `current_repository`; implicit review launch fallback now preserves the requested working-folder identity instead of binding a foreign flow source; changed files `scripts/review-cycle-summary.mjs`, `scripts/review-cycle-summary.test.mjs`; commit `c1022a7c2eaca9090dd42e7860dd2f5086d664d3`; targeted proof `node --test scripts/review-cycle-summary.test.mjs` passed (all 12 focused launcher tests, including the foreign singleton-source regression); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 
+- Review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`; finding `0000064-cross-repository-stale-publication`; repository `current_repository`; singleton cross-repository not-applicable publication now revalidates the stable wave pointer before publishing; changed files `server/src/flows/crossRepositoryReview.ts`, `server/src/test/unit/cross-repository-review.test.ts`; commit `a2f248ee3f62aebfb4bc891e150c7e84c39a0aa4`; targeted proof `npm run test:summary:server:unit -- --file server/src/test/unit/cross-repository-review.test.ts` passed (the focused server-unit wrapper passed all 4 tests, including the stale singleton publication regression); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
+
 ### Task 30. Record Minor Review Fixes From Pass 0000064-20260719T100027Z-040c43d7f6-0e3d4ebc
 
 - Task Status: `__done__`

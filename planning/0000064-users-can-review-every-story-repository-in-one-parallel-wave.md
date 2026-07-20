@@ -2637,7 +2637,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ### Task 42. Make Review Cycles Independent From Flow Executions
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Repository Name: `codeInfo2`
 
 #### Overview
@@ -2695,4 +2695,4 @@ Remove durable review-state ownership by ephemeral flow execution IDs. A review 
 - Testing item 5: The final `npm run test:summary:all:parallel` run passed client 900/900, server unit 2673/2673, server Cucumber 138/138, and e2e 77/77 on the exact completed implementation. An earlier attempt hit an unrelated temporary-directory cleanup race and one transient `ERR_NETWORK_CHANGED`; both failed cases passed targeted reruns before subsequent clean full-suite runs.
 - Testing item 6: `npm run lint` passed after the new best-effort subflow regressions were strengthened to assert that their parent conversations reach terminal `ok`; the focused subflow suite subsequently passed 56/56 with the incomplete-story skip case.
 - Testing item 7: `npm run format:check` passed; all tracked files matched the repository's Prettier formatting rules.
-
+- Automated-proof audit: All six implementation subtasks and seven automated checks are complete on the committed implementation; the latest proof-only commit changed only this plan's formatting checkbox and note. No story-caused preserved-behavior regression or out-of-scope user-facing drift was found, so Task 42 is complete and ready for the separate manual-testing pass.

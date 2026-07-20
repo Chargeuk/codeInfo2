@@ -62,21 +62,25 @@ const waitForCompletion = async (conversationId: string) => {
 };
 
 class ReviewFixtureChat extends ChatInterface {
-  constructor(private readonly handle: (message: string) => Promise<void>) {
+  constructor(
+    private readonly handle: (
+      message: string,
+      flags: Record<string, unknown>,
+    ) => Promise<void>,
+  ) {
     super();
   }
 
   async execute(
     message: string,
-    _flags: Record<string, unknown>,
+    flags: Record<string, unknown>,
     conversationId: string,
     _model: string,
   ) {
-    void _flags;
     void _model;
     this.emit('thread', { type: 'thread', threadId: conversationId });
     try {
-      await this.handle(message);
+      await this.handle(message, flags);
       this.emit('final', { type: 'final', content: 'fixture step completed' });
       this.emit('complete', { type: 'complete', threadId: conversationId });
     } catch (error) {
@@ -102,8 +106,11 @@ const llm = (content: string) => ({
   messages: [{ role: 'user', content: [content] }],
 });
 
-const repoEntry = (repoRoot: string): RepoEntry => ({
-  id: 'production-review-fixture',
+const repoEntry = (
+  repoRoot: string,
+  id = 'production-review-fixture',
+): RepoEntry => ({
+  id,
   description: null,
   containerPath: repoRoot,
   hostPath: repoRoot,
@@ -124,7 +131,10 @@ const repoEntry = (repoRoot: string): RepoEntry => ({
   lastError: null,
 });
 
-const initializeRepository = async (repoRoot: string) => {
+const initializeRepository = async (
+  repoRoot: string,
+  additionalRepositories: string[] = [],
+) => {
   await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
   await fs.mkdir(path.join(repoRoot, 'codeInfoStatus', 'flow-state'), {
     recursive: true,
@@ -178,7 +188,13 @@ const initializeRepository = async (repoRoot: string) => {
   });
   await writeJson(
     path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
-    { plan_path: planPath, branched_from: 'main' },
+    {
+      plan_path: planPath,
+      branched_from: 'main',
+      additional_repositories: additionalRepositories.map((repoRoot) => ({
+        path: repoRoot,
+      })),
+    },
   );
 };
 
@@ -379,12 +395,27 @@ const publishCrossRepository = async (repoRoot: string) => {
   await writeJson(
     path.join(reviewDir, `${storyId}-current-cross-repository-review.json`),
     {
+      schema_version: 'codeinfo-cross-repository-review/v1',
       story_id: storyId,
       review_wave_id: snapshot.review_wave_id,
       parent_execution_id: snapshot.parent_execution_id,
       targets_sha256: snapshot.targets_sha256,
-      status: 'not_applicable',
+      target_count: (snapshot.targets as JsonObject[]).length,
+      inspected_target_ids: (snapshot.targets as JsonObject[]).map((target) =>
+        String(target.target_id),
+      ),
+      relationship_coverage:
+        (snapshot.targets as JsonObject[]).length > 1
+          ? { 'fixture-target-coverage': 'inspected' }
+          : {},
+      status:
+        (snapshot.targets as JsonObject[]).length > 1
+          ? 'completed'
+          : 'not_applicable',
       findings: [],
+      rejected_risks: [],
+      residual_uncertainty: [],
+      completed_at: '2026-07-14T12:01:00.000Z',
     },
   );
 };
@@ -639,14 +670,19 @@ test('production one-target review loop validates four jobs and durably records 
     });
     await writeProductionFixtureFlows(flowRoot, false);
 
-    const handler = async (message: string) => {
-      if (message.includes('fixture publish main')) await publishMain(repoRoot);
+    const handler = async (message: string, flags: Record<string, unknown>) => {
+      const workingRoot =
+        typeof flags.workingDirectoryOverride === 'string'
+          ? flags.workingDirectoryOverride
+          : repoRoot;
+      if (message.includes('fixture publish main'))
+        await publishMain(workingRoot);
       else if (message.includes('fixture publish codex'))
-        await publishCodex(repoRoot);
+        await publishCodex(workingRoot);
       else if (message.includes('fixture publish open code'))
-        await publishOpenCode(repoRoot);
+        await publishOpenCode(workingRoot);
       else if (message.includes('fixture publish cross repository'))
-        await publishCrossRepository(repoRoot);
+        await publishCrossRepository(workingRoot);
       else if (
         message.includes(
           'Classify the current review outcome into a machine-readable flow-state file',
@@ -703,8 +739,7 @@ test('production one-target review loop validates four jobs and durably records 
       'the canonical finalized manifest retains oversized finding detail',
     );
     assert.equal(
-      (firstJobs[0]?.validation as JsonObject | undefined)
-        ?.validated_findings,
+      (firstJobs[0]?.validation as JsonObject | undefined)?.validated_findings,
       undefined,
       'wave validation retains metadata while canonical findings own detail',
     );
@@ -789,6 +824,122 @@ test('production one-target review loop validates four jobs and durably records 
         await execFile('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repoRoot })
       ).stdout.trim(),
       headBeforeRetry,
+    );
+  } finally {
+    process.env.PATH = originalPath;
+    if (originalFlowsDir === undefined) delete process.env.FLOWS_DIR;
+    else process.env.FLOWS_DIR = originalFlowsDir;
+    memoryConversations.clear();
+    memoryTurns.clear();
+    resetDeterministicCodexAvailabilityBootstrap();
+    __resetProviderBootstrapStatusForTests();
+    __resetMarkdownFileResolverDepsForTests();
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('production three-target review loop closes only after every target and cross-repository result is usable', async () => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'production-review-loop-three-target-'),
+  );
+  const repoRoot = path.join(root, 'repo');
+  const additionalRoots = [
+    path.join(root, 'additional-one'),
+    path.join(root, 'additional-two'),
+  ];
+  const flowRoot = path.join(root, 'flows');
+  const originalPath = process.env.PATH;
+  const originalFlowsDir = process.env.FLOWS_DIR;
+  installDeterministicCodexAvailabilityBootstrap();
+  memoryConversations.clear();
+  memoryTurns.clear();
+  try {
+    await fs.mkdir(flowRoot, { recursive: true });
+    await Promise.all(
+      additionalRoots.map((root) => initializeRepository(root)),
+    );
+    await initializeRepository(repoRoot, additionalRoots);
+    process.env.PATH = `${await installFakeOcr(root)}${path.delimiter}${originalPath ?? ''}`;
+    process.env.FLOWS_DIR = flowRoot;
+    const repositories = [
+      repoEntry(repoRoot, 'primary'),
+      ...additionalRoots.map((root, index) =>
+        repoEntry(root, `additional-${index + 1}`),
+      ),
+    ];
+    __setMarkdownFileResolverDepsForTests({
+      getCodeInfo2Root: () => path.resolve(process.cwd(), '..'),
+      listIngestedRepositories: async () => ({
+        repos: repositories,
+        lockedModelId: null,
+      }),
+    });
+    await writeProductionFixtureFlows(flowRoot, false);
+
+    const handler = async (message: string, flags: Record<string, unknown>) => {
+      const workingRoot =
+        typeof flags.workingDirectoryOverride === 'string'
+          ? flags.workingDirectoryOverride
+          : repoRoot;
+      if (message.includes('fixture publish main'))
+        await publishMain(workingRoot);
+      else if (message.includes('fixture publish codex'))
+        await publishCodex(workingRoot);
+      else if (message.includes('fixture publish open code'))
+        await publishOpenCode(workingRoot);
+      else if (message.includes('fixture publish cross repository'))
+        await publishCrossRepository(workingRoot);
+      else if (
+        message.includes(
+          'Classify the current review outcome into a machine-readable flow-state file',
+        )
+      )
+        await classify(repoRoot);
+      else if (
+        message.includes(
+          "Record the current review pass's accepted and ignored issue decisions",
+        )
+      )
+        await recordDecisions(repoRoot);
+    };
+    const result = await startFlowRun({
+      flowName: 'production-review-loop',
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new ReviewFixtureChat(handler),
+      listIngestedRepositories: async () => ({
+        repos: repositories,
+        lockedModelId: null,
+      }),
+    });
+    await waitForCompletion(result.conversationId);
+
+    const snapshot = await readJson(
+      path.join(
+        reviewDirFor(repoRoot),
+        `${storyId}-current-review-targets.json`,
+      ),
+    );
+    const finalized = await readJson(
+      path.join(reviewDirFor(repoRoot), `${storyId}-current-review-set.json`),
+    );
+    const jobs = finalized.job_results as JsonObject[];
+    assert.equal((snapshot.targets as JsonObject[]).length, 3);
+    assert.equal(jobs.length, 10);
+    assert.equal(jobs.filter((job) => job.target_id !== null).length, 9);
+    assert.equal(jobs.filter((job) => job.target_id === null).length, 1);
+    assert.equal(
+      jobs.every((job) => job.status === 'completed'),
+      true,
+      JSON.stringify(jobs, null, 2),
+    );
+    assert.equal(finalized.cross_repository_status, 'completed');
+    assert.equal(finalized.closeout_allowed, true);
+    assert.equal(
+      await readJson(dispositionPath(repoRoot)).then(
+        (state) => (state.review_decision_recording as JsonObject).outcome,
+      ),
+      'recorded',
     );
   } finally {
     process.env.PATH = originalPath;

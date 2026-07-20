@@ -7,8 +7,13 @@ import { After, Given, Then, When } from '@cucumber/cucumber';
 
 import { gateCrossRepositoryReview } from '../../flows/crossRepositoryReview.js';
 import { parseFlowFile, type FlowStep } from '../../flows/flowSchema.js';
+import type {
+  ReviewArtifactsValidationResult,
+  ReviewPointerValidationResult,
+} from '../../flows/reviewArtifacts.js';
 import type { ReviewSetManifest } from '../../flows/reviewSet.js';
 import type { ReviewTargetSnapshot } from '../../flows/reviewTargets.js';
+import { validateReviewWave } from '../../flows/reviewWaveValidation.js';
 import {
   expandSubflowWaveJobs,
   type SubflowWaveJob,
@@ -51,6 +56,7 @@ const createPass = async (targetCount: number, pass = 1) => {
     repository_id: `repo-${index}`,
     branch: 'feature/0000064-review',
     head_commit: String(pass + index).repeat(40),
+    comparison_base_commit: 'b'.repeat(40),
     story_id: '0000064',
     is_primary: index === 0,
   }));
@@ -102,7 +108,10 @@ const createPass = async (targetCount: number, pass = 1) => {
       head_commit: target.head_commit,
       status: 'prepared',
       base_pointer: 'base.json',
-      review_pointers: {},
+      review_pointers: {
+        codex: 'codeInfoTmp/reviews/current-codex-review.json',
+        open_code: 'codeInfoTmp/reviews/current-open-code-review.json',
+      },
       error: null,
     })),
     coverage: {
@@ -115,6 +124,127 @@ const createPass = async (targetCount: number, pass = 1) => {
     status: 'prepared',
     created_at: '2026-07-14T12:00:00.000Z',
   };
+  await Promise.all([
+    fs.mkdir(path.join(tempRoot, 'codeInfoTmp', 'reviews'), {
+      recursive: true,
+    }),
+    ...targets.map((target) =>
+      fs.mkdir(path.join(target.repo_root, 'codeInfoTmp', 'reviews'), {
+        recursive: true,
+      }),
+    ),
+  ]);
+  await fs.writeFile(
+    path.join(
+      tempRoot,
+      'codeInfoTmp',
+      'reviews',
+      '0000064-current-review-targets.json',
+    ),
+    JSON.stringify(snapshot),
+  );
+};
+
+const validateCurrentReviewSet = async (params: {
+  includeCrossRepositoryResult: boolean;
+  includeTargetFindings: boolean;
+}) => {
+  assert(snapshot && reviewSet);
+  const activeSnapshot = snapshot;
+  const activeReviewSet = reviewSet;
+  if (params.includeCrossRepositoryResult) {
+    await fs.writeFile(
+      path.join(
+        activeSnapshot.plan_host_root,
+        'codeInfoTmp',
+        'reviews',
+        '0000064-current-cross-repository-review.json',
+      ),
+      JSON.stringify({
+        schema_version: 'codeinfo-cross-repository-review/v1',
+        story_id: activeSnapshot.story_id,
+        review_wave_id: activeSnapshot.review_wave_id,
+        parent_execution_id: activeSnapshot.parent_execution_id,
+        targets_sha256: activeSnapshot.targets_sha256,
+        target_count: activeSnapshot.targets.length,
+        inspected_target_ids: activeSnapshot.targets.map(
+          (target) => target.target_id,
+        ),
+        relationship_coverage: { 'current_repository->repo-1': 'inspected' },
+        status: 'completed',
+        findings: [],
+        rejected_risks: [],
+        residual_uncertainty: [],
+        completed_at: '2026-07-14T12:01:00.000Z',
+      }),
+    );
+  }
+  const result = await validateReviewWave(
+    { snapshot: activeSnapshot, reviewSet: activeReviewSet },
+    {
+      validateReviewArtifacts: async ({
+        workingRepositoryPath,
+        pointerKeys,
+      }): Promise<ReviewArtifactsValidationResult> => {
+        const target = activeSnapshot.targets.find(
+          (candidate) => candidate.repo_root === workingRepositoryPath,
+        );
+        assert(target);
+        if (!target.comparison_base_commit) {
+          throw new Error('Review-wave fixture target is missing its base commit.');
+        }
+        const pointerResults: ReviewPointerValidationResult[] = pointerKeys.map(
+          (pointerKey) => ({
+            pointer_key: pointerKey,
+            pointer_file: `codeInfoTmp/reviews/${pointerKey}.json`,
+            status: 'passed',
+            usable: true,
+            errors: [],
+            warnings: [],
+            validated_artifact_files: [],
+            usable_bundle_ids:
+              pointerKey === 'current-open-code-review' ? ['bundle-1'] : [],
+            validated_findings:
+              params.includeTargetFindings &&
+              pointerKey === 'current-codex-review'
+                ? [
+                    {
+                      title: `Finding owned by ${target.repo_alias}`,
+                      path: 'src/contract.ts',
+                      line: activeSnapshot.targets.indexOf(target) + 1,
+                      severity: 'should_fix',
+                    },
+                  ]
+                : [],
+          }),
+        );
+        return {
+          schema_version: 2,
+          validation_mode: 'wave_target',
+          story_id: activeSnapshot.story_id,
+          plan_path: activeSnapshot.plan_path,
+          review_session_id: `${target.target_id}-session`,
+          review_pass_id: `${target.target_id}-pass`,
+          head_commit: target.head_commit,
+          comparison_base_commit: target.comparison_base_commit,
+          parent_execution_id: activeSnapshot.parent_execution_id,
+          target_id: target.target_id,
+          repo_alias: target.repo_alias,
+          review_wave_id: activeSnapshot.review_wave_id,
+          plan_host_root: activeSnapshot.plan_host_root,
+          pointer_files: pointerResults.map((entry) => entry.pointer_file),
+          pointer_results: pointerResults,
+          validated_artifact_files: [],
+          status: 'passed',
+          errors: [],
+          warnings: [],
+          completed_at: '2026-07-14T12:01:00.000Z',
+        };
+      },
+    },
+  );
+  reviewSet = result.finalized;
+  return result.finalized;
 };
 
 Given(
@@ -249,13 +379,14 @@ Then('no second-pass child reuses its first-pass input identity', () => {
   });
 });
 
-Given('review job statuses {string}', (statuses: string) => {
-  jobStatuses = statuses.split(',');
-});
-
-When('I evaluate review-wave closeout', () => {
+When('I evaluate review-wave closeout', async () => {
+  const finalized = await validateCurrentReviewSet({
+    includeCrossRepositoryResult: false,
+    includeTargetFindings: false,
+  });
+  jobStatuses = finalized.job_results?.map((job) => job.status) ?? [];
   missingVisible = jobStatuses.some((status) => status !== 'completed');
-  closeoutAllowed = jobStatuses.every((status) => status === 'completed');
+  closeoutAllowed = finalized.closeout_allowed === true;
 });
 
 Then('missing review coverage remains visible', () => {
@@ -287,96 +418,19 @@ Given(
   async (targetCount: number) => {
     await createPass(targetCount);
     assert(snapshot && reviewSet);
-    const activeSnapshot = snapshot;
-    const targetJobs = reviewSet.expected_jobs
-      .filter((job) => job.target_id !== null)
-      .map((job) => {
-        const target = activeSnapshot.targets.find(
-          (candidate) => candidate.target_id === job.target_id,
-        );
-        assert(target);
-        return {
-          ...job,
-          status: 'completed' as const,
-          pointer_path: path.join(
-            target.repo_root,
-            'codeInfoTmp/reviews/current-pointer.json',
-          ),
-          validation_file: path.join(
-            target.repo_root,
-            'codeInfoTmp/reviews/current-validation.json',
-          ),
-          validation: {
-            pointer_key: `current-${job.flow_name}`,
-            pointer_file: 'codeInfoTmp/reviews/current-pointer.json',
-            status: 'passed' as const,
-            usable: true,
-            errors: [],
-            warnings: [],
-            validated_artifact_files: [],
-            usable_bundle_ids:
-              job.flow_name === 'open_code_review' ? ['bundle-1'] : [],
-            validation_mode: 'wave_target' as const,
-            story_id: activeSnapshot.story_id,
-            plan_path: activeSnapshot.plan_path,
-            review_session_id: `${target.target_id}-session`,
-            review_pass_id: `${target.target_id}-pass`,
-            head_commit: target.head_commit,
-            comparison_base_commit: 'b'.repeat(40),
-            parent_execution_id: activeSnapshot.parent_execution_id,
-            target_id: target.target_id,
-            repo_alias: target.repo_alias,
-            review_wave_id: activeSnapshot.review_wave_id,
-            plan_host_root: activeSnapshot.plan_host_root,
-          },
-          error: null,
-        };
-      });
-    reviewSet.job_results = [
-      ...targetJobs,
-      {
-        ...reviewSet.expected_jobs.find((job) => job.target_id === null)!,
-        status: 'completed',
-        pointer_path: path.join(
-          snapshot.plan_host_root,
-          'codeInfoTmp/reviews/current-cross-repository-review.json',
-        ),
-        validation_file: null,
-        validation: null,
-        error: null,
-      },
-    ];
-    reviewSet.cross_repository_status = 'completed';
-    reviewSet.aggregated_findings = snapshot.targets.map((target, index) => ({
-      fingerprint: String(index).repeat(64),
-      target_ids: [target.target_id],
-      title: `Finding owned by ${target.repo_alias}`,
-      path: 'src/contract.ts',
-      line: index + 1,
-      severities: ['should_fix'],
-      severity_conflict: false,
-      sources: [
-        {
-          instance_id: `${target.target_id}--review_artifacts_main`,
-          flow_name: 'review_artifacts_main',
-          review_phase: 'slow',
-          target_id: target.target_id,
-          repo_alias: target.repo_alias,
-          review_name: 'Main Review',
-          severity: 'should_fix',
-        },
-      ],
-      detail: { repository: target.repo_alias },
-    }));
   },
 );
 
-When('I route aggregated review findings to downstream tasking', () => {
-  assert(snapshot && reviewSet?.job_results);
-  downstreamOwners = (reviewSet.aggregated_findings ?? []).flatMap(
+When('I route aggregated review findings to downstream tasking', async () => {
+  assert(snapshot);
+  const finalized = await validateCurrentReviewSet({
+    includeCrossRepositoryResult: true,
+    includeTargetFindings: true,
+  });
+  downstreamOwners = (finalized.aggregated_findings ?? []).flatMap(
     (finding) => finding.target_ids,
   );
-  embeddedTargetValidation = reviewSet.job_results
+  embeddedTargetValidation = (finalized.job_results ?? [])
     .filter((job) => job.target_id !== null)
     .every(
       (job) =>
@@ -388,8 +442,8 @@ When('I route aggregated review findings to downstream tasking', () => {
         ),
     );
   downstreamCrossCoverage =
-    reviewSet.cross_repository_status === 'completed' &&
-    reviewSet.job_results.some(
+    finalized.cross_repository_status === 'completed' &&
+    (finalized.job_results ?? []).some(
       (job) => job.target_id === null && job.status === 'completed',
     );
 });

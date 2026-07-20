@@ -36,7 +36,7 @@ Feature: Story review wave orchestration
     Then no second-pass child reuses its first-pass input identity
 
   Scenario: Partial coverage remains visible and prevents a false-clean closeout
-    Given review job statuses "completed,missing,completed,completed"
+    Given a review wave pass with 2 pinned target(s)
     When I evaluate review-wave closeout
     Then missing review coverage remains visible
     And review-wave closeout is blocked

@@ -8942,6 +8942,11 @@ export async function reconcileInterruptedFlowRunsForStartup(): Promise<number> 
     $or: [
       { 'flags.flow.activeSubflows.0': { $exists: true } },
       { 'flags.flow.subflowWaveProgress.running': { $gt: 0 } },
+      {
+        'flags.flow.subflowWaveProgress.jobs': {
+          $elemMatch: { status: 'pending' },
+        },
+      },
     ],
   })
     .lean()

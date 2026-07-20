@@ -104,6 +104,18 @@ test('startup reconciliation marks a pending-only wave as interrupted', () => {
   assert.equal(reconciled.runLifecycle?.status, 'orphaned');
 });
 
+test('startup reconciliation selects pending-only wave checkpoints', () => {
+  const serviceSource = fs.readFileSync(
+    path.join(serverRoot, 'src/flows/service.ts'),
+    'utf8',
+  );
+
+  assert.match(
+    serviceSource,
+    /'flags\.flow\.subflowWaveProgress\.jobs':\s*\{\s*\$elemMatch:\s*\{\s*status:\s*'pending'/s,
+  );
+});
+
 test('server waits for startup reconciliation before accepting HTTP traffic', () => {
   const indexSource = fs.readFileSync(path.join(serverRoot, 'src/index.ts'), 'utf8');
   const reconciliationIndex = indexSource.indexOf(

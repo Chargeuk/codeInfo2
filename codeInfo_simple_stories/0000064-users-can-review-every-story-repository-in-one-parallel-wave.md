@@ -122,6 +122,62 @@ This story gives reviewers a consistent way to review every repository that belo
 - Repair the server-owned review-output handoff and preserve the blocker if the authoritative aggregate cannot reconcile.
 - Do not promote artifact-only candidates into product work or change approved Story 64 behavior.
 
-27. [codeInfo2] - Re-Validate Story 64 After Review Outcome Reconciliation
+27. [codeInfo2] - Complete Story 64 Review Target Identity Chips
+- Show distinct target identity in root and child review rows, including narrow views.
+- Preserve existing flow metadata and prove the client-visible target labels.
+
+28. [codeInfo2] - Re-Validate Story 64 After Review Outcome Reconciliation
 - Revalidate the whole story and the current review findings block after reconciliation.
-- Own the final build, runtime, full-suite, lint, formatting, and closeout proof for the current review cycle.
+- Own the final build, runtime, full-suite, lint, formatting, and closeout proof for the review cycle.
+
+29. [codeInfo2] - Fix linting
+- Resolve story-caused lint issues after review reconciliation.
+- Re-run the supported lint proof.
+
+30. [codeInfo2] - Record Minor Review Fixes From Pass 0000064-20260719T100027Z-040c43d7f6-0e3d4ebc
+- Record the completed inline minor fixes and their changed files.
+- Preserve the executed focused proof and review disposition for the pass.
+
+31. [codeInfo2] - Repair Lossless Review-Cycle Execution and Recover Flow F Findings
+- Repair review-cycle execution and recover the affected Flow F findings.
+- Preserve cancellation, resume, artifact, and disposition behavior through focused proof.
+
+32. [codeInfo2] - Record Minor Review Fixes From Fast Pass 0000064-20260719T113948Z-05ceb47091-c546d0d5
+- Record the completed fast-pass minor fixes and changed proof surfaces.
+- Keep the audit evidence idempotent and tied to its review pass.
+
+33. [codeInfo2] - Record Minor Review Fixes From Fast Pass 0000064-20260719T121134Z-05ceb47091-bff35412
+- Record the completed fast-pass minor fixes and their executed validation.
+- Preserve cumulative disposition and review history.
+
+34. [codeInfo2] - Record Review Fixes From Slow Pass 0000064-20260719T135300Z-05ceb47091-43e2cbc8
+- Record the slow-pass review fixes and the findings that remain explicitly blocked.
+- Keep non-adopted candidates out of product scope.
+
+35. [codeInfo2] - Re-Validate Story 64 After Current Review Coverage Repair
+- Revalidate the story after the current review-coverage repair.
+- Run the supported build, runtime, full-suite, lint, and formatting closeout lifecycle.
+
+36. [codeInfo2] - Fix linting
+- Resolve story-caused lint and formatting issues after review coverage repair.
+- Re-run the supported static-quality checks.
+
+37. [codeInfo2] - Record Minor Review Fixes From Pass 0000064-20260719T212516Z-52af6cfac4-32769dc2
+- Record the completed inline fixes from the review pass.
+- Preserve finding identity, changed files, and focused proof in the audit record.
+
+38. [codeInfo2] - Record Minor Review Fixes From Pass 0000064-20260719T223932Z-95741e5d79-c6e7c46c
+- Record the completed inline fixes from the review pass.
+- Preserve target identity, artifact evidence, and executed validation.
+
+39. [codeInfo2] - Record Minor Review Fixes From Pass 0000064-20260720T002803Z-00f835bcb0-a40ed56f
+- Record the completed inline fixes from the current review pass.
+- Preserve source attribution, changed files, and focused proof without creating duplicate tasks.
+
+40. [codeInfo2] - Reconcile Incomplete Review Coverage and Recover Blocked Findings
+- Reconcile missing or invalid review artifacts, cross-repository coverage, contract handoff, and blocked findings without changing approved behavior.
+- Prepare focused server, script, and Cucumber proof while preserving any blocker that lacks authoritative evidence.
+
+41. [codeInfo2] - Re-Validate Story 64 After Review Pass 0000064-20260720T002803Z-00f835bcb0-a40ed56f
+- Revalidate the whole story, Task 40, the current findings block, and all inline fixes from this review cycle.
+- Run the final codeInfo2 build, supported runtime, full automated suites, shutdown, lint, and formatting checks.

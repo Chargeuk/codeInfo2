@@ -869,8 +869,9 @@ const normalizeSubflowWaveProgress = (
     'stopped',
     'not_applicable',
   ]);
-  const jobs = value.jobs.flatMap((job) => {
-    if (!isRecord(job)) return [];
+  const jobs: FlowSubflowWaveProgress['jobs'] = [];
+  for (const job of value.jobs) {
+    if (!isRecord(job)) return undefined;
     const instanceId = normalizeOptionalString(job.instanceId);
     const flowName = normalizeOptionalString(job.flowName);
     const title = normalizeOptionalString(job.title);
@@ -882,20 +883,18 @@ const normalizeSubflowWaveProgress = (
       !status ||
       !statuses.has(status)
     ) {
-      return [];
+      return undefined;
     }
-    return [
-      {
-        instanceId,
-        flowName,
-        ...(normalizeOptionalString(job.targetId)
-          ? { targetId: normalizeOptionalString(job.targetId) }
-          : {}),
-        title,
-        status: status as FlowSubflowWaveProgress['jobs'][number]['status'],
-      },
-    ];
-  });
+    jobs.push({
+      instanceId,
+      flowName,
+      ...(normalizeOptionalString(job.targetId)
+        ? { targetId: normalizeOptionalString(job.targetId) }
+        : {}),
+      title,
+      status: status as FlowSubflowWaveProgress['jobs'][number]['status'],
+    });
+  }
   const count = (key: string) =>
     typeof value[key] === 'number' && Number.isInteger(value[key])
       ? Math.max(0, value[key] as number)
@@ -987,9 +986,20 @@ const parseFlowResumeState = (
   const input = tryNormalizeFlowInput(flow.input);
   if (hasPersistedInput && flow.input !== undefined && !input) return null;
   const values = tryNormalizeFlowInput(flow.values);
+  const hasPersistedSubflowWaveProgress = Object.prototype.hasOwnProperty.call(
+    flow,
+    'subflowWaveProgress',
+  );
   const subflowWaveProgress = normalizeSubflowWaveProgress(
     flow.subflowWaveProgress,
   );
+  if (
+    hasPersistedSubflowWaveProgress &&
+    flow.subflowWaveProgress !== undefined &&
+    !subflowWaveProgress
+  ) {
+    return null;
+  }
   const pendingLoopControl = isRecord(flow.pendingLoopControl)
     ? flow.pendingLoopControl.kind === 'continue'
       ? {

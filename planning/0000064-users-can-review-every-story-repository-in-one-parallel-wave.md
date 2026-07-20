@@ -2595,10 +2595,10 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] In `codeInfo2`, run `npm run build:summary:server` for the server/common workspaces.
-2. [ ] In `codeInfo2`, run `npm run build:summary:client` for the client workspace.
-3. [ ] In `codeInfo2`, run `npm run compose:build:summary` for the supported main stack.
-4. [ ] Start the supported main stack with `npm run compose:up`.
+1. [x] In `codeInfo2`, run `npm run build:summary:server` for the server/common workspaces.
+2. [x] In `codeInfo2`, run `npm run build:summary:client` for the client workspace.
+3. [x] In `codeInfo2`, run `npm run compose:build:summary` for the supported main stack.
+4. [x] Start the supported main stack with `npm run compose:up`.
 5. [ ] Run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, full Playwright end-to-end suite, and every Task 40 proof surface for the whole current review-created findings block: versioned artifact identity, multi-target cross-repository coverage, stale publication ordering, request admission, active-cycle ownership, malformed status classification, retry persistence/replay, and plan/disposition handoff.
 6. [ ] Stop the supported main stack with `npm run compose:down` after all runtime proof.
 7. [ ] In `codeInfo2`, run `npm run lint`.
@@ -2620,3 +2620,8 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Subtask 1: Ran `npm run lint`; ESLint completed successfully with zero warnings or errors, so no lint repairs were needed.
 - Subtask 2: Ran `npm run format:check`; all tracked supported files matched Prettier style, so no formatting repairs were needed.
 - Implementation audit: Audited the current implementation-only diff against Story 64's acceptance criteria and the behavior lock. The two subtasks remain complete from the recorded lint and format evidence; no Testing item was marked because the required build, runtime, full-suite, and manual proof are still pending. The changed request-admission, review-cycle ownership, retry persistence, malformed-status, artifact-identity, and production-closeout seams are story-owned review-wave work with matching test coverage, and no story-caused unapproved preserved-behavior drift was identified. Task 41 remains `__in_progress__`, has no live blocker, and is ready for automated proof.
+- Testing item 1: Ran `npm run build:summary:server`; the server/common build passed with zero warnings.
+- Testing item 2: Ran `npm run build:summary:client`; typecheck and Vite build passed. The wrapper reported one existing large-chunk warning, with no build failure.
+- Testing item 3: Ran `npm run compose:build:summary`; both supported main-stack images built successfully with zero failed items.
+- Testing item 4: Started the supported main stack with `npm run compose:up`; all declared services started and server/client health gates completed successfully.
+- **BLOCKER** Testing item 5 (`npm run test:summary:all:parallel`) failed on the server unit suite: 2,668 of 2,669 tests passed, but `continue resume keeps its boundary marker until the next iteration makes progress` timed out waiting for flow turns. The exact integration test reproduced the same failure in two clean targeted reruns; its diagnostic state showed the resumed flow emitted only the outer and post-continue turns and never completed the expected continue/break path. The test and implicated loop logic predate Story 64, and the current Story 64 implementation diff does not touch that loop behavior, so no credible in-scope repair was identified without changing unrelated behavior. The supported main stack was stopped with `npm run compose:down` for cleanup; Task 41 should remain in progress and be re-owned or repaired in the pre-existing loop-test/flow area before whole-story proof continues.

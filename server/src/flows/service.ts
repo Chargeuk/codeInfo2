@@ -833,6 +833,8 @@ const normalizeActiveSubflow = (value: unknown): FlowActiveSubflow | null => {
   const runToken = normalizeOptionalString(value.runToken);
   if (!flowName || !conversationId || !runToken) return null;
   const input = tryNormalizeFlowInput(value.input);
+  const hasPersistedInput = Object.prototype.hasOwnProperty.call(value, 'input');
+  if (hasPersistedInput && value.input !== undefined && !input) return null;
   return {
     stepPath: normalizeNumberArray(value.stepPath),
     flowName,
@@ -972,8 +974,21 @@ const parseFlowResumeState = (
   const retryOwnershipCompletion = parseFreshRunRetryOwnershipCompletion(
     flow.retryOwnershipCompletion,
   );
-  const activeSubflows = Array.isArray(flow.activeSubflows)
+  const persistedActiveSubflows = Array.isArray(flow.activeSubflows)
     ? flow.activeSubflows
+    : [
+        (flow as { activeSubflow?: unknown }).activeSubflow,
+      ].filter((item) => item !== undefined);
+  const hasMalformedPersistedChildInput = persistedActiveSubflows.some(
+    (item) =>
+      isRecord(item) &&
+      Object.prototype.hasOwnProperty.call(item, 'input') &&
+      item.input !== undefined &&
+      !tryNormalizeFlowInput(item.input),
+  );
+  if (hasMalformedPersistedChildInput) return null;
+  const activeSubflows = Array.isArray(flow.activeSubflows)
+    ? persistedActiveSubflows
         .map((item) => normalizeActiveSubflow(item))
         .filter((item): item is FlowActiveSubflow => Boolean(item))
     : (() => {
@@ -985,7 +1000,12 @@ const parseFlowResumeState = (
   const hasPersistedInput = Object.prototype.hasOwnProperty.call(flow, 'input');
   const input = tryNormalizeFlowInput(flow.input);
   if (hasPersistedInput && flow.input !== undefined && !input) return null;
+  const hasPersistedValues = Object.prototype.hasOwnProperty.call(
+    flow,
+    'values',
+  );
   const values = tryNormalizeFlowInput(flow.values);
+  if (hasPersistedValues && flow.values !== undefined && !values) return null;
   const hasPersistedSubflowWaveProgress = Object.prototype.hasOwnProperty.call(
     flow,
     'subflowWaveProgress',

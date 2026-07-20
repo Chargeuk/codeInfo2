@@ -4807,6 +4807,81 @@ test('resume rejects malformed persisted wave progress instead of discarding its
   }
 });
 
+test('resume rejects malformed persisted child inputs and prior flow values', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-malformed-resume-inputs-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-malformed-resume-inputs',
+      steps: [llmStep('should not run')],
+    });
+
+    for (const [suffix, malformedFlowState] of [
+      [
+        'child-input',
+        {
+          activeSubflows: [
+            {
+              stepPath: [0],
+              flowName: 'child-malformed-input',
+              conversationId: 'child-malformed-input-conversation',
+              runToken: 'child-malformed-input-token',
+              input: { unsupported: undefined },
+            },
+          ],
+        },
+      ],
+      ['prior-values', { values: { unsupported: undefined } }],
+    ] as const) {
+      const conversationId = `parent-malformed-resume-${suffix}`;
+      const now = new Date();
+      memoryConversations.set(conversationId, {
+        _id: conversationId,
+        provider: 'codex',
+        model: 'gpt-5.1-codex-max',
+        title: `Malformed Resume ${suffix}`,
+        flowName: 'parent-malformed-resume-inputs',
+        source: 'REST',
+        flags: {
+          flow: {
+            executionId: `malformed-resume-${suffix}-execution`,
+            stepPath: [],
+            loopStack: [],
+            agentConversations: {},
+            agentThreads: {},
+            ...malformedFlowState,
+          },
+        },
+        lastMessageAt: now,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      } as Conversation);
+
+      await assert.rejects(
+        startFlowRun({
+          flowName: 'parent-malformed-resume-inputs',
+          conversationId,
+          resumeStepPath: [],
+          source: 'REST',
+          chatFactory: () => new SubflowChat(25),
+        }),
+        (error: unknown) =>
+          (error as { code?: unknown; reason?: unknown }).code ===
+            'INVALID_REQUEST' &&
+          (error as { reason?: unknown }).reason ===
+            'resumeStepPath requires saved flow state',
+      );
+    }
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('restart recovery resumes an interrupted wave child in its existing conversation', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-restart-recovery-'),

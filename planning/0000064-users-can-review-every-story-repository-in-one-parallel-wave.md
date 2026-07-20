@@ -2625,7 +2625,7 @@ Escalated review items requiring combined task-up:
 
 #### Overview
 
-The stored disposition state for the current slow review pass is valid and records no unresolved task-required findings, but it still declares incomplete-review blockers from earlier fast-wave coverage and a blocked minor-fix audit. The canonical plan already contains the one structured `Code Review Findings` block for this exact pass, so this task must make the remaining review outcome executable without creating another findings summary or claiming a clean closeout. Reconcile the exact versioned wave artifacts and server-owned cross-repository coverage, recover the configured consumer-contract interruption and review-pass mismatch, and then give the four blocked current-pass candidates one valid disposition path. Keep all implementation ownership in `codeInfo2`; if evidence is multi-target, retain the cross-target proof in `Testing` rather than adding another repository owner.
+The stored disposition state for the current slow review pass is valid and records no unresolved task-required findings, but it still declares nine incomplete-review blockers from earlier fast-wave coverage, the consumer-contract interruption, and a blocked minor-fix audit. This task closes only when each blocker has either matching authoritative evidence and a synchronized disposition or an explicit preserved blocker with its minimum evidence still visible. Use the exact versioned review-set and wave-validation artifacts named by each stable locator, validate server-owned cross-repository coverage for every required fast wave, and route the four blocked candidates through the current-pass review path. Keep all implementation ownership in `codeInfo2`; cross-target compatibility evidence belongs in this task's proof and does not authorize another repository owner.
 
 #### Non-Goals
 
@@ -2639,7 +2639,7 @@ The stored disposition state for the current slow review pass is valid and recor
 - `current-wave-versioned-artifacts-missing` — reconcile the stable locator with the exact versioned review-set and wave-validation pair for wave `0000064-rw-20260719T234833Z-de3f84e0`.
 - `current-wave-cross-repository-coverage-unusable` — validate the current fast-wave cross-repository result against the exact story, session, pass, parent, target snapshot, HEAD, and comparison base.
 - `minor-fix-audit-review-pass-id-mismatch` — synchronize the terminal minor-fix audit to review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`.
-- `review-wave-consumer-contract-unavailable` — clear or preserve the global contract-path interruption using the repository-owned contract and the configured harness path without inventing a clean result.
+- Review-state blocker — required harness review-wave consumer contract unavailable: clear or preserve the global contract-path interruption using the repository-owned contract and configured harness handoff without inventing a clean result.
 - `0000064-blank-flow-run-fields-coerced` — re-evaluate the blocked request-admission finding after valid review evidence is available.
 - `0000064-active-review-cycle-overwrite-race` — re-evaluate the blocked review-cycle ownership finding after valid review evidence is available.
 - `0000064-malformed-status-response-opaque-failure` — re-evaluate the blocked status-response finding after valid review evidence is available.
@@ -2647,9 +2647,10 @@ The stored disposition state for the current slow review pass is valid and recor
 
 #### Task Exit Criteria
 
-- The exact current-pass findings block remains unique and unchanged in its accepted and ignored decisions.
-- Every listed incomplete-review blocker is either resolved with matching artifact/state evidence or remains explicitly visible with its minimum evidence and a non-clean disposition.
-- The four blocked candidates have a current-pass disposition that does not rely on stale, positional, cross-target, or provider-pointer inference.
+- The exact current-pass findings block remains unique, with its accepted and ignored decisions unchanged.
+- For each blocked wave, the stable locator and exact versioned artifacts agree on story, wave, parent, target snapshot, review session, review pass, HEAD, and comparison base; a missing or invalid artifact remains an explicit blocker.
+- Each required multi-target fast wave has a usable server-owned `cross_repository_review` result with matching identity and target coverage; singleton `not_applicable` output is never used as multi-target proof.
+- The consumer-contract and minor-audit blockers have either exact current-pass evidence or a preserved non-clean disposition, and each of the four blocked findings has one current-pass disposition.
 - Task 41 remains the only final revalidation owner for review cycle `0000064-rc-20260719T212516Z-7280f8e7`.
 
 #### Risk Ownership
@@ -2687,18 +2688,20 @@ The stored disposition state for the current slow review pass is valid and recor
 
 #### Subtasks
 
-1. [ ] Reconcile both blocked fast-wave stable locators with their exact versioned review-set and wave-validation artifacts, preserving the stored story, review session, pass, parent execution, target snapshot, HEAD, and comparison-base identities; record an explicit incomplete blocker when the minimum evidence is still absent.
-2. [ ] Validate or recover the required cross-repository result for each fast wave and keep target-local findings visible; do not manufacture a cross-repository result from a reviewer pointer or from the singleton slow wave.
-3. [ ] Restore the review-wave consumer-contract path and synchronize the terminal minor-fix audit to the exact current review pass, preserving the existing review cycle ID and the one structured findings block.
-4. [ ] Route `0000064-blank-flow-run-fields-coerced`, `0000064-active-review-cycle-overwrite-race`, `0000064-malformed-status-response-opaque-failure`, and `0000064-retry-completion-persistence-loss` through the valid current-pass review path; implement only confirmed story-owned fixes, preserve the behavior lock, and retain an explicit incomplete disposition when safe evidence is still unavailable.
+1. [ ] For waves `0000064-rw-20260719T223932Z-4aced681` and `0000064-rw-20260719T234833Z-de3f84e0`, compare each stable locator with its exact versioned `review-set-final` and `review-wave-validation` artifacts. Record agreement for `story_id`, `review_wave_id`, `parent_execution_id`, `targets_sha256`, `review_session_id`, `review_pass_id`, target HEAD, comparison base, and target snapshot; if either pair is absent or mismatched, retain the blocker and its minimum evidence instead of substituting another wave.
+2. [ ] For every required multi-target fast wave, read the matching versioned `cross-repository-review` artifact and embedded job validation, then verify usable status, target coverage, and identity against the matching review set. Keep all usable target-local results and findings visible, and reject reviewer-pointer inference or singleton `not_applicable` output as cross-target proof.
+3. [ ] Reconcile the consumer-contract availability result using the repository-owned contract and configured harness handoff, then synchronize the terminal minor-fix result to review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`. If the configured contract path remains unavailable, preserve the blocker and stop that branch without editing production code or clearing state; do not change the existing review cycle ID or findings block.
+4. [ ] For `0000064-blank-flow-run-fields-coerced`, verify the request-admission seam in `server/src/routes/flowsRun.ts`; for `0000064-active-review-cycle-overwrite-race`, verify `server/src/flows/reviewCycleLifecycle.ts`; for `0000064-malformed-status-response-opaque-failure`, verify `scripts/review-cycle-summary.mjs`; and for `0000064-retry-completion-persistence-loss`, verify `server/src/flows/service.ts`. For each candidate, either implement the confirmed story-owned repair and add or update its focused regression in the named proof home, or preserve an explicit incomplete disposition when valid evidence is still unavailable.
+5. [ ] Reconcile the plan/state handoff after the four candidate decisions: keep this pass's single `Code Review Findings` block, preserve every resolved-minor ID as historical inline work, and leave Task 41 as the next executable task.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows-run-route.test.ts --file server/src/test/unit/review-cycle-lifecycle.test.ts --file server/src/test/unit/review-wave-validation.test.ts` in `codeInfo2` and diagnose any story-caused failure.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/review-production-loop.test.ts` in `codeInfo2` to prove target-local and cross-repository closeout identity.
-3. [ ] Run `npm run test:summary:server:cucumber -- --feature src/test/features/review-wave.feature` in `codeInfo2` to prove the production review-wave and downstream-tasking boundary.
-4. [ ] Run `node --test scripts/review-cycle-summary.test.mjs` in `codeInfo2` to prove review-launch and malformed-status handling.
-5. [ ] Run `python3 scripts/plan_sections.py --profile review-tasking`, verify the current review pass appears in exactly one structured findings block, and confirm every blocker above has durable plan/state coverage before completing this task.
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows-run-route.test.ts --file server/src/test/unit/review-cycle-lifecycle.test.ts` in `codeInfo2`; the focused tests must cover blank request fields and competing review-cycle ownership without changing the approved behavior contract.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts` in `codeInfo2`; the focused tests must cover durable retry ownership and replay behavior after completion-cache loss.
+3. [ ] Run `node --test scripts/review-cycle-summary.test.mjs` in `codeInfo2`; the launcher tests must cover malformed successful status handling and preserve actionable protocol failure classification.
+4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/review-wave-validation.test.ts --file server/src/test/integration/review-production-loop.test.ts` in `codeInfo2`; the focused tests must prove pinned-base identity, target-local results, and cross-repository closeout identity.
+5. [ ] Run `npm run test:summary:server:cucumber -- --feature src/test/features/review-wave.feature` in `codeInfo2` to prove the production review-wave and downstream-tasking boundary.
+6. [ ] Run `python3 scripts/plan_sections.py --profile review-tasking`, then verify the current pass appears in exactly one structured findings block, every blocker above has durable plan/state coverage, and Task 41 is the only final revalidation owner.
 
 #### Manual Testing Guidance
 
@@ -2787,14 +2790,15 @@ Final-task repair scope: the whole approved story is in scope for failures found
 3. [ ] In `codeInfo2`, run `npm run compose:build:summary` for the supported main stack.
 4. [ ] Start the supported main stack with `npm run compose:up`.
 5. [ ] Run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, full Playwright end-to-end suite, and the current review-cycle proof surfaces.
-6. [ ] Complete the supported main-stack proof for one-target cancellation/resume, target artifact isolation, and the acceptance-required three-target/cross-repository wave and finding handoff; retain exact target and cross-target evidence.
-7. [ ] Stop the supported main stack with `npm run compose:down` after all runtime proof.
-8. [ ] In `codeInfo2`, run `npm run lint`.
-9. [ ] In `codeInfo2`, run `npm run format:check`.
+6. [ ] Stop the supported main stack with `npm run compose:down` after all runtime proof.
+7. [ ] In `codeInfo2`, run `npm run lint`.
+8. [ ] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
-- Use the supported main stack at `http://localhost:5001` and `http://localhost:5010` for the required browser-visible proof. Authentication-dependent provider actions may be skipped only under the repository's documented authentication guidance; record the skip and do not attempt autonomous re-authentication.
+- Use the supported main stack at `http://localhost:5001` and `http://localhost:5010` for browser-visible proof. Verify one-target cancellation/resume and terminal Send recovery, then use the story's available multi-target fixtures or target catalog to verify three-target fast-wave expansion, isolated target artifacts, and the cross-repository finding handoff without adding another repository.
+- Keep these scenarios manual-only; do not add them as automated `Testing` checklist items or substitute targeted checks for the full automated suite.
+- Authentication-dependent provider actions may be skipped only under the repository's documented authentication guidance; record the skip and do not attempt autonomous re-authentication.
 
 #### Implementation Notes
 

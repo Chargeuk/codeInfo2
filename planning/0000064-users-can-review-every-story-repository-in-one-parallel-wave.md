@@ -2613,3 +2613,190 @@ Escalated review items requiring combined task-up:
 - Review Pass Id: `0000064-20260720T002803Z-00f835bcb0-a40ed56f`
 - Review Phase: `slow`
 - This task is a completed historical audit and does not replace final story revalidation.
+
+### Task 40. Reconcile Incomplete Review Coverage and Recover Blocked Findings
+
+- Task Status: `__to_do__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `review_finding_repair`
+- Prerequisite: Tasks 1-39 remain historical story work; complete this bounded review-state and evidence repair before final revalidation.
+- Review Pass ID: `0000064-20260720T002803Z-00f835bcb0-a40ed56f`
+- Review Cycle ID: `0000064-rc-20260719T212516Z-7280f8e7`
+
+#### Overview
+
+The stored disposition state for the current slow review pass is valid and records no unresolved task-required findings, but it still declares incomplete-review blockers from earlier fast-wave coverage and a blocked minor-fix audit. The canonical plan already contains the one structured `Code Review Findings` block for this exact pass, so this task must make the remaining review outcome executable without creating another findings summary or claiming a clean closeout. Reconcile the exact versioned wave artifacts and server-owned cross-repository coverage, recover the configured consumer-contract interruption and review-pass mismatch, and then give the four blocked current-pass candidates one valid disposition path. Keep all implementation ownership in `codeInfo2`; if evidence is multi-target, retain the cross-target proof in `Testing` rather than adding another repository owner.
+
+#### Non-Goals
+
+- Do not create a second `## Code Review Findings` section or rewrite the existing current-pass decisions.
+- Do not treat resolved minor findings as new tasks, reopen historical `minor_fix_loop_audit` tasks, or widen the story behavior lock.
+- Do not add an additional repository, a second unconditional cross-repository review, or a new user-facing behavior contract.
+
+#### Addresses Findings
+
+- `required-cross-repository-coverage-unusable` — restore or honestly preserve the exact fast-wave cross-repository coverage result for wave `0000064-rw-20260719T223932Z-4aced681`.
+- `current-wave-versioned-artifacts-missing` — reconcile the stable locator with the exact versioned review-set and wave-validation pair for wave `0000064-rw-20260719T234833Z-de3f84e0`.
+- `current-wave-cross-repository-coverage-unusable` — validate the current fast-wave cross-repository result against the exact story, session, pass, parent, target snapshot, HEAD, and comparison base.
+- `minor-fix-audit-review-pass-id-mismatch` — synchronize the terminal minor-fix audit to review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`.
+- `review-wave-consumer-contract-unavailable` — clear or preserve the global contract-path interruption using the repository-owned contract and the configured harness path without inventing a clean result.
+- `0000064-blank-flow-run-fields-coerced` — re-evaluate the blocked request-admission finding after valid review evidence is available.
+- `0000064-active-review-cycle-overwrite-race` — re-evaluate the blocked review-cycle ownership finding after valid review evidence is available.
+- `0000064-malformed-status-response-opaque-failure` — re-evaluate the blocked status-response finding after valid review evidence is available.
+- `0000064-retry-completion-persistence-loss` — re-evaluate the blocked retry-persistence finding after valid review evidence is available.
+
+#### Task Exit Criteria
+
+- The exact current-pass findings block remains unique and unchanged in its accepted and ignored decisions.
+- Every listed incomplete-review blocker is either resolved with matching artifact/state evidence or remains explicitly visible with its minimum evidence and a non-clean disposition.
+- The four blocked candidates have a current-pass disposition that does not rely on stale, positional, cross-target, or provider-pointer inference.
+- Task 41 remains the only final revalidation owner for review cycle `0000064-rc-20260719T212516Z-7280f8e7`.
+
+#### Risk Ownership
+
+- Implementation owner: `codeInfo2`.
+- Review-state risk: the plan must remain visibly incomplete until every blocker has exact evidence or an explicit disposition.
+- Behavior risk: preserve established behavior except for restoring story-caused drift; do not convert the reviewer's broader remedy into scope.
+
+#### Owner Map
+
+- `codeInfo2`: owns all implementation and plan-visible review-task work.
+- Cross-target proof: remains in `codeInfo2` review-wave artifacts and `Testing`; no additional repository is in the stored plan scope.
+
+#### Requirement-To-Proof Mapping
+
+- Exact wave identity and coverage: versioned review-set, wave-validation, target snapshot, and cross-repository result artifacts for each blocked fast wave.
+- Review-pass synchronization: disposition state, the terminal minor-fix result, the current-pass findings block, and the bounded plan packet.
+- Four blocked candidates: their current-pass routed state, focused owning tests, and the final whole-story revalidation task.
+
+#### Proof Mapping
+
+- Review-wave validation and production closeout: `server/src/test/unit/review-wave-validation.test.ts`, `server/src/test/integration/review-production-loop.test.ts`, and `server/src/test/features/review-wave.feature`.
+- Request and lifecycle seams: `server/src/test/unit/flows-run-route.test.ts` and `server/src/test/unit/review-cycle-lifecycle.test.ts`.
+- Review launcher/status seam: `scripts/review-cycle-summary.test.mjs`.
+
+#### Affected Repositories
+
+- `codeInfo2` only; affected surfaces are the server review lifecycle and validation flows, the review-cycle launcher scripts, persisted review artifacts, and their server/Cucumber proof.
+
+#### Documentation Locations
+
+- Canonical plan: `planning/0000064-users-can-review-every-story-repository-in-one-parallel-wave.md`.
+- Review handoff and artifacts: `codeInfoTmp/reviews/0000064-current-review.json` and the exact files it names.
+- Routing state: `codeInfoStatus/flow-state/review-disposition-state.json`.
+
+#### Subtasks
+
+1. [ ] Reconcile both blocked fast-wave stable locators with their exact versioned review-set and wave-validation artifacts, preserving the stored story, review session, pass, parent execution, target snapshot, HEAD, and comparison-base identities; record an explicit incomplete blocker when the minimum evidence is still absent.
+2. [ ] Validate or recover the required cross-repository result for each fast wave and keep target-local findings visible; do not manufacture a cross-repository result from a reviewer pointer or from the singleton slow wave.
+3. [ ] Restore the review-wave consumer-contract path and synchronize the terminal minor-fix audit to the exact current review pass, preserving the existing review cycle ID and the one structured findings block.
+4. [ ] Route `0000064-blank-flow-run-fields-coerced`, `0000064-active-review-cycle-overwrite-race`, `0000064-malformed-status-response-opaque-failure`, and `0000064-retry-completion-persistence-loss` through the valid current-pass review path; implement only confirmed story-owned fixes, preserve the behavior lock, and retain an explicit incomplete disposition when safe evidence is still unavailable.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows-run-route.test.ts --file server/src/test/unit/review-cycle-lifecycle.test.ts --file server/src/test/unit/review-wave-validation.test.ts` in `codeInfo2` and diagnose any story-caused failure.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/review-production-loop.test.ts` in `codeInfo2` to prove target-local and cross-repository closeout identity.
+3. [ ] Run `npm run test:summary:server:cucumber -- --feature src/test/features/review-wave.feature` in `codeInfo2` to prove the production review-wave and downstream-tasking boundary.
+4. [ ] Run `node --test scripts/review-cycle-summary.test.mjs` in `codeInfo2` to prove review-launch and malformed-status handling.
+5. [ ] Run `python3 scripts/plan_sections.py --profile review-tasking`, verify the current review pass appears in exactly one structured findings block, and confirm every blocker above has durable plan/state coverage before completing this task.
+
+#### Manual Testing Guidance
+
+- No provider-authenticated manual review is required for this state-reconciliation task. If manual proof is attempted, use only the supported main stack and document any authentication-permitted skip without changing scope.
+
+#### Implementation Notes
+
+- Review Task Role: `review_finding_repair`
+- This task is intentionally incomplete until the stored review outcome is executable and no blocker is silently treated as clean.
+
+### Task 41. Re-Validate Story 64 After Review Pass 0000064-20260720T002803Z-00f835bcb0-a40ed56f
+
+- Task Status: `__to_do__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `final_revalidation`
+- Prerequisite: Task 40 must be complete and its current-pass review artifacts, blocker dispositions, and disposition state must be durable before this task starts.
+- Review Pass ID: `0000064-20260720T002803Z-00f835bcb0-a40ed56f`
+- Review Cycle ID: `0000064-rc-20260719T212516Z-7280f8e7`
+
+#### Overview
+
+This is the sole final revalidation task for the active Story 64 review cycle. Revalidate the whole story, the exact current-pass `Code Review Findings` block, Task 40's repaired or explicitly incomplete review outcome, and every finding already recorded under `resolved_minor_findings` for this cycle: `829f2dbe9adb33dd2a27976ed3965d3c5f9e1c2abac8309325a94bd1cb56bbbd`, `63b72dde79951ac23ce584197326f258d12b7bada9aa81b53fff5f4b9f74594b`, `1d7b6fd25a1781d1620eb1e549d1406520b5f31b1681e050be32b72b3ce35bc1`, `632874705e890b70ad33a672f3f588a9c65fe06eaba62b5ea3c49ac6cd699909`, `f243a30a8eb7c868c137b9c0f30e0c358a01ecc64cb8cf99dd71e5bc9632dc7a`, `c175ba2d0564cd6f46d156a35714f3ad84630b51ad481bb9ffe637f6e017911a`, `0000064-startup-pending-only-wave-not-selected`, `0000064-malformed-wave-state-discarded`, `0000064-resume-state-inputs-dropped`, `0000064-wave-base-identity-not-checked`, `0000064-implicit-source-fallback-cross-binds-working-folder`, `0000064-cross-repository-stale-publication`, `0000064-cucumber-production-boundary-bypass`, `0000064-positional-second-pass-identity-proof`, and `0000064-missing-three-target-proof`. Do not create another final task for these inline fixes, and do not close the story while Task 40's review state or any listed proof is stale.
+
+#### Non-Goals
+
+- Do not add repositories or change approved user-facing behavior during final proof.
+- Do not use targeted commands as substitutes for the required full suites.
+- Do not reopen older tasks solely because a final check finds a story-caused issue in their code; repair it here when practical.
+
+#### Addresses Findings
+
+- Whole current-pass findings block for review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`.
+- All `resolved_minor_findings` listed in the Overview for review cycle `0000064-rc-20260719T212516Z-7280f8e7`.
+- All Task 40 incomplete-review blockers, including any required cross-target proof.
+
+#### Task Exit Criteria
+
+- Task 40 is complete and the active disposition state agrees with the current-pass plan block.
+- Every worked-on surface has passed the supported full build, applicable startup, full automated suites, matching shutdown, lint, and formatting checks in the listed order.
+- The one-target and required three-target/cross-repository proof is current, and no stale review artifact or unresolved blocker is hidden by a clean-looking result.
+
+#### Owner Map
+
+- Administrative and implementation owner: `codeInfo2`.
+- Proof scope: `codeInfo2` client, server, common workspace, review-cycle scripts, main Compose stack, target-local review flows, and the in-repository cross-repository review path.
+
+#### Risk Ownership
+
+- `codeInfo2` owns final diagnosis and any story-caused repair exposed by the closeout checks.
+- The final task must preserve the approved behavior lock and must not close while current-cycle review evidence is incomplete.
+
+#### Requirement-To-Proof Mapping
+
+- Review outcome: Task 40 state reconciliation plus the exact current-pass findings block.
+- Inline review repairs: every resolved ID listed in the Overview, revalidated by the relevant full suites.
+- Story acceptance: full client/server/Cucumber/e2e suites plus supported main-stack proof of one-target and three-target/cross-repository behavior.
+
+#### Proof Mapping
+
+- Client and server workspaces: `npm run build:summary:client`, `npm run build:summary:server`, and `npm run test:summary:all:parallel`.
+- Review-wave runtime and cross-target path: main Compose stack, server unit/integration, server Cucumber, and Playwright e2e coverage.
+- Static quality: repository `npm run lint` followed by `npm run format:check`.
+
+#### Affected Repositories
+
+- `codeInfo2` only. `current-plan.json` declares no additional repositories; cross-target compatibility proof is therefore a proof surface inside this repository, not a second implementation owner.
+
+#### Documentation Locations
+
+- Canonical plan: `planning/0000064-users-can-review-every-story-repository-in-one-parallel-wave.md`.
+- Active review handoff and state: `codeInfoTmp/reviews/0000064-current-review.json` and `codeInfoStatus/flow-state/review-disposition-state.json`.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] In `codeInfo2`, run `npm run lint` and fix issues.
+2. [ ] In `codeInfo2`, run `npm run format:check` and fix issues.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+1. [ ] In `codeInfo2`, run `npm run build:summary:server` for the server/common workspaces.
+2. [ ] In `codeInfo2`, run `npm run build:summary:client` for the client workspace.
+3. [ ] In `codeInfo2`, run `npm run compose:build:summary` for the supported main stack.
+4. [ ] Start the supported main stack with `npm run compose:up`.
+5. [ ] Run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, full Playwright end-to-end suite, and the current review-cycle proof surfaces.
+6. [ ] Complete the supported main-stack proof for one-target cancellation/resume, target artifact isolation, and the acceptance-required three-target/cross-repository wave and finding handoff; retain exact target and cross-target evidence.
+7. [ ] Stop the supported main stack with `npm run compose:down` after all runtime proof.
+8. [ ] In `codeInfo2`, run `npm run lint`.
+9. [ ] In `codeInfo2`, run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+- Use the supported main stack at `http://localhost:5001` and `http://localhost:5010` for the required browser-visible proof. Authentication-dependent provider actions may be skipped only under the repository's documented authentication guidance; record the skip and do not attempt autonomous re-authentication.
+
+#### Implementation Notes
+
+- Review Task Role: `final_revalidation`
+- This task owns final proof for the whole story and the active review cycle; it does not complete until all required proof is current.

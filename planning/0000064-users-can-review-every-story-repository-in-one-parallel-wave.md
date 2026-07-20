@@ -2637,7 +2637,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ### Task 42. Make Review Cycles Independent From Flow Executions
 
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Repository Name: `codeInfo2`
 
 #### Overview
@@ -2674,7 +2674,7 @@ Remove durable review-state ownership by ephemeral flow execution IDs. A review 
 4. [x] Run `npm run build:summary:client`.
 5. [x] Run `npm run test:summary:all:parallel`.
 6. [x] Run `npm run lint`.
-7. [x] Run `npm run format:check`.
+7. [ ] Run `npm run format:check`.
 
 #### Implementation Notes
 
@@ -2694,11 +2694,5 @@ Remove durable review-state ownership by ephemeral flow execution IDs. A review 
 - Testing item 4: `npm run build:summary:client` passed typecheck and production build; the wrapper reported only the existing large-chunk advisory.
 - Testing item 5: The final `npm run test:summary:all:parallel` run passed client 900/900, server unit 2673/2673, server Cucumber 138/138, and e2e 77/77 on the exact completed implementation. An earlier attempt hit an unrelated temporary-directory cleanup race and one transient `ERR_NETWORK_CHANGED`; both failed cases passed targeted reruns before subsequent clean full-suite runs.
 - Testing item 6: `npm run lint` passed after the new best-effort subflow regressions were strengthened to assert that their parent conversations reach terminal `ok`; the focused subflow suite subsequently passed 56/56 with the incomplete-story skip case.
-- Testing item 7: `npm run format:check` passed with all tracked files matching Prettier style.
 
-## Final Summary
 
-1. What has been changed: Story 64 now runs cross-repository review waves using durable cycle, wave, pass, target, repository, and commit identity instead of assigning durable artifacts to the top-level flow execution that happened to create them.
-2. Why it changed: Runs G and J demonstrated that an orphaned execution owner could prevent later reviewers from starting while the best-effort parent continued far enough to resemble a clean review.
-3. Simple explanation of complex logic: Each eligible final review starts a fresh cycle. Reviewer success marks that cycle complete, reviewer or startup failure marks it incomplete, the parent flow keeps going, and downstream tasking treats incomplete work as recovery work rather than as proof that no findings exist.
-4. Reviewer focus: Verify the execution-independent lifecycle in `reviewCycleLifecycle.ts`, the best-effort outcome recording in `service.ts`, cycle propagation through reviewer artifacts, and the completed-cycle gates in the post-review prompts.

@@ -11,6 +11,7 @@ export const CROSS_REPOSITORY_REVIEW_SCHEMA_VERSION =
   'codeinfo-cross-repository-review/v1';
 
 type CrossRepositoryReviewDeps = {
+  readFile: typeof fs.readFile;
   mkdir: typeof fs.mkdir;
   rename: typeof fs.rename;
   writeFile: typeof fs.writeFile;
@@ -18,10 +19,34 @@ type CrossRepositoryReviewDeps = {
 };
 
 const defaultDeps: CrossRepositoryReviewDeps = {
+  readFile: fs.readFile,
   mkdir: fs.mkdir,
   rename: fs.rename,
   writeFile: fs.writeFile,
   now: () => new Date(),
+};
+
+const stablePointerPromotionLocks = new Map<string, Promise<void>>();
+
+const withStablePointerPromotionLock = async <T>(
+  key: string,
+  operation: () => Promise<T>,
+): Promise<T> => {
+  const previous = stablePointerPromotionLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  stablePointerPromotionLocks.set(key, current);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (stablePointerPromotionLocks.get(key) === current) {
+      stablePointerPromotionLocks.delete(key);
+    }
+  }
 };
 
 const asObject = <T>(value: FlowJsonValue, label: string): T => {
@@ -29,6 +54,30 @@ const asObject = <T>(value: FlowJsonValue, label: string): T => {
     throw new Error(`${label} must be an object.`);
   }
   return value as T;
+};
+
+const targetSnapshotIsCurrent = async (
+  snapshot: ReviewTargetSnapshot,
+  deps: CrossRepositoryReviewDeps,
+) => {
+  const stablePath = buildReviewArtifactPath({
+    repoRoot: snapshot.plan_host_root,
+    storyId: snapshot.story_id,
+    outputKey: 'current-review-targets',
+  });
+  try {
+    const current = JSON.parse(
+      await deps.readFile(stablePath, 'utf8'),
+    ) as Partial<ReviewTargetSnapshot>;
+    return (
+      current.review_wave_id === snapshot.review_wave_id &&
+      current.parent_execution_id === snapshot.parent_execution_id &&
+      current.review_cycle_id === snapshot.review_cycle_id &&
+      current.targets_sha256 === snapshot.targets_sha256
+    );
+  } catch {
+    return false;
+  }
 };
 
 export async function gateCrossRepositoryReview(
@@ -119,7 +168,10 @@ export async function gateCrossRepositoryReview(
     writeFile: resolvedDeps.writeFile,
   };
   await atomicWriteJson(versionedPath, result, atomicDeps);
-  await atomicWriteJson(pointerPath, result, atomicDeps);
+  await withStablePointerPromotionLock(pointerPath, async () => {
+    if (!(await targetSnapshotIsCurrent(targetSnapshot, resolvedDeps))) return;
+    await atomicWriteJson(pointerPath, result, atomicDeps);
+  });
   return {
     action: 'not_applicable',
     targetSnapshot,

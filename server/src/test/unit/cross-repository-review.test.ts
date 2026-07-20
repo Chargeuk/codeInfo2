@@ -70,6 +70,14 @@ const buildFixture = async (targetCount: number, invalidTargets = 0) => {
 test('one target publishes not_applicable without requesting review work', async () => {
   const fixture = await buildFixture(1);
   try {
+    const currentTargetsPath = path.join(
+      fixture.root,
+      'codeInfoTmp',
+      'reviews',
+      '0000064-current-review-targets.json',
+    );
+    await fs.mkdir(path.dirname(currentTargetsPath), { recursive: true });
+    await fs.writeFile(currentTargetsPath, JSON.stringify(fixture.snapshot));
     const result = await gateCrossRepositoryReview({
       targetSnapshot: fixture.snapshot,
       reviewSet: fixture.reviewSet,
@@ -85,6 +93,57 @@ test('one target publishes not_applicable without requesting review work', async
     assert.equal(pointer.status, 'not_applicable');
     assert.equal(pointer.target_count, 1);
     assert.deepEqual(pointer.findings, []);
+  } finally {
+    await fs.rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('a superseded singleton keeps its versioned result without replacing the current pointer', async () => {
+  const fixture = await buildFixture(1);
+  try {
+    const currentTargetsPath = path.join(
+      fixture.root,
+      'codeInfoTmp',
+      'reviews',
+      '0000064-current-review-targets.json',
+    );
+    const currentPointerPath = path.join(
+      fixture.root,
+      'codeInfoTmp',
+      'reviews',
+      '0000064-current-cross-repository-review.json',
+    );
+    await fs.mkdir(path.dirname(currentTargetsPath), { recursive: true });
+    await Promise.all([
+      fs.writeFile(
+        currentTargetsPath,
+        JSON.stringify({
+          ...fixture.snapshot,
+          review_wave_id: '0000064-rw-newer',
+          parent_execution_id: 'execution-newer',
+        }),
+      ),
+      fs.writeFile(
+        currentPointerPath,
+        JSON.stringify({ review_wave_id: '0000064-rw-newer' }),
+      ),
+    ]);
+
+    const result = await gateCrossRepositoryReview({
+      targetSnapshot: fixture.snapshot,
+      reviewSet: fixture.reviewSet,
+      outputKey: 'current-cross-repository-review',
+    });
+
+    assert.equal(
+      JSON.parse(await fs.readFile(currentPointerPath, 'utf8')).review_wave_id,
+      '0000064-rw-newer',
+    );
+    assert.equal(
+      JSON.parse(await fs.readFile(result.versionedPath as string, 'utf8'))
+        .review_wave_id,
+      fixture.snapshot.review_wave_id,
+    );
   } finally {
     await fs.rm(fixture.root, { recursive: true, force: true });
   }

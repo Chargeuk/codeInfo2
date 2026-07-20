@@ -2520,7 +2520,7 @@ Normal-system startup and shutdown are not repeated in this task: it changes rev
 
 ### Task 41. Re-Validate Story 64 After Review Pass 0000064-20260720T002803Z-00f835bcb0-a40ed56f
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `final_revalidation`
 - Prerequisite: Task 40 must be complete and its current-pass review artifacts, blocker dispositions, and disposition state must be durable before this task starts.
@@ -2626,10 +2626,10 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Testing item 2: Ran `npm run build:summary:client`; typecheck and Vite build passed. The wrapper reported one existing large-chunk warning, with no build failure.
 - Testing item 3: Ran `npm run compose:build:summary`; both supported main-stack images built successfully with zero failed items.
 - Testing item 4: Started the supported main stack with `npm run compose:up`; all declared services started and server/client health gates completed successfully.
-- **RESOLVED ISSUE** Testing item 5 remains incomplete pending a fresh full-suite run. The focused loop-resume wrapper reproduced a stopped continuation that persisted its marker but discarded the active loop frame, so the next resume skipped the new iteration. Preserving that frame through the non-`ok` unwind restored the boundary contract; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "continue resume keeps its boundary marker until the next iteration makes progress"` passed.
+- **RESOLVED ISSUE** At the focused-proof stage, Testing item 5 was still incomplete pending a fresh full-suite run. The focused loop-resume wrapper reproduced a stopped continuation that persisted its marker but discarded the active loop frame, so the next resume skipped the new iteration. Preserving that frame through the non-`ok` unwind restored the boundary contract; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "continue resume keeps its boundary marker until the next iteration makes progress"` passed.
 - Testing item 6: Ran `npm run compose:down` after the failed full-suite attempt; the supported main stack was stopped for cleanup.
 - Testing item 5: Ran `npm run test:summary:all:parallel`; all prerequisite builds and full suites passed: client 900/900, server unit 2669/2669, server Cucumber 138/138, and Playwright end-to-end 77/77.
 - Testing item 7: Ran `npm run lint`; ESLint completed successfully with zero warnings or errors.
 - Testing item 8: Ran `npm run format:check`; all tracked supported files matched Prettier style.
-- Automated-proof audit: Audited the implementation and proof evidence against the final-task lifecycle and behavior lock. Testing item 6 was normalized complete from the recorded shutdown command; items 5, 7, and 8 remain open because the fresh full suite and post-suite lint and formatting closeout have not been completed. The former flow-loop failure has now been repaired and narrowly verified. Task 41 remains `__in_progress__` with no live blocker and is not ready for manual testing until its required proof gates pass.
+- Automated-proof audit: Audited the implementation and automated-proof evidence against the final-task lifecycle and behavior lock. The stopped-resume loop-frame repair is within Story 64's explicit cancellation/resume acceptance criterion, and the fresh full parallel suite passed across client (900/900), server unit (2669/2669), server Cucumber (138/138), and Playwright end-to-end (77/77), followed by successful lint and format checks. All subtasks and Testing items are complete, no live blocker remains, and Task 41 is honestly `__done__`; the checkbox-free Manual Testing Guidance remains available for the subsequent manual-testing pass.
 - Preflight visual refinement: inspected the Story 64 Flow workspace at desktop and 390px mobile widths; clarified the parent wave-count, target-qualified child-title, terminal stopped-to-Send, and mobile composer seams in manual-proof guidance. No code was changed in this step.

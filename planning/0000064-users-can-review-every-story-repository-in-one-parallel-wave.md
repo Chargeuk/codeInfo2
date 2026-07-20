@@ -326,7 +326,10 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 2. [x] Run the repository Prettier/format command and `npm run format:check`.
 3. [x] Run `npm run build:summary:server` and `npm run build:summary:client`.
 4. [x] Run `npm run test:summary:all:parallel`.
-5. [x] Run the supported main-stack manual proof sequence and stop it with `npm run compose:down`.
+
+#### Manual Testing Guidance
+
+- The supported main-stack manual proof sequence covered one-target, three-target, cancellation, resume, artifact isolation, target drift, and cross-repository finding behavior; stop the stack afterward with `npm run compose:down` through the manual-testing flow. Do not treat this manual scenario as an automated Testing item.
 
 #### Implementation Notes
 
@@ -394,7 +397,10 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 3. [x] Run `npm run test:summary:server:parallel` and `npm run build:summary:server`.
 4. [x] Run `npm run test:summary:all:parallel`.
 5. [x] Run `npm run lint`, the repository formatting command, and `npm run format:check`.
-6. [x] Run supported main-stack one-target manual proof through durable plan decision recording, then stop the stack with `npm run compose:down`.
+
+#### Manual Testing Guidance
+
+- The supported main-stack one-target manual proof checked durable plan decision recording; the manual-testing flow stopped the stack with `npm run compose:down` afterward. Do not treat this scenario as an automated Testing item.
 
 #### Implementation Notes
 
@@ -538,7 +544,10 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 2. [x] Run `npm run test:summary:all:parallel`.
 3. [x] Run `npm run lint`, the repository formatter, and `npm run format:check`.
 4. [x] Run `npm run compose:build:summary`.
-5. [x] Run supported main-stack one-target and multi-target manual proof, then stop it with `npm run compose:down`.
+
+#### Manual Testing Guidance
+
+- The supported main-stack one-target and multi-target manual proof covered the combined fast/slow review cycle; the manual-testing flow stopped the stack with `npm run compose:down` afterward. Do not treat this scenario as an automated Testing item.
 
 #### Implementation Notes
 
@@ -569,9 +578,12 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 1. [x] Run diff hygiene and the targeted review-artifact, OpenCode-flow, and review-wave validation tests.
 2. [x] Run `npm run build:summary:server` and the complete server unit wrapper.
 3. [x] Run `npm run test:summary:all:parallel`.
-4. [x] Run supported main-stack OpenCode wave-target proof when provider authentication permits, then stop it with `npm run compose:down`.
-5. [x] Verify `origin/main` is an ancestor, the pushed feature branch matches local HEAD, and the worktree is clean.
-6. [x] Run `npm run lint` and fix any errors.
+4. [x] Verify `origin/main` is an ancestor, the pushed feature branch matches local HEAD, and the worktree is clean.
+5. [x] Run `npm run lint` and fix any errors.
+
+#### Manual Testing Guidance
+
+- When provider authentication permitted it, the supported-stack OpenCode wave-target proof was run and the stack was stopped with `npm run compose:down` through the manual-testing flow. Authentication-dependent proof may be documented as skipped under repository guidance; do not treat it as an automated Testing item.
 
 #### Implementation Notes
 
@@ -610,8 +622,11 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 2. [x] Run `npm run build:summary:server` and the complete server unit wrapper.
 3. [x] Run `npm run test:summary:all:parallel`.
 4. [x] Run `npm run lint` and `npm run format:check`.
-5. [x] Run supported-stack plan-host and additional-repository publication proof when provider authentication permits, then stop it with `npm run compose:down`.
-6. [x] Verify `origin/main` ancestry, pushed local/remote equality, and a clean worktree.
+5. [x] Verify `origin/main` ancestry, pushed local/remote equality, and a clean worktree.
+
+#### Manual Testing Guidance
+
+- When provider authentication permitted it, the supported-stack plan-host and additional-repository publication proof was run and the stack was stopped with `npm run compose:down` through the manual-testing flow. Authentication-dependent proof may be documented as skipped under repository guidance; do not treat it as an automated Testing item.
 
 #### Implementation Notes
 
@@ -651,7 +666,11 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 3. [x] Run the server build wrapper and complete server unit wrapper.
 4. [x] Run `npm run test:summary:all:parallel`.
 5. [x] Run `npm run lint` and `npm run format:check`.
-6. [x] Run supported main-stack multi-repository fail-forward proof when provider authentication permits, then verify ancestry, pushed equality, and a clean worktree.
+6. [x] Verify ancestry, pushed equality, and a clean worktree.
+
+#### Manual Testing Guidance
+
+- When provider authentication permitted it, the supported main-stack multi-repository fail-forward proof was run through the manual-testing flow. Authentication-dependent proof may be documented as skipped under repository guidance; do not treat it as an automated Testing item.
 
 #### Implementation Notes
 
@@ -789,10 +808,13 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 1. [x] Run `npm run build:summary:server` and `npm run build:summary:client`.
 2. [x] Run `npm run compose:build` followed by `npm run compose:up` for the supported main stack.
 3. [x] Run `npm run test:summary:all:parallel` without targeted filters.
-4. [x] Complete main-stack manual proof for multi-review `Found by` rendering, a non-empty fast-loop audit task, a slow-loop audit task, escalation into grouped task-up, cancellation, resume, and duplicate suppression unless repository-owned authentication guidance permits a documented skip.
-5. [x] Run `npm run compose:down` after supported-stack proof while leaving every local development-stack container untouched.
-6. [x] Run `npm run lint`.
-7. [x] Run `npm run format:check`.
+4. [x] Run `npm run compose:down` after the automated suite while leaving every local development-stack container untouched.
+5. [x] Run `npm run lint`.
+6. [x] Run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+- The supported main-stack manual proof covered multi-review `Found by` rendering, fast-loop and slow-loop audit tasks, grouped task-up escalation, cancellation, resume, and duplicate suppression unless repository-owned authentication guidance permitted a documented skip. This scenario remained separate from automated Testing.
 
 #### Implementation Notes
 
@@ -1212,11 +1234,11 @@ Final-task repair scope: the whole approved story is in scope for failures found
 2. [x] In `codeInfo2`, run `npm run build:summary:client`.
 3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
 4. [x] Start the supported main stack with `npm run compose:up`.
-5. [x] Stop the supported main stack with `npm run compose:down`.
-6. [x] In `codeInfo2`, run `npm run lint`.
-7. [x] In `codeInfo2`, run `npm run format:check`.
-8. [x] Run focused loop, review-wrapper, run-admission, cancellation, artifact-promotion, disposition-state, and restart-reconciliation tests covering early exit, fifth-iteration normal exit, impossible sixth iteration, duplicate attachment, superseded publication, and best-effort continuation.
-9. [x] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
+5. [x] Run focused loop, review-wrapper, run-admission, cancellation, artifact-promotion, disposition-state, and restart-reconciliation tests covering early exit, fifth-iteration normal exit, impossible sixth iteration, duplicate attachment, superseded publication, and best-effort continuation.
+6. [x] Run the full parallel automated suite with `npm run test:summary:all:parallel`, covering the client, server unit, server cucumber, and e2e suites.
+7. [x] Stop the supported main stack with `npm run compose:down`.
+8. [x] In `codeInfo2`, run `npm run lint`.
+9. [x] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -2270,45 +2292,6 @@ Escalated review items requiring combined task-up:
 - Review Pass Id: `0000064-20260719T212516Z-52af6cfac4-32769dc2`
 - Review Phase: `fast`
 - This task is a completed historical audit and does not replace final story revalidation.
-
-## Code Review Findings
-
-- Review pass: `0000064-20260719T223932Z-95741e5d79-c6e7c46c`
-- Review cycle: `0000064-rc-20260719T212516Z-7280f8e7`
-- Comparison context: local `HEAD` `95741e5d79b328f0ade94b61769ce6742b64e6b1` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
-- Wave coverage and ownership: fast wave `0000064-rw-20260719T223932Z-4aced681` expected three jobs and completed two. `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` is the sole prepared target and implementation owner; Codex Review completed with usable validation, Open Code Review is stale/unusable, and the required cross-repository result is `not_applicable` for the singleton target without usable required coverage. The wave is `completed_partial` with `closeout_allowed: false`.
-- Severity conflicts and provenance: the validated aggregate contains three findings, all `P1`, with zero severity conflicts. Every accepted finding has one validated `Codex Review` source for `current_repository`; no current-pass rejected or non-adopted artifact candidates were recorded.
-
-### Accepted
-
-#### 1. Story-owned compose changes removed the built-in markdown bind mount
-
-- Finding ID: `632874705e890b70ad33a672f3f588a9c65fe06eaba62b5ea3c49ac6cd699909`
-- Found by: Codex Review
-- Description: The story-owned compose configuration no longer mounts the built-in markdown assets into the server, so packaged review flows can fail when the target repository does not provide that markdown tree.
-- Example: A built-in flow running against a repository without its own `codeinfo_markdown` tree reaches a `markdownFile` step and cannot find `/app/codeinfo_markdown`.
-- Why accepted: The story removed the existing bind mount, and restoring that story-owned mount is a bounded in-scope correction for the review runtime. The broader Dockerfile packaging suggestion is not adopted automatically.
-
-#### 2. A crash before parent-state persistence can duplicate wave jobs
-
-- Finding ID: `f243a30a8eb7c868c137b9c0f30e0c358a01ecc64cb8cf99dd71e5bc9632dc7a`
-- Found by: Codex Review
-- Description: If a child starts and the parent crashes before saving its conversation and run identity, resume can launch a second child for the same wave instance.
-- Example: The child remains discoverable through `flowChild` metadata while the parent still marks the job pending, so resume has no saved identity to reattach to.
-- Why accepted: Story 64 explicitly requires resume without duplicate launches, and this finding concerns the story-owned wave lifecycle. The original broader lifecycle-proof constraint remains applicable.
-
-#### 3. Startup reconciliation runs after the server becomes ready
-
-- Finding ID: `c175ba2d0564cd6f46d156a35714f3ad84630b51ad481bb9ffe637f6e017911a`
-- Found by: Codex Review
-- Description: The server announces readiness before startup reconciliation has recorded interrupted wave state, allowing resume traffic to arrive during the recovery gap.
-- Example: A health check or wrapper can request resume before `restartReconciliation` is written, causing remembered children to be recorded as failed.
-- Why accepted: Story 64 explicitly requires reliable cancellation and resume recovery for review waves, and this story-owned startup ordering can violate that contract. The original lifecycle/readiness proof constraint remains applicable.
-
-### Ignored for This Story
-
-- None.
-
 ### Task 38. Record Minor Review Fixes From Pass 0000064-20260719T223932Z-95741e5d79-c6e7c46c
 
 - Task Status: `__done__`
@@ -2340,237 +2323,6 @@ Escalated review items requiring combined task-up:
 - Review Pass Id: `0000064-20260719T223932Z-95741e5d79-c6e7c46c`
 - Review Phase: `fast`
 - This task is a completed historical audit and does not replace final story revalidation.
-
-
-## Code Review Findings
-
-- Review pass: `0000064-20260720T002803Z-00f835bcb0-a40ed56f`
-- Review cycle: `0000064-rc-20260719T212516Z-7280f8e7`
-- Comparison context: local `HEAD` `00f835bcb02b9f5a37b97816fb7c763becfc7f7a` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
-- Wave coverage and ownership: slow wave `0000064-rw-20260720T002803Z-399acf83` expected one target-local `review_artifacts_main` job and completed it with usable server-owned validation; cross-repository coverage was not expected for this singleton slow wave. `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` is the recorded target and implementation owner.
-- Severity conflicts and provenance: the validated aggregate contains 14 findings with zero severity conflicts, and every finding has one validated `Main Review` source for `current_repository`. Three carried-forward incomplete-review blockers remain workflow state rather than accepted or ignored issues.
-- Confidence note: the challenge artifact generated no new finding, and the saturation artifact's only promoted issue is already represented by finding `0000064-cross-repository-stale-publication`; no separate challenge or saturation candidate was added.
-
-### Accepted
-
-#### 1. Pending-only wave checkpoints are not selected for startup reconciliation
-
-- Finding ID: `0000064-startup-pending-only-wave-not-selected`
-- Found by: Main Review
-- Description: Startup reconciliation skips persisted waves whose jobs are all pending.
-- Example: A checkpoint with `running: 0` and pending jobs is skipped because the startup query requires active children or a positive running count.
-- Why accepted: Story 64 requires reliable wave resume and startup recovery; this is a bounded story-owned recovery gap queued for one inline attempt.
-
-#### 2. Closeout evidence does not prove the three-target/cross-repository path
-
-- Finding ID: `0000064-missing-three-target-proof`
-- Found by: Main Review
-- Description: Closeout evidence does not prove the acceptance-required three-target and cross-repository behavior.
-- Example: The final proof covers the available one-target scope, while the stored evidence says the three-target path was not re-proven.
-- Why accepted: The story explicitly requires this proof. The accepted scope is narrowed to repository-owned test or supported manual proof and does not authorize adding repositories or changing plan scope.
-
-#### 3. Malformed persisted wave jobs are silently discarded before recovery decisions
-
-- Finding ID: `0000064-malformed-wave-state-discarded`
-- Found by: Main Review
-- Description: Resume normalization drops malformed persisted jobs and can turn interrupted work into an apparently empty checkpoint.
-- Example: A malformed job is filtered out and malformed counters become zero-like values before startup decides whether recovery is needed.
-- Why accepted: Story 64 defines persisted wave identity and resume behavior; failing closed at this story-owned normalization seam is a bounded inline correction.
-
-#### 4. Resume-state normalization drops malformed child inputs and prior flow values
-
-- Finding ID: `0000064-resume-state-inputs-dropped`
-- Found by: Main Review
-- Description: Resume normalization omits malformed child input and prior flow values instead of preserving or rejecting them.
-- Example: A resumed child can be reattached without its immutable input, while malformed `flow.values` becomes an empty inherited state.
-- Why accepted: The story explicitly requires immutable child inputs and safe resume without altered work; this is an actionable story-owned persistence seam.
-
-#### 5. Explicit blank flow-run identifiers are converted into omitted request fields
-
-- Finding ID: `0000064-blank-flow-run-fields-coerced`
-- Found by: Main Review
-- Description: The story-added route trims whitespace-only identifiers into omitted fields, allowing default resolution instead of rejecting explicit blank input.
-- Example: A blank `sourceId` or `working_folder` can fall through to ambient repository resolution.
-- Why accepted: This is preserved request-admission behavior drift on a story-changed route, so restoring it is required by the behavior lock without adding a new user-facing contract.
-
-#### 6. A new final review can overwrite another active cycle and delete its disposition state
-
-- Finding ID: `0000064-active-review-cycle-overwrite-race`
-- Found by: Main Review
-- Description: A second final review can replace the active cycle and remove shared disposition state while the first cycle is still running.
-- Example: Two launches with different parent executions can archive the first cycle's state and install the second cycle's marker.
-- Why accepted: Story 64 explicitly owns the two-phase review-cycle lifecycle and cumulative disposition state; concurrent ownership loss violates that contract.
-
-#### 7. Wave validation does not enforce each target's pinned comparison base
-
-- Finding ID: `0000064-wave-base-identity-not-checked`
-- Found by: Main Review
-- Description: Wave validation checks target and HEAD identity but does not require the result to use the target's pinned comparison base.
-- Example: A result read from a mutable review-base pointer can supply a different base commit and still pass target identity checks.
-- Why accepted: The story explicitly requires pinned target bases and server-owned wave identity validation; this is a bounded validator correction.
-
-#### 8. Singleton cross-repository not-applicable publication can win a stale wave
-
-- Finding ID: `0000064-cross-repository-stale-publication`
-- Found by: Main Review
-- Description: The singleton cross-repository writer can publish a stale not-applicable result over a newer wave's stable pointer.
-- Example: A newer review set lands after validation but before the older wave writes `current-cross-repository-review.json`.
-- Why accepted: Story 64 owns canonical cross-repository artifact publication and stale-wave protection; this is a bounded publication-seam correction.
-
-#### 9. Malformed successful status responses become an opaque runner failure
-
-- Finding ID: `0000064-malformed-status-response-opaque-failure`
-- Found by: Main Review
-- Description: A malformed successful status response becomes null and then fails as an opaque runner error.
-- Example: A truncated 2xx status body reaches `status.status` access without a response-shape diagnostic.
-- Why accepted: The review-cycle wrapper owns status polling and terminal reporting; preserving an actionable protocol error is part of that changed seam.
-
-#### 10. Implicit review launch fallback can bind source B to working folder A
-
-- Finding ID: `0000064-implicit-source-fallback-cross-binds-working-folder`
-- Found by: Main Review
-- Description: The unique-candidate fallback can select a flow source belonging to one repository while retaining a different requested working folder.
-- Example: With working folder A and only source B in the flow catalog, launch resolution returns A plus B.
-- Why accepted: Explicit working-folder and source binding is a story contract; restoring that binding is bounded and target-owned.
-
-#### 11. Retry completion persistence failure leaves replay without a durable barrier
-
-- Finding ID: `0000064-retry-completion-persistence-loss`
-- Found by: Main Review
-- Description: If completion-marker persistence fails after external work succeeds, a restart can lose the only replay barrier.
-- Example: The in-memory completion record deduplicates a replay until process restart, after which the same retry ID can execute again.
-- Why accepted: The story changed review-cycle launch and retry ownership paths and requires safe replay lifecycle behavior; durable retry protection remains actionable.
-
-#### 12. Cucumber closeout and downstream-tasking scenarios bypass the production boundaries
-
-- Finding ID: `0000064-cucumber-production-boundary-bypass`
-- Found by: Main Review
-- Description: The scenarios assert fixture-derived booleans without invoking production wave validation or downstream disposition/tasking.
-- Example: A fixture can satisfy the assertion even if the real validator or tasking consumer would reject or drop the same data.
-- Why accepted: Story 64 requires Cucumber and downstream review-loop proof; routing the scenarios through existing production seams is bounded test-only work.
-
-#### 13. Second-pass identity proof compares positions instead of identity sets
-
-- Finding ID: `0000064-positional-second-pass-identity-proof`
-- Found by: Main Review
-- Description: The replay test compares hashes at matching positions instead of checking set disjointness.
-- Example: A reused first-pass hash at a different position can pass the current assertion.
-- Why accepted: The story explicitly requires unique refreshed child identities across passes; this is a bounded proof correction.
-
-### Ignored for This Story
-
-#### 14. Review-base output-key contract is duplicated as literals
-
-- Finding ID or Review reference: `0000064-duplicated-review-base-output-key`
-- Found by: Main Review
-- Description: Several review artifact paths repeat the same current-review-base output-key literal.
-- Example: The producer and consumers currently use the same key consistently, so no runtime failure is shown.
-- Why ignored: This is cleanup preference without a current-head failure, active-story requirement, or approved scope expansion.
-
-#### 15. Bulk side-effect cardinality audit
-
-- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: Bulk side-effect cardinality audit`
-- Found by: findings artifact — `Rejected Risk Notes: Bulk side-effect cardinality audit`
-- Description: The audit checked whether target, job, validation, UI, or fixture loops multiplied refreshes or hid mixed outcomes.
-- Example: Per-target preparation and validation use distinct identities, while UI and descriptor loops are pure transformations.
-- Why ignored: The audit established no additional actionable defect; this remains non-adopted review risk.
-
-#### 16. Field-role stability audit
-
-- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: Field-role stability audit`
-- Found by: findings artifact — `Rejected Risk Notes: Field-role stability audit`
-- Description: The audit checked whether target, instance, execution, and display fields were confused across persistence and UI mapping.
-- Example: `target_id`, `instanceId`, and `executionId` remain distinct in the reviewed paths.
-- Why ignored: No additional field-role defect was established beyond the accepted target-base and source/working-folder findings.
-
-#### 17. UI affordance-parity audit
-
-- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: UI affordance-parity audit`
-- Found by: findings artifact — `Rejected Risk Notes: UI affordance-parity audit`
-- Description: The audit checked whether informational wave and target chips changed controls, selection, payloads, or reset behavior.
-- Example: The changed surfaces add informational chips only; no row action, bulk action, checkbox, or submit contract changed.
-- Why ignored: This was a rejected additional UI-scope concern, not a current-story behavior finding.
-
-#### 18. Time-based coordination audit
-
-- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: Time-based coordination`
-- Found by: findings artifact — `Rejected Risk Notes: Time-based coordination`
-- Description: The audit checked polling, startup recovery, cancellation clocks, and review-cycle timing for timer-primary defects.
-- Example: Poll intervals and cancellation clocks are injected in tests, and the wrapper polls because no reliable run-status subscription exists.
-- Why ignored: No additional timer-coordination defect was established beyond the accepted status-response finding.
-
-#### 19. Untrusted-boundary audit
-
-- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: Untrusted-boundary audit`
-- Found by: findings artifact — `Rejected Risk Notes: Untrusted-boundary audit`
-- Description: The audit checked command injection, path escape, shell authority, and review-artifact traversal.
-- Example: `execFile` receives separate arguments, flow names are fixed, and artifact paths are constrained and realpath-checked.
-- Why ignored: No additional security or authority-drift finding was established.
-
-#### 20. Cross-repository early not-applicable selection
-
-- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: crossRepositoryReview and the default single-target gate`
-- Found by: findings artifact — `Rejected Risk Notes: crossRepositoryReview and the default single-target gate`
-- Description: The audit checked whether an early unavailable or not-applicable classification could prevent the authoritative cross-repository selector.
-- Example: The singleton not-applicable path is plan-required and directly covered by tests.
-- Why ignored: No separate early-selector defect was established; stale publication remains the scoped cross-repository issue.
-
-#### 21. Wave child scheduler audit
-
-- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: runSubflowJobs`
-- Found by: findings artifact — `Rejected Risk Notes: runSubflowJobs`
-- Description: The audit checked child identity persistence, cancellation, stale-child handling, terminal waiting, and duplicate launches.
-- Example: The parent records unadmitted or failed children, while the separate startup-selection mismatch remains the accepted issue.
-- Why ignored: No additional scheduler finding was established.
-
-#### 22. Review-target and review-set scale audit
-
-- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: prepareReviewTargets and prepareReviewSet`
-- Found by: findings artifact — `Rejected Risk Notes: prepareReviewTargets and prepareReviewSet`
-- Description: The audit checked stale snapshots, base drift, duplicate roots or aliases, and target-count scaling.
-- Example: Stable promotion rechecks the target snapshot, and expected jobs scale with the target list.
-- Why ignored: No additional target-preparation defect was established.
-
-#### 23. Cross-repository result schema audit
-
-- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: validateReviewWave and gateCrossRepositoryReview`
-- Found by: findings artifact — `Rejected Risk Notes: validateReviewWave and gateCrossRepositoryReview`
-- Description: The audit checked malformed pointers, duplicate targets, missing relationship coverage, and out-of-snapshot finding targets.
-- Example: `isUsableCrossRepositoryResult` validates schema, target coverage, relationship coverage, and finding target IDs.
-- Why ignored: No additional validator defect was established; base identity and stale publication remain the scoped issues.
-
-#### 24. Default-path and cleanup audit
-
-- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: Default-path and cleanup review`
-- Found by: findings artifact — `Rejected Risk Notes: Default-path and cleanup review`
-- Description: The audit checked whether selectors, wrappers, or cleanup made the review flow opt-in or leaked artifacts.
-- Example: No selector exclusion was found, and review artifact writes use atomic rename.
-- Why ignored: No separate opt-in or cleanup-leak finding was established.
-
-#### 25. Startup source-order proof challenge
-
-- Finding ID or Review reference: challenge artifact — `server/src/test/unit/flows-startup-reconciliation.test.ts`
-- Found by: challenge artifact — `server/src/test/unit/flows-startup-reconciliation.test.ts`
-- Description: The challenge noted that the startup-order test reads source text rather than observing a live readiness boundary.
-- Example: The test proves source ordering but does not run the server through an actual readiness race.
-- Why ignored: The challenge generated no new finding; this is an advisory proof caveat, not a separate implementation issue.
-
-#### 26. Contract-text BDD proof challenge
-
-- Finding ID or Review reference: challenge artifact — `server/src/test/features/review-wave.feature` and `server/src/test/steps/review-wave.steps.ts`
-- Found by: challenge artifact — `server/src/test/features/review-wave.feature` and `server/src/test/steps/review-wave.steps.ts`
-- Description: The challenge noted that one contract-focused scenario checks prose rather than runtime ownership behavior.
-- Example: The scenario can validate wording without invoking the production boundary.
-- Why ignored: The challenge generated no new finding; the canonical BDD boundary finding remains the only actionable proof issue for this surface.
-
-#### 27. Mocked route seam proof challenge
-
-- Finding ID or Review reference: challenge artifact — `server/src/test/unit/flows-run-route.test.ts`
-- Found by: challenge artifact — `server/src/test/unit/flows-run-route.test.ts`
-- Description: The challenge noted that route tests use injected stubs and do not independently exercise the production validation seam.
-- Example: A stub can return the expected payload without proving the live route rejects malformed input.
-- Why ignored: The challenge generated no new finding; this is an advisory proof caveat covered by the canonical route-admission finding.
-
 ### Task 39. Record Minor Review Fixes From Pass 0000064-20260720T002803Z-00f835bcb0-a40ed56f
 
 - Task Status: `__done__`
@@ -2613,7 +2365,6 @@ Escalated review items requiring combined task-up:
 - Review Pass Id: `0000064-20260720T002803Z-00f835bcb0-a40ed56f`
 - Review Phase: `slow`
 - This task is a completed historical audit and does not replace final story revalidation.
-
 ### Task 40. Reconcile Incomplete Review Coverage and Recover Blocked Findings
 
 - Task Status: `__to_do__`
@@ -2625,7 +2376,7 @@ Escalated review items requiring combined task-up:
 
 #### Overview
 
-The stored disposition state for the current slow review pass is valid and records no unresolved task-required findings, but it still declares nine incomplete-review blockers from earlier fast-wave coverage, the consumer-contract interruption, and a blocked minor-fix audit. This task closes only when each blocker has either matching authoritative evidence and a synchronized disposition or an explicit preserved blocker with its minimum evidence still visible. Use the exact versioned review-set and wave-validation artifacts named by each stable locator, validate server-owned cross-repository coverage for every required fast wave, and route the four blocked candidates through the current-pass review path. Keep all implementation ownership in `codeInfo2`; cross-target compatibility evidence belongs in this task's proof and does not authorize another repository owner.
+The stored disposition state for the current slow review pass is valid and records no unresolved task-required findings, but it still declares nine incomplete-review blockers from earlier fast-wave coverage, the consumer-contract interruption, and a blocked minor-fix audit. Execute this task in order: establish artifact and contract evidence in subtasks 1-3, repair or explicitly preserve the four candidate findings in subtasks 4-7, synchronize the plan/state handoff in subtask 8, then prepare the named proof files in subtasks 9-16 before running Testing. This task closes only when each blocker has either matching authoritative evidence and a synchronized disposition or an explicit preserved blocker with its minimum evidence still visible. Use the exact versioned review-set and wave-validation artifacts named by each stable locator, validate server-owned cross-repository coverage for every required fast wave, and route the four blocked candidates through the current-pass review path. Keep all implementation ownership in `codeInfo2`; cross-target compatibility evidence belongs in this task's proof and does not authorize another repository owner.
 
 #### Non-Goals
 
@@ -2650,12 +2401,19 @@ The stored disposition state for the current slow review pass is valid and recor
 - The exact current-pass findings block remains unique, with its accepted and ignored decisions unchanged.
 - For each blocked wave, the stable locator and exact versioned artifacts agree on story, wave, parent, target snapshot, review session, review pass, HEAD, and comparison base; a missing or invalid artifact remains an explicit blocker.
 - Each required multi-target fast wave has a usable server-owned `cross_repository_review` result with matching identity and target coverage; singleton `not_applicable` output is never used as multi-target proof.
+- The wave evidence also proves the stale-publication interleaving: a terminal result from an older wave cannot overwrite the newer stable locator or make incomplete newer coverage appear closeable.
 - The consumer-contract and minor-audit blockers have either exact current-pass evidence or a preserved non-clean disposition, and each of the four blocked findings has one current-pass disposition.
+- Each four-candidate review path proves producer-to-consumer propagation and the failure interleaving that matters: request admission through normal launch resolution, competing cycle initialization, malformed status through polling classification, and completion persistence failure through retry replay.
 - Task 41 remains the only final revalidation owner for review cycle `0000064-rc-20260719T212516Z-7280f8e7`.
 
 #### Risk Ownership
 
 - Implementation owner: `codeInfo2`.
+- Product/story seam: Task 40 owns the four confirmed code seams and their focused regressions; it restores only story-caused drift and preserves the approved behavior contract.
+- Proof/harness seam: Task 40 owns exact versioned artifact identity, server-owned cross-repository validation, consumer-contract availability, and disposition synchronization; no blocker may be cleared from a reviewer pointer, singleton result, or missing contract.
+- Shared wrapper/baseline seam: Task 40 owns only the targeted proof needed for these findings; Task 41 owns the full repository baseline, so a broad-wrapper failure is recorded and diagnosed there rather than retried blindly here.
+- Manual/runtime environment seam: Task 41 owns supported main-stack startup, readiness, cross-target runtime proof, and artifact handoff; Task 40 must remain executable without manual or live-runtime proof.
+- Task-shape/planning seam: the current-pass findings block remains unique, Tasks 40 and 41 remain ordered, and Task 41 remains the sole final revalidation owner.
 - Review-state risk: the plan must remain visibly incomplete until every blocker has exact evidence or an explicit disposition.
 - Behavior risk: preserve established behavior except for restoring story-caused drift; do not convert the reviewer's broader remedy into scope.
 
@@ -2666,15 +2424,24 @@ The stored disposition state for the current slow review pass is valid and recor
 
 #### Requirement-To-Proof Mapping
 
-- Exact wave identity and coverage: versioned review-set, wave-validation, target snapshot, and cross-repository result artifacts for each blocked fast wave.
-- Review-pass synchronization: disposition state, the terminal minor-fix result, the current-pass findings block, and the bounded plan packet.
-- Four blocked candidates: their current-pass routed state, focused owning tests, and the final whole-story revalidation task.
+- Wave identity and comparison-base invariant: each versioned review-set, wave-validation, target snapshot, and cross-repository result must agree on story, wave, parent, target hash, review session/pass, target HEAD, and comparison base. Owners: `server/src/flows/reviewTargets.ts` and `server/src/flows/reviewWaveValidation.ts`. Proof: the named versioned artifacts, `server/src/test/unit/review-wave-validation.test.ts`, and `server/src/test/integration/review-production-loop.test.ts`.
+- Persisted artifact lifecycle invariant: `server/src/flows/reviewSet.ts`, `server/src/flows/reviewWaveValidation.ts`, and `server/src/flows/crossRepositoryReview.ts` write versioned evidence and stable `current-*` pointers through `server/src/flows/reviewIdentity.ts`'s temporary-file-plus-rename `atomicWriteJson`; `reviewWaveValidation.ts`, `crossRepositoryReview.ts`, the production loop, and the review handoff read and validate those artifacts. Partial, in-progress, missing, or malformed artifacts must remain non-closeable; failed atomic writes clean only their temporary file, and a stale publisher must skip rather than delete or replace a newer stable pointer. Proof: `server/src/test/unit/review-identity.test.ts`, `server/src/test/unit/review-set.test.ts`, `server/src/test/unit/review-wave-validation.test.ts`, and `server/src/test/integration/review-production-loop.test.ts`.
+- Mandatory multi-target coverage invariant: every required multi-target fast wave must have usable server-owned `cross_repository_review` output with complete target coverage; singleton `not_applicable` and reviewer-pointer inference do not satisfy it. Owners: `server/src/flows/reviewWaveValidation.ts` and `server/src/flows/crossRepositoryReview.ts`. Proof: `server/src/test/unit/review-wave-validation.test.ts`, `server/src/test/integration/review-production-loop.test.ts`, and `server/src/test/features/review-wave.feature`.
+- Stale-publication ordering invariant: a terminal older wave cannot replace a newer stable locator or make incomplete newer coverage closeable. Owner: `server/src/flows/reviewWaveValidation.ts`. Proof: the `superseded complete wave keeps versioned evidence without replacing stable pointers` case in `server/src/test/unit/review-wave-validation.test.ts`, plus the production-loop identity assertions.
+- Review-contract and pass-synchronization invariant: the consumer contract, terminal minor-fix result, disposition state, and exact current-pass findings block must either agree or preserve a visible non-clean blocker. Owners: `codeinfo_markdown/shared/review-wave-consumer-contract.md`, `scripts/flow_control/review.py`, `scripts/write_minor_fix_audit_task.py`, `codeInfoStatus/flow-state/review-disposition-state.json`, and the canonical plan. Proof: the exact versioned handoff artifacts, the current-pass findings block, `review-disposition-state.json`, and `python3 scripts/plan_sections.py --profile review-tasking`.
+- `0000064-blank-flow-run-fields-coerced`: omitted versus explicit blank or whitespace-only admission semantics must survive `validateBody` into `startFlowRun` and normal source/working-folder resolution. Owner: `server/src/routes/flowsRun.ts`. Proof: the dedicated POST route case in `server/src/test/integration/flows.run.basic.test.ts` and the focused route testing item; the existing status/stop tests in `server/src/test/unit/flows-run-route.test.ts` are not sufficient for this finding.
+- `0000064-active-review-cycle-overwrite-race`: competing `initializeReviewCycle` calls must leave one authoritative active cycle and matching disposition state. Owner: `server/src/flows/reviewCycleLifecycle.ts`. Proof: `server/src/test/unit/review-cycle-lifecycle.test.ts` and the competing-cycle testing item.
+- `0000064-malformed-status-response-opaque-failure`: malformed successful responses must remain actionable from `readJsonResponse` through polling/fingerprint handling to `review_runner_failure`. Owner: `scripts/review-cycle-summary.mjs`. Proof: the dedicated malformed-success rejection in `scripts/review-cycle-summary.test.mjs`, the separate nonterminal-success case, and the wrapper `main` catch mapping.
+- `0000064-retry-completion-persistence-loss`: retry ownership must survive successful completion, completion-write failure, process-local barrier loss, persisted reload, and fresh-run lookup/replay. Owner: `server/src/flows/service.ts`. Proof: `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and the retry testing item.
+- Review handoff invariant: the current findings block remains unique, resolved-minor IDs remain historical, every blocker has a durable disposition, and Task 41 remains the sole final revalidation owner. Owners: the canonical plan and `codeInfoStatus/flow-state/review-disposition-state.json`. Proof: Task 40 subtask 8, the structural plan packet, and Task 41's active review-cycle identity.
 
 #### Proof Mapping
 
 - Review-wave validation and production closeout: `server/src/test/unit/review-wave-validation.test.ts`, `server/src/test/integration/review-production-loop.test.ts`, and `server/src/test/features/review-wave.feature`.
-- Request and lifecycle seams: `server/src/test/unit/flows-run-route.test.ts` and `server/src/test/unit/review-cycle-lifecycle.test.ts`.
-- Review launcher/status seam: `scripts/review-cycle-summary.test.mjs`.
+- Request and lifecycle seams: the dedicated POST route case in `server/src/test/integration/flows.run.basic.test.ts` and the dedicated concurrent-cycle case in `server/src/test/unit/review-cycle-lifecycle.test.ts`.
+- Review launcher/status seam: `scripts/review-cycle-summary.test.mjs`, with separate malformed-success rejection and nonterminal-success cases, plus the wrapper `main` catch mapping to `review_runner_failure`.
+- Request admission proof follows `validateBody` into `startFlowRun` and normal source/working-folder resolution; lifecycle proof follows `initializeReviewCycle` into active-cycle and disposition persistence; launcher proof follows `readJsonResponse` into `progressFingerprint`, status polling, and `review_runner_failure` classification; retry proof follows `persistFreshRunRetryOwnershipCompletion` into fresh-run lookup and replay after persistence loss. The named route, lifecycle, launcher, and flow integration tests are the proof homes for those producer-to-consumer paths and their failure interleavings.
+- Proof-authoring ownership is explicit: subtasks 9-11 own the review-wave unit, production integration, and Cucumber surfaces; subtasks 12-14 own request-admission, cycle-lifecycle, and launcher assertions; subtasks 15-16 own the two retry integration proof branches. Testing remains responsible only for executing these prepared surfaces through the existing wrappers.
 
 #### Affected Repositories
 
@@ -2688,20 +2455,34 @@ The stored disposition state for the current slow review pass is valid and recor
 
 #### Subtasks
 
-1. [ ] For waves `0000064-rw-20260719T223932Z-4aced681` and `0000064-rw-20260719T234833Z-de3f84e0`, compare each stable locator with its exact versioned `review-set-final` and `review-wave-validation` artifacts. Record agreement for `story_id`, `review_wave_id`, `parent_execution_id`, `targets_sha256`, `review_session_id`, `review_pass_id`, target HEAD, comparison base, and target snapshot; if either pair is absent or mismatched, retain the blocker and its minimum evidence instead of substituting another wave.
-2. [ ] For every required multi-target fast wave, read the matching versioned `cross-repository-review` artifact and embedded job validation, then verify usable status, target coverage, and identity against the matching review set. Keep all usable target-local results and findings visible, and reject reviewer-pointer inference or singleton `not_applicable` output as cross-target proof.
-3. [ ] Reconcile the consumer-contract availability result using the repository-owned contract and configured harness handoff, then synchronize the terminal minor-fix result to review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`. If the configured contract path remains unavailable, preserve the blocker and stop that branch without editing production code or clearing state; do not change the existing review cycle ID or findings block.
-4. [ ] For `0000064-blank-flow-run-fields-coerced`, verify the request-admission seam in `server/src/routes/flowsRun.ts`; for `0000064-active-review-cycle-overwrite-race`, verify `server/src/flows/reviewCycleLifecycle.ts`; for `0000064-malformed-status-response-opaque-failure`, verify `scripts/review-cycle-summary.mjs`; and for `0000064-retry-completion-persistence-loss`, verify `server/src/flows/service.ts`. For each candidate, either implement the confirmed story-owned repair and add or update its focused regression in the named proof home, or preserve an explicit incomplete disposition when valid evidence is still unavailable.
-5. [ ] Reconcile the plan/state handoff after the four candidate decisions: keep this pass's single `Code Review Findings` block, preserve every resolved-minor ID as historical inline work, and leave Task 41 as the next executable task.
+1. [ ] Start from `codeInfoTmp/reviews/0000064-current-review.json` and the active disposition state. For waves `0000064-rw-20260719T223932Z-4aced681` and `0000064-rw-20260719T234833Z-de3f84e0`, compare each stable locator with its exact versioned `review-set-final` and `review-wave-validation` artifacts, tracing writers in `server/src/flows/reviewSet.ts` and `server/src/flows/reviewWaveValidation.ts` to readers in `reviewWaveValidation.ts`, `crossRepositoryReview.ts`, and the production review handoff. Record agreement for `story_id`, `review_wave_id`, `parent_execution_id`, `targets_sha256`, `review_session_id`, `review_pass_id`, target HEAD, comparison base, and target snapshot; confirm versioned writes are atomic and partial, in-progress, missing, or malformed artifacts remain non-closeable. If the comparison proves a story-caused writer, reader, or cleanup defect, repair only the owning seam in `reviewSet.ts`, `reviewWaveValidation.ts`, `crossRepositoryReview.ts`, or `reviewIdentity.ts`; otherwise retain the blocker and its minimum evidence instead of substituting another wave. Leave the corresponding artifact assertions to subtask 9, and never delete evidence or a newer stable pointer as cleanup.
+2. [ ] Read the matching versioned `cross-repository-review` artifact and embedded job validation for each of the two waves named in subtask 1. For each wave, record whether the server-owned result has usable status, complete target coverage, and identity matching its review set; record singleton `not_applicable` or reviewer-pointer inference as insufficient for multi-target proof. Use `server/src/test/unit/review-wave-validation.test.ts` and `server/src/test/integration/review-production-loop.test.ts` in subtask 9 to capture the exact interleaving where an older terminal result cannot overwrite the newer locator or make incomplete newer coverage closeable, while retaining all usable target-local findings.
+3. [ ] Read `codeinfo_markdown/shared/review-wave-consumer-contract.md`, `codeInfoTmp/reviews/0000064-current-review.json`, and `codeInfoStatus/flow-state/review-disposition-state.json`. Reconcile the contract-availability result and synchronize the terminal minor-fix result to review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`. If the contract remains unavailable, preserve the blocker in the disposition state and Task 40 handoff, stop this branch, and make no production or findings-block changes; do not change review cycle `0000064-rc-20260719T212516Z-7280f8e7`.
+4. [ ] For `0000064-blank-flow-run-fields-coerced`, repair only a confirmed story-owned request-admission defect in `server/src/routes/flowsRun.ts`. Preserve omitted versus explicit blank or whitespace-only handling for the string fields `conversationId`, `retryOwnershipId`, `codexReviewModelId`, `sourceId`, `working_folder`, and `customTitle` as applicable to the finding, and preserve the resulting `startFlowRun` arguments and normal source/working-folder resolution. If current evidence does not confirm story-owned drift, write the finding's incomplete disposition to `codeInfoStatus/flow-state/review-disposition-state.json` and Task 40's handoff instead of changing behavior.
+5. [ ] For `0000064-active-review-cycle-overwrite-race`, repair only a confirmed story-owned ownership defect in `server/src/flows/reviewCycleLifecycle.ts`. At the `initializeReviewCycle` write boundary, preserve one authoritative `active-review-cycle.json`, archive or preserve the prior cycle's disposition under its cycle directory, and leave the losing initializer unable to delete or replace the winner's state. If current evidence does not confirm story-owned drift, record the finding's incomplete disposition in the same state and handoff files instead of changing behavior.
+6. [ ] For `0000064-malformed-status-response-opaque-failure`, repair only a confirmed story-owned launcher/status defect in `scripts/review-cycle-summary.mjs`. Keep `readJsonResponse` rejection actionable when a successful response has an invalid shape, prevent `progressFingerprint` from treating missing `status`, `latestAssistantAt`, or `subflowWaveProgress` as valid progress, and preserve the wrapper `main` catch mapping to `review_runner_failure`. If current evidence does not confirm story-owned drift, record the finding's incomplete disposition in the disposition state and Task 40 handoff instead of changing behavior.
+7. [ ] For `0000064-retry-completion-persistence-loss`, repair only a confirmed story-owned retry defect in `server/src/flows/service.ts`. Keep `persistFreshRunRetryOwnershipCompletion` ahead of releasing the accepted launch's ownership, preserve the durable completion in the conversation flow state, and ensure `getPersistedFreshRunRetryOwnershipCompletion` and the normal `startFlowRun` lookup replay the same result after process-local barrier loss or restart without a duplicate launch. If current evidence does not confirm story-owned drift, record the finding's incomplete disposition in the disposition state and Task 40 handoff instead of changing behavior.
+8. [ ] After subtasks 1-7 have produced their evidence or explicit incomplete outcomes, update `codeInfoStatus/flow-state/review-disposition-state.json` and this plan's current-pass handoff: keep exactly one current `Code Review Findings` block, preserve every resolved-minor ID as historical inline work, give each blocker or repair its named proof home, preserve review cycle `0000064-rc-20260719T212516Z-7280f8e7`, and leave Task 41 as the next executable task. Do not mark a blocker clean without the evidence required by subtasks 1-7.
+9. [ ] Prepare the persisted-artifact proof surfaces in `server/src/test/unit/review-identity.test.ts`, `server/src/test/unit/review-set.test.ts`, and `server/src/test/unit/review-wave-validation.test.ts`: retain the atomic JSON publication and `a stale wave writes versioned evidence without replacing the stable manifest` cases, add failure cleanup coverage showing a failed temporary-file write or rename leaves no temporary artifact, and extend the aligned `complete review wave finalizes exact coverage...` and `wave validation rejects target results with a stale comparison base` cases with field-by-field story, wave, parent, target hash, review session/pass, target HEAD, and comparison-base assertions. Keep dedicated missing/malformed/partial cross-repository coverage and `superseded complete wave keeps versioned evidence without replacing stable pointers` ordering assertions; prove that partial or malformed persisted state remains non-closeable and that stale cleanup cannot delete or replace newer stable evidence. Do not treat severity aggregation alone as identity proof.
+10. [ ] Prepare the production closeout proof in `server/src/test/integration/review-production-loop.test.ts`: extend the `production three-target review loop closes only after every target and cross-repository result is usable` case so one combined scenario asserts target-local isolation, usable cross-repository coverage, complete story/session/pass/parent/target/HEAD/base identity, and disposition recording only after all required results are usable.
+11. [ ] Prepare the review-wave Cucumber proof surface in `server/src/test/features/review-wave.feature` and `server/src/test/steps/review-wave.steps.ts`: keep the mixed-wave and second-pass scenarios bound to `flows/two_phase_review_cycle.json`, and keep the downstream-tasking scenario bound to `validateCurrentReviewSet`; assert default production-wave reachability, finalized-validation consumption, distinct child identity sets across passes, and the three-target target-local plus cross-repository closeout path rather than only expanding fixture objects.
+12. [ ] Prepare a dedicated POST route case in `server/src/test/integration/flows.run.basic.test.ts` for `0000064-blank-flow-run-fields-coerced`: assert omitted, blank, and whitespace-only values for each affected `validateBody` identifier field through `POST /flows/:flowName/run`, then assert the resulting `startFlowRun` arguments and normal source/working-folder resolution. Keep the existing `POST /flows/:flowName/run ignores whitespace customTitle` case as adjacent custom-title coverage; do not rename it to claim the broader finding.
+13. [ ] Prepare a dedicated concurrent-initialization case in `server/src/test/unit/review-cycle-lifecycle.test.ts` for `0000064-active-review-cycle-overwrite-race`: invoke competing `initializeReviewCycle` calls at a deterministic write boundary and assert one authoritative active-cycle record, matching disposition ownership, preservation or archival of the prior cycle, and the loser/cleanup outcome. Do not rely on `fresh final review archives stale disposition and resume preserves the cycle`, which proves sequential archival/resume rather than the race.
+14. [ ] Prepare a dedicated malformed-success case in `scripts/review-cycle-summary.test.mjs` for `0000064-malformed-status-response-opaque-failure`: return a deterministic successful HTTP response whose `json()` produces an invalid status shape, assert the exported `waitForReviewCycle` path rejects with an actionable status diagnostic at the `readJsonResponse`/polling boundary, and preserve the wrapper `main` catch mapping to `review_runner_failure`. Keep `review runner waits through nonterminal status until terminal success` as separate happy-path polling coverage.
+15. [ ] Prepare `server/src/test/integration/flows.run.basic.test.ts` for `0000064-retry-completion-persistence-loss`: retain `durable retryOwnershipId replay reuses the accepted launch after completed-cache loss` as persisted-reload/idempotent-replay coverage, using `__resetFreshRunRetryOwnershipCompletionForTests` as the deterministic process-local barrier-loss boundary. Assert successful ownership, persisted reload, and fresh-run replay without duplicate ownership; do not rename this cache-loss test to claim that the completion write itself failed.
+16. [ ] Prepare `server/src/test/integration/flows.run.errors.test.ts` for `0000064-retry-completion-persistence-loss`: add a dedicated error-path case using the existing `memoryConversations.set` failure-injection pattern to fail the post-success completion write, then clear the process-local barrier and re-enter through the normal flow-run entrypoint to assert the durable barrier/replay outcome. Keep `pre-launch persistence failure clears stale retry ownership...` and `same-process completed retryOwnershipId replay...` as adjacent coverage; neither may be renamed to claim completion-write failure followed by persisted reload.
 
 #### Testing
 
-1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows-run-route.test.ts --file server/src/test/unit/review-cycle-lifecycle.test.ts` in `codeInfo2`; the focused tests must cover blank request fields and competing review-cycle ownership without changing the approved behavior contract.
-2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts` in `codeInfo2`; the focused tests must cover durable retry ownership and replay behavior after completion-cache loss.
-3. [ ] Run `node --test scripts/review-cycle-summary.test.mjs` in `codeInfo2`; the launcher tests must cover malformed successful status handling and preserve actionable protocol failure classification.
-4. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/review-wave-validation.test.ts --file server/src/test/integration/review-production-loop.test.ts` in `codeInfo2`; the focused tests must prove pinned-base identity, target-local results, and cross-repository closeout identity.
-5. [ ] Run `npm run test:summary:server:cucumber -- --feature src/test/features/review-wave.feature` in `codeInfo2` to prove the production review-wave and downstream-tasking boundary.
-6. [ ] Run `python3 scripts/plan_sections.py --profile review-tasking`, then verify the current pass appears in exactly one structured findings block, every blocker above has durable plan/state coverage, and Task 41 is the only final revalidation owner.
+Normal-system startup and shutdown are not repeated in this task: it changes review artifacts, server/script validation, and plan state without changing Compose ownership or runtime routing; Task 41 owns the supported main-stack lifecycle and full regression proof.
+
+1. [ ] In `codeInfo2`, run `npm run build:summary:server` before the focused proof.
+2. [ ] In `codeInfo2`, run `npm run test:summary:server:unit -- --skip-build --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/unit/review-cycle-lifecycle.test.ts`; cover the dedicated blank-field POST route case and competing review-cycle ownership without changing the approved behavior contract.
+3. [ ] In `codeInfo2`, run `npm run test:summary:server:unit -- --skip-build --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts`; cover persisted reload/idempotent replay after process-local barrier loss and the dedicated post-success completion-write failure branch.
+4. [ ] In `codeInfo2`, run `node --test scripts/review-cycle-summary.test.mjs`; cover malformed successful status handling and preserve actionable protocol failure classification.
+5. [ ] In `codeInfo2`, run `npm run test:summary:server:unit -- --skip-build --file server/src/test/unit/review-identity.test.ts --file server/src/test/unit/review-set.test.ts --file server/src/test/unit/review-wave-validation.test.ts --file server/src/test/integration/review-production-loop.test.ts`; prove atomic temporary-file cleanup, versioned writer-to-reader identity, partial or malformed state blocking closeout, pinned-base identity, target-local results, cross-repository closeout identity, and that an older terminal publication cannot supersede or clean up newer stable evidence.
+6. [ ] In `codeInfo2`, run `npm run test:summary:server:cucumber -- --skip-build --feature src/test/features/review-wave.feature` to prove the production review-wave and downstream-tasking boundary.
+7. [ ] Run `python3 scripts/plan_sections.py --profile review-tasking`, then verify the current pass appears in exactly one structured findings block, every blocker above has durable plan/state coverage, and Task 41 is the only final revalidation owner.
 
 #### Manual Testing Guidance
 
@@ -2755,9 +2536,13 @@ This is the sole final revalidation task for the active Story 64 review cycle. R
 
 #### Requirement-To-Proof Mapping
 
-- Review outcome: Task 40 state reconciliation plus the exact current-pass findings block.
-- Inline review repairs: every resolved ID listed in the Overview, revalidated by the relevant full suites.
-- Story acceptance: full client/server/Cucumber/e2e suites plus supported main-stack proof of one-target and three-target/cross-repository behavior.
+- Review outcome: Task 40 completion, the exact current-pass findings block, and matching disposition state; proved by Task 40's handoff testing item and the final task's prerequisite that Task 40's state is durable before closeout.
+- Server/common build: the supported server/common build in Testing item 1 proves the affected server and shared workspace compile before runtime or suite proof.
+- Client build: the supported client build in Testing item 2 proves the client workspace remains buildable.
+- Runtime lifecycle: Compose build and supported main-stack startup in Testing items 3-4, followed by matching shutdown in item 6, prove the runnable review surfaces use the supported environment.
+- Full automated coverage: Testing item 5's `npm run test:summary:all:parallel` proves the full client, server unit/integration, Cucumber, and Playwright end-to-end suites, including the current review-cycle surfaces.
+- Static quality: Task 41's lint and formatting subtasks and Testing items 7-8 prove the supported repository lint and formatting checks after runtime and full-suite proof.
+- Story closeout behavior: the final automated suite plus the Manual Testing Guidance prove one-target cancellation/resume and terminal recovery, then three-target expansion, isolated artifacts, and cross-repository handoff; no targeted command substitutes for the final wrapper.
 
 #### Proof Mapping
 
@@ -2789,15 +2574,18 @@ Final-task repair scope: the whole approved story is in scope for failures found
 2. [ ] In `codeInfo2`, run `npm run build:summary:client` for the client workspace.
 3. [ ] In `codeInfo2`, run `npm run compose:build:summary` for the supported main stack.
 4. [ ] Start the supported main stack with `npm run compose:up`.
-5. [ ] Run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, full Playwright end-to-end suite, and the current review-cycle proof surfaces.
+5. [ ] Run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, full Playwright end-to-end suite, and every Task 40 proof surface for the whole current review-created findings block: versioned artifact identity, multi-target cross-repository coverage, stale publication ordering, request admission, active-cycle ownership, malformed status classification, retry persistence/replay, and plan/disposition handoff.
 6. [ ] Stop the supported main stack with `npm run compose:down` after all runtime proof.
 7. [ ] In `codeInfo2`, run `npm run lint`.
 8. [ ] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
-- Use the supported main stack at `http://localhost:5001` and `http://localhost:5010` for browser-visible proof. Verify one-target cancellation/resume and terminal Send recovery, then use the story's available multi-target fixtures or target catalog to verify three-target fast-wave expansion, isolated target artifacts, and the cross-repository finding handoff without adding another repository.
-- Keep these scenarios manual-only; do not add them as automated `Testing` checklist items or substitute targeted checks for the full automated suite.
+- Use the supported main stack, started with `npm run compose:build` followed by `npm run compose:up`, for browser-visible proof. It loads `server/.env` and `server/.env.local` for the server and `client/.env` and `client/.env.local` for the client; do not invent credentials or alter those ownership boundaries.
+- Wait for the server readiness endpoint at `http://localhost:5010/health` and the client at `http://localhost:5001` before testing. The supported stack exposes server-side runtime ports 5010-5013 and the Playwright MCP service on port 8932; use the documented runtime handoff if readiness or service ownership differs.
+- Use the mounted runtime namespace when reasoning about proof: repository `codeinfo_markdown` is mounted read-only at `/app/codeinfo_markdown`, the supported agent catalogs come from `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, the working-folder mount is `/data` from `CODEINFO_HOST_INGEST_DIR` (default `/tmp`), and server logs are under `/app/logs`. The supported seed/setup source is `./copilot`, mounted read-only at `/seed/copilot`.
+- Verify one-target cancellation/resume and terminal Send recovery, then use the story's available multi-target fixtures or target catalog to verify three-target fast-wave expansion, isolated target artifacts, and the cross-repository finding handoff without adding another repository. Keep these scenarios manual-only; do not add them as automated `Testing` checklist items or substitute targeted checks for the full automated suite.
+- If screenshots are needed, first capture them with a relative staging path under `/tmp/playwright-output/<relative-path>` in the Playwright MCP runtime. For the codeInfo2 local harness workflow, look first under `$CODEINFO_ROOT/playwright-output-local/<relative-path>`, then transfer the artifact to the target-relative `codeInfoTmp/manual-testing/0000064/41/` destination; inspect runtime handoff JSON by meaning for the actual source, fallback runtime, and destination. If transfer remains blocked, record that limitation honestly rather than treating it as a reason to halt the proof loop.
 - Authentication-dependent provider actions may be skipped only under the repository's documented authentication guidance; record the skip and do not attempt autonomous re-authentication.
 
 #### Implementation Notes

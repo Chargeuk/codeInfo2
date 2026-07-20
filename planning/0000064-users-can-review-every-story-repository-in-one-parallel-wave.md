@@ -2367,7 +2367,7 @@ Escalated review items requiring combined task-up:
 - This task is a completed historical audit and does not replace final story revalidation.
 ### Task 40. Reconcile Incomplete Review Coverage and Recover Blocked Findings
 
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `review_finding_repair`
 - Prerequisite: Tasks 1-39 remain historical story work; complete this bounded review-state and evidence repair before final revalidation.

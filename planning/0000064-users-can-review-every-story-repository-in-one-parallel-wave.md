@@ -2697,3 +2697,58 @@ Remove durable review-state ownership by ephemeral flow execution IDs. A review 
 - Testing item 7: `npm run format:check` passed; all tracked files matched the repository's Prettier formatting rules.
 - Automated-proof audit: All six implementation subtasks and seven automated checks are complete on the committed implementation; the latest proof-only commit changed only this plan's formatting checkbox and note. No story-caused preserved-behavior regression or out-of-scope user-facing drift was found, so Task 42 is complete and ready for the separate manual-testing pass.
 - Manual testing: Full-story proof restarted the previously stopped main Compose stack, then ran `two_phase_review_cycle` against the current Story 64 plan. The UI showed fresh cycle `0000064-rc-20260720T224551Z-3987c485`, one immutable target, and a three-job fast wave despite prior historical cycles; the supported Stop control then produced a visible/API `stopped` wave outcome (`failed 1`, `stopped 1`, `not applicable 1`) rather than clean no-findings closeout. The transcript remained readable at 390px, and the main stack passed `/health` plus UI checks before clean shutdown; no additional subtasks were needed. Playwright captured `proof-01-fresh-cycle-stopped-wave.png` in its runtime, but the documented harness bind was unavailable, so no screenshot could be transferred into `codeInfoTmp/manual-testing/0000064/42/`.
+
+## Code Review Findings
+
+- Review pass: `0000064-20260720T225340Z-94ba2b5d05-679531ae`
+- Review cycle: `0000064-rc-20260720T225340Z-6831b239`
+- Comparison context: local `HEAD` `94ba2b5d05180e55a0bdd22a0e28e8130c7291a9` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
+- Wave coverage and target ownership: the fast wave expected 3 jobs and completed 2, with 1 failed/stale job; the usable Codex Review result belongs to target owner `current_repository`, Open Code Review was stale and unusable, and the required cross-repository result was `not_applicable`. The validated wave has `closeout_allowed: false`, so the incomplete coverage blocker remains outside the issue decisions.
+- Severity conflicts: the validated aggregate contains 5 findings and zero severity-conflict records; each accepted finding has one validated `Codex Review` source for `current_repository`.
+- Confidence note: only the usable Codex aggregate supplied accepted findings for this pass. No separate current-pass rejected or non-adopted candidate with a safe artifact source reference was recorded; the incomplete coverage state is not treated as an accepted or ignored issue.
+
+### Accepted
+
+#### 1. OCR publication rejects the required `planning/**` exclusion
+
+- Finding ID: `2b9e2ecc862d6c13e4a7d977b455a6a23afdb3af182ff637a071b178c993bbe8`
+- Found by: Codex Review
+- Description: Open Code Review publication compares bundled files with tracked files but does not honor the prepared review context's `planning/**` exclusion.
+- Example: A story branch with tracked plan changes can be rejected as missing files during OCR publication even though `planning/**` was intentionally excluded from the review bundle.
+- Why accepted: This is a current-pass, target-owned review artifact defect within Story 64's review publication and artifact pipeline. It remains bounded to the existing publisher seam and its focused proof.
+
+#### 2. Resuming a cancelled wave skips all stopped children
+
+- Finding ID: `5603bf600021aca98871a81694cd179cf3be2b82faf0068a1b7b3bf3fb7d7c40`
+- Found by: Codex Review
+- Description: Wave resume treats remembered stopped children as already handled and can finish without rerunning unfinished reviews.
+- Example: After cancellation, a stopped child is present in the recovered execution; resume skips it, observes no incomplete children, and returns `ok` without performing that review.
+- Why accepted: Cancellation and resume behavior is an explicit Story 64 acceptance criterion. The finding is target-owned and bounded to the existing wave-resume seam and focused integration proof.
+
+#### 3. Diagnostic waves cannot produce usable target validations
+
+- Finding ID: `ef304e0a4692d1bb1931fd6b227df9b0a48302dde0d2ef01eb5beb41d3be6fb6`
+- Found by: Codex Review
+- Description: Wave-target validation requires a review cycle ID even for diagnostic initialization, which intentionally has no final review cycle.
+- Example: Diagnostic Codex or Open Code results fail with `Prepared wave-target review scope is incomplete` while the diagnostic flow itself can finish.
+- Why accepted: Diagnostic wave identity and per-review validation are Story 64-owned review metadata. The finding was promoted for one honest inline attempt before task-up; its original shared-metadata and coordinated-contract constraints remain in force.
+
+#### 4. Diagnostic runs can overwrite an active final cycle's artifacts
+
+- Finding ID: `5f43331c587c485f40af99fbc0d1f5ea244f4dd332eeeba8178cf673498f19c3`
+- Found by: Codex Review
+- Description: Diagnostic target preparation can inherit the active final cycle and publish newer pointers that make the real final wave stale.
+- Example: A diagnostic run overlaps an in-progress final review, reads the final cycle identity, and promotes its target or review-set pointers over the final wave's artifacts.
+- Why accepted: Preventing diagnostic work from corrupting final cycle, wave, and target artifact identity is within Story 64's artifact-isolation contract. The finding was narrowed to that core and promoted for one honest inline attempt; the plan's non-goal against concurrent ownership negotiation excludes locking or conflict-resolution redesign.
+
+#### 5. The standalone review wrapper never finalizes its cycle
+
+- Finding ID: `a5aee94e7e31e4d4999e85dea93176316a5647f82cf851b96677145b2c6e69d9`
+- Found by: Codex Review
+- Description: Direct use of the standalone review wrapper can report terminal success without finalizing the durable active review cycle.
+- Example: The wrapper observes a successful `two_phase_review_cycle`, returns success, and leaves `active-review-cycle.json` in `in_progress` because no parent flow performs finalization.
+- Why accepted: Review-cycle execution and durable completion are part of Story 64's review-loop behavior. This target-owned wrapper issue has a bounded resolution and focused proof path.
+
+### Ignored for This Story
+
+- None.

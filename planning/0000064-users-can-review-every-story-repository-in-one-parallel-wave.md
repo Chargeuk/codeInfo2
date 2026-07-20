@@ -2570,3 +2570,46 @@ Escalated review items requiring combined task-up:
 - Description: The challenge noted that route tests use injected stubs and do not independently exercise the production validation seam.
 - Example: A stub can return the expected payload without proving the live route rejects malformed input.
 - Why ignored: The challenge generated no new finding; this is an advisory proof caveat covered by the canonical route-admission finding.
+
+### Task 39. Record Minor Review Fixes From Pass 0000064-20260720T002803Z-00f835bcb0-a40ed56f
+
+- Task Status: `__done__`
+
+#### Overview
+
+This completed audit records the terminal inline outcomes for this review pass.
+
+Escalated review items requiring combined task-up:
+
+- None.
+
+#### Subtasks
+
+1. [x] Fixed `0000064-cross-repository-stale-publication` — Singleton cross-repository not-applicable publication can win a stale wave. (`current_repository`); modified `server/src/flows/crossRepositoryReview.ts`, `server/src/test/unit/cross-repository-review.test.ts`.
+2. [x] Fixed `0000064-cucumber-production-boundary-bypass` — Review-wave Cucumber closeout and downstream-tasking scenarios now consume finalized output from the production wave-validation boundary. (`current_repository`); modified `server/src/test/features/review-wave.feature`, `server/src/test/steps/review-wave.steps.ts`.
+3. [x] Fixed `0000064-implicit-source-fallback-cross-binds-working-folder` — Implicit review launch fallback could bind a foreign flow source to the requested working folder. (`current_repository`); modified `scripts/review-cycle-summary.mjs`, `scripts/review-cycle-summary.test.mjs`.
+4. [x] Fixed `0000064-malformed-wave-state-discarded` — Malformed persisted wave jobs are silently discarded before recovery decisions. (`current_repository`); modified `server/src/flows/service.ts`, `server/src/test/integration/flows.run.subflow.test.ts`.
+5. [x] Fixed `0000064-missing-three-target-proof` — Three-target production review-loop proof now verifies every target-local job and the cross-repository result complete before closeout. (`current_repository`); modified `server/src/test/integration/review-production-loop.test.ts`.
+6. [x] Fixed `0000064-positional-second-pass-identity-proof` — Second-pass review-wave proof now compares complete child identity sets rather than matching jobs by position. (`current_repository`); modified `server/src/test/steps/review-wave.steps.ts`.
+7. [x] Fixed `0000064-resume-state-inputs-dropped` — Resume-state normalization drops malformed child inputs and prior flow values. (`current_repository`); modified `server/src/flows/service.ts`, `server/src/test/integration/flows.run.subflow.test.ts`.
+8. [x] Fixed `0000064-startup-pending-only-wave-not-selected` — Pending-only wave checkpoints were excluded from startup reconciliation selection. (`current_repository`); modified `server/src/flows/service.ts`, `server/src/test/unit/flows-startup-reconciliation.test.ts`.
+9. [x] Fixed `0000064-wave-base-identity-not-checked` — Wave validation did not enforce each target's pinned comparison base. (`current_repository`); modified `server/src/flows/reviewWaveValidation.ts`, `server/src/test/unit/review-wave-validation.test.ts`.
+
+#### Testing
+
+1. [x] `node --test scripts/review-cycle-summary.test.mjs` in `current_repository` — passed. All 12 focused launcher tests passed, including the foreign singleton-source regression.
+2. [x] `npm run test:summary:server:cucumber -- --feature src/test/features/review-wave.feature` in `current_repository` — passed. The focused server Cucumber wrapper built the server and passed all 9 review-wave scenarios after asserting unique, disjoint (instanceId, inputHash) identity sets.
+3. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --test-name "resume rejects malformed persisted child inputs and prior flow values"` in `current_repository` — passed. The focused regression passed after the server wrapper built the workspace; it covers malformed persisted child input and prior flow values.
+4. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --test-name "resume rejects malformed persisted wave progress instead of discarding its jobs"; npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts` in `current_repository` — passed. The focused malformed-state regression passed, then the owning subflow integration file passed all 52 tests.
+5. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/review-production-loop.test.ts` in `current_repository` — passed. The focused server-unit wrapper built the server and passed both production-loop integration tests, including the new three-target closeout case with nine target-local jobs and one completed cross-repository result.
+6. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/cross-repository-review.test.ts` in `current_repository` — passed. The focused server-unit wrapper passed all 4 tests, including the stale singleton publication regression.
+7. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows-startup-reconciliation.test.ts` in `current_repository` — passed. The focused wrapper built the server and passed all 5 startup-reconciliation tests, including the pending-only selector regression guard.
+8. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/review-wave-validation.test.ts` in `current_repository` — passed. The focused server-unit wrapper passed all 10 review-wave validation tests, including stale comparison-base rejection.
+
+#### Implementation Notes
+
+- Review Task Role: `minor_fix_loop_audit`
+- Review Cycle Id: `0000064-rc-20260719T212516Z-7280f8e7`
+- Review Pass Id: `0000064-20260720T002803Z-00f835bcb0-a40ed56f`
+- Review Phase: `slow`
+- This task is a completed historical audit and does not replace final story revalidation.

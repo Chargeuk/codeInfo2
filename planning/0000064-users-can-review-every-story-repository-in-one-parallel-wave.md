@@ -2674,7 +2674,7 @@ Remove durable review-state ownership by ephemeral flow execution IDs. A review 
 4. [x] Run `npm run build:summary:client`.
 5. [x] Run `npm run test:summary:all:parallel`.
 6. [x] Run `npm run lint`.
-7. [ ] Run `npm run format:check`.
+7. [x] Run `npm run format:check`.
 
 #### Implementation Notes
 
@@ -2694,5 +2694,5 @@ Remove durable review-state ownership by ephemeral flow execution IDs. A review 
 - Testing item 4: `npm run build:summary:client` passed typecheck and production build; the wrapper reported only the existing large-chunk advisory.
 - Testing item 5: The final `npm run test:summary:all:parallel` run passed client 900/900, server unit 2673/2673, server Cucumber 138/138, and e2e 77/77 on the exact completed implementation. An earlier attempt hit an unrelated temporary-directory cleanup race and one transient `ERR_NETWORK_CHANGED`; both failed cases passed targeted reruns before subsequent clean full-suite runs.
 - Testing item 6: `npm run lint` passed after the new best-effort subflow regressions were strengthened to assert that their parent conversations reach terminal `ok`; the focused subflow suite subsequently passed 56/56 with the incomplete-story skip case.
-
+- Testing item 7: `npm run format:check` passed; all tracked files matched the repository's Prettier formatting rules.
 

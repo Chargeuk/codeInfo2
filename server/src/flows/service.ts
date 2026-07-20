@@ -7629,7 +7629,6 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           detail: `outcome=${outcome} loopDepth=${loopStack.length}`,
         });
-        loopStack.pop();
         return outcome;
       }
       await params.onStopUnwindCheckpoint?.({

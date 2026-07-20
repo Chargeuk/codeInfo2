@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -132,6 +133,19 @@ def _ignored_paths(repo_root: Path, paths: set[str]) -> set[str]:
         detail = result.stderr.strip() or result.stdout.strip() or "unknown git error"
         raise ValueError(f"ignored committed diff paths could not be read: {detail}")
     return {path for path in result.stdout.splitlines() if path in paths}
+
+
+def _review_excluded_paths(prepared_base: dict[str, Any]) -> tuple[str, ...]:
+    exclusions = prepared_base.get("review_excluded_paths")
+    if not isinstance(exclusions, list) or any(
+        not isinstance(path, str) or not path.strip() for path in exclusions
+    ):
+        raise ValueError("prepared review base review_excluded_paths is malformed")
+    return tuple(path.strip() for path in exclusions)
+
+
+def _matches_review_exclusion(path: str, exclusions: tuple[str, ...]) -> bool:
+    return any(fnmatch.fnmatchcase(path, exclusion) for exclusion in exclusions)
 
 
 def _assert_contained(root: Path, candidate: Path, label: str) -> Path:
@@ -367,6 +381,7 @@ def build_open_code_review_pointer(
     )
     context = _read_object(context_path, "prepared review context")
     selected_source_headings = _selected_source_headings(context)
+    review_excluded_paths = _review_excluded_paths(prepared_base)
 
     manifest_path = _assert_contained(
         resolved_pass_dir,
@@ -424,6 +439,10 @@ def build_open_code_review_pointer(
             )
             if file_path in manifest_file_paths:
                 raise ValueError(f"OCR manifest contains duplicate file {file_path}")
+            if _matches_review_exclusion(file_path, review_excluded_paths):
+                raise ValueError(
+                    f"OCR manifest includes review-excluded path {file_path}"
+                )
             manifest_file_paths.add(file_path)
         pointer_bundle, bundle_reviewable_files, valid, bundle_findings = _bundle_pointer(
             pass_dir=resolved_pass_dir, bundle=raw_bundle, index=index
@@ -444,8 +463,18 @@ def build_open_code_review_pointer(
         _required_string(prepared_base, "head_commit", "prepared review base"),
     )
     missing_committed_paths = committed_paths - manifest_file_paths
-    ignored_committed_paths = _ignored_paths(root, missing_committed_paths)
-    unaccounted_paths = missing_committed_paths - ignored_committed_paths
+    review_excluded_committed_paths = {
+        path
+        for path in missing_committed_paths
+        if _matches_review_exclusion(path, review_excluded_paths)
+    }
+    ignored_committed_paths = _ignored_paths(
+        root, missing_committed_paths - review_excluded_committed_paths
+    )
+    publisher_excluded_paths = (
+        review_excluded_committed_paths | ignored_committed_paths
+    )
+    unaccounted_paths = missing_committed_paths - publisher_excluded_paths
     unexpected_paths = manifest_file_paths - committed_paths
     if unaccounted_paths or unexpected_paths:
         missing_paths = sorted(unaccounted_paths)
@@ -456,7 +485,7 @@ def build_open_code_review_pointer(
         if unexpected_paths:
             details.append("unexpected " + ", ".join(unexpected_paths))
         raise ValueError("OCR manifest committed diff paths conflict: " + "; ".join(details))
-    publisher_excluded_files = len(ignored_committed_paths)
+    publisher_excluded_files = len(publisher_excluded_paths)
     total_files += publisher_excluded_files
     excluded_files += publisher_excluded_files
     failed_files = reviewable_files - reviewed_files - skipped_files
@@ -550,7 +579,7 @@ def build_open_code_review_pointer(
             "excluded_files": excluded_files,
             "skipped_files": skipped_files,
             "failed_files": failed_files,
-            "publisher_excluded_paths": sorted(ignored_committed_paths),
+            "publisher_excluded_paths": sorted(publisher_excluded_paths),
         },
         "overall_validation_status": overall_status,
         "partial": partial,

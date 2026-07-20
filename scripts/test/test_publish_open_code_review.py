@@ -430,6 +430,45 @@ class PublishOpenCodeReviewTests(unittest.TestCase):
         )
         self.assertFalse(pointer["partial"])
 
+    def test_accounts_for_prepared_review_excluded_paths(self) -> None:
+        repo, log_root, pass_dir, prepared_base = self.make_fixture()
+        excluded_path = "planning/0000013-review.md"
+        self.committed_paths.add(excluded_path)
+
+        pointer, _, _ = publish_open_code_review.build_open_code_review_pointer(
+            repo_root=repo,
+            prepared_base_path=prepared_base,
+            pass_dir=pass_dir,
+            ocr_log_root=log_root,
+        )
+
+        self.assertEqual(pointer["coverage"]["total_files"], 2)
+        self.assertEqual(pointer["coverage"]["excluded_files"], 1)
+        self.assertEqual(
+            pointer["coverage"]["publisher_excluded_paths"], [excluded_path]
+        )
+        self.ignored_paths.assert_called_once_with(repo, set())
+
+    def test_rejects_manifest_that_includes_prepared_review_excluded_path(self) -> None:
+        repo, log_root, pass_dir, prepared_base = self.make_fixture()
+        excluded_path = "planning/0000013-review.md"
+        self.committed_paths.clear()
+        self.committed_paths.add(excluded_path)
+        manifest_path = pass_dir / "bundle-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["bundles"][0]["files"][0]["path"] = excluded_path
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        with self.assertRaisesRegex(
+            ValueError, "includes review-excluded path planning/0000013-review.md"
+        ):
+            publish_open_code_review.build_open_code_review_pointer(
+                repo_root=repo,
+                prepared_base_path=prepared_base,
+                pass_dir=pass_dir,
+                ocr_log_root=log_root,
+            )
+
     def test_publishes_terminal_failure_instead_of_leaving_pending_pointer(self) -> None:
         repo, log_root, _pass_dir, prepared_base = self.make_fixture()
 

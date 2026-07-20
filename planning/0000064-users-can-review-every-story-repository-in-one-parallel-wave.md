@@ -2599,10 +2599,10 @@ Final-task repair scope: the whole approved story is in scope for failures found
 2. [x] In `codeInfo2`, run `npm run build:summary:client` for the client workspace.
 3. [x] In `codeInfo2`, run `npm run compose:build:summary` for the supported main stack.
 4. [x] Start the supported main stack with `npm run compose:up`.
-5. [ ] Run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, full Playwright end-to-end suite, and every Task 40 proof surface for the whole current review-created findings block: versioned artifact identity, multi-target cross-repository coverage, stale publication ordering, request admission, active-cycle ownership, malformed status classification, retry persistence/replay, and plan/disposition handoff.
+5. [x] Run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, full Playwright end-to-end suite, and every Task 40 proof surface for the whole current review-created findings block: versioned artifact identity, multi-target cross-repository coverage, stale publication ordering, request admission, active-cycle ownership, malformed status classification, retry persistence/replay, and plan/disposition handoff.
 6. [x] Stop the supported main stack with `npm run compose:down` after all runtime proof.
-7. [ ] In `codeInfo2`, run `npm run lint`.
-8. [ ] In `codeInfo2`, run `npm run format:check`.
+7. [x] In `codeInfo2`, run `npm run lint`.
+8. [x] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -2628,5 +2628,8 @@ Final-task repair scope: the whole approved story is in scope for failures found
 - Testing item 4: Started the supported main stack with `npm run compose:up`; all declared services started and server/client health gates completed successfully.
 - **RESOLVED ISSUE** Testing item 5 remains incomplete pending a fresh full-suite run. The focused loop-resume wrapper reproduced a stopped continuation that persisted its marker but discarded the active loop frame, so the next resume skipped the new iteration. Preserving that frame through the non-`ok` unwind restored the boundary contract; `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "continue resume keeps its boundary marker until the next iteration makes progress"` passed.
 - Testing item 6: Ran `npm run compose:down` after the failed full-suite attempt; the supported main stack was stopped for cleanup.
+- Testing item 5: Ran `npm run test:summary:all:parallel`; all prerequisite builds and full suites passed: client 900/900, server unit 2669/2669, server Cucumber 138/138, and Playwright end-to-end 77/77.
+- Testing item 7: Ran `npm run lint`; ESLint completed successfully with zero warnings or errors.
+- Testing item 8: Ran `npm run format:check`; all tracked supported files matched Prettier style.
 - Automated-proof audit: Audited the implementation and proof evidence against the final-task lifecycle and behavior lock. Testing item 6 was normalized complete from the recorded shutdown command; items 5, 7, and 8 remain open because the fresh full suite and post-suite lint and formatting closeout have not been completed. The former flow-loop failure has now been repaired and narrowly verified. Task 41 remains `__in_progress__` with no live blocker and is not ready for manual testing until its required proof gates pass.
 - Preflight visual refinement: inspected the Story 64 Flow workspace at desktop and 390px mobile widths; clarified the parent wave-count, target-qualified child-title, terminal stopped-to-Send, and mobile composer seams in manual-proof guidance. No code was changed in this step.

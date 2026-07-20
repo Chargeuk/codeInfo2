@@ -5336,13 +5336,9 @@ async function runFlowUnlocked(params: {
       .filter((activeSubflow): activeSubflow is FlowActiveSubflow =>
         Boolean(activeSubflow),
       );
-    const resumeInterruptedWaveChild = async (
+    const resumeWaveChild = async (
       childRun: FlowActiveSubflow,
     ): Promise<FlowActiveSubflow | null> => {
-      if (params.resumeState?.restartReconciliation?.status !== 'interrupted') {
-        return null;
-      }
-
       const childConversation = await getConversation(childRun.conversationId);
       if (childConversation?.flowName !== childRun.flowName) return null;
       const childResumeState = parseFlowResumeState(
@@ -5351,6 +5347,13 @@ async function runFlowUnlocked(params: {
           : undefined,
       );
       if (!childResumeState) return null;
+
+      const resumesInterruptedChild =
+        params.resumeState?.restartReconciliation?.status === 'interrupted';
+      const resumesStoppedChild =
+        Boolean(params.resumeState) &&
+        childResumeState.runLifecycle?.status === 'stopped';
+      if (!resumesInterruptedChild && !resumesStoppedChild) return null;
 
       let resumedRunToken: string | undefined;
       await startFlowRun({
@@ -5644,11 +5647,18 @@ async function runFlowUnlocked(params: {
           conversationId: childRun.conversationId,
           runToken: childRun.runToken,
         });
+        if (status === 'stopped') {
+          const resumedChildRun = await resumeWaveChild(childRun);
+          if (resumedChildRun) {
+            resumableChildRuns.push(resumedChildRun);
+            continue;
+          }
+        }
         if (status || getActiveRunOwnership(childRun.conversationId)) {
           resumableChildRuns.push(childRun);
           continue;
         }
-        const resumedChildRun = await resumeInterruptedWaveChild(childRun);
+        const resumedChildRun = await resumeWaveChild(childRun);
         if (resumedChildRun) {
           resumableChildRuns.push(resumedChildRun);
           continue;

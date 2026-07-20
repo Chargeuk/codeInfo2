@@ -1280,6 +1280,118 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
   }
 });
 
+test('resuming a cancelled subflow wave restarts every stopped child in place', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-cancel-resume-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    for (const flowName of ['wave-resume-local', 'wave-resume-cross']) {
+      await writeFlowFile({
+        tmpDir,
+        flowName,
+        steps: [llmStep(`slow child ${flowName}`)],
+      });
+    }
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-wave-cancel-resume',
+      steps: [
+        {
+          type: 'subflowWave',
+          groups: [
+            {
+              kind: 'matrix',
+              id: 'locals',
+              itemsFrom: 'targets',
+              itemName: 'target',
+              flowNames: ['wave-resume-local'],
+              bindings: { input: { target: 'target' } },
+            },
+            {
+              kind: 'singleton',
+              id: 'cross',
+              flowName: 'wave-resume-cross',
+            },
+          ],
+        },
+      ],
+    });
+
+    let parentRunToken: string | undefined;
+    const input = { targets: [{ id: 'a' }, { id: 'b' }] };
+    const result = await startFlowRun({
+      flowName: 'parent-wave-cancel-resume',
+      source: 'REST',
+      input,
+      chatFactory: () => new SubflowChat(500),
+      onOwnershipReady: ({ runToken }) => {
+        parentRunToken = runToken;
+      },
+    });
+    const activeSubflows = await waitForActiveSubflowCount(
+      result.conversationId,
+      3,
+    );
+    assert.ok(parentRunToken);
+
+    registerPendingConversationCancel({
+      conversationId: result.conversationId,
+      runToken: parentRunToken,
+    });
+    assert.equal(
+      abortInflight({
+        conversationId: result.conversationId,
+        inflightId: result.inflightId,
+      }).ok,
+      true,
+    );
+    await waitForAssistantStatus(result.conversationId, 'stopped');
+    await Promise.all(
+      activeSubflows.map((entry) =>
+        waitForConversationAssistantStatus(String(entry.conversationId), 'stopped'),
+      ),
+    );
+
+    await startFlowRun({
+      flowName: 'parent-wave-cancel-resume',
+      conversationId: result.conversationId,
+      resumeStepPath: [],
+      source: 'REST',
+      input,
+      chatFactory: () => new SubflowChat(25),
+    });
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    await Promise.all(
+      activeSubflows.map((entry) =>
+        waitForConversationAssistantStatus(String(entry.conversationId), 'ok'),
+      ),
+    );
+
+    const childConversations = Array.from(memoryConversations.values()).filter(
+      (conversation) =>
+        conversation.flowName === 'wave-resume-local' ||
+        conversation.flowName === 'wave-resume-cross',
+    );
+    assert.equal(childConversations.length, 3);
+    const parentFlow = (
+      memoryConversations.get(result.conversationId)?.flags as {
+        flow?: {
+          subflowWaveProgress?: {
+            completed?: number;
+            stopped?: number;
+          };
+        };
+      }
+    )?.flow;
+    assert.equal(parentFlow?.subflowWaveProgress?.completed, 3);
+    assert.equal(parentFlow?.subflowWaveProgress?.stopped, 0);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('resuming a subflow wave reattaches by instance id without duplicate launches', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-resume-'),

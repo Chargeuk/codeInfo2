@@ -2325,3 +2325,233 @@ Escalated review items requiring combined task-up:
 - Review Pass Id: `0000064-20260719T223932Z-95741e5d79-c6e7c46c`
 - Review Phase: `fast`
 - This task is a completed historical audit and does not replace final story revalidation.
+
+
+## Code Review Findings
+
+- Review pass: `0000064-20260720T002803Z-00f835bcb0-a40ed56f`
+- Review cycle: `0000064-rc-20260719T212516Z-7280f8e7`
+- Comparison context: local `HEAD` `00f835bcb02b9f5a37b97816fb7c763becfc7f7a` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
+- Wave coverage and ownership: slow wave `0000064-rw-20260720T002803Z-399acf83` expected one target-local `review_artifacts_main` job and completed it with usable server-owned validation; cross-repository coverage was not expected for this singleton slow wave. `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2` is the recorded target and implementation owner.
+- Severity conflicts and provenance: the validated aggregate contains 14 findings with zero severity conflicts, and every finding has one validated `Main Review` source for `current_repository`. Three carried-forward incomplete-review blockers remain workflow state rather than accepted or ignored issues.
+- Confidence note: the challenge artifact generated no new finding, and the saturation artifact's only promoted issue is already represented by finding `0000064-cross-repository-stale-publication`; no separate challenge or saturation candidate was added.
+
+### Accepted
+
+#### 1. Pending-only wave checkpoints are not selected for startup reconciliation
+
+- Finding ID: `0000064-startup-pending-only-wave-not-selected`
+- Found by: Main Review
+- Description: Startup reconciliation skips persisted waves whose jobs are all pending.
+- Example: A checkpoint with `running: 0` and pending jobs is skipped because the startup query requires active children or a positive running count.
+- Why accepted: Story 64 requires reliable wave resume and startup recovery; this is a bounded story-owned recovery gap queued for one inline attempt.
+
+#### 2. Closeout evidence does not prove the three-target/cross-repository path
+
+- Finding ID: `0000064-missing-three-target-proof`
+- Found by: Main Review
+- Description: Closeout evidence does not prove the acceptance-required three-target and cross-repository behavior.
+- Example: The final proof covers the available one-target scope, while the stored evidence says the three-target path was not re-proven.
+- Why accepted: The story explicitly requires this proof. The accepted scope is narrowed to repository-owned test or supported manual proof and does not authorize adding repositories or changing plan scope.
+
+#### 3. Malformed persisted wave jobs are silently discarded before recovery decisions
+
+- Finding ID: `0000064-malformed-wave-state-discarded`
+- Found by: Main Review
+- Description: Resume normalization drops malformed persisted jobs and can turn interrupted work into an apparently empty checkpoint.
+- Example: A malformed job is filtered out and malformed counters become zero-like values before startup decides whether recovery is needed.
+- Why accepted: Story 64 defines persisted wave identity and resume behavior; failing closed at this story-owned normalization seam is a bounded inline correction.
+
+#### 4. Resume-state normalization drops malformed child inputs and prior flow values
+
+- Finding ID: `0000064-resume-state-inputs-dropped`
+- Found by: Main Review
+- Description: Resume normalization omits malformed child input and prior flow values instead of preserving or rejecting them.
+- Example: A resumed child can be reattached without its immutable input, while malformed `flow.values` becomes an empty inherited state.
+- Why accepted: The story explicitly requires immutable child inputs and safe resume without altered work; this is an actionable story-owned persistence seam.
+
+#### 5. Explicit blank flow-run identifiers are converted into omitted request fields
+
+- Finding ID: `0000064-blank-flow-run-fields-coerced`
+- Found by: Main Review
+- Description: The story-added route trims whitespace-only identifiers into omitted fields, allowing default resolution instead of rejecting explicit blank input.
+- Example: A blank `sourceId` or `working_folder` can fall through to ambient repository resolution.
+- Why accepted: This is preserved request-admission behavior drift on a story-changed route, so restoring it is required by the behavior lock without adding a new user-facing contract.
+
+#### 6. A new final review can overwrite another active cycle and delete its disposition state
+
+- Finding ID: `0000064-active-review-cycle-overwrite-race`
+- Found by: Main Review
+- Description: A second final review can replace the active cycle and remove shared disposition state while the first cycle is still running.
+- Example: Two launches with different parent executions can archive the first cycle's state and install the second cycle's marker.
+- Why accepted: Story 64 explicitly owns the two-phase review-cycle lifecycle and cumulative disposition state; concurrent ownership loss violates that contract.
+
+#### 7. Wave validation does not enforce each target's pinned comparison base
+
+- Finding ID: `0000064-wave-base-identity-not-checked`
+- Found by: Main Review
+- Description: Wave validation checks target and HEAD identity but does not require the result to use the target's pinned comparison base.
+- Example: A result read from a mutable review-base pointer can supply a different base commit and still pass target identity checks.
+- Why accepted: The story explicitly requires pinned target bases and server-owned wave identity validation; this is a bounded validator correction.
+
+#### 8. Singleton cross-repository not-applicable publication can win a stale wave
+
+- Finding ID: `0000064-cross-repository-stale-publication`
+- Found by: Main Review
+- Description: The singleton cross-repository writer can publish a stale not-applicable result over a newer wave's stable pointer.
+- Example: A newer review set lands after validation but before the older wave writes `current-cross-repository-review.json`.
+- Why accepted: Story 64 owns canonical cross-repository artifact publication and stale-wave protection; this is a bounded publication-seam correction.
+
+#### 9. Malformed successful status responses become an opaque runner failure
+
+- Finding ID: `0000064-malformed-status-response-opaque-failure`
+- Found by: Main Review
+- Description: A malformed successful status response becomes null and then fails as an opaque runner error.
+- Example: A truncated 2xx status body reaches `status.status` access without a response-shape diagnostic.
+- Why accepted: The review-cycle wrapper owns status polling and terminal reporting; preserving an actionable protocol error is part of that changed seam.
+
+#### 10. Implicit review launch fallback can bind source B to working folder A
+
+- Finding ID: `0000064-implicit-source-fallback-cross-binds-working-folder`
+- Found by: Main Review
+- Description: The unique-candidate fallback can select a flow source belonging to one repository while retaining a different requested working folder.
+- Example: With working folder A and only source B in the flow catalog, launch resolution returns A plus B.
+- Why accepted: Explicit working-folder and source binding is a story contract; restoring that binding is bounded and target-owned.
+
+#### 11. Retry completion persistence failure leaves replay without a durable barrier
+
+- Finding ID: `0000064-retry-completion-persistence-loss`
+- Found by: Main Review
+- Description: If completion-marker persistence fails after external work succeeds, a restart can lose the only replay barrier.
+- Example: The in-memory completion record deduplicates a replay until process restart, after which the same retry ID can execute again.
+- Why accepted: The story changed review-cycle launch and retry ownership paths and requires safe replay lifecycle behavior; durable retry protection remains actionable.
+
+#### 12. Cucumber closeout and downstream-tasking scenarios bypass the production boundaries
+
+- Finding ID: `0000064-cucumber-production-boundary-bypass`
+- Found by: Main Review
+- Description: The scenarios assert fixture-derived booleans without invoking production wave validation or downstream disposition/tasking.
+- Example: A fixture can satisfy the assertion even if the real validator or tasking consumer would reject or drop the same data.
+- Why accepted: Story 64 requires Cucumber and downstream review-loop proof; routing the scenarios through existing production seams is bounded test-only work.
+
+#### 13. Second-pass identity proof compares positions instead of identity sets
+
+- Finding ID: `0000064-positional-second-pass-identity-proof`
+- Found by: Main Review
+- Description: The replay test compares hashes at matching positions instead of checking set disjointness.
+- Example: A reused first-pass hash at a different position can pass the current assertion.
+- Why accepted: The story explicitly requires unique refreshed child identities across passes; this is a bounded proof correction.
+
+### Ignored for This Story
+
+#### 14. Review-base output-key contract is duplicated as literals
+
+- Finding ID or Review reference: `0000064-duplicated-review-base-output-key`
+- Found by: Main Review
+- Description: Several review artifact paths repeat the same current-review-base output-key literal.
+- Example: The producer and consumers currently use the same key consistently, so no runtime failure is shown.
+- Why ignored: This is cleanup preference without a current-head failure, active-story requirement, or approved scope expansion.
+
+#### 15. Bulk side-effect cardinality audit
+
+- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: Bulk side-effect cardinality audit`
+- Found by: findings artifact — `Rejected Risk Notes: Bulk side-effect cardinality audit`
+- Description: The audit checked whether target, job, validation, UI, or fixture loops multiplied refreshes or hid mixed outcomes.
+- Example: Per-target preparation and validation use distinct identities, while UI and descriptor loops are pure transformations.
+- Why ignored: The audit established no additional actionable defect; this remains non-adopted review risk.
+
+#### 16. Field-role stability audit
+
+- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: Field-role stability audit`
+- Found by: findings artifact — `Rejected Risk Notes: Field-role stability audit`
+- Description: The audit checked whether target, instance, execution, and display fields were confused across persistence and UI mapping.
+- Example: `target_id`, `instanceId`, and `executionId` remain distinct in the reviewed paths.
+- Why ignored: No additional field-role defect was established beyond the accepted target-base and source/working-folder findings.
+
+#### 17. UI affordance-parity audit
+
+- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: UI affordance-parity audit`
+- Found by: findings artifact — `Rejected Risk Notes: UI affordance-parity audit`
+- Description: The audit checked whether informational wave and target chips changed controls, selection, payloads, or reset behavior.
+- Example: The changed surfaces add informational chips only; no row action, bulk action, checkbox, or submit contract changed.
+- Why ignored: This was a rejected additional UI-scope concern, not a current-story behavior finding.
+
+#### 18. Time-based coordination audit
+
+- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: Time-based coordination`
+- Found by: findings artifact — `Rejected Risk Notes: Time-based coordination`
+- Description: The audit checked polling, startup recovery, cancellation clocks, and review-cycle timing for timer-primary defects.
+- Example: Poll intervals and cancellation clocks are injected in tests, and the wrapper polls because no reliable run-status subscription exists.
+- Why ignored: No additional timer-coordination defect was established beyond the accepted status-response finding.
+
+#### 19. Untrusted-boundary audit
+
+- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: Untrusted-boundary audit`
+- Found by: findings artifact — `Rejected Risk Notes: Untrusted-boundary audit`
+- Description: The audit checked command injection, path escape, shell authority, and review-artifact traversal.
+- Example: `execFile` receives separate arguments, flow names are fixed, and artifact paths are constrained and realpath-checked.
+- Why ignored: No additional security or authority-drift finding was established.
+
+#### 20. Cross-repository early not-applicable selection
+
+- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: crossRepositoryReview and the default single-target gate`
+- Found by: findings artifact — `Rejected Risk Notes: crossRepositoryReview and the default single-target gate`
+- Description: The audit checked whether an early unavailable or not-applicable classification could prevent the authoritative cross-repository selector.
+- Example: The singleton not-applicable path is plan-required and directly covered by tests.
+- Why ignored: No separate early-selector defect was established; stale publication remains the scoped cross-repository issue.
+
+#### 21. Wave child scheduler audit
+
+- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: runSubflowJobs`
+- Found by: findings artifact — `Rejected Risk Notes: runSubflowJobs`
+- Description: The audit checked child identity persistence, cancellation, stale-child handling, terminal waiting, and duplicate launches.
+- Example: The parent records unadmitted or failed children, while the separate startup-selection mismatch remains the accepted issue.
+- Why ignored: No additional scheduler finding was established.
+
+#### 22. Review-target and review-set scale audit
+
+- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: prepareReviewTargets and prepareReviewSet`
+- Found by: findings artifact — `Rejected Risk Notes: prepareReviewTargets and prepareReviewSet`
+- Description: The audit checked stale snapshots, base drift, duplicate roots or aliases, and target-count scaling.
+- Example: Stable promotion rechecks the target snapshot, and expected jobs scale with the target list.
+- Why ignored: No additional target-preparation defect was established.
+
+#### 23. Cross-repository result schema audit
+
+- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: validateReviewWave and gateCrossRepositoryReview`
+- Found by: findings artifact — `Rejected Risk Notes: validateReviewWave and gateCrossRepositoryReview`
+- Description: The audit checked malformed pointers, duplicate targets, missing relationship coverage, and out-of-snapshot finding targets.
+- Example: `isUsableCrossRepositoryResult` validates schema, target coverage, relationship coverage, and finding target IDs.
+- Why ignored: No additional validator defect was established; base identity and stale publication remain the scoped issues.
+
+#### 24. Default-path and cleanup audit
+
+- Finding ID or Review reference: findings artifact — `Rejected Risk Notes: Default-path and cleanup review`
+- Found by: findings artifact — `Rejected Risk Notes: Default-path and cleanup review`
+- Description: The audit checked whether selectors, wrappers, or cleanup made the review flow opt-in or leaked artifacts.
+- Example: No selector exclusion was found, and review artifact writes use atomic rename.
+- Why ignored: No separate opt-in or cleanup-leak finding was established.
+
+#### 25. Startup source-order proof challenge
+
+- Finding ID or Review reference: challenge artifact — `server/src/test/unit/flows-startup-reconciliation.test.ts`
+- Found by: challenge artifact — `server/src/test/unit/flows-startup-reconciliation.test.ts`
+- Description: The challenge noted that the startup-order test reads source text rather than observing a live readiness boundary.
+- Example: The test proves source ordering but does not run the server through an actual readiness race.
+- Why ignored: The challenge generated no new finding; this is an advisory proof caveat, not a separate implementation issue.
+
+#### 26. Contract-text BDD proof challenge
+
+- Finding ID or Review reference: challenge artifact — `server/src/test/features/review-wave.feature` and `server/src/test/steps/review-wave.steps.ts`
+- Found by: challenge artifact — `server/src/test/features/review-wave.feature` and `server/src/test/steps/review-wave.steps.ts`
+- Description: The challenge noted that one contract-focused scenario checks prose rather than runtime ownership behavior.
+- Example: The scenario can validate wording without invoking the production boundary.
+- Why ignored: The challenge generated no new finding; the canonical BDD boundary finding remains the only actionable proof issue for this surface.
+
+#### 27. Mocked route seam proof challenge
+
+- Finding ID or Review reference: challenge artifact — `server/src/test/unit/flows-run-route.test.ts`
+- Found by: challenge artifact — `server/src/test/unit/flows-run-route.test.ts`
+- Description: The challenge noted that route tests use injected stubs and do not independently exercise the production validation seam.
+- Example: A stub can return the expected payload without proving the live route rejects malformed input.
+- Why ignored: The challenge generated no new finding; this is an advisory proof caveat covered by the canonical route-admission finding.

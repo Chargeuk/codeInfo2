@@ -80,6 +80,43 @@ test('review runner rejects a source id belonging to a different repository', as
   );
 });
 
+test('review runner does not bind a unique foreign review flow to the requested working folder', async () => {
+  await assert.rejects(
+    resolveReviewLaunch({
+      baseUrl: 'http://server',
+      workingFolder: '/host/repo-a',
+      fetchImpl: async (url) => {
+        if (url.endsWith('/tools/ingested-repos')) {
+          return response(200, {
+            repos: [
+              {
+                id: '/data/repo-a',
+                containerPath: '/data/repo-a',
+                hostPath: '/host/repo-a',
+              },
+              {
+                id: '/data/repo-b',
+                containerPath: '/data/repo-b',
+                hostPath: '/host/repo-b',
+              },
+            ],
+          });
+        }
+        return response(200, {
+          flows: [
+            {
+              name: 'two_phase_review_cycle',
+              sourceId: '/data/repo-b',
+              disabled: false,
+            },
+          ],
+        });
+      },
+    }),
+    /Could not uniquely resolve the repository-backed two_phase_review_cycle sourceId/u,
+  );
+});
+
 test('review runner waits through nonterminal status until terminal success', async () => {
   const calls = [];
   const statuses = [

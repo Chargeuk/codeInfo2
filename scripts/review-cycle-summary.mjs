@@ -136,7 +136,10 @@ export const resolveReviewLaunch = async ({
   const uniqueSourceIds = [...new Set(candidates.map((flow) => flow.sourceId))];
   const resolvedSourceId =
     matchingFlow?.sourceId ??
-    (uniqueSourceIds.length === 1 ? uniqueSourceIds[0] : undefined);
+    (uniqueSourceIds.length === 1 &&
+    uniqueSourceIds[0] === matchingRepo.containerPath
+      ? uniqueSourceIds[0]
+      : undefined);
   if (!resolvedSourceId) {
     throw new Error(
       'Could not uniquely resolve the repository-backed two_phase_review_cycle sourceId.',

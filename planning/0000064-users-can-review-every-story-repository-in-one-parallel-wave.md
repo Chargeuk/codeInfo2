@@ -2577,8 +2577,8 @@ This is the sole final revalidation task for the active Story 64 review cycle. R
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `codeInfo2`, run `npm run lint` and fix issues.
-2. [ ] In `codeInfo2`, run `npm run format:check` and fix issues.
+1. [x] In `codeInfo2`, run `npm run lint` and fix issues.
+2. [x] In `codeInfo2`, run `npm run format:check` and fix issues.
 
 #### Testing
 
@@ -2606,3 +2606,5 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 - Review Task Role: `final_revalidation`
 - This task owns final proof for the whole story and the active review cycle; it does not complete until all required proof is current.
+- Subtask 1: Ran `npm run lint`; ESLint completed successfully with zero warnings or errors, so no lint repairs were needed.
+- Subtask 2: Ran `npm run format:check`; all tracked supported files matched Prettier style, so no formatting repairs were needed.

@@ -540,7 +540,8 @@ export async function validateReviewWave(
       targetResult.repo_alias === target.repo_alias &&
       targetResult.review_wave_id === params.snapshot.review_wave_id &&
       targetResult.plan_host_root === params.snapshot.plan_host_root &&
-      targetResult.head_commit === target.head_commit;
+      targetResult.head_commit === target.head_commit &&
+      targetResult.comparison_base_commit === target.comparison_base_commit;
     if (!targetIdentityMatches) {
       results.push({
         ...job,

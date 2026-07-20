@@ -31,6 +31,7 @@ const createFixture = async () => {
     repository_id: index === 0 ? 'repo-a' : 'repo-b',
     branch: 'feature/0000064-review',
     head_commit: String(index + 1).repeat(40),
+    comparison_base_commit: 'b'.repeat(40),
     story_id: '0000064',
     is_primary: index === 0,
   }));
@@ -327,6 +328,32 @@ test('complete review wave finalizes exact coverage and retains severity conflic
     assert.deepEqual(
       JSON.parse(await fs.readFile(result.reviewSetPath, 'utf8')),
       result.finalized,
+    );
+  } finally {
+    await fs.rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('wave validation rejects target results with a stale comparison base', async () => {
+  const fixture = await createFixture();
+  try {
+    fixture.snapshot.targets[0]!.comparison_base_commit = 'c'.repeat(40);
+
+    const result = await validateReviewWave(
+      { snapshot: fixture.snapshot, reviewSet: fixture.reviewSet },
+      { validateReviewArtifacts: fixture.validateTargetArtifacts },
+    );
+
+    const staleJobs = result.finalized.job_results?.filter(
+      (job) => job.target_id === 'current_repository',
+    );
+    assert.equal(staleJobs?.length, 2);
+    assert.equal(staleJobs?.every((job) => job.status === 'stale'), true);
+    assert.equal(
+      staleJobs?.every(
+        (job) => job.error === 'Target review validation identity is stale.',
+      ),
+      true,
     );
   } finally {
     await fs.rm(fixture.root, { recursive: true, force: true });

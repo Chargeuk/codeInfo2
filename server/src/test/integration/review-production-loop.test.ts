@@ -788,6 +788,16 @@ test('production one-target review loop validates four jobs and durably records 
     const firstState = await readJson(dispositionPath(repoRoot));
     const firstRecording = firstState.review_decision_recording as JsonObject;
     assert.equal(firstRecording.outcome, 'recorded');
+    const activeCycle = await readJson(
+      path.join(
+        repoRoot,
+        'codeInfoStatus',
+        'flow-state',
+        'active-review-cycle.json',
+      ),
+    );
+    assert.equal(activeCycle.status, 'completed');
+    assert.equal(typeof activeCycle.completed_at, 'string');
     let plan = await fs.readFile(path.join(repoRoot, planPath), 'utf8');
     assert.equal(plan.match(/^## Code Review Findings$/gmu)?.length, 1);
     assert.equal(

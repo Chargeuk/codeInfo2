@@ -4371,6 +4371,15 @@ async function runFlowUnlocked(params: {
   const flowValues: FlowJsonObject = {
     ...(params.resumeState?.values ?? {}),
   };
+  let initializedFinalReviewCycle = Object.values(flowValues).some(
+    (value) =>
+      Boolean(value) &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      (value as FlowJsonObject).action === 'initialized' &&
+      (value as FlowJsonObject).review_mode === 'final' &&
+      typeof (value as FlowJsonObject).review_cycle_id === 'string',
+  );
   let activeSubflows = params.resumeState?.activeSubflows?.map(
     (activeSubflow) => ({
       stepPath: [...activeSubflow.stepPath],
@@ -6445,6 +6454,9 @@ async function runFlowUnlocked(params: {
         readiness: result.readiness,
         ...(result.cycle ?? {}),
       });
+      if (step.mode === 'final' && result.action === 'initialized') {
+        initializedFinalReviewCycle = true;
+      }
       const exitFlow = result.action === 'skipped_incomplete_story';
       await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
@@ -8345,6 +8357,25 @@ async function runFlowUnlocked(params: {
     runLifecycle.status = normalizedOutcome;
     runLifecycle.updatedAt = new Date().toISOString();
     await persistRuntimeResumeState(lastCompletedStepPath);
+    if (
+      initializedFinalReviewCycle &&
+      terminalOutcome !== 'not_applicable'
+    ) {
+      const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+        params.repositoryContext,
+      );
+      if (reviewRepositoryPath) {
+        await finalizeActiveReviewCycle({
+          workingRepositoryPath: reviewRepositoryPath,
+          status: normalizedOutcome === 'ok' ? 'completed' : 'incomplete',
+          ...(normalizedOutcome === 'ok'
+            ? {}
+            : {
+                reason: `Review flow ${params.flowName} ended with status ${normalizedOutcome}.`,
+              }),
+        });
+      }
+    }
     return normalizedOutcome;
   };
 

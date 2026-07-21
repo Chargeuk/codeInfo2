@@ -10,7 +10,7 @@ The original review workflow coupled each provider to stable pointers, publisher
 
 Use a KISS, agent-native review boundary instead. Every scheduled review receives the same kind of agent-readable story and repository inputs plus a private immutable job workspace. Each reviewer adapts those inputs to its own tools, preserves native work, and writes the clearest self-describing output it can. Output filenames and internal layouts are deliberately flexible: common verification, reconciliation, disposition, fixing, and settlement agents discover the available files and understand their meaning rather than application code parsing a provider-specific result schema.
 
-The parent flow only owns scheduling policy. It currently runs one configurable group repeatedly for early convergence with a five-iteration limit, then one separately configured group once because that group is slower. Reviewers and consumers do not know or care which scheduling group they belong to. Failures and incomplete coverage remain visible and the flow continues with best effort; useful sibling results are never discarded merely because another reviewer failed. Runtime code validates only factual boundaries such as assigned paths, containment, Git commits, directory presence, execution status, cancellation, and resume. Agents own semantic recovery and final settlement, and must never invent a clean result when meaningful evidence could not be produced. After the complete review evidence has been reconciled and audited, an independently reset agent applies the repository's detailed story-scope policy to the actionable reconciliation before disposition. It removes or narrows only out-of-scope actionable items, preserves immutable job evidence, and records every removed item in a self-describing batch artifact so the final plan decision trail remains complete. One normal coding-agent invocation then attempts every surviving finding it can honestly resolve, processing all owning repositories sequentially with separate tests and commits. A one-iteration loop invokes a stronger research agent only when the coding agent cannot confirm that all actionable findings are resolved; only findings still unresolved after that stronger attempt may become implementation tasks during complete-pass settlement.
+The parent flow only owns scheduling policy. It currently runs one configurable group repeatedly for early convergence with a five-iteration limit, then one separately configured group once because that group is slower. Reviewers and consumers do not know or care which scheduling group they belong to. Failures and incomplete coverage remain visible and the flow continues with best effort; useful sibling results are never discarded merely because another reviewer failed. Runtime code validates only factual boundaries such as assigned paths, containment, Git commits, directory presence, execution status, cancellation, and resume. Agents own semantic recovery and final settlement, and must never invent a clean result when meaningful evidence could not be produced. After the complete review evidence has been reconciled and audited, an independently reset agent applies the repository's detailed story-scope policy to the actionable reconciliation before disposition. It removes or narrows only out-of-scope actionable items, preserves immutable job evidence, and records every removed item in a self-describing batch artifact so the final plan decision trail remains complete. One normal coding-agent invocation then attempts every surviving finding it can honestly resolve, processing all owning repositories sequentially with separate tests and commits. A one-iteration loop invokes a stronger research agent only when the coding agent cannot confirm that all actionable findings are resolved; only findings still unresolved after that stronger attempt may become implementation tasks during complete-pass settlement. The same bounded escalation principle applies during normal task implementation: after the coding agent's deep blocker repair, one freshly reset research agent may repair a directly causal issue outside the current task when necessary, while keeping every edit minimal, targeted, and within persisted story scope so normal implementation and proof can continue.
 
 ## Acceptance Criteria
 
@@ -35,12 +35,18 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - The story-scope gate removes fully out-of-scope items only from the actionable reconciliation, narrows mixed findings to their in-scope core, leaves reviewer outputs and verification evidence unchanged, and records every removal or narrowing in a self-describing batch artifact.
 - Review disposition sees only the filtered actionable reconciliation and records scope-filtered items together with its own rejected findings under the current review block's `Ignored for This Story` section without rewriting historical blocks.
 - One normal coding-agent invocation considers every supported in-scope actionable finding, attempts everything it can honestly resolve in the current pass, processes owning repositories sequentially, runs repository-appropriate proof, and creates separate commits on every changed story branch without pushing.
+- Immediately before each normal coding-agent or stronger research-agent repair invocation, the flow resets that exact agent type and identifier so repair work starts with fresh context loaded from the current batch evidence on disk.
 - A one-iteration optional-research loop asks the normal fixer for exact yes/no JSON, skips the stronger agent only when completion is positively confirmed, otherwise runs one independently reset `research_agent` attempt across every remaining repository, and exits through an explicit yes break without introducing a general `if` flow primitive.
 - Both repair agents write self-describing batch audits that preserve finding identity, repository ownership, files, tests, commits, unresolved work, and uncertainty without requiring a rigid schema, provider publisher, or exact filename parser.
 - Fixes from either repair agent cause another useful repeated review against every changed repository's new immutable HEAD, subject to the five-iteration limit; reaching the limit follows the same continuation route as early completion.
 - Findings unresolved after the normal and stronger attempts survive later batches and are handled once during complete-pass settlement rather than being lost, duplicated by provider, prematurely tasked, or converted into endless same-HEAD retries.
 - When a pass produced direct fixes but no task-required issue, settlement adds or updates one final testing/revalidation task; when findings require tasks, settlement adds those implementation tasks followed by one final testing/revalidation task.
 - The outer story loop implements newly settled work and starts a fresh complete review pass until a pass is genuinely clean.
+- Every main implementation flow gives the normal coding agent the first deep implementation-blocker repair attempt, then uses a one-iteration optional-research loop that skips only when the coding agent positively confirms no live blocker remains.
+- Every main implementation flow resets the normal `coding_agent` immediately before loading current-task repair context and resets the stronger `research_agent` immediately before its repair invocation, while the persistent loop-control agent is not reset inside the optional repair loop.
+- The implementation-blocker research agent is reset immediately before invocation, may repair directly causal code, configuration, tests, documentation, workflow support, prerequisites, or cross-repository contracts outside the bound task but within persisted plan scope, and must use the smallest focused evidence-backed change that completely removes the blocker.
+- The stronger implementation repair completes and records formerly blocked subtasks honestly, preserves unperformed testing steps, documents every necessary changed file in the bound task's `Implementation Notes`, commits per repository without pushing, and leaves the existing disk-based blocker gate authoritative after its one attempt.
+- Negative or explicitly uncertain normal-repair evidence runs the stronger attempt. A stronger-repair provider failure never terminates the parent flow: the final blocker gate still runs, and a genuinely unresolved blocker remains visible through the existing exit route.
 - Review and settlement steps continue with best effort when a reviewer or provider fails. If final settlement cannot be completed, the cycle remains visibly incomplete rather than being represented as a clean pass, while the overall flow remains able to continue or retry.
 - All viable jobs execute concurrently, subject only to provider scheduling, and the parent waits for every terminal outcome.
 - Target-local artifacts cannot overwrite or validate against another target's identity.
@@ -62,6 +68,8 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - Requiring downstream runtime code to parse the scope-filter artifact or introducing a rigid schema for removed findings; agents interpret the self-describing evidence with best effort.
 - Giving reviewers or common consumers built-in fast/slow identities; grouping, ordering, and repetition remain replaceable parent scheduling choices.
 - Adding a general `if` flow step, strict repair-audit schema, parallel per-repository fixer agents, or application code that semantically decides whether a review finding is repairable.
+- Adding an unbounded implementation-blocker research loop, special recovery semantics for malformed completion-gate responses, opportunistic cleanup or speculative redesign, mutation outside persisted plan scope, or per-run repair notes in reusable flow JSON.
+- Resetting persistent loop-control agents inside the bounded implementation-repair escalation.
 - Supporting concurrent top-level story/review flows against the same plan; concurrent ownership, locking, leasing, and conflict resolution are deliberately not added.
 - Guaranteeing meaningful review or settlement content when every relevant AI/provider is unavailable; the workflow preserves honest incomplete state instead of inventing findings or a clean result.
 - Opening a pull request as part of this story unless separately requested.
@@ -3144,3 +3152,79 @@ Close the two remaining review-cycle gaps without parsing review content. The se
 - Testing 1: The combined focused review-prompt and bounded-plan reachability run passed all 42 tests. Its first run exposed one stale assertion for the deliberately narrowed materially-different-implementation wording; the contract now requires a materially different focused implementation and passed cleanly.
 - Testing 2: The focused flow-schema wrapper rebuilt the server and passed all 77 tests, confirming both revised prompts remain reachable through the unchanged generic review batch flow.
 - Testing 3: Repository ESLint passed with zero warnings, Prettier passed for both changed prompts and the plan, and `git diff --check` passed cleanly.
+
+### Task 50. Lock Fresh Context Before Both Repair Agents
+
+- Task Status: `__done__`
+
+#### Subtasks
+
+1. [x] Confirm the generic review batch resets the normal coding agent and stronger research agent immediately before their corresponding repair invocations, using the same agent type and identifier.
+2. [x] Document the fresh-context requirement in the story acceptance criteria and add an exact adjacency regression contract for both repair stages.
+
+#### Testing
+
+1. [x] Run the focused flow-schema server tests.
+2. [x] Run repository lint, Prettier/format checks, and `git diff --check`.
+
+#### Implementation Notes
+
+- Task opened after verifying the runtime flow already placed `Reset Direct Review Fixer` immediately before `Implement Direct Review Fixes` and `Reset Stronger Review Fixer` immediately before `Implement Remaining Review Fixes`. The implementation therefore preserves the working flow and adds the missing explicit contract rather than changing runtime behavior unnecessarily.
+- Subtask 1: Confirmed both reset/fixer pairs use matching agent types and identifiers: `coding_agent`/`batch_fixer` for normal repair and `research_agent`/`batch_research_fixer` for stronger repair.
+- Subtask 2: Added the fresh-context acceptance criterion and tightened the generic batch schema test so each fixer must be immediately preceded by its matching reset; inserting any intervening step or reusing a mismatched agent identity will now fail focused validation.
+- Testing 1: The focused flow-schema wrapper rebuilt the server and passed all 77 tests, including exact reset adjacency and matching agent-identity assertions for both repair stages.
+- Testing 2: Repository ESLint passed with zero warnings, Prettier passed for the changed schema test and plan, and `git diff --check` passed cleanly.
+
+### Task 51. Add Stronger Research Escalation for Implementation Blockers
+
+- Task Status: `__done__`
+
+#### Subtasks
+
+1. [x] Document the bounded stronger implementation-blocker repair contract in the story Description, Acceptance Criteria, and Out Of Scope sections.
+2. [x] Add a dedicated research-agent prompt that can repair directly causal issues outside the current task while enforcing persisted plan scope, KISS, minimal targeted changes, focused proof, honest task maintenance, and per-repository commits without pushing.
+3. [x] Insert the same one-iteration normal-gate, fresh-research-reset, stronger-repair, and explicit-exit sequence after deep implementation repair in all four main implementation flows while preserving the existing authoritative blocker gate.
+4. [x] Add prompt, bounded-read, flow-schema, ordering, reset-identity, best-effort, and cross-flow consistency regression coverage.
+5. [x] Add runtime proof that positive normal completion skips research, negative or explicitly uncertain completion invokes it once, stronger-agent failure still reaches the authoritative blocker route, and successful repair allows normal implementation to continue.
+
+#### Testing
+
+1. [x] Run focused implementation-blocker prompt, bounded-read, flow-schema, and runtime tests.
+2. [x] Run repository lint, Prettier/format checks, and `git diff --check`.
+3. [x] Run `npm run test:summary:all:parallel`.
+
+#### Implementation Notes
+
+- Task opened to give implementation blockers the same bounded normal-then-stronger repair opportunity already used by generic review batches. The bound task remains the outcome and documentation owner, while the research agent may repair a directly causal prerequisite or cross-task issue within persisted plan scope when a task-local-only agent could not remove the blocker.
+- Subtask 1: Extended the story contract with the one-attempt implementation research escalation, broad-investigation/narrow-implementation authority, fresh reset, best-effort continuation, authoritative final blocker gate, current-task note ownership, per-repository commits, and explicit exclusions for unbounded research, speculative redesign, out-of-scope repository mutation, and runtime notes in reusable flow JSON.
+- Subtask 2: Added a dedicated stronger implementation-blocker prompt that reloads the bound task and canonical live blockers from disk, treats the task as the required outcome rather than the only permissible repair location, researches current and past repository evidence plus official and internet sources, iterates through materially different focused repairs, and maintains checkboxes, blocker history, proof, notes, and per-repository commits honestly. Its explicit KISS boundary allows cross-task or cross-repository repair only for direct causes or necessary coupling and forbids cleanup, redesign, unproved refactors, false test completion, pushing, or local-stack restarts.
+- Subtask 3: Added an identical one-iteration escalation immediately after normal deep blocker repair in `implement_next_plan`, `implement_current_plan`, `improve_task_implement_plan`, and `task_and_implement_plan`. The normal coder positively gates clean state, uncertain or negative evidence falls through to one freshly reset `implementation_blocker_researcher` invocation with best-effort failure handling, the persistent loop controller exits explicitly without being reset, and the existing canonical `Implementation blocker remains` check still makes the final disk-based decision.
+- Subtask 4: Added prompt contracts for fresh bounded blocker evidence, cross-task authority, broad research, minimal implementation, honest task and blocker maintenance, proof, commits, and local-stack safety. Added one cross-flow schema contract that requires identical parent ordering, one iteration, normal gate semantics, research reset/fixer identity adjacency, `continueOnFailure`, explicit controller exit, and the unchanged authoritative blocker gate in all four production implementation flows.
+- Subtask 5: Added a runtime escalation fixture and integration coverage for three routes: positive normal completion skips research and continues implementation; negative or explicitly uncertain completion runs one stronger flow step and then continues after resolution; and an internally retried stronger provider failure is tolerated before the authoritative blocker route preserves the blocked outcome. The first assertion counted provider-level retry attempts as separate flow invocations; it was corrected to prove one published stronger flow step while permitting the runtime's existing internal retry policy.
+- Testing 1: The focused bounded-read and prompt suite passed 42 tests, flow-schema passed 78 tests, runtime blocker prompt contracts passed 2 tests, and the implementation-loop integration file passed all 28 tests after the provider-retry assertion was corrected.
+- Testing 2: Repository ESLint passed with zero warnings, Prettier passed for every changed prompt, flow, plan, fixture, and test after formatting the new prompt-contract assertions, and `git diff --check` passed cleanly.
+- Testing 3: The canonical clean parallel rerun passed 900 client tests, 2,576 server unit/integration tests, 133 Cucumber scenarios, and 77 end-to-end tests after successful server, client, Compose, and e2e image builds. The first full run exposed the new valid fixture missing from the flow-list test's expected catalog and the existing timing-sensitive subflow-wave cancellation case; the catalog expectation was corrected, both 24-test flow-list and 39-test subflow files passed targeted reruns, and the complete clean rerun then passed without failures. The client build emitted only its existing oversized-bundle warning and completed successfully.
+
+### Task 52. Align Implementation Repair Reset Boundaries
+
+- Task Status: `__done__`
+
+#### Subtasks
+
+1. [x] Document that implementation repair resets the normal coder before fresh context loading and does not reset the persistent loop controller inside the optional stronger-repair loop.
+2. [x] Apply the coder-reset and loop-controller-preservation policy consistently to all four main implementation flows and the runtime proof fixture.
+3. [x] Tighten cross-flow regression coverage for coder reset adjacency, research reset adjacency, the four-step optional loop, and the absence of a loop-controller reset.
+
+#### Testing
+
+1. [x] Run focused flow-schema and implementation-loop runtime tests.
+2. [x] Run repository lint, Prettier/format checks, and `git diff --check`.
+
+#### Implementation Notes
+
+- Task opened as a narrow reset-policy refinement before the Task 51 work is committed. The heavy coder should start deep repair from a clean context loaded from disk, while the long-lived loop controller retains its existing control context and is not reset inside the optional escalation.
+- Subtask 1: Updated the acceptance and out-of-scope contracts and corrected Task 51's implementation note so they require a fresh normal coder and stronger research agent but explicitly preserve the loop-control agent across the bounded escalation.
+- Subtask 2: Added `Reset coder before implementation repair` immediately before the current-task context load in all four production implementation flows and the runtime fixture. Removed `Reset Optional Implementation Repair Loop Controller` everywhere while retaining the same persistent controller identity on the explicit single-attempt exit break.
+- Subtask 3: Tightened the shared four-flow schema contract to require coder reset/context-load identity adjacency, deep repair immediately after context loading, the unchanged research reset/fixer pair, exactly four optional-loop steps, no loop-control reset, and the persistent `implementation_research_loop_controller` identity on the explicit exit break.
+- Testing 1: The focused flow-schema wrapper rebuilt the server and passed all 78 tests, and the implementation-loop runtime file passed all 28 tests with the adjusted reset boundaries.
+- Testing 2: Repository ESLint passed with zero warnings, Prettier passed for every changed prompt, flow, plan, fixture, and test after formatting the reset adjacency assertion, and `git diff --check` passed cleanly.

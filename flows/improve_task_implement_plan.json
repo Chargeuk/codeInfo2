@@ -281,6 +281,12 @@
                       "breakOn": "yes"
                     },
                     {
+                      "type": "reset",
+                      "label": "Reset coder before implementation repair",
+                      "agentType": "coding_agent",
+                      "identifier": "coder"
+                    },
+                    {
                       "type": "llm",
                       "label": "Load coder current task context before implementation repair",
                       "agentType": "coding_agent",
@@ -293,6 +299,43 @@
                       "agentType": "coding_agent",
                       "identifier": "coder",
                       "markdownFile": "deep_implementation_blocker_repair.md"
+                    },
+                    {
+                      "type": "startLoop",
+                      "label": "Optional Stronger Implementation Blocker Repair",
+                      "maxIterations": 1,
+                      "steps": [
+                        {
+                          "type": "break",
+                          "label": "Skip Stronger Implementation Repair When Normal Repair Cleared Blocker",
+                          "agentType": "coding_agent",
+                          "identifier": "coder",
+                          "question": "Read the persisted current-plan and current-task handoffs, then run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>` using the task number resolved from the current-task handoff. Has the normal repair removed every live implementation blocker from the bound task? Answer yes only when the current parser output positively confirms that `selected_task.live_blockers` is empty. Answer no when any live blocker remains or the evidence is unavailable, malformed, or uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+                          "breakOn": "yes"
+                        },
+                        {
+                          "type": "reset",
+                          "label": "Reset Stronger Implementation Blocker Repairer",
+                          "agentType": "research_agent",
+                          "identifier": "implementation_blocker_researcher"
+                        },
+                        {
+                          "type": "llm",
+                          "label": "Research And Resolve Remaining Implementation Blocker",
+                          "agentType": "research_agent",
+                          "identifier": "implementation_blocker_researcher",
+                          "continueOnFailure": true,
+                          "markdownFile": "research_implementation_blocker_repair.md"
+                        },
+                        {
+                          "type": "break",
+                          "label": "Exit Optional Stronger Implementation Repair After One Attempt",
+                          "agentType": "loop_control_agent",
+                          "identifier": "implementation_research_loop_controller",
+                          "question": "The optional stronger implementation-blocker repair has now had its single allowed invocation. Return exact JSON only: {\"answer\":\"yes\"}.",
+                          "breakOn": "yes"
+                        }
+                      ]
                     },
                     {
                       "type": "break",

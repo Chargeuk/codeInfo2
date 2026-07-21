@@ -8,9 +8,7 @@ import express from 'express';
 import supertest from 'supertest';
 
 import { __setAgentAvailabilityDepsForTests } from '../../agents/availability.js';
-import {
-  __resetProviderBootstrapStatusForTests,
-} from '../../config/runtimeConfig.js';
+import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRouter } from '../../routes/flows.js';
 import {
@@ -219,6 +217,7 @@ describe('GET /flows', () => {
         'exit-break',
         'halt-break',
         'hot-reload',
+        'implementation-blocker-escalation',
         'invalid-json',
         'invalid-schema',
         'llm-basic',
@@ -456,7 +455,10 @@ describe('GET /flows', () => {
         (flow: { name: string }) => flow.name === 'unsafe-subflow-name',
       );
       assert.equal(listed.disabled, false);
-      assert.match(String((listed.warnings ?? []).join('\n')), /valid flow name/u);
+      assert.match(
+        String((listed.warnings ?? []).join('\n')),
+        /valid flow name/u,
+      );
     });
 
     await fs.rm(tmpDir, { recursive: true, force: true });
@@ -625,7 +627,8 @@ describe('GET /flows', () => {
 
             assert.equal(response.status, 200);
             const listed = response.body.flows.find(
-              (flow: { name: string }) => flow.name === 'parent-command-subflow',
+              (flow: { name: string }) =>
+                flow.name === 'parent-command-subflow',
             );
             assert.ok(listed);
             assert.equal(listed.disabled, false);
@@ -659,7 +662,11 @@ describe('GET /flows', () => {
           steps: [{ type: 'subflow', flowNames: ['child-invalid'] }],
         }),
       );
-      await writeRawFlowFile(tmpDir, 'child-invalid', '{"description":"Broken"');
+      await writeRawFlowFile(
+        tmpDir,
+        'child-invalid',
+        '{"description":"Broken"',
+      );
 
       await withFlowsDir(tmpDir, async () => {
         const response = await supertest(buildApp()).get('/flows');

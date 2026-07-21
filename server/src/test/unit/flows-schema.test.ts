@@ -563,10 +563,21 @@ describe('flow schema (v1)', () => {
       'Filter Review Findings To Story Scope',
       'Disposition Review Batch',
     );
-    assertOrdered(
-      labels,
-      'Disposition Review Batch',
-      'Implement Direct Review Fixes',
+    const directFixIndex = labels.indexOf('Implement Direct Review Fixes');
+    assert.ok(directFixIndex > 0);
+    const directReset = (parsed.steps ?? [])[directFixIndex - 1];
+    const directFix = (parsed.steps ?? [])[directFixIndex];
+    assert.equal(directReset?.label, 'Reset Direct Review Fixer');
+    assert.equal(directReset?.type, 'reset');
+    assert.equal(directReset?.agentType, 'coding_agent');
+    assert.equal(directReset?.identifier, 'batch_fixer');
+    assert.equal(directFix?.type, 'llm');
+    assert.equal(directFix?.agentType, directReset?.agentType);
+    assert.equal(directFix?.identifier, directReset?.identifier);
+    assert.equal(directFix?.continueOnFailure, true);
+    assert.equal(
+      directFix?.markdownFile,
+      'implement_review_batch_direct_fixes.md',
     );
     assertOrdered(
       labels,
@@ -623,12 +634,16 @@ describe('flow schema (v1)', () => {
     assert.match(completionGate?.question ?? '', /evidence is uncertain/u);
     const strongerReset = optionalSteps[1];
     const strongerFix = optionalSteps[2];
+    assert.equal(
+      optionalSteps.indexOf(strongerFix) - optionalSteps.indexOf(strongerReset),
+      1,
+    );
     assert.equal(strongerReset?.type, 'reset');
     assert.equal(strongerReset?.agentType, 'research_agent');
     assert.equal(strongerReset?.identifier, 'batch_research_fixer');
     assert.equal(strongerFix?.type, 'llm');
-    assert.equal(strongerFix?.agentType, 'research_agent');
-    assert.equal(strongerFix?.identifier, 'batch_research_fixer');
+    assert.equal(strongerFix?.agentType, strongerReset?.agentType);
+    assert.equal(strongerFix?.identifier, strongerReset?.identifier);
     assert.equal(strongerFix?.continueOnFailure, true);
     assert.equal(
       strongerFix?.markdownFile,
@@ -730,6 +745,139 @@ describe('flow schema (v1)', () => {
         'load_planner_story_context.md',
       ].sort(),
     );
+  });
+
+  test('main implementation flows share one bounded stronger blocker repair with a fresh research agent', async () => {
+    const flowFiles = [
+      'flows/implement_next_plan.json',
+      'flows/implement_current_plan.json',
+      'flows/improve_task_implement_plan.json',
+      'flows/task_and_implement_plan.json',
+    ] as const;
+    let canonicalOptionalRepair: FlowStep | undefined;
+
+    for (const relativePath of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const implementationLoop = flattenSteps(parsed.steps ?? []).find(
+        (step) => step.label === 'Implementation Loop',
+      );
+      assert.equal(implementationLoop?.type, 'startLoop', relativePath);
+      const implementationSteps = implementationLoop?.steps ?? [];
+      const labels = implementationSteps.map((step) => step.label);
+      const contextLoadIndex = labels.indexOf(
+        'Load coder current task context before implementation repair',
+      );
+      assert.ok(contextLoadIndex > 0, relativePath);
+      const coderReset = implementationSteps[contextLoadIndex - 1];
+      const contextLoad = implementationSteps[contextLoadIndex];
+      assert.equal(
+        coderReset?.label,
+        'Reset coder before implementation repair',
+        relativePath,
+      );
+      assert.equal(coderReset?.type, 'reset', relativePath);
+      assert.equal(coderReset?.agentType, 'coding_agent', relativePath);
+      assert.equal(coderReset?.identifier, 'coder', relativePath);
+      assert.equal(contextLoad?.type, 'llm', relativePath);
+      assert.equal(contextLoad?.agentType, coderReset?.agentType, relativePath);
+      assert.equal(
+        contextLoad?.identifier,
+        coderReset?.identifier,
+        relativePath,
+      );
+      const deepRepairIndex = labels.indexOf(
+        'Deep repair implementation blocker',
+      );
+      assert.equal(deepRepairIndex, contextLoadIndex + 1, relativePath);
+      const optionalRepair = implementationSteps[deepRepairIndex + 1];
+      const authoritativeGate = implementationSteps[deepRepairIndex + 2];
+
+      assert.equal(
+        optionalRepair?.label,
+        'Optional Stronger Implementation Blocker Repair',
+        relativePath,
+      );
+      assert.equal(optionalRepair?.type, 'startLoop', relativePath);
+      assert.equal(optionalRepair?.maxIterations, 1, relativePath);
+      assert.equal(
+        authoritativeGate?.label,
+        'Implementation blocker remains',
+        relativePath,
+      );
+
+      const optionalSteps = optionalRepair?.steps ?? [];
+      assert.deepEqual(
+        optionalSteps.map((step) => step.label),
+        [
+          'Skip Stronger Implementation Repair When Normal Repair Cleared Blocker',
+          'Reset Stronger Implementation Blocker Repairer',
+          'Research And Resolve Remaining Implementation Blocker',
+          'Exit Optional Stronger Implementation Repair After One Attempt',
+        ],
+        relativePath,
+      );
+
+      const normalGate = optionalSteps[0];
+      assert.equal(normalGate?.type, 'break', relativePath);
+      assert.equal(normalGate?.agentType, 'coding_agent', relativePath);
+      assert.equal(normalGate?.identifier, 'coder', relativePath);
+      assert.equal(normalGate?.breakOn, 'yes', relativePath);
+      assert.equal(normalGate?.breakOnFailure, undefined, relativePath);
+      assert.match(normalGate?.question ?? '', /positively confirms/u);
+      assert.match(normalGate?.question ?? '', /malformed, or uncertain/u);
+
+      const strongerReset = optionalSteps[1];
+      const strongerRepair = optionalSteps[2];
+      assert.equal(strongerReset?.type, 'reset', relativePath);
+      assert.equal(strongerReset?.agentType, 'research_agent', relativePath);
+      assert.equal(
+        strongerReset?.identifier,
+        'implementation_blocker_researcher',
+        relativePath,
+      );
+      assert.equal(strongerRepair?.type, 'llm', relativePath);
+      assert.equal(
+        strongerRepair?.agentType,
+        strongerReset?.agentType,
+        relativePath,
+      );
+      assert.equal(
+        strongerRepair?.identifier,
+        strongerReset?.identifier,
+        relativePath,
+      );
+      assert.equal(strongerRepair?.continueOnFailure, true, relativePath);
+      assert.equal(
+        strongerRepair?.markdownFile,
+        'research_implementation_blocker_repair.md',
+        relativePath,
+      );
+
+      assert.equal(
+        optionalSteps.some(
+          (step) =>
+            step.type === 'reset' && step.agentType === 'loop_control_agent',
+        ),
+        false,
+        relativePath,
+      );
+      const explicitExit = optionalSteps[3];
+      assert.equal(explicitExit?.type, 'break', relativePath);
+      assert.equal(explicitExit?.agentType, 'loop_control_agent');
+      assert.equal(
+        explicitExit?.identifier,
+        'implementation_research_loop_controller',
+      );
+      assert.equal(explicitExit?.breakOn, 'yes', relativePath);
+      assert.match(explicitExit?.question ?? '', /single allowed invocation/u);
+
+      if (canonicalOptionalRepair === undefined) {
+        canonicalOptionalRepair = optionalRepair;
+      } else {
+        assert.deepEqual(optionalRepair, canonicalOptionalRepair, relativePath);
+      }
+    }
   });
 
   test('implement_current_plan preserves the persisted plan while retaining the canonical review path', async () => {

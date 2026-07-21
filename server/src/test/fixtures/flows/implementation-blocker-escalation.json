@@ -1,0 +1,116 @@
+{
+  "description": "Bounded stronger implementation blocker repair",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Implementation Loop",
+      "maxIterations": 1,
+      "steps": [
+        {
+          "type": "reset",
+          "label": "Reset coder before implementation repair",
+          "agentType": "coding_agent",
+          "identifier": "coder"
+        },
+        {
+          "type": "llm",
+          "label": "Load coder current task context before implementation repair",
+          "agentType": "coding_agent",
+          "identifier": "coder",
+          "messages": [
+            {
+              "role": "user",
+              "content": ["Load current implementation repair context."]
+            }
+          ]
+        },
+        {
+          "type": "llm",
+          "label": "Deep repair implementation blocker",
+          "agentType": "coding_agent",
+          "identifier": "coder",
+          "messages": [
+            {
+              "role": "user",
+              "content": ["Normal deep blocker repair."]
+            }
+          ]
+        },
+        {
+          "type": "startLoop",
+          "label": "Optional Stronger Implementation Blocker Repair",
+          "maxIterations": 1,
+          "steps": [
+            {
+              "type": "break",
+              "label": "Skip Stronger Implementation Repair When Normal Repair Cleared Blocker",
+              "agentType": "coding_agent",
+              "identifier": "coder",
+              "question": "Did normal repair clear the implementation blocker?",
+              "breakOn": "yes"
+            },
+            {
+              "type": "reset",
+              "label": "Reset Stronger Implementation Blocker Repairer",
+              "agentType": "research_agent",
+              "identifier": "implementation_blocker_researcher"
+            },
+            {
+              "type": "llm",
+              "label": "Research And Resolve Remaining Implementation Blocker",
+              "agentType": "research_agent",
+              "identifier": "implementation_blocker_researcher",
+              "continueOnFailure": true,
+              "messages": [
+                {
+                  "role": "user",
+                  "content": ["Stronger implementation blocker repair."]
+                }
+              ]
+            },
+            {
+              "type": "break",
+              "label": "Exit Optional Stronger Implementation Repair After One Attempt",
+              "agentType": "loop_control_agent",
+              "identifier": "implementation_research_loop_controller",
+              "question": "Exit the bounded stronger implementation repair?",
+              "breakOn": "yes"
+            }
+          ]
+        },
+        {
+          "type": "break",
+          "label": "Implementation blocker remains",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Does the authoritative implementation blocker remain?",
+          "breakOn": "yes"
+        },
+        {
+          "type": "llm",
+          "label": "Continue normal implementation",
+          "agentType": "coding_agent_lite",
+          "identifier": "lite_coder",
+          "messages": [
+            {
+              "role": "user",
+              "content": ["Normal implementation continued."]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "After blocker routing",
+      "agentType": "planning_agent",
+      "identifier": "planner",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["After blocker routing."]
+        }
+      ]
+    }
+  ]
+}

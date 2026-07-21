@@ -153,6 +153,9 @@ class ScriptedChat extends ChatInterface {
     }
     this.emit('thread', { type: 'thread', threadId: conversationId });
     const rawResponse = this.responder(message);
+    if (rawResponse === '__throw') {
+      throw new Error('scripted chat failure');
+    }
     const delayedMatch = rawResponse.match(/^__delay:(\d+)::([\s\S]*)$/);
     if (delayedMatch) {
       try {
@@ -627,6 +630,137 @@ test('startLoop maxIterations exits normally and advances to the next step', asy
       await cleanupConversationRuntime(conversationId);
     },
   );
+});
+
+test('bounded implementation blocker escalation skips, repairs, and continues after stronger failure', async () => {
+  const scenarios = [
+    {
+      name: 'normal repair cleared blocker',
+      normalGate: 'yes',
+      blockerRemains: 'no',
+      researchResponse: 'ok',
+      expectedResearchCalls: 0,
+      expectedNormalContinuation: 1,
+    },
+    {
+      name: 'normal repair left blocker for stronger repair',
+      normalGate: 'no',
+      blockerRemains: 'no',
+      researchResponse: 'ok',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 1,
+    },
+    {
+      name: 'stronger repair failure preserves authoritative blocker routing',
+      normalGate: 'no',
+      blockerRemains: 'yes',
+      researchResponse: '__throw',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 0,
+    },
+  ] as const;
+
+  for (const [index, scenario] of scenarios.entries()) {
+    let researchCalls = 0;
+    await withFlowServer(
+      (message) => {
+        if (
+          message.includes(
+            'Did normal repair clear the implementation blocker?',
+          )
+        ) {
+          return JSON.stringify({ answer: scenario.normalGate });
+        }
+        if (message.includes('Stronger implementation blocker repair.')) {
+          researchCalls += 1;
+          return scenario.researchResponse;
+        }
+        if (
+          message.includes('Exit the bounded stronger implementation repair?')
+        ) {
+          return JSON.stringify({ answer: 'yes' });
+        }
+        if (
+          message.includes(
+            'Does the authoritative implementation blocker remain?',
+          )
+        ) {
+          return JSON.stringify({ answer: scenario.blockerRemains });
+        }
+        return 'ok';
+      },
+      async ({ baseUrl }) => {
+        const conversationId = `flow-implementation-blocker-escalation-${index}`;
+        await supertest(baseUrl)
+          .post('/flows/implementation-blocker-escalation/run')
+          .send({ conversationId })
+          .expect(202);
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('After blocker routing.'),
+            ),
+          15000,
+        );
+        await waitForRuntimeCleanup(conversationId);
+
+        if (scenario.expectedResearchCalls === 0) {
+          assert.equal(researchCalls, 0, scenario.name);
+        } else {
+          assert.ok(researchCalls >= 1, scenario.name);
+        }
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Stronger implementation blocker repair.'),
+          ).length,
+          scenario.expectedResearchCalls,
+          scenario.name,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Normal implementation continued.'),
+          ).length,
+          scenario.expectedNormalContinuation,
+          scenario.name,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Does the authoritative implementation blocker remain?',
+              ),
+          ).length,
+          1,
+          scenario.name,
+        );
+        assert.equal(
+          (await getFlowRunStatus(conversationId))?.status,
+          'ok',
+          scenario.name,
+        );
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, [
+            'coding_agent:coder',
+            'research_agent:implementation_blocker_researcher',
+            'loop_control_agent:implementation_research_loop_controller',
+            'loop_control_agent:loop_controller',
+            'coding_agent_lite:lite_coder',
+            'planning_agent:planner',
+          ]),
+        );
+      },
+    );
+  }
 });
 
 test('continue step skips remaining iteration steps and starts the next iteration', async () => {

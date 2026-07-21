@@ -15,6 +15,7 @@ import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
   memoryTurns,
+  recordMemoryTurn,
 } from '../../chat/memoryPersistence.js';
 import {
   __resetProviderBootstrapStatusForTests,
@@ -1437,7 +1438,7 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
   }
 });
 
-test('rewinding before a completed subflow launches a fresh child instead of reusing stale tracking', async () => {
+test('rewinding before a completed subflow launches a fresh child without retaining terminal metadata', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-rewind-'),
   );
@@ -1493,6 +1494,14 @@ test('rewinding before a completed subflow launches a fresh child instead of reu
               title: 'Rewind Parent-Run Rewind Child',
             }),
           ],
+          terminalOutcome: 'not_applicable',
+          restartReconciliation: {
+            status: 'interrupted',
+            reconciledAt: now.toISOString(),
+            resumeStepPath: [0],
+            interruptedSubflowCount: 1,
+            interruptedWaveRunningCount: 0,
+          },
           agentConversations: {},
           agentThreads: {},
         },
@@ -1516,6 +1525,43 @@ test('rewinding before a completed subflow launches a fresh child instead of reu
       (conversation) => conversation.flowName === 'rewind-child',
     );
     assert.equal(childConversations.length, 2);
+    const resumedFlowState = memoryConversations.get(parentConversationId)
+      ?.flags?.flow as
+      | {
+          terminalOutcome?: unknown;
+          restartReconciliation?: unknown;
+        }
+      | undefined;
+    assert.equal(resumedFlowState?.terminalOutcome, undefined);
+    assert.equal(resumedFlowState?.restartReconciliation, undefined);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('failed flow runs persist failed lifecycle state from the complete flags wrapper', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-failed-lifecycle-state-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'failed-lifecycle-state',
+      steps: [llmStep('child fail')],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'failed-lifecycle-state',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(0),
+    });
+    await waitForAssistantStatus(result.conversationId, 'failed');
+
+    const flowState = memoryConversations.get(result.conversationId)?.flags
+      ?.flow as { runLifecycle?: { status?: unknown } } | undefined;
+    assert.equal(flowState?.runLifecycle?.status, 'failed');
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -3142,6 +3188,7 @@ test('restart recovery resumes an interrupted wave child in its existing convers
           executionId: 'wave-restart-child-execution',
           stepPath: [],
           loopStack: [],
+          runLifecycle: { status: 'running', updatedAt: now.toISOString() },
           agentConversations: {},
           agentThreads: {},
         },
@@ -3151,6 +3198,17 @@ test('restart recovery resumes an interrupted wave child in its existing convers
       createdAt: now,
       updatedAt: now,
     } as Conversation);
+    recordMemoryTurn({
+      conversationId: childConversationId,
+      role: 'assistant',
+      content: 'stale terminal assistant result',
+      model: 'gpt-5.1-codex-max',
+      provider: 'codex',
+      toolCalls: null,
+      status: 'ok',
+      source: 'REST',
+      createdAt: now,
+    });
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
@@ -3228,6 +3286,12 @@ test('restart recovery resumes an interrupted wave child in its existing convers
         (conversation) => conversation.flowName === 'child-wave-restart',
       ).length,
       1,
+    );
+    assert.equal(
+      (memoryTurns.get(childConversationId) ?? []).filter(
+        (turn) => turn.role === 'assistant' && turn.status === 'ok',
+      ).length,
+      2,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

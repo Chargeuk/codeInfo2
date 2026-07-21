@@ -2660,8 +2660,8 @@ const getFlowConversationTerminalStatus = async (params: {
 
   const conversation = await getConversation(params.conversationId);
   const resumeState = parseFlowResumeState(
-    isRecord(conversation?.flags?.flow)
-      ? (conversation.flags.flow as Record<string, unknown>)
+    isRecord(conversation?.flags)
+      ? (conversation.flags as Record<string, unknown>)
       : undefined,
   );
   if (
@@ -3214,8 +3214,8 @@ const persistFlowResumeState = async (params: {
   });
   const existingConversation = await getConversation(params.conversationId);
   const existingFlowState = parseFlowResumeState(
-    isRecord(existingConversation?.flags?.flow)
-      ? (existingConversation.flags.flow as Record<string, unknown>)
+    isRecord(existingConversation?.flags)
+      ? (existingConversation.flags as Record<string, unknown>)
       : undefined,
   );
   if (existingFlowState?.retryOwnershipCompletion) {
@@ -3258,8 +3258,8 @@ const persistFlowRunLifecycleStatus = async (
 ) => {
   const conversation = await getConversation(conversationId);
   const flowState = parseFlowResumeState(
-    isRecord(conversation?.flags?.flow)
-      ? (conversation?.flags?.flow as Record<string, unknown>)
+    isRecord(conversation?.flags)
+      ? (conversation.flags as Record<string, unknown>)
       : undefined,
   );
   if (!flowState) return;
@@ -7390,6 +7390,8 @@ export async function startFlowRun(
           ...resumeState,
           activeSubflows: undefined,
           subflowWaveProgress: undefined,
+          terminalOutcome: undefined,
+          restartReconciliation: undefined,
         };
       }
     }

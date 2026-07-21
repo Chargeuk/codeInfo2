@@ -292,6 +292,7 @@ test('compose stacks expose harness instructions while local uses live workflow 
 test('main-stack manual agent catalog covers every reachable production flow agent', () => {
   const agentTypes = new Set<string>();
   for (const flowName of [
+    'implement_current_plan',
     'implement_next_plan',
     'improve_task_implement_plan',
     'task_and_implement_plan',

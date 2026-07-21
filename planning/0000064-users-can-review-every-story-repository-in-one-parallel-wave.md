@@ -17,6 +17,7 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - A generic `subflowWave` flow step supports matrix and singleton child-flow groups without hard-coding review semantics.
 - The wave runtime accepts bounded immutable JSON child inputs, binds working folders explicitly, and gives every expanded job a stable unique instance identity.
 - Existing `subflow` flow files and runtime behavior remain backward-compatible.
+- The repository provides `flows/implement_current_plan.json`, which preserves the exact persisted current plan without selecting or switching to another plan, runs the normal post-implementation review, settlement, and closeout cycle even when that plan is already complete, and returns to implementation only when review settlement creates work.
 - A persisted review-target snapshot contains the canonical plan host plus every plan-scope repository with stable alias, real root, checked-out branch, full HEAD commit, and pinned comparison base.
 - The runtime never switches a shared checkout between branches; distinct branches require distinct worktree paths.
 - Every review job receives common agent-readable inputs covering story overview, acceptance criteria, out-of-scope guidance, exclusions, exact repository targets, comparison bases, and reviewed HEADs.
@@ -104,7 +105,6 @@ None. The agreed design uses repeated mixed fast waves with two single-target re
 3. [x] Run the server build summary wrapper.
 
 #### Implementation Notes
-
 
 - **BLOCKING ANSWER** Fresh blocker research proves this is a proof/test-harness seam owned by Task 28 Subtask 5, not a product, shared-baseline, runtime-handoff, or task-shape defect. Current disk artifacts are non-closeable: `0000064-current-review.json` is `preparing` for wave `0000064-rw-20260716T100443Z-d54e553f` with no findings; its matching review set is `prepared` with `coverage.missing_jobs: 3`; and the versioned wave validation is `completed_partial` with one completed job, two failed/stale jobs, and `closeout_allowed: false`. Checked-in precedents establish the intended boundary: `service.ts` and `codexReview.ts` preserve running versus terminal child states, closed stdin, timeout, and abort handling; `reviewWaveValidation.ts` requires matching wave identity and all expected jobs completed before closeout; `reviewArtifacts.ts::readValidatedFindings()` accepts only inline findings or a JSON `findings_file`; and `review-wave-validation.test.ts` plus `flows.run.subflow.test.ts` cover missing/stale/partial waves, cancellation, failure, and terminal recovery. The `open-code-review` ingested-repository precedent likewise validates and filters review results before publishing them rather than reporting incomplete work.
 
@@ -1834,7 +1834,7 @@ Testing step to ONLY check the linting after some manual fixes
 
 - Review pass `0000064-20260720T002803Z-00f835bcb0-a40ed56f`; finding `0000064-missing-three-target-proof`; repository `current_repository`; three-target production review-loop proof now verifies every target-local job and the cross-repository result complete before closeout; changed file `server/src/test/integration/review-production-loop.test.ts`; commit `afe2fb48e09a6333ebfe10ffff4bbe89175c5a7e`; targeted proof `npm run test:summary:server:unit -- --file server/src/test/integration/review-production-loop.test.ts` passed (the focused server-unit wrapper built the server and passed both production-loop integration tests, including the new three-target closeout case with nine target-local jobs and one completed cross-repository result); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 
-- Review pass `0000064-20260720T225340Z-94ba2b5d05-679531ae`; finding `2b9e2ecc862d6c13e4a7d977b455a6a23afdb3af182ff637a071b178c993bbe8`; repository `current_repository`; OpenCode publication now honors prepared review exclusions, accepting excluded committed paths and rejecting excluded manifest entries; changed files `scripts/publish_open_code_review.py`, `scripts/test/test_publish_open_code_review.py`; commit `b6076272e198b30bc2a1b24ae504baa87a42bd39`; targeted proof `python3 -m unittest scripts/test/test_publish_open_code_review.py` passed (19 focused publisher tests passed, including regression coverage for planning/** exclusions); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
+- Review pass `0000064-20260720T225340Z-94ba2b5d05-679531ae`; finding `2b9e2ecc862d6c13e4a7d977b455a6a23afdb3af182ff637a071b178c993bbe8`; repository `current_repository`; OpenCode publication now honors prepared review exclusions, accepting excluded committed paths and rejecting excluded manifest entries; changed files `scripts/publish_open_code_review.py`, `scripts/test/test_publish_open_code_review.py`; commit `b6076272e198b30bc2a1b24ae504baa87a42bd39`; targeted proof `python3 -m unittest scripts/test/test_publish_open_code_review.py` passed (19 focused publisher tests passed, including regression coverage for planning/\*\* exclusions); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 - Review pass `0000064-20260720T225340Z-94ba2b5d05-679531ae`; finding `5603bf600021aca98871a81694cd179cf3be2b82faf0068a1b7b3bf3fb7d7c40`; repository `current_repository`; resumed cancelled waves now restart every stopped child in its existing conversation; changed files `server/src/flows/service.ts`, `server/src/test/integration/flows.run.subflow.test.ts`; commit `3cecc416d089d7f42df21295162dfa054f4eae86`; targeted proof `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --test-name \"resuming a cancelled subflow wave restarts every stopped child in place\"` passed (the focused integration test verified all three stopped children completed after resume without duplicate conversations); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 - Review pass `0000064-20260720T225340Z-94ba2b5d05-679531ae`; finding `a5aee94e7e31e4d4999e85dea93176316a5647f82cf851b96677145b2c6e69d9`; repository `current_repository`; the standalone review wrapper now finalizes the final review cycle it initialized; changed files `server/src/flows/service.ts`, `server/src/test/integration/review-production-loop.test.ts`; commit `af5b23eba0fa77f6b1bc6f637ace78e033adf7ea`; targeted proof `npm run test:summary:server:unit -- --file server/src/test/integration/review-production-loop.test.ts` passed (the focused server integration wrapper passed both production-loop cases, including the new durable completed-cycle assertion); disposition: `Resolved inline during the review loop with bounded code/config/docs/test changes; no numbered review-fix task was created.`
 
@@ -2302,6 +2302,7 @@ Escalated review items requiring combined task-up:
 - Review Pass Id: `0000064-20260719T212516Z-52af6cfac4-32769dc2`
 - Review Phase: `fast`
 - This task is a completed historical audit and does not replace final story revalidation.
+
 ### Task 38. Record Minor Review Fixes From Pass 0000064-20260719T223932Z-95741e5d79-c6e7c46c
 
 - Task Status: `__done__`
@@ -2333,6 +2334,7 @@ Escalated review items requiring combined task-up:
 - Review Pass Id: `0000064-20260719T223932Z-95741e5d79-c6e7c46c`
 - Review Phase: `fast`
 - This task is a completed historical audit and does not replace final story revalidation.
+
 ### Task 39. Record Minor Review Fixes From Pass 0000064-20260720T002803Z-00f835bcb0-a40ed56f
 
 - Task Status: `__done__`
@@ -2375,6 +2377,7 @@ Escalated review items requiring combined task-up:
 - Review Pass Id: `0000064-20260720T002803Z-00f835bcb0-a40ed56f`
 - Review Phase: `slow`
 - This task is a completed historical audit and does not replace final story revalidation.
+
 ### Task 40. Reconcile Incomplete Review Coverage and Recover Blocked Findings
 
 - Task Status: `__done__`
@@ -2784,7 +2787,7 @@ Escalated review items requiring combined task-up:
 #### Testing
 
 1. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/review-production-loop.test.ts` in `current_repository` — passed. The focused server integration wrapper passed both production-loop cases, including the new durable completed-cycle assertion.
-2. [x] `python3 -m unittest scripts/test/test_publish_open_code_review.py` in `current_repository` — passed. 19 focused publisher tests passed, including regression coverage for planning/** exclusions.
+2. [x] `python3 -m unittest scripts/test/test_publish_open_code_review.py` in `current_repository` — passed. 19 focused publisher tests passed, including regression coverage for planning/\*\* exclusions.
 
 #### Implementation Notes
 

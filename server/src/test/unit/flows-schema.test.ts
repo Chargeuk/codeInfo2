@@ -461,6 +461,7 @@ describe('flow schema (v1)', () => {
       'flows/review_plan.json',
       'flows/review_task_up_path.json',
       'flows/two_phase_review_cycle.json',
+      'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
       'flows/ingest_external_review_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -649,6 +650,83 @@ describe('flow schema (v1)', () => {
     );
   });
 
+  test('implement_current_plan preserves the persisted plan while retaining the canonical review path', async () => {
+    const [currentRaw, nextRaw, repairPrompt] = await Promise.all([
+      fs.readFile(
+        path.join(repoRoot, 'flows/implement_current_plan.json'),
+        'utf8',
+      ),
+      fs.readFile(
+        path.join(repoRoot, 'flows/implement_next_plan.json'),
+        'utf8',
+      ),
+      fs.readFile(
+        path.join(
+          repoRoot,
+          'codeinfo_markdown/repair_current_plan_workflow_state.md',
+        ),
+        'utf8',
+      ),
+    ]);
+    const current = JSON.parse(currentRaw) as { steps?: FlowStep[] };
+    const next = JSON.parse(nextRaw) as { steps?: FlowStep[] };
+    const currentSteps = current.steps ?? [];
+    const nextSteps = next.steps ?? [];
+    const storyLoopIndex = nextSteps.findIndex(
+      (step) => step.label === 'Story Execution And Review Loop',
+    );
+    const flattened = flattenSteps(currentSteps);
+
+    assert.equal(currentSteps[0]?.label, 'Story Execution And Review Loop');
+    assert.equal(storyLoopIndex >= 0, true);
+    assert.equal(
+      flattened.some(
+        (step) =>
+          step.label === 'Planner Select And Store Next Plan' ||
+          step.markdownFile === 'store_current_plan_handoff.md',
+      ),
+      false,
+    );
+    assert.equal(
+      flattened.filter(
+        (step) => step.markdownFile === 'repair_current_plan_workflow_state.md',
+      ).length,
+      4,
+    );
+    assert.equal(
+      flattened.some(
+        (step) => step.markdownFile === 'repair_story_workflow_state.md',
+      ),
+      false,
+    );
+    assert.equal(
+      flattened.some(
+        (step) =>
+          step.type === 'subflow' &&
+          step.flowNames?.includes('two_phase_review_cycle'),
+      ),
+      true,
+    );
+
+    const normalizeCurrentRepairPrompt = (steps: FlowStep[]): FlowStep[] =>
+      steps.map((step) => ({
+        ...step,
+        ...(step.markdownFile === 'repair_current_plan_workflow_state.md'
+          ? { markdownFile: 'repair_story_workflow_state.md' }
+          : {}),
+        ...(step.steps
+          ? { steps: normalizeCurrentRepairPrompt(step.steps) }
+          : {}),
+      }));
+    assert.deepEqual(
+      normalizeCurrentRepairPrompt(currentSteps),
+      nextSteps.slice(storyLoopIndex),
+    );
+    assert.match(repairPrompt, /retain its exact `plan_path`/u);
+    assert.match(repairPrompt, /Never run next-plan discovery/u);
+    assert.match(repairPrompt, /no different plan was selected/u);
+  });
+
   test('main implementation flows share the canonical execution, review, and closeout suffix', async () => {
     const canonicalPath = 'flows/implement_next_plan.json';
     const canonicalRaw = await fs.readFile(
@@ -807,6 +885,12 @@ describe('flow schema (v1)', () => {
         challengeCommand: 'target_review_blind_spot_challenge',
       },
       {
+        relativePath: 'flows/implement_current_plan.json',
+        findingsCommand: 'code_review_findings',
+        saturationCommand: 'review_findings_saturation',
+        challengeCommand: 'review_blind_spot_challenge',
+      },
+      {
         relativePath: 'flows/implement_next_plan.json',
         findingsCommand: 'code_review_findings',
         saturationCommand: 'review_findings_saturation',
@@ -875,6 +959,7 @@ describe('flow schema (v1)', () => {
       if (
         [
           'flows/implement_next_plan.json',
+          'flows/implement_current_plan.json',
           'flows/task_and_implement_plan.json',
           'flows/improve_task_implement_plan.json',
         ].includes(flowFile.relativePath)
@@ -939,6 +1024,7 @@ describe('flow schema (v1)', () => {
 
   test('review flows initialize state before agent-native disposition and settlement tasking', async () => {
     const finalReviewFlowFiles = [
+      'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -1024,6 +1110,7 @@ describe('flow schema (v1)', () => {
 
   test('main implementation flows include story repair and review settlement audit', async () => {
     const flowFiles = [
+      'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -1034,8 +1121,12 @@ describe('flow schema (v1)', () => {
         .map((step) => step.markdownFile)
         .filter((marker): marker is string => typeof marker === 'string');
 
+      const repairMarker =
+        flowFile === 'flows/implement_current_plan.json'
+          ? 'repair_current_plan_workflow_state.md'
+          : 'repair_story_workflow_state.md';
       assert.ok(
-        markers.includes('repair_story_workflow_state.md'),
+        markers.includes(repairMarker),
         `${flowFile} should include story-scope repair`,
       );
       assert.ok(
@@ -1047,6 +1138,7 @@ describe('flow schema (v1)', () => {
 
   test('main implementation flows apply and audit agent-native review settlement', async () => {
     const flowFiles = [
+      'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -1079,6 +1171,7 @@ describe('flow schema (v1)', () => {
 
   test('main implementation flows reconcile before disposition and settlement', async () => {
     const flowFiles = [
+      'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -1566,6 +1659,7 @@ describe('flow schema (v1)', () => {
 
   test('story implementation flows exit successfully instead of halting on durable blockers', async () => {
     for (const relativePath of [
+      'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',

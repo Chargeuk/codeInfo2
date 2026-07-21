@@ -70,6 +70,21 @@ def walk_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return output
 
 
+def referenced_flow_names(value: Any) -> set[str]:
+    references: set[str] = set()
+    if isinstance(value, dict):
+        for key, entry in value.items():
+            if key == "flowName" and isinstance(entry, str):
+                references.add(entry)
+            elif key == "flowNames" and isinstance(entry, list):
+                references.update(item for item in entry if isinstance(item, str))
+            references.update(referenced_flow_names(entry))
+    elif isinstance(value, list):
+        for entry in value:
+            references.update(referenced_flow_names(entry))
+    return references
+
+
 def reachable_assets(flow_name: str) -> tuple[set[Path], list[str]]:
     markdown: set[Path] = set()
     inline_text: list[str] = []
@@ -99,9 +114,7 @@ def reachable_assets(flow_name: str) -> tuple[set[Path], list[str]]:
                     content = item.get("content")
                     if isinstance(content, str):
                         inline_text.append(content)
-            flow_names = step.get("flowNames")
-            if isinstance(flow_names, list):
-                pending.extend(item for item in flow_names if isinstance(item, str))
+            pending.extend(referenced_flow_names(step))
             question = step.get("question")
             if isinstance(question, str):
                 inline_text.append(question)
@@ -123,57 +136,83 @@ def reachable_assets(flow_name: str) -> tuple[set[Path], list[str]]:
 
 class PlanReadPolicyTests(unittest.TestCase):
     def test_reachable_prompts_forbid_unbounded_plan_reads(self) -> None:
-        markdown, inline_text = reachable_assets("implement_next_plan")
         failures: list[str] = []
-        for path in sorted(markdown):
-            text = path.read_text()
-            for line_no, line in enumerate(text.splitlines(), start=1):
-                if has_unnegated_forbidden_plan_read(line):
-                    failures.append(f"{path.relative_to(REPO_ROOT)}:{line_no}: {line}")
-            if any(pattern.search(text) for pattern in FORBIDDEN_DOCUMENT_PLAN_READS):
-                failures.append(f"{path.relative_to(REPO_ROOT)}: document-level read")
-        for index, text in enumerate(inline_text):
-            for line in text.splitlines():
-                if has_unnegated_forbidden_plan_read(line):
-                    failures.append(f"inline[{index}]: {line}")
+        for flow_name in ("implement_next_plan", "implement_current_plan"):
+            markdown, inline_text = reachable_assets(flow_name)
+            for path in sorted(markdown):
+                text = path.read_text()
+                for line_no, line in enumerate(text.splitlines(), start=1):
+                    if has_unnegated_forbidden_plan_read(line):
+                        failures.append(
+                            f"{flow_name}:{path.relative_to(REPO_ROOT)}:{line_no}: {line}"
+                        )
+                if any(
+                    pattern.search(text) for pattern in FORBIDDEN_DOCUMENT_PLAN_READS
+                ):
+                    failures.append(
+                        f"{flow_name}:{path.relative_to(REPO_ROOT)}: document-level read"
+                    )
+            for index, text in enumerate(inline_text):
+                for line in text.splitlines():
+                    if has_unnegated_forbidden_plan_read(line):
+                        failures.append(f"{flow_name}:inline[{index}]: {line}")
         self.assertEqual(failures, [])
 
     def test_every_reachable_plan_sections_call_imports_bounded_contract(self) -> None:
-        markdown, inline_text = reachable_assets("implement_next_plan")
         failures: list[str] = []
-        for path in sorted(markdown):
-            text = path.read_text()
-            if path == MARKDOWN_ROOT / "shared/bounded-plan-read.md":
-                continue
-            if "plan_sections.py" in text and "shared/bounded-plan-read.md" not in text:
-                failures.append(str(path.relative_to(REPO_ROOT)))
-        for index, text in enumerate(inline_text):
-            if "plan_sections.py" in text and "shared/bounded-plan-read.md" not in text:
-                failures.append(f"inline[{index}]")
+        for flow_name in ("implement_next_plan", "implement_current_plan"):
+            markdown, inline_text = reachable_assets(flow_name)
+            for path in sorted(markdown):
+                text = path.read_text()
+                if path == MARKDOWN_ROOT / "shared/bounded-plan-read.md":
+                    continue
+                if (
+                    "plan_sections.py" in text
+                    and "shared/bounded-plan-read.md" not in text
+                ):
+                    failures.append(f"{flow_name}:{path.relative_to(REPO_ROOT)}")
+            for index, text in enumerate(inline_text):
+                if (
+                    "plan_sections.py" in text
+                    and "shared/bounded-plan-read.md" not in text
+                ):
+                    failures.append(f"{flow_name}:inline[{index}]")
         self.assertEqual(failures, [])
 
-    def test_review_artifact_agents_remain_reachable_from_policy_walk(self) -> None:
+    def test_current_plan_flow_uses_only_the_current_plan_repair_prompt(self) -> None:
+        markdown, _ = reachable_assets("implement_current_plan")
+
+        self.assertIn(
+            MARKDOWN_ROOT / "repair_current_plan_workflow_state.md", markdown
+        )
+        self.assertNotIn(MARKDOWN_ROOT / "store_current_plan_handoff.md", markdown)
+        self.assertNotIn(MARKDOWN_ROOT / "repair_story_workflow_state.md", markdown)
+
+    def test_generic_review_agents_remain_reachable_from_policy_walk(self) -> None:
         markdown, _ = reachable_assets("implement_next_plan")
         self.assertIn(
-            MARKDOWN_ROOT / "review_visual_design_conformance.md", markdown
+            MARKDOWN_ROOT / "run_deep_review_visual_workspace.md", markdown
         )
-        self.assertIn(MARKDOWN_ROOT / "review_evidence_gate/01-core.md", markdown)
-        self.assertIn(MARKDOWN_ROOT / "code_review_findings/01-core.md", markdown)
-        self.assertIn(MARKDOWN_ROOT / "review_findings_saturation.md", markdown)
         self.assertIn(
-            MARKDOWN_ROOT / "review_blind_spot_challenge/01-core.md", markdown
+            MARKDOWN_ROOT / "run_deep_review_evidence_workspace.md", markdown
+        )
+        self.assertIn(
+            MARKDOWN_ROOT / "run_deep_review_findings_workspace.md", markdown
+        )
+        self.assertIn(
+            MARKDOWN_ROOT / "run_deep_review_saturation_workspace.md", markdown
+        )
+        self.assertIn(
+            MARKDOWN_ROOT / "run_deep_review_blindspot_workspace.md", markdown
         )
 
     def test_review_tasking_and_repair_prompts_remain_reachable(self) -> None:
         markdown, _ = reachable_assets("implement_next_plan")
         expected = (
-            "review_task_enhancement/02b-risk-and-prerequisite-scan.md",
-            "review_task_enhancement/03-finalize.md",
-            "review_task_enhancement/05-compact-granularity.md",
-            "review_task_enhancement/07-compact-proof-expansion.md",
-            "review_task_enhancement/09-compact-proof-and-testing.md",
+            "settle_agent_native_review_pass.md",
+            "apply_agent_native_review_settlement.md",
+            "audit_agent_native_review_settlement.md",
             "repair_story_workflow_state.md",
-            "repair_review_workflow_state.md",
             "promote_story_manual_proof.md",
         )
         for relative_path in expected:

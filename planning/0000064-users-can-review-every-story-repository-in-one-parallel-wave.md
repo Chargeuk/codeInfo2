@@ -2959,3 +2959,35 @@ Close the two remaining review-cycle gaps without parsing review content. The se
 - Testing 5: Server and client summary builds passed; the client reported only the existing large-bundle advisory. Lint passed after removing one unused test parameter, tracked and new-file Prettier checks passed, and `git diff --check` passed.
 - Testing 6: Used the allowed provider-independent alternative rather than mutating or restarting a live stack. The production integration proof runs the identical server flow lifecycle, generic review batches, Git commit/new-HEAD boundary, agent-invoked recorder script, settlement task mutation, pending-only cleanup, and final outer decision gate deterministically, covering both the previously failing re-entry boundary and successful explicit settlement without provider availability noise.
 - Testing 4: The canonical clean rerun passed 900 client tests, 2,571 server unit/integration tests, 133 Cucumber scenarios, and 77 end-to-end tests. The preceding full run had isolated the live-loop child-recovery defect under server test concurrency while all other surfaces passed; after persisted-child discovery was limited to actual resumes, focused production/subflow reruns and the complete parallel suite passed.
+
+## Code Review Findings
+
+- Review batch: `0000064-rw-20260721T154105Z-75a6df43`
+- Review cycle: `0000064-rc-20260721T154104Z-11480787`
+- Comparison context: local HEAD `9016e15f1ceff4991d4ecdc7808392e3d8eb1425` versus comparison base `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`; the batch handoff supplies no additional comparison-source metadata.
+- Decision provenance: `codeInfoTmp/reviews/0000064-rc-20260721T154104Z-11480787/batches/0000064-rw-20260721T154105Z-75a6df43--head-9016e15f1cef/reconciliation/batch-disposition.md`
+- The batch had one verified not-applicable cross-repository result and two supported target-local findings. Both accepted findings are bounded direct-fix candidates for `current_repository`; no task-required finding was created or discarded.
+
+### Accepted
+
+#### 1. Resume-state parser receives the nested flow object
+
+- Finding reference: `R-1` in the batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-open_code_review`; independently corroborated in the sibling verification report
+- Severity: high
+- Description: Two lifecycle callers pass `conversation.flags.flow` to a parser that expects the complete flags wrapper, so the parser returns null and can miss interrupted-child and failed-run lifecycle state. The same-root state-preservation call is carried for the direct-fix pass to assess.
+- Example: An interrupted child can be treated as an older terminal assistant turn, while failed lifecycle persistence can return before writing the failed state.
+- Why accepted: This is a current-story, target-owned correctness defect with a bounded caller-contract repair and focused regression coverage. It is accepted for direct fixing in this review pass rather than task-up.
+
+#### 2. Explicit rewind preserves stale terminal and restart metadata
+
+- Finding reference: `R-2` in the batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-open_code_review`; independently corroborated in the sibling verification report
+- Severity: medium
+- Description: Explicit rewind clears active child and wave state but retains terminal and restart metadata from the later saved execution.
+- Example: Rewinding a run that previously recorded `terminalOutcome: not_applicable` can leave the resumed run reported as skipped after it executes fresh work.
+- Why accepted: Resume and terminal handling are explicit Story 64 contracts, and the repair is localized to the existing rewind reset with focused regression coverage. It is accepted for direct fixing in this review pass rather than task-up.
+
+### Ignored for This Story
+
+- None.

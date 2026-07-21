@@ -488,6 +488,68 @@ class ReviewPromptContractTests(unittest.TestCase):
                 "filter_review_batch_findings_to_story_scope.md", flow_text
             )
 
+    def test_agent_native_batch_repairs_escalate_before_task_creation(self) -> None:
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        normal_fix = read_text(
+            "codeinfo_markdown/implement_review_batch_direct_fixes.md"
+        )
+        stronger_fix = read_text(
+            "codeinfo_markdown/implement_review_batch_remaining_fixes.md"
+        )
+        outcome = read_text("codeinfo_markdown/record_review_batch_outcome.md")
+        settle = read_text("codeinfo_markdown/settle_agent_native_review_pass.md")
+        apply = read_text("codeinfo_markdown/apply_agent_native_review_settlement.md")
+        audit = read_text("codeinfo_markdown/audit_agent_native_review_settlement.md")
+        batch = json.loads(read_text("flows/review_batch.json"))
+
+        self.assertIn("Repair difficulty is advisory", disposition)
+        self.assertIn("do not make a final implementation-task decision here", disposition)
+        self.assertIn("Consider every supported in-scope actionable finding", normal_fix)
+        self.assertIn("Group findings by owning target repository", normal_fix)
+        self.assertIn("process repositories sequentially", normal_fix)
+        self.assertIn("Create separate commits in every changed repository", normal_fix)
+        self.assertIn("Do not require a rigid schema or exact audit filename", normal_fix)
+        self.assertIn("Reconstruct every supported in-scope actionable finding", stronger_fix)
+        self.assertIn("If the normal audit is missing or incomplete", stronger_fix)
+        self.assertIn("process repositories sequentially", stronger_fix)
+        self.assertIn("Do not create implementation tasks", stronger_fix)
+        self.assertIn("every target repository", outcome)
+        self.assertIn("after both opportunities", outcome)
+        self.assertIn("Do not create a task merely because disposition predicted", settle)
+        self.assertIn("after the stronger repair opportunity", apply)
+        self.assertIn("a disposition prediction was tasked before repair", audit)
+
+        optional_loop = next(
+            step
+            for step in batch["steps"]
+            if step.get("label") == "Optional Stronger Review Repair"
+        )
+        self.assertEqual(optional_loop["type"], "startLoop")
+        self.assertEqual(optional_loop["maxIterations"], 1)
+        completion_gate = optional_loop["steps"][0]
+        self.assertEqual(completion_gate["agentType"], "coding_agent")
+        self.assertEqual(completion_gate["identifier"], "batch_fixer")
+        self.assertEqual(completion_gate["breakOn"], "yes")
+        self.assertNotIn("breakOnFailure", completion_gate)
+        stronger_step = next(
+            step
+            for step in optional_loop["steps"]
+            if step.get("label") == "Implement Remaining Review Fixes"
+        )
+        self.assertEqual(stronger_step["agentType"], "research_agent")
+        self.assertTrue(stronger_step["continueOnFailure"])
+        self.assertEqual(
+            stronger_step["markdownFile"],
+            "implement_review_batch_remaining_fixes.md",
+        )
+        final_gate = optional_loop["steps"][-1]
+        self.assertEqual(final_gate["agentType"], "loop_control_agent")
+        self.assertEqual(final_gate["breakOn"], "yes")
+
+        for text in (normal_fix, stronger_fix, outcome, settle):
+            self.assertNotIn("reviewer count is", text)
+            self.assertNotIn("provider pointer", text.lower())
+
     def test_actionable_review_findings_are_promoted_for_one_inline_attempt(self) -> None:
         promote_text = read_text(
             "codeinfo_markdown/promote_actionable_review_findings_to_minor_path.md"

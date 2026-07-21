@@ -1,5 +1,5 @@
 {
-  "description": "Run any configured set of ordinary reviews in parallel, then verify, reconcile, scope-filter, disposition, and directly fix their self-describing workspace output.",
+  "description": "Run any configured set of ordinary reviews in parallel, then verify, reconcile, scope-filter, disposition, and apply escalating multi-repository repairs to their self-describing workspace output.",
   "steps": [
     {
       "type": "prepareReviewTargets",
@@ -91,6 +91,49 @@
       "identifier": "batch_fixer",
       "continueOnFailure": true,
       "markdownFile": "implement_review_batch_direct_fixes.md"
+    },
+    {
+      "type": "startLoop",
+      "label": "Optional Stronger Review Repair",
+      "maxIterations": 1,
+      "steps": [
+        {
+          "type": "break",
+          "label": "Skip Stronger Repair When Normal Fixer Completed All Findings",
+          "agentType": "coding_agent",
+          "identifier": "batch_fixer",
+          "question": "Read the current immutable batch, filtered reconciliation, disposition, your normal-repair audit, and current Git state for every target repository from disk. Have all supported in-scope actionable findings been resolved? Answer yes only when completion is positively confirmed. Answer no when any finding remains or the evidence is uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+          "breakOn": "yes"
+        },
+        {
+          "type": "reset",
+          "label": "Reset Stronger Review Fixer",
+          "agentType": "research_agent",
+          "identifier": "batch_research_fixer"
+        },
+        {
+          "type": "llm",
+          "label": "Implement Remaining Review Fixes",
+          "agentType": "research_agent",
+          "identifier": "batch_research_fixer",
+          "continueOnFailure": true,
+          "markdownFile": "implement_review_batch_remaining_fixes.md"
+        },
+        {
+          "type": "reset",
+          "label": "Reset Optional Repair Loop Controller",
+          "agentType": "loop_control_agent",
+          "identifier": "batch_research_loop_controller"
+        },
+        {
+          "type": "break",
+          "label": "Exit Optional Stronger Repair After One Attempt",
+          "agentType": "loop_control_agent",
+          "identifier": "batch_research_loop_controller",
+          "question": "The optional stronger repair attempt for this batch has now had its single allowed invocation. Return exact JSON only: {\"answer\":\"yes\"}.",
+          "breakOn": "yes"
+        }
+      ]
     },
     {
       "type": "llm",

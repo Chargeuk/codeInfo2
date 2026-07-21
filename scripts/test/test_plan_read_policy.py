@@ -198,6 +198,9 @@ class PlanReadPolicyTests(unittest.TestCase):
             MARKDOWN_ROOT / "filter_review_findings_to_story_scope.md", markdown
         )
         self.assertIn(
+            MARKDOWN_ROOT / "implement_review_batch_remaining_fixes.md", markdown
+        )
+        self.assertIn(
             MARKDOWN_ROOT / "run_deep_review_visual_workspace.md", markdown
         )
         self.assertIn(

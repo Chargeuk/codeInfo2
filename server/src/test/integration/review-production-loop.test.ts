@@ -40,7 +40,9 @@ afterEach(() => {
 });
 
 const createFixture = async (targetCount: number) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'generic-review-production-'));
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'generic-review-production-'),
+  );
   const planPath = 'planning/0000064-generic-review.md';
   await fs.mkdir(path.join(root, 'planning'), { recursive: true });
   await fs.mkdir(path.join(root, 'codeInfoStatus', 'flow-state'), {
@@ -180,9 +182,13 @@ test('reviewer regrouping does not change the job workspace or consumer boundary
 
 type ProductionReviewProbe = {
   repo: string;
+  secondaryRepo: string;
   repeatedHeads: string[];
   oneShotHeads: string[];
   directFixCalls: number;
+  normalCompletionGateCalls: number;
+  researchFixCalls: number;
+  optionalExitCalls: number;
   breakCalls: number;
 };
 
@@ -216,34 +222,91 @@ class ProductionReviewChat extends ChatInterface {
         path.join(outputDirectory, 'flexible-review-notes.txt'),
         'Self-describing review output; no fixed result schema.\n',
       );
-      const head = await currentHead(this.probe.repo);
+      const jobBrief = await fs.readFile(
+        path.join(path.dirname(outputDirectory), 'job.md'),
+        'utf8',
+      );
+      const assignedRepo = jobBrief.includes('- Target: current_repository')
+        ? this.probe.repo
+        : this.probe.secondaryRepo;
+      const head = await currentHead(assignedRepo);
+      const target =
+        assignedRepo === this.probe.secondaryRepo ? 'secondary' : 'primary';
       if (message.includes('INTEGRATION REPEATED REVIEW')) {
-        this.probe.repeatedHeads.push(head);
+        this.probe.repeatedHeads.push(`${target}:${head}`);
       }
       if (message.includes('INTEGRATION ONE-SHOT REVIEW')) {
-        this.probe.oneShotHeads.push(head);
+        this.probe.oneShotHeads.push(`${target}:${head}`);
       }
     }
 
-    if (message.includes('# Implement direct fixes from the current review batch')) {
+    if (
+      message.includes('# Implement direct fixes from the current review batch')
+    ) {
       this.probe.directFixCalls += 1;
       if (this.probe.directFixCalls === 1) {
-        await fs.appendFile(
-          path.join(this.probe.repo, 'feature.txt'),
-          'review fix\n',
-        );
-        await execFile('git', ['add', 'feature.txt'], { cwd: this.probe.repo });
-        await execFile(
-          'git',
-          ['commit', '-m', 'DEV-64 - Apply deterministic review fix'],
-          { cwd: this.probe.repo },
-        );
+        for (const [target, repository] of [
+          ['primary', this.probe.repo],
+          ['secondary', this.probe.secondaryRepo],
+        ] as const) {
+          await fs.appendFile(
+            path.join(repository, 'feature.txt'),
+            `${target} review fix\n`,
+          );
+          await execFile('git', ['add', 'feature.txt'], { cwd: repository });
+          await execFile(
+            'git',
+            [
+              'commit',
+              '-m',
+              `DEV-64 - Apply deterministic ${target} review fix`,
+            ],
+            { cwd: repository },
+          );
+        }
       }
     }
 
     if (
       message.includes(
-        'Do not use provider pointers, reviewer counts, or conversational memory.',
+        'Have all supported in-scope actionable findings been resolved?',
+      )
+    ) {
+      this.probe.normalCompletionGateCalls += 1;
+      const answer = this.probe.normalCompletionGateCalls === 1 ? 'no' : 'yes';
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({ answer }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
+    if (
+      message.includes(
+        '# Implement remaining findings with the stronger research agent',
+      )
+    ) {
+      this.probe.researchFixCalls += 1;
+    }
+
+    if (
+      message.includes(
+        'The optional stronger repair attempt for this batch has now had its single allowed invocation.',
+      )
+    ) {
+      this.probe.optionalExitCalls += 1;
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({ answer: 'yes' }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
+    if (
+      message.includes(
+        'Findings explicitly left after the stronger attempt for complete-pass settlement do not keep this repeated group running.',
       )
     ) {
       this.probe.breakCalls += 1;
@@ -295,7 +358,11 @@ class ProductionReviewChat extends ChatInterface {
       await execFile(
         'python3',
         [
-          path.join(repositoryRoot, 'scripts', 'record_review_cycle_outcome.py'),
+          path.join(
+            repositoryRoot,
+            'scripts',
+            'record_review_cycle_outcome.py',
+          ),
           '--repo-root',
           this.probe.repo,
           '--cycle-id',
@@ -326,8 +393,11 @@ const waitForTerminalFlowStatus = async (conversationId: string) => {
   throw new Error('Timed out waiting for production review flow completion.');
 };
 
-const reviewRepoEntry = (repo: string): RepoEntry => ({
-  id: 'production-review-repo',
+const reviewRepoEntry = (
+  repo: string,
+  id = 'production-review-repo',
+): RepoEntry => ({
+  id,
   description: null,
   containerPath: repo,
   hostPath: repo,
@@ -353,10 +423,12 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     path.join(os.tmpdir(), 'production-review-reentry-'),
   );
   const repo = path.join(temporary, 'repo');
+  const secondaryRepo = path.join(temporary, 'secondary-repo');
   const flowDirectory = path.join(temporary, 'flows');
   const previousFlowsDirectory = process.env.FLOWS_DIR;
   const previousAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   await fs.mkdir(repo, { recursive: true });
+  await fs.mkdir(secondaryRepo, { recursive: true });
   await fs.mkdir(flowDirectory, { recursive: true });
 
   try {
@@ -373,6 +445,23 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     });
     await fs.writeFile(path.join(repo, '.gitignore'), 'codeInfoTmp/\n');
     await fs.writeFile(path.join(repo, 'feature.txt'), 'initial\n');
+    await execFile('git', ['init', '-b', 'main'], { cwd: secondaryRepo });
+    await execFile('git', ['config', 'user.name', 'Review Integration'], {
+      cwd: secondaryRepo,
+    });
+    await execFile('git', ['config', 'user.email', 'review@example.com'], {
+      cwd: secondaryRepo,
+    });
+    await fs.writeFile(path.join(secondaryRepo, 'feature.txt'), 'initial\n');
+    await execFile('git', ['add', '.'], { cwd: secondaryRepo });
+    await execFile('git', ['commit', '-m', 'DEV-64 - Initial fixture'], {
+      cwd: secondaryRepo,
+    });
+    await execFile(
+      'git',
+      ['checkout', '-b', 'feature/0000064-production-review'],
+      { cwd: secondaryRepo },
+    );
     const planPath = 'planning/0000064-production-review.md';
     await fs.writeFile(
       path.join(repo, planPath),
@@ -407,7 +496,13 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     );
     await fs.writeFile(
       path.join(repo, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
-      JSON.stringify({ plan_path: planPath, branched_from: 'main' }),
+      JSON.stringify({
+        plan_path: planPath,
+        branched_from: 'main',
+        additional_repositories: [
+          { path: secondaryRepo, branched_from: 'main' },
+        ],
+      }),
     );
     await execFile('git', ['add', '.'], { cwd: repo });
     await execFile('git', ['commit', '-m', 'DEV-64 - Initial fixture'], {
@@ -419,6 +514,7 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       { cwd: repo },
     );
     const initialHead = await currentHead(repo);
+    const initialSecondaryHead = await currentHead(secondaryRepo);
 
     const productionCycle = JSON.parse(
       await fs.readFile(
@@ -526,9 +622,13 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     });
     const probe: ProductionReviewProbe = {
       repo,
+      secondaryRepo,
       repeatedHeads: [],
       oneShotHeads: [],
       directFixCalls: 0,
+      normalCompletionGateCalls: 0,
+      researchFixCalls: 0,
+      optionalExitCalls: 0,
       breakCalls: 0,
     };
     const result = await startFlowRun({
@@ -537,23 +637,46 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       working_folder: repo,
       chatFactory: () => new ProductionReviewChat(probe),
       listIngestedRepositories: async () => ({
-        repos: [reviewRepoEntry(repo)],
+        repos: [
+          reviewRepoEntry(repo),
+          reviewRepoEntry(secondaryRepo, 'production-review-secondary'),
+        ],
         lockedModelId: null,
       }),
     });
-    const terminalStatus = await waitForTerminalFlowStatus(result.conversationId);
+    const terminalStatus = await waitForTerminalFlowStatus(
+      result.conversationId,
+    );
     assert.equal(terminalStatus, 'ok');
 
     const fixedHead = await currentHead(repo);
+    const fixedSecondaryHead = await currentHead(secondaryRepo);
     assert.notEqual(fixedHead, initialHead);
+    assert.notEqual(fixedSecondaryHead, initialSecondaryHead);
     assert.equal(probe.breakCalls, 2, JSON.stringify(probe));
     assert.equal(probe.directFixCalls, 3, JSON.stringify(probe));
-    assert.deepEqual(probe.repeatedHeads, [initialHead, fixedHead]);
-    assert.deepEqual(probe.oneShotHeads, [fixedHead]);
+    assert.equal(probe.normalCompletionGateCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.researchFixCalls, 1, JSON.stringify(probe));
+    assert.equal(probe.optionalExitCalls, 1, JSON.stringify(probe));
+    assert.deepEqual(probe.repeatedHeads, [
+      `primary:${initialHead}`,
+      `secondary:${initialSecondaryHead}`,
+      `primary:${fixedHead}`,
+      `secondary:${fixedSecondaryHead}`,
+    ]);
+    assert.deepEqual(probe.oneShotHeads, [
+      `primary:${fixedHead}`,
+      `secondary:${fixedSecondaryHead}`,
+    ]);
 
     const active = JSON.parse(
       await fs.readFile(
-        path.join(repo, 'codeInfoStatus', 'flow-state', 'active-review-cycle.json'),
+        path.join(
+          repo,
+          'codeInfoStatus',
+          'flow-state',
+          'active-review-cycle.json',
+        ),
         'utf8',
       ),
     ) as Record<string, unknown>;
@@ -581,7 +704,8 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
   } finally {
     if (previousFlowsDirectory === undefined) delete process.env.FLOWS_DIR;
     else process.env.FLOWS_DIR = previousFlowsDirectory;
-    if (previousAgentHome === undefined) delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    if (previousAgentHome === undefined)
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
     else process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentHome;
     await fs.rm(temporary, { recursive: true, force: true });
   }

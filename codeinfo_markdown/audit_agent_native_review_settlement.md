@@ -1,6 +1,8 @@
 # Audit the agent-native review settlement
 
-Independently read every batch in the active review pass, the settlement, current Git state, and bounded plan. Verify that all supported findings were fixed, ignored with reason, or represented by appropriate tasks; that direct fixes caused a final testing task; that task-required work is followed by a final testing task; and that a clean closeout was not claimed while actionable work remains.
+Independently read every batch in the active review pass, both repair attempts, the settlement, current Git state for every target repository, and the bounded plan. Verify that all supported findings were fixed, ignored with reason, or represented by appropriate tasks; that fixes by either agent caused a final testing task; that only findings remaining after the stronger opportunity became implementation tasks; that remaining work is followed by a final testing task covering every changed target; and that a clean closeout was not claimed while actionable work remains.
+
+Reject or repair settlement when a disposition prediction was tasked before repair was attempted, a successful fix was also tasked, a missing or failed repair stage was represented as success, a secondary-repository commit was omitted, or a new target HEAD was not routed to repeated review or final revalidation as appropriate.
 
 Repair the settlement and plan when needed. Keep review grouping out of the artifacts: reviewer scheduling is not finding provenance.
 

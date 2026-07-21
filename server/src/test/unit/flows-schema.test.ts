@@ -18,6 +18,9 @@ describe('flow schema (v1)', () => {
     label?: string;
     agentType?: string;
     identifier?: string;
+    maxIterations?: number;
+    question?: string;
+    breakOn?: string;
     breakOnFailure?: boolean;
     continueOnFailure?: boolean;
     continueOn?: string;
@@ -457,6 +460,7 @@ describe('flow schema (v1)', () => {
       'flows/diagnostic_review_cycle.json',
       'flows/minor_review_fix_path.json',
       'flows/review_artifacts_main.json',
+      'flows/review_batch.json',
       'flows/review_disposition_current_artifacts.json',
       'flows/review_plan.json',
       'flows/review_task_up_path.json',
@@ -496,7 +500,7 @@ describe('flow schema (v1)', () => {
     const repeatedExit = repeatedLoop?.steps?.find(
       (step) =>
         step.label ===
-        'Exit Repeated Group When Current Batch Needs No Direct-Fix Re-review',
+        'Exit Repeated Group When Current Batch Needs No Repair Re-review',
     );
     const oneShotBatches = topLevel.filter(
       (step) => step.label === 'Run One-Shot Generic Review Batch',
@@ -510,6 +514,8 @@ describe('flow schema (v1)', () => {
       repeatedExit?.type === 'break' ? repeatedExit.breakOnFailure : undefined,
       true,
     );
+    assert.match(repeatedExit?.question ?? '', /every target repository/u);
+    assert.match(repeatedExit?.question ?? '', /stronger attempt/u);
     assert.equal(oneShotBatches.length, 1);
     const serialized = JSON.stringify({ repeatedBatch, oneShotBatches });
     assert.match(serialized, /codex_review/u);
@@ -520,7 +526,7 @@ describe('flow schema (v1)', () => {
     assert.match(serialized, /review_batch/u);
   });
 
-  test('generic review batch verifies, reconciles, scope filters, dispositions, fixes, and records in order', async () => {
+  test('generic review batch verifies, reconciles, scope filters, dispositions, applies optional stronger repair, and records in order', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/review_batch.json'),
       'utf8',
@@ -565,6 +571,11 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Implement Direct Review Fixes',
+      'Optional Stronger Review Repair',
+    );
+    assertOrdered(
+      labels,
+      'Optional Stronger Review Repair',
       'Record Review Batch Outcome',
     );
 
@@ -585,6 +596,49 @@ describe('flow schema (v1)', () => {
       scopeFilter?.markdownFile,
       'filter_review_batch_findings_to_story_scope.md',
     );
+
+    const optionalRepair = (parsed.steps ?? []).find(
+      (step) => step.label === 'Optional Stronger Review Repair',
+    );
+    assert.equal(optionalRepair?.type, 'startLoop');
+    assert.equal(optionalRepair?.maxIterations, 1);
+    const optionalSteps = optionalRepair?.steps ?? [];
+    assert.deepEqual(
+      optionalSteps.map((step) => step.label),
+      [
+        'Skip Stronger Repair When Normal Fixer Completed All Findings',
+        'Reset Stronger Review Fixer',
+        'Implement Remaining Review Fixes',
+        'Reset Optional Repair Loop Controller',
+        'Exit Optional Stronger Repair After One Attempt',
+      ],
+    );
+    const completionGate = optionalSteps[0];
+    assert.equal(completionGate?.type, 'break');
+    assert.equal(completionGate?.agentType, 'coding_agent');
+    assert.equal(completionGate?.identifier, 'batch_fixer');
+    assert.equal(completionGate?.breakOn, 'yes');
+    assert.equal(completionGate?.breakOnFailure, undefined);
+    assert.match(completionGate?.question ?? '', /positively confirmed/u);
+    assert.match(completionGate?.question ?? '', /evidence is uncertain/u);
+    const strongerReset = optionalSteps[1];
+    const strongerFix = optionalSteps[2];
+    assert.equal(strongerReset?.type, 'reset');
+    assert.equal(strongerReset?.agentType, 'research_agent');
+    assert.equal(strongerReset?.identifier, 'batch_research_fixer');
+    assert.equal(strongerFix?.type, 'llm');
+    assert.equal(strongerFix?.agentType, 'research_agent');
+    assert.equal(strongerFix?.identifier, 'batch_research_fixer');
+    assert.equal(strongerFix?.continueOnFailure, true);
+    assert.equal(
+      strongerFix?.markdownFile,
+      'implement_review_batch_remaining_fixes.md',
+    );
+    const exitGate = optionalSteps[4];
+    assert.equal(exitGate?.type, 'break');
+    assert.equal(exitGate?.agentType, 'loop_control_agent');
+    assert.equal(exitGate?.breakOn, 'yes');
+    assert.match(exitGate?.question ?? '', /single allowed invocation/u);
   });
 
   test('implement_next_plan resets implementation agents only at safe boundaries and reloads compact context', async () => {
@@ -1281,6 +1335,9 @@ describe('flow schema (v1)', () => {
     const directFixIndex = markers.indexOf(
       'implement_review_batch_direct_fixes.md',
     );
+    const strongerFixIndex = markers.indexOf(
+      'implement_review_batch_remaining_fixes.md',
+    );
     const settlementIndex = markers.indexOf(
       'settle_agent_native_review_pass.md',
     );
@@ -1324,6 +1381,11 @@ describe('flow schema (v1)', () => {
       'flows/implement_next_plan.json should implement supported direct fixes',
     );
     assert.notEqual(
+      strongerFixIndex,
+      -1,
+      'flows/implement_next_plan.json should include the optional stronger repair prompt',
+    );
+    assert.notEqual(
       settlementIndex,
       -1,
       'flows/implement_next_plan.json should settle the complete review pass',
@@ -1340,9 +1402,10 @@ describe('flow schema (v1)', () => {
         reconcileIndex < scopeFilterIndex &&
         scopeFilterIndex < dispositionIndex &&
         dispositionIndex < directFixIndex &&
-        directFixIndex < settlementIndex &&
+        directFixIndex < strongerFixIndex &&
+        strongerFixIndex < settlementIndex &&
         settlementIndex < applyIndex,
-      'flows/implement_next_plan.json should prepare, run, verify, reconcile, scope filter, disposition, fix, settle, and task generic review batches',
+      'flows/implement_next_plan.json should prepare, run, verify, reconcile, scope filter, apply both repair levels, settle, and task generic review batches',
     );
   });
 

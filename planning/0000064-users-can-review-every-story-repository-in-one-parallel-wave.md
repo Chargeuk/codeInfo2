@@ -3120,3 +3120,27 @@ Close the two remaining review-cycle gaps without parsing review content. The se
 - Testing 1: The combined focused review-prompt and bounded-plan reachability run passed all 42 tests, including the new autonomous research, evidence hierarchy, iteration, and stopping-condition contract.
 - Testing 2: The focused flow-schema wrapper rebuilt the server and passed all 77 tests, confirming the strengthened prompt remains reachable through the unchanged one-iteration optional-research flow.
 - Testing 3: Repository ESLint passed with zero warnings, explicit Prettier checks passed for the changed prompt and plan, and `git diff --check` passed cleanly.
+
+### Task 49. Enforce Minimal Repair-Only Fixes
+
+- Task Status: `__done__`
+
+#### Subtasks
+
+1. [x] Tighten normal and stronger repair prompts so deep investigation always yields the smallest focused change and working surrounding code is protected unless directly causal or necessarily coupled.
+2. [x] Add focused prompt-contract coverage for repair-only mode, prohibited opportunistic improvements, constrained refactors, and per-file necessity evidence.
+
+#### Testing
+
+1. [x] Run the focused review prompt and bounded-read Python tests.
+2. [x] Run the focused flow-schema server tests.
+3. [x] Run repository lint, Prettier/format checks, and `git diff --check`.
+
+#### Implementation Notes
+
+- Task opened as a prompt-only KISS refinement of both existing repair stages. Deep investigation remains available, but the agents must now leave working surrounding code alone and stop once the direct accepted finding is fixed and proven.
+- Subtask 1: Put both repair agents into strict repair-only mode. Each prompt now requires the smallest focused evidence-backed correction, forbids opportunistic cleanup and speculative redesign, limits coupled or cross-repository changes to necessity, constrains refactors, and stops further editing after focused proof passes.
+- Subtask 2: Extended the shared prompt contract across both fixers to lock repair-only mode, direct-cause and necessary-coupling boundaries, protection for merely adjacent code, stop-after-proof behavior, and per-file necessity evidence. Stronger-repair coverage additionally requires broad-research/narrow-implementation separation, proof that narrower corrections failed before refactoring, and rejects the former unconstrained multi-step-refactor wording.
+- Testing 1: The combined focused review-prompt and bounded-plan reachability run passed all 42 tests. Its first run exposed one stale assertion for the deliberately narrowed materially-different-implementation wording; the contract now requires a materially different focused implementation and passed cleanly.
+- Testing 2: The focused flow-schema wrapper rebuilt the server and passed all 77 tests, confirming both revised prompts remain reachable through the unchanged generic review batch flow.
+- Testing 3: Repository ESLint passed with zero warnings, Prettier passed for both changed prompts and the plan, and `git diff --check` passed cleanly.

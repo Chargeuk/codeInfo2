@@ -509,6 +509,20 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("process repositories sequentially", normal_fix)
         self.assertIn("Create separate commits in every changed repository", normal_fix)
         self.assertIn("Do not require a rigid schema or exact audit filename", normal_fix)
+        for repair_prompt in (normal_fix, stronger_fix):
+            self.assertIn("strict repair-only mode", repair_prompt)
+            self.assertIn("smallest focused evidence-backed", repair_prompt)
+            self.assertIn("directly causes the accepted finding", repair_prompt)
+            self.assertIn("necessarily coupled", repair_prompt)
+            self.assertIn(
+                "same file, class, module, repository, or subsystem",
+                repair_prompt,
+            )
+            self.assertIn(
+                "Once the direct issue is fixed and focused proof passes",
+                repair_prompt,
+            )
+            self.assertIn("why every changed file was necessary", repair_prompt)
         self.assertIn("Reconstruct every supported in-scope actionable finding", stronger_fix)
         self.assertIn("If the normal audit is missing or incomplete", stronger_fix)
         self.assertIn("Your objective is to fix every remaining finding", stronger_fix)
@@ -516,13 +530,23 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("related past stories and implementation notes", stronger_fix)
         self.assertIn("other ingested repositories", stronger_fix)
         self.assertIn("official documentation, and internet research", stronger_fix)
-        self.assertIn("materially different implementation remains", stronger_fix)
+        self.assertIn("materially different focused implementation remains", stronger_fix)
         self.assertIn("return to it with the additional evidence", stronger_fix)
         self.assertIn("process repositories sequentially", stronger_fix)
         self.assertIn("coordinated producer-consumer changes", stronger_fix)
         self.assertIn("are not valid stopping reasons", stronger_fix)
         self.assertIn("exact genuine blocker for anything unresolved", stronger_fix)
         self.assertIn("Do not create implementation tasks", stronger_fix)
+        self.assertIn(
+            "Research may be broad, but implementation must remain narrow",
+            stronger_fix,
+        )
+        self.assertIn(
+            "every narrower safe correction has been disproved",
+            stronger_fix,
+        )
+        self.assertIn("not speculative redesign or improvement", stronger_fix)
+        self.assertNotIn("multi-step refactors", stronger_fix)
         self.assertNotIn("Do not invent a product decision", stronger_fix)
         self.assertNotIn(
             "that can be resolved autonomously during this one invocation",

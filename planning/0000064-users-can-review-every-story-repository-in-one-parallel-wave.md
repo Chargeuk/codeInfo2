@@ -2794,7 +2794,7 @@ Escalated review items requiring combined task-up:
 - Review cycle: `0000064-rc-20260720T225340Z-6831b239`
 - Comparison context: local `HEAD` `bde9e15d38d8701e8bec359c6755a0d733ca45d5` versus resolved base `origin/main@00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
 - Wave coverage and target ownership: the fast wave expected 3 jobs; 2 terminal outcomes completed and 1 target-local reviewer failed or remained stale. The usable target-local result came from Codex Review for `current_repository`; Open Code Review was unusable, and the singleton cross-repository result was `not_applicable`. Current-pass findings are owned by `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`; closeout remains disallowed because coverage is incomplete.
-- Severity conflicts: no current-pass severity conflict is recorded in the disposition state; both current-pass routed candidates have one Codex Review source with severity `P1`. The review handoff has no findings file, so no additional conflict metadata was available.
+- Severity conflicts: the validated aggregate records zero current-pass severity conflicts; both current-pass routed candidates have one Codex Review source with severity `P1`. The review handoff has no findings file, so no additional conflict metadata was available.
 - Provenance note: preserved same-cycle task-required findings `ef304e0a4692d1bb1931fd6b227df9b0a48302dde0d2ef01eb5beb41d3be6fb6` and `5f43331c587c485f40af99fbc0d1f5ea244f4dd332eeeba8178cf673498f19c3` belong to the earlier review pass and are not repeated as decisions for this current pass.
 
 ### Accepted
@@ -2804,7 +2804,7 @@ Escalated review items requiring combined task-up:
 - Finding ID: `23b8db3c7f1ee97697d0ff6ec7ba5cb95082155ff47ba3b3183789297c154eed`
 - Found by: Codex Review
 - Description: Diagnostic review-wave results cannot become usable when the diagnostic cycle, wave, target, and artifact identity required by validation and publication is incomplete.
-- Example: No concrete example was recorded in the validated review evidence.
+- Example: `review:diagnostic:summary` can report success with zero usable reviewers after an invalid finalized manifest is rejected during joined validation.
 - Why accepted: The final routed reason narrows this to the diagnostic identity and validation/publication contract explicitly accepted in Story 64. It is owned by `current_repository`; broader diagnostic redesign and user-facing behavior changes remain excluded.
 
 ### Ignored for This Story
@@ -2814,5 +2814,5 @@ Escalated review items requiring combined task-up:
 - Finding ID: `ab0cbbf7b19f528164b50ac9bb407de01e5cbbf8f19862abd0ee0bc4e360a65d`
 - Found by: Codex Review
 - Description: Concurrent top-level review cycles could overwrite or finalize another cycle's shared state.
-- Example: No concrete example was recorded in the validated review evidence.
+- Example: Run A can start, run B can replace the active cycle, and A can then finalize B's state as completed or incomplete.
 - Why ignored: Task 42 explicitly excludes locking, leasing, joining, conflict resolution, and ownership negotiation for concurrent top-level story flows. The proposed compare-and-swap or repository-level ownership work would materially expand Story 64 scope; it is ignored for this story.

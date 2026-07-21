@@ -2756,3 +2756,34 @@ Remove durable review-state ownership by ephemeral flow execution IDs. A review 
 ### Ignored for This Story
 
 - None.
+
+### Task 43. Record Minor Review Fixes From Pass 0000064-20260720T225340Z-94ba2b5d05-679531ae
+
+- Task Status: `__done__`
+
+#### Overview
+
+This completed audit records the terminal inline outcomes for this review pass.
+
+Escalated review items requiring combined task-up:
+
+- `5f43331c587c485f40af99fbc0d1f5ea244f4dd332eeeba8178cf673498f19c3` — Diagnostic runs can overwrite an active final cycle’s artifacts. (`current_repository`). Found by: Codex Review Task coverage: Pending combined task-up after slow-phase finalization.
+- `ef304e0a4692d1bb1931fd6b227df9b0a48302dde0d2ef01eb5beb41d3be6fb6` — Diagnostic waves lack an independent review-cycle identity, so target snapshots either omit required wave identity or inherit the active final cycle. (`current_repository`). Found by: Codex Review Task coverage: Pending combined task-up after slow-phase finalization.
+
+#### Subtasks
+
+1. [x] Fixed `2b9e2ecc862d6c13e4a7d977b455a6a23afdb3af182ff637a071b178c993bbe8` — OpenCode publication now honors prepared review exclusions, accepting excluded committed paths and rejecting excluded manifest entries. (`current_repository`); modified `scripts/publish_open_code_review.py`, `scripts/test/test_publish_open_code_review.py`.
+2. [x] Fixed `a5aee94e7e31e4d4999e85dea93176316a5647f82cf851b96677145b2c6e69d9` — The new standalone review wrapper now finalizes the final review cycle it initialized. (`current_repository`); modified `server/src/flows/service.ts`, `server/src/test/integration/review-production-loop.test.ts`.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/review-production-loop.test.ts` in `current_repository` — passed. The focused server integration wrapper passed both production-loop cases, including the new durable completed-cycle assertion.
+2. [x] `python3 -m unittest scripts/test/test_publish_open_code_review.py` in `current_repository` — passed. 19 focused publisher tests passed, including regression coverage for planning/** exclusions.
+
+#### Implementation Notes
+
+- Review Task Role: `minor_fix_loop_audit`
+- Review Cycle Id: `0000064-rc-20260720T225340Z-6831b239`
+- Review Pass Id: `0000064-20260720T225340Z-94ba2b5d05-679531ae`
+- Review Phase: `fast`
+- This task is a completed historical audit and does not replace final story revalidation.

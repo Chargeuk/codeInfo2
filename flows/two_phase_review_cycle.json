@@ -1,211 +1,138 @@
 {
-  "description": "Run bounded fast review waves across every story repository, then one heavyweight slow review wave before combined settlement.",
+  "description": "Run configurable generic review batches, currently one repeated group followed by one one-shot group, then settle the complete agent-native review pass.",
   "steps": [
     {
       "type": "initializeReviewCycle",
-      "label": "Initialize Fresh Final Review Cycle",
+      "label": "Initialize Fresh Review Pass",
       "mode": "final",
       "outputKey": "review_cycle"
     },
     {
       "type": "startLoop",
-      "label": "Fast Review Convergence Loop",
+      "label": "Repeated Review Group",
       "maxIterations": 5,
       "steps": [
         {
-          "type": "prepareReviewTargets",
-          "label": "Snapshot Fast Review Targets",
-          "outputKey": "fast_review_wave"
-        },
-        {
-          "type": "prepareReviewSet",
-          "label": "Prepare Fast Review Set",
-          "snapshotFrom": "fast_review_wave",
-          "outputKey": "fast_review_set",
-          "reviewPhase": "fast",
-          "reviewFlowNames": ["codex_review", "open_code_review"],
-          "crossRepositoryFlowName": "cross_repository_review"
-        },
-        {
           "type": "subflowWave",
-          "label": "Run Fast Review Wave",
+          "label": "Run Repeated Generic Review Batch",
           "failureMode": "best_effort",
           "groups": [
             {
-              "kind": "matrix",
-              "id": "fast_target_reviews",
-              "itemsFrom": "fast_review_wave.targets",
-              "itemName": "target",
-              "flowNames": ["codex_review", "open_code_review"],
-              "bindings": {
-                "workingFolderFrom": "target.repo_root",
-                "input": {
-                  "target": "target",
-                  "review_wave": "fast_review_wave",
-                  "review_set": "fast_review_set"
-                }
-              }
-            },
-            {
               "kind": "singleton",
-              "id": "fast_cross_repository_review",
-              "flowName": "cross_repository_review",
+              "id": "repeated_review_batch",
+              "flowName": "review_batch",
               "bindings": {
-                "workingFolderFrom": "fast_review_wave.plan_host_root",
-                "input": {
-                  "review_wave": "fast_review_wave",
-                  "review_set": "fast_review_set"
+                "inputValues": {
+                  "review_groups": [
+                    {
+                      "kind": "matrix",
+                      "id": "target_reviews",
+                      "itemsFrom": "review_batch_targets.targets",
+                      "itemName": "target",
+                      "flowNames": ["codex_review", "open_code_review"],
+                      "bindings": {
+                        "workingFolderFrom": "target.repo_root",
+                        "input": {
+                          "target": "target",
+                          "review_wave": "review_batch_targets"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "singleton",
+                      "id": "story_review",
+                      "flowName": "cross_repository_review",
+                      "bindings": {
+                        "workingFolderFrom": "review_batch_targets.plan_host_root",
+                        "input": {
+                          "review_wave": "review_batch_targets"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
           ]
         },
         {
-          "type": "validateReviewWave",
-          "label": "Validate Fast Review Wave",
-          "snapshotFrom": "fast_review_wave",
-          "reviewSetFrom": "fast_review_set",
-          "reviewPhase": "fast"
-        },
-        {
-          "type": "reset",
-          "label": "Reset planner before merging fast review findings",
-          "agentType": "planning_agent",
-          "identifier": "planner"
-        },
-        {
-          "type": "llm",
-          "label": "Load planner context before merging fast review findings",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "load_planner_review_context.md"
-        },
-        {
-          "type": "llm",
-          "label": "Merge Codex Review Findings Into Canonical Review",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "merge_codex_review_findings_into_canonical_review.md"
-        },
-        {
-          "type": "llm",
-          "label": "Merge Open Code Review Findings Into Canonical Review",
-          "agentType": "planning_agent",
-          "identifier": "planner",
-          "markdownFile": "merge_open_code_review_findings_into_canonical_review.md"
-        },
-        {
-          "type": "subflow",
-          "label": "Disposition Fast Review Wave",
-          "flowNames": ["review_disposition_current_artifacts"]
-        },
-        {
-          "type": "llm",
-          "label": "Record Fast Review Pass Outcome",
-          "agentType": "planning_agent_lite",
-          "identifier": "planner_lite",
-          "markdownFile": "record_fast_review_pass_outcome.md"
-        },
-        {
-          "type": "subflow",
-          "label": "Resolve Fast Review Minor Findings",
-          "flowNames": ["minor_review_fix_path"]
-        },
-        {
           "type": "break",
-          "label": "Exit Fast Review Phase When Converged Or Fifth Pass Was Drained",
+          "label": "Exit Repeated Group When Current Batch Needs No Direct-Fix Re-review",
           "agentType": "loop_control_agent",
           "identifier": "loop_controller",
-          "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_fast_review_phase_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+          "question": "Read `codeInfoStatus/flow-state/current-plan.json`, then read `codeInfoTmp/reviews/<story-number>-current-review-batch.md` and inspect that immutable batch's reconciliation, disposition, direct-fix audit, outcome, and current Git HEAD. Do not use provider pointers, reviewer counts, or conversational memory. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes when this batch committed no direct fixes that need review on a new HEAD and no supported direct-fix finding remains. Task-required findings do not keep this repeated group running because complete-pass settlement handles them. Answer no only when a committed direct fix or still-repairable direct finding makes another batch useful.",
           "breakOn": "yes",
-          "decisionScript": "scripts/flow_control/check_fast_review_phase_complete.py"
+          "breakOnFailure": true
         }
       ]
     },
     {
-      "type": "llm",
-      "label": "Advance Review Cycle To Slow Phase",
-      "agentType": "planning_agent_lite",
-      "identifier": "planner_lite",
-      "markdownFile": "advance_review_cycle_to_slow_phase.md"
-    },
-    {
-      "type": "prepareReviewTargets",
-      "label": "Snapshot Slow Review Targets",
-      "outputKey": "slow_review_wave"
-    },
-    {
-      "type": "prepareReviewSet",
-      "label": "Prepare Slow Review Set",
-      "snapshotFrom": "slow_review_wave",
-      "outputKey": "slow_review_set",
-      "reviewPhase": "slow",
-      "reviewFlowNames": ["review_artifacts_main"]
-    },
-    {
       "type": "subflowWave",
-      "label": "Run Slow Review Wave",
+      "label": "Run One-Shot Generic Review Batch",
       "failureMode": "best_effort",
       "groups": [
         {
-          "kind": "matrix",
-          "id": "slow_target_reviews",
-          "itemsFrom": "slow_review_wave.targets",
-          "itemName": "target",
-          "flowNames": ["review_artifacts_main"],
+          "kind": "singleton",
+          "id": "one_shot_review_batch",
+          "flowName": "review_batch",
           "bindings": {
-            "workingFolderFrom": "target.repo_root",
-            "input": {
-              "target": "target",
-              "review_wave": "slow_review_wave",
-              "review_set": "slow_review_set"
+            "inputValues": {
+              "review_groups": [
+                {
+                  "kind": "matrix",
+                  "id": "target_reviews",
+                  "itemsFrom": "review_batch_targets.targets",
+                  "itemName": "target",
+                  "flowNames": ["review_artifacts_main"],
+                  "bindings": {
+                    "workingFolderFrom": "target.repo_root",
+                    "input": {
+                      "target": "target",
+                      "review_wave": "review_batch_targets"
+                    }
+                  }
+                }
+              ]
             }
           }
         }
       ]
     },
     {
-      "type": "validateReviewWave",
-      "label": "Validate Slow Review Wave",
-      "snapshotFrom": "slow_review_wave",
-      "reviewSetFrom": "slow_review_set",
-      "reviewPhase": "slow"
-    },
-    {
-      "type": "subflow",
-      "label": "Disposition Slow Review Wave",
-      "flowNames": ["review_disposition_current_artifacts"]
-    },
-    {
-      "type": "subflow",
-      "label": "Resolve Slow Review Minor Findings",
-      "flowNames": ["minor_review_fix_path"]
+      "type": "reset",
+      "label": "Reset Complete-Pass Settlement Tasker",
+      "agentType": "tasking_agent",
+      "identifier": "review_settler"
     },
     {
       "type": "llm",
-      "label": "Finalize Two-Phase Review Disposition",
-      "agentType": "planning_agent_lite",
-      "identifier": "planner_lite",
-      "markdownFile": "finalize_two_phase_review_disposition.md"
-    },
-    {
-      "type": "subflow",
-      "label": "Task Up Combined Review Findings",
-      "flowNames": ["review_task_up_path"]
+      "label": "Settle Complete Agent-Native Review Pass",
+      "agentType": "tasking_agent",
+      "identifier": "review_settler",
+      "continueOnFailure": true,
+      "markdownFile": "settle_agent_native_review_pass.md"
     },
     {
       "type": "llm",
-      "label": "Refresh Minor-Fix Audit Task Coverage",
-      "agentType": "planning_agent",
-      "identifier": "planner",
-      "markdownFile": "refresh_minor_fix_audit_task_coverage.md"
+      "label": "Apply Review Settlement To Plan",
+      "agentType": "tasking_agent",
+      "identifier": "review_settler",
+      "continueOnFailure": true,
+      "markdownFile": "apply_agent_native_review_settlement.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Complete-Pass Settlement Auditor",
+      "agentType": "review_agent_heavy",
+      "identifier": "settlement_auditor"
     },
     {
       "type": "llm",
-      "label": "Repair Workflow State If Needed",
-      "agentType": "planning_agent_lite",
-      "identifier": "planner_lite",
-      "markdownFile": "repair_review_workflow_state.md"
+      "label": "Audit Complete Review Settlement",
+      "agentType": "review_agent_heavy",
+      "identifier": "settlement_auditor",
+      "continueOnFailure": true,
+      "markdownFile": "audit_agent_native_review_settlement.md"
     }
   ]
 }

@@ -114,19 +114,12 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   };
 };
 
-import {
-  clearCodexReviewPointerFile,
-  resolveCodexReviewModel,
-  resolveCodexReviewReasoningEffort,
-  runCodexReviewStep,
-  type CodexReviewReasoningEffort,
-} from './codexReview.js';
-import { gateCrossRepositoryReview } from './crossRepositoryReview.js';
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import { runFlowDecisionScript } from './flowDecisionScript.js';
 import {
   hashFlowInput,
   normalizeFlowInput,
+  prependAssignedReviewJobContext,
   tryNormalizeFlowInput,
 } from './flowInput.js';
 import {
@@ -135,21 +128,14 @@ import {
   type FlowBreakStep,
   type FlowContinueStep,
   type FlowCommandStep,
-  type FlowCodexReviewStep,
   type FlowLlmStep,
   type FlowPrepareReviewTargetsStep,
-  type FlowValidateReviewTargetStep,
-  type FlowCrossRepositoryReviewGateStep,
-  type FlowPrepareReviewSetStep,
-  type FlowValidateReviewWaveStep,
-  type FlowPrepareReviewBaseStep,
   type FlowReingestStep,
   type FlowResetStep,
   type FlowInitializeReviewCycleStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
   type FlowSubflowWaveStep,
-  type FlowValidateReviewArtifactsStep,
   type FlowStep,
 } from './flowSchema.js';
 import type {
@@ -172,17 +158,13 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from './repositoryCandidateOrder.js';
-import { validateReviewArtifacts } from './reviewArtifacts.js';
-import { prepareReviewBase } from './reviewBase.js';
+import { prepareReviewBatchWorkspace } from './reviewBatchWorkspace.js';
 import {
   finalizeActiveReviewCycle,
   initializeReviewCycle,
 } from './reviewCycleLifecycle.js';
-import { prepareReviewSet, type ReviewSetManifest } from './reviewSet.js';
-import { validateReviewTargetContract } from './reviewTargetContract.js';
 import { prepareReviewTargets } from './reviewTargets.js';
 import type { ReviewTargetSnapshot } from './reviewTargets.js';
-import { validateReviewWave } from './reviewWaveValidation.js';
 import {
   expandSubflowWaveJobs,
   resolveFlowValue,
@@ -1908,90 +1890,6 @@ const resolveFlowAgentRuntimeExecution = async (params: {
   }
 };
 
-const CODEX_REVIEW_REASONING_EFFORTS = new Set<CodexReviewReasoningEffort>([
-  'minimal',
-  'low',
-  'medium',
-  'high',
-  'xhigh',
-]);
-
-const resolveCodexReviewAgentProfile = async (params: {
-  step: FlowCodexReviewStep;
-  agentByName: Map<string, { configPath: string }>;
-  workingFolder?: string;
-  defaultRepositoryRoot?: string;
-  source: 'REST' | 'MCP';
-}): Promise<{
-  agentType?: string;
-  modelId?: string;
-  reasoningEffort?: CodexReviewReasoningEffort;
-  warnings: string[];
-}> => {
-  if (params.step.modelSource !== 'flow_request_or_step_or_agent') {
-    return { warnings: [] };
-  }
-
-  const agentType = params.step.agentType;
-  if (!agentType) {
-    throw toFlowRunError(
-      'INVALID_REQUEST',
-      'codexReview requires agentType when modelSource is flow_request_or_step_or_agent.',
-    );
-  }
-
-  const validatedAgentType = validateRepositoryBackedAgentType(agentType);
-  if (!validatedAgentType.ok) {
-    throw toFlowRunError(
-      'INVALID_REQUEST',
-      `Flow agent "${agentType}" ${validatedAgentType.message}.`,
-    );
-  }
-
-  const agent = params.agentByName.get(agentType);
-  if (!agent) {
-    throw toFlowRunError('AGENT_NOT_FOUND', `Agent ${agentType} not found`);
-  }
-
-  const prepared = await resolveFlowAgentRuntimeExecution({
-    agentName: agentType,
-    configPath: agent.configPath,
-    workingFolder: params.workingFolder,
-    defaultRepositoryRoot: params.defaultRepositoryRoot,
-    source: params.source,
-    allowFallback: false,
-  });
-  if (prepared.providerId !== 'codex') {
-    throw toFlowRunError(
-      'INVALID_REQUEST',
-      `codexReview agent ${agentType} must resolve to the codex provider.`,
-    );
-  }
-
-  const configuredReasoningEffort =
-    prepared.runtimeConfig?.model_reasoning_effort;
-  if (
-    configuredReasoningEffort !== undefined &&
-    !CODEX_REVIEW_REASONING_EFFORTS.has(
-      configuredReasoningEffort as CodexReviewReasoningEffort,
-    )
-  ) {
-    throw toFlowRunError(
-      'INVALID_REQUEST',
-      `codexReview agent ${agentType} has unsupported model_reasoning_effort "${configuredReasoningEffort}".`,
-    );
-  }
-
-  return {
-    agentType,
-    modelId: prepared.modelId,
-    reasoningEffort: configuredReasoningEffort as
-      | CodexReviewReasoningEffort
-      | undefined,
-    warnings: prepared.warnings ?? [],
-  };
-};
-
 const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
   const runtimeState: FlowExecutionRuntimeState = new Map();
   if (!resumeState) return runtimeState;
@@ -2060,13 +1958,6 @@ const buildFlowCommandMetadata = (params: {
     | FlowResetStep
     | FlowInitializeReviewCycleStep
     | FlowPrepareReviewTargetsStep
-    | FlowValidateReviewTargetStep
-    | FlowCrossRepositoryReviewGateStep
-    | FlowPrepareReviewSetStep
-    | FlowValidateReviewWaveStep
-    | FlowPrepareReviewBaseStep
-    | FlowCodexReviewStep
-    | FlowValidateReviewArtifactsStep
     | FlowSubflowStep
     | FlowSubflowWaveStep
     | FlowReingestStep;
@@ -3649,21 +3540,6 @@ const findFirstAgentStep = (
   return undefined;
 };
 
-const findFirstCodexReviewStep = (
-  steps: FlowStep[],
-): FlowCodexReviewStep | undefined => {
-  for (const step of steps) {
-    if (step.type === 'codexReview') {
-      return step;
-    }
-    if (step.type === 'startLoop') {
-      const nested = findFirstCodexReviewStep(step.steps);
-      if (nested) return nested;
-    }
-  }
-  return undefined;
-};
-
 const findRuntimeIdentityStep = (
   steps: FlowStep[],
   resumeStepPath?: number[] | null,
@@ -3717,56 +3593,6 @@ const findRuntimeIdentityStep = (
     }
     if (step.type === 'startLoop') {
       const nested = findRuntimeIdentityStep(step.steps, null);
-      if (nested) return nested;
-    }
-  }
-
-  return undefined;
-};
-
-const findRuntimeCodexReviewStep = (
-  steps: FlowStep[],
-  resumeStepPath?: number[] | null,
-): FlowCodexReviewStep | undefined => {
-  let resumePathRemaining =
-    resumeStepPath && resumeStepPath.length > 0 ? [...resumeStepPath] : null;
-  let resumeIndex = resumePathRemaining?.[0];
-
-  for (const [index, step] of steps.entries()) {
-    if (
-      resumePathRemaining &&
-      resumeIndex !== undefined &&
-      index < resumeIndex
-    ) {
-      continue;
-    }
-
-    if (resumePathRemaining && resumeIndex === index) {
-      if (resumePathRemaining.length === 1) {
-        resumePathRemaining = null;
-        resumeIndex = undefined;
-        continue;
-      }
-      if (step.type !== 'startLoop') {
-        return undefined;
-      }
-      const nested = findRuntimeCodexReviewStep(
-        step.steps,
-        resumePathRemaining.slice(1),
-      );
-      if (nested) {
-        return nested;
-      }
-      resumePathRemaining = null;
-      resumeIndex = undefined;
-      continue;
-    }
-
-    if (step.type === 'codexReview') {
-      return step;
-    }
-    if (step.type === 'startLoop') {
-      const nested = findRuntimeCodexReviewStep(step.steps, null);
       if (nested) return nested;
     }
   }
@@ -3869,78 +3695,6 @@ const validateCommandSteps = async (params: {
       if (!commandLoad.ok) {
         throw toFlowRunError('COMMAND_INVALID', commandLoad.message);
       }
-    }
-  }
-};
-
-const validateCodexReviewSteps = async (params: {
-  flowName: string;
-  steps: FlowStep[];
-  flowsRoot: string;
-  sourceId?: string;
-  codexReviewModelId?: string;
-  resumeStepPath?: number[] | null;
-  visited?: Set<string>;
-}): Promise<void> => {
-  const visited = params.visited ?? new Set<string>();
-  visited.add(params.flowName);
-  let resumePathRemaining =
-    params.resumeStepPath && params.resumeStepPath.length > 0
-      ? [...params.resumeStepPath]
-      : null;
-  let resumeIndex = resumePathRemaining?.[0];
-
-  for (const [index, step] of params.steps.entries()) {
-    if (
-      resumePathRemaining &&
-      resumeIndex !== undefined &&
-      index < resumeIndex
-    ) {
-      continue;
-    }
-
-    if (resumePathRemaining && resumeIndex === index) {
-      if (resumePathRemaining.length === 1) {
-        resumePathRemaining = null;
-        resumeIndex = undefined;
-        continue;
-      }
-      if (step.type !== 'startLoop') {
-        throw toFlowRunError(
-          'INVALID_REQUEST',
-          'resumeStepPath must reference loop steps for nested indices',
-        );
-      }
-      await validateCodexReviewSteps({
-        flowName: params.flowName,
-        steps: step.steps,
-        flowsRoot: params.flowsRoot,
-        sourceId: params.sourceId,
-        codexReviewModelId: params.codexReviewModelId,
-        resumeStepPath: resumePathRemaining.slice(1),
-        visited,
-      });
-      resumePathRemaining = null;
-      resumeIndex = undefined;
-      continue;
-    }
-
-    if (step.type === 'startLoop') {
-      await validateCodexReviewSteps({
-        flowName: params.flowName,
-        steps: step.steps,
-        flowsRoot: params.flowsRoot,
-        sourceId: params.sourceId,
-        codexReviewModelId: params.codexReviewModelId,
-        visited,
-      });
-      continue;
-    }
-    if (step.type === 'subflow') {
-      continue;
-    }
-    if (step.type !== 'codexReview') {
-      continue;
     }
   }
 };
@@ -4834,7 +4588,10 @@ async function runFlowUnlocked(params: {
   ): Promise<TurnStatus> => {
     if ('messages' in step) {
       for (const message of step.messages) {
-        const instruction = joinMessageContent(message.content);
+        const instruction = prependAssignedReviewJobContext(
+          joinMessageContent(message.content),
+          params.input,
+        );
         let result: FlowInstructionResult;
         try {
           result = await runInstruction({
@@ -4932,6 +4689,11 @@ async function runFlowUnlocked(params: {
       return 'ok';
     }
 
+    const instruction = prependAssignedReviewJobContext(
+      preparedMarkdownInstruction.instruction,
+      params.input,
+    );
+
     append({
       level: 'info',
       message: 'DEV-0000045:T5:flow_llm_markdown_loaded',
@@ -4942,14 +4704,14 @@ async function runFlowUnlocked(params: {
         stepIndex: command.stepIndex,
         markdownFile: step.markdownFile,
         resolvedSourceId: preparedMarkdownInstruction.resolvedSourceId,
-        instructionLength: preparedMarkdownInstruction.instruction.length,
+        instructionLength: instruction.length,
       },
     });
 
     const result = await runInstruction({
       agentType: step.agentType,
       identifier: step.identifier,
-      instruction: preparedMarkdownInstruction.instruction,
+      instruction,
       command,
       runtime: {
         ...(params.repositoryContext.workingRepositoryPath
@@ -6085,21 +5847,48 @@ async function runFlowUnlocked(params: {
       nextPath,
     );
 
-  const runSubflowWaveStep = (
+  const runSubflowWaveStep = async (
     step: FlowSubflowWaveStep,
     command: TurnCommandMetadata,
     nextPath: number[],
-  ) =>
-    runSubflowJobs(
-      expandSubflowWaveJobs({
-        step,
-        input: { ...(params.input ?? {}), ...flowValues },
-      }),
-      step.label,
-      command,
-      nextPath,
-      true,
-    );
+  ) => {
+    const root = { ...(params.input ?? {}), ...flowValues };
+    let jobs = expandSubflowWaveJobs({ step, input: root });
+    if (step.reviewWorkspace) {
+      const snapshot = resolveFlowValue(
+        root,
+        step.reviewWorkspace.snapshotFrom,
+      );
+      if (
+        !snapshot ||
+        typeof snapshot !== 'object' ||
+        Array.isArray(snapshot)
+      ) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          `Review workspace snapshot binding "${step.reviewWorkspace.snapshotFrom}" did not resolve.`,
+        );
+      }
+      const workspace = await prepareReviewBatchWorkspace({
+        snapshot: snapshot as ReviewTargetSnapshot,
+        jobs,
+      });
+      jobs = workspace.jobs;
+      append({
+        level: 'info',
+        message: 'flows.run.review_batch_workspace_prepared',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          batchId: workspace.batchId,
+          batchRoot: workspace.batchRoot,
+          jobCount: workspace.jobs.length,
+        },
+      });
+    }
+    return runSubflowJobs(jobs, step.label, command, nextPath, true);
+  };
 
   const runCommandStep = async (
     step: FlowCommandStep,
@@ -6526,339 +6315,6 @@ async function runFlowUnlocked(params: {
     }
   };
 
-  const runPrepareReviewSetStep = async (
-    step: FlowPrepareReviewSetStep,
-    command: TurnCommandMetadata,
-  ): Promise<TurnStatus> => {
-    const snapshotValue = resolveFlowValue(
-      { ...(params.input ?? {}), ...flowValues },
-      step.snapshotFrom,
-    );
-    const instruction = `Prepare review set: ${step.outputKey}`;
-    if (
-      !snapshotValue ||
-      typeof snapshotValue !== 'object' ||
-      Array.isArray(snapshotValue)
-    ) {
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message: 'prepareReviewSet snapshot binding did not resolve.',
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
-    }
-    const inflightState = createInflight({
-      conversationId: params.conversationId,
-      inflightId: stepInflightId,
-      provider: params.providerId,
-      model: params.modelId,
-      source: params.source,
-      command,
-    });
-    try {
-      const result = await prepareReviewSet({
-        snapshot: snapshotValue as ReviewTargetSnapshot,
-        reviewFlowNames: step.reviewFlowNames,
-        reviewPhase: step.reviewPhase,
-        crossRepositoryFlowName: step.crossRepositoryFlowName,
-        signal: inflightState.abortController.signal,
-      });
-      flowValues[step.outputKey] = normalizeFlowInput(result.manifest);
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        response: `Prepared ${result.manifest.expected_job_count} review jobs across ${result.manifest.target_count} target(s).`,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        command,
-      });
-      return 'ok';
-    } catch (error) {
-      if (inflightState.abortController.signal.aborted) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: params.modelId,
-          providerId: params.providerId,
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message: error instanceof Error ? error.message : String(error),
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
-    }
-  };
-
-  const runValidateReviewWaveStep = async (
-    step: FlowValidateReviewWaveStep,
-    command: TurnCommandMetadata,
-  ): Promise<TurnStatus> => {
-    const root = { ...(params.input ?? {}), ...flowValues };
-    const snapshotValue = resolveFlowValue(root, step.snapshotFrom);
-    const reviewSetValue = resolveFlowValue(root, step.reviewSetFrom);
-    const instruction = 'Validate complete review wave';
-    if (
-      !snapshotValue ||
-      typeof snapshotValue !== 'object' ||
-      Array.isArray(snapshotValue) ||
-      !reviewSetValue ||
-      typeof reviewSetValue !== 'object' ||
-      Array.isArray(reviewSetValue)
-    ) {
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message: 'validateReviewWave bindings did not resolve.',
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
-    }
-    const inflightState = createInflight({
-      conversationId: params.conversationId,
-      inflightId: stepInflightId,
-      provider: params.providerId,
-      model: params.modelId,
-      source: params.source,
-      command,
-    });
-    try {
-      const result = await validateReviewWave({
-        snapshot: snapshotValue as ReviewTargetSnapshot,
-        reviewSet: reviewSetValue as ReviewSetManifest,
-        expectedReviewPhase: step.reviewPhase,
-        signal: inflightState.abortController.signal,
-      });
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        response: [
-          `Validated ${result.finalized.job_results?.length ?? 0} review jobs; closeout_allowed=${String(result.finalized.closeout_allowed)}.`,
-          ...(result.finalized.job_results ?? [])
-            .filter((job) => job.status !== 'completed')
-            .map(
-              (job) =>
-                `${job.instance_id}: ${job.status}${job.error ? ` (${job.error})` : ''}`,
-            ),
-        ].join('\n'),
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        command,
-      });
-      return 'ok';
-    } catch (error) {
-      if (inflightState.abortController.signal.aborted) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: params.modelId,
-          providerId: params.providerId,
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message: error instanceof Error ? error.message : String(error),
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
-    }
-  };
-
-  const runCrossRepositoryReviewGateStep = async (
-    step: FlowCrossRepositoryReviewGateStep,
-    command: TurnCommandMetadata,
-  ): Promise<{ status: TurnStatus; exitFlow: boolean }> => {
-    const root = { ...(params.input ?? {}), ...flowValues };
-    const targetSnapshot = resolveFlowValue(root, step.targetSnapshotFrom);
-    const reviewSet = resolveFlowValue(root, step.reviewSetFrom);
-    const instruction = `Gate cross-repository review: ${step.outputKey}`;
-    if (targetSnapshot === undefined || reviewSet === undefined) {
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message: 'Cross-repository review bindings did not resolve.',
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return { status: 'failed', exitFlow: false };
-    }
-    const inflightState = createInflight({
-      conversationId: params.conversationId,
-      inflightId: stepInflightId,
-      provider: params.providerId,
-      model: params.modelId,
-      source: params.source,
-      command,
-    });
-    try {
-      const result = await gateCrossRepositoryReview({
-        targetSnapshot,
-        reviewSet,
-        outputKey: step.outputKey,
-        signal: inflightState.abortController.signal,
-      });
-      const exitFlow = result.action === 'not_applicable';
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        response: exitFlow
-          ? `Cross-repository review is not applicable for ${result.targetSnapshot.targets.length} target.`
-          : `Validated ${result.targetSnapshot.targets.length} targets for cross-repository review.`,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        command,
-      });
-      return { status: 'ok', exitFlow };
-    } catch (error) {
-      if (inflightState.abortController.signal.aborted) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: params.modelId,
-          providerId: params.providerId,
-          source: params.source,
-          command,
-        });
-        return { status: 'stopped', exitFlow: false };
-      }
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message: error instanceof Error ? error.message : String(error),
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return { status: 'failed', exitFlow: false };
-    }
-  };
-
-  const runValidateReviewTargetStep = async (
-    step: FlowValidateReviewTargetStep,
-    command: TurnCommandMetadata,
-  ): Promise<TurnStatus> => {
-    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
-      params.repositoryContext,
-    );
-    const target = resolveFlowValue(
-      { ...(params.input ?? {}), ...flowValues },
-      step.targetFrom,
-    );
-    if (!reviewRepositoryPath || target === undefined) {
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction: `Validate review target: ${step.targetFrom}`,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message:
-          'validateReviewTarget requires a working repository and resolved target input.',
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
-    }
-    const instruction = `Validate review target: ${step.targetFrom}`;
-    const inflightState = createInflight({
-      conversationId: params.conversationId,
-      inflightId: stepInflightId,
-      provider: params.providerId,
-      model: params.modelId,
-      source: params.source,
-      command,
-    });
-    try {
-      const result = await validateReviewTargetContract({
-        workingRepositoryPath: reviewRepositoryPath,
-        target,
-        signal: inflightState.abortController.signal,
-      });
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        response: `Validated target ${result.target.target_id} at ${result.target.head_commit}.`,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        command,
-      });
-      return 'ok';
-    } catch (error) {
-      if (inflightState.abortController.signal.aborted) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: params.modelId,
-          providerId: params.providerId,
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message: error instanceof Error ? error.message : String(error),
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
-    }
-  };
-
   const runPrepareReviewTargetsStep = async (
     step: FlowPrepareReviewTargetsStep,
     command: TurnCommandMetadata,
@@ -6962,520 +6418,6 @@ async function runFlowUnlocked(params: {
         command,
       });
       return 'failed';
-    }
-  };
-
-  const runPrepareReviewBaseStep = async (
-    step: FlowPrepareReviewBaseStep,
-    command: TurnCommandMetadata,
-  ): Promise<TurnStatus> => {
-    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
-      params.repositoryContext,
-    );
-    if (!reviewRepositoryPath) {
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction: `Prepare review base: ${step.outputKey}`,
-        modelId: params.modelId,
-        source: params.source,
-        message:
-          'prepareReviewBase requires a resolved working repository path.',
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
-    }
-
-    const instruction = `Prepare review base: ${step.outputKey}`;
-    const inflightState = createInflight({
-      conversationId: params.conversationId,
-      inflightId: stepInflightId,
-      provider: params.providerId,
-      model: params.modelId,
-      source: params.source,
-      command,
-    });
-    const inflightSignal = inflightState.abortController.signal;
-    const consumePendingPrepareStop = () => {
-      if (!params.runToken) return false;
-      const boundPending = bindPendingConversationCancelToInflight({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      if (!boundPending.ok) {
-        return false;
-      }
-
-      const aborted = abortInflight({
-        conversationId: params.conversationId,
-        inflightId: stepInflightId,
-      });
-      if (!aborted.ok) return false;
-
-      cleanupPendingConversationCancel({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      return true;
-    };
-    if (consumePendingPrepareStop()) {
-      await emitStoppedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        command,
-      });
-      return 'stopped';
-    }
-    try {
-      const result = await prepareReviewBase({
-        workingRepositoryPath: reviewRepositoryPath,
-        outputKey: step.outputKey,
-        basePolicy: step.basePolicy,
-        initializeReviewPointers: step.initializeReviewPointers,
-        signal: inflightSignal,
-      });
-      if (inflightSignal.aborted) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: params.modelId,
-          providerId: params.providerId,
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        response: [
-          'Prepared shared review base.',
-          `Artifact: ${path.relative(reviewRepositoryPath, result.artifactPath)}`,
-          `Comparison base: ${result.artifact.comparison_base_ref}`,
-        ].join('\n'),
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        command,
-      });
-      return 'ok';
-    } catch (error) {
-      if (
-        inflightSignal.aborted ||
-        (error instanceof Error && error.name === 'AbortError')
-      ) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: params.modelId,
-          providerId: params.providerId,
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'prepareReviewBase failed unexpectedly',
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
-    }
-  };
-
-  const runCodexReviewFlowStep = async (
-    step: FlowCodexReviewStep,
-    command: TurnCommandMetadata,
-  ): Promise<TurnStatus> => {
-    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
-      params.repositoryContext,
-    );
-    const agentProfile = await resolveCodexReviewAgentProfile({
-      step,
-      agentByName,
-      workingFolder: reviewRepositoryPath,
-      defaultRepositoryRoot: params.repositoryContext.defaultRepositoryRoot,
-      source: params.source,
-    });
-    const resolvedModelId = resolveCodexReviewModel({
-      requestedModelId: params.codexReviewModelId,
-      stepModelId: step.model,
-      agentModelId: agentProfile.modelId,
-    });
-    const resolvedReasoningEffort = resolveCodexReviewReasoningEffort({
-      stepReasoningEffort: step.reasoningEffort,
-      agentReasoningEffort: agentProfile.reasoningEffort,
-    });
-    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
-    const codexStepModelId = resolvedModelId ?? step.model ?? FALLBACK_MODEL_ID;
-    const boundTarget = resolveFlowValue(
-      { ...(params.input ?? {}), ...flowValues },
-      'target',
-    );
-    const boundStoryNumber =
-      boundTarget &&
-      typeof boundTarget === 'object' &&
-      !Array.isArray(boundTarget)
-        ? typeof boundTarget.story_id === 'string'
-          ? boundTarget.story_id
-          : undefined
-        : undefined;
-    const clearStaleCodexReviewPointer = async () => {
-      if (reviewRepositoryPath) {
-        try {
-          await clearCodexReviewPointerFile({
-            workingRepositoryPath: reviewRepositoryPath,
-            outputKey: step.outputKey,
-            storyNumber: boundStoryNumber,
-          });
-        } catch (error) {
-          await emitFailedFlowStep({
-            flowConversationId: params.conversationId,
-            inflightId: stepInflightId,
-            instruction: `Codex review: ${step.outputKey}`,
-            modelId: codexStepModelId,
-            providerId: 'codex',
-            source: params.source,
-            message: [
-              'codexReview could not clear the stale stable review pointer before starting.',
-              `Cleanup error: ${
-                error instanceof Error
-                  ? error.message
-                  : 'codexReview pointer cleanup failed unexpectedly'
-              }`,
-            ].join('\n'),
-            errorCode: 'INVALID_REQUEST',
-            command,
-          });
-          return 'failed' as const;
-        }
-      }
-      return 'ok' as const;
-    };
-    const emitSkippedCodexReviewStep = async (message: string) => {
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction: `Codex review: ${step.outputKey}`,
-        response: `Codex review skipped.\nReason: ${message}`,
-        modelId: codexStepModelId,
-        providerId: 'codex',
-        source: params.source,
-        command,
-      });
-      return 'ok' as const;
-    };
-    if (!resolvedModelId) {
-      return emitSkippedCodexReviewStep(
-        'codexReview requires codexReviewModelId, a model on the flow step, or a model from its configured agent.',
-      );
-    }
-
-    if (!codexBootstrapStatus.healthy) {
-      return emitSkippedCodexReviewStep(
-        codexBootstrapStatus.reason ?? 'codex unavailable',
-      );
-    }
-
-    if (!reviewRepositoryPath) {
-      return emitSkippedCodexReviewStep(
-        'codexReview requires a resolved working repository path.',
-      );
-    }
-
-    const clearedStalePointer = await clearStaleCodexReviewPointer();
-    if (clearedStalePointer !== 'ok') {
-      return clearedStalePointer;
-    }
-
-    const instruction = `Codex review: ${step.outputKey}`;
-    const inflightState = createInflight({
-      conversationId: params.conversationId,
-      inflightId: stepInflightId,
-      provider: 'codex',
-      model: resolvedModelId,
-      source: params.source,
-      command,
-    });
-    const inflightSignal = inflightState.abortController.signal;
-    const consumePendingCodexStop = () => {
-      if (!params.runToken) return false;
-      const boundPending = bindPendingConversationCancelToInflight({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      if (!boundPending.ok) {
-        return false;
-      }
-
-      const aborted = abortInflight({
-        conversationId: params.conversationId,
-        inflightId: stepInflightId,
-      });
-      if (!aborted.ok) return false;
-
-      cleanupPendingConversationCancel({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      return true;
-    };
-    if (consumePendingCodexStop()) {
-      await emitStoppedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: resolvedModelId,
-        providerId: 'codex',
-        source: params.source,
-        command,
-      });
-      return 'stopped';
-    }
-
-    try {
-      const result = await runCodexReviewStep({
-        workingRepositoryPath: reviewRepositoryPath,
-        outputKey: step.outputKey,
-        modelId: resolvedModelId,
-        reasoningEffort: resolvedReasoningEffort,
-        agentType: agentProfile.agentType,
-        basePolicy: step.basePolicy,
-        storyNumber: boundStoryNumber,
-        signal: inflightSignal,
-      });
-      if (inflightSignal.aborted) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: resolvedModelId,
-          providerId: 'codex',
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        response: [
-          'Codex review completed.',
-          `Model: ${result.modelId}`,
-          ...(agentProfile.agentType
-            ? [`Agent type: ${agentProfile.agentType}`]
-            : []),
-          ...(result.reasoningEffort
-            ? [`Reasoning effort: ${result.reasoningEffort}`]
-            : []),
-          `Pointer: ${path.relative(reviewRepositoryPath, result.pointerPath)}`,
-        ].join('\n'),
-        modelId: resolvedModelId,
-        providerId: 'codex',
-        source: params.source,
-        command,
-      });
-      return 'ok';
-    } catch (error) {
-      if (
-        inflightSignal.aborted ||
-        (error instanceof Error && error.name === 'AbortError')
-      ) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: resolvedModelId,
-          providerId: 'codex',
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        response: `Codex review ended without a usable artifact; the wave will preserve this provider as failed while continuing with usable sibling evidence.\nReason: ${
-          error instanceof Error
-            ? error.message
-            : 'codexReview failed unexpectedly'
-        }`,
-        modelId: resolvedModelId,
-        providerId: 'codex',
-        source: params.source,
-        command,
-      });
-      return 'ok';
-    }
-  };
-
-  const runValidateReviewArtifactsStep = async (
-    step: FlowValidateReviewArtifactsStep,
-    command: TurnCommandMetadata,
-  ): Promise<TurnStatus> => {
-    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
-      params.repositoryContext,
-    );
-    const instruction = 'Validate joined review artifacts';
-    if (!reviewRepositoryPath) {
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message:
-          'validateReviewArtifacts requires a resolved working repository path.',
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
-    }
-    const inflightState = createInflight({
-      conversationId: params.conversationId,
-      inflightId: stepInflightId,
-      provider: params.providerId,
-      model: params.modelId,
-      source: params.source,
-      command,
-    });
-    const inflightSignal = inflightState.abortController.signal;
-    const consumePendingValidationStop = () => {
-      if (!params.runToken) return false;
-      const boundPending = bindPendingConversationCancelToInflight({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      if (!boundPending.ok) {
-        return false;
-      }
-
-      const aborted = abortInflight({
-        conversationId: params.conversationId,
-        inflightId: stepInflightId,
-      });
-      if (!aborted.ok) return false;
-
-      cleanupPendingConversationCancel({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      return true;
-    };
-    if (consumePendingValidationStop()) {
-      await emitStoppedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        command,
-      });
-      return 'stopped';
-    }
-    try {
-      const result = await validateReviewArtifacts({
-        workingRepositoryPath: reviewRepositoryPath,
-        pointerKeys: step.pointerKeys,
-        ensureCanonicalFallback: step.ensureCanonicalFallback,
-        finalizeCurrentReview: step.finalizeCurrentReview,
-        signal: inflightSignal,
-      });
-      if (inflightSignal.aborted) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: params.modelId,
-          providerId: params.providerId,
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        response: [
-          result.status === 'passed'
-            ? 'Validated all joined review artifacts.'
-            : result.status === 'partial'
-              ? 'Joined review validation completed with status partial; continuing with usable review evidence.'
-              : 'Joined review validation completed with status blocked; continuing without usable review evidence.',
-          `Review session: ${result.review_session_id}`,
-          `Pointers: ${result.pointer_files.join(', ')}`,
-          ...result.pointer_results.map(
-            (pointer) =>
-              `${pointer.pointer_key}: ${pointer.status}${pointer.errors.length > 0 ? ` (${pointer.errors.join(' | ')})` : ''}`,
-          ),
-          ...result.errors.map((error) => `Error: ${error}`),
-          ...result.warnings.map((warning) => `Warning: ${warning}`),
-        ].join('\n'),
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        command,
-      });
-      return 'ok';
-    } catch (error) {
-      if (
-        inflightSignal.aborted ||
-        (error instanceof Error && error.name === 'AbortError')
-      ) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: params.modelId,
-          providerId: params.providerId,
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        response: `Review artifact finalization skipped; downstream wave validation will preserve this as an explicit failed or missing result. Reason: ${
-          error instanceof Error
-            ? error.message
-            : 'validateReviewArtifacts failed unexpectedly.'
-        }`,
-        command,
-      });
-      return 'ok';
     }
   };
 
@@ -7846,6 +6788,38 @@ async function runFlowUnlocked(params: {
           },
         });
         const { status, shouldBreak } = await runBreakStep(step, command);
+        const shouldBreakAfterFailure =
+          status === 'failed' && step.breakOnFailure === true;
+        if (shouldBreakAfterFailure) {
+          append({
+            level: 'warn',
+            message: 'flows.run.break_failure_broke_loop',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              label: step.label ?? null,
+              agentType: step.agentType,
+              identifier: step.identifier,
+            },
+          });
+          baseLogger.warn(
+            {
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              label: step.label ?? null,
+              agentType: step.agentType,
+              identifier: step.identifier,
+            },
+            'flows.run.break_failure_broke_loop',
+          );
+          lastCompletedStepPath = nextPath;
+          clearContinueBoundaryForActiveLoop();
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          stepInflightId = crypto.randomUUID();
+          return 'break';
+        }
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.break',
@@ -8021,84 +6995,6 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
-      if (step.type === 'prepareReviewSet') {
-        const command = buildFlowCommandMetadata({
-          step,
-          stepIndex: index + 1,
-          totalSteps: steps.length,
-          loopDepth: loopStack.length,
-        });
-        const status = await runPrepareReviewSetStep(step, command);
-        if (shouldStopAfter(status)) {
-          await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
-        }
-        lastCompletedStepPath = nextPath;
-        clearContinueBoundaryForActiveLoop();
-        await persistRuntimeResumeState(lastCompletedStepPath);
-        stepInflightId = crypto.randomUUID();
-        continue;
-      }
-
-      if (step.type === 'validateReviewWave') {
-        const command = buildFlowCommandMetadata({
-          step,
-          stepIndex: index + 1,
-          totalSteps: steps.length,
-          loopDepth: loopStack.length,
-        });
-        const status = await runValidateReviewWaveStep(step, command);
-        if (shouldStopAfter(status)) {
-          await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
-        }
-        lastCompletedStepPath = nextPath;
-        clearContinueBoundaryForActiveLoop();
-        await persistRuntimeResumeState(lastCompletedStepPath);
-        stepInflightId = crypto.randomUUID();
-        continue;
-      }
-
-      if (step.type === 'crossRepositoryReviewGate') {
-        const command = buildFlowCommandMetadata({
-          step,
-          stepIndex: index + 1,
-          totalSteps: steps.length,
-          loopDepth: loopStack.length,
-        });
-        const result = await runCrossRepositoryReviewGateStep(step, command);
-        if (shouldStopAfter(result.status)) {
-          await persistRuntimeResumeState(lastCompletedStepPath);
-          return result.status;
-        }
-        if (result.exitFlow) terminalOutcome = 'not_applicable';
-        lastCompletedStepPath = nextPath;
-        clearContinueBoundaryForActiveLoop();
-        await persistRuntimeResumeState(lastCompletedStepPath);
-        if (result.exitFlow) return 'ok';
-        stepInflightId = crypto.randomUUID();
-        continue;
-      }
-
-      if (step.type === 'validateReviewTarget') {
-        const command = buildFlowCommandMetadata({
-          step,
-          stepIndex: index + 1,
-          totalSteps: steps.length,
-          loopDepth: loopStack.length,
-        });
-        const status = await runValidateReviewTargetStep(step, command);
-        if (shouldStopAfter(status)) {
-          await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
-        }
-        lastCompletedStepPath = nextPath;
-        clearContinueBoundaryForActiveLoop();
-        await persistRuntimeResumeState(lastCompletedStepPath);
-        stepInflightId = crypto.randomUUID();
-        continue;
-      }
-
       if (step.type === 'prepareReviewTargets') {
         const command = buildFlowCommandMetadata({
           step,
@@ -8120,108 +7016,6 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.prepareReviewTargets',
-            conversationId: params.conversationId,
-            detail: `status=${status} step=${command.stepIndex}`,
-          });
-          await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
-        }
-        lastCompletedStepPath = nextPath;
-        clearContinueBoundaryForActiveLoop();
-        await persistRuntimeResumeState(lastCompletedStepPath);
-        stepInflightId = crypto.randomUUID();
-        continue;
-      }
-
-      if (step.type === 'prepareReviewBase') {
-        const command = buildFlowCommandMetadata({
-          step,
-          stepIndex: index + 1,
-          totalSteps: steps.length,
-          loopDepth: loopStack.length,
-        });
-        append({
-          level: 'info',
-          message: 'flows.turn.metadata_attached',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            stepIndex: command.stepIndex,
-            reviewBaseOutputKey: step.outputKey,
-          },
-        });
-        const status = await runPrepareReviewBaseStep(step, command);
-        if (shouldStopAfter(status)) {
-          params.onStopUnwindCheckpoint?.({
-            checkpoint: 'runSteps.return.stop.prepareReviewBase',
-            conversationId: params.conversationId,
-            detail: `status=${status} step=${command.stepIndex}`,
-          });
-          await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
-        }
-        lastCompletedStepPath = nextPath;
-        clearContinueBoundaryForActiveLoop();
-        await persistRuntimeResumeState(lastCompletedStepPath);
-        stepInflightId = crypto.randomUUID();
-        continue;
-      }
-
-      if (step.type === 'codexReview') {
-        const command = buildFlowCommandMetadata({
-          step,
-          stepIndex: index + 1,
-          totalSteps: steps.length,
-          loopDepth: loopStack.length,
-        });
-        append({
-          level: 'info',
-          message: 'flows.turn.metadata_attached',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            stepIndex: command.stepIndex,
-            codexReviewOutputKey: step.outputKey,
-          },
-        });
-        const status = await runCodexReviewFlowStep(step, command);
-        if (shouldStopAfter(status)) {
-          params.onStopUnwindCheckpoint?.({
-            checkpoint: 'runSteps.return.stop.codexReview',
-            conversationId: params.conversationId,
-            detail: `status=${status} step=${command.stepIndex}`,
-          });
-          await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
-        }
-        lastCompletedStepPath = nextPath;
-        clearContinueBoundaryForActiveLoop();
-        await persistRuntimeResumeState(lastCompletedStepPath);
-        stepInflightId = crypto.randomUUID();
-        continue;
-      }
-
-      if (step.type === 'validateReviewArtifacts') {
-        const command = buildFlowCommandMetadata({
-          step,
-          stepIndex: index + 1,
-          totalSteps: steps.length,
-          loopDepth: loopStack.length,
-        });
-        append({
-          level: 'info',
-          message: 'flows.turn.metadata_attached',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            stepIndex: command.stepIndex,
-            reviewPointerKeys: [...step.pointerKeys],
-          },
-        });
-        const status = await runValidateReviewArtifactsStep(step, command);
-        if (shouldStopAfter(status)) {
-          params.onStopUnwindCheckpoint?.({
-            checkpoint: 'runSteps.return.stop.validateReviewArtifacts',
             conversationId: params.conversationId,
             detail: `status=${status} step=${command.stepIndex}`,
           });
@@ -8283,7 +7077,9 @@ async function runFlowUnlocked(params: {
           source: 'server',
           context: {
             stepIndex: command.stepIndex,
-            subflowWaveGroupIds: step.groups.map((group) => group.id),
+            subflowWaveGroupIds: step.groups?.map((group) => group.id) ?? [
+              step.groupsFrom ?? 'dynamic',
+            ],
           },
         });
         const status = await runSubflowWaveStep(step, command, nextPath);
@@ -8357,10 +7153,7 @@ async function runFlowUnlocked(params: {
     runLifecycle.status = normalizedOutcome;
     runLifecycle.updatedAt = new Date().toISOString();
     await persistRuntimeResumeState(lastCompletedStepPath);
-    if (
-      initializedFinalReviewCycle &&
-      terminalOutcome !== 'not_applicable'
-    ) {
+    if (initializedFinalReviewCycle && terminalOutcome !== 'not_applicable') {
       const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
         params.repositoryContext,
       );
@@ -8618,21 +7411,12 @@ export async function startFlowRun(
       resumeState?.inputHash ??
       (effectiveFlowInput ? hashFlowInput(effectiveFlowInput) : undefined);
     executionId = resumeState?.executionId ?? executionId;
-    const effectiveCodexReviewModelId =
-      params.codexReviewModelId ?? resumeState?.codexReviewModelId;
-
     const runtimeIdentityStep = findRuntimeIdentityStep(
       flow.steps,
       resumeStepPath,
     );
     const firstAgentStep =
       runtimeIdentityStep ?? findFirstAgentStep(flow.steps);
-    const runtimeCodexReviewStep = !firstAgentStep
-      ? findRuntimeCodexReviewStep(flow.steps, resumeStepPath)
-      : undefined;
-    const firstCodexReviewStep =
-      runtimeCodexReviewStep ??
-      (!firstAgentStep ? findFirstCodexReviewStep(flow.steps) : undefined);
     const flowDefaultRepositoryRoot = sourceRepo?.containerPath
       ? path.resolve(sourceRepo.containerPath)
       : sourceId
@@ -8670,32 +7454,6 @@ export async function startFlowRun(
       modelId = prepared.modelId;
       providerId = prepared.providerId;
       startupWarnings = prepared.warnings ?? [];
-    } else if (firstCodexReviewStep) {
-      const agentProfile = await resolveCodexReviewAgentProfile({
-        step: firstCodexReviewStep,
-        agentByName,
-        workingFolder: effectiveWorkingFolder,
-        defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
-        source: params.source,
-      });
-      const resolvedModelId = resolveCodexReviewModel({
-        requestedModelId: effectiveCodexReviewModelId,
-        stepModelId: firstCodexReviewStep.model,
-        agentModelId: agentProfile.modelId,
-      });
-      const codexBootstrapStatus = getProviderBootstrapStatus('codex');
-      if (!codexBootstrapStatus.healthy) {
-        throw toFlowRunError(
-          'PROVIDER_UNAVAILABLE',
-          codexBootstrapStatus.reason ?? 'codex unavailable',
-        );
-      }
-      modelId = resolvedModelId ?? FALLBACK_MODEL_ID;
-      providerId = 'codex';
-      startupWarnings = [
-        ...agentProfile.warnings,
-        ...codexBootstrapStatus.warnings,
-      ];
     }
 
     const codeInfo2Root = codeInfo2RootForRun();
@@ -8736,15 +7494,6 @@ export async function startFlowRun(
       repositoryContext,
       resumeStepPath,
     });
-    await validateCodexReviewSteps({
-      flowName,
-      steps: flow.steps,
-      flowsRoot,
-      sourceId,
-      codexReviewModelId: effectiveCodexReviewModelId,
-      resumeStepPath,
-    });
-
     await ensureFlowConversation({
       conversationId,
       flowName,
@@ -8834,7 +7583,7 @@ export async function startFlowRun(
         updatedAt: new Date().toISOString(),
       },
       codexReviewModelId:
-        effectiveCodexReviewModelId ?? resumeState?.codexReviewModelId,
+        params.codexReviewModelId ?? resumeState?.codexReviewModelId,
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
       input: effectiveFlowInput,
       inputHash: effectiveFlowInputHash,

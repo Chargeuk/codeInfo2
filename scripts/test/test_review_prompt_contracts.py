@@ -48,23 +48,9 @@ class ReviewPromptContractTests(unittest.TestCase):
                 self.assertIn("seven-digit", text)
                 self.assertRegex(text, r"(?i)(never|may not|do not).*infer")
 
-        merge_text = read_text(
-            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
-        )
         classify_text = read_text(
             "codeinfo_markdown/classify_review_disposition.md"
         )
-        self.assertIn("current-review-validation.json", merge_text)
-        for identity_field in (
-            "story_id",
-            "plan_path",
-            "review_session_id",
-            "review_pass_id",
-            "review_cycle_id",
-            "head_commit",
-            "comparison_base_commit",
-        ):
-            self.assertIn(identity_field, merge_text)
         self.assertIn("current-review-validation.json", classify_text)
         self.assertIn("review_session_id", classify_text)
 
@@ -114,35 +100,36 @@ class ReviewPromptContractTests(unittest.TestCase):
         ):
             self.assertIn(scope_field, visual_text)
 
-    def test_open_code_review_and_merge_preserve_validated_session_lineage(self) -> None:
-        review_text = read_text("codeinfo_markdown/run_open_code_review.md")
-        merge_text = read_text(
-            "codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md"
+    def test_open_code_review_uses_agent_owned_generic_workspace_output(self) -> None:
+        review_text = read_text(
+            "codeinfo_markdown/run_open_code_review_workspace.md"
+        )
+        contract_text = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
         )
         for required in (
-            "review_session_id",
-            "canonical_review_pass_id",
-            "review_cycle_id",
-            "review_wave_id",
+            "ocr agent prepare",
+            "ocr agent validate-comments",
+            "ocr agent report",
             "planning/**",
-            "current-open-code-review.json",
+            "output/",
+            "self-describing review",
         ):
             self.assertIn(required, review_text)
-            self.assertIn(required, merge_text)
-        self.assertIn("current-review-validation.json", merge_text)
-        self.assertIn("Origin: open_code_review", merge_text)
-        self.assertIn("independently regenerate the exact manifest", review_text)
-        self.assertIn("later joined-review validation artifact", review_text)
-        self.assertIn("publish_open_code_review.py", review_text)
-        self.assertIn("--validate-only", review_text)
-        self.assertIn("--prepared-base <prepared-base-path>", review_text)
-        self.assertIn("at most three preflight attempts", review_text)
-        self.assertIn("Do not write either OpenCode pointer JSON yourself", review_text)
-        self.assertIn("comments-<four-digit-index>.json", review_text)
-        self.assertIn("canonical `bundles` entries", review_text)
-        self.assertIn("does not read a target-local `current-plan.json`", review_text)
-        self.assertIn("only OCR candidate-finding source", merge_text)
-        self.assertIn("coverage and navigation context only", merge_text)
+        self.assertIn("There is no required review-result schema", contract_text)
+        self.assertIn("Do not run a publisher", contract_text)
+        self.assertIn("Do not invoke `publish_open_code_review.py`", review_text)
+        self.assertIn("do not write `current-open-code-review.json`", review_text)
+
+    def test_multi_agent_review_stages_share_only_their_scheduler_job(self) -> None:
+        contract_text = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+
+        self.assertIn("current-review_artifacts_main-review-job.md", contract_text)
+        self.assertIn("Internal agent identifiers are stages", contract_text)
+        for sibling in ("Codex", "OpenCode", "cross-repository"):
+            self.assertIn(sibling, contract_text)
 
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(
@@ -157,41 +144,6 @@ class ReviewPromptContractTests(unittest.TestCase):
         )
         self.assertIn("only when no reviewer is usable", classify_text)
         self.assertIn("rather than creating plan work", disposition_text)
-
-    def test_missing_review_pass_ids_use_session_scoped_skip_artifacts(self) -> None:
-        codex_text = read_text(
-            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
-        )
-        ocr_text = read_text(
-            "codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md"
-        )
-
-        self.assertIn(
-            "<review_session_id>-codex-review-merge-skipped.md", codex_text
-        )
-        self.assertIn(
-            "<review_session_id>-open-code-review-merge-skipped.md", ocr_text
-        )
-        for text in (codex_text, ocr_text):
-            self.assertIn("do not infer or invent it", text)
-            self.assertIn("finish cleanly without updating either pointer", text)
-
-    def test_codex_identity_mismatches_use_session_scoped_skip_artifacts(self) -> None:
-        text = read_text(
-            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
-        )
-
-        self.assertIn(
-            "present `codex_review_pass_id` with any identity-tuple mismatch",
-            text,
-        )
-        self.assertIn(
-            "<review_session_id>-codex-review-merge-skipped.md", text
-        )
-        self.assertIn(
-            "leave the canonical handoff and Codex pointer unchanged", text
-        )
-        self.assertIn("continue later flow steps", text)
 
     def test_core_findings_prompt_defines_scope_impact_taxonomy(self) -> None:
         text = read_text("codeinfo_markdown/code_review_findings/01-core.md")
@@ -342,81 +294,53 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("exact `Scope Impact` is `cleanup_preference`", disposition_text)
         self.assertIn("If `Scope Impact` is missing, malformed, or unrecognized", disposition_text)
 
-    def test_review_classifier_preserves_bounded_two_phase_review_control(self) -> None:
-        classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")
-        document_minor_text = read_text("codeinfo_markdown/document_minor_review_fix.md")
-        fast_record_text = read_text(
-            "codeinfo_markdown/record_fast_review_pass_outcome.md"
-        )
-        finalizer_text = read_text(
-            "codeinfo_markdown/finalize_two_phase_review_disposition.md"
-        )
-
-        self.assertIn('`review_phase: "fast"` or `review_phase: "slow"`', classify_text)
-        self.assertIn("up to five successfully recorded reviewer passes", classify_text)
-        self.assertIn("must remain false during classification", classify_text)
-        self.assertIn("fast_reviewed_pass_ids", fast_record_text)
-        self.assertIn("between 1 and 5 inclusive", fast_record_text)
-        self.assertIn("immediately before the Minor Review Fix Path", fast_record_text)
-        self.assertIn("current-review-set.json", fast_record_text)
-        self.assertIn("current-review-wave-validation.json", fast_record_text)
-        self.assertIn("`2N + 1`", fast_record_text)
-        self.assertIn("fast_current_pass_expected_job_count", fast_record_text)
-        self.assertIn("fast_current_pass_coverage_complete", fast_record_text)
-        self.assertIn("fast_current_pass_coverage_trusted", fast_record_text)
-        self.assertIn("record zero completed jobs", fast_record_text)
-        self.assertIn("fast_review_coverage_exhausted", finalizer_text)
-        self.assertIn("The slow reviewer runs once in this cycle", finalizer_text)
-        self.assertIn("generate_final_revalidation", finalizer_text)
-        self.assertIn("preserve the phase-local", document_minor_text)
-        self.assertIn("Outside a two-phase cycle", document_minor_text)
-        self.assertIn("Outside an active two-phase cycle", classify_text)
-
-    def test_two_phase_cycle_uses_fast_cross_wave_then_one_target_only_slow_wave(self) -> None:
+    def test_complete_cycle_uses_repeated_and_one_shot_generic_review_batches(self) -> None:
         cycle = json.loads(read_text("flows/two_phase_review_cycle.json"))
-        fast_loop = next(
+        repeated_loop = next(
             step
             for step in cycle["steps"]
-            if step.get("label") == "Fast Review Convergence Loop"
+            if step.get("label") == "Repeated Review Group"
         )
         initializer = cycle["steps"][0]
-        fast_set = next(
-            step for step in fast_loop["steps"] if step["type"] == "prepareReviewSet"
+        repeated_wave = next(
+            step
+            for step in repeated_loop["steps"]
+            if step["type"] == "subflowWave"
         )
-        fast_wave = next(
-            step for step in fast_loop["steps"] if step["type"] == "subflowWave"
-        )
-        slow_set = next(
+        one_shot_waves = [
             step
             for step in cycle["steps"]
-            if step.get("label") == "Prepare Slow Review Set"
-        )
-        slow_waves = [
-            step
-            for step in cycle["steps"]
-            if step.get("label") == "Run Slow Review Wave"
+            if step.get("label") == "Run One-Shot Generic Review Batch"
         ]
-        consumer_text = read_text(
-            "codeinfo_markdown/shared/review-wave-consumer-contract.md"
-        )
+        cycle_text = json.dumps(cycle)
 
         self.assertEqual(initializer["type"], "initializeReviewCycle")
         self.assertEqual(initializer["mode"], "final")
-        self.assertEqual(fast_set["reviewPhase"], "fast")
+        self.assertEqual(repeated_loop["maxIterations"], 5)
+        self.assertEqual(repeated_wave["groups"][0]["flowName"], "review_batch")
+        repeated_groups = repeated_wave["groups"][0]["bindings"]["inputValues"][
+            "review_groups"
+        ]
         self.assertEqual(
-            fast_set["reviewFlowNames"], ["codex_review", "open_code_review"]
+            repeated_groups[0]["flowNames"], ["codex_review", "open_code_review"]
         )
-        self.assertEqual(
-            fast_set["crossRepositoryFlowName"], "cross_repository_review"
+        self.assertEqual(repeated_groups[1]["flowName"], "cross_repository_review")
+        self.assertEqual(len(one_shot_waves), 1)
+        one_shot_groups = one_shot_waves[0]["groups"][0]["bindings"][
+            "inputValues"
+        ]["review_groups"]
+        self.assertEqual(one_shot_groups[0]["flowNames"], ["review_artifacts_main"])
+        settlement_steps = [
+            step
+            for step in cycle["steps"]
+            if step.get("identifier") == "review_settler"
+        ]
+        self.assertTrue(settlement_steps)
+        self.assertTrue(
+            all(step["agentType"] == "tasking_agent" for step in settlement_steps)
         )
-        self.assertEqual(len(fast_wave["groups"]), 2)
-        self.assertEqual(slow_set["reviewPhase"], "slow")
-        self.assertEqual(slow_set["reviewFlowNames"], ["review_artifacts_main"])
-        self.assertNotIn("crossRepositoryFlowName", slow_set)
-        self.assertEqual(len(slow_waves), 1)
-        self.assertEqual(len(slow_waves[0]["groups"]), 1)
-        self.assertIn("`cross_repository_required: true`", consumer_text)
-        self.assertIn("`cross_repository_required: false`", consumer_text)
+        self.assertNotIn('"reviewPhase"', cycle_text)
+        self.assertNotIn('"prepareReviewSet"', cycle_text)
 
     def test_testing_prompts_reject_contract_shape_only_proof(self) -> None:
         ensure_text = read_text(

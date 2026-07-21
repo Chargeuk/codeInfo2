@@ -1,0 +1,90 @@
+{
+  "description": "Run any configured set of ordinary reviews in parallel, then verify, reconcile, disposition, and directly fix their self-describing workspace output.",
+  "steps": [
+    {
+      "type": "prepareReviewTargets",
+      "label": "Snapshot Generic Review Batch Targets",
+      "outputKey": "review_batch_targets"
+    },
+    {
+      "type": "subflowWave",
+      "label": "Run Configured Review Batch",
+      "failureMode": "best_effort",
+      "groupsFrom": "review_groups",
+      "reviewWorkspace": {
+        "snapshotFrom": "review_batch_targets"
+      }
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Verifier",
+      "agentType": "review_agent_heavy",
+      "identifier": "batch_verifier"
+    },
+    {
+      "type": "llm",
+      "label": "Verify And Recover Review Batch Jobs",
+      "agentType": "review_agent_heavy",
+      "identifier": "batch_verifier",
+      "continueOnFailure": true,
+      "markdownFile": "verify_review_batch_jobs.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Reconciler",
+      "agentType": "planning_agent",
+      "identifier": "batch_reconciler"
+    },
+    {
+      "type": "llm",
+      "label": "Reconcile Review Batch",
+      "agentType": "planning_agent",
+      "identifier": "batch_reconciler",
+      "continueOnFailure": true,
+      "markdownFile": "reconcile_review_batch.md"
+    },
+    {
+      "type": "llm",
+      "label": "Audit Review Batch Reconciliation",
+      "agentType": "review_agent_heavy",
+      "identifier": "batch_verifier",
+      "continueOnFailure": true,
+      "markdownFile": "audit_review_batch_reconciliation.md"
+    },
+    {
+      "type": "llm",
+      "label": "Disposition Review Batch",
+      "agentType": "planning_agent",
+      "identifier": "batch_reconciler",
+      "continueOnFailure": true,
+      "markdownFile": "disposition_review_batch.md"
+    },
+    {
+      "type": "reingest",
+      "label": "Re-embed Plan Scope Before Direct Review Fixes",
+      "target": "plan_scope"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Direct Review Fixer",
+      "agentType": "coding_agent",
+      "identifier": "batch_fixer"
+    },
+    {
+      "type": "llm",
+      "label": "Implement Direct Review Fixes",
+      "agentType": "coding_agent",
+      "identifier": "batch_fixer",
+      "continueOnFailure": true,
+      "markdownFile": "implement_review_batch_direct_fixes.md"
+    },
+    {
+      "type": "llm",
+      "label": "Record Review Batch Outcome",
+      "agentType": "planning_agent",
+      "identifier": "batch_reconciler",
+      "continueOnFailure": true,
+      "markdownFile": "record_review_batch_outcome.md"
+    }
+  ]
+}

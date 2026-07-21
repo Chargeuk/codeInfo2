@@ -1,72 +1,59 @@
-# Subflow waves and repository review sets
+# Subflow waves and generic review batches
 
-`subflowWave` is a generic flow step for starting a bounded set of child flows concurrently. It is not review-specific: a wave combines any number of matrix groups with singleton groups, expands them once from immutable flow input, starts every viable child, and waits for every terminal outcome.
+`subflowWave` starts a bounded set of child flows concurrently. It is not review-specific: a wave may use static `groups` or discover a caller-supplied array through `groupsFrom`, expands matrix and singleton groups from immutable flow input, starts every viable child, and waits for every terminal outcome.
 
 ## Authoring contract
+
+Static scheduling is useful when a parent owns a fixed policy. Dynamic scheduling lets a reusable child consume any group configuration without knowing reviewer names or counts:
 
 ```json
 {
   "type": "subflowWave",
-  "label": "Run review wave",
-  "groups": [
-    {
-      "kind": "matrix",
-      "id": "target-reviews",
-      "itemsFrom": "review_wave.targets",
-      "itemName": "review_target",
-      "flowNames": [
-        "review_artifacts_main",
-        "codex_review",
-        "open_code_review"
-      ],
-      "bindings": {
-        "workingFolderFrom": "review_target.repo_root",
-        "input": {
-          "review_target": "review_target",
-          "review_wave": "review_wave"
-        }
-      }
-    },
-    {
-      "kind": "singleton",
-      "id": "cross-repository",
-      "flowName": "cross_repository_review",
-      "bindings": {
-        "workingFolderFrom": "review_wave.plan_host_root",
-        "input": { "review_wave": "review_wave" }
-      }
-    }
-  ]
+  "label": "Run configured review batch",
+  "groupsFrom": "review_groups",
+  "failureMode": "best_effort",
+  "reviewWorkspace": {
+    "snapshotFrom": "review_batch_targets"
+  }
 }
 ```
 
-Binding paths resolve against the parent input and prior deterministic flow-step outputs. Matrix bindings additionally expose the current item through `itemName`. Bound input must remain JSON-only and is normalized, hashed, and persisted with the active child identity. A missing binding, empty matrix, duplicate group, duplicate matrix flow name, or duplicate expanded instance fails validation or launch before ambiguous work is accepted.
+Groups use the existing matrix and singleton shapes. Bindings may resolve values from flow state through `input`, or carry immutable JSON scheduling configuration through `inputValues`. Matrix bindings additionally expose the current item through `itemName`. Bound input is normalized, hashed, and persisted with the child identity.
 
-Instance IDs are stable within the immutable input: matrix jobs use `<group-id>:<item-index>:<flow-name>` and singleton jobs use `<group-id>:<flow-name>`. Repeated flow names receive target-aware titles such as `codex_review [payments-api]`; their parent-wave execution ID, instance ID, target ID, and display name are exposed in server-owned `flags.flowChild` metadata.
+A missing binding, empty matrix, duplicate group, duplicate matrix flow name, or duplicate expanded instance fails launch before ambiguous work is accepted. Instance IDs are stable within immutable input: matrix jobs use `<group-id>:<target-id>:<flow-name>` and singleton jobs use `<group-id>:<flow-name>`.
 
 ## Runtime and observability
 
-The parent persists `flags.flow.subflowWaveProgress` with `expected`, `running`, `completed`, `failed`, `stopped`, and `notApplicable` counts plus every job's stable identity, title, and status. The same counts appear in the live and terminal parent assistant turns and in structured `flows.run.subflow_wave_progress` logs. Ordinary `subflow` steps retain their existing behavior and metadata.
+The parent persists `flags.flow.subflowWaveProgress` with running and terminal outcome counts plus every job's identity, title, and status. Cancellation is broadcast to active children. Resume reattaches through persisted instance ID, run token, immutable input hash, working folder, and title instead of launching a duplicate child.
 
-Cancellation is broadcast to all active children. A terminal parent snapshot accounts for unlaunched jobs as stopped and launch failures as failed. Resume reattaches through the persisted instance ID, run token, immutable input hash, working folder, and title; it does not relaunch a remembered child. A child may publish the generic terminal outcome `not_applicable`, which is counted separately from successful work.
+Review waves use best-effort completion. One unavailable child does not erase usable sibling work or stop later recovery, reconciliation, fixing, or settlement steps.
 
-## Review-target model
+## Review target and workspace model
 
-Before each story review pass, `prepareReviewTargets` reads the active plan and creates a new immutable snapshot. The snapshot contains the plan-host repository plus every additional plan-scope repository, with a stable alias/target ID, real repository root, checked-out story branch, full HEAD commit, and comparison base. Every root must already be an ingested repository and a separate checkout/worktree; the runtime never switches branches in a shared checkout.
+`prepareReviewTargets` snapshots the plan-host repository plus every additional plan-scope repository. Each target records a real repository root, story branch, full HEAD, and comparison base. Every root must already be an ingested separate checkout or worktree; review execution never switches branches in a shared checkout.
 
-For `N` targets, every fast review pass expands to `2N + 1` jobs: Codex and Open Code Review per repository plus one story-scoped cross-repository reviewer. Each target-local child is bound to that target's repository root and receives only its explicit target contract. The cross-repository child owns integration findings spanning repository boundaries. With one target it writes `not_applicable` and exits before expensive review work; with multiple targets it runs alongside the target-local reviews. Fast passes repeat after eligible minor fixes until a pass records zero pre-fix minor findings or the fifth drained pass completes.
+When `reviewWorkspace` is configured, the scheduler creates an immutable batch before launching children:
 
-After fast convergence, one slow wave expands to exactly `N` jobs: one heavyweight main artifact review per target. It intentionally has no cross-repository child and never reruns. Every fast and slow pass prepares a fresh target snapshot and review-set manifest because fixes can advance target HEADs; final task-up and revalidation wait until both phases finish.
+```text
+codeInfoTmp/reviews/<cycle-or-standalone-pass>/batches/<wave>--head-<commit>/
+  batch-launch.md
+  inputs/<target>/
+    review-target.md
+    story-context.md
+  jobs/<instance>/
+    job.md
+    work/
+    output/
+    verification/
+  reconciliation/
+```
 
-## Artifact layout and ownership
+Every job exists before its reviewer starts, so a crash or empty response remains discoverable. Reviewers receive only their assigned directories and common agent-readable inputs. They may use any internal command, intermediate files, or output layout. They finish by writing the clearest self-describing result they can under `output/`; there is no provider pointer, result schema, expected-count join, or publisher.
 
-The plan host owns story-level coordination artifacts under `codeInfoTmp/reviews/`:
+The stable `<story>-current-review-batch.md` and target-local reviewer job locators point agents to immutable workspaces. They are navigation aids for the supported single top-level review flow, not ownership locks or review-result records.
 
-- `<story>-current-review-targets.json` and a wave-versioned target snapshot;
-- `<story>-current-review-set.json` and a wave-versioned prepared manifest;
-- `<story>-current-cross-repository-review.json` and its wave-versioned result;
-- `<story>-current-review-wave-validation.json` and the finalized review set.
+## Consumption and scheduling
 
-Each target repository owns its prepared context/base and its target-local review pointers under that repository's own `codeInfoTmp/reviews/`. Every pointer carries the story, wave, target, branch, HEAD, and parent execution identity, so one target cannot overwrite or validate another target's evidence. The finalized review-set manifest enumerates every expected matrix cell and optional singleton, preserves partial/failed coverage, aggregates target-owned findings, blocks a clean fast closeout when required cross-repository coverage is missing or invalid, and allows a slow closeout only when all expected main-review jobs are usable.
+The verifier discovers every directory under `jobs/`, checks factual workspace and Git state, repairs output from preserved native work where possible, and records honest unavailable evidence otherwise. Reconciliation, disposition, fixing, and settlement agents consume the discovered self-describing files without knowing which providers ran or how many reviewers were configured.
 
-Downstream review-loop prompts must read `codeinfo_markdown/shared/review-wave-consumer-contract.md` before consuming findings. Fixes lead to a new target snapshot and wave ID on the next pass, so stale results remain versioned evidence without replacing the current stable pointers.
+Scheduling class belongs only to the caller. The current complete-story policy runs one configured group repeatedly, exiting early when another direct-fix review is not useful and continuing through the same path after the fifth iteration, then runs another configured group once. A reviewer can move between groups—or a new reviewer can be added—without changing the reviewer flow, workspace contract, or consumer pipeline.

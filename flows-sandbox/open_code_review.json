@@ -1,18 +1,13 @@
 {
-  "description": "Run a standalone Codex-owned Open Code Review without changing canonical review workflow state.",
+  "description": "Run the agent-owned OpenCode reviewer inside a scheduler-provided review workspace.",
   "steps": [
     {
-      "type": "prepareReviewBase",
-      "label": "Prepare Shared Review Base And Context",
-      "outputKey": "current-review-base",
-      "basePolicy": "branched_from_or_default_if_merged"
-    },
-    {
       "type": "llm",
-      "label": "Run Standalone Open Code Review",
+      "label": "Run OpenCode Workspace Review",
       "agentType": "review_agent_heavy",
       "identifier": "ocr_reviewer",
-      "markdownFile": "run_open_code_review.md"
+      "continueOnFailure": true,
+      "markdownFile": "run_open_code_review_workspace.md"
     }
   ]
 }

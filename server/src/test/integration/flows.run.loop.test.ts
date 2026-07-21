@@ -1559,6 +1559,60 @@ test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no vali
   );
 });
 
+test('break step can fail forward through the normal post-loop path', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Exit best-effort loop?')) {
+        return 'I cannot produce the requested decision format.';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl }) => {
+      const conversationId = 'flow-loop-conv-break-on-failure';
+
+      await supertest(baseUrl)
+        .post('/flows/loop-break-on-failure/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.content === 'ok' &&
+              (turn.command as { label?: string } | null)?.label ===
+                'After loop',
+          ),
+        15000,
+      );
+      await waitForRuntimeCleanup(conversationId);
+      const status = await getFlowRunStatus(conversationId);
+
+      assert.equal(status?.status, 'ok');
+      assert.equal(status?.terminal, true);
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            (turn.command as { label?: string } | null)?.label === 'Loop body',
+        ).length,
+        1,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            (turn.command as { label?: string } | null)?.label === 'After loop',
+        ).length,
+        1,
+      );
+      await cleanupConversationRuntime(conversationId);
+    },
+  );
+});
+
 test('break step fails on invalid answer value', async () => {
   await withFlowServer(
     (message) => {

@@ -1,19 +1,13 @@
 {
-  "description": "Review integration contracts across every pinned repository target in the current review wave.",
+  "description": "Run an ordinary workspace-owned review of cross-repository contracts.",
   "steps": [
-    {
-      "type": "crossRepositoryReviewGate",
-      "label": "Validate Cross-Repository Review Wave",
-      "targetSnapshotFrom": "review_wave",
-      "reviewSetFrom": "review_set",
-      "outputKey": "current-cross-repository-review"
-    },
     {
       "type": "llm",
       "label": "Review Cross-Repository Contracts",
       "agentType": "review_agent_heavy",
       "identifier": "cross_repository_reviewer",
-      "markdownFile": "cross_repository_review.md"
+      "continueOnFailure": true,
+      "markdownFile": "run_cross_repository_review_workspace.md"
     }
   ]
 }

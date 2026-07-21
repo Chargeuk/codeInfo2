@@ -1,5 +1,5 @@
 {
-  "description": "Run isolated per-repository diagnostic reviewers without final story disposition, repair, task-up, or convergence ownership.",
+  "description": "Run an isolated generic diagnostic review batch without final story settlement ownership.",
   "steps": [
     {
       "type": "initializeReviewCycle",
@@ -8,46 +8,36 @@
       "outputKey": "diagnostic_review"
     },
     {
-      "type": "prepareReviewTargets",
-      "label": "Snapshot Diagnostic Review Targets",
-      "outputKey": "diagnostic_review_wave"
-    },
-    {
-      "type": "prepareReviewSet",
-      "label": "Prepare Diagnostic Review Set",
-      "snapshotFrom": "diagnostic_review_wave",
-      "outputKey": "diagnostic_review_set",
-      "reviewPhase": "standalone",
-      "reviewFlowNames": ["codex_review", "open_code_review"]
-    },
-    {
       "type": "subflowWave",
-      "label": "Run Diagnostic Review Wave",
+      "label": "Run Diagnostic Generic Review Batch",
       "failureMode": "best_effort",
       "groups": [
         {
-          "kind": "matrix",
-          "id": "diagnostic_target_reviews",
-          "itemsFrom": "diagnostic_review_wave.targets",
-          "itemName": "target",
-          "flowNames": ["codex_review", "open_code_review"],
+          "kind": "singleton",
+          "id": "diagnostic_review_batch",
+          "flowName": "review_batch",
           "bindings": {
-            "workingFolderFrom": "target.repo_root",
-            "input": {
-              "target": "target",
-              "review_wave": "diagnostic_review_wave",
-              "review_set": "diagnostic_review_set"
+            "inputValues": {
+              "review_groups": [
+                {
+                  "kind": "matrix",
+                  "id": "target_reviews",
+                  "itemsFrom": "review_batch_targets.targets",
+                  "itemName": "target",
+                  "flowNames": ["codex_review", "open_code_review"],
+                  "bindings": {
+                    "workingFolderFrom": "target.repo_root",
+                    "input": {
+                      "target": "target",
+                      "review_wave": "review_batch_targets"
+                    }
+                  }
+                }
+              ]
             }
           }
         }
       ]
-    },
-    {
-      "type": "validateReviewWave",
-      "label": "Validate Diagnostic Review Wave",
-      "snapshotFrom": "diagnostic_review_wave",
-      "reviewSetFrom": "diagnostic_review_set",
-      "reviewPhase": "standalone"
     }
   ]
 }

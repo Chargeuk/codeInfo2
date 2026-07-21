@@ -6,48 +6,54 @@ Implement this story additively so the existing static `subflow` review path rem
 
 ## Description
 
-The `Run Parallel Review Artifact Flows` step in `flows/task_and_implement_plan.json` originally started exactly three review flows against one ambient working repository. The main review flow also expanded its own scope across `additional_repositories`, while Codex Review and Open Code Review remained bound to one repository. This made review behavior inconsistent and prevented every participating repository branch from receiving the same independent set of reviews.
+The original review workflow coupled each provider to stable pointers, publishers, parsers, expected-result joins, and fast/slow artifact types. That duplicated provider interpretation, made partial output brittle, and allowed one unavailable reviewer or mismatched publication record to hide useful sibling findings.
 
-Add a generic subflow-wave orchestration contract that can expand matrix groups and singleton groups into concurrent child-flow waves. The production review loop uses it in a bounded two-phase cycle: each fast pass runs Codex and Open Code Review for every immutable repository target plus one cross-repository reviewer, repeats after eligible minor fixes until convergence or five drained passes, and then runs the heavyweight main reviewer once per target in one final slow wave. A single-repository fast pass still starts the singleton flow, but that flow exits cheaply with a deterministic `not_applicable` artifact.
+Use a KISS, agent-native review boundary instead. Every scheduled review receives the same kind of agent-readable story and repository inputs plus a private immutable job workspace. Each reviewer adapts those inputs to its own tools, preserves native work, and writes the clearest self-describing output it can. Output filenames and internal layouts are deliberately flexible: common verification, reconciliation, disposition, fixing, and settlement agents discover the available files and understand their meaning rather than application code parsing a provider-specific result schema.
 
-Every review target must be represented by a distinct checked-out working-tree path. The implementation must not switch branches in a shared checkout. Target-local review artifacts must remain isolated, while a canonical story-level review-set manifest validates, joins, and aggregates every usable local and cross-repository result before disposition.
+The parent flow only owns scheduling policy. It currently runs one configurable group repeatedly for early convergence with a five-iteration limit, then one separately configured group once because that group is slower. Reviewers and consumers do not know or care which scheduling group they belong to. Failures and incomplete coverage remain visible and the flow continues with best effort; useful sibling results are never discarded merely because another reviewer failed. Runtime code validates only factual boundaries such as assigned paths, containment, Git commits, directory presence, execution status, cancellation, and resume. Agents own semantic recovery and final settlement, and must never invent a clean result when meaningful evidence could not be produced.
 
 ## Acceptance Criteria
 
 - A generic `subflowWave` flow step supports matrix and singleton child-flow groups without hard-coding review semantics.
 - The wave runtime accepts bounded immutable JSON child inputs, binds working folders explicitly, and gives every expanded job a stable unique instance identity.
 - Existing `subflow` flow files and runtime behavior remain backward-compatible.
-- Changes merged or rebased from `main` are reviewed and, where they overlap this story, adapted and validated so the branch preserves its parallel-wave implementation, compatibility guarantees, and Story 64 targets.
 - A persisted review-target snapshot contains the canonical plan host plus every plan-scope repository with stable alias, real root, checked-out branch, full HEAD commit, and pinned comparison base.
 - The runtime never switches a shared checkout between branches; distinct branches require distinct worktree paths.
-- The main, Codex, and Open Code Review flows each review exactly one explicit target.
-- For `N` targets, every fast pass launches `2N + 1` child flows: Codex and Open Code Review for each target plus one story-scoped cross-repository flow.
-- Fast review repeats after eligible minor fixes until a pass records zero pre-fix minor findings or a fifth drained pass completes.
-- After fast convergence, one slow wave launches exactly `N` heavyweight main-review child flows in parallel and never reruns them.
-- Serious findings and fix history accumulate across every fast pass and the slow wave, while final task-up and revalidation occur only after both phases finish.
-- Every accepted or ignored current-pass review item lists every validated review name that found it, deduplicated deterministically and qualified by target alias when needed to distinguish repeated review flows.
-- After every non-empty minor-fix loop, the plan contains exactly one completed audit task for that review cycle and pass; its `#### Overview` lists findings escalated to combined task-up, its checked subtasks list every fixed finding and changed file, and its checked testing items list every actually executed test without duplicates.
-- Per-loop audit tasks and cumulative disposition state survive cancellation and resume without duplication, and findings escalated in any fast pass remain visible through later fast passes and the slow wave before the existing grouped task-up path creates or updates their review-fix task coverage.
+- Every review job receives common agent-readable inputs covering story overview, acceptance criteria, out-of-scope guidance, exclusions, exact repository targets, comparison bases, and reviewed HEADs.
+- Every review job receives a private immutable job directory with input, work, output, and verification boundaries; provider-native commands and artifacts remain private to that job.
+- Review output is self-describing and has no required result schema, filename, heading layout, or provider publication record.
+- Common downstream agents discover every pre-created job directory and interpret whatever output and native work are present without provider names, pointer mappings, expected reviewer counts, or exact file-format parsing.
+- Missing or misleading output is recovered from useful native work where possible; otherwise the job records an honest unavailable or partial result without suppressing trustworthy sibling findings.
+- Runtime validation remains factual and format-agnostic: it may check assigned paths, containment, required directories, Git HEADs, non-empty output presence, execution outcomes, cancellation, and resume, but does not decide the semantic meaning of review text.
+- Codex, OpenCode, the multi-agent deep review, and the cross-repository review use the same workspace input/output boundary while retaining their own internal review strategy.
+- Adding a reviewer or moving it between scheduling groups requires only its own flow plus parent scheduling configuration; common consumers require no reviewer-specific branch, parser, count, or schema change.
+- The currently repeated review group runs all configured jobs concurrently, exits early when no direct-fix re-review is useful, and proceeds through the same continuation route when it reaches its five-iteration limit.
+- An invalid or unavailable advisory loop decision exits the repeated group through the normal one-shot and settlement route instead of failing or terminating the parent flow.
+- The currently one-shot review group runs exactly once after the repeated group and uses the same verification, reconciliation, disposition, direct-fix, and outcome processing.
+- Safe direct fixes are applied and tested with best effort, committed on the owning story branches, and cause another useful review against the new immutable HEAD, subject to the repeated-group limit.
+- Task-required findings from any batch survive later batches and are handled once during complete-pass settlement rather than being lost, duplicated by provider, or converted into endless same-HEAD retries.
+- When a pass produced direct fixes but no task-required issue, settlement adds or updates one final testing/revalidation task; when findings require tasks, settlement adds those implementation tasks followed by one final testing/revalidation task.
+- The outer story loop implements newly settled work and starts a fresh complete review pass until a pass is genuinely clean.
+- Review and settlement steps continue with best effort when a reviewer or provider fails. If final settlement cannot be completed, the cycle remains visibly incomplete rather than being represented as a clean pass, while the overall flow remains able to continue or retry.
 - All viable jobs execute concurrently, subject only to provider scheduling, and the parent waits for every terminal outcome.
-- The cross-repository flow publishes `not_applicable` without expensive review work for one target and performs one integration review for multiple targets.
 - Target-local artifacts cannot overwrite or validate against another target's identity.
-- A canonical story-level review-set manifest records every expected job, pointer, validation result, coverage state, and cross-repository outcome.
-- Post-wave work validates, deduplicates, and aggregates findings without running a second full cross-repository diff review.
-- Every wave-mode consumer receives server-owned per-review usability and identity validation for each target-local result; legacy `current-review-validation.json` requirements remain only on the legacy non-wave path.
-- A completed review wave with accepted or ignored current-pass decisions reaches one durable `## Code Review Findings` plan block instead of retrying because an upstream validation artifact was never produced.
-- Multi-target review cannot produce a clean no-findings closeout when cross-repository coverage is missing or invalid.
 - Parent cancellation reaches every active wave child, and resume reattaches without duplicate launches.
 - Flow progress and child titles distinguish repeated child flow names by target alias and show wave counts.
+- Changes merged or rebased from `main` are reviewed and, where they overlap this story, adapted and validated so the branch preserves these contracts.
 - Targeted server, client, cucumber, and e2e proof passes, followed by the full parallel automated suite.
 - Repository lint and Prettier/format checks pass at closeout.
-- Main-stack manual proof demonstrates one-target, three-target, cancellation, resume, artifact isolation, and cross-repository finding behavior unless repository-owned authentication guidance permits a documented skip.
+- Main-stack proof demonstrates flexible native output, unavailable-reviewer recovery, repeated and one-shot execution, task-required settlement, and final re-entry; automated proof covers multi-target expansion, loop limits, cancellation, resume, and direct-fix new-HEAD re-entry.
 
 ## Out Of Scope
 
 - Running arbitrary non-subflow control-flow steps in parallel.
 - Switching branches inside one shared Git working tree.
 - Replacing the existing `subflow` step or changing its JSON contract.
-- Adding a second cross-repository integration review after the bounded fast phase.
+- Requiring review output to match a rigid JSON or Markdown schema, exact filename, fixed heading set, or provider-specific result format.
+- Reintroducing stable provider pointers, publishers, provider-specific parsers, expected-reviewer joins, or application code that interprets review meaning.
+- Giving reviewers or common consumers built-in fast/slow identities; grouping, ordering, and repetition remain replaceable parent scheduling choices.
+- Supporting concurrent top-level story/review flows against the same plan; concurrent ownership, locking, leasing, and conflict resolution are deliberately not added.
+- Guaranteeing meaningful review or settlement content when every relevant AI/provider is unavailable; the workflow preserves honest incomplete state instead of inventing findings or a clean result.
 - Opening a pull request as part of this story unless separately requested.
 
 ## Additional Repositories
@@ -2816,3 +2822,81 @@ Escalated review items requiring combined task-up:
 - Description: Concurrent top-level review cycles could overwrite or finalize another cycle's shared state.
 - Example: Run A can start, run B can replace the active cycle, and A can then finalize B's state as completed or incomplete.
 - Why ignored: Task 42 explicitly excludes locking, leasing, joining, conflict resolution, and ownership negotiation for concurrent top-level story flows. The proposed compare-and-swap or repository-level ownership work would materially expand Story 64 scope; it is ignored for this story.
+
+### Task 44. Replace Review Publishers With Agent-Native Generic Review Batches
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+
+#### Overview
+
+Replace provider-specific review pointers, publishers, parsers, and fast/slow artifact contracts with generic ordered review batches. Every configured reviewer receives the same kind of agent-readable story and repository input plus a private job workspace, adapts that input to its own tools, preserves its native work, and produces the clearest self-describing output it can. Common verification, reconciliation, disposition, fixing, tasking, and settlement agents discover and understand whatever files are available; they do not require exact filenames, headings, schemas, provider identities, or expected-result counts. Runtime code stays deliberately small and factual by enforcing paths, containment, Git identity, execution state, cancellation, and resume without parsing review meaning. Review grouping and repetition remain parent-flow scheduling choices only, and failures remain visible while every stage continues with best effort, recovers usable partial work, preserves sibling findings, and avoids claiming a clean pass when meaningful output or settlement could not be produced.
+
+#### Non-Goals
+
+- Do not add concurrent top-level story-flow ownership, locking, leasing, or conflict resolution.
+- Do not require review findings or provider-native output to conform to a rigid machine-parsed schema.
+- Do not retain dual-read compatibility with historical provider pointers or publishers.
+
+#### Task Exit Criteria
+
+- Adding or regrouping a reviewer requires only creating its flow and changing the parent scheduling configuration.
+- Review consumers discover pre-created job directories and interpret self-describing output without provider names, result counts, pointer mappings, or provider-specific parsers.
+- Codex, OpenCode, the multi-agent review, and cross-repository review use the same workspace boundary and common downstream processing.
+- The repeated review group converges early or exits after five iterations through the same route; the currently one-shot review group runs once per complete pass.
+- Direct fixes or task-required findings return the story to implementation with a final testing task, and a clean complete pass closes normally.
+
+#### Subtasks
+
+1. [x] Add generic immutable review-pass, batch, shared-input, job-workspace, reconciliation, and settlement directory contracts without fast/slow semantics.
+2. [x] Make the wave scheduler pre-create and pass reviewer job workspaces dynamically, preserving empty jobs for recovery without exposing semantic expected-count joins.
+3. [x] Add agent-owned shared input preparation plus factual Git, filesystem, plan, and containment checks that do not parse review meaning.
+4. [x] Convert Codex and OpenCode to agent-owned workspace reviewers and remove their stable pointers, publisher, and provider-specific merge path.
+5. [x] Convert the multi-agent and cross-repository reviews to the same workspace boundary while keeping their internal review strategies private.
+6. [x] Add common agent-led job verification, recovery, repair, directory-discovered batch reconciliation, and reconciliation audit flows.
+7. [x] Unify review disposition, direct fixing, task-up, final-testing task creation, and complete-pass settlement over agent-readable batch outputs.
+8. [x] Replace fast/slow review phases with generic parent-scheduled review groups, retaining the current repeated-up-to-five then one-shot policy.
+9. [x] Remove obsolete provider pointer, publisher, parser, expected-count join, fast/slow artifact, and compatibility code and documentation.
+10. [x] Add regression coverage for flexible layouts, missing/partial outputs, the historical OpenCode exclusion failure, dynamic reviewer regrouping, multi-target review, loop limits, one-shot execution, story re-entry, stop, and resume.
+11. [x] Make the repeated-group exit decision fail forward into the normal one-shot and settlement path when an advisory agent response cannot be parsed.
+12. [x] Bind every internal multi-agent review stage to the single `review_artifacts_main` job workspace so stale sibling-review locators cannot be selected.
+13. [x] Assign complete-pass recommendation and plan mutation to the tasking agent instead of the planning agent whose role forbids task creation.
+
+#### Testing
+
+1. [x] Run focused server unit and integration wrappers for flow schema, subflow waves, review production, lifecycle, and the new review-batch workspace behavior.
+2. [x] Run focused Python tests for new factual review tools and remove obsolete publisher tests.
+3. [x] Run `npm run build:summary:server`.
+4. [x] Run `npm run build:summary:client`.
+5. [x] Run `npm run test:summary:all:parallel`.
+6. [x] Run `npm run lint`.
+7. [x] Run `npm run format:check`.
+8. [x] Run a supported main-stack multi-pass proof covering flexible-layout output, one unavailable reviewer, one-shot batch execution, and self-healing task-required settlement; combine it with the automated immutable-HEAD direct-fix re-entry regression.
+9. [x] Re-run focused loop-control, schema, prompt, lint, and formatting validation after repairing the fail-forward exit boundary.
+
+#### Implementation Notes
+
+- Task opened for the user-approved one-shot cutover from provider-specific review publication to agent-native generic review batches. The pre-existing deletion of `codeInfoStatus/flow-state/review-initialization-failure.json` is user-owned and will be preserved.
+- Subtask 1: Added immutable cycle/pass and ordered batch workspaces addressed by review wave and primary HEAD, with shared target inputs plus private work, output, verification, reconciliation, and settlement locations; no fast/slow classification appears in the workspace contract.
+- Subtask 2: Extended subflow-wave orchestration with dynamic groups and literal scheduling input, and made review waves pre-create every job directory before launch while injecting only assigned workspace paths into each child. Empty reviewer output therefore remains discoverable for agent recovery, while semantic consumers do not join on provider pointers or expected counts.
+- Subtask 3: Added self-describing Markdown launch inputs which reviewers interpret directly, plus `check_review_workspace.py` for structural containment, directory, optional Git HEAD, and output-presence facts. The checker intentionally treats any output filename and content as opaque, reports empty jobs for recovery, and its focused Python tests pass.
+- Subtask 4: Replaced both one-shot fast reviewer implementations with ordinary LLM workspace jobs. Codex and OpenCode now preserve their native work privately and hand off self-describing output directly; production flows no longer publish or merge provider pointers, and the OpenCode publisher and its schema-coupled tests were removed.
+- Subtask 5: Converted the multi-agent deep review and cross-repository review to the identical scheduler-provided input/work/output/verification boundary. Their internal strategies remain private, while the batch consumer sees only ordinary discovered job directories.
+- Subtask 6: Added one common best-effort verification and recovery step, directory-discovered reconciliation, and an independent reconciliation audit. These agents repair missing or misleading output from preserved native work, create honest unavailable evidence when recovery is impossible, and never require provider names, counts, or schemas.
+- Subtask 7: Added common disposition, direct-fix implementation, batch-outcome, complete-pass settlement, plan-application, and settlement-audit prompts. Direct fixes create a new committed HEAD for another batch, while task-required findings and all fix-bearing passes produce appropriately ordered implementation and final revalidation tasks before the outer story loop resumes.
+- Subtask 8: Replaced semantic fast/slow phases with caller-supplied generic reviewer groups. The current policy repeats one group at most five times and exits early through the same continuation route, runs the separately configured one-shot group once, then settles the complete pass without exposing scheduling class to reviewers or consumers.
+- Subtask 9: Removed the publisher-era flow-step schema and runtime handlers, provider review publishers and parsers, pointer validators, expected-count review-set join, special Codex discovery path, obsolete phase transition prompts, and their compatibility tests. Updated the architecture documentation to describe only dynamic generic batches and agent-readable consumption; legacy standalone external-review classification remains separate from the complete-story review cycle.
+- Subtask 10: Replaced pointer-era regressions with generic batch tests covering flexible filenames, empty and partial recovery visibility, the OpenCode planning exclusion, dynamic additions and regrouping, one and three target waves, the five-iteration cap plus one-shot placement, immutable HEAD re-entry, and existing subflow-wave stop/resume/no-duplicate behavior.
+- Subtask 11: Main-stack proof exposed that the advisory repeated-group exit still terminated the parent flow after two invalid strict-JSON answers. Added explicit `breakOnFailure` flow semantics so this review boundary records the failed advisory decision, exits the repeated group, and continues through the ordinary one-shot and settlement path; focused schema and loop integration regressions prove the fallback runs one iteration and reaches the following step.
+- Subtask 12: The resumed main-stack proof exposed that the first internal deep-review agent could mistake a stale Codex locator for its own scheduler job. Every reviewer LLM instruction now receives its scheduler-assigned `review_job` path context directly from immutable flow input, the shared contract makes that context authoritative, and all six internal `review_artifacts_main` stages share the one job instead of rediscovering sibling locators. Focused flow-input and prompt-contract tests protect both the runtime handoff and fallback wording.
+- Subtask 13: Final settlement proof exposed a role mismatch: `planning_agent` is explicitly prohibited from creating tasks, so its two settlement steps deferred the requested plan mutation to the independent auditor. Both settlement steps and their shared reset now use `tasking_agent`; a prompt-contract regression prevents the forbidden planning role from being restored. The auditor nevertheless self-healed the live pass by writing the missing settlement, one finding-owned implementation task, and its required final revalidation task.
+- Testing 1: Focused server wrapper runs passed: 150 flow/schema/wave/workspace/integration tests, 8 lifecycle/production/workspace tests, and 4 generic review-wave Cucumber scenarios.
+- Testing 2: Focused Python review workspace and prompt contract suite passed all 31 tests; the deleted publisher test suite was replaced by format-agnostic structural and Git-fact checks.
+- Testing 3: `npm run build:summary:server` passed after removing the retired special-step surface and compiling the new review-batch and regression code.
+- Testing 4: `npm run build:summary:client` passed typecheck and production build. The wrapper reported only the repository's existing large-chunk size advisory (the main bundle is just over the configured warning threshold), unrelated to this server/flow change.
+- Testing 5: `npm run test:summary:all:parallel` passed on the clean rerun: 900 client tests, 2,563 server unit/integration tests, 133 Cucumber scenarios, and 77 end-to-end tests. The first full run exposed and led to removal of one stale HTTP test for the deleted special `codexReview` step; its targeted replacement run passed before the full rerun.
+- Testing 6: `npm run lint` passed with zero warnings after removing the last unused pointer-era integration helpers and restoring import ordering.
+- Testing 7: `npm run format:check` passed. Because that wrapper checks tracked files, the new untracked TypeScript, JSON, and Markdown files were also checked explicitly; one new unit test was formatted and the explicit follow-up check passed.
+- Testing 8: A supported checked-in main-stack proof completed with terminal status `ok`. It dynamically ran Codex, OpenCode, cross-repository, and multi-agent review jobs; retained useful sibling evidence when a reviewer was unavailable; accepted flexible native output layouts; failed forward from invalid advisory loop-control replies; ran the one-shot group exactly once; reconciled a duplicated task-required finding; and self-healed the initially missing settlement into one implementation task followed by one final revalidation task. The live fixture correctly judged its upstream lifecycle finding unsafe for direct editing, so immutable-HEAD direct-fix commit and re-entry behavior remains covered by the focused production-loop integration regression rather than a misleading fixture mutation.
+- Testing 9: Final focused validation passed 32 Python prompt/workspace tests, 76 server flow-schema tests, the previously recorded 27 loop-control tests, and the complete 2,567-test server unit/integration rerun. `npm run lint`, tracked and untracked Prettier checks, and `git diff --check` all passed. The checked-in main stack rebuilt successfully and restarted healthy with the tasking-agent settlement configuration baked into the server image; the live local stack remained untouched.
+- Documentation follow-up: Reframed the story description, acceptance criteria, out-of-scope boundary, and Task 44 overview around the final KISS agent-native contract: common inputs and directories, flexible self-describing outputs, AI-led semantic recovery and settlement, factual-only runtime validation, replaceable scheduling groups, and honest best-effort continuation without false clean closeout.

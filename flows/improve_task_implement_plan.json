@@ -611,17 +611,17 @@
         },
         {
           "type": "llm",
-          "label": "Generate Or Update Final Revalidation Task For Minor Fixes",
+          "label": "Refresh Plan Handoff After Review Settlement",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "markdownFile": "generate_or_update_minor_fix_revalidation_task.md"
+          "markdownFile": "refresh_current_plan_handoff.md"
         },
         {
           "type": "llm",
-          "label": "Write Review No-Findings Closeout",
+          "label": "Repair Story State After Review Settlement",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "markdownFile": "write_review_no_findings_closeout.md"
+          "markdownFile": "repair_story_workflow_state.md"
         },
         {
           "type": "llm",

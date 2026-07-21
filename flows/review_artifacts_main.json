@@ -1,56 +1,58 @@
 {
-  "description": "Generate the main review artifacts for the current story without running disposition, fixing, task-up, or closeout steps.",
+  "description": "Run the multi-agent reviewer inside one ordinary generic review-job workspace.",
   "steps": [
-    {
-      "type": "validateReviewTarget",
-      "label": "Validate Bound Review Target",
-      "targetFrom": "target"
-    },
     {
       "type": "reingest",
       "label": "Re-embed the bound review target",
       "target": "working"
     },
     {
-      "type": "command",
-      "label": "Run Review Evidence Gate",
+      "type": "llm",
+      "label": "Gather Deep Review Evidence",
       "agentType": "review_agent",
       "identifier": "reviewer_evidence",
-      "commandName": "target_review_evidence_gate"
+      "continueOnFailure": true,
+      "markdownFile": "run_deep_review_evidence_workspace.md"
     },
     {
-      "type": "command",
-      "label": "Run Code Review Findings",
+      "type": "llm",
+      "label": "Find Deep Review Issues",
       "agentType": "review_agent",
       "identifier": "reviewer_findings",
-      "commandName": "target_code_review_findings"
+      "continueOnFailure": true,
+      "markdownFile": "run_deep_review_findings_workspace.md"
     },
     {
       "type": "llm",
       "label": "Review Visual Design Conformance",
       "agentType": "review_agent_lite",
       "identifier": "reviewer_visual",
-      "markdownFile": "review_visual_design_conformance.md"
+      "continueOnFailure": true,
+      "markdownFile": "run_deep_review_visual_workspace.md"
     },
     {
-      "type": "command",
-      "label": "Run Findings Saturation",
+      "type": "llm",
+      "label": "Saturate Deep Review Findings",
       "agentType": "review_agent_lite",
       "identifier": "reviewer_saturation",
-      "commandName": "target_review_findings_saturation"
+      "continueOnFailure": true,
+      "markdownFile": "run_deep_review_saturation_workspace.md"
     },
     {
-      "type": "command",
-      "label": "Run Blind-Spot Challenge",
+      "type": "llm",
+      "label": "Challenge Deep Review Blind Spots",
       "agentType": "review_agent_lite",
       "identifier": "reviewer_blindspot",
-      "commandName": "target_review_blind_spot_challenge"
+      "continueOnFailure": true,
+      "markdownFile": "run_deep_review_blindspot_workspace.md"
     },
     {
-      "type": "validateReviewArtifacts",
-      "label": "Finalize Main Review Artifacts",
-      "pointerKeys": ["current-review"],
-      "finalizeCurrentReview": true
+      "type": "llm",
+      "label": "Consolidate Multi-Agent Review",
+      "agentType": "review_agent_heavy",
+      "identifier": "reviewer_consolidator",
+      "continueOnFailure": true,
+      "markdownFile": "consolidate_deep_review_workspace.md"
     }
   ]
 }

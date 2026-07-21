@@ -32,6 +32,7 @@ const buildBindings = (params: {
   bindings?: {
     workingFolderFrom?: string;
     input?: Record<string, string>;
+    inputValues?: Record<string, FlowJsonValue>;
   };
 }): Pick<SubflowWaveJob, 'workingFolder' | 'input' | 'inputHash'> => {
   const workingFolder = params.bindings?.workingFolderFrom
@@ -56,14 +57,100 @@ const buildBindings = (params: {
       return [key, value] as const;
     },
   );
+  const inputValues = params.bindings?.inputValues ?? {};
   const input =
-    inputEntries.length > 0
-      ? normalizeFlowInput(Object.fromEntries(inputEntries))
+    inputEntries.length > 0 || Object.keys(inputValues).length > 0
+      ? normalizeFlowInput({
+          ...inputValues,
+          ...Object.fromEntries(inputEntries),
+        })
       : undefined;
   return {
     ...(workingFolder ? { workingFolder } : {}),
     ...(input ? { input, inputHash: hashFlowInput(input) } : {}),
   };
+};
+
+const dynamicBindings = (
+  value: FlowJsonValue | undefined,
+): FlowSubflowWaveStep['groups'] => {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error('Dynamic subflow wave groups must be a non-empty array.');
+  }
+  return value.map((entry, index) => {
+    if (!isRecord(entry)) {
+      throw new Error(`Dynamic wave group ${index} must be an object.`);
+    }
+    const kind = entry.kind;
+    const id = entry.id;
+    if (
+      (kind !== 'matrix' && kind !== 'singleton') ||
+      typeof id !== 'string' ||
+      !id.trim()
+    ) {
+      throw new Error(`Dynamic wave group ${index} has invalid kind or id.`);
+    }
+    const bindings = isRecord(entry.bindings)
+      ? (entry.bindings as NonNullable<
+          NonNullable<FlowSubflowWaveStep['groups']>[number]['bindings']
+        >)
+      : undefined;
+    if (kind === 'singleton') {
+      if (typeof entry.flowName !== 'string' || !entry.flowName.trim()) {
+        throw new Error(`Dynamic singleton group ${id} lacks flowName.`);
+      }
+      return {
+        kind,
+        id: id.trim(),
+        flowName: entry.flowName.trim(),
+        ...(bindings ? { bindings } : {}),
+      };
+    }
+    if (
+      typeof entry.itemsFrom !== 'string' ||
+      typeof entry.itemName !== 'string' ||
+      !Array.isArray(entry.flowNames) ||
+      entry.flowNames.length === 0 ||
+      !entry.flowNames.every(
+        (flowName): flowName is string =>
+          typeof flowName === 'string' && Boolean(flowName.trim()),
+      )
+    ) {
+      throw new Error(`Dynamic matrix group ${id} is incomplete.`);
+    }
+    return {
+      kind,
+      id: id.trim(),
+      itemsFrom: entry.itemsFrom,
+      itemName: entry.itemName,
+      flowNames: entry.flowNames.map((flowName) => flowName.trim()),
+      ...(bindings ? { bindings } : {}),
+    };
+  });
+};
+
+export const resolveSubflowWaveGroups = (params: {
+  step: FlowSubflowWaveStep;
+  input: FlowJsonObject;
+}): NonNullable<FlowSubflowWaveStep['groups']> => {
+  const groups =
+    params.step.groups ??
+    dynamicBindings(
+      params.step.groupsFrom
+        ? resolveFlowValue(params.input, params.step.groupsFrom)
+        : undefined,
+    );
+  if (!groups) {
+    throw new Error('Subflow wave groups did not resolve.');
+  }
+  const seen = new Set<string>();
+  for (const group of groups) {
+    if (seen.has(group.id)) {
+      throw new Error(`Duplicate wave group id "${group.id}".`);
+    }
+    seen.add(group.id);
+  }
+  return groups;
 };
 
 const targetIdentity = (item: FlowJsonValue, index: number): string => {
@@ -81,7 +168,7 @@ export const expandSubflowWaveJobs = (params: {
   input: FlowJsonObject;
 }): SubflowWaveJob[] => {
   const jobs: SubflowWaveJob[] = [];
-  for (const group of params.step.groups) {
+  for (const group of resolveSubflowWaveGroups(params)) {
     if (group.kind === 'singleton') {
       const bindings = buildBindings({
         root: params.input,

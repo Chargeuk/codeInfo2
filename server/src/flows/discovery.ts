@@ -15,7 +15,6 @@ import {
   resolveAgentHomeEnv,
   validateRepositoryBackedAgentType,
 } from '../agents/roots.js';
-import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -491,26 +490,6 @@ const collectFlowAvailability = async (params: {
     };
   }
 
-  if (
-    await flowUsesCodexReview({
-      flowName: params.flowName,
-      steps: params.parsedFlow.steps,
-      flowsDir: params.flowsDir,
-    })
-  ) {
-    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
-    if (!codexBootstrapStatus.healthy) {
-      const message = `Flow codexReview step is unavailable: ${codexBootstrapStatus.reason ?? 'codex unavailable'}`;
-      warningDetails.push({
-        code: 'provider_unavailable',
-        message,
-        visibility: 'details',
-        providerId: 'codex',
-      });
-      warnings.add(codexBootstrapStatus.reason ?? 'codex unavailable');
-    }
-  }
-
   const subflowWarnings = await collectSubflowReferenceWarnings({
     flowName: params.flowName,
     steps: params.parsedFlow.steps,
@@ -564,76 +543,6 @@ const collectCommandSteps = (params: {
   }
 
   return collected;
-};
-
-const flowUsesCodexReview = async (params: {
-  flowName: string;
-  steps: FlowStep[];
-  flowsDir: string;
-  visited?: Set<string>;
-}): Promise<boolean> => {
-  const visited = params.visited ?? new Set<string>();
-  visited.add(params.flowName);
-
-  for (const step of params.steps) {
-    if (step.type === 'codexReview') {
-      return true;
-    }
-    if (step.type === 'startLoop') {
-      if (
-        await flowUsesCodexReview({
-          flowName: params.flowName,
-          steps: step.steps,
-          flowsDir: params.flowsDir,
-          visited,
-        })
-      ) {
-        return true;
-      }
-      continue;
-    }
-    if (step.type !== 'subflow') {
-      continue;
-    }
-
-    for (const childFlowName of step.flowNames) {
-      if (visited.has(childFlowName)) {
-        continue;
-      }
-      let childFlowPath: string;
-      try {
-        childFlowPath = resolveSafeChildFlowPath(
-          params.flowsDir,
-          childFlowName,
-        );
-      } catch {
-        continue;
-      }
-      const childFlowRaw = await fs
-        .readFile(childFlowPath, 'utf8')
-        .catch(() => null);
-      if (!childFlowRaw) {
-        continue;
-      }
-      const parsedChildFlow = parseFlowFile(childFlowRaw, {
-        flowName: childFlowName,
-      });
-      if (!parsedChildFlow.ok) {
-        continue;
-      }
-      if (
-        await flowUsesCodexReview({
-          flowName: childFlowName,
-          steps: parsedChildFlow.flow.steps,
-          flowsDir: params.flowsDir,
-          visited: new Set(visited).add(childFlowName),
-        })
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
 };
 
 const buildSummary = (params: {

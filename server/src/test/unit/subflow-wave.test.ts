@@ -71,7 +71,38 @@ test('expandSubflowWaveJobs rejects missing arrays and unresolved bindings', () 
   );
 });
 
-test('production two-phase cycle expands fast 2N+1 and slow N jobs', async () => {
+test('expandSubflowWaveJobs discovers dynamic groups and preserves literal scheduling input', () => {
+  const jobs = expandSubflowWaveJobs({
+    step: {
+      type: 'subflowWave',
+      groupsFrom: 'review_groups',
+    },
+    input: {
+      targets: [{ target_id: 'client', repo_root: '/repos/client' }],
+      review_groups: [
+        {
+          kind: 'matrix',
+          id: 'reviews',
+          itemsFrom: 'targets',
+          itemName: 'target',
+          flowNames: ['new_reviewer'],
+          bindings: {
+            workingFolderFrom: 'target.repo_root',
+            inputValues: { scheduling_hint: 'configured by parent only' },
+          },
+        },
+      ],
+    },
+  });
+
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0]?.flowName, 'new_reviewer');
+  assert.deepEqual(jobs[0]?.input, {
+    scheduling_hint: 'configured by parent only',
+  });
+});
+
+test('production review policy configures repeated and one-shot batches without review phase metadata', async () => {
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -88,54 +119,24 @@ test('production two-phase cycle expands fast 2N+1 and slow N jobs', async () =>
       groups?: FlowSubflowWaveStep['groups'];
     }>;
   };
-  const fastLoop = parsed.steps.find(
-    (candidate) => candidate.label === 'Fast Review Convergence Loop',
+  const repeatedLoop = parsed.steps.find(
+    (candidate) => candidate.label === 'Repeated Review Group',
   );
-  const fastWave = fastLoop?.steps?.find(
+  const repeatedBatch = repeatedLoop?.steps?.find(
     (candidate) => candidate.type === 'subflowWave',
   );
-  const slowWave = parsed.steps.find(
-    (candidate) => candidate.label === 'Run Slow Review Wave',
+  const oneShotBatch = parsed.steps.find(
+    (candidate) => candidate.label === 'Run One-Shot Generic Review Batch',
   );
-  assert(fastWave);
-  assert(slowWave?.groups);
-
-  for (const targetCount of [1, 3]) {
-    const targets = Array.from({ length: targetCount }, (_, index) => ({
-      target_id: `repo-${index}`,
-      repo_root: `/repos/repo-${index}`,
-    }));
-    const fastJobs = expandSubflowWaveJobs({
-      step: fastWave,
-      input: {
-        fast_review_wave: {
-          targets,
-          plan_host_root: '/repos/repo-0',
-        },
-        fast_review_set: { review_phase: 'fast' },
-      },
-    });
-    const slowJobs = expandSubflowWaveJobs({
-      step: slowWave as FlowSubflowWaveStep,
-      input: {
-        slow_review_wave: {
-          targets,
-          plan_host_root: '/repos/repo-0',
-        },
-        slow_review_set: { review_phase: 'slow' },
-      },
-    });
-
-    assert.equal(fastJobs.length, targetCount * 2 + 1);
-    assert.equal(slowJobs.length, targetCount);
-    assert.equal(
-      fastJobs.filter((job) => job.flowName === 'cross_repository_review')
-        .length,
-      1,
-    );
-    assert.equal(
-      slowJobs.every((job) => job.flowName === 'review_artifacts_main'),
-      true,
-    );
-  }
+  assert(repeatedBatch?.groups);
+  assert(oneShotBatch?.groups);
+  const repeatedValues = repeatedBatch.groups[0]?.bindings?.inputValues;
+  const oneShotValues = oneShotBatch.groups[0]?.bindings?.inputValues;
+  assert(Array.isArray(repeatedValues?.review_groups));
+  assert(Array.isArray(oneShotValues?.review_groups));
+  assert.equal(JSON.stringify(repeatedValues).includes('reviewPhase'), false);
+  assert.equal(JSON.stringify(oneShotValues).includes('reviewPhase'), false);
+  assert.match(JSON.stringify(repeatedValues), /codex_review/u);
+  assert.match(JSON.stringify(repeatedValues), /open_code_review/u);
+  assert.match(JSON.stringify(oneShotValues), /review_artifacts_main/u);
 });

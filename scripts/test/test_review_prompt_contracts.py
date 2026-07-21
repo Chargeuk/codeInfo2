@@ -342,6 +342,21 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertNotIn('"reviewPhase"', cycle_text)
         self.assertNotIn('"prepareReviewSet"', cycle_text)
 
+    def test_settlement_auditor_records_only_explicit_cycle_control_state(self) -> None:
+        audit_text = read_text(
+            "codeinfo_markdown/audit_agent_native_review_settlement.md"
+        )
+        recorder_text = read_text("scripts/record_review_cycle_outcome.py")
+
+        self.assertIn("record_review_cycle_outcome.py", audit_text)
+        self.assertIn("--status completed", audit_text)
+        self.assertIn("--status incomplete --reason", audit_text)
+        self.assertIn("every supported finding", audit_text)
+        self.assertNotIn("review-result schema", audit_text)
+        self.assertNotIn("reviewer count", recorder_text)
+        self.assertNotIn("output_dir", recorder_text)
+        self.assertNotIn("reconciliation", recorder_text)
+
     def test_testing_prompts_reject_contract_shape_only_proof(self) -> None:
         ensure_text = read_text(
             "codeinfo_markdown/ensure_task_testing_matches_current_contract.md"

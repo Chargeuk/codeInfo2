@@ -60,7 +60,7 @@ class SubflowChat extends ChatInterface {
       message: string;
       flags: Record<string, unknown>;
       conversationId: string;
-    }) => void,
+    }) => unknown,
     private readonly slowChildGate?: Promise<void>,
   ) {
     super();
@@ -73,7 +73,7 @@ class SubflowChat extends ChatInterface {
     _model: string,
   ) {
     void _model;
-    this.onExecute?.({ message, flags, conversationId });
+    await this.onExecute?.({ message, flags, conversationId });
     const signal = (flags as { signal?: AbortSignal }).signal;
     const abortIfNeeded = () => {
       if (!signal?.aborted) return false;
@@ -602,6 +602,89 @@ test('a failed two-phase review marks its cycle incomplete while the parent cont
   }
 });
 
+test('successful flow cleanup preserves the settlement auditor explicit incomplete decision', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-explicit-incomplete-cycle-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await fs.writeFile(
+      path.join(repoDir, 'planning', '0000027-codex-review.md'),
+      `${REVIEW_PLAN_MARKDOWN}\n### Task 1. Complete\n\n- Task Status: \`__done__\`\n\n#### Subtasks\n\n1. [x] Implemented.\n\n#### Testing\n\n1. [x] Proven.\n`,
+      'utf8',
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'two_phase_review_cycle',
+      steps: [
+        {
+          type: 'initializeReviewCycle',
+          outputKey: 'review-cycle',
+          mode: 'final',
+        },
+        llmStep('record explicit incomplete settlement'),
+      ],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-parent-explicit-incomplete',
+      steps: [
+        { type: 'subflow', flowNames: ['two_phase_review_cycle'] },
+        llmStep('parent continued after explicit incomplete settlement'),
+      ],
+    });
+    const activePath = path.join(
+      repoDir,
+      'codeInfoStatus',
+      'flow-state',
+      'active-review-cycle.json',
+    );
+    const result = await startFlowRun({
+      flowName: 'review-parent-explicit-incomplete',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () =>
+        new SubflowChat(25, async ({ message }) => {
+          if (!message.includes('record explicit incomplete settlement')) return;
+          const active = JSON.parse(await fs.readFile(activePath, 'utf8')) as Record<
+            string,
+            unknown
+          >;
+          await fs.writeFile(
+            activePath,
+            JSON.stringify({
+              ...active,
+              status: 'incomplete',
+              completed_at: '2026-07-21T12:05:00.000Z',
+              incomplete_reason: 'One flexible settlement artifact remained ambiguous.',
+            }),
+          );
+        }),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const active = JSON.parse(await fs.readFile(activePath, 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    assert.equal(active.status, 'incomplete');
+    assert.equal(
+      active.incomplete_reason,
+      'One flexible settlement artifact remained ambiguous.',
+    );
+    assert.equal(active.completed_at, '2026-07-21T12:05:00.000Z');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('an orphaned execution-owned review cycle cannot block a later best-effort review flow', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-review-orphaned-cycle-'),
@@ -672,7 +755,11 @@ test('an orphaned execution-owned review cycle cannot block a later best-effort 
       await fs.readFile(path.join(stateRoot, 'active-review-cycle.json'), 'utf8'),
     ) as Record<string, unknown>;
     assert.equal(active.schema_version, 'codeinfo-active-review-cycle/v2');
-    assert.equal(active.status, 'completed');
+    assert.equal(active.status, 'incomplete');
+    assert.match(
+      String(active.incomplete_reason),
+      /without an explicit settlement outcome/u,
+    );
     assert.equal('parent_execution_id' in active, false);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

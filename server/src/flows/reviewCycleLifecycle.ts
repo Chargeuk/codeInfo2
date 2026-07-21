@@ -298,3 +298,45 @@ export async function finalizeActiveReviewCycle(
   await atomicWriteJson(activePath, completed, resolvedDeps);
   return completed;
 }
+
+export async function finalizeActiveReviewCycleIfPending(
+  params: {
+    workingRepositoryPath: string;
+    fallbackStatus: Exclude<ReviewCycleStatus, 'in_progress'>;
+    fallbackReason?: string;
+  },
+  deps: Partial<ReviewCycleLifecycleDeps> = {},
+): Promise<ActiveReviewCycle | null> {
+  const resolvedDeps = { ...defaultDeps, ...deps };
+  const repoRoot = await resolveReviewRepositoryRoot(params.workingRepositoryPath);
+  const activePath = path.join(
+    repoRoot,
+    'codeInfoStatus',
+    'flow-state',
+    'active-review-cycle.json',
+  );
+  const active = await readJsonIfPresent(activePath, resolvedDeps);
+  if (
+    !active ||
+    active.schema_version !== ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION ||
+    typeof active.review_cycle_id !== 'string' ||
+    typeof active.story_id !== 'string' ||
+    typeof active.plan_path !== 'string' ||
+    active.review_mode !== 'final' ||
+    typeof active.created_at !== 'string' ||
+    !['in_progress', 'completed', 'incomplete'].includes(String(active.status))
+  ) {
+    return null;
+  }
+  if (active.status !== 'in_progress') {
+    return active as ActiveReviewCycle;
+  }
+  return finalizeActiveReviewCycle(
+    {
+      workingRepositoryPath: params.workingRepositoryPath,
+      status: params.fallbackStatus,
+      reason: params.fallbackReason,
+    },
+    resolvedDeps,
+  );
+}

@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 
 import {
   finalizeActiveReviewCycle,
+  finalizeActiveReviewCycleIfPending,
   initializeReviewCycle,
   inspectFinalReviewReadiness,
 } from '../../flows/reviewCycleLifecycle.js';
@@ -158,6 +159,62 @@ test('cycle completion is durable and independent from a flow execution', async 
   assert.equal(completed?.incomplete_reason, 'review failed');
   assert.equal(completed?.completed_at, '2026-07-18T12:05:00.000Z');
   assert.equal('parent_execution_id' in (completed ?? {}), false);
+});
+
+test('pending-only cleanup preserves an explicit agent-decided outcome', async () => {
+  const repo = await makeRepo();
+  await initializeReviewCycle(
+    { workingRepositoryPath: repo, mode: 'final' },
+    {
+      now: () => new Date('2026-07-18T12:00:00.000Z'),
+      randomHex: () => '22222222',
+    },
+  );
+  const explicit = await finalizeActiveReviewCycle(
+    {
+      workingRepositoryPath: repo,
+      status: 'incomplete',
+      reason: 'The auditor could not settle one finding.',
+    },
+    { now: () => new Date('2026-07-18T12:05:00.000Z') },
+  );
+
+  const afterCleanup = await finalizeActiveReviewCycleIfPending(
+    {
+      workingRepositoryPath: repo,
+      fallbackStatus: 'completed',
+    },
+    { now: () => new Date('2026-07-18T12:10:00.000Z') },
+  );
+
+  assert.deepEqual(afterCleanup, explicit);
+  assert.equal(afterCleanup?.completed_at, '2026-07-18T12:05:00.000Z');
+});
+
+test('pending-only cleanup records an honest fallback when no agent outcome arrived', async () => {
+  const repo = await makeRepo();
+  await initializeReviewCycle(
+    { workingRepositoryPath: repo, mode: 'final' },
+    {
+      now: () => new Date('2026-07-18T12:00:00.000Z'),
+      randomHex: () => '22222222',
+    },
+  );
+
+  const result = await finalizeActiveReviewCycleIfPending(
+    {
+      workingRepositoryPath: repo,
+      fallbackStatus: 'incomplete',
+      fallbackReason: 'No explicit settlement outcome arrived.',
+    },
+    { now: () => new Date('2026-07-18T12:10:00.000Z') },
+  );
+
+  assert.equal(result?.status, 'incomplete');
+  assert.equal(
+    result?.incomplete_reason,
+    'No explicit settlement outcome arrived.',
+  );
 });
 
 test('incomplete final review exits without resetting prior state', async () => {

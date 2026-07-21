@@ -160,7 +160,7 @@ import {
 } from './repositoryCandidateOrder.js';
 import { prepareReviewBatchWorkspace } from './reviewBatchWorkspace.js';
 import {
-  finalizeActiveReviewCycle,
+  finalizeActiveReviewCycleIfPending,
   initializeReviewCycle,
 } from './reviewCycleLifecycle.js';
 import { prepareReviewTargets } from './reviewTargets.js';
@@ -5070,7 +5070,7 @@ async function runFlowUnlocked(params: {
           activeSubflow,
         ]),
     );
-    if (isWave) {
+    if (isWave && params.resumeState) {
       const persistedChildren = await findFlowWaveChildren({
         executionId: params.executionId,
         instanceIds: jobs.map((job) => job.instanceId),
@@ -5085,6 +5085,17 @@ async function runFlowUnlocked(params: {
         }
         const job = jobByInstanceId.get(identity.instanceId);
         if (!job || childConversation.flowName !== job.flowName) continue;
+        const childFlowState = parseFlowResumeState(
+          isRecord(childConversation.flags)
+            ? (childConversation.flags as Record<string, unknown>)
+            : undefined,
+        );
+        if (
+          job.inputHash &&
+          childFlowState?.inputHash !== job.inputHash
+        ) {
+          continue;
+        }
 
         rememberedSubflowsByInstance.set(identity.instanceId, {
           stepPath: [...nextPath],
@@ -5320,16 +5331,14 @@ async function runFlowUnlocked(params: {
         params.repositoryContext,
       );
       if (!reviewRepositoryPath) return;
-      await finalizeActiveReviewCycle({
+      await finalizeActiveReviewCycleIfPending({
         workingRepositoryPath: reviewRepositoryPath,
-        status: paramsForOutcome.status === 'ok' ? 'completed' : 'incomplete',
-        ...(paramsForOutcome.status === 'ok'
-          ? {}
-          : {
-              reason:
-                paramsForOutcome.reason ??
-                `Two-phase review subflow ended with status ${paramsForOutcome.status}.`,
-            }),
+        fallbackStatus: 'incomplete',
+        fallbackReason:
+          paramsForOutcome.status === 'ok'
+            ? 'Two-phase review subflow ended without an explicit settlement outcome.'
+            : (paramsForOutcome.reason ??
+              `Two-phase review subflow ended with status ${paramsForOutcome.status}.`),
       });
     };
 
@@ -7158,14 +7167,13 @@ async function runFlowUnlocked(params: {
         params.repositoryContext,
       );
       if (reviewRepositoryPath) {
-        await finalizeActiveReviewCycle({
+        await finalizeActiveReviewCycleIfPending({
           workingRepositoryPath: reviewRepositoryPath,
-          status: normalizedOutcome === 'ok' ? 'completed' : 'incomplete',
-          ...(normalizedOutcome === 'ok'
-            ? {}
-            : {
-                reason: `Review flow ${params.flowName} ended with status ${normalizedOutcome}.`,
-              }),
+          fallbackStatus: 'incomplete',
+          fallbackReason:
+            normalizedOutcome === 'ok'
+              ? `Review flow ${params.flowName} ended without an explicit settlement outcome.`
+              : `Review flow ${params.flowName} ended with status ${normalizedOutcome}.`,
         });
       }
     }

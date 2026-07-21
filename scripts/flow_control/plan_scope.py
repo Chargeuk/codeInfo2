@@ -16,12 +16,15 @@ def check_plan_scope_story_complete() -> DecisionOutcome:
         "all_tasks_done": status.get("all_tasks_done"),
         "story_complete": status.get("story_complete"),
         "final_task_status": status.get("final_task_status"),
+        "active_review_cycle_status": status.get("active_review_cycle_status"),
+        "review_settlement_complete": status.get("review_settlement_complete"),
     }
     is_complete = (
         status.get("repair_needed") is False
         and status.get("scope_valid") is True
         and status.get("all_tasks_done") is True
         and status.get("story_complete") is True
+        and status.get("review_settlement_complete") is True
     )
     if is_complete:
         return yes("plan_scope_story_complete", **context)

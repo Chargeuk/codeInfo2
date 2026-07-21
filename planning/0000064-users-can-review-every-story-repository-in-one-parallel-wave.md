@@ -2900,3 +2900,59 @@ Replace provider-specific review pointers, publishers, parsers, and fast/slow ar
 - Testing 8: A supported checked-in main-stack proof completed with terminal status `ok`. It dynamically ran Codex, OpenCode, cross-repository, and multi-agent review jobs; retained useful sibling evidence when a reviewer was unavailable; accepted flexible native output layouts; failed forward from invalid advisory loop-control replies; ran the one-shot group exactly once; reconciled a duplicated task-required finding; and self-healed the initially missing settlement into one implementation task followed by one final revalidation task. The live fixture correctly judged its upstream lifecycle finding unsafe for direct editing, so immutable-HEAD direct-fix commit and re-entry behavior remains covered by the focused production-loop integration regression rather than a misleading fixture mutation.
 - Testing 9: Final focused validation passed 32 Python prompt/workspace tests, 76 server flow-schema tests, the previously recorded 27 loop-control tests, and the complete 2,567-test server unit/integration rerun. `npm run lint`, tracked and untracked Prettier checks, and `git diff --check` all passed. The checked-in main stack rebuilt successfully and restarted healthy with the tasking-agent settlement configuration baked into the server image; the live local stack remained untouched.
 - Documentation follow-up: Reframed the story description, acceptance criteria, out-of-scope boundary, and Task 44 overview around the final KISS agent-native contract: common inputs and directories, flexible self-describing outputs, AI-led semantic recovery and settlement, factual-only runtime validation, replaceable scheduling groups, and honest best-effort continuation without false clean closeout.
+
+### Task 45. Enforce Explicit Agent-Decided Review Settlement Outcomes
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+
+#### Overview
+
+Close the two remaining review-cycle gaps without parsing review content. The settlement auditor decides whether the flexible, self-describing pass evidence has been completely settled and records only the existing review cycle's control outcome. Runtime code preserves that explicit decision, turns an unrecorded terminal outcome into honest incomplete state while the outer flow continues, and never infers semantic correctness from filenames or document structure. Add the missing production-path proof that a safe direct fix creates a new immutable HEAD, re-enters the repeated review group, still reaches the one-shot group, and produces final revalidation work.
+
+#### Non-Goals
+
+- Do not add a review-result, finding, or settlement-document schema.
+- Do not parse filenames, Markdown headings, reviewer counts, provider identities, or finding text in runtime code.
+- Do not make an unavailable settlement provider terminate the outer best-effort story flow.
+
+#### Task Exit Criteria
+
+- The settlement auditor can explicitly record `completed` or `incomplete` review-cycle control state after interpreting arbitrary self-describing evidence.
+- Normal flow termination cannot overwrite the auditor's decision or convert a missing settlement decision into a clean pass.
+- An unrecorded settlement leaves the cycle incomplete while the parent story flow remains able to continue and retry.
+- A production-path integration regression proves direct-fix commit, new-HEAD repeated review, one-shot execution, settlement revalidation tasking, and outer-loop re-entry.
+
+#### Subtasks
+
+1. [x] Add a minimal agent-invoked review-cycle outcome recorder that updates control state without reading review output.
+2. [x] Make final review-cycle cleanup preserve explicit outcomes and convert an unrecorded settlement outcome to `incomplete` without failing the outer flow.
+3. [x] Update settlement instructions so the auditor records `completed` only after full repair or `incomplete` with an honest reason.
+4. [x] Ensure outer completion and retry helpers treat incomplete or unrecorded review settlement as unfinished story work.
+5. [x] Add a production-path direct-fix new-HEAD re-entry integration regression through repeated review, one-shot review, final revalidation tasking, and outer-loop re-entry.
+6. [x] Add settlement failure-path and KISS contract regressions proving best-effort continuation without review-output parsing.
+
+#### Testing
+
+1. [x] Run focused review-cycle lifecycle and outcome-recorder tests.
+2. [x] Run focused flow schema, settlement, direct-fix re-entry, loop, stop, and resume tests.
+3. [x] Run focused Python workspace, settlement-outcome, and prompt-contract tests.
+4. [x] Run `npm run test:summary:all:parallel`.
+5. [x] Run server/client builds, lint, formatting, and `git diff --check`.
+6. [x] Run a supported checked-in main-stack proof of incomplete settlement recovery followed by successful settlement, unless the focused production-path integration proof fully exercises the identical runtime boundary without provider dependence.
+
+#### Implementation Notes
+
+- Task opened from the post-implementation review findings. The solution deliberately adds only a one-bit review-cycle control decision plus an optional reason; all review evidence and settlement documents remain flexible, self-describing, and agent-interpreted.
+- Subtask 1: Added an atomic agent-invoked outcome recorder for the active cycle's `completed`/`incomplete` control bit and optional reason. It validates only current story, plan, mode, schema, and optional cycle identity; it never opens or interprets review output.
+- Subtask 2: Replaced automatic success-to-completed inference at both child and parent cleanup boundaries with pending-only incomplete fallback. An auditor-recorded terminal outcome is now durable, while a missing decision remains honestly incomplete and the surrounding best-effort flow still returns normally.
+- Subtask 3: Made the independent settlement auditor responsible for recording the one-bit cycle result after it interprets and repairs arbitrary evidence. Its prompt includes safe current-cycle commands for both complete and incomplete outcomes and forbids clean completion on provider or command failure.
+- Subtask 4: Exposed the active cycle's factual state in the combined story status and required an explicit `completed` settlement at the final plan-scope exit gate. Missing, invalid, in-progress, or incomplete state keeps the outer implementation loop alive for another best-effort review attempt without changing plan-completion semantics.
+- Subtask 5: Added a deterministic integration run through the production two-phase and generic-batch flows. Its first execution exposed that live loop iterations could recover a prior completed child by instance name; persisted-child discovery is now resume-only and additionally requires the immutable input hash to match, so stop/resume remains durable while every live batch invocation is fresh. The regression makes one agent-owned committed fix, proves the repeated group sees the original and new HEADs in order, proves the configured one-shot group sees only the fixed HEAD, records explicit settlement, creates final revalidation work, and verifies the authoritative outer gate returns to implementation.
+- Subtask 6: Added regressions for explicit incomplete preservation, missing-outcome incomplete fallback, best-effort parent continuation, settlement command instructions, and the recorder's deliberate lack of reviewer/output/reconciliation parsing. These protect the KISS boundary: agents decide meaning; runtime stores and checks only factual cycle state.
+- Testing 1: The focused recorder/status Python checks passed 54 tests, and the lifecycle server wrapper passed all 7 tests after correcting a test-callback return type exposed by its initial TypeScript build gate.
+- Testing 2: Focused server wrappers passed 3 production-loop tests, 38 subflow stop/resume/wave tests, 76 flow-schema tests, and 27 loop tests. The new production regression first exposed stale child reuse across loop iterations; after persisted-child discovery became resume-only with input-hash validation, both the direct-fix/new-HEAD path and the complete resume suite passed.
+- Testing 3: The combined Python workspace, outcome-recorder, story-status, final-gate, and prompt-contract suite passed all 57 tests.
+- Testing 5: Server and client summary builds passed; the client reported only the existing large-bundle advisory. Lint passed after removing one unused test parameter, tracked and new-file Prettier checks passed, and `git diff --check` passed.
+- Testing 6: Used the allowed provider-independent alternative rather than mutating or restarting a live stack. The production integration proof runs the identical server flow lifecycle, generic review batches, Git commit/new-HEAD boundary, agent-invoked recorder script, settlement task mutation, pending-only cleanup, and final outer decision gate deterministically, covering both the previously failing re-entry boundary and successful explicit settlement without provider availability noise.
+- Testing 4: The canonical clean rerun passed 900 client tests, 2,571 server unit/integration tests, 133 Cucumber scenarios, and 77 end-to-end tests. The preceding full run had isolated the live-loop child-recovery defect under server test concurrency while all other surfaces passed; after persisted-child discovery was limited to actual resumes, focused production/subflow reruns and the complete parallel suite passed.

@@ -26,6 +26,8 @@ class FlowControlPlanScopeTests(unittest.TestCase):
                 "all_tasks_done": True,
                 "story_complete": True,
                 "final_task_status": "__done__",
+                "active_review_cycle_status": "completed",
+                "review_settlement_complete": True,
             },
         ):
             outcome = plan_scope.check_plan_scope_story_complete()
@@ -43,12 +45,33 @@ class FlowControlPlanScopeTests(unittest.TestCase):
                 "all_tasks_done": False,
                 "story_complete": False,
                 "final_task_status": "__in_progress__",
+                "active_review_cycle_status": "incomplete",
+                "review_settlement_complete": False,
             },
         ):
             outcome = plan_scope.check_plan_scope_story_complete()
 
         self.assertEqual(outcome.answer, "no")
         self.assertEqual(outcome.reason_code, "plan_scope_story_incomplete")
+
+    def test_plan_scope_completion_refuses_an_incomplete_review_settlement(self) -> None:
+        with mock.patch.object(
+            plan_scope.story_workflow_status,
+            "get_story_workflow_status",
+            return_value={
+                "repair_needed": False,
+                "scope_valid": True,
+                "all_tasks_done": True,
+                "story_complete": True,
+                "final_task_status": "__done__",
+                "active_review_cycle_status": "incomplete",
+                "review_settlement_complete": False,
+            },
+        ):
+            outcome = plan_scope.check_plan_scope_story_complete()
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.details["active_review_cycle_status"], "incomplete")
 
 
 if __name__ == "__main__":

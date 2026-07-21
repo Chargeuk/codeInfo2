@@ -1,5 +1,5 @@
 {
-  "description": "Run any configured set of ordinary reviews in parallel, then verify, reconcile, disposition, and directly fix their self-describing workspace output.",
+  "description": "Run any configured set of ordinary reviews in parallel, then verify, reconcile, scope-filter, disposition, and directly fix their self-describing workspace output.",
   "steps": [
     {
       "type": "prepareReviewTargets",
@@ -50,6 +50,20 @@
       "identifier": "batch_verifier",
       "continueOnFailure": true,
       "markdownFile": "audit_review_batch_reconciliation.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Scope Filter",
+      "agentType": "planning_agent",
+      "identifier": "batch_scope_filter"
+    },
+    {
+      "type": "llm",
+      "label": "Filter Review Findings To Story Scope",
+      "agentType": "planning_agent",
+      "identifier": "batch_scope_filter",
+      "continueOnFailure": true,
+      "markdownFile": "filter_review_batch_findings_to_story_scope.md"
     },
     {
       "type": "llm",

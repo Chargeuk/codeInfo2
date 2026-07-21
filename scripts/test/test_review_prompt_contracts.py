@@ -437,6 +437,57 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("safe_to_exit_review_loop_without_tasking` remains false only because a blocker tied solely to a rejected finding was preserved", text)
         self.assertIn("no `incomplete_review_blocker` or `operationally_blocked_minor_finding` remains solely because a rejected finding used to justify it", text)
 
+    def test_agent_native_batch_scope_filter_reuses_policy_and_preserves_removals(
+        self,
+    ) -> None:
+        batch_filter = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md"
+        )
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+
+        self.assertIn(
+            "codeinfo_markdown/filter_review_findings_to_story_scope.md",
+            batch_filter,
+        )
+        for policy_section in (
+            "<filter_purpose>",
+            "<rejection_gates>",
+            "<required_non_rejection_rule>",
+            "<authoritative_findings_rule>",
+            "<ambiguity_rules>",
+            "<follow_up_capture_rule>",
+        ):
+            self.assertIn(policy_section, batch_filter)
+        self.assertIn("shared/bounded-plan-read.md", batch_filter)
+        self.assertIn("shared/story_behavior_lock.md", batch_filter)
+        self.assertIn('plan_sections.py\" --profile review-scope', batch_filter)
+        self.assertIn("scope-filtered-findings.md", batch_filter)
+        self.assertIn("leave the reconciliation unchanged", batch_filter)
+        self.assertIn("Do not modify anything under a job's", batch_filter)
+        self.assertIn("Remove a fully out-of-scope finding only", batch_filter)
+        self.assertIn("narrow the actionable reconciliation entry", batch_filter)
+        self.assertIn("Always write", batch_filter)
+        self.assertIn("every original actionable finding", batch_filter)
+        self.assertIn("Do not assume a provider list, expected reviewer count", batch_filter)
+
+        self.assertIn("scope-filtered-findings.md", disposition)
+        self.assertIn("Never restore, direct-fix, or task up", disposition)
+        self.assertIn("Ignored for This Story", disposition)
+        self.assertIn("only surviving actionable findings", disposition)
+        self.assertIn("Deduplicate by the finding's stable identity", disposition)
+
+    def test_legacy_scope_filter_flows_keep_the_state_specific_prompt(self) -> None:
+        for relative_path in (
+            "flows/review_plan.json",
+            "flows/review_disposition_current_artifacts.json",
+            "flows/ingest_external_review_plan.json",
+        ):
+            flow_text = read_text(relative_path)
+            self.assertIn("filter_review_findings_to_story_scope.md", flow_text)
+            self.assertNotIn(
+                "filter_review_batch_findings_to_story_scope.md", flow_text
+            )
+
     def test_actionable_review_findings_are_promoted_for_one_inline_attempt(self) -> None:
         promote_text = read_text(
             "codeinfo_markdown/promote_actionable_review_findings_to_minor_path.md"

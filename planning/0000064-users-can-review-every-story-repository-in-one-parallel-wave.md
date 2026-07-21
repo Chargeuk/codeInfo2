@@ -10,7 +10,7 @@ The original review workflow coupled each provider to stable pointers, publisher
 
 Use a KISS, agent-native review boundary instead. Every scheduled review receives the same kind of agent-readable story and repository inputs plus a private immutable job workspace. Each reviewer adapts those inputs to its own tools, preserves native work, and writes the clearest self-describing output it can. Output filenames and internal layouts are deliberately flexible: common verification, reconciliation, disposition, fixing, and settlement agents discover the available files and understand their meaning rather than application code parsing a provider-specific result schema.
 
-The parent flow only owns scheduling policy. It currently runs one configurable group repeatedly for early convergence with a five-iteration limit, then one separately configured group once because that group is slower. Reviewers and consumers do not know or care which scheduling group they belong to. Failures and incomplete coverage remain visible and the flow continues with best effort; useful sibling results are never discarded merely because another reviewer failed. Runtime code validates only factual boundaries such as assigned paths, containment, Git commits, directory presence, execution status, cancellation, and resume. Agents own semantic recovery and final settlement, and must never invent a clean result when meaningful evidence could not be produced.
+The parent flow only owns scheduling policy. It currently runs one configurable group repeatedly for early convergence with a five-iteration limit, then one separately configured group once because that group is slower. Reviewers and consumers do not know or care which scheduling group they belong to. Failures and incomplete coverage remain visible and the flow continues with best effort; useful sibling results are never discarded merely because another reviewer failed. Runtime code validates only factual boundaries such as assigned paths, containment, Git commits, directory presence, execution status, cancellation, and resume. Agents own semantic recovery and final settlement, and must never invent a clean result when meaningful evidence could not be produced. After the complete review evidence has been reconciled and audited, an independently reset agent applies the repository's detailed story-scope policy to the actionable reconciliation before disposition. It removes or narrows only out-of-scope actionable items, preserves immutable job evidence, and records every removed item in a self-describing batch artifact so the final plan decision trail remains complete.
 
 ## Acceptance Criteria
 
@@ -31,6 +31,9 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - The currently repeated review group runs all configured jobs concurrently, exits early when no direct-fix re-review is useful, and proceeds through the same continuation route when it reaches its five-iteration limit.
 - An invalid or unavailable advisory loop decision exits the repeated group through the normal one-shot and settlement route instead of failing or terminating the parent flow.
 - The currently one-shot review group runs exactly once after the repeated group and uses the same verification, reconciliation, disposition, direct-fix, and outcome processing.
+- Every generic review batch runs an independent story-scope gate after lossless reconciliation audit and before disposition; the gate applies the existing detailed rejection and behavior-lock policy without relying on a rigid review schema.
+- The story-scope gate removes fully out-of-scope items only from the actionable reconciliation, narrows mixed findings to their in-scope core, leaves reviewer outputs and verification evidence unchanged, and records every removal or narrowing in a self-describing batch artifact.
+- Review disposition sees only the filtered actionable reconciliation and records scope-filtered items together with its own rejected findings under the current review block's `Ignored for This Story` section without rewriting historical blocks.
 - Safe direct fixes are applied and tested with best effort, committed on the owning story branches, and cause another useful review against the new immutable HEAD, subject to the repeated-group limit.
 - Task-required findings from any batch survive later batches and are handled once during complete-pass settlement rather than being lost, duplicated by provider, or converted into endless same-HEAD retries.
 - When a pass produced direct fixes but no task-required issue, settlement adds or updates one final testing/revalidation task; when findings require tasks, settlement adds those implementation tasks followed by one final testing/revalidation task.
@@ -52,6 +55,8 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - Replacing the existing `subflow` step or changing its JSON contract.
 - Requiring review output to match a rigid JSON or Markdown schema, exact filename, fixed heading set, or provider-specific result format.
 - Reintroducing stable provider pointers, publishers, provider-specific parsers, expected-reviewer joins, or application code that interprets review meaning.
+- Deleting or rewriting immutable reviewer job output or verification evidence when filtering story scope; only the derived actionable reconciliation may be filtered.
+- Requiring downstream runtime code to parse the scope-filter artifact or introducing a rigid schema for removed findings; agents interpret the self-describing evidence with best effort.
 - Giving reviewers or common consumers built-in fast/slow identities; grouping, ordering, and repetition remain replaceable parent scheduling choices.
 - Supporting concurrent top-level story/review flows against the same plan; concurrent ownership, locking, leasing, and conflict resolution are deliberately not added.
 - Guaranteeing meaningful review or settlement content when every relevant AI/provider is unavailable; the workflow preserves honest incomplete state instead of inventing findings or a clean result.
@@ -2991,3 +2996,65 @@ Close the two remaining review-cycle gaps without parsing review content. The se
 ### Ignored for This Story
 
 - None.
+
+## Code Review Findings
+
+- Review batch: `0000064-rw-20260721T162155Z-0f2e8b22`
+- Review cycle: `0000064-rc-20260721T154104Z-11480787`
+- Comparison context: reviewed HEAD `7eadc0b7787f1bb252d1644c7a2b5b7c1c0ad64b` versus comparison base `00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the current batch handoff.
+- Decision provenance: `codeInfoTmp/reviews/0000064-rc-20260721T154104Z-11480787/batches/0000064-rw-20260721T162155Z-0f2e8b22--head-7eadc0b7787f/reconciliation/batch-disposition.md`
+- The batch had one verified not-applicable cross-repository result and two supported target-local findings. Both accepted findings are bounded direct-fix candidates for `current_repository`; no duplicate, already-resolved, outside-scope, or task-required finding was recorded.
+
+### Accepted
+
+#### 1. Dynamic wave IDs can collide on one workspace path
+
+- Finding reference: `F-01` in the batch reconciliation
+- Found by: the target-local review job; independently supported by its verification report
+- Severity: medium
+- Description: Dynamic wave IDs are only required to be non-blank, while filesystem-safe job-directory normalization can map distinct IDs such as `a/b` and `a-b` to one workspace path, allowing job artifacts to overwrite or be shared.
+- Decision: Accepted as a direct fix suitable for this review pass. It is a current-story, target-owned defect against the stable unique instance-identity and private-workspace contracts. The repair is localized to the existing dynamic identifier/path boundary and focused regression coverage; no new implementation task is required.
+
+#### 2. Diagnostic summary resolves the final-review flow
+
+- Finding reference: `F-02` in the batch reconciliation
+- Found by: the target-local review job; independently supported by its verification report
+- Severity: low
+- Description: `resolveReviewLaunch` filters flow-catalog resolution to `two_phase_review_cycle` even when diagnostic mode later selects `diagnostic_review_cycle`, so diagnostic summary can resolve or reject against the wrong flow.
+- Decision: Accepted as a direct fix suitable for this review pass. It is a current-story, target-owned defect at a small resolver seam; passing the selected flow name through and adding focused diagnostic-resolution proof is sufficient. No new implementation task is required.
+
+### Ignored for This Story
+
+- None. Neither supported finding is duplicate/already resolved or outside scope. The not-applicable cross-repository result is a coverage outcome, not an ignored finding.
+
+### Task 46. Add an Independent Story-Scope Gate to Generic Review Batches
+
+- Task Status: `__done__`
+
+#### Subtasks
+
+1. [x] Document the independent batch scope-filter contract in the story Description, Acceptance Criteria, and Out Of Scope sections.
+2. [x] Add an agent-native batch scope-filter prompt that reuses the existing detailed story-scope policy, filters only the actionable reconciliation, and preserves every removal in a self-describing batch artifact.
+3. [x] Run the scope filter with an independently reset agent after reconciliation audit and before review disposition, while preserving best-effort continuation.
+4. [x] Extend review disposition so scope-filtered findings are recorded under the current plan block's `Ignored for This Story` section and cannot be promoted back into actionable work.
+5. [x] Add prompt, flow-ordering, bounded-read, legacy-compatibility, and downstream-routing regression coverage.
+
+#### Testing
+
+1. [x] Run the focused flow-schema server tests.
+2. [x] Run the focused review prompt, bounded-plan-read, and flow-control Python tests.
+3. [x] Run repository lint, Prettier/format checks, and `git diff --check`.
+4. [x] Run `npm run test:summary:all:parallel`.
+
+#### Implementation Notes
+
+- Task opened after run `L` demonstrated that the new generic batch path retained broad scope judgement in disposition but no longer invoked the older detailed independent scope gate. The implementation will keep reviewer evidence immutable, remove out-of-scope items only from the actionable reconciliation, and record every removal without adding rigid review parsing.
+- Subtask 1: Updated the story contract so the independent gate runs after lossless reconciliation audit and before disposition, preserves immutable job evidence, filters only the actionable reconciliation, records every removal or narrowing, and keeps removed findings visible in the plan's current ignored-decision block without adding parser-owned semantics.
+- Subtask 2: Added a batch-native scope-filter prompt that imports the existing detailed rejection, behavior-lock, authority, ambiguity, and follow-up policy while replacing its legacy state-file I/O with the current immutable batch workspace. The prompt filters only the derived actionable reconciliation, always records removals or narrowing in `scope-filtered-findings.md`, preserves every job artifact, and leaves the reconciliation unchanged when a complete safe filtering pass is not possible.
+- Subtask 3: Inserted a separately reset `batch_scope_filter` planning agent immediately after reconciliation audit and before disposition. The LLM step uses `continueOnFailure` so a provider or gate failure remains visible but cannot terminate the surrounding best-effort review batch.
+- Subtask 4: Made disposition consume the scope-filter record, forbid re-promoting removed findings from immutable job evidence, preserve removals as non-actionable disposition evidence, and merge them with disposition's own rejections under only the current plan block's `Ignored for This Story` section. Partial or unavailable gates remain explicit and fall back to the existing best-effort disposition judgement for findings left in the reconciliation.
+- Subtask 5: Added schema ordering and independent-agent assertions, prompt contracts for policy reuse, immutable evidence, removal recording, narrowing, plan ignored decisions, and no re-promotion, plus bounded-read reachability and legacy-flow compatibility coverage. The generic review batch is now included in the focused flow-control contract scan.
+- Testing 1: The focused flow-schema server wrapper passed all 77 tests, including the new audit → independent scope filter → disposition ordering and agent-reset assertions.
+- Testing 2: The combined review-prompt, bounded-plan-read, and flow-control Python run passed all 45 tests. The batch prompt imports the legacy policy through the existing recursive prompt reachability contract, while all legacy flows remain pinned to their original state-specific prompt.
+- Testing 3: Repository lint passed with zero warnings, explicit Prettier checks passed for every changed prompt, flow, plan, Python test, and TypeScript test after formatting the new schema assertions, and `git diff --check` passed.
+- Testing 4: The canonical clean rerun passed 900 client tests, 2,573 server unit/integration tests, 133 Cucumber scenarios, and 77 end-to-end tests. The first full run exposed one case-sensitive legacy prompt-contract mismatch, which was corrected and passed its focused 7-test file; its other failure was the existing timing-sensitive continue/resume test, which passed immediately in isolation and then passed within the complete clean rerun.

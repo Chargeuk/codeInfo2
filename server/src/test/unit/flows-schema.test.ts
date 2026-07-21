@@ -520,7 +520,7 @@ describe('flow schema (v1)', () => {
     assert.match(serialized, /review_batch/u);
   });
 
-  test('generic review batch verifies, reconciles, dispositions, fixes, and records in order', async () => {
+  test('generic review batch verifies, reconciles, scope filters, dispositions, fixes, and records in order', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/review_batch.json'),
       'utf8',
@@ -545,6 +545,16 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Audit Review Batch Reconciliation',
+      'Reset Review Batch Scope Filter',
+    );
+    assertOrdered(
+      labels,
+      'Reset Review Batch Scope Filter',
+      'Filter Review Findings To Story Scope',
+    );
+    assertOrdered(
+      labels,
+      'Filter Review Findings To Story Scope',
       'Disposition Review Batch',
     );
     assertOrdered(
@@ -556,6 +566,24 @@ describe('flow schema (v1)', () => {
       labels,
       'Implement Direct Review Fixes',
       'Record Review Batch Outcome',
+    );
+
+    const scopeReset = (parsed.steps ?? []).find(
+      (step) => step.label === 'Reset Review Batch Scope Filter',
+    );
+    const scopeFilter = (parsed.steps ?? []).find(
+      (step) => step.label === 'Filter Review Findings To Story Scope',
+    );
+    assert.equal(scopeReset?.type, 'reset');
+    assert.equal(scopeReset?.agentType, 'planning_agent');
+    assert.equal(scopeReset?.identifier, 'batch_scope_filter');
+    assert.equal(scopeFilter?.type, 'llm');
+    assert.equal(scopeFilter?.agentType, 'planning_agent');
+    assert.equal(scopeFilter?.identifier, 'batch_scope_filter');
+    assert.equal(scopeFilter?.continueOnFailure, true);
+    assert.equal(
+      scopeFilter?.markdownFile,
+      'filter_review_batch_findings_to_story_scope.md',
     );
   });
 
@@ -1188,17 +1216,25 @@ describe('flow schema (v1)', () => {
         return undefined;
       });
 
-      const classifyIndex = markers.indexOf('reconcile_review_batch.md');
-      const filterIndex = markers.indexOf('disposition_review_batch.md');
+      const reconcileIndex = markers.indexOf('reconcile_review_batch.md');
+      const scopeFilterIndex = markers.indexOf(
+        'filter_review_batch_findings_to_story_scope.md',
+      );
+      const dispositionIndex = markers.indexOf('disposition_review_batch.md');
       const ensureIndex = markers.indexOf('settle_agent_native_review_pass.md');
 
       assert.notEqual(
-        classifyIndex,
+        reconcileIndex,
         -1,
         `${flowFile} should include directory-discovered reconciliation`,
       );
       assert.notEqual(
-        filterIndex,
+        scopeFilterIndex,
+        -1,
+        `${flowFile} should include independent story-scope filtering`,
+      );
+      assert.notEqual(
+        dispositionIndex,
         -1,
         `${flowFile} should include agent disposition`,
       );
@@ -1208,8 +1244,10 @@ describe('flow schema (v1)', () => {
         `${flowFile} should include complete-pass settlement`,
       );
       assert.ok(
-        classifyIndex < filterIndex && filterIndex < ensureIndex,
-        `${flowFile} should reconcile, disposition, then settle findings`,
+        reconcileIndex < scopeFilterIndex &&
+          scopeFilterIndex < dispositionIndex &&
+          dispositionIndex < ensureIndex,
+        `${flowFile} should reconcile, scope filter, disposition, then settle findings`,
       );
     }
   });
@@ -1236,6 +1274,9 @@ describe('flow schema (v1)', () => {
     );
     const verifyIndex = markers.indexOf('verify_review_batch_jobs.md');
     const reconcileIndex = markers.indexOf('reconcile_review_batch.md');
+    const scopeFilterIndex = markers.indexOf(
+      'filter_review_batch_findings_to_story_scope.md',
+    );
     const dispositionIndex = markers.indexOf('disposition_review_batch.md');
     const directFixIndex = markers.indexOf(
       'implement_review_batch_direct_fixes.md',
@@ -1268,6 +1309,11 @@ describe('flow schema (v1)', () => {
       'flows/implement_next_plan.json should reconcile discovered job output',
     );
     assert.notEqual(
+      scopeFilterIndex,
+      -1,
+      'flows/implement_next_plan.json should independently filter reconciled findings to story scope',
+    );
+    assert.notEqual(
       dispositionIndex,
       -1,
       'flows/implement_next_plan.json should disposition generic review output',
@@ -1291,11 +1337,12 @@ describe('flow schema (v1)', () => {
       prepareIndex < parallelReviewSubflowIndex &&
         parallelReviewSubflowIndex < verifyIndex &&
         verifyIndex < reconcileIndex &&
-        reconcileIndex < dispositionIndex &&
+        reconcileIndex < scopeFilterIndex &&
+        scopeFilterIndex < dispositionIndex &&
         dispositionIndex < directFixIndex &&
         directFixIndex < settlementIndex &&
         settlementIndex < applyIndex,
-      'flows/implement_next_plan.json should prepare, run, verify, reconcile, disposition, fix, settle, and task generic review batches',
+      'flows/implement_next_plan.json should prepare, run, verify, reconcile, scope filter, disposition, fix, settle, and task generic review batches',
     );
   });
 

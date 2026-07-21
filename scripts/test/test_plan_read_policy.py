@@ -191,6 +191,13 @@ class PlanReadPolicyTests(unittest.TestCase):
     def test_generic_review_agents_remain_reachable_from_policy_walk(self) -> None:
         markdown, _ = reachable_assets("implement_next_plan")
         self.assertIn(
+            MARKDOWN_ROOT / "filter_review_batch_findings_to_story_scope.md",
+            markdown,
+        )
+        self.assertIn(
+            MARKDOWN_ROOT / "filter_review_findings_to_story_scope.md", markdown
+        )
+        self.assertIn(
             MARKDOWN_ROOT / "run_deep_review_visual_workspace.md", markdown
         )
         self.assertIn(

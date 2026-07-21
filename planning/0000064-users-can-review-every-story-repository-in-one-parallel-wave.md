@@ -3096,3 +3096,27 @@ Close the two remaining review-cycle gaps without parsing review content. The se
 - Testing 2: The combined review-prompt, bounded-plan reachability, and flow-control run passed all 46 tests. Coverage confirms flexible multi-repository repair evidence, advisory disposition, stronger repair before tasking, the exact one-iteration gate shape, and reachability of the new prompt from the main implementation flows without changing legacy review paths.
 - Testing 3: Repository ESLint passed with zero warnings, explicit Prettier checks passed for all changed flow, prompt, plan, and TypeScript files including the new untracked prompt, and `git diff --check` passed cleanly.
 - Testing 4: The canonical parallel suite passed 900 client tests, 2,573 server unit/integration tests, 133 Cucumber scenarios, and 77 end-to-end tests after clean server, client, Compose, and e2e image builds. The client build emitted only the existing oversized-chunk advisory for the 1,730.31 kB main bundle; it completed successfully and is unrelated to this prompt-and-flow change.
+
+### Task 48. Strengthen the Final Autonomous Research Repair Attempt
+
+- Task Status: `__done__`
+
+#### Subtasks
+
+1. [x] Strengthen the remaining-findings prompt so the research agent researches, plans, implements, tests, and materially iterates over every surviving actionable finding instead of deferring complexity or apparent product decisions.
+2. [x] Add focused prompt-contract coverage for evidence-based inference, multi-repository investigation, materially different retries, and genuine stopping conditions.
+
+#### Testing
+
+1. [x] Run the focused review prompt and bounded-read Python tests.
+2. [x] Run the focused flow-schema server tests.
+3. [x] Run repository lint, Prettier/format checks, and `git diff --check`.
+
+#### Implementation Notes
+
+- Task opened as a deliberately prompt-only refinement of the existing optional stronger-repair stage. The flow shape, one-invocation gate, multi-repository repair boundary, outcome, and settlement routing remain unchanged.
+- Subtask 1: Replaced the bounded/defer wording with a final autonomous implementation mandate. The research agent now inventories every surviving finding, creates and revises one dependency-aware plan, infers ambiguous requirements from current and past story evidence, Git history, affected and other ingested repositories, official documentation, and internet research, and continues materially different diagnose–implement–test cycles until fixed or genuinely exhausted.
+- Subtask 2: Extended the focused prompt contract to require the complete-fix objective, internal replanning, past-story and cross-ingest research, official and internet sources, materially different retries, cross-repository producer-consumer work, and genuine blocker evidence. The regression also forbids the former product-decision and one-invocation boundedness wording.
+- Testing 1: The combined focused review-prompt and bounded-plan reachability run passed all 42 tests, including the new autonomous research, evidence hierarchy, iteration, and stopping-condition contract.
+- Testing 2: The focused flow-schema wrapper rebuilt the server and passed all 77 tests, confirming the strengthened prompt remains reachable through the unchanged one-iteration optional-research flow.
+- Testing 3: Repository ESLint passed with zero warnings, explicit Prettier checks passed for the changed prompt and plan, and `git diff --check` passed cleanly.

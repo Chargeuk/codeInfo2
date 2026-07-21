@@ -511,8 +511,23 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Do not require a rigid schema or exact audit filename", normal_fix)
         self.assertIn("Reconstruct every supported in-scope actionable finding", stronger_fix)
         self.assertIn("If the normal audit is missing or incomplete", stronger_fix)
+        self.assertIn("Your objective is to fix every remaining finding", stronger_fix)
+        self.assertIn("Create and execute an internal dependency-aware plan", stronger_fix)
+        self.assertIn("related past stories and implementation notes", stronger_fix)
+        self.assertIn("other ingested repositories", stronger_fix)
+        self.assertIn("official documentation, and internet research", stronger_fix)
+        self.assertIn("materially different implementation remains", stronger_fix)
+        self.assertIn("return to it with the additional evidence", stronger_fix)
         self.assertIn("process repositories sequentially", stronger_fix)
+        self.assertIn("coordinated producer-consumer changes", stronger_fix)
+        self.assertIn("are not valid stopping reasons", stronger_fix)
+        self.assertIn("exact genuine blocker for anything unresolved", stronger_fix)
         self.assertIn("Do not create implementation tasks", stronger_fix)
+        self.assertNotIn("Do not invent a product decision", stronger_fix)
+        self.assertNotIn(
+            "that can be resolved autonomously during this one invocation",
+            stronger_fix,
+        )
         self.assertIn("every target repository", outcome)
         self.assertIn("after both opportunities", outcome)
         self.assertIn("Do not create a task merely because disposition predicted", settle)

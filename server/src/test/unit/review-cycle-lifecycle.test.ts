@@ -11,6 +11,7 @@ import {
   finalizeActiveReviewCycleIfPending,
   initializeReviewCycle,
   inspectFinalReviewReadiness,
+  readActiveFinalReviewCycleStatus,
   recordReviewInvocationAttempt,
 } from '../../flows/reviewCycleLifecycle.js';
 
@@ -160,6 +161,27 @@ test('cycle completion is durable and independent from a flow execution', async 
   assert.equal(completed?.incomplete_reason, 'review failed');
   assert.equal(completed?.completed_at, '2026-07-18T12:05:00.000Z');
   assert.equal('parent_execution_id' in (completed ?? {}), false);
+});
+
+test('final review status is readable for terminal wrapper reporting', async () => {
+  const repo = await makeRepo();
+  await initializeReviewCycle(
+    { workingRepositoryPath: repo, mode: 'final' },
+    {
+      now: () => new Date('2026-07-18T12:00:00.000Z'),
+      randomHex: () => '22222222',
+    },
+  );
+  assert.equal(await readActiveFinalReviewCycleStatus(repo), 'in_progress');
+  await finalizeActiveReviewCycle(
+    {
+      workingRepositoryPath: repo,
+      status: 'incomplete',
+      reason: 'review failed',
+    },
+    { now: () => new Date('2026-07-18T12:05:00.000Z') },
+  );
+  assert.equal(await readActiveFinalReviewCycleStatus(repo), 'incomplete');
 });
 
 test('review invocation evidence survives a failed launch without a batch workspace', async () => {

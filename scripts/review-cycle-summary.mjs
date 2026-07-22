@@ -53,29 +53,40 @@ const progressFingerprint = (status) => {
   if (!status || typeof status !== 'object' || Array.isArray(status)) {
     throw new Error('Review status returned an invalid response object.');
   }
-  const requiredFields = ['status', 'latestAssistantAt', 'subflowWaveProgress'];
+  const requiredFields = [
+    'status',
+    'terminal',
+    'latestAssistantAt',
+    'subflowWaveProgress',
+  ];
   const missingFields = requiredFields.filter(
     (field) => !Object.prototype.hasOwnProperty.call(status, field),
   );
   if (
     missingFields.length > 0 ||
     typeof status.status !== 'string' ||
-    status.status.trim().length === 0
+    status.status.trim().length === 0 ||
+    typeof status.terminal !== 'boolean'
   ) {
     throw new Error(
       `Review status returned an invalid response shape${
         missingFields.length > 0
           ? `; missing ${missingFields.join(', ')}`
-          : '; status must be a non-blank string'
+          : '; status must be a non-blank string and terminal must be a boolean'
       }.`,
     );
   }
   return JSON.stringify({
     status: status.status,
+    terminal: status.terminal,
     latestAssistantAt: status.latestAssistantAt,
     subflowWaveProgress: status.subflowWaveProgress,
   });
 };
+
+export const isSuccessfulTerminalReview = (status) =>
+  status.terminalOutcome === 'not_applicable' ||
+  (status.status === 'ok' && status.reviewCycleStatus === 'completed');
 
 export const buildReviewRetryOwnershipId = ({
   workingFolder,
@@ -423,7 +434,7 @@ const main = async () => {
         );
       },
     });
-    const passed = result.status.status === 'ok';
+    const passed = isSuccessfulTerminalReview(result.status);
     const skipped = result.status.terminalOutcome === 'not_applicable';
     await run.closeLog();
     run.protocol.emitFinal({

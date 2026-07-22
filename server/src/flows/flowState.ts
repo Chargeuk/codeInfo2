@@ -73,6 +73,7 @@ export type FlowSubflowWaveProgress = {
 
 export type FlowResumeState = {
   executionId: string;
+  waveInvocationGeneration?: number;
   stepPath: number[];
   loopStack: Array<{ loopStepPath: number[]; iteration: number }>;
   lastLoopExit?: FlowLoopExit;

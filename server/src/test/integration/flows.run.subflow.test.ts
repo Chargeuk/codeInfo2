@@ -20,6 +20,7 @@ import {
 import {
   __resetProviderBootstrapStatusForTests,
 } from '../../config/runtimeConfig.js';
+import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
@@ -1187,10 +1188,7 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
     assert.equal(parentStoppedTurns.length, 1);
     await Promise.all(
       activeSubflows.map((entry) =>
-        waitForConversationAssistantStatus(
-          String(entry.conversationId),
-          'stopped',
-        ),
+        waitForConversationAssistantStatus(String(entry.conversationId), 'stopped'),
       ),
     );
     const parentFlow = (
@@ -1286,7 +1284,10 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
     await waitForAssistantStatus(result.conversationId, 'stopped');
     await Promise.all(
       activeSubflows.map((entry) =>
-        waitForConversationAssistantStatus(String(entry.conversationId), 'stopped'),
+        waitForConversationAssistantStatus(
+          String(entry.conversationId),
+          'stopped',
+        ),
       ),
     );
 
@@ -1543,6 +1544,67 @@ test('rewinding before a completed subflow launches a fresh child without retain
       | undefined;
     assert.equal(resumedFlowState?.terminalOutcome, undefined);
     assert.equal(resumedFlowState?.restartReconciliation, undefined);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('rewinding before a completed subflow wave launches a fresh wave generation', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-rewind-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'wave-rewind-child',
+      steps: [llmStep('wave rewind child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'wave-rewind-parent',
+      steps: [
+        llmStep('wave rewind setup'),
+        {
+          type: 'subflowWave',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'wave-rewind',
+              flowName: 'wave-rewind-child',
+            },
+          ],
+        },
+      ],
+    });
+
+    const firstRun = await startFlowRun({
+      flowName: 'wave-rewind-parent',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(0),
+    });
+    await waitForAssistantStatus(firstRun.conversationId, 'ok');
+    await waitFor(() => !getActiveRunOwnership(firstRun.conversationId));
+
+    await startFlowRun({
+      flowName: 'wave-rewind-parent',
+      conversationId: firstRun.conversationId,
+      resumeStepPath: [0],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(0),
+    });
+    await waitFor(
+      () =>
+        Array.from(memoryConversations.values()).filter(
+          (conversation) => conversation.flowName === 'wave-rewind-child',
+        ).length === 2,
+    );
+
+    const childConversations = Array.from(memoryConversations.values()).filter(
+      (conversation) => conversation.flowName === 'wave-rewind-child',
+    );
+    assert.equal(childConversations.length, 2);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

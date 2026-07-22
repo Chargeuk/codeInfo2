@@ -126,24 +126,26 @@ test('review batch workspace shares agent-readable input and pre-creates discove
       ),
       /Job directory/u,
     );
-    await assert.rejects(
-      prepareReviewBatchWorkspace({
-        snapshot,
-        jobs: [
-          {
-            instanceId: 'a-b:c:d',
-            flowName: 'codex_review',
-            displayName: 'first collision candidate',
-          },
-          {
-            instanceId: 'a:b-c:d',
-            flowName: 'open_code_review',
-            displayName: 'second collision candidate',
-          },
-        ],
-      }),
-      /Review job directory collision/u,
-    );
+    const distinctIdentityResult = await prepareReviewBatchWorkspace({
+      snapshot,
+      jobs: [
+        {
+          instanceId: 'a-b:c:d',
+          flowName: 'codex_review',
+          displayName: 'first collision candidate',
+        },
+        {
+          instanceId: 'a:b-c:d',
+          flowName: 'open_code_review',
+          displayName: 'second collision candidate',
+        },
+      ],
+    });
+    const firstJob = distinctIdentityResult.jobs[0]?.input
+      ?.review_job as Record<string, unknown>;
+    const secondJob = distinctIdentityResult.jobs[1]?.input
+      ?.review_job as Record<string, unknown>;
+    assert.notEqual(firstJob.job_dir, secondJob.job_dir);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

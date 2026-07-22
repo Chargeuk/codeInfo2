@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   buildReviewRetryOwnershipId,
+  isSuccessfulTerminalReview,
   normalizeBaseUrl,
   parseTimerMs,
   resolveReviewLaunch,
@@ -169,6 +170,69 @@ test('review runner rejects malformed successful status responses with an action
           : response(200, { terminal: false }),
     }),
     /Review status returned an invalid response shape; missing status, latestAssistantAt, subflowWaveProgress/u,
+  );
+  await assert.rejects(
+    waitForReviewCycle({
+      baseUrl: 'http://server',
+      workingFolder: '/repo',
+      pollMs: 1,
+      sleep: async () => {},
+      fetchImpl: async (url) =>
+        url.endsWith('/run')
+          ? response(202, { conversationId: 'conversation-missing-terminal' })
+          : response(200, {
+              status: 'running',
+              latestAssistantAt: null,
+              subflowWaveProgress: null,
+            }),
+    }),
+    /Review status returned an invalid response shape; missing terminal/u,
+  );
+  await assert.rejects(
+    waitForReviewCycle({
+      baseUrl: 'http://server',
+      workingFolder: '/repo',
+      pollMs: 1,
+      sleep: async () => {},
+      fetchImpl: async (url) =>
+        url.endsWith('/run')
+          ? response(202, { conversationId: 'conversation-invalid-terminal' })
+          : response(200, {
+              status: 'running',
+              terminal: 'false',
+              latestAssistantAt: null,
+              subflowWaveProgress: null,
+            }),
+    }),
+    /terminal must be a boolean/u,
+  );
+});
+
+test('review runner requires completed durable settlement before reporting success', () => {
+  assert.equal(
+    isSuccessfulTerminalReview({
+      status: 'ok',
+      terminal: true,
+      reviewCycleStatus: 'completed',
+    }),
+    true,
+  );
+  assert.equal(
+    isSuccessfulTerminalReview({
+      status: 'ok',
+      terminal: true,
+      reviewCycleStatus: 'incomplete',
+    }),
+    false,
+  );
+  assert.equal(
+    isSuccessfulTerminalReview({
+      status: 'ok',
+      terminal: true,
+      terminalOutcome: 'not_applicable',
+      reviewCycleStatus: 'incomplete',
+    }),
+    true,
   );
 });
 

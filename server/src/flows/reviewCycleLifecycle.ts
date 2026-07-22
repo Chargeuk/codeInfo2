@@ -124,6 +124,31 @@ const readJsonIfPresent = async (
   }
 };
 
+export const readActiveFinalReviewCycleStatus = async (
+  workingRepositoryPath: string,
+  deps: Partial<ReviewCycleLifecycleDeps> = {},
+): Promise<ReviewCycleStatus | null> => {
+  const resolvedDeps = { ...defaultDeps, ...deps };
+  const repoRoot = await resolveReviewRepositoryRoot(workingRepositoryPath);
+  const active = await readJsonIfPresent(
+    path.join(
+      repoRoot,
+      'codeInfoStatus',
+      'flow-state',
+      'active-review-cycle.json',
+    ),
+    resolvedDeps,
+  );
+  if (
+    active?.schema_version !== ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION ||
+    active.review_mode !== 'final' ||
+    !['in_progress', 'completed', 'incomplete'].includes(String(active.status))
+  ) {
+    return null;
+  }
+  return active.status as ReviewCycleStatus;
+};
+
 const unlinkIfPresent = async (
   filePath: string,
   deps: ReviewCycleLifecycleDeps,

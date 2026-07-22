@@ -165,6 +165,7 @@ import { prepareReviewBatchWorkspace } from './reviewBatchWorkspace.js';
 import {
   finalizeActiveReviewCycleIfPending,
   initializeReviewCycle,
+  readActiveFinalReviewCycleStatus,
   recordReviewInvocationAttempt,
   type ReviewInvocationAttemptStatus,
 } from './reviewCycleLifecycle.js';
@@ -943,6 +944,12 @@ const parseFlowResumeState = (
     typeof flow.executionId === 'string' && flow.executionId.trim().length > 0
       ? flow.executionId.trim()
       : undefined;
+  const waveInvocationGeneration =
+    typeof flow.waveInvocationGeneration === 'number' &&
+    Number.isInteger(flow.waveInvocationGeneration) &&
+    flow.waveInvocationGeneration > 0
+      ? flow.waveInvocationGeneration
+      : undefined;
 
   const stepPath = normalizeNumberArray(flow.stepPath);
   const loopStack = Array.isArray(flow.loopStack)
@@ -1103,6 +1110,7 @@ const parseFlowResumeState = (
 
   return {
     executionId: executionId ?? crypto.randomUUID(),
+    ...(waveInvocationGeneration ? { waveInvocationGeneration } : {}),
     stepPath,
     loopStack,
     ...(lastLoopExit ? { lastLoopExit } : {}),
@@ -3084,9 +3092,11 @@ type LoopFrame = {
 const getWaveInvocationId = (
   stepPath: number[],
   loopStack: LoopFrame[],
+  generation: number,
 ): string =>
   JSON.stringify({
     stepPath,
+    ...(generation > 0 ? { generation } : {}),
     loopStack: loopStack.map((frame) => ({
       loopStepPath: frame.loopStepPath,
       iteration: frame.iteration,
@@ -3095,6 +3105,7 @@ const getWaveInvocationId = (
 
 const buildFlowResumeState = (params: {
   executionId: string;
+  waveInvocationGeneration?: number;
   runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
@@ -3141,6 +3152,9 @@ const buildFlowResumeState = (params: {
 
   return {
     executionId: params.executionId,
+    ...(params.waveInvocationGeneration
+      ? { waveInvocationGeneration: params.waveInvocationGeneration }
+      : {}),
     stepPath: [...params.stepPath],
     loopStack: params.loopStack.map((frame) => ({
       loopStepPath: [...frame.loopStepPath],
@@ -3220,6 +3234,7 @@ const buildFlowResumeState = (params: {
 const persistFlowResumeState = async (params: {
   conversationId: string;
   executionId: string;
+  waveInvocationGeneration?: number;
   runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
@@ -3237,6 +3252,7 @@ const persistFlowResumeState = async (params: {
 }) => {
   const flowState = buildFlowResumeState({
     executionId: params.executionId,
+    waveInvocationGeneration: params.waveInvocationGeneration,
     runtimeState: params.runtimeState,
     stepPath: params.stepPath,
     loopStack: params.loopStack,
@@ -4198,6 +4214,8 @@ async function runFlowUnlocked(params: {
     }),
   );
   let subflowWaveProgress = params.resumeState?.subflowWaveProgress;
+  const waveInvocationGeneration =
+    params.resumeState?.waveInvocationGeneration ?? 0;
   let terminalOutcome = params.resumeState?.terminalOutcome;
   const runLifecycle: NonNullable<FlowResumeState['runLifecycle']> = {
     status: 'running',
@@ -4224,6 +4242,7 @@ async function runFlowUnlocked(params: {
     persistFlowResumeState({
       conversationId: params.conversationId,
       executionId: params.executionId,
+      waveInvocationGeneration,
       runtimeState,
       stepPath,
       loopStack,
@@ -5128,7 +5147,7 @@ async function runFlowUnlocked(params: {
     const parentTurnCreatedAt = new Date(parentTurnCreatedAtIso);
     const parentConversation = await getConversation(params.conversationId);
     const waveInvocationId = isWave
-      ? getWaveInvocationId(nextPath, loopStack)
+      ? getWaveInvocationId(nextPath, loopStack, waveInvocationGeneration)
       : undefined;
     const activeInstanceId = (activeSubflow: FlowActiveSubflow) =>
       activeSubflow.instanceId ?? activeSubflow.flowName;
@@ -7626,6 +7645,8 @@ export async function startFlowRun(
       if (resumesFromEarlierStep(resumeStepPath, resumeState.stepPath)) {
         resumeState = {
           ...resumeState,
+          waveInvocationGeneration:
+            (resumeState.waveInvocationGeneration ?? 0) + 1,
           activeSubflows: undefined,
           subflowWaveProgress: undefined,
           terminalOutcome: undefined,
@@ -8045,6 +8066,7 @@ export type FlowRunObservedStatus = {
   status: 'running' | 'ok' | 'stopped' | 'failed' | 'orphaned';
   terminal: boolean;
   terminalOutcome: FlowResumeState['terminalOutcome'] | null;
+  reviewCycleStatus?: 'in_progress' | 'completed' | 'incomplete' | null;
   executionId: string | null;
   activeSince: string | null;
   latestAssistantAt: string | null;
@@ -8178,12 +8200,18 @@ export async function getFlowRunStatus(
           : persistedLifecycle === 'running'
             ? ('orphaned' as const)
             : (latestAssistant?.status ?? 'orphaned');
+  const reviewCycleStatus =
+    conversation.flowName === 'two_phase_review_cycle' &&
+    resumeState?.workingFolder
+      ? await readActiveFinalReviewCycleStatus(resumeState.workingFolder)
+      : null;
 
   return {
     conversationId: normalizedConversationId,
     status,
     terminal: status !== 'running',
     terminalOutcome: resumeState?.terminalOutcome ?? null,
+    reviewCycleStatus,
     executionId: resumeState?.executionId ?? null,
     activeSince: ownership?.startedAt ?? null,
     latestAssistantAt: latestAssistant?.createdAt?.toISOString?.() ?? null,

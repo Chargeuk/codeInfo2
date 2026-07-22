@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 import { hashFlowInput, normalizeFlowInput } from './flowInput.js';
@@ -17,7 +18,11 @@ const safeSegment = (value: string) => {
   return normalized.replace(/^-+|-+$/gu, '') || 'review-job';
 };
 
-const jobDirectorySegment = (instanceId: string) => safeSegment(instanceId);
+const jobDirectorySegment = (instanceId: string) =>
+  `${safeSegment(instanceId)}-${createHash('sha256')
+    .update(instanceId)
+    .digest('hex')
+    .slice(0, 12)}`;
 
 const relativePortable = (root: string, value: string) =>
   path.relative(root, value).split(path.sep).join('/');

@@ -83,6 +83,7 @@ export type FlowInitializeReviewCycleStep = {
 export type FlowPrepareReviewTargetsStep = {
   type: 'prepareReviewTargets';
   label?: string;
+  reviewMode?: 'final' | 'diagnostic';
   outputKey: string;
 };
 
@@ -245,6 +246,7 @@ const FlowPrepareReviewTargetsStepSchema = z
   .object({
     type: z.literal('prepareReviewTargets'),
     label: trimmedNonEmptyString.optional(),
+    reviewMode: z.enum(['final', 'diagnostic']).optional(),
     outputKey: trimmedNonEmptyString,
   })
   .strict();

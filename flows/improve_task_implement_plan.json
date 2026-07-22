@@ -298,6 +298,7 @@
                       "label": "Deep repair implementation blocker",
                       "agentType": "coding_agent",
                       "identifier": "coder",
+                      "continueOnFailure": true,
                       "markdownFile": "deep_implementation_blocker_repair.md"
                     },
                     {

@@ -208,3 +208,79 @@ test('a saved target snapshot remains pinned when a repository HEAD later moves'
     await fs.rm(fixture.tempRoot, { recursive: true, force: true });
   }
 });
+
+test('additional targets use only their repository-local comparison-base hints', async () => {
+  const fixture = await prepareFixture(1);
+  try {
+    const additionalRoot = fixture.additional[0] as string;
+    await fs.writeFile(path.join(additionalRoot, 'next.txt'), 'next\n');
+    await execFile('git', ['add', 'next.txt'], { cwd: additionalRoot });
+    await execFile('git', ['commit', '-m', 'next'], { cwd: additionalRoot });
+    await execFile('git', ['branch', 'host-only'], { cwd: additionalRoot });
+    await fs.writeFile(
+      path.join(fixture.primary, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000064-parallel-review.md',
+        branched_from: 'host-only',
+        additional_repositories: [{ path: additionalRoot }],
+      }),
+    );
+
+    const result = await prepareReviewTargets(
+      { workingRepositoryPath: fixture.primary },
+      {
+        listIngestedRepositories: async () => ({
+          repos: fixture.repositories,
+          lockedModelId: null,
+        }),
+        resolveWorkingDirectory: async (workingFolder) => workingFolder,
+      },
+    );
+    const additionalBase = (
+      await execFile('git', ['rev-parse', 'main'], { cwd: additionalRoot })
+    ).stdout.trim();
+
+    assert.equal(
+      result.snapshot.targets[1]?.comparison_base_commit,
+      additionalBase,
+    );
+  } finally {
+    await fs.rm(fixture.tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('diagnostic target preparation does not adopt an active final review cycle', async () => {
+  const fixture = await prepareFixture(0);
+  try {
+    await fs.writeFile(
+      path.join(
+        fixture.primary,
+        'codeInfoStatus',
+        'flow-state',
+        'active-review-cycle.json',
+      ),
+      JSON.stringify({
+        review_cycle_id: '0000064-rc-final',
+        review_mode: 'final',
+        story_id: '0000064',
+        plan_path: 'planning/0000064-parallel-review.md',
+        status: 'in_progress',
+      }),
+    );
+    const result = await prepareReviewTargets(
+      { workingRepositoryPath: fixture.primary, reviewMode: 'diagnostic' },
+      {
+        listIngestedRepositories: async () => ({
+          repos: fixture.repositories,
+          lockedModelId: null,
+        }),
+        resolveWorkingDirectory: async (workingFolder) => workingFolder,
+      },
+    );
+
+    assert.equal(result.snapshot.review_cycle_id, undefined);
+    assert.equal(result.snapshot.review_mode, undefined);
+  } finally {
+    await fs.rm(fixture.tempRoot, { recursive: true, force: true });
+  }
+});

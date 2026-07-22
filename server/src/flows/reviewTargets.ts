@@ -180,6 +180,7 @@ const formatTimestamp = (value: Date): string =>
 export async function prepareReviewTargets(
   params: {
     workingRepositoryPath: string;
+    reviewMode?: 'final' | 'diagnostic';
     signal?: AbortSignal;
   },
   deps: Partial<ReviewTargetDeps> = {},
@@ -234,7 +235,9 @@ export async function prepareReviewTargets(
     typeof activeCycle.review_cycle_id === 'string' &&
     (activeCycle.status === 'in_progress' || activeCycle.status === undefined) &&
     (activeCycle.review_mode === 'final' ||
-      activeCycle.review_mode === 'diagnostic');
+      activeCycle.review_mode === 'diagnostic') &&
+    (params.reviewMode === undefined ||
+      activeCycle.review_mode === params.reviewMode);
   const reviewCycleId = activeCycleMatches
     ? (activeCycle?.review_cycle_id as string)
     : undefined;
@@ -314,7 +317,7 @@ export async function prepareReviewTargets(
     const base = await resolveBaseComparison({
       repoRoot: realRoot,
       currentBranch: branch,
-      branchedFrom: requestedTarget.branchedFrom ?? branchedFrom ?? undefined,
+      branchedFrom: requestedTarget.branchedFrom,
       deps: { execFile: resolvedDeps.execFile },
       signal: params.signal,
     });

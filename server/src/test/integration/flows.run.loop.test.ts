@@ -638,6 +638,7 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
       name: 'normal repair cleared blocker',
       normalGate: 'yes',
       blockerRemains: 'no',
+      normalResponse: 'ok',
       researchResponse: 'ok',
       expectedResearchCalls: 0,
       expectedNormalContinuation: 1,
@@ -646,6 +647,16 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
       name: 'normal repair left blocker for stronger repair',
       normalGate: 'no',
       blockerRemains: 'no',
+      normalResponse: 'ok',
+      researchResponse: 'ok',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 1,
+    },
+    {
+      name: 'normal repair failure still reaches stronger repair and blocker gate',
+      normalGate: 'no',
+      blockerRemains: 'no',
+      normalResponse: '__throw',
       researchResponse: 'ok',
       expectedResearchCalls: 1,
       expectedNormalContinuation: 1,
@@ -654,6 +665,7 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
       name: 'stronger repair failure preserves authoritative blocker routing',
       normalGate: 'no',
       blockerRemains: 'yes',
+      normalResponse: 'ok',
       researchResponse: '__throw',
       expectedResearchCalls: 1,
       expectedNormalContinuation: 0,
@@ -670,6 +682,9 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
           )
         ) {
           return JSON.stringify({ answer: scenario.normalGate });
+        }
+        if (message.includes('Normal deep blocker repair.')) {
+          return scenario.normalResponse;
         }
         if (message.includes('Stronger implementation blocker repair.')) {
           researchCalls += 1;

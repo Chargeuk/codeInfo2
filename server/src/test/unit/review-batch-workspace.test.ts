@@ -126,6 +126,24 @@ test('review batch workspace shares agent-readable input and pre-creates discove
       ),
       /Job directory/u,
     );
+    await assert.rejects(
+      prepareReviewBatchWorkspace({
+        snapshot,
+        jobs: [
+          {
+            instanceId: 'a-b:c:d',
+            flowName: 'codex_review',
+            displayName: 'first collision candidate',
+          },
+          {
+            instanceId: 'a:b-c:d',
+            flowName: 'open_code_review',
+            displayName: 'second collision candidate',
+          },
+        ],
+      }),
+      /Review job directory collision/u,
+    );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

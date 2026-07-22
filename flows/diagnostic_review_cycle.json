@@ -1,5 +1,5 @@
 {
-  "description": "Run an isolated generic diagnostic review batch without final story settlement ownership.",
+  "description": "Run an isolated diagnostic review evidence batch without final story settlement ownership.",
   "steps": [
     {
       "type": "initializeReviewCycle",
@@ -8,32 +8,30 @@
       "outputKey": "diagnostic_review"
     },
     {
+      "type": "prepareReviewTargets",
+      "label": "Snapshot Isolated Diagnostic Review Targets",
+      "reviewMode": "diagnostic",
+      "outputKey": "review_batch_targets"
+    },
+    {
       "type": "subflowWave",
-      "label": "Run Diagnostic Generic Review Batch",
+      "label": "Run Diagnostic Review Evidence Jobs",
       "failureMode": "best_effort",
+      "reviewWorkspace": {
+        "snapshotFrom": "review_batch_targets"
+      },
       "groups": [
         {
-          "kind": "singleton",
-          "id": "diagnostic_review_batch",
-          "flowName": "review_batch",
+          "kind": "matrix",
+          "id": "target_reviews",
+          "itemsFrom": "review_batch_targets.targets",
+          "itemName": "target",
+          "flowNames": ["codex_review", "open_code_review"],
           "bindings": {
-            "inputValues": {
-              "review_groups": [
-                {
-                  "kind": "matrix",
-                  "id": "target_reviews",
-                  "itemsFrom": "review_batch_targets.targets",
-                  "itemName": "target",
-                  "flowNames": ["codex_review", "open_code_review"],
-                  "bindings": {
-                    "workingFolderFrom": "target.repo_root",
-                    "input": {
-                      "target": "target",
-                      "review_wave": "review_batch_targets"
-                    }
-                  }
-                }
-              ]
+            "workingFolderFrom": "target.repo_root",
+            "input": {
+              "target": "target",
+              "review_wave": "review_batch_targets"
             }
           }
         }

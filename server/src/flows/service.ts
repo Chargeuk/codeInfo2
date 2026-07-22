@@ -6361,6 +6361,7 @@ async function runFlowUnlocked(params: {
       const result = await prepareReviewTargets(
         {
           workingRepositoryPath: reviewRepositoryPath,
+          reviewMode: step.reviewMode,
           signal: inflightSignal,
         },
         {

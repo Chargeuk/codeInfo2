@@ -369,6 +369,22 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
+  test('prepareReviewTargets accepts an explicit diagnostic review mode', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'prepareReviewTargets',
+            reviewMode: 'diagnostic',
+            outputKey: 'review_wave',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+  });
+
   test('retired pointer-oriented artifact validator step is rejected', () => {
     const parsed = parseFlowFile(
       JSON.stringify({
@@ -709,6 +725,31 @@ describe('flow schema (v1)', () => {
     assert.match(exitGate?.question ?? '', /single allowed invocation/u);
   });
 
+  test('diagnostic review runs only isolated evidence collection', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/diagnostic_review_cycle.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const steps = parsed.steps ?? [];
+    const prepare = steps.find(
+      (step) => step.type === 'prepareReviewTargets',
+    ) as { reviewMode?: string } | undefined;
+    const evidenceWave = steps.find((step) => step.type === 'subflowWave');
+    const serializedWave = JSON.stringify(evidenceWave);
+
+    assert.equal(prepare?.reviewMode, 'diagnostic');
+    assert.equal(evidenceWave?.reviewWorkspace?.snapshotFrom, 'review_batch_targets');
+    assert.doesNotMatch(serializedWave, /"flowName":"review_batch"/u);
+    assert.equal(
+      steps.some(
+        (step) =>
+          step.type === 'llm' || step.type === 'reset' || step.type === 'reingest',
+      ),
+      false,
+    );
+  });
+
   test('implement_next_plan resets implementation agents only at safe boundaries and reloads compact context', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/implement_next_plan.json'),
@@ -843,6 +884,11 @@ describe('flow schema (v1)', () => {
         'Deep repair implementation blocker',
       );
       assert.equal(deepRepairIndex, contextLoadIndex + 1, relativePath);
+      assert.equal(
+        implementationSteps[deepRepairIndex]?.continueOnFailure,
+        true,
+        relativePath,
+      );
       const optionalRepair = implementationSteps[deepRepairIndex + 1];
       const authoritativeGate = implementationSteps[deepRepairIndex + 2];
 

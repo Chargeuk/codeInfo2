@@ -17,6 +17,8 @@ const safeSegment = (value: string) => {
   return normalized.replace(/^-+|-+$/gu, '') || 'review-job';
 };
 
+const jobDirectorySegment = (instanceId: string) => safeSegment(instanceId);
+
 const relativePortable = (root: string, value: string) =>
   path.relative(root, value).split(path.sep).join('/');
 
@@ -158,9 +160,17 @@ export async function prepareReviewBatchWorkspace(params: {
   ]);
 
   const augmentedJobs: SubflowWaveJob[] = [];
+  const seenJobDirectories = new Set<string>();
   for (const job of params.jobs) {
     params.signal?.throwIfAborted();
-    const jobRoot = path.join(batchRoot, 'jobs', safeSegment(job.instanceId));
+    const directoryName = jobDirectorySegment(job.instanceId);
+    if (seenJobDirectories.has(directoryName)) {
+      throw new Error(
+        `Review job directory collision for instance "${job.instanceId}" at "${directoryName}".`,
+      );
+    }
+    seenJobDirectories.add(directoryName);
+    const jobRoot = path.join(batchRoot, 'jobs', directoryName);
     const workDir = path.join(jobRoot, 'work');
     const outputDir = path.join(jobRoot, 'output');
     const verificationDir = path.join(jobRoot, 'verification');
@@ -268,7 +278,7 @@ export async function prepareReviewBatchWorkspace(params: {
     '',
     ...augmentedJobs.map(
       (job) =>
-        `- ${job.displayName}: ${path.join(batchRoot, 'jobs', safeSegment(job.instanceId))}`,
+        `- ${job.displayName}: ${path.join(batchRoot, 'jobs', jobDirectorySegment(job.instanceId))}`,
     ),
   ].join('\n')}\n`;
   await Promise.all([

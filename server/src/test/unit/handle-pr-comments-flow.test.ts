@@ -246,3 +246,32 @@ test('valid code changes stage aggregate evidence and tasks before replies', () 
   assert.match(strong, /code-change and task recommendation/u);
   assert.match(strong, /justified aggregate diff anchor/u);
 });
+
+test('PR preflight remains tolerant while preserving write safety', () => {
+  const regular = readRepoFile('codeinfo_agents/pr_agent/system_prompt.txt');
+  const instruction = readRepoFile('codeinfo_markdown/handle_pr_comments.md');
+
+  for (const required of [
+    'Interpret it as ordinary Markdown',
+    'indented `-`, `*`, or `+` list items',
+    'case-insensitively with flexible whitespace',
+    'exactly one distinct in-scope PR',
+    'try the repository-approved installed paths',
+    'Retry one likely transient read failure once',
+    'Discard a partial snapshot',
+    'continue with successfully retrieved PRs',
+    'provisional roots',
+    'its age cannot be determined',
+  ]) {
+    assert.match(
+      instruction,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'u'),
+    );
+  }
+
+  assert.match(regular, /ordinary Markdown rather than an exact template/u);
+  assert.match(regular, /Retry one likely transient read failure once/u);
+  assert.match(regular, /Discard partial pagination/u);
+  assert.match(regular, /unknown timestamps as needing inspection/u);
+  assert.match(regular, /exactly one distinct in-scope destination/u);
+});

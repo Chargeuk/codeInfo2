@@ -17,16 +17,17 @@ from typing import Any
 from flow_control.decision import DecisionOutcome, no, yes
 
 
-AI_RESPONSE_PREFIX = "#AI Response:"
+AI_RESPONSE_PATTERN = re.compile(r"^\s*#AI\s+Response\s*:", re.IGNORECASE)
 DEFAULT_CONNECTION = "default"
 DEFAULT_PAGE_LIMIT = 50
 MAX_PAGES = 10_000
-PR_LINE_PATTERN = re.compile(
-    r"^-\s+"
-    r"(?P<url>https://bitbucket\.org/(?P<workspace>[^/\s]+)/"
-    r"(?P<repo>[^/\s]+)/pull-requests/(?P<pr_id>[1-9][0-9]*))"
-    r"(?P<in_scope>\s+\*\*IN_SCOPE\*\*)?\s*$"
+PR_LIST_ITEM_PATTERN = re.compile(r"^\s*[-+*]\s+(?P<body>.*?)\s*$")
+PR_URL_PATTERN = re.compile(
+    r"https://bitbucket\.org/(?P<workspace>[A-Za-z0-9._-]+)/"
+    r"(?P<repo>[A-Za-z0-9._-]+)/pull-requests/(?P<pr_id>[1-9][0-9]*)",
+    re.IGNORECASE,
 )
+IN_SCOPE_PATTERN = re.compile(r"\*\*\s*IN_SCOPE\s*\*\*", re.IGNORECASE)
 
 
 class PrCommentGateError(RuntimeError):
@@ -43,6 +44,11 @@ class PullRequestRef:
 
 
 GtRunner = Callable[[Sequence[str]], Mapping[str, Any]]
+WarningSink = Callable[[str], None]
+
+
+def _ignore_warning(_message: str) -> None:
+    return None
 
 
 def default_pr_list_path() -> Path:
@@ -58,29 +64,39 @@ def resolve_pr_list_path() -> Path:
     return Path(configured).expanduser() if configured else default_pr_list_path()
 
 
-def parse_pr_list(content: str) -> list[PullRequestRef]:
+def parse_pr_list(
+    content: str,
+    *,
+    warn: WarningSink = _ignore_warning,
+) -> list[PullRequestRef]:
     references: dict[str, PullRequestRef] = {}
     for line_number, raw_line in enumerate(content.splitlines(), start=1):
-        line = raw_line.strip()
-        if not line:
+        item_match = PR_LIST_ITEM_PATTERN.fullmatch(raw_line)
+        if item_match is None:
             continue
-        match = PR_LINE_PATTERN.fullmatch(line)
-        if not match:
-            raise PrCommentGateError(
-                f"invalid PR list entry on line {line_number}"
-            )
+        body = item_match.group("body")
+        matches = list(PR_URL_PATTERN.finditer(body))
+        unique_urls = {match.group(0).casefold() for match in matches}
+        if not matches:
+            warn(f"ignored list item without a PR URL on line {line_number}")
+            continue
+        if len(unique_urls) != 1:
+            warn(f"ignored ambiguous multi-URL list item on line {line_number}")
+            continue
+        match = matches[0]
         reference = PullRequestRef(
-            url=match.group("url"),
+            url=match.group(0),
             workspace=match.group("workspace"),
             repo=match.group("repo"),
             pr_id=int(match.group("pr_id")),
-            in_scope=match.group("in_scope") is not None,
+            in_scope=IN_SCOPE_PATTERN.search(body) is not None,
         )
-        existing = references.get(reference.url)
+        reference_key = reference.url.casefold()
+        existing = references.get(reference_key)
         if existing is None:
-            references[reference.url] = reference
+            references[reference_key] = reference
         elif reference.in_scope and not existing.in_scope:
-            references[reference.url] = reference
+            references[reference_key] = reference
 
     if not references:
         raise PrCommentGateError("PR list contains no pull requests")
@@ -173,13 +189,16 @@ def _ensure_in_scope_pr_is_open(
             reference.repo,
         ]
     )
-    if payload.get("state") != "OPEN":
+    state = payload.get("state")
+    if not isinstance(state, str) or state.strip().upper() != "OPEN":
         raise PrCommentGateError("IN_SCOPE pull request is not open")
 
 
 def _list_all_comments(
     reference: PullRequestRef,
     runner: GtRunner,
+    *,
+    warn: WarningSink = _ignore_warning,
 ) -> list[Mapping[str, Any]]:
     comments: list[Mapping[str, Any]] = []
     page = 1
@@ -202,83 +221,159 @@ def _list_all_comments(
         values = payload.get("values")
         if not isinstance(values, list):
             raise PrCommentGateError("gt comments payload has no values array")
-        if any(not isinstance(value, Mapping) for value in values):
-            raise PrCommentGateError("gt comments payload contains a non-object comment")
-        comments.extend(values)
+        object_values = [value for value in values if isinstance(value, Mapping)]
+        skipped_count = len(values) - len(object_values)
+        if skipped_count:
+            warn(
+                f"PR {reference.pr_id} page {page} skipped "
+                f"{skipped_count} non-object comments"
+            )
+        comments.extend(object_values)
         if not payload.get("next"):
             return comments
         page += 1
     raise PrCommentGateError("gt comments pagination exceeded safety limit")
 
 
-def _parse_created_on(comment: Mapping[str, Any]) -> datetime:
+def _parse_created_on(
+    comment: Mapping[str, Any],
+    *,
+    warn: WarningSink = _ignore_warning,
+) -> datetime | None:
     raw = comment.get("created_on")
     if not isinstance(raw, str):
-        raise PrCommentGateError("comment has no created_on timestamp")
+        warn("comment with unknown creation time remains eligible")
+        return None
     try:
         parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError as error:
-        raise PrCommentGateError("comment has an invalid created_on timestamp") from error
+    except ValueError:
+        warn("comment with invalid creation time remains eligible")
+        return None
     if parsed.tzinfo is None:
-        raise PrCommentGateError("comment created_on timestamp has no timezone")
+        warn("comment with timezone-less creation time remains eligible")
+        return None
     return parsed.astimezone(UTC)
 
 
-def _comment_id(comment: Mapping[str, Any]) -> int:
+def _coerce_positive_id(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value > 0 else None
+    if isinstance(value, str) and value.isdigit():
+        parsed = int(value)
+        return parsed if parsed > 0 else None
+    return None
+
+
+def _comment_id(
+    comment: Mapping[str, Any],
+    *,
+    warn: WarningSink = _ignore_warning,
+) -> int | None:
     value = comment.get("id")
-    if not isinstance(value, int):
-        raise PrCommentGateError("comment has no integer id")
-    return value
+    parsed = _coerce_positive_id(value)
+    if parsed is None:
+        warn("skipped comment without a usable positive id")
+    elif isinstance(value, str):
+        warn(f"coerced string comment id {parsed}")
+    return parsed
 
 
-def _parent_id(comment: Mapping[str, Any]) -> int | None:
+def _parent_id(
+    comment: Mapping[str, Any],
+    *,
+    warn: WarningSink = _ignore_warning,
+) -> int | None:
     parent = comment.get("parent")
     if parent is None:
         return None
-    if not isinstance(parent, Mapping) or not isinstance(parent.get("id"), int):
-        raise PrCommentGateError("comment has an invalid parent")
-    return parent["id"]
+    if not isinstance(parent, Mapping):
+        warn("comment with malformed parent was treated as a root")
+        return None
+    value = parent.get("id")
+    parsed = _coerce_positive_id(value)
+    if parsed is None:
+        warn("comment with unusable parent id was treated as a root")
+        return None
+    if isinstance(value, str):
+        warn(f"coerced string parent id {parsed}")
+    return parsed
 
 
-def _is_deleted(comment: Mapping[str, Any]) -> bool:
+def _is_deleted(
+    comment: Mapping[str, Any],
+    *,
+    warn: WarningSink = _ignore_warning,
+) -> bool:
     value = comment.get("deleted", False)
-    if not isinstance(value, bool):
-        raise PrCommentGateError("comment has an invalid deleted flag")
-    return value
+    if value is True or (
+        isinstance(value, str) and value.strip().casefold() == "true"
+    ):
+        return True
+    if value is not False and value is not None:
+        warn("comment with an unrecognised deleted flag was treated as visible")
+    return False
 
 
-def _comment_raw(comment: Mapping[str, Any]) -> str:
+def _comment_raw(
+    comment: Mapping[str, Any],
+    *,
+    warn: WarningSink = _ignore_warning,
+) -> str:
     content = comment.get("content")
     raw = content.get("raw") if isinstance(content, Mapping) else None
     if not isinstance(raw, str):
-        raise PrCommentGateError("visible leaf comment has no text body")
+        warn("visible leaf without a text body remains eligible")
+        return ""
     return raw
 
 
 def _index_comment_graph(
     comments: Sequence[Mapping[str, Any]],
+    *,
+    warn: WarningSink = _ignore_warning,
 ) -> tuple[dict[int, Mapping[str, Any]], dict[int, int | None]]:
     comments_by_id: dict[int, Mapping[str, Any]] = {}
     for comment in comments:
-        comment_id = _comment_id(comment)
+        comment_id = _comment_id(comment, warn=warn)
+        if comment_id is None:
+            continue
         if comment_id in comments_by_id:
-            raise PrCommentGateError("comment payload contains duplicate ids")
+            warn(f"ignored duplicate comment id {comment_id}")
+            continue
         comments_by_id[comment_id] = comment
 
     parents: dict[int, int | None] = {}
     for comment_id, comment in comments_by_id.items():
-        parent_id = _parent_id(comment)
+        parent_id = _parent_id(comment, warn=warn)
         if parent_id is not None and parent_id not in comments_by_id:
-            raise PrCommentGateError("comment parent is missing from the payload")
+            warn(
+                f"comment {comment_id} missing parent {parent_id}; "
+                "treated as a root"
+            )
+            parent_id = None
         parents[comment_id] = parent_id
 
+    repaired_cycles: set[frozenset[int]] = set()
     for comment_id in comments_by_id:
         current_id: int | None = comment_id
-        visited: set[int] = set()
+        path: list[int] = []
+        positions: dict[int, int] = {}
         while current_id is not None:
-            if current_id in visited:
-                raise PrCommentGateError("comment parent graph contains a cycle")
-            visited.add(current_id)
+            if current_id in positions:
+                cycle = frozenset(path[positions[current_id] :])
+                if cycle and cycle not in repaired_cycles:
+                    repaired_cycles.add(cycle)
+                    warn(
+                        "broke cyclic comment parents for ids "
+                        + ",".join(str(value) for value in sorted(cycle))
+                    )
+                for cycle_id in cycle:
+                    parents[cycle_id] = None
+                break
+            positions[current_id] = len(path)
+            path.append(current_id)
             current_id = parents[current_id]
 
     return comments_by_id, parents
@@ -302,6 +397,7 @@ def eligible_leaf_paths(
     comments: Sequence[Mapping[str, Any]],
     *,
     now: datetime,
+    warn: WarningSink = _ignore_warning,
 ) -> list[tuple[Mapping[str, Any], ...]]:
     """Return eligible visible root-to-leaf paths, oldest leaf first.
 
@@ -311,12 +407,12 @@ def eligible_leaf_paths(
     if now.tzinfo is None:
         raise ValueError("now must be timezone-aware")
     cutoff = now.astimezone(UTC) - timedelta(hours=24)
-    comments_by_id, parents = _index_comment_graph(comments)
+    comments_by_id, parents = _index_comment_graph(comments, warn=warn)
 
     visible_ids = {
         comment_id
         for comment_id, comment in comments_by_id.items()
-        if not _is_deleted(comment)
+        if not _is_deleted(comment, warn=warn)
     }
     ids_with_visible_descendants: set[int] = set()
     for comment_id in visible_ids:
@@ -326,32 +422,40 @@ def eligible_leaf_paths(
             parent_id = parents[parent_id]
 
     eligible: list[
-        tuple[datetime, int, tuple[Mapping[str, Any], ...]]
+        tuple[bool, datetime, int, tuple[Mapping[str, Any], ...]]
     ] = []
     for leaf_id in visible_ids - ids_with_visible_descendants:
         leaf = comments_by_id[leaf_id]
-        created_on = _parse_created_on(leaf)
-        raw = _comment_raw(leaf)
-        if created_on < cutoff or raw.startswith(AI_RESPONSE_PREFIX):
+        created_on = _parse_created_on(leaf, warn=warn)
+        raw = _comment_raw(leaf, warn=warn)
+        if created_on is not None and created_on < cutoff:
+            continue
+        if AI_RESPONSE_PATTERN.match(raw):
             continue
         eligible.append(
             (
-                created_on,
+                created_on is not None,
+                created_on or datetime.min.replace(tzinfo=UTC),
                 leaf_id,
                 _path_to_root(leaf_id, comments_by_id, parents),
             )
         )
 
-    eligible.sort(key=lambda item: (item[0], item[1]))
-    return [path for _, _, path in eligible]
+    eligible.sort(key=lambda item: (item[0], item[1], item[2]))
+    return [path for _, _, _, path in eligible]
 
 
 def has_eligible_leaves(
     comments: Sequence[Mapping[str, Any]],
     *,
     now: datetime,
+    warn: WarningSink = _ignore_warning,
 ) -> bool:
-    return bool(eligible_leaf_paths(comments, now=now))
+    return bool(eligible_leaf_paths(comments, now=now, warn=warn))
+
+
+def _warn_gate(message: str) -> None:
+    print(f"PR comment queue warning: {message}", file=sys.stderr)
 
 
 def evaluate_pr_comment_leaves(
@@ -362,19 +466,36 @@ def evaluate_pr_comment_leaves(
 ) -> DecisionOutcome:
     try:
         target_path = pr_list_path or resolve_pr_list_path()
-        references = parse_pr_list(target_path.read_text(encoding="utf-8"))
+        references = parse_pr_list(
+            target_path.read_text(encoding="utf-8"),
+            warn=_warn_gate,
+        )
         in_scope = require_in_scope_pr(references)
         active_runner = runner or make_subprocess_gt_runner()
         _ensure_in_scope_pr_is_open(in_scope, active_runner)
-        comments_by_pr: list[list[Mapping[str, Any]]] = []
-        for reference in references:
-            comments_by_pr.append(_list_all_comments(reference, active_runner))
+        failed_pr_ids: list[int] = []
         evaluated_at = now or datetime.now(UTC)
-        if any(
-            has_eligible_leaves(comments, now=evaluated_at)
-            for comments in comments_by_pr
-        ):
-            return no("eligible_pr_leaves_present")
+        for reference in references:
+            try:
+                comments = _list_all_comments(
+                    reference,
+                    active_runner,
+                    warn=_warn_gate,
+                )
+                if has_eligible_leaves(
+                    comments,
+                    now=evaluated_at,
+                    warn=_warn_gate,
+                ):
+                    return no("eligible_pr_leaves_present")
+            except (OSError, PrCommentGateError, UnicodeError) as error:
+                failed_pr_ids.append(reference.pr_id)
+                _warn_gate(f"PR {reference.pr_id} could not be inspected: {error}")
+        if failed_pr_ids:
+            return yes(
+                "pr_comment_queue_blocked",
+                failed_pr_ids=failed_pr_ids,
+            )
         return yes("no_eligible_pr_leaves")
     except (OSError, PrCommentGateError, UnicodeError) as error:
         print(f"PR comment queue check blocked: {error}", file=sys.stderr)

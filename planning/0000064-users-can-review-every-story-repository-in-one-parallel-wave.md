@@ -3560,7 +3560,7 @@ Distinguish the two failure classes at the runtime boundary, continue only provi
 
 ### Task 56. Re-Validate Story 64 After Completion-Gate Settlement Repair
 
-- Task Status: `__todo__`
+- Task Status: `__in_progress__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `final_revalidation`
 - Prerequisite: Task 55 must be `__done__`, its focused testing must be checked, and its repair commit must remain reachable from the current branch.
@@ -3637,3 +3637,4 @@ This is the single final testing/revalidation task after all implementation work
 #### Implementation Notes
 
 - Created by settlement audit after Task 55 was restored as implementation work. This task is the sole final-revalidation owner and must be followed by a fresh review of its final immutable HEAD before convergence.
+- Planner normalization restored the canonical `__to_do__` status so the selector can bind this task; its existing unchecked revalidation and testing ownership remains unchanged.

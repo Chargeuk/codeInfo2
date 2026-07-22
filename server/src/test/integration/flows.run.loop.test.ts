@@ -24,7 +24,11 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { startFlowRun } from '../../flows/service.js';
+import {
+  __resetFlowServiceDepsForTests,
+  __setFlowServiceDepsForTests,
+  startFlowRun,
+} from '../../flows/service.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
@@ -44,9 +48,11 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
+  __resetFlowServiceDepsForTests();
 });
 
 afterEach(() => {
+  __resetFlowServiceDepsForTests();
   resetDeterministicCodexAvailabilityBootstrap();
 });
 
@@ -201,6 +207,7 @@ const withFlowServer = async (
       conversationId: string;
       detail?: string;
     }) => void | Promise<void>;
+    flowServiceDeps?: Parameters<typeof __setFlowServiceDepsForTests>[0];
   },
 ) => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -210,6 +217,9 @@ const withFlowServer = async (
 
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
+  if (options?.flowServiceDeps) {
+    __setFlowServiceDepsForTests(options.flowServiceDeps);
+  }
 
   const app = express();
   app.use(
@@ -243,6 +253,7 @@ const withFlowServer = async (
     } else {
       delete process.env.FLOWS_DIR;
     }
+    __resetFlowServiceDepsForTests();
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 };
@@ -416,6 +427,280 @@ const expectNoTerminalFinal = async (
     /Timed out waiting for WebSocket event/,
   );
 };
+
+test('wait step delays by seconds before the following step runs', async () => {
+  const waitedMilliseconds: number[] = [];
+  await withFlowServer(
+    () => 'continued',
+    async ({ baseUrl }) => {
+      const conversationId = 'flow-wait-basic-conv';
+      try {
+        await supertest(baseUrl)
+          .post('/flows/wait-basic/run')
+          .send({ conversationId })
+          .expect(202);
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'assistant' &&
+                turn.content === 'Waited for 5 seconds.',
+            ) &&
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('Continue after wait.'),
+            ),
+        );
+
+        const waitAssistantIndex = turns.findIndex(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.content === 'Waited for 5 seconds.',
+        );
+        const followingUserIndex = turns.findIndex(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Continue after wait.'),
+        );
+        assert.deepEqual(waitedMilliseconds, [5000]);
+        assert.ok(waitAssistantIndex >= 0);
+        assert.ok(followingUserIndex > waitAssistantIndex);
+        await cleanupConversationRuntime(
+          conversationId,
+          getAgentConversationId(conversationId, 'coding_agent:after-wait'),
+        );
+      } catch (error) {
+        await cleanupConversationRuntime(conversationId).catch(() => {});
+        throw error;
+      }
+    },
+    {
+      flowServiceDeps: {
+        waitForDuration: async (milliseconds) => {
+          waitedMilliseconds.push(milliseconds);
+        },
+      },
+    },
+  );
+});
+
+test('wait step can execute inside a startLoop', async () => {
+  const waitedMilliseconds: number[] = [];
+  await withFlowServer(
+    (message) =>
+      message.includes('Exit wait loop?')
+        ? JSON.stringify({ answer: 'yes' })
+        : 'ok',
+    async ({ baseUrl }) => {
+      const conversationId = 'flow-wait-loop-conv';
+      try {
+        await supertest(baseUrl)
+          .post('/flows/wait-loop/run')
+          .send({ conversationId })
+          .expect(202);
+
+        await waitForTurns(conversationId, (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' && turn.content.includes('Exit wait loop?'),
+          ),
+        );
+
+        assert.deepEqual(waitedMilliseconds, [2000]);
+        await cleanupConversationRuntime(
+          conversationId,
+          getAgentConversationId(
+            conversationId,
+            'coding_agent:wait-loop-break',
+          ),
+        );
+      } catch (error) {
+        await cleanupConversationRuntime(conversationId).catch(() => {});
+        throw error;
+      }
+    },
+    {
+      flowServiceDeps: {
+        waitForDuration: async (milliseconds) => {
+          waitedMilliseconds.push(milliseconds);
+        },
+      },
+    },
+  );
+});
+
+test('wait step stops promptly and does not run following steps', async () => {
+  let markWaitStarted: (() => void) | undefined;
+  const waitStarted = new Promise<void>((resolve) => {
+    markWaitStarted = resolve;
+  });
+  await withFlowServer(
+    () => 'should not run',
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-wait-stop-conv';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      try {
+        const response = await supertest(baseUrl)
+          .post('/flows/wait-basic/run')
+          .send({ conversationId })
+          .expect(202);
+
+        await withTimeout(waitStarted, 2000, 'Timed out starting wait step');
+        sendJson(wsUrl, {
+          type: 'cancel_inflight',
+          conversationId,
+          inflightId: response.body.inflightId as string,
+        });
+
+        const final = await waitForEvent({
+          ws: wsUrl,
+          predicate: (
+            event: unknown,
+          ): event is { type: 'turn_final'; status: string } => {
+            const candidate = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+            };
+            return (
+              candidate.type === 'turn_final' &&
+              candidate.conversationId === conversationId &&
+              candidate.status === 'stopped'
+            );
+          },
+          timeoutMs: 2000,
+        });
+
+        assert.equal(final.status, 'stopped');
+        const turns = memoryTurns.get(conversationId) ?? [];
+        assert.equal(
+          turns.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Continue after wait.'),
+          ),
+          false,
+        );
+        await cleanupConversationRuntime(conversationId);
+      } catch (error) {
+        await cleanupConversationRuntime(conversationId).catch(() => {});
+        throw error;
+      }
+    },
+    {
+      flowServiceDeps: {
+        waitForDuration: async (_milliseconds, signal) => {
+          markWaitStarted?.();
+          if (signal.aborted) return;
+          await new Promise<void>((resolve) => {
+            signal.addEventListener('abort', () => resolve(), { once: true });
+          });
+        },
+      },
+    },
+  );
+});
+
+test('stopped wait remains incomplete and runs again on resume', async () => {
+  let waitMode: 'block' | 'complete' = 'block';
+  let waitCallCount = 0;
+  let markWaitStarted: (() => void) | undefined;
+  const waitStarted = new Promise<void>((resolve) => {
+    markWaitStarted = resolve;
+  });
+  await withFlowServer(
+    () => 'ok',
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-wait-resume-conv';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      try {
+        await supertest(baseUrl)
+          .post('/flows/wait-resume/run')
+          .send({ conversationId })
+          .expect(202);
+
+        await withTimeout(
+          waitStarted,
+          3000,
+          'Timed out starting resumable wait',
+        );
+        const activeWaitInflightId = getInflight(conversationId)?.inflightId;
+        assert.ok(activeWaitInflightId);
+        sendJson(wsUrl, {
+          type: 'cancel_inflight',
+          conversationId,
+          inflightId: activeWaitInflightId,
+        });
+
+        await waitForEvent({
+          ws: wsUrl,
+          predicate: (event: unknown): event is { type: 'turn_final' } => {
+            const candidate = event as {
+              type?: string;
+              conversationId?: string;
+              status?: string;
+            };
+            return (
+              candidate.type === 'turn_final' &&
+              candidate.conversationId === conversationId &&
+              candidate.status === 'stopped'
+            );
+          },
+          timeoutMs: 3000,
+        });
+        await waitForRuntimeCleanup(conversationId);
+
+        const stoppedConversation = memoryConversations.get(conversationId);
+        const stoppedFlowState = (stoppedConversation?.flags ?? {}) as {
+          flow?: { stepPath?: number[] };
+        };
+        assert.deepEqual(stoppedFlowState.flow?.stepPath, [0]);
+
+        waitMode = 'complete';
+        await supertest(baseUrl)
+          .post('/flows/wait-resume/run')
+          .send({ conversationId, resumeStepPath: [0] })
+          .expect(202);
+
+        await waitForTurns(conversationId, (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Run after resumed wait.'),
+          ),
+        );
+        assert.equal(waitCallCount, 2);
+        await cleanupConversationRuntime(
+          conversationId,
+          getAgentConversationId(conversationId, 'coding_agent:before-wait'),
+          getAgentConversationId(
+            conversationId,
+            'coding_agent:after-resumed-wait',
+          ),
+        );
+      } catch (error) {
+        await cleanupConversationRuntime(conversationId).catch(() => {});
+        throw error;
+      }
+    },
+    {
+      flowServiceDeps: {
+        waitForDuration: async (_milliseconds, signal) => {
+          waitCallCount += 1;
+          if (waitMode === 'complete') return;
+          markWaitStarted?.();
+          if (signal.aborted) return;
+          await new Promise<void>((resolve) => {
+            signal.addEventListener('abort', () => resolve(), { once: true });
+          });
+        },
+      },
+    },
+  );
+});
 
 test('flow loops until break answer matches breakOn', async () => {
   let outerBreakCount = 0;

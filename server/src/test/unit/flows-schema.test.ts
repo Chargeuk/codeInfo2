@@ -22,6 +22,7 @@ describe('flow schema (v1)', () => {
     continueOn?: string;
     steps?: FlowStep[];
     commandName?: string;
+    seconds?: number;
     markdownFile?: string;
     flowNames?: string[];
     pointerKeys?: string[];
@@ -1339,6 +1340,54 @@ describe('flow schema (v1)', () => {
     });
 
     const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('wait steps parse a positive integer duration and trimmed label', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'wait',
+            label: '  Wait five minutes  ',
+            seconds: 300,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.deepEqual(parsed.flow.steps[0], {
+      type: 'wait',
+      label: 'Wait five minutes',
+      seconds: 300,
+    });
+  });
+
+  test('wait steps reject missing, invalid, or excessive durations', () => {
+    for (const seconds of [undefined, 0, -1, 1.5, '300', 86_401]) {
+      const parsed = parseFlowFile(
+        JSON.stringify({
+          steps: [
+            {
+              type: 'wait',
+              ...(seconds === undefined ? {} : { seconds }),
+            },
+          ],
+        }),
+      );
+      assert.equal(parsed.ok, false, `seconds=${String(seconds)}`);
+    }
+  });
+
+  test('wait steps reject unsupported extra fields', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [{ type: 'wait', seconds: 5, extra: true }],
+      }),
+    );
+
     assert.equal(parsed.ok, false);
   });
 

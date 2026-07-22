@@ -136,6 +136,7 @@ import {
   type FlowStartLoopStep,
   type FlowSubflowStep,
   type FlowValidateReviewArtifactsStep,
+  type FlowWaitStep,
   type FlowStep,
 } from './flowSchema.js';
 import type {
@@ -177,6 +178,21 @@ const T07_ERROR_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=error';
 const DEV_0000040_T11_FLOW_RESOLUTION_ORDER =
   'DEV_0000040_T11_FLOW_RESOLUTION_ORDER';
+const waitForDuration = (milliseconds: number, signal: AbortSignal) =>
+  new Promise<void>((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      signal.removeEventListener('abort', finish);
+      resolve();
+    };
+    const timeout = setTimeout(finish, milliseconds);
+    signal.addEventListener('abort', finish, { once: true });
+    if (signal.aborted) finish();
+  });
+
 type FlowServiceDeps = {
   runReingestRepository: (args: {
     sourceId?: string;
@@ -184,6 +200,7 @@ type FlowServiceDeps = {
   buildReingestToolResult: typeof buildReingestToolResult;
   runReingestStepLifecycle: typeof runReingestStepLifecycle;
   createCallId: () => string;
+  waitForDuration: typeof waitForDuration;
 };
 
 const defaultFlowServiceDeps: FlowServiceDeps = {
@@ -191,6 +208,7 @@ const defaultFlowServiceDeps: FlowServiceDeps = {
   buildReingestToolResult,
   runReingestStepLifecycle,
   createCallId: () => crypto.randomUUID(),
+  waitForDuration,
 };
 
 export async function listFlows(params?: {
@@ -1784,6 +1802,7 @@ const buildFlowCommandMetadata = (params: {
     | FlowBreakStep
     | FlowContinueStep
     | FlowCommandStep
+    | FlowWaitStep
     | FlowResetStep
     | FlowPrepareReviewBaseStep
     | FlowCodexReviewStep
@@ -6166,6 +6185,125 @@ async function runFlowUnlocked(params: {
     return pendingCancel ? 'stopped' : 'ok';
   };
 
+  const runWaitStep = async (
+    step: FlowWaitStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
+    const instruction = `Wait for ${step.seconds} seconds.`;
+    const inflightState = createInflight({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: params.providerId,
+      model: params.modelId,
+      source: params.source,
+      command,
+    });
+    const inflightSignal = inflightState.abortController.signal;
+    const pendingStop = bindPendingConversationCancelToInflight({
+      conversationId: params.conversationId,
+      runToken: params.runToken,
+      inflightId: stepInflightId,
+    });
+    if (pendingStop.ok) {
+      abortInflight({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+      });
+      cleanupPendingConversationCancel({
+        conversationId: params.conversationId,
+        runToken: params.runToken,
+        inflightId: stepInflightId,
+      });
+    }
+
+    append({
+      level: 'info',
+      message: 'flows.run.wait_started',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        seconds: step.seconds,
+      },
+    });
+    publishInflightSnapshot(params.conversationId);
+
+    try {
+      await flowServiceDeps.waitForDuration(
+        step.seconds * 1000,
+        inflightSignal,
+      );
+    } catch (error) {
+      if (!inflightSignal.aborted) {
+        const message =
+          error instanceof Error ? error.message : 'Flow wait step failed.';
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          message,
+          errorCode: 'WAIT_FAILED',
+          command,
+        });
+        return 'failed';
+      }
+    }
+
+    if (inflightSignal.aborted) {
+      append({
+        level: 'info',
+        message: 'flows.run.wait_stopped',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          conversationId: params.conversationId,
+          inflightId: stepInflightId,
+          seconds: step.seconds,
+        },
+      });
+      await emitStoppedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return 'stopped';
+    }
+
+    append({
+      level: 'info',
+      message: 'flows.run.wait_completed',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        seconds: step.seconds,
+      },
+    });
+    await emitCompletedFlowStep({
+      flowConversationId: params.conversationId,
+      inflightId: stepInflightId,
+      instruction,
+      response: `Waited for ${step.seconds} seconds.`,
+      modelId: params.modelId,
+      providerId: params.providerId,
+      source: params.source,
+      command,
+    });
+    return 'ok';
+  };
+
   const runStartLoopStep = async (
     step: FlowStartLoopStep,
     nextPath: number[],
@@ -6446,6 +6584,40 @@ async function runFlowUnlocked(params: {
       if (step.type === 'startLoop') {
         const outcome = await runStartLoopStep(step, nextPath, null);
         if (outcome !== 'ok') return outcome;
+        continue;
+      }
+
+      if (step.type === 'wait') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            waitSeconds: step.seconds,
+          },
+        });
+        const status = await runWaitStep(step, command);
+        if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.wait',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
         continue;
       }
 

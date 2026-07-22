@@ -61,6 +61,8 @@ If there is or was a blocker, decide whether it reveals any of the following:
 - a recurring blocker-family mismatch, classified as product or story seam, proof or test harness seam, shared wrapper or baseline seam, manual or runtime environment seam, or task-shape or planning seam;
 - later tasks that now require renumbering or reference updates.
 
+Before classifying an apparent manual/runtime blocker as durable, interpret the blocked checklist item by meaning. If the item is only a browser walkthrough, screenshot request, agent-driven manual scenario, or another action owned by the later manual-testing agent, repair the task shape now: preserve and merge the scenario into checkbox-free `Manual Testing Guidance`, remove only the misplaced checklist item, retire the false blocker as resolved, and keep automated completion honest. Do not create a prerequisite or preserve a blocker merely to hand work to an agent that the normal flow can invoke once automated readiness is satisfied.
+
 For a Compose or runtime-handoff blocker, identify the active configuration from `CODEINFO_RUNTIME_COMPOSE_FILE` and compare it with the relevant Dockerfile before assigning ownership. If that checked-in file omits a required harness mapping, treat the repair as repository-owned executable work even when applying the new mapping still requires a later container recreation. Do not classify the problem as external merely because a different Compose variant already contains the mapping.
 
 </decision_rules>

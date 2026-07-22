@@ -1794,6 +1794,67 @@ test('parallel subflow waits for every child and continues best-effort when one 
   }
 });
 
+test('subflow wave preserves a failed child launch reason in progress state', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-launch-failure-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-wave-launch-failure',
+      steps: [
+        {
+          type: 'subflowWave',
+          label: 'Run missing review child',
+          failureMode: 'best_effort',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'missing-review',
+              flowName: 'missing-review-flow',
+            },
+          ],
+        },
+        llmStep('parent after missing wave child'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'parent-wave-launch-failure',
+      customTitle: 'Parent Review',
+      source: 'REST',
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => executions.push(message)),
+    });
+
+    await waitFor(() => executions.includes('parent after missing wave child'));
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const progress = (
+      memoryConversations.get(result.conversationId)?.flags as {
+        flow?: {
+          subflowWaveProgress?: {
+            failed?: number;
+            jobs?: Array<{
+              status?: string;
+              reason?: string;
+              conversationId?: string;
+            }>;
+          };
+        };
+      }
+    ).flow?.subflowWaveProgress;
+    assert.equal(progress?.failed, 1);
+    assert.equal(progress?.jobs?.[0]?.status, 'failed');
+    assert.match(progress?.jobs?.[0]?.reason ?? '', /FLOW_NOT_FOUND/u);
+    assert.equal(typeof progress?.jobs?.[0]?.conversationId, 'string');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('nested subflows track only direct children per conversation and still complete recursively', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-nested-parallel-'),

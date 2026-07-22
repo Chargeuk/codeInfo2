@@ -63,6 +63,8 @@ export type FlowSubflowWaveProgress = {
     instanceId: string;
     flowName: string;
     targetId?: string;
+    conversationId?: string;
+    reason?: string;
     title: string;
     status: FlowSubflowWaveJobStatus;
   }>;

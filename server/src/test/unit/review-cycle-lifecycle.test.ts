@@ -11,6 +11,7 @@ import {
   finalizeActiveReviewCycleIfPending,
   initializeReviewCycle,
   inspectFinalReviewReadiness,
+  recordReviewInvocationAttempt,
 } from '../../flows/reviewCycleLifecycle.js';
 
 const exec = promisify(execFile);
@@ -159,6 +160,60 @@ test('cycle completion is durable and independent from a flow execution', async 
   assert.equal(completed?.incomplete_reason, 'review failed');
   assert.equal(completed?.completed_at, '2026-07-18T12:05:00.000Z');
   assert.equal('parent_execution_id' in (completed ?? {}), false);
+});
+
+test('review invocation evidence survives a failed launch without a batch workspace', async () => {
+  const repo = await makeRepo();
+  const cycle = await initializeReviewCycle(
+    { workingRepositoryPath: repo, mode: 'final' },
+    {
+      now: () => new Date('2026-07-18T12:00:00.000Z'),
+      randomHex: () => '22222222',
+    },
+  );
+  const invocationId = '0.1@loop-2--one_shot_review_batch';
+  const scheduledPath = await recordReviewInvocationAttempt(
+    {
+      workingRepositoryPath: repo,
+      invocationId,
+      flowName: 'review_batch',
+      displayName: 'One-shot review batch',
+      status: 'scheduled',
+    },
+    { now: () => new Date('2026-07-18T12:01:00.000Z') },
+  );
+  const failedPath = await recordReviewInvocationAttempt(
+    {
+      workingRepositoryPath: repo,
+      invocationId,
+      flowName: 'review_batch',
+      displayName: 'One-shot review batch',
+      status: 'failed',
+      reason: 'FLOW_INVALID because the running schema rejected the child.',
+    },
+    { now: () => new Date('2026-07-18T12:01:01.000Z') },
+  );
+
+  assert.equal(failedPath, scheduledPath);
+  assert.ok(failedPath);
+  const evidence = await fs.readFile(failedPath!, 'utf8');
+  assert.match(evidence, /not a machine-parsed review result schema/u);
+  assert.match(evidence, new RegExp(cycle.cycle!.review_cycle_id, 'u'));
+  assert.match(evidence, /## 2026-07-18T12:01:00.000Z — scheduled/u);
+  assert.match(evidence, /## 2026-07-18T12:01:01.000Z — failed/u);
+  assert.match(evidence, /FLOW_INVALID because the running schema rejected/u);
+  await assert.rejects(
+    fs.readdir(
+      path.join(
+        repo,
+        'codeInfoTmp',
+        'reviews',
+        cycle.cycle!.review_cycle_id,
+        'batches',
+      ),
+    ),
+    /ENOENT/u,
+  );
 });
 
 test('pending-only cleanup preserves an explicit agent-decided outcome', async () => {

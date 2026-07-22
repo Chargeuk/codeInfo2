@@ -10,13 +10,15 @@ The original review workflow coupled each provider to stable pointers, publisher
 
 Use a KISS, agent-native review boundary instead. Every scheduled review receives the same kind of agent-readable story and repository inputs plus a private immutable job workspace. Each reviewer adapts those inputs to its own tools, preserves native work, and writes the clearest self-describing output it can. Output filenames and internal layouts are deliberately flexible: common verification, reconciliation, disposition, fixing, and settlement agents discover the available files and understand their meaning rather than application code parsing a provider-specific result schema.
 
-The parent flow only owns scheduling policy. It currently runs one configurable group repeatedly for early convergence with a five-iteration limit, then one separately configured group once because that group is slower. Reviewers and consumers do not know or care which scheduling group they belong to. Failures and incomplete coverage remain visible and the flow continues with best effort; useful sibling results are never discarded merely because another reviewer failed. Runtime code validates only factual boundaries such as assigned paths, containment, Git commits, directory presence, execution status, cancellation, and resume. Agents own semantic recovery and final settlement, and must never invent a clean result when meaningful evidence could not be produced. Provider-native commands run inside the existing CodeInfo Docker isolation boundary; the Codex reviewer uses one checked-in launcher that fixes its model, reasoning effort, non-interactive behavior, and full-access execution instead of attempting a second operating-system sandbox inside the container. Derived review-artifact steps are autonomous flow workers rather than interactive planning interviews: they resolve uncertainty from the immutable batch, always make a best-effort artifact, and never pause for user choices. After the complete review evidence has been reconciled and audited, an independently reset agent applies the repository's detailed story-scope policy to the actionable reconciliation before a second independent agent audits its finding conservation and exact copied batch identity, then disposition proceeds. Scope filtering removes or narrows only out-of-scope actionable items, preserves immutable job evidence, and records every removed item in a self-describing batch artifact so the final plan decision trail remains complete. One normal coding-agent invocation then attempts every surviving finding it can honestly resolve, processing all owning repositories sequentially with separate tests and commits. A one-iteration loop invokes a stronger research agent only when the coding agent cannot confirm that all actionable findings are resolved; only findings still unresolved after that stronger attempt may become implementation tasks during complete-pass settlement. The same bounded escalation principle applies during normal task implementation: after the coding agent's deep blocker repair, one freshly reset research agent may repair a directly causal issue outside the current task when necessary, while keeping every edit minimal, targeted, and within persisted story scope so normal implementation and proof can continue.
+The parent flow only owns scheduling policy. It currently runs one configurable group repeatedly for early convergence with a five-iteration limit, then one separately configured group once because that group is slower. Reviewers and consumers do not know or care which scheduling group they belong to. Failures and incomplete coverage remain visible and the flow continues with best effort; useful sibling results are never discarded merely because another reviewer failed. Runtime code validates only factual boundaries such as assigned paths, containment, Git commits, directory presence, execution status, cancellation, and resume. Agents own semantic recovery and final settlement, and must never invent a clean result when meaningful evidence could not be produced. Schema-bearing flow definitions are read from the linked source catalogue as one coherent server-generation snapshot, so a flow cannot consume JSON it changed while still running against an older server schema; the linked files remain the source of truth and the next rebuild or restart activates their new generation. Every attempted review-batch launch also leaves factual, self-describing evidence even when the child cannot start far enough to create a batch workspace. Provider-native commands run inside the existing CodeInfo Docker isolation boundary; the Codex reviewer uses one checked-in launcher that fixes its model, reasoning effort, non-interactive behavior, and full-access execution instead of attempting a second operating-system sandbox inside the container. Derived review-artifact steps are autonomous flow workers rather than interactive planning interviews: they resolve uncertainty from the immutable batch, always make a best-effort artifact, and never pause for user choices. After the complete review evidence has been reconciled and audited, an independently reset agent applies the repository's detailed story-scope policy to the actionable reconciliation before a second independent agent audits its finding conservation and exact copied batch identity, then disposition proceeds. Scope filtering removes or narrows only out-of-scope actionable items, preserves immutable job evidence, and records every removed item in a self-describing batch artifact so the final plan decision trail remains complete. One normal coding-agent invocation then attempts every surviving finding it can honestly resolve, processing all owning repositories sequentially with separate tests and commits. A one-iteration loop invokes a stronger research agent only when the coding agent cannot confirm that all actionable findings are resolved; only findings still unresolved after that stronger attempt may become implementation tasks during complete-pass settlement. The same bounded escalation principle applies during normal task implementation: after the coding agent's deep blocker repair, one freshly reset research agent may repair a directly causal issue outside the current task when necessary, while keeping every edit minimal, targeted, and within persisted story scope so normal implementation and proof can continue. Final revalidation keeps runnable automated commands in `Testing` and optional agent-driven proof in checkbox-free `Manual Testing Guidance`; agents repair understandable section-shape mistakes semantically instead of creating an endless handoff blocker.
 
 ## Acceptance Criteria
 
 - A generic `subflowWave` flow step supports matrix and singleton child-flow groups without hard-coding review semantics.
 - The wave runtime accepts bounded immutable JSON child inputs, binds working folders explicitly, and gives every expanded job a stable unique instance identity.
 - Existing `subflow` flow files and runtime behavior remain backward-compatible.
+- Each server generation reads and validates every linked schema-bearing flow definition once, and root, nested, looped, and resumed child launches use that coherent catalogue until a rebuild or restart activates a new generation.
+- Editing linked flow JSON during a run cannot make that run combine a newer flow definition with an older compiled server schema; linked source mounts remain authoritative and are never replaced by copied mount trees or review-run ownership.
 - The repository provides `flows/implement_current_plan.json`, which preserves the exact persisted current plan without selecting or switching to another plan, runs the normal post-implementation review, settlement, and closeout cycle even when that plan is already complete, and returns to implementation only when review settlement creates work.
 - A persisted review-target snapshot contains the canonical plan host plus every plan-scope repository with stable alias, real root, checked-out branch, full HEAD commit, and pinned comparison base.
 - The runtime never switches a shared checkout between branches; distinct branches require distinct worktree paths.
@@ -25,6 +27,8 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - Review output is self-describing and has no required result schema, filename, heading layout, or provider publication record.
 - Common downstream agents discover every pre-created job directory and interpret whatever output and native work are present without provider names, pointer mappings, expected reviewer counts, or exact file-format parsing.
 - Missing or misleading output is recovered from useful native work where possible; otherwise the job records an honest unavailable or partial result without suppressing trustworthy sibling findings.
+- Every attempted generic review-batch invocation leaves factual self-describing launch evidence, including failure reason and child conversation identity when available, even when the child cannot create a batch workspace.
+- Complete-pass settlement discovers both batch workspaces and launch-attempt evidence, treats a failed launch without a batch as unavailable coverage rather than a clean omission, and interprets imperfect evidence without exact schemas, filenames, reviewer counts, or scheduling identities.
 - Runtime validation remains factual and format-agnostic: it may check assigned paths, containment, required directories, Git HEADs, non-empty output presence, execution outcomes, cancellation, and resume, but does not decide the semantic meaning of review text.
 - Codex, OpenCode, the multi-agent deep review, and the cross-repository review use the same workspace input/output boundary while retaining their own internal review strategy.
 - The Codex reviewer invokes its native CLI only through a checked-in launcher that always uses `--dangerously-bypass-approvals-and-sandbox`, closes stdin, runs ephemerally, and explicitly supplies the selected model, reasoning effort, comparison base, instructions, and native-response destination.
@@ -44,6 +48,8 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - Fixes from either repair agent cause another useful repeated review against every changed repository's new immutable HEAD, subject to the five-iteration limit; reaching the limit follows the same continuation route as early completion.
 - Findings unresolved after the normal and stronger attempts survive later batches and are handled once during complete-pass settlement rather than being lost, duplicated by provider, prematurely tasked, or converted into endless same-HEAD retries.
 - When a pass produced direct fixes but no task-required issue, settlement adds or updates one final testing/revalidation task; when findings require tasks, settlement adds those implementation tasks followed by one final testing/revalidation task.
+- Settlement-created and repaired tasks keep runnable automated proof only in `Testing`; optional browser, screenshot, agent-driven, or other manual scenarios remain checkbox-free and non-blocking in `Manual Testing Guidance`.
+- Normalization, automated proof, proof audit, and blocker research semantically repair a misplaced manual checklist item by preserving its meaning in manual guidance, removing only the misplaced checkbox, and retiring a blocker whose sole cause was waiting for the later manual-testing agent.
 - The outer story loop implements newly settled work and starts a fresh complete review pass until a pass is genuinely clean.
 - Every main implementation flow gives the normal coding agent the first deep implementation-blocker repair attempt, then uses a one-iteration optional-research loop that skips only when the coding agent positively confirms no live blocker remains.
 - Every main implementation flow resets the normal `coding_agent` immediately before loading current-task repair context and resets the stronger `research_agent` immediately before its repair invocation, while the persistent loop-control agent is not reset inside the optional repair loop.
@@ -66,6 +72,7 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - Switching branches inside one shared Git working tree.
 - Replacing the existing `subflow` step or changing its JSON contract.
 - Requiring review output to match a rigid JSON or Markdown schema, exact filename, fixed heading set, or provider-specific result format.
+- Hot-reloading schema-bearing flow JSON inside an already running server generation; changes become active together on rebuild or restart so executable definitions stay compatible with compiled runtime code.
 - Reintroducing stable provider pointers, publishers, provider-specific parsers, expected-reviewer joins, or application code that interprets review meaning.
 - Adding a generalized command-execution framework, changing another reviewer's native launcher, or parsing Codex's review response in application code; the dedicated launcher owns invocation policy only.
 - Deleting or rewriting immutable reviewer job output or verification evidence when filtering story scope; only the derived actionable reconciliation may be filtered.
@@ -76,6 +83,7 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - Adding an unbounded implementation-blocker research loop, special recovery semantics for malformed completion-gate responses, opportunistic cleanup or speculative redesign, mutation outside persisted plan scope, or per-run repair notes in reusable flow JSON.
 - Resetting persistent loop-control agents inside the bounded implementation-repair escalation.
 - Supporting concurrent top-level story/review flows against the same plan; concurrent ownership, locking, leasing, and conflict resolution are deliberately not added.
+- Adding keyword-based task-shape parsing or requiring launch-attempt Markdown to match a rigid consumer schema; agents interpret and repair these self-describing files by meaning.
 - Guaranteeing meaningful review or settlement content when every relevant AI/provider is unavailable; the workflow preserves honest incomplete state instead of inventing findings or a clean result.
 - Opening a pull request as part of this story unless separately requested.
 
@@ -3560,7 +3568,7 @@ Distinguish the two failure classes at the runtime boundary, continue only provi
 
 ### Task 56. Re-Validate Story 64 After Completion-Gate Settlement Repair
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `final_revalidation`
 - Prerequisite: Task 55 must be `__done__`, its focused testing must be checked, and its repair commit must remain reachable from the current branch.
@@ -3589,7 +3597,7 @@ This is the single final testing/revalidation task after all implementation work
 - The tested target is the exact Task 55 commit, and all three repair commits remain separately reachable in `current_repository` history.
 - Server/common and client builds, the supported Compose lifecycle, the full automated suite, lint, and formatting checks pass through required wrappers.
 - Automated proof covers repeated-wave identity and restart recovery, parent active-child persistence, duplicate-primary handling, deterministic alias uniqueness, review completion-gate provider failure, implementation completion-gate provider failure across all four main flows, and invalid-response non-continuation.
-- Supported manual proof is complete or an authentication-dependent skip is recorded exactly as repository guidance allows.
+- Supported manual scenarios remain preserved for the later manual-testing agent in non-blocking guidance and are not represented as automated completion proof.
 - The not-applicable cross-repository result, OpenCode coverage limitations, absent real MongoDB 16 MiB boundary test, and excluded malformed-response meanings remain visible.
 - Every checkbox and the final target HEAD are recorded in Implementation Notes before this task is marked `__done__`.
 
@@ -3623,15 +3631,15 @@ This is the single final testing/revalidation task after all implementation work
 3. [x] Run `npm run compose:build:summary`.
 4. [x] Start the supported main stack with `npm run compose:up` and wait for the documented health gates.
 5. [x] Run `npm run test:summary:all:parallel`.
-6. [ ] Complete supported manual proof for one-target cancellation/resume and terminal recovery, three-target expansion and wave counts, isolated target artifacts, and the one-target cross-repository handoff surface.
-7. [x] Stop the supported main stack with `npm run compose:down`.
-8. [x] Run `npm run lint`.
-9. [x] Run `npm run format:check`.
+6. [x] Stop the supported main stack with `npm run compose:down`.
+7. [x] Run `npm run lint`.
+8. [x] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 
 - Use only the supported main stack at `http://localhost:5010/health` and `http://localhost:5001`; do not use or stop `codeinfo:local`.
 - Keep the repository catalog unchanged. Verify cross-repository handoff as not applicable for one target rather than adding a repository.
+- When useful, manually prove one-target cancellation/resume and terminal recovery, three-target expansion and wave counts, isolated target artifacts, and the one-target cross-repository handoff surface. This optional agent-driven scenario is not an automated `Testing` checkbox.
 - Record authentication-dependent skips under repository guidance and do not attempt autonomous re-authentication.
 
 #### Implementation Notes
@@ -3654,4 +3662,113 @@ This is the single final testing/revalidation task after all implementation work
 - **BLOCKING ANSWER** Repository precedent proves this is an expected manual/runtime proof-handoff seam, not a missing product implementation or test harness. `codeinfo_markdown/manual_test_latest_completed_task.md:86-105` requires the manual-testing agent to skip a parser-selected task while unchecked testing or a live blocker remains; `:260-282` allows only one bounded supported runtime recovery before using a documented structural or environment skip; and `:360-380` retires the blocker only after manual proof succeeds or an allowed repository skip is recorded. `codeInfoStatus/manual-testing/0000055/task210-manual-proof-summary.md:1-80` shows the prior final-task precedent: reload the persisted handoff, use the supported main stack, record acceptance-relevant artifacts, and close only after the manual pass. Repository policy in `AGENTS.md:183` and `codeinfo_markdown/repository_information.md:30-45` separately permits skipping only an auth-dependent surface when provider login would require human-controlled two-factor authentication, forbids autonomous `Re-authenticate`, and says not to reopen or fail the task for that reason alone.
 - **BLOCKING ANSWER** External precedent confirms the same separation: Playwright Test is the automated runner (`https://playwright.dev/docs/test-cli`), while Playwright CLI and MCP are supported interactive browser workflows for coding agents and manual walkthroughs (`https://playwright.dev/docs/getting-started-cli`, `https://playwright.dev/agent-cli/introduction`); the reviewed DeepWiki and Context7 documentation for `microsoft/playwright` describe the same runner-versus-interactive distinction. The chosen solution is therefore to preserve Task 56 as the final closeout owner, keep Testing 6 and its explicit manual-proof ownership intact, and hand execution to the later manual-testing agent using Task 56's supported main-stack guidance; that agent must complete the listed scenarios and retain proof artifacts, or record only an allowed auth-dependent skip, before checking Testing 6. This fits the local plan because `current_repository` is the only target and the task already owns whole-story manual closeout; the blocker family is manual/runtime environment seam at the workflow-handoff boundary, with Task 56 owning the acceptance gate and the later manual-testing agent owning execution, so no prerequisite task, planner repair, product change, or harness repair is required. Marking Testing 6 complete from automated results, repeatedly rerunning broad wrappers, changing production behavior or the harness, or attempting autonomous re-authentication would either misrepresent unperformed proof or violate repository policy, so those alternatives are rejected.
 - Planner review confirmed that the researched manual-testing handoff is the intended Task 56 boundary; the workflow blocker is retired while Testing 6 remains explicitly unchecked for the later manual-testing agent.
-- **BLOCKER** Testing 6 (supported manual proof) remains the first unchecked Testing item. This automated-testing pass did not run it because the task explicitly prohibits manual browser or agent-driven validation; the automated proof is otherwise complete and no new repository or automated validation step was implicated by the current story-owned inventory. The exact remaining work must be performed by the later manual-testing agent, so Task 56 should remain `__in_progress__` and be handed off without a task split, reorder, re-ownership, or rewrite.
+- **RESOLVED ISSUE** Planner normalization corrected the section-ownership error exposed by run O: the unperformed manual scenario was preserved in `Manual Testing Guidance`, removed from the automated `Testing` checklist without being represented as completed, and its false handoff blocker was retired. The eight actual automated steps were already complete, so Task 56 now records the historical validation honestly and later corrective work is owned by Task 57 followed by fresh final revalidation.
+
+### Task 57. Stabilize Review Flow Generations And Best-Effort Settlement Evidence
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Prerequisite: Task 56 is normalized and `__done__` without claiming that its optional manual scenario ran.
+
+#### Overview
+
+Repair the runtime and agent-contract gaps exposed by run O. Keep linked source catalogues and flexible agent-readable review artifacts, while ensuring one server generation cannot combine newly edited flow JSON with older compiled schema code and a failed review-batch launch cannot disappear before settlement.
+
+#### Non-Goals
+
+- Do not copy or replace linked flow mounts.
+- Do not introduce rigid review-result or attempt-evidence parsing.
+- Do not add concurrent top-level flow ownership or a general `if` primitive.
+- Do not redesign the existing successful durable-blocker exit.
+
+#### Task Exit Criteria
+
+- Root and nested launches use one generation-stable parsed flow catalogue and a fresh server generation observes later linked changes.
+- Review-batch launch progress preserves conversation and failure facts and writes best-effort self-describing attempt evidence before a batch workspace exists.
+- Settlement consumes batch and attempt evidence semantically, and task agents repair misplaced manual proof without a recurring blocker.
+- Focused and full server proof, lint, and formatting pass.
+
+#### Subtasks
+
+1. [x] Document server-generation flow coherence, failed-launch visibility, flexible evidence interpretation, and automated-versus-manual task ownership in the story contract.
+2. [x] Add a shared generation-stable flow-definition catalogue and route flow execution and discovery through its parsed definitions while leaving linked source mounts authoritative.
+3. [x] Preserve child conversation and failure reason in wave progress and write best-effort self-describing review-batch attempt history under the active review pass.
+4. [x] Harden settlement, application, audit, normalization, automated-proof, proof-audit, and blocker-research prompts so imperfect artifacts and misplaced manual proof are repaired semantically.
+5. [x] Add and pass focused regression proof for generation pinning, next-generation reload, failed launch evidence, flexible settlement contracts, and wave progress facts.
+
+#### Testing
+
+1. [x] Run the focused server-unit wrappers for flow hot-reload/generation behavior, review-cycle lifecycle, subflow wave progress, flow schema, and prompt contracts.
+2. [x] Run `npm run test:summary:server:unit`.
+3. [x] Run `npm run build:summary:server`.
+4. [x] Run `npm run lint` and fix any issues found.
+5. [x] Run `npm run format:check` and fix any issues found.
+
+#### Manual Testing Guidance
+
+- After the next user-controlled `compose:local` rebuild/restart, confirm the flow list and runner expose the same valid `review_batch` definition and a fresh review pass no longer consumes flow JSON written during the prior server generation.
+- If a reviewer is deliberately unavailable, confirm useful siblings continue and the settlement agent can find the self-describing attempt record without requiring an exact layout.
+
+#### Implementation Notes
+
+- Subtask 1: Extended the story contract without changing the agent-native review boundary: strict coherence applies only to executable flow definitions and factual launch metadata, while review prose remains flexible and semantically repaired.
+- Subtask 2: Added `server/src/flows/flowDefinitionCatalog.ts`; the first catalogue access reads and parses every linked flow JSON for that root, and execution plus discovery reuse that catalogue until a new server generation. The first build exposed one accidental extra discovery argument, which was removed without broadening the change.
+- Subtask 3: Added optional conversation and reason facts to persisted wave progress and append-only, atomic Markdown attempt history for scheduled, running, failed, stopped, completed, and not-applicable review-batch invocations. Evidence-write errors are logged and do not stop the parent flow.
+- Subtask 4: Updated the settlement and task-working prompts to discover attempt evidence, tolerate imperfect self-describing files, keep manual scenarios out of automated checklists, and repair false manual handoff blockers by meaning rather than keywords.
+- Testing 3: `npm run build:summary:server` passed with zero warnings after the focused discovery-call correction; the wrapper reported `agent_action: skip_log`.
+- Subtask 5 / Testing 1: Added generation-pinning and next-generation reload coverage, failed-launch attempt-history coverage without a batch directory, persisted wave conversation/reason coverage, and prompt-contract assertions. The first focused run passed 134/135 and showed that even an early failed child owns a conversation id; the assertion was corrected to preserve that useful fact, and the rerun passed 135/135.
+- Testing 2: `npm run test:summary:server:unit` passed the complete server unit/integration surface with 2,589 tests passed and 0 failed.
+- Testing 4: The first `npm run lint` found one import-order warning in `service.ts`; the imports were reordered without behavior change and the rerun passed with zero warnings.
+- Testing 5: `npm run format:check` passed for every tracked supported file; a direct Prettier check also passed for the newly added untracked catalogue source that the Git-based wrapper cannot see until staging.
+- Completion audit: All five implementation subtasks and five testing steps are complete, no live blocker remains, and Task 58 now owns fresh whole-story validation.
+
+### Task 58. Re-Validate Story 64 After Flow-Generation And Settlement Repair
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `final_revalidation`
+- Prerequisite: Task 57 must be `__done__` with all focused proof complete.
+
+#### Overview
+
+Run fresh whole-story automated validation after the run O repairs, preserving all earlier qualified coverage limits and leaving optional agent-driven scenarios in manual guidance.
+
+#### Task Exit Criteria
+
+- Required builds, supported main-stack lifecycle, full automated suite, lint, and formatting pass on the final Task 57 HEAD.
+- Focused evidence proves generation-stable flow loading, failed launch visibility, semantic task-shape repair, and existing best-effort loop/exit behavior.
+- Final proof does not claim unavailable reviewer coverage or optional manual scenarios were completed when they were not.
+
+#### Subtasks
+
+1. [x] Run the supported lint command and make only directly required minimal fixes.
+2. [x] Run the supported formatting command and make only directly required minimal fixes.
+
+#### Testing
+
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run compose:build:summary`.
+4. [x] Start the supported main stack with `npm run compose:up` and wait for its health gates.
+5. [x] Run `npm run test:summary:all:parallel`.
+6. [x] Stop the supported main stack with `npm run compose:down`.
+7. [x] Run `npm run lint`.
+8. [x] Run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+- Use the supported main stack at `http://localhost:5010/health` and `http://localhost:5001`; never stop or modify `codeinfo:local` from this agent session.
+- After the user rebuilds the linked local development stack, confirm a fresh review pass sees one coherent flow generation and records an unavailable attempt without losing sibling evidence.
+- Preserve honest authentication-dependent skips and do not attempt autonomous re-authentication.
+
+#### Implementation Notes
+
+- Created as the sole final automated revalidation owner after Task 57; optional live review scenarios remain non-blocking manual guidance.
+- Testing 1: Fresh `npm run build:summary:server` passed with zero warnings after all Task 57 runtime and test changes; the wrapper reported `agent_action: skip_log`.
+- Testing 2: `npm run build:summary:client` passed typecheck and the production build. The wrapper reported the existing 1,700 kB Vite chunk-size warning for the main bundle, with no build failure.
+- Testing 3: `npm run compose:build:summary` passed both image-build items with zero failures and confirmed the expected runtime assets were baked into the supported main image.
+- Testing 4: The first `npm run compose:up` correctly refused occupied main-stack ports. Inspection showed an older supported main stack, so only that stack was stopped with `npm run compose:down`; the protected `codeinfo2-*-local` containers were untouched. The fresh `npm run compose:up` then passed preflight and reached healthy MongoDB and server gates with the client started from the newly built image.
+- Testing 5: `npm run test:summary:all:parallel` passed all four surfaces: client 900/900, server unit 2,589/2,589, server Cucumber 133/133, and e2e 77/77. Its shared server/client and main/e2e image prebuilds also passed.
+- Testing 6: `npm run compose:down` removed only the supported main-stack containers and network after proof; the protected `codeinfo2-*-local` stack remained untouched.
+- Subtask 1 / Testing 7: Final `npm run lint` passed with zero warnings after all implementation, test, and plan changes.
+- Subtask 2 / Testing 8: Final `npm run format:check` passed for every tracked supported file, and the direct check for the newly added catalogue source also passed. All Task 58 automated checks are complete with no live blocker; optional local-flow and unavailable-provider walkthroughs remain honestly non-blocking manual guidance.

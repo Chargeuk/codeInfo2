@@ -117,13 +117,16 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import { runFlowDecisionScript } from './flowDecisionScript.js';
 import {
+  __resetFlowDefinitionCatalogForTests,
+  getFlowDefinitionCatalogEntry,
+} from './flowDefinitionCatalog.js';
+import {
   hashFlowInput,
   normalizeFlowInput,
   prependAssignedReviewJobContext,
   tryNormalizeFlowInput,
 } from './flowInput.js';
 import {
-  parseFlowFile,
   type FlowFile,
   type FlowBreakStep,
   type FlowContinueStep,
@@ -162,6 +165,8 @@ import { prepareReviewBatchWorkspace } from './reviewBatchWorkspace.js';
 import {
   finalizeActiveReviewCycleIfPending,
   initializeReviewCycle,
+  recordReviewInvocationAttempt,
+  type ReviewInvocationAttemptStatus,
 } from './reviewCycleLifecycle.js';
 import { prepareReviewTargets } from './reviewTargets.js';
 import type { ReviewTargetSnapshot } from './reviewTargets.js';
@@ -700,6 +705,7 @@ export function __resetFlowServiceDepsForTests() {
   Object.assign(flowServiceDeps, defaultFlowServiceDeps);
   freshRunRetryOwnershipByKey.clear();
   freshRunRetryOwnershipCompletedByKey.clear();
+  __resetFlowDefinitionCatalogForTests();
 }
 
 export function __resetFreshRunRetryOwnershipCompletionForTests() {
@@ -883,6 +889,12 @@ const normalizeSubflowWaveProgress = (
       flowName,
       ...(normalizeOptionalString(job.targetId)
         ? { targetId: normalizeOptionalString(job.targetId) }
+        : {}),
+      ...(normalizeOptionalString(job.conversationId)
+        ? { conversationId: normalizeOptionalString(job.conversationId) }
+        : {}),
+      ...(normalizeOptionalString(job.reason)
+        ? { reason: normalizeOptionalString(job.reason) }
         : {}),
       title,
       status: status as FlowSubflowWaveProgress['jobs'][number]['status'],
@@ -1671,22 +1683,16 @@ const loadFlowFile = async (params: {
       flowPath: filePath,
     },
   });
-  const jsonText = await fs.readFile(filePath, 'utf8').catch((error) => {
-    if ((error as { code?: string }).code === 'ENOENT') {
-      throw toFlowRunError('FLOW_NOT_FOUND');
-    }
-    throw error;
-  });
-
-  const parsed = parseFlowFile(jsonText, {
+  const entry = await getFlowDefinitionCatalogEntry({
+    flowsRoot: params.flowsRoot,
     flowName: params.flowName,
-    emitSchemaParseLogs: true,
   });
-  if (!parsed.ok) {
+  if (!entry) throw toFlowRunError('FLOW_NOT_FOUND');
+  if (!entry.parsed?.ok) {
     throw toFlowRunError('FLOW_INVALID');
   }
 
-  return parsed.flow;
+  return structuredClone(entry.parsed.flow);
 };
 
 const getAgentKey = (agentType: string, identifier: string) =>
@@ -5267,18 +5273,23 @@ async function runFlowUnlocked(params: {
         title: string;
         status: 'ok' | 'failed' | 'stopped' | 'not_applicable';
         reason?: string;
+        conversationId?: string;
       }
     >();
     const recordChildOutcome = (params: {
       instanceId: string;
       status: 'ok' | 'failed' | 'stopped' | 'not_applicable';
       reason?: string;
+      conversationId?: string;
     }) => {
       const job = jobByInstanceId.get(params.instanceId);
       childOutcomes.set(params.instanceId, {
         title: job ? buildTrackedSubflowTitle(job) : params.instanceId,
         status: params.status,
         ...(params.reason ? { reason: params.reason } : {}),
+        ...(params.conversationId
+          ? { conversationId: params.conversationId }
+          : {}),
       });
     };
     const refreshWaveProgress = () => {
@@ -5287,7 +5298,11 @@ async function runFlowUnlocked(params: {
         childRuns.map((childRun) => activeInstanceId(childRun)),
       );
       const progressJobs: FlowSubflowWaveProgress['jobs'] = jobs.map((job) => {
-        const outcome = childOutcomes.get(job.instanceId)?.status;
+        const childOutcome = childOutcomes.get(job.instanceId);
+        const outcome = childOutcome?.status;
+        const childConversationId =
+          childOutcome?.conversationId ??
+          rememberedSubflowsByInstance.get(job.instanceId)?.conversationId;
         const status = outcome
           ? outcome === 'ok'
             ? ('completed' as const)
@@ -5299,6 +5314,10 @@ async function runFlowUnlocked(params: {
           instanceId: job.instanceId,
           flowName: job.flowName,
           ...(job.targetId ? { targetId: job.targetId } : {}),
+          ...(childConversationId
+            ? { conversationId: childConversationId }
+            : {}),
+          ...(childOutcome?.reason ? { reason: childOutcome.reason } : {}),
           title: buildTrackedSubflowTitle(job),
           status,
         };
@@ -5417,6 +5436,47 @@ async function runFlowUnlocked(params: {
               `Two-phase review subflow ended with status ${paramsForOutcome.status}.`),
       });
     };
+    const recordReviewBatchAttempt = async (paramsForAttempt: {
+      job: SubflowWaveJob;
+      status: ReviewInvocationAttemptStatus;
+      conversationId?: string;
+      reason?: string;
+    }) => {
+      if (
+        paramsForAttempt.job.flowName !== 'review_batch' ||
+        !waveInvocationId
+      ) {
+        return;
+      }
+      const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+        params.repositoryContext,
+      );
+      if (!reviewRepositoryPath) return;
+      try {
+        await recordReviewInvocationAttempt({
+          workingRepositoryPath: reviewRepositoryPath,
+          invocationId: `${waveInvocationId}--${paramsForAttempt.job.instanceId}`,
+          flowName: paramsForAttempt.job.flowName,
+          displayName: paramsForAttempt.job.displayName,
+          status: paramsForAttempt.status,
+          conversationId: paramsForAttempt.conversationId,
+          reason: paramsForAttempt.reason,
+        });
+      } catch (error) {
+        append({
+          level: 'warn',
+          message: 'flows.run.review_invocation_evidence_unavailable',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            reviewFlowName: paramsForAttempt.job.flowName,
+            instanceId: paramsForAttempt.job.instanceId,
+            reason: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
+    };
 
     const stopSubflowBeforeLaunch = async (): Promise<boolean> => {
       const pendingCancel = getPendingConversationCancel(params.conversationId);
@@ -5444,6 +5504,15 @@ async function runFlowUnlocked(params: {
             instanceId: job.instanceId,
             status: 'stopped',
           }),
+        );
+        await Promise.all(
+          jobs.map((job) =>
+            recordReviewBatchAttempt({
+              job,
+              status: 'stopped',
+              reason: 'The parent flow was stopped before this review batch launched.',
+            }),
+          ),
         );
       }
       setActiveSubflowsForStep(nextPath, []);
@@ -5548,6 +5617,10 @@ async function runFlowUnlocked(params: {
         let childConversationId: string | undefined;
         let childRunToken: string | undefined;
         try {
+          await recordReviewBatchAttempt({
+            job,
+            status: 'scheduled',
+          });
           const started = await startFlowRun({
             flowName: job.flowName,
             sourceId: params.repositoryContext.flowSourceId,
@@ -5586,6 +5659,13 @@ async function runFlowUnlocked(params: {
               instanceId: job.instanceId,
               status: 'failed',
               reason,
+              conversationId: childConversationId,
+            });
+            await recordReviewBatchAttempt({
+              job,
+              status: 'failed',
+              conversationId: childConversationId,
+              reason,
             });
             await recordReviewCycleOutcome({
               flowName: job.flowName,
@@ -5612,6 +5692,11 @@ async function runFlowUnlocked(params: {
           };
           rememberedSubflowsByInstance.set(job.instanceId, trackedSubflow);
           childRuns.push(trackedSubflow);
+          await recordReviewBatchAttempt({
+            job,
+            status: 'running',
+            conversationId: childConversationId,
+          });
           setActiveSubflowsForStep(nextPath, childRuns);
           publishCurrentWaveProgress();
           await persistRuntimeResumeState(lastCompletedStepPath);
@@ -5624,6 +5709,13 @@ async function runFlowUnlocked(params: {
           recordChildOutcome({
             instanceId: job.instanceId,
             status: 'failed',
+            reason,
+            conversationId: childConversationId,
+          });
+          await recordReviewBatchAttempt({
+            job,
+            status: 'failed',
+            conversationId: childConversationId,
             reason,
           });
           await recordReviewCycleOutcome({
@@ -5681,7 +5773,24 @@ async function runFlowUnlocked(params: {
               status === 'ok' && terminalOutcome === 'not_applicable'
                 ? 'not_applicable'
                 : status,
+            conversationId: childRun.conversationId,
           });
+          const childJob = jobByInstanceId.get(instanceId);
+          if (childJob) {
+            await recordReviewBatchAttempt({
+              job: childJob,
+              status:
+                status === 'ok' && terminalOutcome === 'not_applicable'
+                  ? 'not_applicable'
+                  : status === 'ok'
+                    ? 'completed'
+                    : status,
+              conversationId: childRun.conversationId,
+              ...(status === 'failed'
+                ? { reason: 'The review batch child flow ended with a failed status.' }
+                : {}),
+            });
+          }
           await recordReviewCycleOutcome({
             flowName: childRun.flowName,
             status,
@@ -5705,8 +5814,22 @@ async function runFlowUnlocked(params: {
               instanceId: activeInstanceId(childRun),
               status: 'failed',
               reason: `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
+              conversationId: childRun.conversationId,
             });
           });
+          await Promise.all(
+            staleChildren.map(({ childRun }) => {
+              const childJob = jobByInstanceId.get(activeInstanceId(childRun));
+              return childJob
+                ? recordReviewBatchAttempt({
+                    job: childJob,
+                    status: 'failed',
+                    conversationId: childRun.conversationId,
+                    reason: `The child conversation has no active run and no terminal result.`,
+                  })
+                : Promise.resolve();
+            }),
+          );
           const remainingChildRuns = childRuns.filter(
             (childRun) => !staleConversationIds.has(childRun.conversationId),
           );
@@ -5747,14 +5870,25 @@ async function runFlowUnlocked(params: {
       }
 
       if (parentStopRequested) {
+        const newlyStoppedJobs: SubflowWaveJob[] = [];
         jobs.forEach((job) => {
           if (!childOutcomes.has(job.instanceId)) {
             recordChildOutcome({
               instanceId: job.instanceId,
               status: 'stopped',
             });
+            newlyStoppedJobs.push(job);
           }
         });
+        await Promise.all(
+          newlyStoppedJobs.map((job) =>
+            recordReviewBatchAttempt({
+              job,
+              status: 'stopped',
+              reason: 'The parent flow stopped before the review batch reached a terminal result.',
+            }),
+          ),
+        );
       }
       setActiveSubflowsForStep(nextPath, []);
       const finalWaveProgress = refreshWaveProgress();
@@ -5834,14 +5968,25 @@ async function runFlowUnlocked(params: {
         });
       });
       if (isWave) {
+        const newlyFailedJobs: SubflowWaveJob[] = [];
         jobs.forEach((job) => {
           if (!childOutcomes.has(job.instanceId)) {
             recordChildOutcome({
               instanceId: job.instanceId,
               status: 'failed',
             });
+            newlyFailedJobs.push(job);
           }
         });
+        await Promise.all(
+          newlyFailedJobs.map((job) =>
+            recordReviewBatchAttempt({
+              job,
+              status: 'failed',
+              reason: 'The parent wave failed before this review batch reached a terminal result.',
+            }),
+          ),
+        );
       }
       setActiveSubflowsForStep(nextPath, []);
       const failedWaveProgress = refreshWaveProgress();

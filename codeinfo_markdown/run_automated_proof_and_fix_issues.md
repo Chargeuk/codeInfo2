@@ -54,6 +54,7 @@ Do not perform manual testing in this step.
 
 <skip_rules>
 
+- Before applying skip or blocker rules, inspect every unchecked `Testing` item semantically. If an item is actually a browser walkthrough, screenshot request, agent-driven manual scenario, or other manual-testing-agent action rather than a runnable automated command, do not attempt it and do not create a blocker. Preserve and merge its useful meaning into checkbox-free `Manual Testing Guidance`, remove only the misplaced checklist item, add a concise correction note, rerun the plan helper, and continue with the remaining automated items. This is task-shape recovery, not completion of the unperformed manual scenario.
 - If `selected_task.live_blockers` is non-empty, do not run automated proof.
 - If the candidate task still has unchecked subtasks that require additional non-proof implementation work, do not run automated proof.
 - If the candidate task has no unchecked items left in its `Testing` section, do not run automated proof again in this step.

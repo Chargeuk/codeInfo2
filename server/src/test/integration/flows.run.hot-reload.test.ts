@@ -8,7 +8,10 @@ import express from 'express';
 import supertest from 'supertest';
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
-import { startFlowRun } from '../../flows/service.js';
+import {
+  __resetFlowServiceDepsForTests,
+  startFlowRun,
+} from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import {
@@ -82,7 +85,7 @@ afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
 });
 
-test('Flow run reloads flow file between runs', async () => {
+test('Flow run pins flow definitions until the next server generation', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -151,7 +154,17 @@ test('Flow run reloads flow file between runs', async () => {
     await supertest(app).post('/flows/hot-reload/run').send({});
     await secondMessagePromise;
     await waitFor(() => observedMessages.length >= 2);
-    assert.equal(observedMessages[1], 'Updated run');
+    assert.equal(observedMessages[1], 'First run');
+
+    __resetFlowServiceDepsForTests();
+    nextMessageResolver = null;
+    const thirdMessagePromise = new Promise<void>((resolve) => {
+      nextMessageResolver = resolve;
+    });
+    await supertest(app).post('/flows/hot-reload/run').send({});
+    await thirdMessagePromise;
+    await waitFor(() => observedMessages.length >= 3);
+    assert.equal(observedMessages[2], 'Updated run');
   } finally {
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {

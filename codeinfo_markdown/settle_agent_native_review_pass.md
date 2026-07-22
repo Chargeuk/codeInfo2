@@ -1,6 +1,8 @@
 # Settle the complete agent-native review pass
 
-Read the active review-cycle state, then locate its immutable review-pass directory under `codeInfoTmp/reviews/`. Discover every batch under `batches/` in order. Read every batch reconciliation, disposition, normal and stronger repair audit, and outcome, reopening job evidence where necessary. Read current Git for every target repository and bounded plan state. Interpret the self-describing evidence without requiring exact repair filenames or schemas.
+Read the active review-cycle state, then locate its immutable review-pass directory under `codeInfoTmp/reviews/`. Discover every batch under `batches/` and every factual launch record under `attempts/` in order. Read every batch reconciliation, disposition, normal and stronger repair audit, and outcome, reopening job evidence where necessary. A launch record without a batch directory is unavailable coverage, not evidence that no review was attempted or that the pass was clean. Read current Git for every target repository and bounded plan state. Interpret incomplete or imperfect self-describing evidence semantically, repair understandable derived omissions with best effort, and never require exact repair filenames, schemas, reviewer counts, or scheduling-group identities.
+
+Before recommending plan work, read `$CODEINFO_ROOT/codeinfo_markdown/task_up/01-shared-contract.md` and `$CODEINFO_ROOT/codeinfo_markdown/task_up/09-proof-and-testing.md`. Any final revalidation task must place only runnable automated proof commands in `Testing`. Put optional browser, agent-driven, screenshot, or other manual scenarios in checkbox-free `Manual Testing Guidance`; manual proof is never an unchecked automated gate or a live blocker.
 
 Decide which of these outcomes is true:
 

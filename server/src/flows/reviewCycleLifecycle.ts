@@ -10,6 +10,13 @@ export const ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION =
 
 export type ReviewCycleMode = 'final' | 'diagnostic';
 export type ReviewCycleStatus = 'in_progress' | 'completed' | 'incomplete';
+export type ReviewInvocationAttemptStatus =
+  | 'scheduled'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'stopped'
+  | 'not_applicable';
 
 export type ActiveReviewCycle = {
   schema_version: typeof ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION;
@@ -133,6 +140,86 @@ const timestampId = (value: Date) =>
     .toISOString()
     .replace(/[-:]/gu, '')
     .replace(/\.\d{3}Z$/u, 'Z');
+
+const safePathSegment = (value: string) =>
+  value.trim().replace(/[^A-Za-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '') ||
+  'review-attempt';
+
+const oneLine = (value: string) => value.replace(/\s+/gu, ' ').trim();
+
+export async function recordReviewInvocationAttempt(
+  params: {
+    workingRepositoryPath: string;
+    invocationId: string;
+    flowName: string;
+    displayName: string;
+    status: ReviewInvocationAttemptStatus;
+    conversationId?: string;
+    reason?: string;
+  },
+  deps: Partial<ReviewCycleLifecycleDeps> = {},
+): Promise<string | null> {
+  const resolvedDeps = { ...defaultDeps, ...deps };
+  const repoRoot = await resolveReviewRepositoryRoot(params.workingRepositoryPath);
+  const activePath = path.join(
+    repoRoot,
+    'codeInfoStatus',
+    'flow-state',
+    'active-review-cycle.json',
+  );
+  const active = await readJsonIfPresent(activePath, resolvedDeps);
+  if (
+    !active ||
+    active.schema_version !== ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION ||
+    typeof active.review_cycle_id !== 'string' ||
+    !reviewCycleIdPattern.test(active.review_cycle_id) ||
+    active.review_mode !== 'final'
+  ) {
+    return null;
+  }
+
+  const attemptPath = path.join(
+    repoRoot,
+    'codeInfoTmp',
+    'reviews',
+    safePathSegment(active.review_cycle_id),
+    'attempts',
+    `${safePathSegment(params.invocationId)}.md`,
+  );
+  let existing = '';
+  try {
+    existing = await resolvedDeps.readFile(attemptPath, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  const header = existing.trim()
+    ? existing.trimEnd()
+    : [
+        `# Review invocation: ${params.displayName}`,
+        '',
+        'This is factual launch evidence, not a machine-parsed review result schema.',
+        'Settlement agents should interpret it with the other self-describing review artifacts and recover imperfect evidence with best effort.',
+        '',
+        `- Review cycle: ${active.review_cycle_id}`,
+        `- Invocation: ${params.invocationId}`,
+        `- Flow: ${params.flowName}`,
+      ].join('\n');
+  const event = [
+    '',
+    `## ${resolvedDeps.now().toISOString()} — ${params.status}`,
+    '',
+    `- Status: ${params.status}`,
+    ...(params.conversationId
+      ? [`- Child conversation: ${params.conversationId}`]
+      : []),
+    ...(params.reason ? [`- Reason: ${oneLine(params.reason)}`] : []),
+  ].join('\n');
+  await resolvedDeps.mkdir(path.dirname(attemptPath), { recursive: true });
+  const temporaryPath = `${attemptPath}.${process.pid}.${Date.now()}.tmp`;
+  await resolvedDeps.writeFile(temporaryPath, `${header}${event}\n`, 'utf8');
+  await resolvedDeps.rename(temporaryPath, attemptPath);
+  return attemptPath;
+}
 
 export async function initializeReviewCycle(
   params: {

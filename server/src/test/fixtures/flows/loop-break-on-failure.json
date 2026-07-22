@@ -1,33 +1,14 @@
 {
-  "description": "Loop whose advisory break decision fails forward",
+  "description": "Completion gate whose failure policy is bounded",
   "steps": [
     {
-      "type": "startLoop",
-      "label": "Best-effort loop",
-      "maxIterations": 5,
-      "steps": [
-        {
-          "type": "llm",
-          "label": "Loop body",
-          "agentType": "coding_agent",
-          "identifier": "loop-body",
-          "messages": [
-            {
-              "role": "user",
-              "content": ["Run loop body."]
-            }
-          ]
-        },
-        {
-          "type": "break",
-          "label": "Advisory exit",
-          "agentType": "loop_control_agent",
-          "identifier": "loop-controller",
-          "question": "Exit best-effort loop?",
-          "breakOn": "yes",
-          "breakOnFailure": true
-        }
-      ]
+      "type": "break",
+      "label": "Advisory exit",
+      "agentType": "loop_control_agent",
+      "identifier": "loop-controller",
+      "question": "Exit best-effort loop?",
+      "breakOn": "yes",
+      "continueOnFailure": true
     },
     {
       "type": "llm",

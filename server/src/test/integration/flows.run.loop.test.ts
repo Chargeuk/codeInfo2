@@ -487,7 +487,7 @@ test('haltFlow break stops the complete flow instead of advancing outer steps', 
       message.includes('Halt complete flow?')
         ? JSON.stringify({ answer: 'yes' })
         : 'unexpected',
-    async ({ baseUrl }) => {
+    async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-halt-break';
       await supertest(baseUrl)
         .post('/flows/halt-break/run')
@@ -657,15 +657,6 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
       normalGate: 'no',
       blockerRemains: 'no',
       normalResponse: '__throw',
-      researchResponse: 'ok',
-      expectedResearchCalls: 1,
-      expectedNormalContinuation: 1,
-    },
-    {
-      name: 'normal completion-gate failure still reaches stronger repair and blocker gate',
-      normalGate: 'invalid',
-      blockerRemains: 'no',
-      normalResponse: 'ok',
       researchResponse: 'ok',
       expectedResearchCalls: 1,
       expectedNormalContinuation: 1,
@@ -1717,7 +1708,7 @@ test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no vali
   );
 });
 
-test('break step can fail forward through the normal post-loop path', async () => {
+test('break step does not continue after an invalid response', async () => {
   await withFlowServer(
     (message) => {
       if (message.includes('Exit best-effort loop?')) {
@@ -1725,7 +1716,7 @@ test('break step can fail forward through the normal post-loop path', async () =
       }
       return 'ok';
     },
-    async ({ baseUrl }) => {
+    async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-break-on-failure';
 
       await supertest(baseUrl)
@@ -1733,38 +1724,64 @@ test('break step can fail forward through the normal post-loop path', async () =
         .send({ conversationId })
         .expect(202);
 
+      await waitForRuntimeCleanup(conversationId, 15000);
       const turns = await waitForTurns(
         conversationId,
         (items) =>
           items.some(
             (turn) =>
               turn.role === 'assistant' &&
-              turn.content === 'ok' &&
-              (turn.command as { label?: string } | null)?.label ===
-                'After loop',
+              turn.status === 'failed' &&
+              turn.content.includes('Break response must be'),
           ),
-        15000,
+        10000,
       );
-      await waitForRuntimeCleanup(conversationId);
       const status = await getFlowRunStatus(conversationId);
 
-      assert.equal(status?.status, 'ok');
+      assert.equal(status?.status, 'failed');
       assert.equal(status?.terminal, true);
       assert.equal(
-        turns.filter(
-          (turn) =>
-            turn.role === 'user' &&
-            (turn.command as { label?: string } | null)?.label === 'Loop body',
-        ).length,
-        1,
+        turns.some((turn) =>
+          turn.content.includes('Continue after loop.'),
+        ),
+        false,
+      );
+      await cleanupConversationRuntime(conversationId);
+    },
+  );
+});
+
+test('break step continues after provider execution failure', async () => {
+  await withFlowServer(
+    (message) =>
+      message.includes('Exit best-effort loop?') ? '__throw' : 'ok',
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-conv-break-execution-failure';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await supertest(baseUrl)
+        .post('/flows/loop-break-on-failure/run')
+        .send({ conversationId })
+        .expect(202);
+
+      await waitForRuntimeCleanup(conversationId, 15000);
+      const status = await getFlowRunStatus(conversationId);
+      const turns = memoryTurns.get(conversationId) ?? [];
+      assert.equal(
+        status?.status,
+        'ok',
+        JSON.stringify(
+          turns.map((turn) => ({
+            role: turn.role,
+            status: turn.status,
+            content: turn.content,
+            label: (turn.command as { label?: string } | null)?.label,
+          })),
+        ),
       );
       assert.equal(
-        turns.filter(
-          (turn) =>
-            turn.role === 'user' &&
-            (turn.command as { label?: string } | null)?.label === 'After loop',
-        ).length,
-        1,
+        turns.some((turn) => turn.content.includes('Continue after loop.')),
+        true,
       );
       await cleanupConversationRuntime(conversationId);
     },

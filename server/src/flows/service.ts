@@ -2001,6 +2001,7 @@ type FlowInstructionResult = {
   status: TurnStatus;
   content: string;
   toolCalls: Record<string, unknown> | null;
+  failureKind?: 'execution' | 'invalid_response';
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
 };
@@ -2008,6 +2009,7 @@ type FlowInstructionResult = {
 type FlowInstructionPostProcess = (result: FlowInstructionResult) => {
   status?: TurnStatus;
   content?: string;
+  failureKind?: 'execution' | 'invalid_response';
   finalOverride?: {
     status: TurnStatus;
     error?: { code?: string; message?: string };
@@ -2462,6 +2464,9 @@ const runFlowInstruction = async (params: {
   const postProcessed = params.postProcess?.(result);
   if (postProcessed?.status) result.status = postProcessed.status;
   if (postProcessed?.content) result.content = postProcessed.content;
+  if (postProcessed?.failureKind) {
+    result.failureKind = postProcessed.failureKind;
+  }
 
   const resultDecision = params.onResult?.(result, {
     attempt: params.attempt ?? 1,
@@ -4761,6 +4766,7 @@ async function runFlowUnlocked(params: {
   ): Promise<{
     status: TurnStatus;
     shouldBreak: boolean;
+    failureKind?: 'execution' | 'invalid_response';
   }> => {
     let breakAnswer: 'yes' | 'no' | undefined;
     const instruction = [
@@ -4785,7 +4791,11 @@ async function runFlowUnlocked(params: {
           errorCode: 'FLOW_DECISION_SCRIPT_CONTEXT_MISSING',
           command,
         });
-        return { status: 'failed', shouldBreak: false };
+        return {
+          status: 'failed',
+          shouldBreak: false,
+          failureKind: 'execution',
+        };
       }
 
       try {
@@ -4807,7 +4817,11 @@ async function runFlowUnlocked(params: {
             errorCode: 'INVALID_BREAK_RESPONSE',
             command,
           });
-          return { status: 'failed', shouldBreak: false };
+          return {
+            status: 'failed',
+            shouldBreak: false,
+            failureKind: 'invalid_response',
+          };
         }
         breakAnswer = parsed.answer;
         await emitCompletedFlowStep({
@@ -4833,7 +4847,11 @@ async function runFlowUnlocked(params: {
           errorCode: 'FLOW_DECISION_SCRIPT_FAILED',
           command,
         });
-        return { status: 'failed', shouldBreak: false };
+        return {
+          status: 'failed',
+          shouldBreak: false,
+          failureKind: 'execution',
+        };
       }
 
       append({
@@ -4862,6 +4880,11 @@ async function runFlowUnlocked(params: {
       deferFinal: true,
       command,
       postProcess: (candidate) => {
+        if (candidate.status !== 'ok') {
+          return {
+            failureKind: 'execution',
+          };
+        }
         const parsed = parseBreakAnswer(candidate.content);
         parsed.attempts.forEach((attempt) => {
           append({
@@ -4897,6 +4920,7 @@ async function runFlowUnlocked(params: {
                 message: parsed.message,
               },
             },
+            failureKind: 'invalid_response',
           };
         }
 
@@ -4913,11 +4937,21 @@ async function runFlowUnlocked(params: {
         conversationId: params.conversationId,
         detail: `status=${result.status} step=${command.stepIndex}`,
       });
-      return { status: result.status, shouldBreak: false };
+      return {
+        status: result.status,
+        shouldBreak: false,
+        ...(result.status === 'failed'
+          ? { failureKind: result.failureKind ?? 'execution' }
+          : {}),
+      };
     }
 
     if (!breakAnswer) {
-      return { status: 'failed', shouldBreak: false };
+      return {
+        status: 'failed',
+        shouldBreak: false,
+        failureKind: 'invalid_response',
+      };
     }
 
     append({
@@ -6841,7 +6875,10 @@ async function runFlowUnlocked(params: {
             agentType: command.agentType,
           },
         });
-        const { status, shouldBreak } = await runBreakStep(step, command);
+        const { status, shouldBreak, failureKind } = await runBreakStep(
+          step,
+          command,
+        );
         const shouldBreakAfterFailure =
           status === 'failed' && step.breakOnFailure === true;
         if (shouldBreakAfterFailure) {
@@ -6875,7 +6912,11 @@ async function runFlowUnlocked(params: {
           return 'break';
         }
         if (shouldStopAfter(status)) {
-          if (status === 'failed' && step.continueOnFailure) {
+          if (
+            status === 'failed' &&
+            step.continueOnFailure &&
+            failureKind === 'execution'
+          ) {
             lastCompletedStepPath = nextPath;
             clearContinueBoundaryForActiveLoop();
             await persistRuntimeResumeState(lastCompletedStepPath);

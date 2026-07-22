@@ -66,10 +66,30 @@
       "markdownFile": "filter_review_batch_findings_to_story_scope.md"
     },
     {
+      "type": "reset",
+      "label": "Reset Review Batch Scope Auditor",
+      "agentType": "review_agent_heavy",
+      "identifier": "batch_scope_auditor"
+    },
+    {
+      "type": "llm",
+      "label": "Audit Review Batch Scope Filter",
+      "agentType": "review_agent_heavy",
+      "identifier": "batch_scope_auditor",
+      "continueOnFailure": true,
+      "markdownFile": "audit_review_batch_scope_filter.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Dispositioner",
+      "agentType": "planning_agent",
+      "identifier": "batch_dispositioner"
+    },
+    {
       "type": "llm",
       "label": "Disposition Review Batch",
       "agentType": "planning_agent",
-      "identifier": "batch_reconciler",
+      "identifier": "batch_dispositioner",
       "continueOnFailure": true,
       "markdownFile": "disposition_review_batch.md"
     },
@@ -139,7 +159,7 @@
       "type": "llm",
       "label": "Record Review Batch Outcome",
       "agentType": "planning_agent",
-      "identifier": "batch_reconciler",
+      "identifier": "batch_dispositioner",
       "continueOnFailure": true,
       "markdownFile": "record_review_batch_outcome.md"
     }

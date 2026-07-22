@@ -190,6 +190,12 @@ type ProductionReviewProbe = {
   researchFixCalls: number;
   optionalExitCalls: number;
   breakCalls: number;
+  reconcileCalls: number;
+  reconciliationAuditCalls: number;
+  scopeFilterCalls: number;
+  scopeAuditCalls: number;
+  dispositionCalls: number;
+  scopeIdentityVerifiedAtDisposition: boolean;
 };
 
 const parseAssignedOutputDirectory = (message: string): string | null => {
@@ -199,6 +205,23 @@ const parseAssignedOutputDirectory = (message: string): string | null => {
 
 const currentHead = async (repo: string) =>
   (await execFile('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();
+
+const readCurrentBatch = async (repo: string) => {
+  const handoff = await fs.readFile(
+    path.join(
+      repo,
+      'codeInfoTmp',
+      'reviews',
+      '0000064-current-review-batch.md',
+    ),
+    'utf8',
+  );
+  const batchId = /^- Batch: (.+)$/mu.exec(handoff)?.[1];
+  const batchRoot = /^- Batch directory: (.+)$/mu.exec(handoff)?.[1];
+  assert.ok(batchId, handoff);
+  assert.ok(batchRoot, handoff);
+  return { batchId, batchRoot, handoff };
+};
 
 class ProductionReviewChat extends ChatInterface {
   constructor(private readonly probe: ProductionReviewProbe) {
@@ -238,6 +261,125 @@ class ProductionReviewChat extends ChatInterface {
       if (message.includes('INTEGRATION ONE-SHOT REVIEW')) {
         this.probe.oneShotHeads.push(`${target}:${head}`);
       }
+    }
+
+    if (message.includes('# Reconcile the current review batch')) {
+      this.probe.reconcileCalls += 1;
+      this.emit('final', {
+        type: 'final',
+        content:
+          'Should I reconcile every job, or only the available ones? Which format should I use?',
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
+    if (message.includes('# Audit the current batch reconciliation')) {
+      this.probe.reconciliationAuditCalls += 1;
+      const { batchId, batchRoot } = await readCurrentBatch(this.probe.repo);
+      const reconciliationDirectory = path.join(batchRoot, 'reconciliation');
+      await fs.mkdir(reconciliationDirectory, { recursive: true });
+      await fs.writeFile(
+        path.join(reconciliationDirectory, 'batch-reconciliation.md'),
+        [
+          '# Reconciliation',
+          '',
+          'Status: completed.',
+          `Batch: ${batchId}`,
+          `Batch directory: ${batchRoot}`,
+          'Every discovered job is accounted for; no actionable findings were produced.',
+          '',
+        ].join('\n'),
+      );
+      await fs.writeFile(
+        path.join(reconciliationDirectory, 'reconciliation-audit.md'),
+        [
+          '# Reconciliation audit',
+          '',
+          'Status: completed.',
+          `Batch: ${batchId}`,
+          `Batch directory: ${batchRoot}`,
+          'Recovered the missing question-only reconciliation from immutable job evidence.',
+          '',
+        ].join('\n'),
+      );
+    }
+
+    if (message.includes('# Filter the current review batch to story scope')) {
+      this.probe.scopeFilterCalls += 1;
+      const { batchId, batchRoot } = await readCurrentBatch(this.probe.repo);
+      const malformedBatchId = batchId.replace('-rw-', '-rw');
+      const malformedBatchRoot = batchRoot.replace(batchId, malformedBatchId);
+      await fs.writeFile(
+        path.join(batchRoot, 'reconciliation', 'scope-filtered-findings.md'),
+        [
+          '# Scope-filtered findings',
+          '',
+          'Status: completed.',
+          `Batch: ${malformedBatchId}`,
+          `Batch directory: ${malformedBatchRoot}`,
+          'No actionable findings were removed or narrowed.',
+          '',
+        ].join('\n'),
+      );
+    }
+
+    if (message.includes('# Audit the current batch scope filter')) {
+      this.probe.scopeAuditCalls += 1;
+      const { batchId, batchRoot } = await readCurrentBatch(this.probe.repo);
+      const reconciliationDirectory = path.join(batchRoot, 'reconciliation');
+      const scopeFilterPath = path.join(
+        reconciliationDirectory,
+        'scope-filtered-findings.md',
+      );
+      await fs.writeFile(
+        scopeFilterPath,
+        [
+          '# Scope-filtered findings',
+          '',
+          'Status: completed.',
+          `Batch: ${batchId}`,
+          `Batch directory: ${batchRoot}`,
+          'No actionable findings were removed or narrowed.',
+          '',
+        ].join('\n'),
+      );
+      await fs.writeFile(
+        path.join(reconciliationDirectory, 'scope-filter-audit.md'),
+        [
+          '# Scope-filter audit',
+          '',
+          'Status: completed.',
+          `Batch: ${batchId}`,
+          `Batch directory: ${batchRoot}`,
+          'Corrected the derived scope record to match the authoritative handoff.',
+          '',
+        ].join('\n'),
+      );
+    }
+
+    if (message.includes('# Disposition the current review batch')) {
+      this.probe.dispositionCalls += 1;
+      const { batchId, batchRoot } = await readCurrentBatch(this.probe.repo);
+      const scopeFilter = await fs.readFile(
+        path.join(batchRoot, 'reconciliation', 'scope-filtered-findings.md'),
+        'utf8',
+      );
+      this.probe.scopeIdentityVerifiedAtDisposition &&=
+        scopeFilter.includes(`Batch: ${batchId}`) &&
+        scopeFilter.includes(`Batch directory: ${batchRoot}`);
+      await fs.writeFile(
+        path.join(batchRoot, 'reconciliation', 'disposition.md'),
+        [
+          '# Disposition',
+          '',
+          'Status: completed.',
+          `Batch: ${batchId}`,
+          `Batch directory: ${batchRoot}`,
+          'No actionable findings remain.',
+          '',
+        ].join('\n'),
+      );
     }
 
     if (
@@ -630,6 +772,12 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       researchFixCalls: 0,
       optionalExitCalls: 0,
       breakCalls: 0,
+      reconcileCalls: 0,
+      reconciliationAuditCalls: 0,
+      scopeFilterCalls: 0,
+      scopeAuditCalls: 0,
+      dispositionCalls: 0,
+      scopeIdentityVerifiedAtDisposition: true,
     };
     const result = await startFlowRun({
       flowName: 'two_phase_review_cycle',
@@ -658,6 +806,12 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     assert.equal(probe.normalCompletionGateCalls, 3, JSON.stringify(probe));
     assert.equal(probe.researchFixCalls, 1, JSON.stringify(probe));
     assert.equal(probe.optionalExitCalls, 1, JSON.stringify(probe));
+    assert.equal(probe.reconcileCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.reconciliationAuditCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.scopeFilterCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.scopeAuditCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.dispositionCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.scopeIdentityVerifiedAtDisposition, true);
     assert.deepEqual(probe.repeatedHeads, [
       `primary:${initialHead}`,
       `secondary:${initialSecondaryHead}`,
@@ -668,6 +822,23 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       `primary:${fixedHead}`,
       `secondary:${fixedSecondaryHead}`,
     ]);
+
+    const { batchId, batchRoot } = await readCurrentBatch(repo);
+    const finalScopeFilter = await fs.readFile(
+      path.join(batchRoot, 'reconciliation', 'scope-filtered-findings.md'),
+      'utf8',
+    );
+    const finalScopeAudit = await fs.readFile(
+      path.join(batchRoot, 'reconciliation', 'scope-filter-audit.md'),
+      'utf8',
+    );
+    assert.match(finalScopeFilter, new RegExp(`Batch: ${batchId}`, 'u'));
+    assert.match(
+      finalScopeFilter,
+      new RegExp(`Batch directory: ${batchRoot}`, 'u'),
+    );
+    assert.match(finalScopeAudit, /Status: completed\./u);
+    await fs.access(path.join(batchRoot, 'reconciliation', 'disposition.md'));
 
     const active = JSON.parse(
       await fs.readFile(

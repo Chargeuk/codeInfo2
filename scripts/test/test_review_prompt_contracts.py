@@ -476,6 +476,55 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("only surviving actionable findings", disposition)
         self.assertIn("Deduplicate by the finding's stable identity", disposition)
 
+    def test_agent_native_derived_artifacts_are_autonomous_and_self_auditing(
+        self,
+    ) -> None:
+        reconcile = read_text("codeinfo_markdown/reconcile_review_batch.md")
+        reconciliation_audit = read_text(
+            "codeinfo_markdown/audit_review_batch_reconciliation.md"
+        )
+        scope_filter = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md"
+        )
+        scope_audit = read_text(
+            "codeinfo_markdown/audit_review_batch_scope_filter.md"
+        )
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+
+        for prompt in (
+            reconcile,
+            reconciliation_audit,
+            scope_filter,
+            scope_audit,
+            disposition,
+        ):
+            self.assertIn("Do not ask the user questions", prompt)
+
+        self.assertIn("completed, partial, or unavailable", reconcile)
+        self.assertIn("never substitute clarification questions", reconcile)
+        self.assertIn("reopen the written reconciliation", reconcile)
+        self.assertIn("question-only", reconciliation_audit)
+        self.assertIn("provider success", reconciliation_audit)
+        self.assertIn("Copy batch identities and paths", reconciliation_audit)
+
+        self.assertIn("Copy the exact batch ID", scope_filter)
+        self.assertIn("Do not type them from memory", scope_filter)
+        self.assertIn("character-for-character", scope_filter)
+        self.assertIn("independent audit and recovery", scope_audit)
+        self.assertIn("question-only", scope_audit)
+        self.assertIn("scope-filter-audit.md", scope_audit)
+        self.assertIn('plan_sections.py" --profile review-scope', scope_audit)
+        self.assertIn("filter_review_findings_to_story_scope.md", scope_audit)
+        self.assertIn("every job's immutable evidence remains unchanged", scope_audit)
+        self.assertIn("Do not require a rigid schema", scope_audit)
+        self.assertIn("character-for-character", scope_audit)
+
+        self.assertIn("completed, partial, or unavailable", disposition)
+        self.assertIn("scope-filter-audit.md", disposition)
+        self.assertIn("repairs recorded by the independent scope audit", disposition)
+        self.assertIn("reopen the disposition", disposition)
+        self.assertIn("without asking follow-up questions", disposition)
+
     def test_legacy_scope_filter_flows_keep_the_state_specific_prompt(self) -> None:
         for relative_path in (
             "flows/review_plan.json",

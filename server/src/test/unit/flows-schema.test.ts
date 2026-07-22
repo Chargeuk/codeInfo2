@@ -561,6 +561,21 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Filter Review Findings To Story Scope',
+      'Reset Review Batch Scope Auditor',
+    );
+    assertOrdered(
+      labels,
+      'Reset Review Batch Scope Auditor',
+      'Audit Review Batch Scope Filter',
+    );
+    assertOrdered(
+      labels,
+      'Audit Review Batch Scope Filter',
+      'Reset Review Batch Dispositioner',
+    );
+    assertOrdered(
+      labels,
+      'Reset Review Batch Dispositioner',
       'Disposition Review Batch',
     );
     const directFixIndex = labels.indexOf('Implement Direct Review Fixes');
@@ -607,6 +622,44 @@ describe('flow schema (v1)', () => {
       scopeFilter?.markdownFile,
       'filter_review_batch_findings_to_story_scope.md',
     );
+
+    const scopeAuditReset = (parsed.steps ?? []).find(
+      (step) => step.label === 'Reset Review Batch Scope Auditor',
+    );
+    const scopeAudit = (parsed.steps ?? []).find(
+      (step) => step.label === 'Audit Review Batch Scope Filter',
+    );
+    assert.equal(scopeAuditReset?.type, 'reset');
+    assert.equal(scopeAuditReset?.agentType, 'review_agent_heavy');
+    assert.equal(scopeAuditReset?.identifier, 'batch_scope_auditor');
+    assert.equal(scopeAudit?.type, 'llm');
+    assert.equal(scopeAudit?.agentType, scopeAuditReset?.agentType);
+    assert.equal(scopeAudit?.identifier, scopeAuditReset?.identifier);
+    assert.equal(scopeAudit?.continueOnFailure, true);
+    assert.equal(
+      scopeAudit?.markdownFile,
+      'audit_review_batch_scope_filter.md',
+    );
+
+    const dispositionIndex = labels.indexOf('Disposition Review Batch');
+    assert.ok(dispositionIndex > 0);
+    const dispositionReset = (parsed.steps ?? [])[dispositionIndex - 1];
+    const disposition = (parsed.steps ?? [])[dispositionIndex];
+    assert.equal(dispositionReset?.label, 'Reset Review Batch Dispositioner');
+    assert.equal(dispositionReset?.type, 'reset');
+    assert.equal(dispositionReset?.agentType, 'planning_agent');
+    assert.equal(dispositionReset?.identifier, 'batch_dispositioner');
+    assert.equal(disposition?.type, 'llm');
+    assert.equal(disposition?.agentType, dispositionReset?.agentType);
+    assert.equal(disposition?.identifier, dispositionReset?.identifier);
+    assert.equal(disposition?.continueOnFailure, true);
+    assert.equal(disposition?.markdownFile, 'disposition_review_batch.md');
+
+    const outcome = (parsed.steps ?? []).find(
+      (step) => step.label === 'Record Review Batch Outcome',
+    );
+    assert.equal(outcome?.agentType, 'planning_agent');
+    assert.equal(outcome?.identifier, 'batch_dispositioner');
 
     const optionalRepair = (parsed.steps ?? []).find(
       (step) => step.label === 'Optional Stronger Review Repair',

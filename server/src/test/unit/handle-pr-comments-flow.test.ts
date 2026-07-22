@@ -204,3 +204,45 @@ test('PR prompts lock bounded reads, safety, marker, and task lifecycle', () => 
   assert.match(regular, /never start a duplicate escalation/u);
   assert.match(strong, /never post a pull-request comment or mutate a task/u);
 });
+
+test('valid code changes stage aggregate evidence and tasks before replies', () => {
+  const regular = readRepoFile('codeinfo_agents/pr_agent/system_prompt.txt');
+  const strong = readRepoFile(
+    'codeinfo_agents/pr_agent_strong/system_prompt.txt',
+  );
+  const instruction = readRepoFile('codeinfo_markdown/handle_pr_comments.md');
+
+  const aggregateStage = instruction.indexOf(
+    '### 2. Create or reuse one aggregate annotation when needed',
+  );
+  const taskStage = instruction.indexOf('### 3. Create the aggregate task');
+  const replyStage = instruction.indexOf('## Reply to every grouped leaf last');
+  assert.ok(aggregateStage >= 0);
+  assert.ok(taskStage > aggregateStage);
+  assert.ok(replyStage > taskStage);
+
+  for (const required of [
+    'Do not post an acknowledgement to a source leaf',
+    '--path <path> --line <line>',
+    '--from <line>',
+    'top-level aggregate comment',
+    '--comment-id <aggregate-comment-id>',
+    "primary source leaf's ID as `--comment-id`",
+    '/_/diff#task-<task-id>',
+    'do not create another task or a new aggregate annotation',
+    'reuse any aggregate comments, tasks, or successful sibling replies',
+    'required aggregate-PR comments, source-leaf replies, and aggregate task operations',
+  ]) {
+    assert.match(
+      instruction,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'u'),
+    );
+  }
+
+  assert.match(regular, /idempotent ordered sequence/u);
+  assert.match(regular, /Only after all required aggregate writes succeed/u);
+  assert.match(regular, /never post an early acknowledgement/u);
+  assert.match(regular, /Every automated public comment and task body/u);
+  assert.match(strong, /code-change and task recommendation/u);
+  assert.match(strong, /justified aggregate diff anchor/u);
+});

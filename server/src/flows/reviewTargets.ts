@@ -269,6 +269,7 @@ export async function prepareReviewTargets(
   const seenRoots = new Set<string>();
   const seenAliases = new Set<string>();
   const targets: ReviewTarget[] = [];
+  let primaryRealRoot: string | undefined;
   for (const [index, requestedTarget] of requestedTargets.entries()) {
     const requestedPath = requestedTarget.path;
     params.signal?.throwIfAborted();
@@ -285,11 +286,13 @@ export async function prepareReviewTargets(
     );
     const realRoot = await resolvedDeps.realpath(repoRoot);
     if (seenRoots.has(realRoot)) {
+      if (realRoot === primaryRealRoot) continue;
       throw new Error(
         `Review target "${requestedPath}" duplicates ${realRoot}.`,
       );
     }
     seenRoots.add(realRoot);
+    if (index === 0) primaryRealRoot = realRoot;
     const repository = listedByRealPath.get(realRoot);
     if (!repository) {
       throw new Error(`Review target "${requestedPath}" is not ingested.`);
@@ -321,12 +324,21 @@ export async function prepareReviewTargets(
       deps: { execFile: resolvedDeps.execFile },
       signal: params.signal,
     });
-    const repoAlias =
+    const baseAlias =
       index === 0
         ? 'current_repository'
         : normalizeAlias(repository.id || path.basename(realRoot));
+    let repoAlias = baseAlias;
     if (seenAliases.has(repoAlias)) {
-      throw new Error(`Review target alias "${repoAlias}" is duplicated.`);
+      const suffix = crypto
+        .createHash('sha256')
+        .update(realRoot)
+        .digest('hex')
+        .slice(0, 12);
+      repoAlias = `${baseAlias}-${suffix}`;
+      if (seenAliases.has(repoAlias)) {
+        throw new Error(`Review target alias "${repoAlias}" is duplicated.`);
+      }
     }
     seenAliases.add(repoAlias);
     targets.push({

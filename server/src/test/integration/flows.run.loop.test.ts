@@ -662,6 +662,15 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
       expectedNormalContinuation: 1,
     },
     {
+      name: 'normal completion-gate failure still reaches stronger repair and blocker gate',
+      normalGate: 'invalid',
+      blockerRemains: 'no',
+      normalResponse: 'ok',
+      researchResponse: 'ok',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 1,
+    },
+    {
       name: 'stronger repair failure preserves authoritative blocker routing',
       normalGate: 'no',
       blockerRemains: 'yes',

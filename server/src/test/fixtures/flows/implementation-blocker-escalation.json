@@ -48,7 +48,8 @@
               "agentType": "coding_agent",
               "identifier": "coder",
               "question": "Did normal repair clear the implementation blocker?",
-              "breakOn": "yes"
+              "breakOn": "yes",
+              "continueOnFailure": true
             },
             {
               "type": "reset",

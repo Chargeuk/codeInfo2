@@ -831,6 +831,9 @@ const normalizeActiveSubflow = (value: unknown): FlowActiveSubflow | null => {
     ...(normalizeOptionalString(value.instanceId)
       ? { instanceId: normalizeOptionalString(value.instanceId) }
       : {}),
+    ...(normalizeOptionalString(value.waveInvocationId)
+      ? { waveInvocationId: normalizeOptionalString(value.waveInvocationId) }
+      : {}),
     ...(normalizeOptionalString(value.targetId)
       ? { targetId: normalizeOptionalString(value.targetId) }
       : {}),
@@ -1158,16 +1161,26 @@ const getFlowChildExecutionId = (
 
 const getFlowChildWaveIdentity = (
   conversation: Conversation | null | undefined,
-): { executionId: string; instanceId: string } | null => {
+): {
+  executionId: string;
+  instanceId: string;
+  waveInvocationId: string;
+} | null => {
   const flags = conversation?.flags;
   const flowChild = isRecord(flags?.flowChild) ? flags.flowChild : null;
   const executionId = normalizeOptionalString(flowChild?.executionId);
   const instanceId = normalizeOptionalString(flowChild?.instanceId);
-  return executionId && instanceId ? { executionId, instanceId } : null;
+  const waveInvocationId = normalizeOptionalString(
+    flowChild?.waveInvocationId,
+  );
+  return executionId && instanceId && waveInvocationId
+    ? { executionId, instanceId, waveInvocationId }
+    : null;
 };
 
 const findFlowWaveChildren = async (params: {
   executionId: string;
+  waveInvocationId: string;
   instanceIds: string[];
 }): Promise<Conversation[]> => {
   const instanceIds = new Set(params.instanceIds);
@@ -1175,6 +1188,7 @@ const findFlowWaveChildren = async (params: {
     const identity = getFlowChildWaveIdentity(conversation);
     return (
       identity?.executionId === params.executionId &&
+      identity.waveInvocationId === params.waveInvocationId &&
       instanceIds.has(identity.instanceId)
     );
   };
@@ -1185,6 +1199,7 @@ const findFlowWaveChildren = async (params: {
 
   const conversations = (await ConversationModel.find({
     'flags.flowChild.executionId': params.executionId,
+    'flags.flowChild.waveInvocationId': params.waveInvocationId,
     'flags.flowChild.instanceId': { $in: params.instanceIds },
   })
     .lean()
@@ -3055,6 +3070,18 @@ type LoopFrame = {
   iteration: number;
 };
 
+const getWaveInvocationId = (
+  stepPath: number[],
+  loopStack: LoopFrame[],
+): string =>
+  JSON.stringify({
+    stepPath,
+    loopStack: loopStack.map((frame) => ({
+      loopStepPath: frame.loopStepPath,
+      iteration: frame.iteration,
+    })),
+  });
+
 const buildFlowResumeState = (params: {
   executionId: string;
   runtimeState: FlowExecutionRuntimeState;
@@ -3135,13 +3162,15 @@ const buildFlowResumeState = (params: {
             ...(activeSubflow.instanceId
               ? { instanceId: activeSubflow.instanceId }
               : {}),
+            ...(activeSubflow.waveInvocationId
+              ? { waveInvocationId: activeSubflow.waveInvocationId }
+              : {}),
             ...(activeSubflow.targetId
               ? { targetId: activeSubflow.targetId }
               : {}),
             ...(activeSubflow.workingFolder
               ? { workingFolder: activeSubflow.workingFolder }
               : {}),
-            ...(activeSubflow.input ? { input: activeSubflow.input } : {}),
             ...(activeSubflow.inputHash
               ? { inputHash: activeSubflow.inputHash }
               : {}),
@@ -4143,6 +4172,9 @@ async function runFlowUnlocked(params: {
       ...(activeSubflow.instanceId
         ? { instanceId: activeSubflow.instanceId }
         : {}),
+      ...(activeSubflow.waveInvocationId
+        ? { waveInvocationId: activeSubflow.waveInvocationId }
+        : {}),
       ...(activeSubflow.targetId ? { targetId: activeSubflow.targetId } : {}),
       ...(activeSubflow.workingFolder
         ? { workingFolder: activeSubflow.workingFolder }
@@ -5055,6 +5087,9 @@ async function runFlowUnlocked(params: {
     const parentTurnCreatedAtIso = new Date().toISOString();
     const parentTurnCreatedAt = new Date(parentTurnCreatedAtIso);
     const parentConversation = await getConversation(params.conversationId);
+    const waveInvocationId = isWave
+      ? getWaveInvocationId(nextPath, loopStack)
+      : undefined;
     const activeInstanceId = (activeSubflow: FlowActiveSubflow) =>
       activeSubflow.instanceId ?? activeSubflow.flowName;
     const jobByInstanceId = new Map(jobs.map((job) => [job.instanceId, job]));
@@ -5063,7 +5098,10 @@ async function runFlowUnlocked(params: {
         .filter((activeSubflow) =>
           jobs.some(
             (job) => job.instanceId === activeInstanceId(activeSubflow),
-          ),
+          ) &&
+          (!waveInvocationId ||
+            !activeSubflow.waveInvocationId ||
+            activeSubflow.waveInvocationId === waveInvocationId),
         )
         .map((activeSubflow) => [
           activeInstanceId(activeSubflow),
@@ -5073,12 +5111,14 @@ async function runFlowUnlocked(params: {
     if (isWave && params.resumeState) {
       const persistedChildren = await findFlowWaveChildren({
         executionId: params.executionId,
+        waveInvocationId: waveInvocationId!,
         instanceIds: jobs.map((job) => job.instanceId),
       });
       for (const childConversation of persistedChildren) {
         const identity = getFlowChildWaveIdentity(childConversation);
         if (
           !identity ||
+          identity.waveInvocationId !== waveInvocationId ||
           rememberedSubflowsByInstance.has(identity.instanceId)
         ) {
           continue;
@@ -5105,6 +5145,7 @@ async function runFlowUnlocked(params: {
             getActiveRunOwnership(childConversation._id)?.runToken ??
             `recovered-wave-child:${childConversation._id}`,
           instanceId: job.instanceId,
+          waveInvocationId,
           ...(job.targetId ? { targetId: job.targetId } : {}),
           ...(job.workingFolder ? { workingFolder: job.workingFolder } : {}),
           ...(job.input ? { input: job.input } : {}),
@@ -5151,6 +5192,7 @@ async function runFlowUnlocked(params: {
         parentWave: {
           executionId: params.executionId,
           instanceId: activeInstanceId(childRun),
+          waveInvocationId: childRun.waveInvocationId ?? waveInvocationId!,
           ...(childRun.targetId ? { targetId: childRun.targetId } : {}),
           displayName: childRun.title ?? childRun.flowName,
         },
@@ -5487,6 +5529,7 @@ async function runFlowUnlocked(params: {
                   parentWave: {
                     executionId: params.executionId,
                     instanceId: job.instanceId,
+                    waveInvocationId: waveInvocationId!,
                     ...(job.targetId ? { targetId: job.targetId } : {}),
                     displayName: job.displayName,
                   },
@@ -5526,6 +5569,7 @@ async function runFlowUnlocked(params: {
             conversationId: childConversationId,
             runToken: childRunToken,
             instanceId: job.instanceId,
+            ...(waveInvocationId ? { waveInvocationId } : {}),
             ...(job.targetId ? { targetId: job.targetId } : {}),
             ...(job.workingFolder ? { workingFolder: job.workingFolder } : {}),
             ...(job.input ? { input: job.input } : {}),
@@ -6831,6 +6875,13 @@ async function runFlowUnlocked(params: {
           return 'break';
         }
         if (shouldStopAfter(status)) {
+          if (status === 'failed' && step.continueOnFailure) {
+            lastCompletedStepPath = nextPath;
+            clearContinueBoundaryForActiveLoop();
+            await persistRuntimeResumeState(lastCompletedStepPath);
+            stepInflightId = crypto.randomUUID();
+            continue;
+          }
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.break',
             conversationId: params.conversationId,
@@ -7574,10 +7625,13 @@ export async function startFlowRun(
         flowName: activeSubflow.flowName,
         conversationId: activeSubflow.conversationId,
         runToken: activeSubflow.runToken,
-        ...(activeSubflow.instanceId
-          ? { instanceId: activeSubflow.instanceId }
-          : {}),
-        ...(activeSubflow.targetId ? { targetId: activeSubflow.targetId } : {}),
+      ...(activeSubflow.instanceId
+        ? { instanceId: activeSubflow.instanceId }
+        : {}),
+      ...(activeSubflow.waveInvocationId
+        ? { waveInvocationId: activeSubflow.waveInvocationId }
+        : {}),
+      ...(activeSubflow.targetId ? { targetId: activeSubflow.targetId } : {}),
         ...(activeSubflow.workingFolder
           ? { workingFolder: activeSubflow.workingFolder }
           : {}),

@@ -120,7 +120,7 @@ test('prepareReviewTargets snapshots one and three canonical repository targets'
   }
 });
 
-test('prepareReviewTargets rejects duplicate roots and story-mismatched branches', async () => {
+test('prepareReviewTargets ignores a redundant primary root but rejects duplicate additional roots and story-mismatched branches', async () => {
   const fixture = await prepareFixture(1);
   try {
     const currentPlanPath = path.join(
@@ -143,6 +143,24 @@ test('prepareReviewTargets rejects duplicate roots and story-mismatched branches
       }),
       resolveWorkingDirectory: async (workingFolder: string) => workingFolder,
     };
+    const redundantPrimary = await prepareReviewTargets(
+      {
+        workingRepositoryPath: fixture.primary,
+      },
+      dependencies,
+    );
+    assert.equal(redundantPrimary.snapshot.targets.length, 1);
+
+    await fs.writeFile(
+      currentPlanPath,
+      JSON.stringify({
+        plan_path: 'planning/0000064-parallel-review.md',
+        additional_repositories: [
+          { path: fixture.additional[0] },
+          { path: fixture.additional[0] },
+        ],
+      }),
+    );
     await assert.rejects(
       prepareReviewTargets(
         {
@@ -169,6 +187,36 @@ test('prepareReviewTargets rejects duplicate roots and story-mismatched branches
       ),
       /does not match plan story 0000065/u,
     );
+  } finally {
+    await fs.rm(fixture.tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('prepareReviewTargets disambiguates colliding normalized additional aliases', async () => {
+  const fixture = await prepareFixture(2);
+  try {
+    const repositories = fixture.repositories.map((repository, index) =>
+      index === 1
+        ? { ...repository, id: 'shared/repository' }
+        : index === 2
+          ? { ...repository, id: 'shared?repository' }
+          : repository,
+    );
+    const result = await prepareReviewTargets(
+      { workingRepositoryPath: fixture.primary },
+      {
+        listIngestedRepositories: async () => ({
+          repos: repositories,
+          lockedModelId: null,
+        }),
+        resolveWorkingDirectory: async (workingFolder) => workingFolder,
+      },
+    );
+
+    const aliases = result.snapshot.targets.map((target) => target.repo_alias);
+    assert.equal(new Set(aliases).size, aliases.length);
+    assert.equal(aliases[1], 'shared-repository');
+    assert.match(aliases[2] ?? '', /^shared-repository-[a-f0-9]{12}$/u);
   } finally {
     await fs.rm(fixture.tempRoot, { recursive: true, force: true });
   }

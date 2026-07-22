@@ -51,6 +51,7 @@ export type FlowRunStartParams = {
   parentWave?: {
     executionId: string;
     instanceId: string;
+    waveInvocationId: string;
     targetId?: string;
     displayName: string;
   };

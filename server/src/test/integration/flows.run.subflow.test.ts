@@ -1014,16 +1014,11 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
       new Set(activeSubflows.map((entry) => entry.conversationId)).size,
       5,
     );
-    assert.deepEqual(
+    assert.equal(
       activeSubflows.find(
         (entry) => entry.instanceId === 'reviews:client:main-review',
       )?.input,
-      {
-        review_target: {
-          repo_root: '/repos/client',
-          target_id: 'client',
-        },
-      },
+      undefined,
     );
     assert.deepEqual(
       (
@@ -1066,20 +1061,34 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
     assert.deepEqual(
       (
         clientChild?.flags as {
-          flowChild?: Record<string, unknown>;
+          flow?: { input?: unknown };
         }
-      ).flowChild,
+      ).flow?.input,
       {
-        executionId: (
-          memoryConversations.get(result.conversationId)?.flags as {
-            flow?: { executionId?: string };
-          }
-        ).flow?.executionId,
-        instanceId: 'reviews:client:main-review',
-        targetId: 'client',
-        displayName: 'main-review [client]',
+        review_target: {
+          repo_root: '/repos/client',
+          target_id: 'client',
+        },
       },
     );
+    const childWaveIdentity = (
+      clientChild?.flags as { flowChild?: Record<string, unknown> }
+    ).flowChild;
+    assert.equal(
+      childWaveIdentity?.executionId,
+      (
+        memoryConversations.get(result.conversationId)?.flags as {
+          flow?: { executionId?: string };
+        }
+      ).flow?.executionId,
+    );
+    assert.equal(
+      childWaveIdentity?.instanceId,
+      'reviews:client:main-review',
+    );
+    assert.equal(childWaveIdentity?.targetId, 'client');
+    assert.equal(childWaveIdentity?.displayName, 'main-review [client]');
+    assert.equal(typeof childWaveIdentity?.waveInvocationId, 'string');
 
     const finalAssistant = await waitForAssistantStatus(
       result.conversationId,
@@ -3298,7 +3307,7 @@ test('restart recovery resumes an interrupted wave child in its existing convers
   }
 });
 
-test('restart recovery reattaches a launched wave child when the parent crashed before persisting it', async () => {
+test('restart recovery reattaches only the matching wave invocation when the parent crashed before persisting it', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-crash-window-recovery-'),
   );
@@ -3331,6 +3340,7 @@ test('restart recovery reattaches a launched wave child when the parent crashed 
     const parentConversationId = 'wave-crash-window-parent-conversation';
     const parentExecutionId = 'wave-crash-window-parent-execution';
     const instanceId = 'crash-window:child-wave-crash-window';
+    const waveInvocationId = JSON.stringify({ stepPath: [0], loopStack: [] });
     const now = new Date();
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
@@ -3351,6 +3361,7 @@ test('restart recovery reattaches a launched wave child when the parent crashed 
         flowChild: {
           executionId: parentExecutionId,
           instanceId,
+          waveInvocationId,
           displayName: 'child-wave-crash-window',
         },
       },
@@ -3359,6 +3370,22 @@ test('restart recovery reattaches a launched wave child when the parent crashed 
       createdAt: now,
       updatedAt: now,
     } as Conversation);
+    const earlierChildConversationId = 'wave-crash-window-earlier-child';
+    const currentChild = memoryConversations.get(childConversationId)!;
+    memoryConversations.set(earlierChildConversationId, {
+      ...currentChild,
+      _id: earlierChildConversationId,
+      title: 'Earlier Wave Child',
+      flags: {
+        ...(currentChild.flags ?? {}),
+        flowChild: {
+          executionId: parentExecutionId,
+          instanceId,
+          waveInvocationId: 'earlier-wave-invocation',
+          displayName: 'child-wave-crash-window',
+        },
+      },
+    });
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
@@ -3421,8 +3448,9 @@ test('restart recovery reattaches a launched wave child when the parent crashed 
       Array.from(memoryConversations.values()).filter(
         (conversation) => conversation.flowName === 'child-wave-crash-window',
       ).length,
-      1,
+      2,
     );
+    assert.equal(memoryTurns.get(earlierChildConversationId)?.length ?? 0, 0);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

@@ -698,6 +698,7 @@ describe('flow schema (v1)', () => {
     assert.equal(completionGate?.agentType, 'coding_agent');
     assert.equal(completionGate?.identifier, 'batch_fixer');
     assert.equal(completionGate?.breakOn, 'yes');
+    assert.equal(completionGate?.continueOnFailure, true);
     assert.equal(completionGate?.breakOnFailure, undefined);
     assert.match(completionGate?.question ?? '', /positively confirmed/u);
     assert.match(completionGate?.question ?? '', /evidence is uncertain/u);
@@ -922,6 +923,7 @@ describe('flow schema (v1)', () => {
       assert.equal(normalGate?.agentType, 'coding_agent', relativePath);
       assert.equal(normalGate?.identifier, 'coder', relativePath);
       assert.equal(normalGate?.breakOn, 'yes', relativePath);
+      assert.equal(normalGate?.continueOnFailure, true, relativePath);
       assert.equal(normalGate?.breakOnFailure, undefined, relativePath);
       assert.match(normalGate?.question ?? '', /positively confirms/u);
       assert.match(normalGate?.question ?? '', /malformed, or uncertain/u);

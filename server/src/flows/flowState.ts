@@ -34,6 +34,7 @@ export type FlowActiveSubflow = {
   conversationId: string;
   runToken: string;
   instanceId?: string;
+  waveInvocationId?: string;
   targetId?: string;
   workingFolder?: string;
   input?: FlowJsonObject;

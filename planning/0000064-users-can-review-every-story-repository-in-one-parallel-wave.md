@@ -3289,3 +3289,338 @@ Close the two remaining review-cycle gaps without parsing review content. The se
 - Testing 1: The focused Python prompt-contract suite passed 34/34, and the focused server wrapper passed 81/81 across flow-schema and production-loop integration coverage.
 - Testing 2: The full server unit wrapper passed 2,580/2,580 tests, and the server build summary wrapper passed with no warnings.
 - Testing 3: Repository ESLint, tracked-file and new-prompt Prettier checks, and `git diff --check` all passed cleanly.
+
+## Code Review Findings
+
+- Review batch: `0000064-rw-20260722T010417Z-060258e2`
+- Review cycle: `0000064-rc-20260722T010416Z-0a09cacf`
+- Comparison context: reviewed HEAD `1a66bdbadfab228539797ef7f1f649d0db20e9c5` versus comparison base `00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the authoritative batch handoff.
+- Decision provenance: `codeInfoTmp/reviews/0000064-rc-20260722T010416Z-0a09cacf/batches/0000064-rw-20260722T010417Z-060258e2--head-1a66bdbadfab/reconciliation/disposition.md`
+- The scope filter and independent audit completed without removing or narrowing any finding. Five supported findings remain actionable for `current_repository`; three are apparently suitable for the normal repair attempt and two are likely to need the stronger repair attempt. Repair difficulty is advisory and no implementation-task decision is made here.
+
+### Accepted
+
+#### 1. Diagnostic reviews enter the mutating disposition and repair pipeline
+
+- Finding reference: `CXR-1` in the batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-codex_review`
+- Severity: P1
+- Decision: Accepted as likely stronger-repair work because diagnostic isolation must be preserved across the shared mutating batch stages.
+
+#### 2. Additional repositories can inherit the primary repository's comparison-base hint
+
+- Finding reference: `CXR-2` in the batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-codex_review`
+- Severity: P1
+- Decision: Accepted as apparently suitable for the normal repair attempt because the likely fix is localized to per-repository base fallback and focused target-resolution proof.
+
+#### 3. Normal implementation-repair failure prevents stronger escalation and the final blocker gate
+
+- Finding reference: `CXR-3` in the batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-codex_review`
+- Severity: P1
+- Decision: Accepted as apparently suitable for the normal repair attempt because the likely fix is bounded failure-tolerant continuation across the four main implementation flows plus execution proof.
+
+#### 4. Sanitized instance IDs can merge private review workspaces
+
+- Finding reference: exact title in the batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-open_code_review`
+- Severity: High
+- Decision: Accepted as apparently suitable for the normal repair attempt because the likely fix is localized to injective workspace naming or collision validation with focused regression coverage.
+
+#### 5. Diagnostic batches can inherit final-cycle identity
+
+- Finding reference: exact title in the batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-open_code_review`
+- Severity: Medium
+- Decision: Accepted as likely stronger-repair work because correcting diagnostic mode's active-cycle adoption crosses target preparation and lifecycle identity semantics.
+
+### Ignored for This Story
+
+#### Native CXR-3 — Failed positive-confirmation gates terminate instead of running stronger repair
+
+- Source: `jobs/target_reviews-current_repository-codex_review/output/review.md`
+- Target: `current_repository`
+- Decision: Ignored as outside scope. The complete proposed malformed-completion-gate recovery is explicitly excluded by Story 64's Out Of Scope boundary; the observation remains preserved as unresolved uncertainty in the immutable evidence and disposition.
+
+#### Scope-filtered findings and narrowed remedies
+
+- None. The completed scope filter removed no finding and narrowed no finding or remedy. No scope-filtered item is actionable or restored here.
+
+## Code Review Findings
+
+- Review batch: `0000064-rw-20260722T021113Z-f056267d`
+- Review cycle: `0000064-rc-20260722T010416Z-0a09cacf`
+- Comparison context: reviewed HEAD `21dc50a9cc72119d8a477689185333571912d4c4` versus comparison base `00ced5bb15524d12395dfc5c0d427b3c65eb7f97` from the authoritative batch handoff.
+- Decision provenance: `codeInfoTmp/reviews/0000064-rc-20260722T010416Z-0a09cacf/batches/0000064-rw-20260722T021113Z-f056267d--head-21dc50a9cc72/reconciliation/disposition.md`
+- The reconciliation and independent audits completed with qualified coverage. Six findings remain actionable after scope filtering: four unchanged findings and two narrowed to completion-gate invocation/provider-execution failure. Repair-route labels are advisory; no implementation-task decision is made here.
+
+### Accepted
+
+#### 1. Recovered wave identity is not unique per loop iteration
+
+- Finding reference: finding 1 in the current batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-codex_review`
+- Target: `current_repository`; `server/src/flows/service.ts:1186-1189`
+- Decision: Accepted as likely stronger-repair work because repeated-wave restart recovery requires a persisted per-invocation identity across parent state, child flags, and matching.
+
+#### 2. Valid active child inputs can overflow the persisted parent MongoDB document
+
+- Finding reference: finding 2 in the current batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-codex_review`
+- Target: `current_repository`; `server/src/flows/service.ts:3141-3146`
+- Decision: Accepted as likely stronger-repair work because the aggregate persistence boundary may require a broader design choice and a real MongoDB size-boundary proof.
+
+#### 3. A redundant primary repository entry aborts review-target preparation
+
+- Finding reference: finding 3 in the current batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-codex_review`
+- Target: `current_repository`; `server/src/flows/reviewTargets.ts:286-290`
+- Decision: Accepted as apparently suitable for the normal repair attempt because the likely fix is localized primary-root deduplication with focused target-preparation coverage.
+
+#### 4. Normalized aliases can collide for distinct repositories
+
+- Finding reference: finding 4 in the current batch reconciliation
+- Found by: `jobs/target_reviews-current_repository-codex_review`
+- Target: `current_repository`; `server/src/flows/reviewTargets.ts:324-330`
+- Decision: Accepted as apparently suitable for the normal repair attempt because deterministic alias collision handling is localized and has a focused two-repository proof shape.
+
+#### 5. Review completion-gate execution failure can prevent the stronger review repair
+
+- Finding reference: finding 5 in the current batch reconciliation; retained only for invocation/provider-execution failure
+- Found by: `jobs/target_reviews-current_repository-open_code_review`
+- Target: `current_repository`; `flows/review_batch.json:127-132` and `server/src/flows/service.ts:6833-6840`
+- Decision: Accepted as apparently suitable for the normal repair attempt because a bounded failure-tolerant continuation and focused execution-failure proof fit the existing review flow.
+
+#### 6. Implementation completion-gate execution failure can prevent implementation research repair
+
+- Finding reference: finding 6 in the current batch reconciliation; retained only for invocation/provider-execution failure
+- Found by: `jobs/target_reviews-current_repository-open_code_review`
+- Target: `current_repository`; `flows/implement_current_plan.json:160-165`, with the same pattern in `flows/implement_next_plan.json`, `flows/improve_task_implement_plan.json`, and `flows/task_and_implement_plan.json`
+- Decision: Accepted as apparently suitable for the normal repair attempt because the same bounded continuation can be applied consistently across the four named implementation flows with focused failure-path proof.
+
+### Ignored for This Story
+
+#### Scope-filtered complete findings
+
+- None. `scope-filtered-findings.md` records no fully removed finding. The cross-repository no-op is an applicability result, not a supported finding to ignore.
+
+#### Narrowed-away remedy from Finding 5 — malformed or unparsable review completion response recovery
+
+- Original finding identity: review completion-gate failure can prevent the stronger review repair
+- Source: `jobs/target_reviews-current_repository-open_code_review/output/open-code-review.md`
+- Target: `current_repository`
+- Rejection gates: 1 and 2 under the story's explicit malformed-completion-gate exclusion
+- Decision: Ignored only as a narrowed-away remedy. The complete finding remains accepted above for invocation/provider-execution failure; only malformed/parsing-response recovery is non-actionable.
+
+#### Narrowed-away remedy from Finding 6 — malformed or unparsable implementation completion response recovery
+
+- Original finding identity: implementation completion-gate failure can prevent implementation research repair
+- Source: `jobs/target_reviews-current_repository-open_code_review/output/open-code-review.md`
+- Target: `current_repository`
+- Rejection gates: 1 and 2 under the story's explicit malformed-completion-gate exclusion
+- Decision: Ignored only as a narrowed-away remedy. The complete finding remains accepted above for invocation/provider-execution failure; only malformed/parsing-response recovery is non-actionable.
+
+- No other supported finding was rejected as duplicate, already resolved, or outside scope. No fully removed item is actionable or restored here.
+
+### Task 55. Separate Completion-Gate Execution Failure From Invalid Responses
+
+- Task Status: `__in_progress__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `implementation`
+- Prerequisite: Task 54 must remain complete, and the two direct repair commits from review cycle `0000064-rc-20260722T010416Z-0a09cacf` must remain in the current repository history before this task starts.
+- Review Cycle ID: `0000064-rc-20260722T010416Z-0a09cacf`
+- Repair baseline: `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`, branch `feature/0000064-users-can-review-every-story-repository-in-one-parallel-wave`, final repair HEAD `bbe5ece314daaecb98e51606d5be85c4cdc37d0e`, comparison base `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`.
+
+#### Task Dependencies
+
+- Task 54, `Make Derived Review Artifacts Autonomous and Self-Auditing`, must remain `__done__`.
+- The two repair commits `21dc50a9cc72119d8a477689185333571912d4c4` and `bbe5ece314daaecb98e51606d5be85c4cdc37d0e` must remain reachable from the current branch.
+- The current-task handoff must select this task, and the active review cycle must remain visibly incomplete until this repair, Task 56 final proof, and the required new-HEAD review are handled.
+- The settlement audit found that batch 2 findings 5-6 remain actionable because the normal repair conflated provider/invocation failure with invalid-response parsing and the stronger repair stage was skipped.
+
+#### Overview
+
+This implementation task repairs the actionable remainder from batch 2 findings 5-6. The normal repair added `continueOnFailure` to completion gates, but `runBreakStep` reports both provider/invocation failure and malformed or unparsable answers as the same `failed` status. The new continuation therefore changes the scope-filtered malformed-response behavior, while the added integration scenario proves only an invalid answer and does not prove provider execution failure.
+
+Distinguish the two failure classes at the runtime boundary, continue only provider/invocation failure into the one stronger attempt, preserve the excluded malformed/unparsable response behavior, and prove the review gate plus all four main implementation-flow declarations. Task 56 owns whole-story final revalidation after this task.
+
+#### Non-Goals
+
+- Do not implement or re-task the five findings resolved in batch `0000064-rw-20260722T010417Z-060258e2` by commit `21dc50a9cc72119d8a477689185333571912d4c4`.
+- Do not re-task batch 2 findings 1-4, which were resolved by `bbe5ece314daaecb98e51606d5be85c4cdc37d0e`.
+- Do not add recovery for malformed or unparsable completion responses; preserve their existing terminating behavior under Story 64's scope gate.
+- Do not add repositories, alter the approved behavior lock, or start another review from this task-creation step.
+- Do not treat the not-applicable cross-repository job, OpenCode's partial line-level coverage, or untested provider/MongoDB boundaries as clean proof; preserve each limitation in the task notes.
+
+#### Addresses Findings
+
+- Batch 1 repaired findings: diagnostic review mutation, per-repository comparison-base inheritance, normal-repair failure bypassing stronger escalation, sanitized workspace-ID collision, and diagnostic final-cycle identity inheritance. Provenance: `codeInfoTmp/reviews/0000064-rc-20260722T010416Z-0a09cacf/batches/0000064-rw-20260722T010417Z-060258e2--head-1a66bdbadfab/reconciliation/batch-outcome.md`; repair commit: `21dc50a9cc72119d8a477689185333571912d4c4`.
+- Batch 2 finding 1: recovered wave identity was not unique per loop iteration; source `target_reviews-current_repository-codex_review`, location `server/src/flows/service.ts:1186-1189`; resolved in `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, and `server/src/flows/types.ts`.
+- Batch 2 finding 2: valid active child inputs could overflow the persisted parent MongoDB document; source `target_reviews-current_repository-codex_review`, location `server/src/flows/service.ts:3141-3146`; resolved by removing repeated child-input copies from persisted parent `activeSubflows`.
+- Batch 2 finding 3: a redundant primary repository entry aborted target preparation; source `target_reviews-current_repository-codex_review`, location `server/src/flows/reviewTargets.ts:286-290`; resolved by ignoring only later equivalent primary-root entries.
+- Batch 2 finding 4: normalized aliases could collide for distinct repositories; source `target_reviews-current_repository-codex_review`, location `server/src/flows/reviewTargets.ts:324-330`; resolved with deterministic root-derived collision suffixes.
+- Batch 2 finding 5: review completion-gate invocation/provider-execution failure could prevent stronger review repair; source `target_reviews-current_repository-open_code_review`, locations `flows/review_batch.json:127-132` and `server/src/flows/service.ts:6833-6840`; the normal repair attempted bounded continuation but did not preserve the invalid-response scope boundary.
+- Batch 2 finding 6: implementation completion-gate invocation/provider-execution failure could prevent implementation research repair; source `target_reviews-current_repository-open_code_review`, location `flows/implement_current_plan.json:160-165` and the corresponding three implementation flows; the same incomplete repair applies across all four main flows.
+- Settlement audit remainder for findings 5-6: `server/src/flows/service.ts:4758-4938` maps provider/invocation failure and invalid-response parsing to the same `failed` result, while `server/src/flows/service.ts:6844-6884` continues both when `continueOnFailure` is set. `server/src/test/integration/flows.run.loop.test.ts` uses an invalid answer, so it proves the excluded behavior rather than the retained execution-failure core.
+
+#### Task Exit Criteria
+
+- Task 54 remains complete and both repair commits are present without squashing, resetting, or replacing per-repository provenance.
+- The implementation baseline is `current_repository` at `bbe5ece314daaecb98e51606d5be85c4cdc37d0e`; record the task-owned repair commit and route its new HEAD through Task 56 and the later review loop before convergence.
+- Full server/common and client builds, supported Compose lifecycle, full automated suite, lint, and formatting checks pass using the required wrappers.
+- Automated proof distinguishes provider/invocation failure from invalid-response failure, proves review completion-gate execution failure reaches stronger review repair, and proves implementation execution failure reaches research repair while all four main flow declarations retain the intended policy.
+- The cross-repository job remains explicitly not applicable because only `current_repository` is in scope; it is not reported as clean compatibility coverage.
+- The original OpenCode coverage limit, two manifest-absent Git-changed paths, lack of provider-driven review tests, and lack of a real MongoDB 16 MiB write-boundary test remain visible in the task evidence.
+- The two malformed/unparsable completion-response meanings remain excluded and no actionable remainder from either immutable batch is recreated.
+- Invalid or unparsable answers do not take the provider-execution continuation path, and focused tests lock that scope boundary.
+- All required proof is checked and recorded in this task's Implementation Notes before the task is marked `__done__`; Task 56 remains the final whole-story proof owner.
+
+#### Owner Map
+
+- Implementation and focused testing owner: `codeInfo2` / `current_repository` only.
+- Cross-repository owner: none; the assigned manifest contains no additional repository.
+- Final proof owner after this task: Task 56, followed by the normal review workflow's fresh new-HEAD review.
+
+#### Risk Ownership
+
+- `codeInfo2` owns the completion-gate failure-classification repair and must use the smallest focused change that preserves the scope-filtered malformed-response boundary.
+- The task must not hide incomplete provider, compatibility, MongoDB-boundary, or non-reviewable-file coverage behind a successful wrapper result.
+- The task must preserve the out-of-scope malformed-response boundary and must not represent an invalid-answer test as provider-execution proof.
+
+#### Requirement-To-Proof Mapping
+
+- Review finding resolution: re-open both immutable batch outcomes/audits, target review evidence, the final repair commit, and current Git; verify each of the six later-batch repairs plus the five earlier repairs reviewed on the later HEAD.
+- Wave identity and resume: targeted subflow identity/restart tests plus the full server suite.
+- Parent persistence boundary: source/state proof and the available repository-owned persistence/resume tests; record honestly that the prior repair did not run a real MongoDB 16 MiB write-boundary test.
+- Target preparation: focused review-target tests plus the full server suite for duplicate-primary handling and deterministic alias uniqueness.
+- Completion-gate escalation: separate runtime proof for provider/invocation failure and invalid response; flow-schema proof for review and all four implementation flows; focused loop integration coverage.
+- Runtime lifecycle: Compose build, supported main-stack startup/readiness, manual flow proof, and matching shutdown.
+- Whole-story regression: `npm run test:summary:all:parallel`, followed by lint and format checks.
+
+#### Proof Mapping
+
+- Server/common build: `npm run build:summary:server`.
+- Client build: `npm run build:summary:client`.
+- Supported runtime: `npm run compose:build:summary`, `npm run compose:up`, and `npm run compose:down`.
+- Full automation: `npm run test:summary:all:parallel`; targeted commands may supplement diagnosis but cannot replace this wrapper.
+- Static quality: `npm run lint` followed by `npm run format:check`.
+- Manual proof: supported main stack at `http://localhost:5010/health` and `http://localhost:5001`, using the repository's one-target cancellation/resume, terminal recovery, three-target expansion, isolated artifact, and cross-repository handoff guidance.
+
+#### Affected Repositories
+
+- `codeInfo2` only. `current-plan.json` declares no additional repositories, so cross-repository behavior is a proof surface inside this repository rather than a second implementation owner.
+
+#### Documentation Locations
+
+- Settlement recommendation: `codeInfoTmp/reviews/0000064-rc-20260722T010416Z-0a09cacf/settlement/recommendation.md`.
+- Immutable batch 1: `codeInfoTmp/reviews/0000064-rc-20260722T010416Z-0a09cacf/batches/0000064-rw-20260722T010417Z-060258e2--head-1a66bdbadfab/`.
+- Immutable batch 2: `codeInfoTmp/reviews/0000064-rc-20260722T010416Z-0a09cacf/batches/0000064-rw-20260722T021113Z-f056267d--head-21dc50a9cc72/`.
+- Canonical plan: `planning/0000064-users-can-review-every-story-repository-in-one-parallel-wave.md`.
+- Current task and review state: `codeInfoStatus/flow-state/current-task.json`, `codeInfoStatus/flow-state/current-plan.json`, `codeInfoStatus/flow-state/active-review-cycle.json`, and the review-cycle disposition state created by the tasking workflow.
+
+#### Subtasks
+
+1. [ ] Introduce an explicit completion-gate failure classification that distinguishes provider/invocation execution failure from malformed or unparsable response failure without changing unrelated break-step behavior.
+2. [ ] Route only provider/invocation execution failure through the bounded stronger repair in `review_batch.json` and the four main implementation flows; preserve the scope-filtered invalid-response behavior.
+3. [ ] Add focused runtime and flow-schema proof for the review gate, all four implementation declarations, provider/invocation failure continuation, and invalid-response non-continuation.
+4. [ ] Run focused validation, commit the repair with required provenance, and record the new immutable target HEAD plus the Task 56 and fresh-review handoff in Implementation Notes.
+
+#### Testing
+
+1. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` with focused cases proving provider/invocation failure continuation and invalid-response non-continuation.
+2. [ ] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts --skip-build` and confirm review plus all four implementation declarations retain the intended failure policy.
+3. [ ] Run `npm run test:summary:server:unit`.
+4. [ ] Run `npm run lint`.
+5. [ ] Run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+- Use the supported main stack, started with `npm run compose:build` followed by `npm run compose:up`, and wait for `http://localhost:5010/health` and `http://localhost:5001` before proof. Stop it with `npm run compose:down` after proof.
+- Verify one-target cancellation/resume and terminal `Stopped` recovery with an enabled `Send`, then verify the persisted three-target proof shows target-qualified child rows, wave counts, and isolated target artifacts. Keep the target repository catalog unchanged and do not add another repository.
+- Verify the cross-repository handoff surface as a one-target not-applicable result; do not claim producer/consumer compatibility proof when no second repository exists.
+- Preserve the current manual-testing guidance's mobile viewport checks and screenshot limitation if those checks are exercised. Authentication-dependent provider actions may be skipped only under documented repository guidance; do not attempt autonomous re-authentication.
+
+#### Implementation Notes
+
+- Settlement audit rejected the earlier clean repair prediction for batch 2 findings 5-6. The normal attempt conflated provider/invocation failure with invalid-response parsing, its new test exercised the excluded behavior, and no stronger repair audit exists; this task records the remaining implementation work before Task 56 final revalidation.
+
+### Task 56. Re-Validate Story 64 After Completion-Gate Settlement Repair
+
+- Task Status: `__todo__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `final_revalidation`
+- Prerequisite: Task 55 must be `__done__`, its focused testing must be checked, and its repair commit must remain reachable from the current branch.
+- Review Cycle ID: `0000064-rc-20260722T010416Z-0a09cacf`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`; tested target HEAD is the Task 55 repair commit recorded in its Implementation Notes.
+
+#### Overview
+
+This is the single final testing/revalidation task after all implementation work represented by the active review cycle. It covers the two original repair commits and the Task 55 correction that separates provider/invocation execution failure from invalid completion responses. It must preserve the intentionally excluded malformed/unparsable behavior and all qualified review-coverage limits.
+
+#### Non-Goals
+
+- Do not recreate tasks for batch 1 or batch 2 findings 1-4, which remain resolved.
+- Do not add malformed or unparsable completion-response recovery.
+- Do not claim cross-repository compatibility proof when the target manifest contains only `current_repository`.
+- Do not claim clean review convergence; a fresh review of the final immutable HEAD remains required after this task.
+
+#### Addresses Findings
+
+- Batch 1's five repaired findings in commit `21dc50a9cc72119d8a477689185333571912d4c4`.
+- Batch 2 findings 1-4 repaired in commit `bbe5ece314daaecb98e51606d5be85c4cdc37d0e`.
+- Batch 2 findings 5-6 as corrected by Task 55: provider/invocation execution failure reaches bounded stronger repair, while invalid response parsing remains outside the continuation path.
+
+#### Task Exit Criteria
+
+- The tested target is the exact Task 55 commit, and all three repair commits remain separately reachable in `current_repository` history.
+- Server/common and client builds, the supported Compose lifecycle, the full automated suite, lint, and formatting checks pass through required wrappers.
+- Automated proof covers repeated-wave identity and restart recovery, parent active-child persistence, duplicate-primary handling, deterministic alias uniqueness, review completion-gate provider failure, implementation completion-gate provider failure across all four main flows, and invalid-response non-continuation.
+- Supported manual proof is complete or an authentication-dependent skip is recorded exactly as repository guidance allows.
+- The not-applicable cross-repository result, OpenCode coverage limitations, absent real MongoDB 16 MiB boundary test, and excluded malformed-response meanings remain visible.
+- Every checkbox and the final target HEAD are recorded in Implementation Notes before this task is marked `__done__`.
+
+#### Risk Ownership
+
+- `codeInfo2` / `current_repository` owns every changed surface and proof command.
+- Any task-owned repair advances the immutable HEAD and must be committed, recorded, and routed through the later fresh review.
+- No secondary repository is in scope, so no secondary commit is expected or may be implied.
+
+#### Requirement-To-Proof Mapping
+
+- Review settlement: reopen both batch outcomes, both repair audits, the settlement recommendation, Task 55 notes, review state, and current Git.
+- Repair behavior: focused completion-gate runtime tests plus flow-schema coverage for review and all four implementation flows.
+- Whole-story regression: required builds, supported main-stack lifecycle, `npm run test:summary:all:parallel`, manual proof, lint, and formatting.
+
+#### Affected Repositories
+
+- `codeInfo2` only. `current-plan.json` declares no additional repositories.
+
+#### Subtasks
+
+1. [ ] Re-open the repaired settlement artifacts, Task 55 evidence, active review-cycle state, disposition state, and current Git; confirm one-target ownership, comparison base, all repair commits, and the exact final HEAD.
+2. [ ] Revalidate every changed seam from both batch repairs and Task 55, including the separate provider/invocation and invalid-response completion-gate paths.
+3. [ ] Preserve all residual coverage limitations and the malformed/unparsable exclusion without representing them as clean proof or new story work.
+4. [ ] Record every command, manual scenario, result, final HEAD, residual uncertainty, and the required fresh-review handoff in Implementation Notes.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run build:summary:client`.
+3. [ ] Run `npm run compose:build:summary`.
+4. [ ] Start the supported main stack with `npm run compose:up` and wait for the documented health gates.
+5. [ ] Run `npm run test:summary:all:parallel`.
+6. [ ] Complete supported manual proof for one-target cancellation/resume and terminal recovery, three-target expansion and wave counts, isolated target artifacts, and the one-target cross-repository handoff surface.
+7. [ ] Stop the supported main stack with `npm run compose:down`.
+8. [ ] Run `npm run lint`.
+9. [ ] Run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+- Use only the supported main stack at `http://localhost:5010/health` and `http://localhost:5001`; do not use or stop `codeinfo:local`.
+- Keep the repository catalog unchanged. Verify cross-repository handoff as not applicable for one target rather than adding a repository.
+- Record authentication-dependent skips under repository guidance and do not attempt autonomous re-authentication.
+
+#### Implementation Notes
+
+- Created by settlement audit after Task 55 was restored as implementation work. This task is the sole final-revalidation owner and must be followed by a fresh review of its final immutable HEAD before convergence.

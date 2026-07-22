@@ -3618,15 +3618,15 @@ This is the single final testing/revalidation task after all implementation work
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run compose:build:summary`.
-4. [ ] Start the supported main stack with `npm run compose:up` and wait for the documented health gates.
-5. [ ] Run `npm run test:summary:all:parallel`.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run compose:build:summary`.
+4. [x] Start the supported main stack with `npm run compose:up` and wait for the documented health gates.
+5. [x] Run `npm run test:summary:all:parallel`.
 6. [ ] Complete supported manual proof for one-target cancellation/resume and terminal recovery, three-target expansion and wave counts, isolated target artifacts, and the one-target cross-repository handoff surface.
-7. [ ] Stop the supported main stack with `npm run compose:down`.
-8. [ ] Run `npm run lint`.
-9. [ ] Run `npm run format:check`.
+7. [x] Stop the supported main stack with `npm run compose:down`.
+8. [x] Run `npm run lint`.
+9. [x] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -3642,3 +3642,12 @@ This is the single final testing/revalidation task after all implementation work
 - Subtask 2: Revalidated the changed seams with focused server-unit wrappers: `flows.run.subflow.test.ts` passed 39/39, `review-targets.test.ts` passed 8/8, `flows-schema.test.ts` passed 80/80, and `flows.run.loop.test.ts` passed 29/29. The focused loop and schema suites separately cover provider/invocation execution-failure continuation, invalid-response non-continuation, the review gate, and all four implementation flow declarations; broader Task 56 testing remains intentionally unchecked.
 - Subtask 3: Preserved the qualified evidence boundary: cross-repository compatibility is not applicable for the one-target manifest; OpenCode directly covered 90 of 202 manifest entries, omitted two Git-changed gitignored paths, and ran no tests; no real MongoDB 16 MiB boundary test was run; and malformed or unparsable completion-response recovery remains excluded. These limitations are not represented as clean proof or new Story 64 work.
 - Subtask 4: Recorded the implementation-pass commands and results: `git branch --show-current`, `git status --short`, `git rev-parse HEAD`, ancestry checks for all three repair commits, and `git diff --name-status c10a7522..HEAD`; focused server-unit wrappers passed 39/39, 8/8, 80/80, and 29/29 respectively. No new manual scenario or `two_phase_review_cycle` was launched in this implementation-only pass; the supported manual scenarios remain mandatory Testing work. Final HEAD is `92653004ece23f402c5a73d5e2ee052611e6dfda`; residual uncertainty is limited to the recorded coverage and boundary limitations above. The required handoff is a fresh useful review against this final immutable HEAD after Task 56's later automated/manual proof, without claiming convergence now.
+- Testing 1: `npm run build:summary:server` passed cleanly with zero warnings on 2026-07-22; the wrapper reported `agent_action: skip_log`.
+- Testing 2: `npm run build:summary:client` passed typecheck and Vite build on 2026-07-22. The wrapper reported one existing large-chunk warning in `build-client-latest.log`; no build failure occurred.
+- Testing 3: `npm run compose:build:summary` passed both Compose image-build items on 2026-07-22 with zero failures; the wrapper reported `agent_action: skip_log`.
+- Testing 4: The first `npm run compose:up` attempt was blocked by an already-running supported main stack on ports 5010/5011/5012/8932. After stopping only that main stack with `npm run compose:down` (leaving the protected `codeinfo2-*-local` stack untouched), the rerun passed and reached healthy MongoDB and server gates with the client started.
+- Testing 5: `npm run test:summary:all:parallel` passed on 2026-07-22: client 900/900, server unit 2586/2586, server cucumber 133/133, and e2e 77/77; all four jobs exited 0.
+- Testing 7: `npm run compose:down` passed on 2026-07-22 and removed the supported main-stack containers/network. The protected `codeinfo2-*-local` stack remained untouched.
+- **BLOCKER** Testing 6 (supported manual proof) was not run because this automated-testing step explicitly prohibits manual browser or agent-driven validation. Automated items after it may proceed; the task must remain `__in_progress__` for the later manual-testing agent to complete the listed scenarios. No task split or reorder is required.
+- Testing 8: `npm run lint` passed with exit code 0 and no reported diagnostics on 2026-07-22.
+- Testing 9: `npm run format:check` passed on 2026-07-22; Prettier reported that all matched files use the required code style.

@@ -3524,7 +3524,7 @@ Distinguish the two failure classes at the runtime boundary, continue only provi
 1. [x] Introduce an explicit completion-gate failure classification that distinguishes provider/invocation execution failure from malformed or unparsable response failure without changing unrelated break-step behavior.
 2. [x] Route only provider/invocation execution failure through the bounded stronger repair in `review_batch.json` and the four main implementation flows; preserve the scope-filtered invalid-response behavior.
 3. [x] Add focused runtime and flow-schema proof for the review gate, all four implementation declarations, provider/invocation failure continuation, and invalid-response non-continuation.
-4. [ ] Run focused validation, commit the repair with required provenance, and record the new immutable target HEAD plus the Task 56 and fresh-review handoff in Implementation Notes.
+4. [x] Run focused validation, commit the repair with required provenance, and record the new immutable target HEAD plus the Task 56 and fresh-review handoff in Implementation Notes.
 
 #### Testing
 
@@ -3547,6 +3547,7 @@ Distinguish the two failure classes at the runtime boundary, continue only provi
 - Subtask 1: Added an explicit break-step failure classification through flow instruction post-processing and the decision-script path, preserving the existing failed status while distinguishing execution failures from invalid responses; no unrelated break-step behavior was changed.
 - Subtask 2: Restricted `continueOnFailure` break routing to classified execution failures, so the existing completion-gate declarations in `review_batch.json` and all four implementation flows continue provider failures but terminate on invalid responses.
 - Subtask 3: Added runtime coverage for provider execution continuation and invalid-response termination, and retained schema assertions for `review_batch.json` plus all four implementation flows; the focused loop suite passed 29/29 and schema suite passed 80/80.
+- Subtask 4: Focused runtime and schema validation passed, `git diff --check` passed, and the repair was committed as `c10a7522` (`DEV-0000055 - Separate completion-gate execution failures`); the new target must proceed to Task 56 final revalidation and a fresh review cycle, with the broader mandatory testing still pending.
 
 ### Task 56. Re-Validate Story 64 After Completion-Gate Settlement Repair
 

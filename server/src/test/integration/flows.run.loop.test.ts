@@ -487,7 +487,7 @@ test('haltFlow break stops the complete flow instead of advancing outer steps', 
       message.includes('Halt complete flow?')
         ? JSON.stringify({ answer: 'yes' })
         : 'unexpected',
-    async ({ baseUrl, wsUrl }) => {
+    async ({ baseUrl }) => {
       const conversationId = 'flow-halt-break';
       await supertest(baseUrl)
         .post('/flows/halt-break/run')
@@ -1716,7 +1716,7 @@ test('break step does not continue after an invalid response', async () => {
       }
       return 'ok';
     },
-    async ({ baseUrl, wsUrl }) => {
+    async ({ baseUrl }) => {
       const conversationId = 'flow-loop-conv-break-on-failure';
 
       await supertest(baseUrl)

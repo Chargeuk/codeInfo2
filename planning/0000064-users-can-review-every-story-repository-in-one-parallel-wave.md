@@ -3530,9 +3530,9 @@ Distinguish the two failure classes at the runtime boundary, continue only provi
 
 1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` with focused cases proving provider/invocation failure continuation and invalid-response non-continuation.
 2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts --skip-build` and confirm review plus all four implementation declarations retain the intended failure policy.
-3. [ ] Run `npm run test:summary:server:unit`.
-4. [ ] Run `npm run lint`.
-5. [ ] Run `npm run format:check`.
+3. [x] Run `npm run test:summary:server:unit`.
+4. [x] Run `npm run lint`.
+5. [x] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -3548,6 +3548,13 @@ Distinguish the two failure classes at the runtime boundary, continue only provi
 - Subtask 2: Restricted `continueOnFailure` break routing to classified execution failures, so the existing completion-gate declarations in `review_batch.json` and all four implementation flows continue provider failures but terminate on invalid responses.
 - Subtask 3: Added runtime coverage for provider execution continuation and invalid-response termination, and retained schema assertions for `review_batch.json` plus all four implementation flows; the focused loop suite passed 29/29 and schema suite passed 80/80.
 - Subtask 4: Focused runtime and schema validation passed, `git diff --check` passed, and the repair was committed as `c10a7522` (`DEV-0000055 - Separate completion-gate execution failures`); the new target must proceed to Task 56 final revalidation and a fresh review cycle, with the broader mandatory testing still pending.
+- Testing 3: Full server unit validation passed with 2,586 tests passed and 0 failed; the wrapper reported clean success.
+- Testing 4: `npm run lint` passed after removing two unused `wsUrl` destructurings from the focused integration tests; no warnings or errors remained.
+- Testing 5: `npm run format:check` passed; all tracked files matched Prettier style.
+- Proof repair: The initial lint cleanup accidentally targeted one socket-using callback; restored its `wsUrl` binding and invalidated Testing 3-5 for an honest rerun after the corrected two-variable cleanup.
+- Testing 3 rerun: After correcting the lint cleanup, the full server unit wrapper passed again with 2,586 tests passed and 0 failed.
+- Testing 4 rerun: `npm run lint` passed with the corrected two-variable cleanup and restored socket binding.
+- Testing 5 rerun: `npm run format:check` passed; all tracked files matched Prettier style after the corrected repair.
 
 ### Task 56. Re-Validate Story 64 After Completion-Gate Settlement Repair
 

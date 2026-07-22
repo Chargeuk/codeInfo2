@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -9,6 +10,15 @@ const repoRoot = path.resolve(process.cwd(), '..');
 
 function readRepoFile(relativePath: string): string {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+}
+
+function isTracked(relativePath: string): boolean {
+  return (
+    execFileSync('git', ['ls-files', '--', relativePath], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    }).trim().length > 0
+  );
 }
 
 function collectSteps(steps: FlowStep[]): FlowStep[] {
@@ -112,17 +122,9 @@ test('PR agent catalogs remain identical and do not contain auth', () => {
         readRepoFile(`manual_testing/codeinfo_agents/${agent}/${filename}`),
       );
     }
+    assert.equal(isTracked(`codeinfo_agents/${agent}/auth.json`), false);
     assert.equal(
-      fs.existsSync(path.join(repoRoot, `codeinfo_agents/${agent}/auth.json`)),
-      false,
-    );
-    assert.equal(
-      fs.existsSync(
-        path.join(
-          repoRoot,
-          `manual_testing/codeinfo_agents/${agent}/auth.json`,
-        ),
-      ),
+      isTracked(`manual_testing/codeinfo_agents/${agent}/auth.json`),
       false,
     );
   }

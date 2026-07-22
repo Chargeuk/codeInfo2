@@ -130,7 +130,7 @@ class PrCommentFlowControlTests(unittest.TestCase):
         ):
             pr_comments.require_in_scope_pr(references)
 
-    def test_recent_human_thread_returns_no(self) -> None:
+    def test_recent_human_leaf_returns_no(self) -> None:
         path = self.write_list(
             """
             - https://bitbucket.org/marex-prod/io-api/pull-requests/505
@@ -149,14 +149,14 @@ class PrCommentFlowControlTests(unittest.TestCase):
             }
         )
 
-        outcome = pr_comments.evaluate_pr_comment_threads(
+        outcome = pr_comments.evaluate_pr_comment_leaves(
             pr_list_path=path, runner=runner, now=NOW
         )
 
         self.assertEqual(outcome.answer, "no")
-        self.assertEqual(outcome.reason_code, "eligible_pr_threads_present")
+        self.assertEqual(outcome.reason_code, "eligible_pr_leaves_present")
 
-    def test_old_comments_are_removed_before_thread_marker_check(self) -> None:
+    def test_old_leaf_is_not_eligible(self) -> None:
         comments = [
             comment(
                 1,
@@ -165,7 +165,7 @@ class PrCommentFlowControlTests(unittest.TestCase):
             )
         ]
 
-        self.assertFalse(pr_comments.has_eligible_threads(comments, now=NOW))
+        self.assertFalse(pr_comments.has_eligible_leaves(comments, now=NOW))
 
     def test_exact_24_hour_boundary_remains_eligible(self) -> None:
         comments = [
@@ -176,9 +176,9 @@ class PrCommentFlowControlTests(unittest.TestCase):
             )
         ]
 
-        self.assertTrue(pr_comments.has_eligible_threads(comments, now=NOW))
+        self.assertTrue(pr_comments.has_eligible_leaves(comments, now=NOW))
 
-    def test_recent_ai_final_reply_removes_nested_thread(self) -> None:
+    def test_recent_ai_leaf_handles_its_branch(self) -> None:
         comments = [
             comment(
                 1,
@@ -199,9 +199,9 @@ class PrCommentFlowControlTests(unittest.TestCase):
             ),
         ]
 
-        self.assertFalse(pr_comments.has_eligible_threads(comments, now=NOW))
+        self.assertFalse(pr_comments.has_eligible_leaves(comments, now=NOW))
 
-    def test_human_reply_after_ai_reactivates_thread(self) -> None:
+    def test_human_reply_after_ai_creates_new_eligible_leaf(self) -> None:
         comments = [
             comment(
                 1,
@@ -222,20 +222,28 @@ class PrCommentFlowControlTests(unittest.TestCase):
             ),
         ]
 
-        self.assertTrue(pr_comments.has_eligible_threads(comments, now=NOW))
+        self.assertTrue(pr_comments.has_eligible_leaves(comments, now=NOW))
 
-    def test_marker_requires_the_configured_trailing_space(self) -> None:
-        comments = [
-            comment(
-                1,
-                created_on=NOW - timedelta(minutes=5),
-                raw="#AI Response:",
-            )
-        ]
+    def test_marker_accepts_canonical_newline_and_colon_only_forms(self) -> None:
+        for raw in [
+            "#AI Response: Handled.",
+            "#AI Response:\nHandled.",
+            "#AI Response:",
+        ]:
+            with self.subTest(raw=raw):
+                comments = [
+                    comment(
+                        1,
+                        created_on=NOW - timedelta(minutes=5),
+                        raw=raw,
+                    )
+                ]
 
-        self.assertTrue(pr_comments.has_eligible_threads(comments, now=NOW))
+                self.assertFalse(
+                    pr_comments.has_eligible_leaves(comments, now=NOW)
+                )
 
-    def test_deleted_recent_comments_do_not_keep_thread_active(self) -> None:
+    def test_deleted_recent_comments_do_not_create_an_eligible_leaf(self) -> None:
         comments = [
             comment(
                 1,
@@ -245,7 +253,217 @@ class PrCommentFlowControlTests(unittest.TestCase):
             )
         ]
 
-        self.assertFalse(pr_comments.has_eligible_threads(comments, now=NOW))
+        self.assertFalse(pr_comments.has_eligible_leaves(comments, now=NOW))
+
+    def test_each_visible_fork_leaf_is_evaluated_independently(self) -> None:
+        comments = [
+            comment(
+                1,
+                created_on=NOW - timedelta(hours=30),
+                raw="Root review comment",
+            ),
+            comment(
+                2,
+                parent_id=1,
+                created_on=NOW - timedelta(minutes=20),
+                raw="#AI Response: This branch is handled.",
+            ),
+            comment(
+                3,
+                parent_id=1,
+                created_on=NOW - timedelta(minutes=10),
+                raw="What about the other case?",
+            ),
+        ]
+
+        paths = pr_comments.eligible_leaf_paths(comments, now=NOW)
+
+        self.assertEqual(
+            [[item["id"] for item in path] for path in paths],
+            [[1, 3]],
+        )
+
+    def test_two_human_fork_leaves_are_both_returned_oldest_first(self) -> None:
+        comments = [
+            comment(1, created_on=NOW - timedelta(hours=30), raw="Root"),
+            comment(
+                3,
+                parent_id=1,
+                created_on=NOW - timedelta(minutes=5),
+                raw="Newer branch",
+            ),
+            comment(
+                2,
+                parent_id=1,
+                created_on=NOW - timedelta(minutes=10),
+                raw="Older branch",
+            ),
+        ]
+
+        paths = pr_comments.eligible_leaf_paths(comments, now=NOW)
+
+        self.assertEqual(
+            [[item["id"] for item in path] for path in paths],
+            [[1, 2], [1, 3]],
+        )
+
+    def test_all_ai_fork_leaves_handle_the_tree(self) -> None:
+        comments = [
+            comment(1, created_on=NOW - timedelta(hours=1), raw="Root"),
+            comment(
+                2,
+                parent_id=1,
+                created_on=NOW - timedelta(minutes=20),
+                raw="#AI Response: First branch handled.",
+            ),
+            comment(
+                3,
+                parent_id=1,
+                created_on=NOW - timedelta(minutes=10),
+                raw="#AI Response: Second branch handled.",
+            ),
+        ]
+
+        self.assertFalse(pr_comments.has_eligible_leaves(comments, now=NOW))
+
+    def test_old_ancestors_are_retained_in_recent_leaf_path(self) -> None:
+        comments = [
+            comment(1, created_on=NOW - timedelta(days=10), raw="Old root"),
+            comment(
+                2,
+                parent_id=1,
+                created_on=NOW - timedelta(days=2),
+                raw="Old middle",
+            ),
+            comment(
+                3,
+                parent_id=2,
+                created_on=NOW - timedelta(minutes=5),
+                raw="Recent leaf",
+            ),
+        ]
+
+        paths = pr_comments.eligible_leaf_paths(comments, now=NOW)
+
+        self.assertEqual(
+            [[item["id"] for item in path] for path in paths],
+            [[1, 2, 3]],
+        )
+
+    def test_old_leaf_is_ignored_while_recent_sibling_is_eligible(self) -> None:
+        comments = [
+            comment(1, created_on=NOW - timedelta(days=3), raw="Root"),
+            comment(
+                2,
+                parent_id=1,
+                created_on=NOW - timedelta(days=2),
+                raw="Old leaf",
+            ),
+            comment(
+                3,
+                parent_id=1,
+                created_on=NOW - timedelta(minutes=5),
+                raw="Recent leaf",
+            ),
+        ]
+
+        paths = pr_comments.eligible_leaf_paths(comments, now=NOW)
+
+        self.assertEqual(
+            [[item["id"] for item in path] for path in paths],
+            [[1, 3]],
+        )
+
+    def test_empty_or_non_question_leaf_is_still_eligible(self) -> None:
+        for raw in ["", "Thanks", "This seems out of scope"]:
+            with self.subTest(raw=raw):
+                comments = [
+                    comment(
+                        1,
+                        created_on=NOW - timedelta(minutes=5),
+                        raw=raw,
+                    )
+                ]
+                self.assertTrue(
+                    pr_comments.has_eligible_leaves(comments, now=NOW)
+                )
+
+    def test_deleted_structural_comment_does_not_hide_visible_descendant(self) -> None:
+        comments = [
+            comment(1, created_on=NOW - timedelta(days=2), raw="Root"),
+            comment(
+                2,
+                parent_id=1,
+                created_on=NOW - timedelta(hours=1),
+                raw="Deleted middle",
+                deleted=True,
+            ),
+            comment(
+                3,
+                parent_id=2,
+                created_on=NOW - timedelta(minutes=5),
+                raw="Visible leaf",
+            ),
+        ]
+
+        paths = pr_comments.eligible_leaf_paths(comments, now=NOW)
+
+        self.assertEqual(
+            [[item["id"] for item in path] for path in paths],
+            [[1, 2, 3]],
+        )
+
+    def test_malformed_comment_graphs_are_rejected(self) -> None:
+        cases = {
+            "duplicate ids": [
+                comment(1, created_on=NOW, raw="One"),
+                comment(1, created_on=NOW, raw="Two"),
+            ],
+            "missing parent": [
+                comment(1, parent_id=99, created_on=NOW, raw="Orphan")
+            ],
+            "cycle": [
+                comment(1, parent_id=2, created_on=NOW, raw="One"),
+                comment(2, parent_id=1, created_on=NOW, raw="Two"),
+            ],
+        }
+
+        for message, comments in cases.items():
+            with self.subTest(message=message):
+                with self.assertRaises(pr_comments.PrCommentGateError):
+                    pr_comments.eligible_leaf_paths(comments, now=NOW)
+
+    def test_visible_leaf_requires_a_text_body(self) -> None:
+        malformed = comment(1, created_on=NOW, raw="placeholder")
+        malformed["content"] = None
+
+        with self.assertRaisesRegex(
+            pr_comments.PrCommentGateError,
+            "visible leaf comment has no text body",
+        ):
+            pr_comments.eligible_leaf_paths([malformed], now=NOW)
+
+    def test_malformed_comment_graph_makes_gate_fail_closed(self) -> None:
+        path = self.write_list(
+            "- https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**\n"
+        )
+        runner = FakeGtRunner(
+            comments_by_pr={
+                600: [
+                    comment(1, created_on=NOW, raw="One"),
+                    comment(1, created_on=NOW, raw="Duplicate"),
+                ]
+            }
+        )
+
+        outcome = pr_comments.evaluate_pr_comment_leaves(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(outcome.reason_code, "pr_comment_queue_blocked")
 
     def test_comment_pagination_is_drained(self) -> None:
         path = self.write_list(
@@ -261,7 +479,7 @@ class PrCommentFlowControlTests(unittest.TestCase):
             page_size=1,
         )
 
-        outcome = pr_comments.evaluate_pr_comment_threads(
+        outcome = pr_comments.evaluate_pr_comment_leaves(
             pr_list_path=path, runner=runner, now=NOW
         )
 
@@ -275,7 +493,7 @@ class PrCommentFlowControlTests(unittest.TestCase):
         )
         closed = FakeGtRunner(comments_by_pr={}, in_scope_state="MERGED")
 
-        closed_outcome = pr_comments.evaluate_pr_comment_threads(
+        closed_outcome = pr_comments.evaluate_pr_comment_leaves(
             pr_list_path=path, runner=closed, now=NOW
         )
 
@@ -285,7 +503,7 @@ class PrCommentFlowControlTests(unittest.TestCase):
         def failing_runner(_arguments):
             raise pr_comments.PrCommentGateError("network unavailable")
 
-        failed_outcome = pr_comments.evaluate_pr_comment_threads(
+        failed_outcome = pr_comments.evaluate_pr_comment_leaves(
             pr_list_path=path, runner=failing_runner, now=NOW
         )
         self.assertEqual(failed_outcome.answer, "yes")

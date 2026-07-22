@@ -21,6 +21,15 @@ function isTracked(relativePath: string): boolean {
   );
 }
 
+function readTomlSection(content: string, section: string): string {
+  const heading = `[${section}]`;
+  const start = content.indexOf(heading);
+  assert.notEqual(start, -1, `missing TOML section ${heading}`);
+  const bodyStart = start + heading.length;
+  const nextHeading = content.indexOf('\n[', bodyStart);
+  return content.slice(bodyStart, nextHeading === -1 ? undefined : nextHeading);
+}
+
 function collectSteps(steps: FlowStep[]): FlowStep[] {
   return steps.flatMap((step) =>
     step.type === 'startLoop' ? [step, ...collectSteps(step.steps)] : [step],
@@ -102,9 +111,21 @@ test('PR agents use the requested models and one-way escalation wiring', () => {
     assert.match(regularConfig, /model_reasoning_effort = "medium"/u);
     assert.match(regularConfig, /\[mcp_servers\.agents\]/u);
     assert.match(regularConfig, /\$\{CODEINFO_AGENTS_MCP_PORT\}/u);
+    assert.match(
+      readTomlSection(regularConfig, 'mcp_servers.code_info'),
+      /tool_timeout_sec = 1800/u,
+    );
+    assert.match(
+      readTomlSection(regularConfig, 'mcp_servers.agents'),
+      /tool_timeout_sec = 3600/u,
+    );
 
     assert.match(strongConfig, /model = "gpt-5\.6-sol"/u);
     assert.match(strongConfig, /model_reasoning_effort = "high"/u);
+    assert.match(
+      readTomlSection(strongConfig, 'mcp_servers.code_info'),
+      /tool_timeout_sec = 1800/u,
+    );
     assert.doesNotMatch(strongConfig, /\[mcp_servers\.agents\]/u);
     assert.doesNotMatch(strongConfig, /CODEINFO_AGENTS_MCP_PORT/u);
   }
@@ -159,13 +180,27 @@ test('PR prompts lock bounded reads, safety, marker, and task lifecycle', () => 
     );
   }
 
-  assert.match(instruction, /comments created more than 24 hours/u);
-  assert.match(instruction, /oldest unanswered human activity/u);
-  assert.match(instruction, /top-level, inline-diff, and nested-reply/u);
+  assert.match(instruction, /visible final leaf/u);
+  assert.match(instruction, /created within the last 24 hours/u);
+  assert.match(instruction, /Order eligible leaves by creation time/u);
+  assert.match(instruction, /top-level, inline-diff, and nested replies/u);
+  assert.match(instruction, /complete path from the root/u);
+  assert.match(instruction, /every grouped eligible leaf/u);
+  assert.match(instruction, /Never silently ignore a leaf/u);
+  assert.match(instruction, /parent must be the leaf being answered/u);
+  assert.match(instruction, /may take up to one hour/u);
+  assert.match(instruction, /do not start a duplicate escalation/u);
+  assert.match(instruction, /same returned `conversationId`/u);
+  assert.match(instruction, /operational failure is not/iu);
   assert.match(instruction, /Reuse a matching open task/u);
   assert.match(instruction, /Reopen a matching resolved task/u);
   assert.match(instruction, /Close a matching open task/u);
   assert.match(instruction, /Never `cat` a planning file/u);
   assert.match(regular, /Never create a cursor, queue, handoff, lock, cache/u);
+  assert.match(regular, /Every visible non-AI leaf/u);
+  assert.match(regular, /Never silently ignore or suppress/u);
+  assert.match(regular, /eligible leaf comment ID as the parent/u);
+  assert.match(regular, /Escalation is exceptional/u);
+  assert.match(regular, /never start a duplicate escalation/u);
   assert.match(strong, /never post a pull-request comment or mutate a task/u);
 });

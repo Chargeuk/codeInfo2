@@ -17,7 +17,7 @@ from typing import Any
 from flow_control.decision import DecisionOutcome, no, yes
 
 
-AI_RESPONSE_PREFIX = "#AI Response: "
+AI_RESPONSE_PREFIX = "#AI Response:"
 DEFAULT_CONNECTION = "default"
 DEFAULT_PAGE_LIMIT = 50
 MAX_PAGES = 10_000
@@ -240,55 +240,121 @@ def _parent_id(comment: Mapping[str, Any]) -> int | None:
     return parent["id"]
 
 
-def _root_id(
-    comment_id: int,
-    comments_by_id: Mapping[int, Mapping[str, Any]],
-) -> int:
-    current_id = comment_id
-    visited: set[int] = set()
-    while True:
-        if current_id in visited:
-            raise PrCommentGateError("comment parent graph contains a cycle")
-        visited.add(current_id)
-        comment = comments_by_id.get(current_id)
-        if comment is None:
-            return current_id
+def _is_deleted(comment: Mapping[str, Any]) -> bool:
+    value = comment.get("deleted", False)
+    if not isinstance(value, bool):
+        raise PrCommentGateError("comment has an invalid deleted flag")
+    return value
+
+
+def _comment_raw(comment: Mapping[str, Any]) -> str:
+    content = comment.get("content")
+    raw = content.get("raw") if isinstance(content, Mapping) else None
+    if not isinstance(raw, str):
+        raise PrCommentGateError("visible leaf comment has no text body")
+    return raw
+
+
+def _index_comment_graph(
+    comments: Sequence[Mapping[str, Any]],
+) -> tuple[dict[int, Mapping[str, Any]], dict[int, int | None]]:
+    comments_by_id: dict[int, Mapping[str, Any]] = {}
+    for comment in comments:
+        comment_id = _comment_id(comment)
+        if comment_id in comments_by_id:
+            raise PrCommentGateError("comment payload contains duplicate ids")
+        comments_by_id[comment_id] = comment
+
+    parents: dict[int, int | None] = {}
+    for comment_id, comment in comments_by_id.items():
         parent_id = _parent_id(comment)
-        if parent_id is None:
-            return current_id
-        current_id = parent_id
+        if parent_id is not None and parent_id not in comments_by_id:
+            raise PrCommentGateError("comment parent is missing from the payload")
+        parents[comment_id] = parent_id
+
+    for comment_id in comments_by_id:
+        current_id: int | None = comment_id
+        visited: set[int] = set()
+        while current_id is not None:
+            if current_id in visited:
+                raise PrCommentGateError("comment parent graph contains a cycle")
+            visited.add(current_id)
+            current_id = parents[current_id]
+
+    return comments_by_id, parents
 
 
-def has_eligible_threads(
+def _path_to_root(
+    leaf_id: int,
+    comments_by_id: Mapping[int, Mapping[str, Any]],
+    parents: Mapping[int, int | None],
+) -> tuple[Mapping[str, Any], ...]:
+    path: list[Mapping[str, Any]] = []
+    current_id: int | None = leaf_id
+    while current_id is not None:
+        path.append(comments_by_id[current_id])
+        current_id = parents[current_id]
+    path.reverse()
+    return tuple(path)
+
+
+def eligible_leaf_paths(
+    comments: Sequence[Mapping[str, Any]],
+    *,
+    now: datetime,
+) -> list[tuple[Mapping[str, Any], ...]]:
+    """Return eligible visible root-to-leaf paths, oldest leaf first.
+
+    The 24-hour window applies only to each leaf. Older ancestors remain in the
+    returned path so the review agent can understand the complete conversation.
+    """
+    if now.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    cutoff = now.astimezone(UTC) - timedelta(hours=24)
+    comments_by_id, parents = _index_comment_graph(comments)
+
+    visible_ids = {
+        comment_id
+        for comment_id, comment in comments_by_id.items()
+        if not _is_deleted(comment)
+    }
+    ids_with_visible_descendants: set[int] = set()
+    for comment_id in visible_ids:
+        parent_id = parents[comment_id]
+        while parent_id is not None:
+            ids_with_visible_descendants.add(parent_id)
+            parent_id = parents[parent_id]
+
+    eligible: list[
+        tuple[datetime, int, tuple[Mapping[str, Any], ...]]
+    ] = []
+    for leaf_id in visible_ids - ids_with_visible_descendants:
+        leaf = comments_by_id[leaf_id]
+        created_on = _parse_created_on(leaf)
+        raw = _comment_raw(leaf)
+        if created_on < cutoff or raw.startswith(AI_RESPONSE_PREFIX):
+            continue
+        eligible.append(
+            (
+                created_on,
+                leaf_id,
+                _path_to_root(leaf_id, comments_by_id, parents),
+            )
+        )
+
+    eligible.sort(key=lambda item: (item[0], item[1]))
+    return [path for _, _, path in eligible]
+
+
+def has_eligible_leaves(
     comments: Sequence[Mapping[str, Any]],
     *,
     now: datetime,
 ) -> bool:
-    if now.tzinfo is None:
-        raise ValueError("now must be timezone-aware")
-    cutoff = now.astimezone(UTC) - timedelta(hours=24)
-    comments_by_id = {_comment_id(comment): comment for comment in comments}
-    eligible_threads: dict[int, list[Mapping[str, Any]]] = {}
-
-    for comment in comments:
-        if comment.get("deleted") is True or _parse_created_on(comment) < cutoff:
-            continue
-        root_id = _root_id(_comment_id(comment), comments_by_id)
-        eligible_threads.setdefault(root_id, []).append(comment)
-
-    for thread in eligible_threads.values():
-        final_comment = max(
-            thread,
-            key=lambda comment: (_parse_created_on(comment), _comment_id(comment)),
-        )
-        content = final_comment.get("content")
-        raw = content.get("raw") if isinstance(content, Mapping) else None
-        if not isinstance(raw, str) or not raw.startswith(AI_RESPONSE_PREFIX):
-            return True
-    return False
+    return bool(eligible_leaf_paths(comments, now=now))
 
 
-def evaluate_pr_comment_threads(
+def evaluate_pr_comment_leaves(
     *,
     pr_list_path: Path | None = None,
     runner: GtRunner | None = None,
@@ -305,11 +371,11 @@ def evaluate_pr_comment_threads(
             comments_by_pr.append(_list_all_comments(reference, active_runner))
         evaluated_at = now or datetime.now(UTC)
         if any(
-            has_eligible_threads(comments, now=evaluated_at)
+            has_eligible_leaves(comments, now=evaluated_at)
             for comments in comments_by_pr
         ):
-            return no("eligible_pr_threads_present")
-        return yes("no_eligible_pr_threads")
+            return no("eligible_pr_leaves_present")
+        return yes("no_eligible_pr_leaves")
     except (OSError, PrCommentGateError, UnicodeError) as error:
         print(f"PR comment queue check blocked: {error}", file=sys.stderr)
         return yes("pr_comment_queue_blocked", error_type=type(error).__name__)

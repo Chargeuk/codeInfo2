@@ -63,6 +63,41 @@ test('review runner resolves a host working folder to its server repository iden
   assert.equal(calls.length, 2);
 });
 
+test('diagnostic review resolves a repository-backed diagnostic flow', async () => {
+  const result = await resolveReviewLaunch({
+    baseUrl: 'http://server',
+    workingFolder: '/host/repo',
+    flowName: 'diagnostic_review_cycle',
+    fetchImpl: async (url) => {
+      if (url.endsWith('/tools/ingested-repos')) {
+        return response(200, {
+          repos: [
+            {
+              id: '/data/repo',
+              containerPath: '/data/repo',
+              hostPath: '/host/repo',
+            },
+          ],
+        });
+      }
+      return response(200, {
+        flows: [
+          {
+            name: 'diagnostic_review_cycle',
+            sourceId: '/data/repo',
+            disabled: false,
+          },
+        ],
+      });
+    },
+  });
+
+  assert.deepEqual(result, {
+    workingFolder: '/data/repo',
+    sourceId: '/data/repo',
+  });
+});
+
 test('review runner rejects a source id belonging to a different repository', async () => {
   await assert.rejects(
     resolveReviewLaunch({

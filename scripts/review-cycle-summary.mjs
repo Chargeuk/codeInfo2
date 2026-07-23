@@ -114,6 +114,7 @@ export const resolveReviewLaunch = async ({
   baseUrl,
   workingFolder,
   sourceId,
+  flowName = 'two_phase_review_cycle',
   fetchImpl = fetch,
 }) => {
   const reposResponse = await fetchImpl(`${baseUrl}/tools/ingested-repos`);
@@ -165,7 +166,7 @@ export const resolveReviewLaunch = async ({
   const flows = Array.isArray(flowsBody?.flows) ? flowsBody.flows : [];
   const candidates = flows.filter(
     (flow) =>
-      flow?.name === 'two_phase_review_cycle' &&
+      flow?.name === flowName &&
       flow.disabled !== true &&
       typeof flow.sourceId === 'string',
   );
@@ -181,7 +182,7 @@ export const resolveReviewLaunch = async ({
       : undefined);
   if (!resolvedSourceId) {
     throw new Error(
-      'Could not uniquely resolve the repository-backed two_phase_review_cycle sourceId.',
+      `Could not uniquely resolve the repository-backed ${flowName} sourceId.`,
     );
   }
 
@@ -394,11 +395,15 @@ const main = async () => {
   run.startHeartbeat();
   try {
     const baseUrl = normalizeBaseUrl(values['base-url']);
+    const flowName = values.diagnostic
+      ? 'diagnostic_review_cycle'
+      : 'two_phase_review_cycle';
     const launch = values['working-folder']
       ? await resolveReviewLaunch({
           baseUrl,
           workingFolder: values['working-folder'],
           sourceId: values['source-id'],
+          flowName,
         })
       : {
           workingFolder: undefined,
@@ -409,9 +414,7 @@ const main = async () => {
       workingFolder: launch.workingFolder,
       sourceId: launch.sourceId,
       customTitle: values['custom-title'],
-      flowName: values.diagnostic
-        ? 'diagnostic_review_cycle'
-        : 'two_phase_review_cycle',
+      flowName,
       conversationId: values['conversation-id'],
       resumeOrphaned: Boolean(values['resume-orphaned']),
       pollMs,

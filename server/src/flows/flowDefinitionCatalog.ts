@@ -82,8 +82,19 @@ export const getFlowDefinitionCatalog = async (
   return catalog;
 };
 
+export const initializeFlowDefinitionCatalogs = async (
+  flowsRoots: Iterable<string>,
+) => {
+  const resolvedRoots = [
+    ...new Set([...flowsRoots].map((flowsRoot) => path.resolve(flowsRoot))),
+  ];
+  await Promise.all(
+    resolvedRoots.map((flowsRoot) => getFlowDefinitionCatalog(flowsRoot)),
+  );
+};
+
 export const initializeConfiguredFlowDefinitionCatalog = () =>
-  getFlowDefinitionCatalog(resolveConfiguredFlowsRoot());
+  initializeFlowDefinitionCatalogs([resolveConfiguredFlowsRoot()]);
 
 export const getFlowDefinitionCatalogEntry = async (params: {
   flowsRoot: string;

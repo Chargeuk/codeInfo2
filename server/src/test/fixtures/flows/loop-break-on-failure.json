@@ -1,0 +1,26 @@
+{
+  "description": "Completion gate whose failure policy is bounded",
+  "steps": [
+    {
+      "type": "break",
+      "label": "Advisory exit",
+      "agentType": "loop_control_agent",
+      "identifier": "loop-controller",
+      "question": "Exit best-effort loop?",
+      "breakOn": "yes",
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "After loop",
+      "agentType": "coding_agent",
+      "identifier": "after-loop",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["Continue after loop."]
+        }
+      ]
+    }
+  ]
+}

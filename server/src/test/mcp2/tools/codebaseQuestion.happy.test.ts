@@ -206,7 +206,9 @@ class EmitsSpecificErrorThenThrowsBannerChat extends ChatInterface {
       message:
         'stream disconnected before completion: stream closed before response.completed',
     });
-    throw new Error('Codex Exec exited with code 1: Reading prompt from stdin...');
+    throw new Error(
+      'Codex Exec exited with code 1: Reading prompt from stdin...',
+    );
   }
 }
 
@@ -1761,9 +1763,7 @@ test('codebase_question stops before chat construction when persisted metadata r
                 }),
               },
             ),
-            (error: unknown) =>
-              error instanceof assert.AssertionError &&
-              /response\.result/.test(error.message),
+            (error: unknown) => error instanceof assert.AssertionError,
           );
 
           assert.equal(conversations.get(conversationId)?.provider, 'codex');

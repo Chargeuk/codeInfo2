@@ -1,6 +1,6 @@
 # Goal
 
-Generate or update exactly one normal plan task that owns final automated revalidation after inline minor review fixes.
+Generate or update exactly one normal plan task that owns final automated revalidation after every completed review cycle, including a clean cycle with no inline fixes.
 
 This is a post-review-loop step. It runs only after the review loop has finished deciding whether more minor reruns are needed or whether serious review work must be tasked up. It must update an existing final minor-fix revalidation task when one already exists, not append duplicates.
 
@@ -8,6 +8,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
+- Read `codeInfoStatus/flow-state/active-review-cycle.json` and, when present, `codeInfoStatus/flow-state/review-initialization-failure.json` immediately afterward. Review-cycle status is authoritative and is never inferred from the parent flow's successful best-effort status.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` and `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --include-tasks` before deciding whether to edit the plan.
 - Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`, especially its minor-fix-only eligibility, identity, and duplicate-prevention rules.
@@ -16,7 +17,9 @@ This is a post-review-loop step. It runs only after the review loop has finished
 - Treat `review_cycle_id` as the stable machine identity for the current review loop, using the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
-- Do not create a final minor-fix revalidation task when no minor fixes were made in the review loop.
+- A cycle with no minor fixes still creates or updates its one final whole-story revalidation task.
+- A missing, `in_progress`, or `incomplete` current cycle, or a current initialization-failure artifact, is incomplete review coverage rather than a no-findings result. Create or update one normal recovery task plus one normal final whole-story revalidation task, then leave both open so task execution can continue autonomously.
+- Do not use or require a flow execution ID when selecting, creating, or validating either task. Concurrent top-level story flows are unsupported.
 - Do not create a final minor-fix revalidation task while unresolved task-required findings, unresolved minor-batchable findings, or incomplete-review blockers remain.
 - Do not run automated proof in this step.
 - Do not perform manual testing.
@@ -27,15 +30,23 @@ This is a post-review-loop step. It runs only after the review loop has finished
 
 <generation_rules>
 
+- Before ordinary disposition routing, require the active cycle to match the canonical story and plan and have `status: "completed"`; also require `review-initialization-failure.json` to be absent. If this check fails:
+  - add or update exactly one task titled `Recover Incomplete Story <story-number> Review Cycle`, keyed by the current `review_cycle_id` when available and otherwise by the canonical story and current failure reason;
+  - preserve the incomplete status or initialization reason in that task's Implementation Notes and make its work rerun the two-phase review after repairing any reproducible workflow defect;
+  - add or update exactly one `Re-Validate Story <story-number> After Review` task after the recovery task, with the whole-story supported validation obligations from the shared final-task contract;
+  - do not write or imply a no-findings result;
+  - set `review_created_tasks_added_or_updated` true and `safe_to_exit_review_loop_without_tasking` false when a usable disposition state exists, and preserve one deduplicated incomplete-review blocker for the failure;
+  - finish this step after committing the task changes; do not apply the ordinary clean-cycle generation rules below.
+
 - If `needs_final_minor_fix_revalidation_task` is not true:
   - make no plan change;
   - if `final_revalidation_owned_by_task_up_path` is true, leave this step as a deliberate no-op because the serious task-up path already owns final revalidation for the current review cycle;
   - otherwise, if no unresolved work remains, update the ignored state file so `safe_to_exit_review_loop_without_tasking` is true;
   - report the no-op reason.
 - If `needs_final_minor_fix_revalidation_task` is true, add or update one normal numbered task in the canonical plan.
-- Only create or update this task when minor fixes were made in the just-finished review cycle, no serious task-up work remains, and `minor_fix_revalidation_cycle_closed` is not true.
+- Create or update this task when no serious task-up work remains and `minor_fix_revalidation_cycle_closed` is not true, whether or not inline minor fixes were made.
 - If `final_revalidation_owned_by_task_up_path` is true, do not create or update the special inline-minor final revalidation task. The cycle already has one shared final revalidation owner.
-- The task title must be `Re-Validate Story <story-number> After Inline Minor Review Fixes` unless an existing equivalent final minor-fix revalidation task already uses a compatible title.
+- The task title must be `Re-Validate Story <story-number> After Review` when no inline fixes were made, or `Re-Validate Story <story-number> After Inline Minor Review Fixes` when they were, unless an existing equivalent current-cycle final task already uses a compatible title.
 - The task must stay as exactly one dedicated final revalidation task even when the whole story or resolved minor fixes span multiple repositories.
 - The task status must be `__to_do__`.
 - The task must include exactly one `Repository Name` field so it still fits the normal task format, but that field is administrative ownership only for this special final revalidation task.
@@ -101,10 +112,10 @@ When no task is needed and no unresolved work remains:
 <failure_modes>
 
 - If `current-plan.json` is missing, unreadable, malformed, or lacks a clear `plan_path`, stop and say the current-plan handoff must be regenerated.
-- If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, stop and say the review disposition state must be regenerated.
+- If `review-disposition-state.json` is missing, unreadable, malformed, or has incompatible `schema_version`, use the incomplete-cycle recovery path when the active-cycle or initialization-failure evidence proves review did not complete; otherwise stop and say the review disposition state must be regenerated.
 - If `review-disposition-state.json` lacks a usable `review_cycle_id`, repair that state before deciding whether to reuse or create the task.
 - If the canonical plan is missing or branch story scope has drifted, stop and say the current-plan handoff is stale and must be regenerated.
-- If state says final revalidation is needed but `resolved_minor_findings` is empty, do not create a task. Record a state note and report the contradiction.
+- If state says final revalidation is needed and `resolved_minor_findings` is empty, create the clean-cycle final task and state that it owns whole-story proof after a no-fix review outcome.
 - If unresolved task-required, minor-batchable, or incomplete-review items remain, do not create the final minor-fix revalidation task. Leave routing to the task-up or minor-fix path.
 - If fresh repository evidence confirms that no repository-supported automated test suite exists for the affected repository or affected component, omit the unavailable suite item and continue with every other supported full build, applicable startup, matching shutdown, lint, and formatting check in that order. Do not add a proof-authoring subtask, automated testing placeholder, invented command, harness task, or blocker merely because no supported suite exists. A concise non-blocking `Implementation Notes` entry may record that no supported automated suite was found. If the repository is missing or unreadable, use the handoff failure rules above rather than treating unavailable evidence as proof that no suite exists.
 - If the plan edit succeeds but commit fails, stop and report the failed commit command without pretending the task was committed.

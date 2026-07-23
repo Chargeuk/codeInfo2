@@ -28,10 +28,11 @@ import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
-import { startFlowRun } from '../../flows/service.js';
 import {
+  __resetFreshRunRetryOwnershipCompletionForTests,
   __resetFlowServiceDepsForTests,
   __setFlowServiceDepsForTests,
+  startFlowRun,
 } from '../../flows/service.js';
 import type {
   ReingestError,
@@ -2321,6 +2322,65 @@ test('same-process completed retryOwnershipId replay reuses the earlier fresh-ru
     assert.deepEqual(replayResult, firstResult);
     await delay(150);
     assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
+  });
+});
+
+test('post-success retry completion write failure is retried before ownership release and survives local barrier loss', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'retry-completion-persist-retry',
+      steps: [makeLlmStep()],
+    });
+    const originalSet = memoryConversations.set;
+    let injectedFailure = false;
+    memoryConversations.set = ((key: string, value: Conversation) => {
+      const flow = value.flags?.flow as
+        | { retryOwnershipCompletion?: unknown }
+        | undefined;
+      if (!injectedFailure && flow?.retryOwnershipCompletion) {
+        injectedFailure = true;
+        throw new Error('post-success completion write failed once');
+      }
+      return originalSet.call(memoryConversations, key, value);
+    }) as typeof memoryConversations.set;
+
+    try {
+      const firstResult = await startFlowRun({
+        flowName: 'retry-completion-persist-retry',
+        source: 'REST',
+        retryOwnershipId: 'fresh-run-retry-persisted',
+        chatFactory: () => new MinimalChat(),
+      });
+      subscribeConversation(ws, firstResult.conversationId);
+      await waitForFlowFinal({
+        ws,
+        conversationId: firstResult.conversationId,
+        status: 'ok',
+      });
+      await waitForConversationUnlocked(firstResult.conversationId);
+      assert.equal(injectedFailure, true);
+      assert.ok(
+        memoryConversations.get(firstResult.conversationId)?.flags?.flow
+          ?.retryOwnershipCompletion,
+      );
+
+      __resetFreshRunRetryOwnershipCompletionForTests();
+      const replayResult = await startFlowRun({
+        flowName: 'retry-completion-persist-retry',
+        source: 'REST',
+        retryOwnershipId: 'fresh-run-retry-persisted',
+        chatFactory: () => new MinimalChat(),
+      });
+      assert.deepEqual(replayResult, firstResult);
+      await delay(150);
+      assert.equal(
+        (memoryTurns.get(firstResult.conversationId) ?? []).length,
+        2,
+      );
+    } finally {
+      memoryConversations.set = originalSet;
+    }
   });
 });
 

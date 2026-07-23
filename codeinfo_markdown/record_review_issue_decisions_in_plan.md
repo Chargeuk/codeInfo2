@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and record wave coverage, target ownership, and severity conflicts explicitly.
+
 Record the current review pass's accepted and ignored issue decisions in the canonical story plan before any minor review fix or task-up implementation begins.
 
 This step runs after story-scope filtering and actionable-finding promotion, immediately before the Minor Review Fix Path. It turns the final current-pass routing state into a concise human-readable `## Code Review Findings` block without changing any routing decision or creating implementation tasks.
@@ -10,8 +12,8 @@ This step runs after story-scope filtering and actionable-finding promotion, imm
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` before editing the plan.
 - Derive the story number from the stored `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
-- Treat `current-plan.json` only as the owner of `plan_path`, optional `branched_from`, and `additional_repositories`. Derive the story number from its `plan_path` and validate its repository scope. Do not require `story_id`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, or `comparison_base_commit` to exist in `current-plan.json`.
-- Require the review handoff and review disposition state to agree on every machine identity field they both own for the validated current review, including the exact canonical seven-digit `story_id`, `plan_path`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit` when those fields are present in both sources. Never infer, normalize, repair, or substitute a conflicting machine identity field.
+- Treat `current-plan.json` only as the owner of `plan_path`, optional `branched_from`, and `additional_repositories`. Derive the story number from its `plan_path` and validate its repository scope. Do not require `story_id`, `review_session_id`, `review_pass_id`, `head_commit`, or `comparison_base_commit` to exist in `current-plan.json`.
+- Require the review handoff and review disposition state to agree on every machine identity field they both own for the validated current review, including the exact canonical seven-digit `story_id`, `plan_path`, `review_session_id`, `review_pass_id`, `review_cycle_id`, `head_commit`, and `comparison_base_commit` when those fields are present in both sources. Never infer, normalize, repair, or substitute a conflicting machine identity field.
 - Treat missing optional comparison-description metadata as recoverable when the required handoff/state identity agrees. Use the validated handoff value when available and add a concise confidence note when the omission materially limits the description. A genuine identity conflict still requires a safe no-edit result, but must not be reported as a clean no-findings outcome.
 - Use `review-disposition-state.json` as the sole source of actionable accepted-versus-rejected routing. Also preserve explicitly rejected or non-adopted current-pass review candidates from the validated findings, challenge, saturation, and external-review artifacts under `Ignored for This Story`; those artifact entries are decision-recording inputs only and must never be promoted into actionable routing by this step.
 - Do not reclassify findings, edit review artifacts, change finding queues or task-up routing, create tasks, implement fixes, run proof, or push. The narrow retry bookkeeping below may set rerun/clean-exit flags without changing finding ownership.
@@ -73,6 +75,7 @@ Write one block with this shape:
 #### 1. <plain-language title>
 
 - Finding ID: `<stable finding id>`
+- Found by: <every distinct validated review name, qualified by target alias when needed>
 - Description: <short, simple explanation of the issue>
 - Example: <small concrete example grounded in the validated review evidence>
 - Why accepted: <why the issue is valid and belongs to the current story>
@@ -82,6 +85,7 @@ Write one block with this shape:
 #### 2. <plain-language title>
 
 - Finding ID or Review reference: `<stable finding id or existing artifact source reference>`
+- Found by: <every distinct validated review name, or the exact existing source reference when no validated review name exists>
 - Description: <short, simple explanation of the issue>
 - Example: <small concrete example grounded in the validated review evidence>
 - Why ignored: <why the issue is invalid, unproven, already covered, or outside current-story scope>
@@ -94,6 +98,8 @@ Write one block with this shape:
 - Preserve material validated comparison details such as `comparison_rule`, `resolved_base_source`, `remote_fetch_status`, and a sanitized local fallback reason when one exists.
 - Add a concise confidence or provenance note only when a validated artifact records a material caveat, partial reviewer coverage, external-review origin, or safe descriptive inference. Keep that note with the metadata before `### Accepted` so it cannot be mistaken for part of an issue. Never use a note to excuse an identity mismatch.
 - Number issue titles continuously across both categories. Preserve stable finding IDs or existing review references separately because the display number is presentation, not workflow identity. Never manufacture a workflow finding ID for an artifact-only ignored candidate.
+- Derive `Found by` from the finding's canonical `review_sources`. Deduplicate exact review names, sort them deterministically by `review_name`, `repo_alias`, and `instance_id`, and qualify repeated names with `repo_alias` when present, then `instance_id` only when the alias still does not make them unique.
+- For a legacy or artifact-only ignored candidate with no canonical `review_sources`, write its exact existing source reference in `Found by`. If neither a validated review name nor an existing source reference is available, do not invent one; omit that unsafe candidate and record the existing confidence-note fallback when the remaining current-pass identity is still valid.
 - Order accepted findings by their order in the validated findings artifact, then order ignored findings by their order in the validated artifacts. Use stable finding ID or existing source-reference order only as a deterministic fallback.
 - If one category has no current-pass entries, write `- None.` below that category instead of omitting the category.
 - Keep descriptions easy to understand and limited to the issue itself.
@@ -142,7 +148,7 @@ Write one block with this shape:
 - Confirm classification and promotion were not changed.
 - Confirm any identity or commit recovery updated only retry bookkeeping, preserved every finding queue and `needs_task_up_path`, and did not create an incomplete-review blocker or bypass the one-shot path.
 - Confirm every listed issue belongs to the current review pass and exactly one category.
-- Confirm every issue has a numbered title, a stable finding ID or existing review reference, a simple description, an evidence-backed example or the explicit no-example fallback, and a decision rationale.
+- Confirm every issue has a numbered title, a stable finding ID or existing review reference, one non-empty `Found by` bullet, a simple description, an evidence-backed example or the explicit no-example fallback, and a decision rationale.
 - Confirm accepted and ignored categories both exist, including `- None.` when applicable.
 - Confirm the current review pass appears in exactly one `## Code Review Findings` block.
 - Confirm historical review-pass blocks and existing tasks remain unchanged.

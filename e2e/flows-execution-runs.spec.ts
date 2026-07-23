@@ -65,9 +65,7 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          flows: [
-            { name: 'echo', description: 'Echo flow', disabled: false },
-          ],
+          flows: [{ name: 'echo', description: 'Echo flow', disabled: false }],
         }),
       });
       return;
@@ -227,12 +225,12 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
     timeout: 20000,
   });
   await page.getByRole('button', { name: /open menu/i }).click();
-  await expect(page.getByTestId('workspace-mobile-app-menu-overlay')).toBeVisible(
-    { timeout: 20000 },
-  );
+  await expect(
+    page.getByTestId('workspace-mobile-app-menu-overlay'),
+  ).toBeVisible({ timeout: 20000 });
   await page
     .getByTestId('workspace-mobile-app-menu-overlay')
-  .getByRole('link', { name: 'Flows' })
+    .getByRole('link', { name: 'Flows' })
     .click();
   await expect(page).toHaveURL(/\/flows$/);
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
@@ -298,6 +296,148 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
   expect(typeof runBodies[3].retryOwnershipId).toBe('string');
   expect(runBodies[3].retryOwnershipId).not.toBe(runBodies[1].retryOwnershipId);
   expect(flowRows).toHaveLength(2);
+});
+
+test('flows expose wave progress and target-aware repeated child identity in the browser sidebar', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  await installMockChatWs(page);
+
+  const conversations = [
+    {
+      conversationId: 'wave-parent',
+      title: 'Flow: story-review',
+      provider: 'codex',
+      model: 'gpt-5.2',
+      source: 'REST',
+      lastMessageAt: '2025-01-03T00:00:00.000Z',
+      archived: false,
+      flowName: 'story-review',
+      flags: {
+        flow: {
+          executionId: 'waveparent-12345678',
+          subflowWaveProgress: {
+            expected: 7,
+            running: 0,
+            completed: 6,
+            failed: 0,
+            stopped: 0,
+            notApplicable: 1,
+          },
+        },
+      },
+    },
+    ...['repo-one', 'repo-two'].map((targetId, index) => ({
+      conversationId: `wave-child-${index}`,
+      title: `Story Review-Artifact Review [${targetId}]`,
+      provider: 'codex',
+      model: 'gpt-5.2',
+      source: 'REST',
+      lastMessageAt: `2025-01-0${index + 1}T00:00:00.000Z`,
+      archived: false,
+      flowName: 'artifact-review',
+      flags: {
+        flow: { executionId: `childexec${index}-12345678` },
+        flowChild: {
+          executionId: 'waveparent-12345678',
+          instanceId: `target-reviews:${index}:artifact-review`,
+          targetId,
+          displayName: `artifact-review [${targetId}]`,
+        },
+      },
+    })),
+  ];
+
+  await page.route('**/*', async (route: Route) => {
+    const req = route.request();
+    const url = new URL(req.url());
+    if (url.origin !== new URL(apiUrl).origin) {
+      await route.continue();
+      return;
+    }
+    const path = url.pathname;
+    if (path === '/health') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mongoConnected: true }),
+      });
+      return;
+    }
+    if (path === '/flows') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flows: [
+            {
+              name: 'story-review',
+              description: 'Story review',
+              disabled: false,
+            },
+          ],
+        }),
+      });
+      return;
+    }
+    if (path === '/flows/story-review') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          flow: {
+            name: 'story-review',
+            description: 'Story review',
+            disabled: false,
+            warnings: [],
+          },
+        }),
+      });
+      return;
+    }
+    if (path === '/conversations') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: conversations, nextCursor: null }),
+      });
+      return;
+    }
+    if (path.endsWith('/turns')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${baseUrl}/flows`);
+  await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
+  await page.getByTestId('conversation-drawer-toggle').click();
+  const overlay = page.getByTestId('workspace-mobile-conversations-overlay');
+  await expect(overlay).toBeVisible({ timeout: 20000 });
+  await expect(overlay.getByText('Wave 7/7')).toBeVisible();
+  await expect(
+    overlay
+      .getByTestId('conversation-wave-target-chip')
+      .filter({ hasText: 'repo-one' }),
+  ).toBeVisible();
+  await expect(
+    overlay
+      .getByTestId('conversation-wave-target-chip')
+      .filter({ hasText: 'repo-two' }),
+  ).toBeVisible();
+  await expect(
+    overlay.getByText('Story Review-Artifact Review [repo-one]'),
+  ).toBeVisible();
+  await expect(
+    overlay.getByText('Story Review-Artifact Review [repo-two]'),
+  ).toBeVisible();
 });
 
 test('flows warning rendering and disabled run guard stay visible at the browser surface', async ({
@@ -444,7 +584,9 @@ test('flows composer footer controls use upward desktop popovers and centered mo
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
         }),
       });
       return;
@@ -504,9 +646,9 @@ test('flows composer footer controls use upward desktop popovers and centered mo
     expect(triggerBox).not.toBeNull();
     expect(popoverBox).not.toBeNull();
     expect(popoverBox?.y ?? 0).toBeLessThan(triggerBox?.y ?? 0);
-    expect((popoverBox?.y ?? 0) + (popoverBox?.height ?? 0)).toBeLessThanOrEqual(
-      (triggerBox?.y ?? 0) + 12,
-    );
+    expect(
+      (popoverBox?.y ?? 0) + (popoverBox?.height ?? 0),
+    ).toBeLessThanOrEqual((triggerBox?.y ?? 0) + 12);
 
     await page.keyboard.press('Escape');
     await expect(popover).toBeHidden({ timeout: 20000 });
@@ -614,7 +756,9 @@ test('flows existing-conversation working-folder picker applies a local reposito
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
         }),
       });
       return;
@@ -677,17 +821,13 @@ test('flows existing-conversation working-folder picker applies a local reposito
         body: JSON.stringify({
           base: '/base',
           path: requestedPath,
-          dirs:
-            requestedPath === '/base/repo' ? ['child'] : [],
+          dirs: requestedPath === '/base/repo' ? ['child'] : [],
         }),
       });
       return;
     }
 
-    if (
-      path === '/conversations/flow-1/working-folder' &&
-      method === 'POST'
-    ) {
+    if (path === '/conversations/flow-1/working-folder' && method === 'POST') {
       const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
       workingFolderBodies.push(payload);
       const workingFolder =
@@ -729,9 +869,7 @@ test('flows existing-conversation working-folder picker applies a local reposito
                 ? 'working_folder_unavailable'
                 : 'invalid_request',
             code: err.code ?? 'WORKING_FOLDER_INVALID',
-            message:
-              err.reason ??
-              'working_folder validation failed',
+            message: err.reason ?? 'working_folder validation failed',
           }),
         });
       }
@@ -754,15 +892,15 @@ test('flows existing-conversation working-folder picker applies a local reposito
   );
 
   await page.getByTestId('flow-working-folder-trigger').click();
-  await expect(page.getByRole('dialog', { name: 'Choose folder…' })).toBeVisible(
-    { timeout: 20000 },
-  );
+  await expect(
+    page.getByRole('dialog', { name: 'Choose folder…' }),
+  ).toBeVisible({ timeout: 20000 });
   await page.getByRole('button', { name: 'child' }).click();
   await page.getByRole('button', { name: 'Use this folder' }).click();
 
-  await expect(page.getByRole('dialog', { name: 'Choose folder…' })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole('dialog', { name: 'Choose folder…' }),
+  ).toHaveCount(0);
 
   await expect(page.getByTestId('flow-working-folder-trigger')).toContainText(
     'child',
@@ -872,10 +1010,7 @@ test('flows existing conversations open at the newest visible content and preser
       return;
     }
 
-    if (
-      path === '/conversations/flow-1/working-folder' &&
-      method === 'POST'
-    ) {
+    if (path === '/conversations/flow-1/working-folder' && method === 'POST') {
       const payload = req.postDataJSON?.() ?? {};
       await route.fulfill({
         status: 200,
@@ -894,9 +1029,8 @@ test('flows existing conversations open at the newest visible content and preser
               typeof (payload as { workingFolder?: string }).workingFolder ===
               'string'
                 ? {
-                    workingFolder: (
-                      payload as { workingFolder: string }
-                    ).workingFolder,
+                    workingFolder: (payload as { workingFolder: string })
+                      .workingFolder,
                   }
                 : {},
           },

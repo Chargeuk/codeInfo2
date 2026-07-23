@@ -107,7 +107,7 @@ test('PR agents use the requested models and one-way escalation wiring', () => {
     const regularConfig = readRepoFile(`${catalog}/pr_agent/config.toml`);
     const strongConfig = readRepoFile(`${catalog}/pr_agent_strong/config.toml`);
 
-    assert.match(regularConfig, /model = "gpt-5\.6-terra"/u);
+    assert.match(regularConfig, /model = "gpt-5\.6-luna"/u);
     assert.match(regularConfig, /model_reasoning_effort = "medium"/u);
     assert.match(regularConfig, /\[mcp_servers\.agents\]/u);
     assert.match(regularConfig, /\$\{CODEINFO_AGENTS_MCP_PORT\}/u);

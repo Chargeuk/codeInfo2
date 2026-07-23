@@ -23,9 +23,25 @@ export type ConversationFlags = Record<string, unknown> & {
   flow?: {
     executionId?: string;
     stepPath?: unknown;
+    input?: {
+      target?: {
+        target_id?: string;
+      };
+    };
+    subflowWaveProgress?: {
+      expected: number;
+      running: number;
+      completed: number;
+      failed: number;
+      stopped: number;
+      notApplicable: number;
+    };
   };
   flowChild?: {
     executionId?: string;
+    instanceId?: string;
+    targetId?: string;
+    displayName?: string;
   };
 };
 

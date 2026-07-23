@@ -1,0 +1,41 @@
+{
+  "description": "Run an isolated diagnostic review evidence batch without final story settlement ownership.",
+  "steps": [
+    {
+      "type": "initializeReviewCycle",
+      "label": "Initialize Isolated Diagnostic Review",
+      "mode": "diagnostic",
+      "outputKey": "diagnostic_review"
+    },
+    {
+      "type": "prepareReviewTargets",
+      "label": "Snapshot Isolated Diagnostic Review Targets",
+      "reviewMode": "diagnostic",
+      "outputKey": "review_batch_targets"
+    },
+    {
+      "type": "subflowWave",
+      "label": "Run Diagnostic Review Evidence Jobs",
+      "failureMode": "best_effort",
+      "reviewWorkspace": {
+        "snapshotFrom": "review_batch_targets"
+      },
+      "groups": [
+        {
+          "kind": "matrix",
+          "id": "target_reviews",
+          "itemsFrom": "review_batch_targets.targets",
+          "itemName": "target",
+          "flowNames": ["codex_review", "open_code_review"],
+          "bindings": {
+            "workingFolderFrom": "target.repo_root",
+            "input": {
+              "target": "target",
+              "review_wave": "review_batch_targets"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

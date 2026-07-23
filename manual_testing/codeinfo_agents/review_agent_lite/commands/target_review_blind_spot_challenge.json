@@ -1,0 +1,65 @@
+{
+  "Description": "Challenge blind spots for exactly one server-bound review target.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "single_target_review_contract.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/01-core.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/02-risk-matrix-reopen.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/03-ui-affordance-parity.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/04-field-role-stability.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/05-bulk-side-effect-cardinality.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/focused_challenge/01-portability-and-artifacts.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/focused_challenge/02-failure-ordering-fast-paths.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/focused_challenge/03-admission-vs-execution.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/focused_challenge/04-wrapped-error-mismatch.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/focused_challenge/05-changed-hunk-runtime-regressions.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_blind_spot_challenge/07-test-and-state-challenges.md"
+    }
+  ]
+}

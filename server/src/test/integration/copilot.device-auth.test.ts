@@ -595,8 +595,14 @@ describe('POST /copilot/device-auth integration behavior', () => {
     const [resA, resB] = await Promise.all([reqA, reqB]);
     assert.equal(resA.status, 200);
     assert.equal(resB.status, 200);
-    assert.equal(resA.body.state, 'verification_ready');
-    assert.deepEqual(resB.body, {
+    assert.deepEqual([resA.body.state, resB.body.state].sort(), [
+      'completion_pending',
+      'verification_ready',
+    ]);
+    const completionPendingResponse = [resA.body, resB.body].find(
+      (body) => body.state === 'completion_pending',
+    );
+    assert.deepEqual(completionPendingResponse, {
       provider: 'copilot',
       state: 'completion_pending',
       verificationUrl: 'https://github.com/login/device',

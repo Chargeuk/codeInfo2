@@ -1,0 +1,50 @@
+{
+  "Description": "Improve the active story plan with scoped research and plan hardening, without creating tasks.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/01-shared-contract.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/02-preflight.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/03-research.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/04-contract-and-rd-proof.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/05-hardening.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/06-taskable-seams.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/07-review-preemption-risks.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/08-stateful-ui-risks.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "improve_plan/09-finalize.md"
+    }
+  ]
+}

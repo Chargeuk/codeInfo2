@@ -231,6 +231,66 @@ def load_review_state(
     }
 
 
+def load_active_review_cycle(
+    active_path: Path,
+    *,
+    current_story_id: str | None,
+    current_plan_path_raw: str,
+) -> dict[str, Any]:
+    base = {
+        "active_review_cycle_path": str(active_path),
+        "active_review_cycle_present": active_path.exists(),
+        "active_review_cycle_valid": False,
+        "active_review_cycle_id": None,
+        "active_review_cycle_status": "unrecorded",
+        "active_review_cycle_error": None,
+        "review_settlement_complete": False,
+    }
+    if not active_path.exists():
+        return base
+    try:
+        payload = load_json_file(active_path)
+    except ScopeResolutionError as exc:
+        return {**base, "active_review_cycle_error": str(exc)}
+
+    expected = {
+        "schema_version": "codeinfo-active-review-cycle/v2",
+        "review_mode": "final",
+        "story_id": current_story_id,
+        "plan_path": current_plan_path_raw,
+    }
+    for field, value in expected.items():
+        if payload.get(field) != value:
+            return {
+                **base,
+                "active_review_cycle_error": (
+                    f"active review cycle {field} did not match current scope"
+                ),
+            }
+    cycle_id = payload.get("review_cycle_id")
+    status = payload.get("status")
+    if not isinstance(cycle_id, str) or not cycle_id.strip():
+        return {
+            **base,
+            "active_review_cycle_error": (
+                "active review cycle lacked a usable review_cycle_id"
+            ),
+        }
+    if status not in {"in_progress", "completed", "incomplete"}:
+        return {
+            **base,
+            "active_review_cycle_id": cycle_id,
+            "active_review_cycle_error": "active review cycle had an invalid status",
+        }
+    return {
+        **base,
+        "active_review_cycle_valid": True,
+        "active_review_cycle_id": cycle_id,
+        "active_review_cycle_status": status,
+        "review_settlement_complete": status == "completed",
+    }
+
+
 def scope_failure_reason(repositories: list[dict[str, Any]]) -> str | None:
     for repository in repositories:
         if not repository["exists"]:
@@ -309,6 +369,17 @@ def get_story_workflow_status(
             "safe_to_exit_review_loop_without_tasking": False,
             "should_exit_review_loop_to_main_loop": False,
             "should_finish_review_loop_cleanly": False,
+            "active_review_cycle_path": str(
+                Path("codeInfoStatus/flow-state/active-review-cycle.json")
+            ),
+            "active_review_cycle_present": False,
+            "active_review_cycle_valid": False,
+            "active_review_cycle_id": None,
+            "active_review_cycle_status": "unrecorded",
+            "active_review_cycle_error": (
+                "active review cycle unavailable until handoff is repaired"
+            ),
+            "review_settlement_complete": False,
         }
 
     root = Path(scope["repo_root"])
@@ -351,6 +422,11 @@ def get_story_workflow_status(
         current_story_number=scope["story_number"],
         current_plan_path=Path(scope["plan_path"]),
     )
+    active_review_cycle = load_active_review_cycle(
+        root / "codeInfoStatus" / "flow-state" / "active-review-cycle.json",
+        current_story_id=scope.get("story_id"),
+        current_plan_path_raw=scope["plan_path_raw"],
+    )
     repair_needed = failure_reason is not None
     repair_action = (
         scope_repair_action_for_reason(failure_reason) if failure_reason is not None else None
@@ -358,7 +434,9 @@ def get_story_workflow_status(
     story_complete = bool(plan and plan["story_complete"])
     status_kind = status_kind_for_scope(
         repair_needed=repair_needed,
-        story_complete=story_complete,
+        story_complete=(
+            story_complete and active_review_cycle["review_settlement_complete"]
+        ),
     )
 
     return {
@@ -409,6 +487,7 @@ def get_story_workflow_status(
         "should_finish_review_loop_cleanly": review_status.get(
             "should_finish_review_loop_cleanly", False
         ),
+        **active_review_cycle,
     }
 
 

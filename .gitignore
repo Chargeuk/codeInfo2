@@ -48,6 +48,8 @@ codeInfoStatus/flow-state/current-plan.json
 codeInfoStatus/flow-state/current-task.json
 codeInfoStatus/flow-state/minor-review-fix-result.json
 codeInfoStatus/flow-state/review-disposition-state.json
+codeInfoStatus/flow-state/active-review-cycle.json
+codeInfoStatus/flow-state/review-cycles/
 codeInfoStatus/flow-state/manual-testing-runtime.json
 planning/**/*.png
 planning/**/*.jpg

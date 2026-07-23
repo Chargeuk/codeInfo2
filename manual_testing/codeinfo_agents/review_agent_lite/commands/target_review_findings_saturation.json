@@ -1,0 +1,15 @@
+{
+  "Description": "Saturate findings for exactly one server-bound review target.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "single_target_review_contract.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_findings_saturation.md"
+    }
+  ]
+}

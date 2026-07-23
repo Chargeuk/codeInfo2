@@ -1,0 +1,50 @@
+{
+  "Description": "Gather review evidence for exactly one server-bound review target.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "single_target_review_contract.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/01-core.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/proof_and_risk/01-acceptance-proof-map.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/proof_and_risk/03-hotspots-validation-and-lifecycle.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/proof_and_risk/04-hotspots-contracts-and-scale.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/proof_and_risk/05-test-proof-and-adversarial-checklist.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/03-ui-affordance-parity.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/04-field-role-stability.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_evidence_gate/05-bulk-side-effect-cardinality.md"
+    }
+  ]
+}

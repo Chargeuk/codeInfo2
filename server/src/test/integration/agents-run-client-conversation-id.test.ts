@@ -438,11 +438,9 @@ test('direct agent start stops before completion when persisted metadata retries
       ],
       run: async ({ conversations }) => {
         let builtChat = false;
-        ConversationModel.findOneAndUpdate = ((
-          () => ({
-            exec: async () => null,
-          })
-        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        ConversationModel.findOneAndUpdate = (() => ({
+          exec: async () => null,
+        })) as unknown as typeof ConversationModel.findOneAndUpdate;
 
         await assert.rejects(
           runAgentInstruction({
@@ -490,20 +488,20 @@ test('direct agent start stops before completion when persisted metadata reports
     run: async ({ conversations, capturedUpdates }) => {
       let builtChat = false;
 
-        await assert.rejects(
-          runAgentInstruction({
-            agentName: 'coding_agent',
-            instruction: 'continue with saved requested provider',
-            conversationId,
-            source: 'REST',
-            chatFactory: () => {
-              builtChat = true;
-              return new MinimalChat();
-            },
-          }),
-          (error: unknown) =>
-            (error as { code?: string }).code === 'CONVERSATION_ARCHIVED',
-        );
+      await assert.rejects(
+        runAgentInstruction({
+          agentName: 'coding_agent',
+          instruction: 'continue with saved requested provider',
+          conversationId,
+          source: 'REST',
+          chatFactory: () => {
+            builtChat = true;
+            return new MinimalChat();
+          },
+        }),
+        (error: unknown) =>
+          (error as { code?: string }).code === 'CONVERSATION_ARCHIVED',
+      );
 
       assert.equal(builtChat, false);
       assert.equal(conversations.get(conversationId), undefined);
@@ -535,15 +533,17 @@ test('runAgentCommand stops before the first synthetic turn persistence when per
   await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
   await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
-  await fs.writeFile(path.join(tempCodexHome, 'chat', 'config.toml'), '', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
   await fs.writeFile(
     path.join(commandsDir, 'retry-exhausted.json'),
     JSON.stringify(
       {
         Description: 'Retry exhausted command',
-        items: [
-          { type: 'message', role: 'user', content: ['step 1'] },
-        ],
+        items: [{ type: 'message', role: 'user', content: ['step 1'] }],
       },
       null,
       2,
@@ -573,11 +573,9 @@ test('runAgentCommand stops before the first synthetic turn persistence when per
         } as Conversation,
       ],
       run: async ({ conversations }) => {
-        ConversationModel.findOneAndUpdate = ((
-          () => ({
-            exec: async () => null,
-          })
-        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        ConversationModel.findOneAndUpdate = (() => ({
+          exec: async () => null,
+        })) as unknown as typeof ConversationModel.findOneAndUpdate;
 
         await assert.rejects(
           runAgentCommand({
@@ -3344,8 +3342,7 @@ test('direct Copilot agent runs carry the configured external endpoint through t
   process.env.CODEINFO_CODEX_HOME = codexHome;
   process.env.CODEX_HOME = codexHome;
   process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `OpenRouter,${endpointId}|responses,completions`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `OpenRouter,${endpointId}|responses,completions`;
   process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
     'openrouter,sk-or-v1-test';
 
@@ -3524,8 +3521,7 @@ test('direct Codex agent runs keep the endpoint-backed configured model instead 
   process.env.CODEINFO_CODEX_HOME = codexHome;
   process.env.CODEX_HOME = codexHome;
   process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `OpenRouter,${endpointId}|responses,completions`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `OpenRouter,${endpointId}|responses,completions`;
   process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
     'openrouter,sk-or-v1-test';
 
@@ -3934,8 +3930,7 @@ test('direct codex agent runs preserve live web search for Unsloth endpoints', a
     process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
     process.env.CODEINFO_CODEX_HOME = codexHome;
     process.env.CODEX_HOME = codexHome;
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-      `SparkUnsloth,${endpointId}|responses,completions`;
+    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `SparkUnsloth,${endpointId}|responses,completions`;
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS =
       'sparkunsloth,sk-unsloth-test';
 
@@ -4757,7 +4752,9 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
       agentName,
       'config.toml',
     );
-    const configContents = await fs.readFile(fixtureConfigPath, 'utf8');
+    const configContents = (
+      await fs.readFile(fixtureConfigPath, 'utf8')
+    ).replace(/^codeinfo_openai_endpoint\s*=.*(?:\r?\n|$)/gmu, '');
     const agentHome = path.join(tempAgentsHome, agentName);
     await fs.mkdir(agentHome, { recursive: true });
     await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
@@ -4843,7 +4840,14 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
             flowFlags.push(flags);
           }),
       });
-      await waitFor(() => flowFlags.length > 0, 5000);
+      try {
+        await waitFor(() => flowFlags.length > 0, 5000);
+      } catch (error) {
+        throw new Error(
+          `Flow runtime flags were not captured for agent ${agentName}`,
+          { cause: error },
+        );
+      }
       await callTool(
         'run_agent_instruction',
         {

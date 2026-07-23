@@ -22,7 +22,6 @@ test('review identity preserves the canonical padded story namespace', () => {
     planPath: 'planning/0000013-example.md',
     headCommit: HEAD,
     comparisonBaseCommit: BASE,
-    parentExecutionId: 'execution-13',
     now: new Date('2026-07-13T10:27:26.000Z'),
     randomHex: 'c0ffee12',
   });
@@ -31,6 +30,7 @@ test('review identity preserves the canonical padded story namespace', () => {
   assert.equal(identity.story_id, '0000013');
   assert.match(identity.review_session_id, /^0000013-rs-/u);
   assert.match(identity.review_pass_id, /^0000013-/u);
+  assert.equal('parent_execution_id' in identity, false);
   assert.equal(
     path.basename(
       buildReviewArtifactPath({
@@ -57,7 +57,6 @@ test('review identity rejects malformed and mismatched machine identity', () => 
     planPath: 'planning/0000013-example.md',
     headCommit: HEAD,
     comparisonBaseCommit: BASE,
-    parentExecutionId: 'execution-13',
     now: new Date('2026-07-13T10:27:26.000Z'),
     randomHex: 'c0ffee12',
   });
@@ -107,6 +106,54 @@ test('review artifact paths reject traversal and JSON publication is atomic', as
       ),
       [],
     );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('failed atomic JSON writes and renames remove their temporary artifacts', async () => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'review-identity-'));
+  const target = path.join(repoRoot, 'review.json');
+  try {
+    await assert.rejects(
+      atomicWriteJson(
+        target,
+        { state: 'write-failure' },
+        {
+          mkdir: fs.mkdir,
+          writeFile: (async (filePath, data) => {
+            await fs.writeFile(filePath, data);
+            throw new Error('injected write failure');
+          }) as typeof fs.writeFile,
+          rename: fs.rename,
+        },
+      ),
+      /injected write failure/u,
+    );
+    assert.deepEqual(
+      (await fs.readdir(repoRoot)).filter((name) => name.endsWith('.tmp')),
+      [],
+    );
+
+    await assert.rejects(
+      atomicWriteJson(
+        target,
+        { state: 'rename-failure' },
+        {
+          mkdir: fs.mkdir,
+          writeFile: fs.writeFile,
+          rename: (async () => {
+            throw new Error('injected rename failure');
+          }) as typeof fs.rename,
+        },
+      ),
+      /injected rename failure/u,
+    );
+    assert.deepEqual(
+      (await fs.readdir(repoRoot)).filter((name) => name.endsWith('.tmp')),
+      [],
+    );
+    await assert.rejects(fs.readFile(target), /ENOENT/u);
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

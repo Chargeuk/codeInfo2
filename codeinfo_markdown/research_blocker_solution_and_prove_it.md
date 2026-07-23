@@ -11,6 +11,7 @@ Load a fresh bounded blocker-repair packet before checking for blockers.
 If the current implementation does not contain a blocker, state that and stop.
 If the current implementation contains a blocker, you MUST research and prove the solution before work continues.
 Write the proven blocker answer into the implementation notes marked as `**BLOCKING ANSWER**`.
+Keep the task's existing parser-visible `**BLOCKER**` line intact while the required external state, terminal artifact, or prerequisite remains unavailable. A proven retry recipe is context, not blocker resolution. Do not rename the live blocker to `**RESOLVED ISSUE**`, remove it, or claim it is retired unless fresh evidence proves the blocking condition itself changed.
 
 </task>
 
@@ -61,6 +62,13 @@ If the implementation notes contain a blocker, your research must cover all of t
 
 - classify the blocker as one of: product or story seam; proof or test harness seam; shared wrapper or baseline seam; manual or runtime environment seam; task-shape or planning seam
 - state whether the current task actually owns the blocker, or whether the evidence points to prerequisite baseline, harness, runtime-handoff, or task-shape repair
+
+5. Active runtime configuration
+
+- When the blocker involves a missing `$CODEINFO_ROOT` asset, mount, port, startup path, or other Compose-owned runtime surface, read `CODEINFO_RUNTIME_COMPOSE_FILE` from the current environment and inspect that exact checked-in Compose file first.
+- Do not use `docker-compose.yml` as evidence for a `docker-compose.local.yml` or e2e run merely because the main stack is the normal manual-proof surface.
+- Compare the active Compose mapping with the relevant Dockerfile. A file that exists in the harness repository but is neither mounted by the active Compose service nor copied into the image is a repository-owned provisioning defect, not unexplained external runtime state.
+- A running container cannot acquire a newly declared bind mount without recreation. Implement and prove the checked-in configuration repair when it is in scope, record that recreation is still required, and do not restart or stop `compose:local` from inside the flow.
 
 </research_rules>
 

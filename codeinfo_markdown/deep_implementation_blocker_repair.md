@@ -4,6 +4,8 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 
 <critical_rules>
 
+- When repair requires a fresh `two_phase_review_cycle`, use `npm run review:cycle:summary -- --working-folder <repository-path>` and wait for its terminal result. Do not replace it with direct HTTP 202 polling, do not impose an arbitrary poll limit, and do not stop Compose while the wrapper reports an active run.
+
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
@@ -61,6 +63,8 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 - Use the minimum honest verification needed to confirm the blocker repair. Do not run the full task `Testing` section in this step unless that exact proof is the only honest way to verify the implementation blocker is gone.
 - If you use a narrow verification command in this step, record only the honest result it proved and leave the later full automated-proof pass to run the task's listed testing gates.
 - If the repair requires external contract confirmation, use current official documentation and repository evidence before changing code.
+- When a blocker concerns a missing `$CODEINFO_ROOT` asset or runtime mapping, inspect the Compose file named by `CODEINFO_RUNTIME_COMPOSE_FILE` and the relevant Dockerfile before classifying it as external. A missing mapping in the active checked-in Compose file is repository-owned config work when the current task permits that repair; another Compose variant is not evidence that the active runtime is correctly provisioned.
+- Implement an in-scope checked-in Compose repair when possible, but never stop or restart `compose:local` from this step. Record the required later container recreation as a runtime handoff rather than claiming the current container changed immediately.
 
 </repair_rules>
 

@@ -61,6 +61,8 @@ If `current-task.json` says no current task could be selected because no open or
   - `Testing` for automated proof execution only;
   - `Manual Testing Guidance` for optional, non-blocking guidance for the later `manual_testing_agent` pass only when useful.
 - Do not create manual testing checklist items in `Subtasks` or `Testing`.
+- Before preserving unchecked work or a blocker, interpret each checklist item by meaning rather than keywords. If an existing `Subtasks` or `Testing` item actually asks for browser walkthroughs, screenshots, an agent-driven manual scenario, or another manual-testing-agent action, preserve and merge its useful meaning into checkbox-free `Manual Testing Guidance`, remove only the misplaced checklist item, and retire any live blocker whose sole reason was waiting for that manual action. Do not mark the unperformed manual scenario as completed; it becomes non-blocking guidance for the later manual pass.
+- Treat this section-shape repair as normal self-healing, not as a reason to split the task, add a prerequisite, or return the same task to automated proof unchanged.
 - Do not create subtasks that depend on future automated or manual proof output in order to become complete.
 - If the remaining prose describes manual validation, browser checks, screenshots, or runtime-visible follow-up, place that only in `Manual Testing Guidance` when useful rather than converting it into an unchecked subtask or testing checklist item.
 - If the remaining prose describes proof artifacts or observability expectations, convert that into:

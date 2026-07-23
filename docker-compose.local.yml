@@ -69,8 +69,6 @@ services:
       - ./codeinfo_agents:/app/codeinfo_agents
       - ./codex_agents:/app/codex_agents
       - ${CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR:-./codeinfo_config}:/app/codeinfo_config
-      - ./scripts:/app/scripts:ro
-      - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - ./flows:/app/flows
       - ./flows-sandbox:/app/flows-sandbox
       - ${CODEINFO_HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}

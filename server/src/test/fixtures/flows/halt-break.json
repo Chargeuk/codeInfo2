@@ -1,0 +1,44 @@
+{
+  "description": "Halt the complete flow when a blocker gate matches",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Outer loop",
+      "steps": [
+        {
+          "type": "break",
+          "label": "Durable blocker gate",
+          "agentType": "loop_control_agent",
+          "identifier": "halt",
+          "question": "Halt complete flow?",
+          "breakOn": "yes",
+          "haltFlow": true
+        },
+        {
+          "type": "llm",
+          "label": "Must not run",
+          "agentType": "coding_agent",
+          "identifier": "after-halt",
+          "messages": [
+            {
+              "role": "user",
+              "content": ["This step must not execute."]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Also must not run",
+      "agentType": "coding_agent",
+      "identifier": "after-loop",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["This top-level step must not execute."]
+        }
+      ]
+    }
+  ]
+}

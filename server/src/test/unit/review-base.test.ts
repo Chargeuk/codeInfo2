@@ -99,7 +99,6 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       {
         workingRepositoryPath: repoRoot,
         outputKey: 'current-review-base',
-        parentExecutionId: 'execution-27',
         initializeReviewPointers: true,
       },
       {
@@ -115,7 +114,6 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       '0000027-current-review-base.json',
     );
     assert.equal(result.artifact.story_id, '0000027');
-    assert.equal(result.artifact.parent_execution_id, 'execution-27');
     assert.equal(
       result.artifact.review_session_id,
       '0000027-rs-20260705T163000Z-d30c1246d3-c0ffee12',
@@ -124,6 +122,7 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       result.artifact.review_pass_id,
       '0000027-20260705T163000Z-d30c1246d3-c0ffee12',
     );
+    assert.equal('parent_execution_id' in result.artifact, false);
     assert.equal(result.artifact.comparison_base_ref, 'origin/main');
     assert.equal(result.artifact.comparison_base_commit, BASE_SHA);
     assert.equal(result.artifact.remote_fetch_status, 'success');
@@ -192,6 +191,7 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
       result.artifact.review_pass_id,
     );
     assert.equal(pendingCodex.status, 'pending');
+
     for (const pointer of [pendingMain, pendingCodex, pendingOcr]) {
       assert.equal(pointer.repo_alias, result.artifact.repo_alias);
       assert.equal(pointer.repo_root, result.artifact.repo_root);
@@ -205,6 +205,101 @@ test('prepareReviewBase writes a stable current-review-base artifact', async () 
         result.artifact.comparison_base_ref,
       );
     }
+
+    const waveResult = await prepareReviewBase(
+      {
+        workingRepositoryPath: repoRoot,
+        outputKey: 'current-review-base',
+        initializeReviewPointers: true,
+        explicitScope: {
+          planHostRoot: repoRoot,
+          planPath: 'planning/0000027-codex-review.md',
+          storyNumber: '0000027',
+          branchedFrom: 'main',
+          reviewWaveId: '0000027-rw-wave-test',
+          reviewContext: await prepareReviewContext({
+            repoRoot,
+            storyNumber: '0000027',
+            planPath: 'planning/0000027-codex-review.md',
+            branch: 'feature/0000027-codex-review',
+          }),
+          target: {
+            targetId: 'additional-repository-1',
+            repoAlias: 'additional-repository-1',
+            repoRoot,
+            branch: 'feature/0000027-codex-review',
+            headCommit: HEAD_SHA,
+            comparisonBaseCommit: BASE_SHA,
+          },
+        },
+      },
+      {
+        execFile,
+        prepareReviewContext,
+        now: () => new Date('2026-07-05T16:30:00.000Z'),
+        randomHex: () => 'c0ffee12',
+      },
+    );
+    assert.equal(waveResult.artifact.target_id, 'additional-repository-1');
+    assert.equal(waveResult.artifact.review_wave_id, '0000027-rw-wave-test');
+    assert.equal(waveResult.artifact.plan_host_root, repoRoot);
+    for (const pointerName of [
+      '0000027-current-review.json',
+      '0000027-current-codex-review.json',
+      '0000027-current-open-code-review.json',
+    ]) {
+      const pointer = JSON.parse(
+        await fs.readFile(
+          path.join(repoRoot, 'codeInfoTmp', 'reviews', pointerName),
+          'utf8',
+        ),
+      ) as Record<string, unknown>;
+      assert.equal(pointer.target_id, 'additional-repository-1');
+      assert.equal(pointer.review_wave_id, '0000027-rw-wave-test');
+      assert.equal(pointer.plan_host_root, repoRoot);
+      assert.equal(pointer.repo_alias, waveResult.artifact.repo_alias);
+      assert.equal(pointer.repo_root, waveResult.artifact.repo_root);
+      assert.equal(
+        pointer.comparison_base_commit,
+        waveResult.artifact.comparison_base_commit,
+      );
+    }
+    await assert.rejects(
+      prepareReviewBase(
+        {
+          workingRepositoryPath: repoRoot,
+          outputKey: 'current-review-base',
+          explicitScope: {
+            planHostRoot: repoRoot,
+            planPath: 'planning/0000027-codex-review.md',
+            storyNumber: '0000027',
+            branchedFrom: 'main',
+            reviewWaveId: '0000027-rw-wave-test',
+            reviewContext: await prepareReviewContext({
+              repoRoot,
+              storyNumber: '0000027',
+              planPath: 'planning/0000027-codex-review.md',
+              branch: 'feature/0000027-codex-review',
+            }),
+            target: {
+              targetId: 'additional-repository-1',
+              repoAlias: 'additional-repository-1',
+              repoRoot,
+              branch: 'feature/0000027-codex-review',
+              headCommit: HEAD_SHA,
+              comparisonBaseCommit: 'f'.repeat(40),
+            },
+          },
+        },
+        {
+          execFile,
+          prepareReviewContext,
+          now: () => new Date('2026-07-05T16:30:00.000Z'),
+          randomHex: () => 'c0ffee12',
+        },
+      ),
+      /comparison base drifted/u,
+    );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

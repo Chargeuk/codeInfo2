@@ -17,6 +17,22 @@ def read_text(relative_path: str) -> str:
 
 
 class ReviewPromptContractTests(unittest.TestCase):
+    def test_post_review_closeout_requires_completed_cycle_state(self) -> None:
+        generator = read_text(
+            "codeinfo_markdown/generate_or_update_minor_fix_revalidation_task.md"
+        )
+        closeout = read_text(
+            "codeinfo_markdown/write_review_no_findings_closeout.md"
+        )
+        for text in (generator, closeout):
+            self.assertIn("active-review-cycle.json", text)
+            self.assertIn("review-initialization-failure.json", text)
+            self.assertIn('status: "completed"', text)
+            self.assertNotIn("parent_execution_id", text)
+        self.assertIn("Recover Incomplete Story", generator)
+        self.assertIn("one normal final whole-story revalidation task", generator)
+        self.assertIn("not a no-findings review", closeout)
+
     def test_internal_review_prompts_bind_to_server_owned_identity(self) -> None:
         prompt_paths = (
             "codeinfo_markdown/review_evidence_gate/01-core.md",
@@ -28,27 +44,13 @@ class ReviewPromptContractTests(unittest.TestCase):
             with self.subTest(prompt_path=prompt_path):
                 text = read_text(prompt_path)
                 self.assertIn("review_session_id", text)
-                self.assertIn("parent_execution_id", text)
+                self.assertNotIn("parent_execution_id", text)
                 self.assertIn("seven-digit", text)
                 self.assertRegex(text, r"(?i)(never|may not|do not).*infer")
 
-        merge_text = read_text(
-            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
-        )
         classify_text = read_text(
             "codeinfo_markdown/classify_review_disposition.md"
         )
-        self.assertIn("current-review-validation.json", merge_text)
-        for identity_field in (
-            "story_id",
-            "plan_path",
-            "review_session_id",
-            "review_pass_id",
-            "parent_execution_id",
-            "head_commit",
-            "comparison_base_commit",
-        ):
-            self.assertIn(identity_field, merge_text)
         self.assertIn("current-review-validation.json", classify_text)
         self.assertIn("review_session_id", classify_text)
 
@@ -98,32 +100,36 @@ class ReviewPromptContractTests(unittest.TestCase):
         ):
             self.assertIn(scope_field, visual_text)
 
-    def test_open_code_review_and_merge_preserve_validated_session_lineage(self) -> None:
-        review_text = read_text("codeinfo_markdown/run_open_code_review.md")
-        merge_text = read_text(
-            "codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md"
+    def test_open_code_review_uses_agent_owned_generic_workspace_output(self) -> None:
+        review_text = read_text(
+            "codeinfo_markdown/run_open_code_review_workspace.md"
+        )
+        contract_text = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
         )
         for required in (
-            "review_session_id",
-            "canonical_review_pass_id",
-            "parent_execution_id",
+            "ocr agent prepare",
+            "ocr agent validate-comments",
+            "ocr agent report",
             "planning/**",
-            "current-open-code-review.json",
+            "output/",
+            "self-describing review",
         ):
             self.assertIn(required, review_text)
-            self.assertIn(required, merge_text)
-        self.assertIn("current-review-validation.json", merge_text)
-        self.assertIn("Origin: open_code_review", merge_text)
-        self.assertIn("independently regenerate the exact manifest", review_text)
-        self.assertIn("later joined-review validation artifact", review_text)
-        self.assertIn("publish_open_code_review.py", review_text)
-        self.assertIn("--validate-only", review_text)
-        self.assertIn("at most three preflight attempts", review_text)
-        self.assertIn("Do not write either OpenCode pointer JSON yourself", review_text)
-        self.assertIn("comments-<four-digit-index>.json", review_text)
-        self.assertIn("canonical `bundles` entries", review_text)
-        self.assertIn("only OCR candidate-finding source", merge_text)
-        self.assertIn("coverage and navigation context only", merge_text)
+        self.assertIn("There is no required review-result schema", contract_text)
+        self.assertIn("Do not run a publisher", contract_text)
+        self.assertIn("Do not invoke `publish_open_code_review.py`", review_text)
+        self.assertIn("do not write `current-open-code-review.json`", review_text)
+
+    def test_multi_agent_review_stages_share_only_their_scheduler_job(self) -> None:
+        contract_text = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+
+        self.assertIn("current-review_artifacts_main-review-job.md", contract_text)
+        self.assertIn("Internal agent identifiers are stages", contract_text)
+        for sibling in ("Codex", "OpenCode", "cross-repository"):
+            self.assertIn(sibling, contract_text)
 
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(
@@ -138,41 +144,6 @@ class ReviewPromptContractTests(unittest.TestCase):
         )
         self.assertIn("only when no reviewer is usable", classify_text)
         self.assertIn("rather than creating plan work", disposition_text)
-
-    def test_missing_review_pass_ids_use_session_scoped_skip_artifacts(self) -> None:
-        codex_text = read_text(
-            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
-        )
-        ocr_text = read_text(
-            "codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md"
-        )
-
-        self.assertIn(
-            "<review_session_id>-codex-review-merge-skipped.md", codex_text
-        )
-        self.assertIn(
-            "<review_session_id>-open-code-review-merge-skipped.md", ocr_text
-        )
-        for text in (codex_text, ocr_text):
-            self.assertIn("do not infer or invent it", text)
-            self.assertIn("finish cleanly without updating either pointer", text)
-
-    def test_codex_identity_mismatches_use_session_scoped_skip_artifacts(self) -> None:
-        text = read_text(
-            "codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md"
-        )
-
-        self.assertIn(
-            "present `codex_review_pass_id` with any identity-tuple mismatch",
-            text,
-        )
-        self.assertIn(
-            "<review_session_id>-codex-review-merge-skipped.md", text
-        )
-        self.assertIn(
-            "leave the canonical handoff and Codex pointer unchanged", text
-        )
-        self.assertIn("continue later flow steps", text)
 
     def test_core_findings_prompt_defines_scope_impact_taxonomy(self) -> None:
         text = read_text("codeinfo_markdown/code_review_findings/01-core.md")
@@ -323,31 +294,68 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("exact `Scope Impact` is `cleanup_preference`", disposition_text)
         self.assertIn("If `Scope Impact` is missing, malformed, or unrecognized", disposition_text)
 
-    def test_review_classifier_preserves_bounded_two_phase_review_control(self) -> None:
-        classify_text = read_text("codeinfo_markdown/classify_review_disposition.md")
-        document_minor_text = read_text("codeinfo_markdown/document_minor_review_fix.md")
-        fast_record_text = read_text(
-            "codeinfo_markdown/record_fast_review_pass_outcome.md"
+    def test_complete_cycle_uses_repeated_and_one_shot_generic_review_batches(self) -> None:
+        cycle = json.loads(read_text("flows/two_phase_review_cycle.json"))
+        repeated_loop = next(
+            step
+            for step in cycle["steps"]
+            if step.get("label") == "Repeated Review Group"
         )
-        finalizer_text = read_text(
-            "codeinfo_markdown/finalize_two_phase_review_disposition.md"
+        initializer = cycle["steps"][0]
+        repeated_wave = next(
+            step
+            for step in repeated_loop["steps"]
+            if step["type"] == "subflowWave"
         )
+        one_shot_waves = [
+            step
+            for step in cycle["steps"]
+            if step.get("label") == "Run One-Shot Generic Review Batch"
+        ]
+        cycle_text = json.dumps(cycle)
 
-        self.assertIn('`review_phase: "fast"` or `review_phase: "slow"`', classify_text)
-        self.assertIn("up to five successfully recorded reviewer passes", classify_text)
-        self.assertIn("must remain false during classification", classify_text)
-        self.assertIn("fast_reviewed_pass_ids", fast_record_text)
-        self.assertIn("between 1 and 5 inclusive", fast_record_text)
-        self.assertIn("immediately before the Minor Review Fix Path", fast_record_text)
-        self.assertIn("current-codex-review", fast_record_text)
-        self.assertIn("current-open-code-review", fast_record_text)
-        self.assertIn("fast_current_pass_reviewers_complete", fast_record_text)
-        self.assertIn("record zero passed reviewers instead of stopping", fast_record_text)
-        self.assertIn("The slow reviewer runs once in this cycle", finalizer_text)
-        self.assertIn("generate_final_revalidation", finalizer_text)
-        self.assertIn("preserve the phase-local", document_minor_text)
-        self.assertIn("Outside a two-phase cycle", document_minor_text)
-        self.assertIn("Outside an active two-phase cycle", classify_text)
+        self.assertEqual(initializer["type"], "initializeReviewCycle")
+        self.assertEqual(initializer["mode"], "final")
+        self.assertEqual(repeated_loop["maxIterations"], 5)
+        self.assertEqual(repeated_wave["groups"][0]["flowName"], "review_batch")
+        repeated_groups = repeated_wave["groups"][0]["bindings"]["inputValues"][
+            "review_groups"
+        ]
+        self.assertEqual(
+            repeated_groups[0]["flowNames"], ["codex_review", "open_code_review"]
+        )
+        self.assertEqual(repeated_groups[1]["flowName"], "cross_repository_review")
+        self.assertEqual(len(one_shot_waves), 1)
+        one_shot_groups = one_shot_waves[0]["groups"][0]["bindings"][
+            "inputValues"
+        ]["review_groups"]
+        self.assertEqual(one_shot_groups[0]["flowNames"], ["review_artifacts_main"])
+        settlement_steps = [
+            step
+            for step in cycle["steps"]
+            if step.get("identifier") == "review_settler"
+        ]
+        self.assertTrue(settlement_steps)
+        self.assertTrue(
+            all(step["agentType"] == "tasking_agent" for step in settlement_steps)
+        )
+        self.assertNotIn('"reviewPhase"', cycle_text)
+        self.assertNotIn('"prepareReviewSet"', cycle_text)
+
+    def test_settlement_auditor_records_only_explicit_cycle_control_state(self) -> None:
+        audit_text = read_text(
+            "codeinfo_markdown/audit_agent_native_review_settlement.md"
+        )
+        recorder_text = read_text("scripts/record_review_cycle_outcome.py")
+
+        self.assertIn("record_review_cycle_outcome.py", audit_text)
+        self.assertIn("--status completed", audit_text)
+        self.assertIn("--status incomplete --reason", audit_text)
+        self.assertIn("every supported finding", audit_text)
+        self.assertNotIn("review-result schema", audit_text)
+        self.assertNotIn("reviewer count", recorder_text)
+        self.assertNotIn("output_dir", recorder_text)
+        self.assertNotIn("reconciliation", recorder_text)
 
     def test_testing_prompts_reject_contract_shape_only_proof(self) -> None:
         ensure_text = read_text(
@@ -428,6 +436,234 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("needs_task_up_path` remains true only because an `incomplete_review_blocker` tied solely to a rejected finding was preserved", text)
         self.assertIn("safe_to_exit_review_loop_without_tasking` remains false only because a blocker tied solely to a rejected finding was preserved", text)
         self.assertIn("no `incomplete_review_blocker` or `operationally_blocked_minor_finding` remains solely because a rejected finding used to justify it", text)
+
+    def test_agent_native_batch_scope_filter_reuses_policy_and_preserves_removals(
+        self,
+    ) -> None:
+        batch_filter = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md"
+        )
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        authorization = read_text(
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
+        )
+
+        self.assertIn(
+            "codeinfo_markdown/filter_review_findings_to_story_scope.md",
+            batch_filter,
+        )
+        for policy_section in (
+            "<filter_purpose>",
+            "<rejection_gates>",
+            "<required_non_rejection_rule>",
+            "<authoritative_findings_rule>",
+            "<ambiguity_rules>",
+            "<follow_up_capture_rule>",
+        ):
+            self.assertIn(policy_section, batch_filter)
+        self.assertIn("shared/bounded-plan-read.md", batch_filter)
+        self.assertIn("shared/story_behavior_lock.md", batch_filter)
+        self.assertIn('plan_sections.py\" --profile review-scope', batch_filter)
+        self.assertIn("scope-filtered-findings.md", batch_filter)
+        self.assertIn("leave the reconciliation unchanged", batch_filter)
+        self.assertIn("Do not modify anything under a job's", batch_filter)
+        self.assertIn("Remove a fully out-of-scope finding only", batch_filter)
+        self.assertIn("narrow the actionable reconciliation entry", batch_filter)
+        self.assertIn("Always write", batch_filter)
+        self.assertIn("every original actionable finding", batch_filter)
+        self.assertIn("Do not assume a provider list, expected reviewer count", batch_filter)
+
+        self.assertIn("separate positive authorization gate", authorization)
+        self.assertIn("exact acceptance criterion", authorization)
+        self.assertIn("counterfactual test", authorization)
+        self.assertIn("Technical validity and positive story authorization", authorization)
+        self.assertIn("cap, quota, threshold, timeout, retry count", authorization)
+        self.assertIn("scope-authorized-findings.md", authorization)
+        self.assertIn("Missing authorization must never be described as approval", authorization)
+        self.assertIn("Keep it self-describing", authorization)
+
+        self.assertIn("scope-filtered-findings.md", disposition)
+        self.assertIn("scope-authorized-findings.md", disposition)
+        self.assertIn("Never restore, direct-fix, or task up", disposition)
+        self.assertIn("Ignored for This Story", disposition)
+        self.assertIn("only surviving positively authorized findings", disposition)
+        self.assertIn("Deduplicate by the finding's stable identity", disposition)
+
+    def test_agent_native_derived_artifacts_are_autonomous_and_self_auditing(
+        self,
+    ) -> None:
+        reconcile = read_text("codeinfo_markdown/reconcile_review_batch.md")
+        reconciliation_audit = read_text(
+            "codeinfo_markdown/audit_review_batch_reconciliation.md"
+        )
+        scope_filter = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md"
+        )
+        scope_audit = read_text(
+            "codeinfo_markdown/audit_review_batch_scope_filter.md"
+        )
+        authorization = read_text(
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
+        )
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+
+        for prompt in (
+            reconcile,
+            reconciliation_audit,
+            scope_filter,
+            authorization,
+            scope_audit,
+            disposition,
+        ):
+            self.assertIn("Do not ask the user questions", prompt)
+
+        self.assertIn("completed, partial, or unavailable", reconcile)
+        self.assertIn("never substitute clarification questions", reconcile)
+        self.assertIn("reopen the written reconciliation", reconcile)
+        self.assertIn("question-only", reconciliation_audit)
+        self.assertIn("provider success", reconciliation_audit)
+        self.assertIn("Copy batch identities and paths", reconciliation_audit)
+
+        self.assertIn("Copy the exact batch ID", scope_filter)
+        self.assertIn("Do not type them from memory", scope_filter)
+        self.assertIn("character-for-character", scope_filter)
+        self.assertIn("scope-authorized-findings.md", authorization)
+        self.assertIn("partial or unavailable authorization artifact", authorization)
+        self.assertIn("Do not select arbitrary values", authorization)
+        self.assertIn("independent audit and recovery", scope_audit)
+        self.assertIn("question-only", scope_audit)
+        self.assertIn("scope-filter-audit.md", scope_audit)
+        self.assertIn("scope-authorized-findings.md", scope_audit)
+        self.assertIn("positive authorization tied to an exact acceptance criterion", scope_audit)
+        self.assertIn("never treat an absent or unusable authorization record as approval", disposition)
+        self.assertIn('plan_sections.py" --profile review-scope', scope_audit)
+        self.assertIn("filter_review_findings_to_story_scope.md", scope_audit)
+        self.assertIn("every job's immutable evidence remains unchanged", scope_audit)
+        self.assertIn("Do not require a rigid schema", scope_audit)
+        self.assertIn("character-for-character", scope_audit)
+
+        self.assertIn("completed, partial, or unavailable", disposition)
+        self.assertIn("scope-filter-audit.md", disposition)
+        self.assertIn("repairs recorded by the independent combined scope audit", disposition)
+        self.assertIn("reopen the disposition", disposition)
+        self.assertIn("without asking follow-up questions", disposition)
+
+    def test_legacy_scope_filter_flows_keep_the_state_specific_prompt(self) -> None:
+        for relative_path in (
+            "flows/review_plan.json",
+            "flows/review_disposition_current_artifacts.json",
+            "flows/ingest_external_review_plan.json",
+        ):
+            flow_text = read_text(relative_path)
+            self.assertIn("filter_review_findings_to_story_scope.md", flow_text)
+            self.assertNotIn(
+                "filter_review_batch_findings_to_story_scope.md", flow_text
+            )
+
+    def test_agent_native_batch_repairs_escalate_before_task_creation(self) -> None:
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        normal_fix = read_text(
+            "codeinfo_markdown/implement_review_batch_direct_fixes.md"
+        )
+        stronger_fix = read_text(
+            "codeinfo_markdown/implement_review_batch_remaining_fixes.md"
+        )
+        outcome = read_text("codeinfo_markdown/record_review_batch_outcome.md")
+        settle = read_text("codeinfo_markdown/settle_agent_native_review_pass.md")
+        apply = read_text("codeinfo_markdown/apply_agent_native_review_settlement.md")
+        audit = read_text("codeinfo_markdown/audit_agent_native_review_settlement.md")
+        batch = json.loads(read_text("flows/review_batch.json"))
+
+        self.assertIn("Repair difficulty is advisory", disposition)
+        self.assertIn("do not make a final implementation-task decision here", disposition)
+        self.assertIn("Consider every supported positively authorized actionable finding", normal_fix)
+        self.assertIn("Group findings by owning target repository", normal_fix)
+        self.assertIn("process repositories sequentially", normal_fix)
+        self.assertIn("Create separate commits in every changed repository", normal_fix)
+        self.assertIn("Do not require a rigid schema or exact audit filename", normal_fix)
+        for repair_prompt in (normal_fix, stronger_fix):
+            self.assertIn("strict repair-only mode", repair_prompt)
+            self.assertIn("smallest focused evidence-backed", repair_prompt)
+            self.assertIn("directly causes the accepted finding", repair_prompt)
+            self.assertIn("necessarily coupled", repair_prompt)
+            self.assertIn(
+                "same file, class, module, repository, or subsystem",
+                repair_prompt,
+            )
+            self.assertIn(
+                "Once the direct issue is fixed and focused proof passes",
+                repair_prompt,
+            )
+            self.assertIn("why every changed file was necessary", repair_prompt)
+            self.assertIn("scope", repair_prompt.lower())
+        self.assertIn("Do not introduce an unapproved cap, quota, threshold", normal_fix)
+        self.assertIn("Research authority does not authorize new story scope", stronger_fix)
+        self.assertIn("genuinely unapproved product or runtime policy", stronger_fix)
+        self.assertIn("Reconstruct every supported positively authorized actionable finding", stronger_fix)
+        self.assertIn("If the normal audit is missing or incomplete", stronger_fix)
+        self.assertIn("Your objective is to fix every remaining positively authorized finding", stronger_fix)
+        self.assertIn("Create and execute an internal dependency-aware plan", stronger_fix)
+        self.assertIn("related past stories and implementation notes", stronger_fix)
+        self.assertIn("other ingested repositories", stronger_fix)
+        self.assertIn("official documentation, and internet research", stronger_fix)
+        self.assertIn("materially different focused implementation remains", stronger_fix)
+        self.assertIn("return to it with the additional evidence", stronger_fix)
+        self.assertIn("process repositories sequentially", stronger_fix)
+        self.assertIn("coordinated producer-consumer changes", stronger_fix)
+        self.assertIn("are not valid stopping reasons", stronger_fix)
+        self.assertIn("exact genuine blocker for anything unresolved", stronger_fix)
+        self.assertIn("Do not create implementation tasks", stronger_fix)
+        self.assertIn(
+            "Research may be broad, but implementation must remain narrow",
+            stronger_fix,
+        )
+        self.assertIn(
+            "every narrower safe correction has been disproved",
+            stronger_fix,
+        )
+        self.assertIn("not speculative redesign or improvement", stronger_fix)
+        self.assertNotIn("multi-step refactors", stronger_fix)
+        self.assertNotIn("Do not invent a product decision", stronger_fix)
+        self.assertNotIn(
+            "that can be resolved autonomously during this one invocation",
+            stronger_fix,
+        )
+        self.assertIn("every target repository", outcome)
+        self.assertIn("after both opportunities", outcome)
+        self.assertIn("Do not create a task merely because disposition predicted", settle)
+        self.assertIn("after the stronger repair opportunity", apply)
+        self.assertIn("a disposition prediction was tasked before repair", audit)
+
+        optional_loop = next(
+            step
+            for step in batch["steps"]
+            if step.get("label") == "Optional Stronger Review Repair"
+        )
+        self.assertEqual(optional_loop["type"], "startLoop")
+        self.assertEqual(optional_loop["maxIterations"], 1)
+        completion_gate = optional_loop["steps"][0]
+        self.assertEqual(completion_gate["agentType"], "coding_agent")
+        self.assertEqual(completion_gate["identifier"], "batch_fixer")
+        self.assertEqual(completion_gate["breakOn"], "yes")
+        self.assertNotIn("breakOnFailure", completion_gate)
+        stronger_step = next(
+            step
+            for step in optional_loop["steps"]
+            if step.get("label") == "Implement Remaining Review Fixes"
+        )
+        self.assertEqual(stronger_step["agentType"], "research_agent")
+        self.assertTrue(stronger_step["continueOnFailure"])
+        self.assertEqual(
+            stronger_step["markdownFile"],
+            "implement_review_batch_remaining_fixes.md",
+        )
+        final_gate = optional_loop["steps"][-1]
+        self.assertEqual(final_gate["agentType"], "loop_control_agent")
+        self.assertEqual(final_gate["breakOn"], "yes")
+
+        for text in (normal_fix, stronger_fix, outcome, settle):
+            self.assertNotIn("reviewer count is", text)
+            self.assertNotIn("provider pointer", text.lower())
 
     def test_actionable_review_findings_are_promoted_for_one_inline_attempt(self) -> None:
         promote_text = read_text(
@@ -513,7 +749,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             "plan_path",
             "review_session_id",
             "review_pass_id",
-            "parent_execution_id",
+            "review_cycle_id",
             "head_commit",
             "comparison_base_commit",
         ):
@@ -533,7 +769,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             record_text,
         )
         self.assertIn(
-            "Do not require `story_id`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, or `comparison_base_commit` to exist in `current-plan.json`",
+            "Do not require `story_id`, `review_session_id`, `review_pass_id`, `head_commit`, or `comparison_base_commit` to exist in `current-plan.json`",
             record_text,
         )
         self.assertIn(
@@ -553,6 +789,7 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("- Comparison context:", record_text)
         self.assertIn("- Description:", record_text)
         self.assertIn("- Example:", record_text)
+        self.assertIn("- Found by:", record_text)
         self.assertIn("- Why accepted:", record_text)
         self.assertIn("- Why ignored:", record_text)
         self.assertIn(
@@ -664,6 +901,26 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertGreaterEqual(text.count(command), 2)
         self.assertNotIn("--task-number 12 --section", text)
+
+    def test_minor_fix_audit_task_contract_is_durable_and_non_owning(self) -> None:
+        generate_text = read_text(
+            "codeinfo_markdown/generate_or_update_minor_fix_audit_task.md"
+        )
+        refresh_text = read_text(
+            "codeinfo_markdown/refresh_minor_fix_audit_task_coverage.md"
+        )
+        task_up_text = read_text(
+            "codeinfo_markdown/ensure_review_findings_became_tasks.md"
+        )
+
+        self.assertIn("minor_fix_loop_audit", generate_text)
+        self.assertIn("Task Status: __done__", generate_text)
+        self.assertIn("deduplicated by repository plus command", generate_text)
+        self.assertIn("--all-passes", refresh_text)
+        self.assertIn("grouped task-up work", refresh_text)
+        self.assertIn("minor_fix_loop_audit", task_up_text)
+        self.assertIn("immutable historical evidence", task_up_text)
+        self.assertIn("Addresses Findings", task_up_text)
 
     def test_regression_fixtures_cover_real_runtime_miss_patterns(self) -> None:
         self.assertTrue(FIXTURES_DIR.is_dir())

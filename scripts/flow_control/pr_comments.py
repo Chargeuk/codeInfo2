@@ -18,6 +18,10 @@ from flow_control.decision import DecisionOutcome, no, yes
 
 
 AI_RESPONSE_PATTERN = re.compile(r"^\s*#AI\s+Response\s*:", re.IGNORECASE)
+AI_MUST_FIX_PATTERN = re.compile(
+    r"#AI_MUST_FIX(?![A-Za-z0-9_])",
+    re.IGNORECASE,
+)
 DEFAULT_CONNECTION = "default"
 DEFAULT_PAGE_LIMIT = 50
 MAX_PAGES = 10_000
@@ -61,6 +65,8 @@ class EligibleLeafSelection:
     reference: PullRequestRef
     in_scope: PullRequestRef
     path: tuple[Mapping[str, Any], ...]
+    thread_root_id: int
+    must_fix_comments: tuple[Mapping[str, Any], ...]
 
     @property
     def leaf_id(self) -> int:
@@ -68,6 +74,10 @@ class EligibleLeafSelection:
         if leaf_id is None:
             raise PrCommentGateError("selected leaf has no usable id")
         return leaf_id
+
+    @property
+    def must_fix(self) -> bool:
+        return bool(self.must_fix_comments)
 
 
 GtRunner = Callable[[Sequence[str]], Mapping[str, Any]]
@@ -355,7 +365,7 @@ def _comment_raw(
     content = comment.get("content")
     raw = content.get("raw") if isinstance(content, Mapping) else None
     if not isinstance(raw, str):
-        warn("visible leaf without a text body remains eligible")
+        warn("comment without a text body remains eligible when it is a leaf")
         return ""
     return raw
 
@@ -422,6 +432,42 @@ def _path_to_root(
         current_id = parents[current_id]
     path.reverse()
     return tuple(path)
+
+
+def _thread_root_id(
+    comment_id: int,
+    parents: Mapping[int, int | None],
+) -> int:
+    root_id = comment_id
+    parent_id = parents[comment_id]
+    while parent_id is not None:
+        root_id = parent_id
+        parent_id = parents[parent_id]
+    return root_id
+
+
+def _must_fix_comments_by_root(
+    comments: Sequence[Mapping[str, Any]],
+    *,
+    warn: WarningSink = _ignore_warning,
+) -> Mapping[int, tuple[Mapping[str, Any], ...]]:
+    comments_by_id, parents = _index_comment_graph(comments, warn=warn)
+    matches: dict[int, list[Mapping[str, Any]]] = {}
+    for comment_id, comment in comments_by_id.items():
+        if not AI_MUST_FIX_PATTERN.search(_comment_raw(comment, warn=warn)):
+            continue
+        root_id = _thread_root_id(comment_id, parents)
+        matches.setdefault(root_id, []).append(comment)
+
+    return {
+        root_id: tuple(
+            sorted(
+                root_matches,
+                key=lambda comment: _comment_id(comment, warn=warn) or 0,
+            )
+        )
+        for root_id, root_matches in matches.items()
+    }
 
 
 def eligible_leaf_paths(
@@ -514,6 +560,28 @@ def _comment_url(comment: Mapping[str, Any]) -> str | None:
     return href if isinstance(href, str) else None
 
 
+def serialize_must_fix_evidence(
+    comments: Sequence[Mapping[str, Any]],
+    *,
+    selected_path: Sequence[Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    selected_ids = {
+        comment_id
+        for comment in selected_path
+        if (comment_id := _comment_id(comment)) is not None
+    }
+    return [
+        {
+            "comment_id": _comment_id(comment),
+            "author": _author_payload(comment),
+            "created_on": comment.get("created_on"),
+            "url": _comment_url(comment),
+            "on_selected_path": _comment_id(comment) in selected_ids,
+        }
+        for comment in comments
+    ]
+
+
 def serialize_comment_path(
     path: Sequence[Mapping[str, Any]],
 ) -> list[Mapping[str, Any]]:
@@ -564,24 +632,50 @@ def _collect_eligible_candidates(
     now: datetime,
     warn: WarningSink,
 ) -> tuple[
-    list[tuple[PullRequestRef, tuple[Mapping[str, Any], ...]]],
+    list[
+        tuple[
+            PullRequestRef,
+            tuple[Mapping[str, Any], ...],
+            int,
+            tuple[Mapping[str, Any], ...],
+        ]
+    ],
     list[int],
 ]:
     candidates: list[
-        tuple[PullRequestRef, tuple[Mapping[str, Any], ...]]
+        tuple[
+            PullRequestRef,
+            tuple[Mapping[str, Any], ...],
+            int,
+            tuple[Mapping[str, Any], ...],
+        ]
     ] = []
     failed_pr_ids: list[int] = []
     for reference in references:
         try:
             comments = _list_all_comments(reference, runner, warn=warn)
-            candidates.extend(
-                (reference, path)
-                for path in eligible_leaf_paths(
-                    comments,
-                    now=now,
-                    warn=warn,
-                )
+            must_fix_by_root = _must_fix_comments_by_root(
+                comments,
+                warn=warn,
             )
+            for path in eligible_leaf_paths(
+                comments,
+                now=now,
+                warn=warn,
+            ):
+                root_id = _comment_id(path[0], warn=warn)
+                if root_id is None:
+                    raise PrCommentGateError(
+                        "eligible path root has no usable id"
+                    )
+                candidates.append(
+                    (
+                        reference,
+                        path,
+                        root_id,
+                        must_fix_by_root.get(root_id, ()),
+                    )
+                )
         except (OSError, PrCommentGateError, UnicodeError) as error:
             failed_pr_ids.append(reference.pr_id)
             warn(f"PR {reference.pr_id} could not be inspected: {error}")
@@ -621,11 +715,13 @@ def select_next_pr_comment_leaf(
         raise PrCommentQueueBlocked(failed_pr_ids)
     if not candidates:
         return None
-    reference, path = candidates[0]
+    reference, path, thread_root_id, must_fix_comments = candidates[0]
     return EligibleLeafSelection(
         reference=reference,
         in_scope=in_scope,
         path=path,
+        thread_root_id=thread_root_id,
+        must_fix_comments=must_fix_comments,
     )
 
 
@@ -652,6 +748,12 @@ def selection_payload(
             "url": in_scope.url,
         },
         "leaf_id": selection.leaf_id,
+        "thread_root_id": selection.thread_root_id,
+        "must_fix": selection.must_fix,
+        "must_fix_evidence": serialize_must_fix_evidence(
+            selection.must_fix_comments,
+            selected_path=selection.path,
+        ),
         "path": serialize_comment_path(selection.path),
     }
 

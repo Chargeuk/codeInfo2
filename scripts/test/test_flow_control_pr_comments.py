@@ -277,7 +277,12 @@ class PrCommentFlowControlTests(unittest.TestCase):
             ),
         ]
 
-        self.assertTrue(pr_comments.has_eligible_leaves(comments, now=NOW))
+        paths = pr_comments.eligible_leaf_paths(comments, now=NOW)
+
+        self.assertEqual(
+            [[item["id"] for item in path] for path in paths],
+            [[1, 2, 3]],
+        )
 
     def test_marker_accepts_canonical_and_tolerant_forms(self) -> None:
         for raw in [
@@ -866,6 +871,205 @@ class PrCommentFlowControlTests(unittest.TestCase):
         self.assertIsNotNone(selection)
         assert selection is not None
         self.assertEqual([item["id"] for item in selection.path], [1, 2, 3])
+        self.assertEqual(selection.thread_root_id, 1)
+        self.assertFalse(selection.must_fix)
+
+    def test_must_fix_matches_case_insensitively_anywhere_in_root_thread(self) -> None:
+        path = self.write_list(
+            "- https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**\n"
+        )
+        root = comment(
+            1,
+            created_on=NOW - timedelta(hours=2),
+            raw="#ai_must_fix please preserve this",
+        )
+        root["user"] = {"display_name": "Root reviewer"}
+        root["links"] = {"html": {"href": "https://example.test/comment/1"}}
+        sibling = comment(
+            2,
+            parent_id=1,
+            created_on=NOW - timedelta(minutes=10),
+            raw="#AI Response: noted in the middle #Ai_MuSt_FiX of this reply",
+        )
+        sibling["user"] = {"display_name": "AI reviewer"}
+        sibling["links"] = {"html": {"href": "https://example.test/comment/2"}}
+        leaf = comment(
+            3,
+            parent_id=1,
+            created_on=NOW - timedelta(minutes=20),
+            raw="Please implement this ending with #AI_MUST_FIX",
+        )
+        leaf["user"] = {"display_name": "Leaf reviewer"}
+        leaf["links"] = {"html": {"href": "https://example.test/comment/3"}}
+        runner = FakeGtRunner(comments_by_pr={600: [root, sibling, leaf]})
+
+        payload = pr_comments.get_next_pr_comment_leaf_payload(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(payload["leaf_id"], 3)
+        self.assertEqual(payload["thread_root_id"], 1)
+        self.assertTrue(payload["must_fix"])
+        self.assertEqual(
+            [item["comment_id"] for item in payload["must_fix_evidence"]],
+            [1, 2, 3],
+        )
+        self.assertEqual(
+            [
+                item["on_selected_path"]
+                for item in payload["must_fix_evidence"]
+            ],
+            [True, False, True],
+        )
+        self.assertEqual(
+            payload["must_fix_evidence"][1]["author"]["display_name"],
+            "AI reviewer",
+        )
+        self.assertEqual(
+            payload["must_fix_evidence"][1]["url"],
+            "https://example.test/comment/2",
+        )
+
+    def test_must_fix_in_another_root_does_not_leak_or_change_queue_order(
+        self,
+    ) -> None:
+        path = self.write_list(
+            "- https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**\n"
+        )
+        runner = FakeGtRunner(
+            comments_by_pr={
+                600: [
+                    comment(
+                        1,
+                        created_on=NOW - timedelta(minutes=20),
+                        raw="Older unmarked thread",
+                    ),
+                    comment(
+                        2,
+                        created_on=NOW - timedelta(minutes=10),
+                        raw="#AI_MUST_FIX newer marked thread",
+                    ),
+                ]
+            }
+        )
+
+        first = pr_comments.select_next_pr_comment_leaf(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertIsNotNone(first)
+        assert first is not None
+        self.assertEqual(first.leaf_id, 1)
+        self.assertEqual(first.thread_root_id, 1)
+        self.assertFalse(first.must_fix)
+
+    def test_must_fix_near_miss_does_not_trigger(self) -> None:
+        path = self.write_list(
+            "- https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**\n"
+        )
+        runner = FakeGtRunner(
+            comments_by_pr={
+                600: [
+                    comment(
+                        1,
+                        created_on=NOW - timedelta(minutes=5),
+                        raw="This says #AI_MUST_FIXTURE, not the directive.",
+                    )
+                ]
+            }
+        )
+
+        selection = pr_comments.select_next_pr_comment_leaf(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertIsNotNone(selection)
+        assert selection is not None
+        self.assertFalse(selection.must_fix)
+
+    def test_must_fix_marker_on_later_page_applies_to_human_reply_after_ai(
+        self,
+    ) -> None:
+        path = self.write_list(
+            "- https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**\n"
+        )
+        human_leaf = comment(
+            3,
+            parent_id=2,
+            created_on=NOW - timedelta(minutes=5),
+            raw="Human response after the AI",
+        )
+        root = comment(
+            1,
+            created_on=NOW - timedelta(days=4),
+            raw="Root has #AI_MUST_FIX",
+        )
+        ai_parent = comment(
+            2,
+            parent_id=1,
+            created_on=NOW - timedelta(days=2),
+            raw="#AI Response: Earlier answer.",
+        )
+        runner = FakeGtRunner(
+            comments_by_pr={600: [human_leaf, root, ai_parent]},
+            page_size=1,
+        )
+
+        selection = pr_comments.select_next_pr_comment_leaf(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertIsNotNone(selection)
+        assert selection is not None
+        self.assertEqual([item["id"] for item in selection.path], [1, 2, 3])
+        self.assertEqual(selection.leaf_id, 3)
+        self.assertTrue(selection.must_fix)
+        comment_calls = [
+            call for call in runner.calls if call[2:4] == ["comments", "list"]
+        ]
+        self.assertEqual(len(comment_calls), 3)
+
+    def test_deleted_structural_comment_body_can_carry_must_fix(self) -> None:
+        path = self.write_list(
+            "- https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**\n"
+        )
+        deleted_root = comment(
+            1,
+            created_on=NOW - timedelta(days=2),
+            raw="Deleted but returned #AI_MUST_FIX",
+            deleted=True,
+        )
+        leaf = comment(
+            2,
+            parent_id=1,
+            created_on=NOW - timedelta(minutes=5),
+            raw="Visible leaf",
+        )
+        runner = FakeGtRunner(comments_by_pr={600: [deleted_root, leaf]})
+
+        selection = pr_comments.select_next_pr_comment_leaf(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertIsNotNone(selection)
+        assert selection is not None
+        self.assertEqual(selection.thread_root_id, 1)
+        self.assertTrue(selection.must_fix)
+        self.assertEqual(
+            [_comment["id"] for _comment in selection.must_fix_comments],
+            [1],
+        )
 
     def test_selector_orders_unknown_time_first_then_uses_stable_pr_ties(self) -> None:
         path = self.write_list(
@@ -1104,6 +1308,9 @@ class PrCommentFlowControlTests(unittest.TestCase):
         self.assertEqual(payload["source"]["pr_id"], 600)
         self.assertEqual(payload["in_scope_destination"]["pr_id"], 600)
         self.assertEqual(payload["leaf_id"], 77)
+        self.assertEqual(payload["thread_root_id"], 77)
+        self.assertFalse(payload["must_fix"])
+        self.assertEqual(payload["must_fix_evidence"], [])
         self.assertEqual(payload["path"][0]["author"]["display_name"], "Reviewer")
         self.assertEqual(payload["path"][0]["inline"]["from"], 12)
         self.assertEqual(result.stderr, "")

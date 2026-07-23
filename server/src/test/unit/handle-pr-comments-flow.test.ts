@@ -276,3 +276,65 @@ test('selector context and merge-preservation rules are explicit', () => {
   assert.match(regular, /PR-introduced deletion is in review scope/u);
   assert.match(regular, /Use direct structured `gt` arguments/u);
 });
+
+test('must-fix tasks precede investigation and indirect reads cannot reselect', () => {
+  const regular = readRepoFile('codeinfo_agents/pr_agent/system_prompt.txt');
+  const strong = readRepoFile(
+    'codeinfo_agents/pr_agent_strong/system_prompt.txt',
+  );
+  const instruction = readRepoFile('codeinfo_markdown/handle_pr_comments.md');
+
+  const mustFixStage = instruction.indexOf('## Mandatory must-fix task');
+  const investigationStage = instruction.indexOf(
+    '## Investigate without changing repositories',
+  );
+  assert.ok(mustFixStage >= 0);
+  assert.ok(investigationStage > mustFixStage);
+
+  for (const required of [
+    '`thread_root_id`, `must_fix`, and `must_fix_evidence`',
+    'case-insensitive `#AI_MUST_FIX` match anywhere',
+    'including sibling branches',
+    'minimum idempotency preflight',
+    '`--comment-id` is optional and must not delay creation',
+    'Only after the task is open',
+    'A later human response beneath that AI reply becomes a new eligible final leaf',
+    'use read-only `gt bitbucket prs comments list`',
+    'These reads never change the deterministic selection',
+    'never reproduce the literal must-fix token',
+  ]) {
+    assert.match(
+      instruction,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'iu'),
+    );
+  }
+
+  assert.match(regular, /globally oldest eligible final leaf/u);
+  assert.match(regular, /AI-authored ancestor never suppresses/u);
+  assert.match(
+    regular,
+    /Before extended investigation, escalation, or clarification/u,
+  );
+  assert.match(
+    regular,
+    /immediately create a task directly on the in-scope PR/u,
+  );
+  assert.match(regular, /never change the selected leaf/u);
+  assert.match(
+    regular,
+    /earlier AI response in its ancestor path is not a reason to stop/u,
+  );
+  assert.match(
+    strong,
+    /must already have ensured that an implementation task is open/u,
+  );
+  assert.match(strong, /may not veto, reject, defer, classify out of scope/u);
+  assert.match(
+    instruction,
+    /Remote Bitbucket comments and tasks are the only monitoring state/u,
+  );
+  assert.match(
+    instruction,
+    /Do not create local queue, cursor, cache, handoff, lock, or monitoring-state files/u,
+  );
+});

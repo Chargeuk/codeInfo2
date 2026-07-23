@@ -474,7 +474,10 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Do not assume a provider list, expected reviewer count", batch_filter)
 
         self.assertIn("separate positive authorization gate", authorization)
-        self.assertIn("exact acceptance criterion", authorization)
+        self.assertIn(
+            "current top-level story Description or Overview, Acceptance Criteria, or Out Of Scope",
+            authorization,
+        )
         self.assertIn("counterfactual test", authorization)
         self.assertIn("Technical validity and positive story authorization", authorization)
         self.assertIn("cap, quota, threshold, timeout, retry count", authorization)
@@ -488,6 +491,57 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Ignored for This Story", disposition)
         self.assertIn("only surviving positively authorized findings", disposition)
         self.assertIn("Deduplicate by the finding's stable identity", disposition)
+
+    def test_historical_review_decisions_never_authorize_current_work(self) -> None:
+        behavior_lock = read_text(
+            "codeinfo_markdown/shared/story_behavior_lock.md"
+        )
+        authorization = read_text(
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
+        )
+        scope_audit = read_text(
+            "codeinfo_markdown/audit_review_batch_scope_filter.md"
+        )
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        normal_fix = read_text(
+            "codeinfo_markdown/implement_review_batch_direct_fixes.md"
+        )
+        stronger_fix = read_text(
+            "codeinfo_markdown/implement_review_batch_remaining_fixes.md"
+        )
+        outcome = read_text("codeinfo_markdown/record_review_batch_outcome.md")
+
+        for prompt in (
+            behavior_lock,
+            authorization,
+            scope_audit,
+            disposition,
+            normal_fix,
+            stronger_fix,
+            outcome,
+        ):
+            self.assertIn("Historical `Code Review Findings`", prompt)
+            self.assertIn("never authorization", prompt)
+
+        self.assertIn(
+            "current top-level story Description or Overview, Acceptance Criteria, or Out Of Scope",
+            authorization,
+        )
+        self.assertIn(
+            "later user-approved expansion only after it has been incorporated",
+            authorization,
+        )
+        self.assertIn("comparison-base repository evidence", authorization)
+        self.assertIn(
+            "Never interpret a historical `Accepted` section as an explicit story decision",
+            authorization,
+        )
+        self.assertIn(
+            "A prior review decision or an implementation commit cannot establish preserved behavior by itself",
+            authorization,
+        )
+        self.assertIn("historically authorized", scope_audit)
+        self.assertIn("authorization conflict", outcome)
 
     def test_agent_native_derived_artifacts_are_autonomous_and_self_auditing(
         self,
@@ -534,7 +588,10 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("question-only", scope_audit)
         self.assertIn("scope-filter-audit.md", scope_audit)
         self.assertIn("scope-authorized-findings.md", scope_audit)
-        self.assertIn("positive authorization tied to an exact acceptance criterion", scope_audit)
+        self.assertIn(
+            "positive authorization tied to an exact statement in the current top-level",
+            scope_audit,
+        )
         self.assertIn("never treat an absent or unusable authorization record as approval", disposition)
         self.assertIn('plan_sections.py" --profile review-scope', scope_audit)
         self.assertIn("filter_review_findings_to_story_scope.md", scope_audit)

@@ -10,10 +10,12 @@ This is a separate positive authorization gate after negative filtering. Technic
 
 For every finding that remains actionable after negative filtering, independently establish all of the following in ordinary evidence-based prose:
 
-1. Identify the exact acceptance criterion, explicit story decision, later user-approved expansion, or previously approved or preserved behavior that authorizes changing implementation behavior.
+1. Identify the exact statement in the current top-level story Description or Overview, Acceptance Criteria, or Out Of Scope contract that authorizes changing implementation behavior; identify a later user-approved expansion only after it has been incorporated into those top-level sections; or identify comparison-base repository evidence proving restoration of behavior that predated the story.
 2. Explain the direct causal chain from the finding to violation of that exact requirement or preserved behavior.
 3. Apply the counterfactual test: explain why leaving the finding unresolved would keep the story incomplete or leave a story-caused regression in place.
 4. Explain why the smallest authorized repair restores the cited behavior without inventing a new product or runtime policy.
+
+Historical `Code Review Findings`, `Accepted`, `Ignored for This Story`, tasks, subtasks, implementation notes, testing instructions, reconciliation, disposition, scope, repair, outcome, commit, test, and agent-authored records are evidence and decision history only. They are never authorization sources, even when an older record accepted, implemented, or proved the identical finding. Never interpret a historical `Accepted` section as an explicit story decision, a user-approved expansion, or proof of preserved behavior. Historical records may help locate evidence or prevent duplication, but each current authorization decision must stand without them.
 
 The following are never sufficient positive authorization by themselves:
 
@@ -24,11 +26,13 @@ The following are never sufficient positive authorization by themselves:
 - the change is defensive, safer, cleaner, more robust, or useful general hardening; or
 - an implementation agent could choose a reasonable policy without asking the user.
 
-Treat a newly introduced or tightened cap, quota, threshold, timeout, retry count, default, fallback, validation failure, error path, concurrency limit, skipping rule, truncation rule, or similar policy as unauthorized unless the exact policy is explicitly requested or it is the minimum policy-free restoration of previously approved behavior. Do not select arbitrary values or rejection behavior on the user's behalf.
+For preserved-behavior restoration, cite comparison-base code, tests, documentation, or another repository-owned source that establishes the behavior before the current story changed it. A prior review decision or an implementation commit cannot establish preserved behavior by itself.
+
+Treat a newly introduced or tightened cap, quota, threshold, timeout, retry count, default, fallback, validation failure, error path, concurrency limit, skipping rule, truncation rule, or similar policy as unauthorized unless the exact policy is explicitly requested by the current top-level story contract or it is the minimum policy-free restoration of comparison-base behavior. Do not select arbitrary values or rejection behavior on the user's behalf.
 
 When authorization is ambiguous or cannot be demonstrated from authoritative evidence, prefer non-authorization over scope expansion. Remove that finding only from the derived actionable reconciliation, preserve its complete meaning and technical evidence, and record whether it may deserve separately approved follow-up work. Never delete or rewrite job `input/`, `work/`, `output/`, or `verification/` evidence.
 
-Always write `reconciliation/scope-authorized-findings.md`, even when every survivor is authorized or the gate is partial or unavailable. Keep it self-describing rather than conforming to a rigid schema. Account for every negative-gate survivor, the exact evidence used for each positive decision, the counterfactual result, any policy choice implicated by the remedy, every unauthorized removal, and all uncertainty. Confirm that immutable job evidence was unchanged.
+Always write `reconciliation/scope-authorized-findings.md`, even when every survivor is authorized or the gate is partial or unavailable. Keep it self-describing rather than conforming to a rigid schema. Account for every negative-gate survivor, the exact allowed authority source used for each positive decision, the counterfactual result, any policy choice implicated by the remedy, every historical record considered only as evidence, every unauthorized removal, and all uncertainty. Confirm that immutable job evidence was unchanged.
 
 If the exact batch or bounded story scope cannot be established safely, leave the actionable reconciliation unchanged and write an honest partial or unavailable authorization artifact. Missing authorization must never be described as approval; the later independent audit and disposition will recover the decision and keep unproven work non-actionable while the flow continues.
 

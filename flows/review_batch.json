@@ -1,5 +1,5 @@
 {
-  "description": "Run any configured set of ordinary reviews in parallel, then verify, reconcile, scope-filter, disposition, and apply escalating multi-repository repairs to their self-describing workspace output.",
+  "description": "Run any configured set of ordinary reviews in parallel, then verify, reconcile, negatively scope-filter, positively authorize, disposition, and apply escalating multi-repository repairs to their self-describing workspace output.",
   "steps": [
     {
       "type": "prepareReviewTargets",
@@ -67,13 +67,27 @@
     },
     {
       "type": "reset",
+      "label": "Reset Review Batch Scope Authorizer",
+      "agentType": "planning_agent",
+      "identifier": "batch_scope_authorizer"
+    },
+    {
+      "type": "llm",
+      "label": "Positively Authorize Review Findings For Story",
+      "agentType": "planning_agent",
+      "identifier": "batch_scope_authorizer",
+      "continueOnFailure": true,
+      "markdownFile": "authorize_review_batch_findings_for_story.md"
+    },
+    {
+      "type": "reset",
       "label": "Reset Review Batch Scope Auditor",
       "agentType": "review_agent_heavy",
       "identifier": "batch_scope_auditor"
     },
     {
       "type": "llm",
-      "label": "Audit Review Batch Scope Filter",
+      "label": "Audit Review Batch Scope Gates",
       "agentType": "review_agent_heavy",
       "identifier": "batch_scope_auditor",
       "continueOnFailure": true,

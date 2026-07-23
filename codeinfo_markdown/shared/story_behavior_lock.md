@@ -17,6 +17,8 @@
 - If the change would alter an established user interaction pattern or workflow contract, preserve current behavior unless the story explicitly requests that change or the user explicitly approves that scope expansion later.
 - Do not convert a pre-existing bug, awkward workflow, inconsistency, limitation, surprise, or product-quality issue into current-story scope unless the story explicitly requires that change or the user explicitly approves the scope expansion.
 - Do not use testing, proof-authoring, or review feedback as a reason to widen product scope.
+- A technically valid review finding does not authorize implementation by itself. Story-added code, severity, general hardening value, or a vague relationship to plan wording cannot substitute for an exact story requirement, explicitly approved expansion, or preserved-behavior restoration.
+- Do not introduce or tighten a cap, quota, threshold, timeout, retry count, default, fallback, validation failure, error path, concurrency limit, skipping rule, truncation rule, or similar policy unless that behavior was explicitly requested or is the minimum policy-free restoration of approved behavior.
 
 ## What To Do Instead
 

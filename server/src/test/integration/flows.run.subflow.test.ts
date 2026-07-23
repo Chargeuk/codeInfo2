@@ -7,6 +7,7 @@ import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
 import {
   abortInflight,
   registerPendingConversationCancel,
@@ -20,7 +21,6 @@ import {
 import {
   __resetProviderBootstrapStatusForTests,
 } from '../../config/runtimeConfig.js';
-import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
 import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';

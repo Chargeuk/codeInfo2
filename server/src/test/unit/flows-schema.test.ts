@@ -577,16 +577,26 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Filter Review Findings To Story Scope',
+      'Reset Review Batch Scope Authorizer',
+    );
+    assertOrdered(
+      labels,
+      'Reset Review Batch Scope Authorizer',
+      'Positively Authorize Review Findings For Story',
+    );
+    assertOrdered(
+      labels,
+      'Positively Authorize Review Findings For Story',
       'Reset Review Batch Scope Auditor',
     );
     assertOrdered(
       labels,
       'Reset Review Batch Scope Auditor',
-      'Audit Review Batch Scope Filter',
+      'Audit Review Batch Scope Gates',
     );
     assertOrdered(
       labels,
-      'Audit Review Batch Scope Filter',
+      'Audit Review Batch Scope Gates',
       'Reset Review Batch Dispositioner',
     );
     assertOrdered(
@@ -639,11 +649,30 @@ describe('flow schema (v1)', () => {
       'filter_review_batch_findings_to_story_scope.md',
     );
 
+    const scopeAuthorizerReset = (parsed.steps ?? []).find(
+      (step) => step.label === 'Reset Review Batch Scope Authorizer',
+    );
+    const scopeAuthorizer = (parsed.steps ?? []).find(
+      (step) => step.label === 'Positively Authorize Review Findings For Story',
+    );
+    assert.equal(scopeAuthorizerReset?.type, 'reset');
+    assert.equal(scopeAuthorizerReset?.agentType, 'planning_agent');
+    assert.equal(scopeAuthorizerReset?.identifier, 'batch_scope_authorizer');
+    assert.equal(scopeAuthorizer?.type, 'llm');
+    assert.equal(scopeAuthorizer?.agentType, scopeAuthorizerReset?.agentType);
+    assert.equal(scopeAuthorizer?.identifier, scopeAuthorizerReset?.identifier);
+    assert.equal(scopeAuthorizer?.continueOnFailure, true);
+    assert.equal(
+      scopeAuthorizer?.markdownFile,
+      'authorize_review_batch_findings_for_story.md',
+    );
+    assert.notEqual(scopeAuthorizer?.identifier, scopeFilter?.identifier);
+
     const scopeAuditReset = (parsed.steps ?? []).find(
       (step) => step.label === 'Reset Review Batch Scope Auditor',
     );
     const scopeAudit = (parsed.steps ?? []).find(
-      (step) => step.label === 'Audit Review Batch Scope Filter',
+      (step) => step.label === 'Audit Review Batch Scope Gates',
     );
     assert.equal(scopeAuditReset?.type, 'reset');
     assert.equal(scopeAuditReset?.agentType, 'review_agent_heavy');

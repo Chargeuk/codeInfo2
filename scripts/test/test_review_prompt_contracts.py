@@ -444,6 +444,9 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md"
         )
         disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        authorization = read_text(
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
+        )
 
         self.assertIn(
             "codeinfo_markdown/filter_review_findings_to_story_scope.md",
@@ -470,10 +473,20 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("every original actionable finding", batch_filter)
         self.assertIn("Do not assume a provider list, expected reviewer count", batch_filter)
 
+        self.assertIn("separate positive authorization gate", authorization)
+        self.assertIn("exact acceptance criterion", authorization)
+        self.assertIn("counterfactual test", authorization)
+        self.assertIn("Technical validity and positive story authorization", authorization)
+        self.assertIn("cap, quota, threshold, timeout, retry count", authorization)
+        self.assertIn("scope-authorized-findings.md", authorization)
+        self.assertIn("Missing authorization must never be described as approval", authorization)
+        self.assertIn("Keep it self-describing", authorization)
+
         self.assertIn("scope-filtered-findings.md", disposition)
+        self.assertIn("scope-authorized-findings.md", disposition)
         self.assertIn("Never restore, direct-fix, or task up", disposition)
         self.assertIn("Ignored for This Story", disposition)
-        self.assertIn("only surviving actionable findings", disposition)
+        self.assertIn("only surviving positively authorized findings", disposition)
         self.assertIn("Deduplicate by the finding's stable identity", disposition)
 
     def test_agent_native_derived_artifacts_are_autonomous_and_self_auditing(
@@ -489,12 +502,16 @@ class ReviewPromptContractTests(unittest.TestCase):
         scope_audit = read_text(
             "codeinfo_markdown/audit_review_batch_scope_filter.md"
         )
+        authorization = read_text(
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
+        )
         disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
 
         for prompt in (
             reconcile,
             reconciliation_audit,
             scope_filter,
+            authorization,
             scope_audit,
             disposition,
         ):
@@ -510,9 +527,15 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Copy the exact batch ID", scope_filter)
         self.assertIn("Do not type them from memory", scope_filter)
         self.assertIn("character-for-character", scope_filter)
+        self.assertIn("scope-authorized-findings.md", authorization)
+        self.assertIn("partial or unavailable authorization artifact", authorization)
+        self.assertIn("Do not select arbitrary values", authorization)
         self.assertIn("independent audit and recovery", scope_audit)
         self.assertIn("question-only", scope_audit)
         self.assertIn("scope-filter-audit.md", scope_audit)
+        self.assertIn("scope-authorized-findings.md", scope_audit)
+        self.assertIn("positive authorization tied to an exact acceptance criterion", scope_audit)
+        self.assertIn("never treat an absent or unusable authorization record as approval", disposition)
         self.assertIn('plan_sections.py" --profile review-scope', scope_audit)
         self.assertIn("filter_review_findings_to_story_scope.md", scope_audit)
         self.assertIn("every job's immutable evidence remains unchanged", scope_audit)
@@ -521,7 +544,7 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("completed, partial, or unavailable", disposition)
         self.assertIn("scope-filter-audit.md", disposition)
-        self.assertIn("repairs recorded by the independent scope audit", disposition)
+        self.assertIn("repairs recorded by the independent combined scope audit", disposition)
         self.assertIn("reopen the disposition", disposition)
         self.assertIn("without asking follow-up questions", disposition)
 
@@ -553,7 +576,7 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("Repair difficulty is advisory", disposition)
         self.assertIn("do not make a final implementation-task decision here", disposition)
-        self.assertIn("Consider every supported in-scope actionable finding", normal_fix)
+        self.assertIn("Consider every supported positively authorized actionable finding", normal_fix)
         self.assertIn("Group findings by owning target repository", normal_fix)
         self.assertIn("process repositories sequentially", normal_fix)
         self.assertIn("Create separate commits in every changed repository", normal_fix)
@@ -572,9 +595,13 @@ class ReviewPromptContractTests(unittest.TestCase):
                 repair_prompt,
             )
             self.assertIn("why every changed file was necessary", repair_prompt)
-        self.assertIn("Reconstruct every supported in-scope actionable finding", stronger_fix)
+            self.assertIn("scope", repair_prompt.lower())
+        self.assertIn("Do not introduce an unapproved cap, quota, threshold", normal_fix)
+        self.assertIn("Research authority does not authorize new story scope", stronger_fix)
+        self.assertIn("genuinely unapproved product or runtime policy", stronger_fix)
+        self.assertIn("Reconstruct every supported positively authorized actionable finding", stronger_fix)
         self.assertIn("If the normal audit is missing or incomplete", stronger_fix)
-        self.assertIn("Your objective is to fix every remaining finding", stronger_fix)
+        self.assertIn("Your objective is to fix every remaining positively authorized finding", stronger_fix)
         self.assertIn("Create and execute an internal dependency-aware plan", stronger_fix)
         self.assertIn("related past stories and implementation notes", stronger_fix)
         self.assertIn("other ingested repositories", stronger_fix)

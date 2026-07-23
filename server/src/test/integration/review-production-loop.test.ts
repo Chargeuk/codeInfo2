@@ -12,6 +12,11 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import {
+  prepareMarkdownInstruction,
+  __resetMarkdownFileResolverDepsForTests,
+  __setMarkdownFileResolverDepsForTests,
+} from '../../flows/markdownFileResolver.js';
 import { prepareReviewBatchWorkspace } from '../../flows/reviewBatchWorkspace.js';
 import type { ReviewTargetSnapshot } from '../../flows/reviewTargets.js';
 import {
@@ -34,6 +39,7 @@ const repositoryRoot = path.resolve(
 
 afterEach(() => {
   __resetFlowServiceDepsForTests();
+  __resetMarkdownFileResolverDepsForTests();
   resetDeterministicCodexAvailabilityBootstrap();
   memoryConversations.clear();
   memoryTurns.clear();
@@ -193,6 +199,7 @@ type ProductionReviewProbe = {
   reconcileCalls: number;
   reconciliationAuditCalls: number;
   scopeFilterCalls: number;
+  scopeAuthorizationCalls: number;
   scopeAuditCalls: number;
   dispositionCalls: number;
   scopeIdentityVerifiedAtDisposition: boolean;
@@ -324,7 +331,32 @@ class ProductionReviewChat extends ChatInterface {
       );
     }
 
-    if (message.includes('# Audit the current batch scope filter')) {
+    if (
+      message.includes(
+        '# Positively authorize the current review batch findings for this story',
+      )
+    ) {
+      this.probe.scopeAuthorizationCalls += 1;
+      const { batchId, batchRoot } = await readCurrentBatch(this.probe.repo);
+      await fs.writeFile(
+        path.join(batchRoot, 'reconciliation', 'scope-authorized-findings.md'),
+        [
+          '# Positively authorized findings',
+          '',
+          'Status: completed.',
+          `Batch: ${batchId}`,
+          `Batch directory: ${batchRoot}`,
+          'Every negative-gate survivor was checked; no actionable findings remain.',
+          '',
+        ].join('\n'),
+      );
+    }
+
+    if (
+      message.includes(
+        '# Audit the current batch negative and positive scope gates',
+      )
+    ) {
       this.probe.scopeAuditCalls += 1;
       const { batchId, batchRoot } = await readCurrentBatch(this.probe.repo);
       const reconciliationDirectory = path.join(batchRoot, 'reconciliation');
@@ -352,7 +384,7 @@ class ProductionReviewChat extends ChatInterface {
           'Status: completed.',
           `Batch: ${batchId}`,
           `Batch directory: ${batchRoot}`,
-          'Corrected the derived scope record to match the authoritative handoff.',
+          'Corrected the derived negative scope record and audited the positive authorization record against the authoritative handoff.',
           '',
         ].join('\n'),
       );
@@ -365,9 +397,15 @@ class ProductionReviewChat extends ChatInterface {
         path.join(batchRoot, 'reconciliation', 'scope-filtered-findings.md'),
         'utf8',
       );
+      const scopeAuthorization = await fs.readFile(
+        path.join(batchRoot, 'reconciliation', 'scope-authorized-findings.md'),
+        'utf8',
+      );
       this.probe.scopeIdentityVerifiedAtDisposition &&=
         scopeFilter.includes(`Batch: ${batchId}`) &&
-        scopeFilter.includes(`Batch directory: ${batchRoot}`);
+        scopeFilter.includes(`Batch directory: ${batchRoot}`) &&
+        scopeAuthorization.includes(`Batch: ${batchId}`) &&
+        scopeAuthorization.includes(`Batch directory: ${batchRoot}`);
       await fs.writeFile(
         path.join(batchRoot, 'reconciliation', 'disposition.md'),
         [
@@ -568,7 +606,9 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
   const secondaryRepo = path.join(temporary, 'secondary-repo');
   const flowDirectory = path.join(temporary, 'flows');
   const previousFlowsDirectory = process.env.FLOWS_DIR;
+  const previousPreferredAgentHome = process.env.CODEINFO_AGENT_HOME;
   const previousAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodeInfoRoot = process.env.CODEINFO_ROOT;
   await fs.mkdir(repo, { recursive: true });
   await fs.mkdir(secondaryRepo, { recursive: true });
   await fs.mkdir(flowDirectory, { recursive: true });
@@ -739,6 +779,11 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     );
 
     process.env.FLOWS_DIR = flowDirectory;
+    process.env.CODEINFO_ROOT = repositoryRoot;
+    process.env.CODEINFO_AGENT_HOME = path.join(
+      repositoryRoot,
+      'codeinfo_agents',
+    );
     process.env.CODEINFO_CODEX_AGENT_HOME = path.join(
       repositoryRoot,
       'codex_agents',
@@ -762,6 +807,24 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
         },
       }),
     });
+    __setMarkdownFileResolverDepsForTests({
+      getCodeInfo2Root: () => repositoryRoot,
+      listIngestedRepositories: async () => ({
+        repos: [
+          reviewRepoEntry(repo),
+          reviewRepoEntry(secondaryRepo, 'production-review-secondary'),
+        ],
+        lockedModelId: null,
+      }),
+    });
+    const integrationMarkdown = await prepareMarkdownInstruction({
+      markdownFile: 'reconcile_review_batch.md',
+      workingRepositoryPath: repo,
+      surface: 'flow',
+      flowName: 'review_batch',
+      stepIndex: 5,
+    });
+    assert.equal(integrationMarkdown.kind, 'instruction');
     const probe: ProductionReviewProbe = {
       repo,
       secondaryRepo,
@@ -775,6 +838,7 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       reconcileCalls: 0,
       reconciliationAuditCalls: 0,
       scopeFilterCalls: 0,
+      scopeAuthorizationCalls: 0,
       scopeAuditCalls: 0,
       dispositionCalls: 0,
       scopeIdentityVerifiedAtDisposition: true,
@@ -799,8 +863,12 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
 
     const fixedHead = await currentHead(repo);
     const fixedSecondaryHead = await currentHead(secondaryRepo);
-    assert.notEqual(fixedHead, initialHead);
-    assert.notEqual(fixedSecondaryHead, initialSecondaryHead);
+    assert.notEqual(fixedHead, initialHead, JSON.stringify(probe));
+    assert.notEqual(
+      fixedSecondaryHead,
+      initialSecondaryHead,
+      JSON.stringify(probe),
+    );
     assert.equal(probe.breakCalls, 2, JSON.stringify(probe));
     assert.equal(probe.directFixCalls, 3, JSON.stringify(probe));
     assert.equal(probe.normalCompletionGateCalls, 3, JSON.stringify(probe));
@@ -809,6 +877,7 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     assert.equal(probe.reconcileCalls, 3, JSON.stringify(probe));
     assert.equal(probe.reconciliationAuditCalls, 3, JSON.stringify(probe));
     assert.equal(probe.scopeFilterCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.scopeAuthorizationCalls, 3, JSON.stringify(probe));
     assert.equal(probe.scopeAuditCalls, 3, JSON.stringify(probe));
     assert.equal(probe.dispositionCalls, 3, JSON.stringify(probe));
     assert.equal(probe.scopeIdentityVerifiedAtDisposition, true);
@@ -832,12 +901,21 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       path.join(batchRoot, 'reconciliation', 'scope-filter-audit.md'),
       'utf8',
     );
+    const finalScopeAuthorization = await fs.readFile(
+      path.join(batchRoot, 'reconciliation', 'scope-authorized-findings.md'),
+      'utf8',
+    );
     assert.match(finalScopeFilter, new RegExp(`Batch: ${batchId}`, 'u'));
     assert.match(
       finalScopeFilter,
       new RegExp(`Batch directory: ${batchRoot}`, 'u'),
     );
     assert.match(finalScopeAudit, /Status: completed\./u);
+    assert.match(finalScopeAuthorization, new RegExp(`Batch: ${batchId}`, 'u'));
+    assert.match(
+      finalScopeAuthorization,
+      new RegExp(`Batch directory: ${batchRoot}`, 'u'),
+    );
     await fs.access(path.join(batchRoot, 'reconciliation', 'disposition.md'));
 
     const active = JSON.parse(
@@ -875,9 +953,14 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
   } finally {
     if (previousFlowsDirectory === undefined) delete process.env.FLOWS_DIR;
     else process.env.FLOWS_DIR = previousFlowsDirectory;
+    if (previousPreferredAgentHome === undefined)
+      delete process.env.CODEINFO_AGENT_HOME;
+    else process.env.CODEINFO_AGENT_HOME = previousPreferredAgentHome;
     if (previousAgentHome === undefined)
       delete process.env.CODEINFO_CODEX_AGENT_HOME;
     else process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentHome;
+    if (previousCodeInfoRoot === undefined) delete process.env.CODEINFO_ROOT;
+    else process.env.CODEINFO_ROOT = previousCodeInfoRoot;
     await fs.rm(temporary, { recursive: true, force: true });
   }
 });

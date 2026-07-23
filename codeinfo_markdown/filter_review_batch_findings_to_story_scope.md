@@ -2,6 +2,8 @@
 
 This is an autonomous flow execution step, not a planning interview. Do not ask the user questions, offer choices, wait for confirmation, or finish with a question. Resolve ambiguity through the authoritative policy and immutable evidence, preserve any remaining uncertainty, and continue with best effort.
 
+This step is the explicit negative scope gate. It removes findings that can already be shown to conflict with story scope; it does not positively authorize survivors merely because no rejection was proven. A separately reset positive-authorization agent evaluates every survivor before the independent combined scope audit and disposition.
+
 Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving the padded story identifier from the plan filename. Resolve the current immutable batch through `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`; if necessary, discover only the `*-current-review-batch.md` navigation files and confirm the story inside.
 
 Copy the exact batch ID, batch directory, review-cycle ID, repository identities, and reviewed commits directly from the current-batch handoff, `batch-launch.md`, and assigned inputs. Do not type them from memory, normalize them, remove punctuation, or reconstruct them from timestamps or nearby paths.

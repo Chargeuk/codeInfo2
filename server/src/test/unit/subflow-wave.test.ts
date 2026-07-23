@@ -5,10 +5,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import type { FlowSubflowWaveStep } from '../../flows/flowSchema.js';
-import {
-  expandSubflowWaveJobs,
-  MAX_SUBFLOW_WAVE_JOBS,
-} from '../../flows/subflowWave.js';
+import { expandSubflowWaveJobs } from '../../flows/subflowWave.js';
 
 const step: FlowSubflowWaveStep = {
   type: 'subflowWave',
@@ -71,33 +68,6 @@ test('expandSubflowWaveJobs rejects missing arrays and unresolved bindings', () 
       step,
       input: { targets: [{ target_id: 'client' }] },
     }),
-  );
-});
-
-test('expandSubflowWaveJobs rejects oversized matrix expansion before materializing jobs', () => {
-  assert.throws(
-    () =>
-      expandSubflowWaveJobs({
-        step: {
-          type: 'subflowWave',
-          groups: [
-            {
-              kind: 'matrix',
-              id: 'oversized',
-              itemsFrom: 'targets',
-              itemName: 'target',
-              flowNames: ['first', 'second'],
-            },
-          ],
-        },
-        input: {
-          targets: Array.from(
-            { length: Math.floor(MAX_SUBFLOW_WAVE_JOBS / 2) + 1 },
-            (_, index) => ({ id: String(index) }),
-          ),
-        },
-      }),
-    new RegExp(`beyond ${MAX_SUBFLOW_WAVE_JOBS} child jobs`, 'u'),
   );
 });
 

@@ -12,8 +12,6 @@ export type SubflowWaveJob = {
   displayName: string;
 };
 
-export const MAX_SUBFLOW_WAVE_JOBS = 1_000;
-
 const isRecord = (value: unknown): value is Record<string, FlowJsonValue> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -172,11 +170,6 @@ export const expandSubflowWaveJobs = (params: {
   const jobs: SubflowWaveJob[] = [];
   for (const group of resolveSubflowWaveGroups(params)) {
     if (group.kind === 'singleton') {
-      if (jobs.length >= MAX_SUBFLOW_WAVE_JOBS) {
-        throw new Error(
-          `Subflow wave cannot expand beyond ${MAX_SUBFLOW_WAVE_JOBS} child jobs.`,
-        );
-      }
       const bindings = buildBindings({
         root: params.input,
         bindings: group.bindings,
@@ -194,12 +187,6 @@ export const expandSubflowWaveJobs = (params: {
     if (!Array.isArray(items) || items.length === 0) {
       throw new Error(
         `Wave matrix source "${group.itemsFrom}" must resolve to a non-empty array.`,
-      );
-    }
-    const groupJobCount = items.length * group.flowNames.length;
-    if (jobs.length + groupJobCount > MAX_SUBFLOW_WAVE_JOBS) {
-      throw new Error(
-        `Subflow wave cannot expand beyond ${MAX_SUBFLOW_WAVE_JOBS} child jobs.`,
       );
     }
     items.forEach((item, index) => {

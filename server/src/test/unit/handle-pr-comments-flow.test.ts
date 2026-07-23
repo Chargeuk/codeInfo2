@@ -72,6 +72,7 @@ test('handle_pr_comments gates every expensive iteration before pr_agent', () =>
   if (handler.type !== 'llm') return;
   assert.equal(handler.agentType, 'pr_agent');
   assert.equal(handler.identifier, 'pr_agent');
+  assert.equal(handler.label, 'Handle Globally Oldest Eligible Pull Request Leaf');
   assert.equal(
     'markdownFile' in handler ? handler.markdownFile : undefined,
     'handle_pr_comments.md',
@@ -107,7 +108,7 @@ test('PR agents use the requested models and one-way escalation wiring', () => {
     const regularConfig = readRepoFile(`${catalog}/pr_agent/config.toml`);
     const strongConfig = readRepoFile(`${catalog}/pr_agent_strong/config.toml`);
 
-    assert.match(regularConfig, /model = "gpt-5\.6-luna"/u);
+    assert.match(regularConfig, /model = "gpt-5\.6-terra"/u);
     assert.match(regularConfig, /model_reasoning_effort = "medium"/u);
     assert.match(regularConfig, /\[mcp_servers\.agents\]/u);
     assert.match(regularConfig, /\$\{CODEINFO_AGENTS_MCP_PORT\}/u);
@@ -151,7 +152,7 @@ test('PR agent catalogs remain identical and do not contain auth', () => {
   }
 });
 
-test('PR prompts lock bounded reads, safety, marker, and task lifecycle', () => {
+test('PR prompts lock selector, bounded reads, marker, and one-reply safety', () => {
   const regular = readRepoFile('codeinfo_agents/pr_agent/system_prompt.txt');
   const strong = readRepoFile(
     'codeinfo_agents/pr_agent_strong/system_prompt.txt',
@@ -169,9 +170,9 @@ test('PR prompts lock bounded reads, safety, marker, and task lifecycle', () => 
     'Out Of Scope',
     'Never read a complete planning file',
     '#AI Response: ',
+    'get_next_pr_comment_leaf.py',
     'pr_agent_strong',
     'run_agent_instruction',
-    'create/open/close',
     'Remote Bitbucket comments and tasks are the only monitoring state',
   ]) {
     assert.match(
@@ -180,26 +181,26 @@ test('PR prompts lock bounded reads, safety, marker, and task lifecycle', () => 
     );
   }
 
-  assert.match(instruction, /visible final leaf/u);
-  assert.match(instruction, /created within the last 24 hours/u);
-  assert.match(instruction, /Order eligible leaves by creation time/u);
-  assert.match(instruction, /top-level, inline-diff, and nested replies/u);
-  assert.match(instruction, /complete path from the root/u);
-  assert.match(instruction, /every grouped eligible leaf/u);
-  assert.match(instruction, /Never silently ignore a leaf/u);
-  assert.match(instruction, /parent must be the leaf being answered/u);
+  assert.match(instruction, /sole authority for which source leaf/u);
+  assert.match(instruction, /globally orders all eligible leaves/u);
+  assert.match(instruction, /24-hour rule applies only to the selected leaf/u);
+  assert.match(instruction, /every ancestor in root-to-leaf order/u);
+  assert.match(instruction, /process only its `source\.pr_id` and `leaf_id`/u);
+  assert.match(instruction, /Never reply to an ancestor/u);
+  assert.match(instruction, /Never choose a replacement leaf/u);
   assert.match(instruction, /may take up to one hour/u);
   assert.match(instruction, /do not start a duplicate escalation/u);
   assert.match(instruction, /same returned `conversationId`/u);
-  assert.match(instruction, /operational failure is not/iu);
+  assert.match(instruction, /operational failure does not/iu);
   assert.match(instruction, /Reuse a matching open task/u);
   assert.match(instruction, /Reopen a matching resolved task/u);
   assert.match(instruction, /Close a matching open task/u);
   assert.match(instruction, /Never `cat` a planning file/u);
   assert.match(regular, /Never create a cursor, queue, handoff, lock, cache/u);
-  assert.match(regular, /Every visible non-AI leaf/u);
-  assert.match(regular, /Never silently ignore or suppress/u);
-  assert.match(regular, /eligible leaf comment ID as the parent/u);
+  assert.match(regular, /exactly one deterministically selected review leaf/u);
+  assert.match(regular, /setting `--parent` to the selected leaf ID/u);
+  assert.match(regular, /Never reply to an AI-authored leaf/u);
+  assert.match(regular, /sibling correction, or second answer/u);
   assert.match(regular, /Escalation is exceptional/u);
   assert.match(regular, /never start a duplicate escalation/u);
   assert.match(strong, /never post a pull-request comment or mutate a task/u);
@@ -216,22 +217,21 @@ test('valid code changes stage aggregate evidence and tasks before replies', () 
     '### 2. Create or reuse one aggregate annotation when needed',
   );
   const taskStage = instruction.indexOf('### 3. Create the aggregate task');
-  const replyStage = instruction.indexOf('## Reply to every grouped leaf last');
+  const replyStage = instruction.indexOf('## Reply to the selected leaf last');
   assert.ok(aggregateStage >= 0);
   assert.ok(taskStage > aggregateStage);
   assert.ok(replyStage > taskStage);
 
   for (const required of [
-    'Do not post an acknowledgement to a source leaf',
+    'Do not acknowledge the source leaf',
     '--path <path> --line <line>',
     '--from <line>',
     'top-level aggregate comment',
     '--comment-id <aggregate-comment-id>',
-    "primary source leaf's ID as `--comment-id`",
+    'use the selected `leaf_id` as `--comment-id`',
     '/_/diff#task-<task-id>',
-    'do not create another task or a new aggregate annotation',
-    'reuse any aggregate comments, tasks, or successful sibling replies',
-    'required aggregate-PR comments, source-leaf replies, and aggregate task operations',
+    'do not create another task or aggregate annotation',
+    'one selected source-leaf reply',
   ]) {
     assert.match(
       instruction,
@@ -239,29 +239,29 @@ test('valid code changes stage aggregate evidence and tasks before replies', () 
     );
   }
 
-  assert.match(regular, /idempotent ordered sequence/u);
-  assert.match(regular, /Only after all required aggregate writes succeed/u);
-  assert.match(regular, /never post an early acknowledgement/u);
+  assert.match(regular, /idempotent order/u);
+  assert.match(regular, /Only after required aggregate writes succeed/u);
+  assert.match(regular, /Never post an early acknowledgement/u);
   assert.match(regular, /Every automated public comment and task body/u);
   assert.match(strong, /code-change and task recommendation/u);
   assert.match(strong, /justified aggregate diff anchor/u);
 });
 
-test('PR preflight remains tolerant while preserving write safety', () => {
+test('selector context and merge-preservation rules are explicit', () => {
   const regular = readRepoFile('codeinfo_agents/pr_agent/system_prompt.txt');
   const instruction = readRepoFile('codeinfo_markdown/handle_pr_comments.md');
 
   for (const required of [
-    'Interpret it as ordinary Markdown',
-    'indented `-`, `*`, or `+` list items',
-    'case-insensitively with flexible whitespace',
-    'exactly one distinct in-scope PR',
-    'try the repository-approved installed paths',
-    'Retry one likely transient read failure once',
-    'Discard a partial snapshot',
-    'continue with successfully retrieved PRs',
-    'provisional roots',
-    'its age cannot be determined',
+    'fails closed if any pull request is unavailable',
+    'unknown timestamp first',
+    'including old, deleted structural, and AI-authored ancestors',
+    'Do not give this rich selector output to the loop-control agent',
+    '`path`, `from`, `to`, `start_from`, and `start_to`',
+    'git show --remerge-diff <merge-commit> -- <path>',
+    '“Not in this story” means preserve the destination content',
+    'Runtime behaviour remaining intact does not resolve a documentation regression',
+    'A deletion introduced by this pull request is in scope for review',
+    'Never post a sibling correction or second answer',
   ]) {
     assert.match(
       instruction,
@@ -269,9 +269,10 @@ test('PR preflight remains tolerant while preserving write safety', () => {
     );
   }
 
-  assert.match(regular, /ordinary Markdown rather than an exact template/u);
-  assert.match(regular, /Retry one likely transient read failure once/u);
-  assert.match(regular, /Discard partial pagination/u);
-  assert.match(regular, /unknown timestamps as needing inspection/u);
-  assert.match(regular, /exactly one distinct in-scope destination/u);
+  assert.match(regular, /selector reads all configured PRs/u);
+  assert.match(regular, /complete root-to-leaf path/u);
+  assert.match(regular, /Destination code or documentation lost during the merge/u);
+  assert.match(regular, /Duplicate documentation elsewhere/u);
+  assert.match(regular, /PR-introduced deletion is in review scope/u);
+  assert.match(regular, /Use direct structured `gt` arguments/u);
 });

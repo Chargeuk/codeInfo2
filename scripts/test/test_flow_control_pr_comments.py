@@ -91,19 +91,30 @@ class PrCommentFlowControlTests(unittest.TestCase):
         path.write_text(textwrap.dedent(body).lstrip(), encoding="utf-8")
         return path
 
-    def test_checked_in_inventory_contains_supplied_prs_without_in_scope(self) -> None:
+    def test_checked_in_inventory_contains_supplied_prs_with_528_in_scope(self) -> None:
         path = REPO_ROOT / "codeinfo_markdown" / "handle_pr_comments_prs.md"
         references = pr_comments.parse_pr_list(path.read_text(encoding="utf-8"))
 
         self.assertEqual(
             [reference.pr_id for reference in references],
-            [505, 507, 509, 510, 512, 515, 518, 519, 520, 521, 522, 525, 527],
+            [
+                505,
+                507,
+                509,
+                510,
+                512,
+                515,
+                518,
+                519,
+                520,
+                521,
+                522,
+                525,
+                527,
+                528,
+            ],
         )
-        with self.assertRaisesRegex(
-            pr_comments.PrCommentGateError,
-            "exactly one IN_SCOPE pull request; found 0",
-        ):
-            pr_comments.require_in_scope_pr(references)
+        self.assertEqual(pr_comments.require_in_scope_pr(references).pr_id, 528)
 
     def test_parser_deduplicates_urls_and_promotes_marked_duplicate(self) -> None:
         references = pr_comments.parse_pr_list(
@@ -660,7 +671,7 @@ class PrCommentFlowControlTests(unittest.TestCase):
         comment_calls = [call for call in runner.calls if "comments" in call]
         self.assertEqual(len(comment_calls), 2)
 
-    def test_failed_pr_does_not_hide_eligible_leaf_on_another_pr(self) -> None:
+    def test_failed_pr_blocks_selection_even_with_leaf_on_another_pr(self) -> None:
         path = self.write_list(
             """
             - https://bitbucket.org/marex-prod/io-api/pull-requests/505
@@ -681,8 +692,9 @@ class PrCommentFlowControlTests(unittest.TestCase):
             now=NOW,
         )
 
-        self.assertEqual(outcome.answer, "no")
-        self.assertEqual(outcome.reason_code, "eligible_pr_leaves_present")
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(outcome.reason_code, "pr_comment_queue_blocked")
+        self.assertEqual(outcome.details["failed_pr_ids"], [505])
 
     def test_failed_pr_blocks_empty_result_for_retry(self) -> None:
         path = self.write_list(
@@ -766,6 +778,218 @@ class PrCommentFlowControlTests(unittest.TestCase):
         )
         self.assertEqual(failed_outcome.answer, "yes")
 
+    def test_selector_picks_oldest_leaf_across_all_pull_requests(self) -> None:
+        path = self.write_list(
+            """
+            - https://bitbucket.org/marex-prod/io-api/pull-requests/505
+            - https://bitbucket.org/marex-prod/io-api/pull-requests/507
+            - https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**
+            """
+        )
+        runner = FakeGtRunner(
+            comments_by_pr={
+                505: [
+                    comment(
+                        10,
+                        created_on=NOW - timedelta(minutes=10),
+                        raw="Newer",
+                    )
+                ],
+                507: [
+                    comment(
+                        20,
+                        created_on=NOW - timedelta(minutes=20),
+                        raw="Oldest across the queue",
+                    )
+                ],
+                600: [
+                    comment(
+                        30,
+                        created_on=NOW - timedelta(minutes=5),
+                        raw="Newest",
+                    )
+                ],
+            }
+        )
+
+        selection = pr_comments.select_next_pr_comment_leaf(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertIsNotNone(selection)
+        assert selection is not None
+        self.assertEqual(selection.reference.pr_id, 507)
+        self.assertEqual(selection.leaf_id, 20)
+        listed_prs = [
+            int(call[4])
+            for call in runner.calls
+            if call[2:4] == ["comments", "list"]
+        ]
+        self.assertEqual(listed_prs, [505, 507, 600])
+
+    def test_selector_returns_full_chain_including_old_and_ai_ancestors(self) -> None:
+        path = self.write_list(
+            "- https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**\n"
+        )
+        runner = FakeGtRunner(
+            comments_by_pr={
+                600: [
+                    comment(
+                        1,
+                        created_on=NOW - timedelta(days=10),
+                        raw="Old root",
+                    ),
+                    comment(
+                        2,
+                        parent_id=1,
+                        created_on=NOW - timedelta(days=5),
+                        raw="#AI Response: Earlier answer.",
+                    ),
+                    comment(
+                        3,
+                        parent_id=2,
+                        created_on=NOW - timedelta(minutes=5),
+                        raw="Human follow-up",
+                    ),
+                ]
+            }
+        )
+
+        selection = pr_comments.select_next_pr_comment_leaf(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertIsNotNone(selection)
+        assert selection is not None
+        self.assertEqual([item["id"] for item in selection.path], [1, 2, 3])
+
+    def test_selector_orders_unknown_time_first_then_uses_stable_pr_ties(self) -> None:
+        path = self.write_list(
+            """
+            - https://bitbucket.org/z-workspace/io-api/pull-requests/700
+            - https://bitbucket.org/a-workspace/io-api/pull-requests/700
+            - https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**
+            """
+        )
+        unknown = comment(99, created_on=NOW, raw="Unknown timestamp")
+        unknown.pop("created_on")
+        runner = FakeGtRunner(
+            comments_by_pr={
+                700: [unknown],
+                600: [comment(1, created_on=NOW, raw="Known timestamp")],
+            }
+        )
+
+        selection = pr_comments.select_next_pr_comment_leaf(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertIsNotNone(selection)
+        assert selection is not None
+        self.assertEqual(selection.reference.workspace, "a-workspace")
+        self.assertEqual(selection.leaf_id, 99)
+
+    def test_selector_fails_closed_when_any_configured_pr_is_unavailable(self) -> None:
+        path = self.write_list(
+            """
+            - https://bitbucket.org/marex-prod/io-api/pull-requests/505
+            - https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**
+            """
+        )
+        runner = FakeGtRunner(
+            comments_by_pr={
+                600: [comment(1, created_on=NOW, raw="Available leaf")]
+            },
+            failing_prs={505},
+        )
+
+        payload = pr_comments.get_next_pr_comment_leaf_payload(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertEqual(payload["status"], "blocked")
+        self.assertEqual(payload["failed_pr_ids"], [505])
+
+    def test_selection_payload_preserves_inline_source_and_destination_lines(self) -> None:
+        path = self.write_list(
+            "- https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**\n"
+        )
+        inline_leaf = comment(1, created_on=NOW, raw="This was removed")
+        inline_leaf["inline"] = {
+            "path": "docs/example.md",
+            "from": 12,
+            "to": 9,
+            "start_from": 10,
+            "start_to": 7,
+        }
+        runner = FakeGtRunner(comments_by_pr={600: [inline_leaf]})
+
+        payload = pr_comments.get_next_pr_comment_leaf_payload(
+            pr_list_path=path,
+            runner=runner,
+            now=NOW,
+        )
+
+        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(
+            payload["path"][0]["inline"],
+            {
+                "path": "docs/example.md",
+                "from": 12,
+                "to": 9,
+                "start_from": 10,
+                "start_to": 7,
+            },
+        )
+
+    def test_pr_528_duplicate_shape_has_no_eligible_ai_leaf(self) -> None:
+        comments = [
+            comment(
+                830399446,
+                created_on=NOW - timedelta(hours=1),
+                raw="Human review comment",
+            ),
+            comment(
+                830411168,
+                parent_id=830399446,
+                created_on=NOW - timedelta(minutes=20),
+                raw="#AI Response: First answer.",
+            ),
+            comment(
+                830498963,
+                parent_id=830399446,
+                created_on=NOW - timedelta(minutes=10),
+                raw="#AI Response: Duplicate answer.",
+            ),
+        ]
+
+        self.assertEqual(
+            pr_comments.eligible_leaf_paths(comments, now=NOW),
+            [],
+        )
+
+        comments.append(
+            comment(
+                830500000,
+                parent_id=830411168,
+                created_on=NOW - timedelta(minutes=5),
+                raw="Human follow-up below the first answer",
+            )
+        )
+        paths = pr_comments.eligible_leaf_paths(comments, now=NOW)
+        self.assertEqual(
+            [[item["id"] for item in item] for item in paths],
+            [[830399446, 830411168, 830500000]],
+        )
+
     def test_entrypoint_stdout_is_exact_json(self) -> None:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
@@ -813,6 +1037,75 @@ class PrCommentFlowControlTests(unittest.TestCase):
         )
 
         self.assertEqual(result.stdout, '{"answer":"yes"}\n')
+        self.assertEqual(result.stderr, "")
+
+    def test_selector_entrypoint_returns_ready_context_json(self) -> None:
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        root = Path(tempdir.name)
+        pr_list = root / "prs.md"
+        pr_list.write_text(
+            "- https://bitbucket.org/marex-prod/io-api/pull-requests/600 **IN_SCOPE**\n",
+            encoding="utf-8",
+        )
+        fake_gt = root / "gt"
+        fake_gt.write_text(
+            textwrap.dedent(
+                """
+                #!/usr/bin/env python3
+                import json
+                import sys
+                if "get" in sys.argv:
+                    print(json.dumps({"id": 600, "state": "OPEN"}))
+                else:
+                    print(json.dumps({
+                        "page": 1,
+                        "pagelen": 50,
+                        "size": 1,
+                        "values": [{
+                            "id": 77,
+                            "created_on": "2099-01-01T00:00:00+00:00",
+                            "deleted": False,
+                            "parent": None,
+                            "content": {"raw": "Selected review"},
+                            "user": {"display_name": "Reviewer"},
+                            "inline": {"path": "docs/example.md", "from": 12, "to": 9}
+                        }]
+                    }))
+                """
+            ).lstrip(),
+            encoding="utf-8",
+        )
+        fake_gt.chmod(fake_gt.stat().st_mode | stat.S_IXUSR)
+        env = os.environ.copy()
+        env["CODEINFO_PR_COMMENTS_FILE"] = str(pr_list)
+        env["CODEINFO_GT_BIN"] = str(fake_gt)
+
+        result = subprocess.run(
+            [
+                "python3",
+                str(
+                    REPO_ROOT
+                    / "scripts"
+                    / "flow_control"
+                    / "get_next_pr_comment_leaf.py"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        payload = json.loads(result.stdout)
+
+        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(payload["connection"], "default")
+        self.assertEqual(payload["source"]["pr_id"], 600)
+        self.assertEqual(payload["in_scope_destination"]["pr_id"], 600)
+        self.assertEqual(payload["leaf_id"], 77)
+        self.assertEqual(payload["path"][0]["author"]["display_name"], "Reviewer")
+        self.assertEqual(payload["path"][0]["inline"]["from"], 12)
         self.assertEqual(result.stderr, "")
 
 

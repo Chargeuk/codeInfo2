@@ -34,6 +34,17 @@ class PrCommentGateError(RuntimeError):
     """Raised when the gate cannot safely establish remote queue state."""
 
 
+class PrCommentQueueBlocked(PrCommentGateError):
+    """Raised when one or more configured pull requests cannot be inspected."""
+
+    def __init__(self, failed_pr_ids: Sequence[int]) -> None:
+        self.failed_pr_ids = tuple(failed_pr_ids)
+        super().__init__(
+            "could not inspect pull requests "
+            + ", ".join(str(pr_id) for pr_id in self.failed_pr_ids)
+        )
+
+
 @dataclass(frozen=True)
 class PullRequestRef:
     url: str
@@ -41,6 +52,22 @@ class PullRequestRef:
     repo: str
     pr_id: int
     in_scope: bool
+
+
+@dataclass(frozen=True)
+class EligibleLeafSelection:
+    """One globally ordered eligible leaf and its complete ancestor path."""
+
+    reference: PullRequestRef
+    in_scope: PullRequestRef
+    path: tuple[Mapping[str, Any], ...]
+
+    @property
+    def leaf_id(self) -> int:
+        leaf_id = _comment_id(self.path[-1])
+        if leaf_id is None:
+            raise PrCommentGateError("selected leaf has no usable id")
+        return leaf_id
 
 
 GtRunner = Callable[[Sequence[str]], Mapping[str, Any]]
@@ -140,17 +167,21 @@ def resolve_gt_bin() -> Path:
     )
 
 
+def resolve_bitbucket_connection(connection: str | None = None) -> str:
+    return (
+        connection
+        or os.environ.get("CODEINFO_GT_BITBUCKET_CONNECTION", "").strip()
+        or DEFAULT_CONNECTION
+    )
+
+
 def make_subprocess_gt_runner(
     *,
     gt_bin: Path | None = None,
     connection: str | None = None,
 ) -> GtRunner:
     executable = gt_bin or resolve_gt_bin()
-    connection_name = (
-        connection
-        or os.environ.get("CODEINFO_GT_BITBUCKET_CONNECTION", "").strip()
-        or DEFAULT_CONNECTION
-    )
+    connection_name = resolve_bitbucket_connection(connection)
 
     def run(arguments: Sequence[str]) -> Mapping[str, Any]:
         command = [str(executable), *arguments, "--connection", connection_name, "--json"]
@@ -454,6 +485,208 @@ def has_eligible_leaves(
     return bool(eligible_leaf_paths(comments, now=now, warn=warn))
 
 
+def _author_payload(comment: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    user = comment.get("user")
+    if not isinstance(user, Mapping):
+        return None
+    return {
+        key: user.get(key)
+        for key in ("display_name", "nickname", "account_id", "uuid")
+        if user.get(key) is not None
+    }
+
+
+def _inline_payload(comment: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    inline = comment.get("inline")
+    if not isinstance(inline, Mapping):
+        return None
+    return {
+        key: inline.get(key)
+        for key in ("path", "from", "to", "start_from", "start_to")
+        if key in inline
+    }
+
+
+def _comment_url(comment: Mapping[str, Any]) -> str | None:
+    links = comment.get("links")
+    html = links.get("html") if isinstance(links, Mapping) else None
+    href = html.get("href") if isinstance(html, Mapping) else None
+    return href if isinstance(href, str) else None
+
+
+def serialize_comment_path(
+    path: Sequence[Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    """Return the bounded comment context supplied to the PR agent."""
+    serialized: list[Mapping[str, Any]] = []
+    for comment in path:
+        serialized.append(
+            {
+                "id": _comment_id(comment),
+                "parent_id": _parent_id(comment),
+                "created_on": comment.get("created_on"),
+                "updated_on": comment.get("updated_on"),
+                "deleted": _is_deleted(comment),
+                "author": _author_payload(comment),
+                "body": _comment_raw(comment),
+                "inline": _inline_payload(comment),
+                "url": _comment_url(comment),
+            }
+        )
+    return serialized
+
+
+def _candidate_sort_key(
+    reference: PullRequestRef,
+    path: Sequence[Mapping[str, Any]],
+    *,
+    warn: WarningSink,
+) -> tuple[bool, datetime, str, str, int, int]:
+    leaf = path[-1]
+    created_on = _parse_created_on(leaf, warn=warn)
+    leaf_id = _comment_id(leaf, warn=warn)
+    if leaf_id is None:
+        raise PrCommentGateError("eligible leaf has no usable id")
+    return (
+        created_on is not None,
+        created_on or datetime.min.replace(tzinfo=UTC),
+        reference.workspace.casefold(),
+        reference.repo.casefold(),
+        reference.pr_id,
+        leaf_id,
+    )
+
+
+def _collect_eligible_candidates(
+    references: Sequence[PullRequestRef],
+    runner: GtRunner,
+    *,
+    now: datetime,
+    warn: WarningSink,
+) -> tuple[
+    list[tuple[PullRequestRef, tuple[Mapping[str, Any], ...]]],
+    list[int],
+]:
+    candidates: list[
+        tuple[PullRequestRef, tuple[Mapping[str, Any], ...]]
+    ] = []
+    failed_pr_ids: list[int] = []
+    for reference in references:
+        try:
+            comments = _list_all_comments(reference, runner, warn=warn)
+            candidates.extend(
+                (reference, path)
+                for path in eligible_leaf_paths(
+                    comments,
+                    now=now,
+                    warn=warn,
+                )
+            )
+        except (OSError, PrCommentGateError, UnicodeError) as error:
+            failed_pr_ids.append(reference.pr_id)
+            warn(f"PR {reference.pr_id} could not be inspected: {error}")
+    candidates.sort(
+        key=lambda candidate: _candidate_sort_key(
+            candidate[0],
+            candidate[1],
+            warn=warn,
+        )
+    )
+    return candidates, failed_pr_ids
+
+
+def select_next_pr_comment_leaf(
+    *,
+    pr_list_path: Path | None = None,
+    runner: GtRunner | None = None,
+    now: datetime | None = None,
+    warn: WarningSink = _ignore_warning,
+) -> EligibleLeafSelection | None:
+    """Select the globally oldest eligible leaf, failing closed on partial data."""
+    target_path = pr_list_path or resolve_pr_list_path()
+    references = parse_pr_list(
+        target_path.read_text(encoding="utf-8"),
+        warn=warn,
+    )
+    in_scope = require_in_scope_pr(references)
+    active_runner = runner or make_subprocess_gt_runner()
+    _ensure_in_scope_pr_is_open(in_scope, active_runner)
+    candidates, failed_pr_ids = _collect_eligible_candidates(
+        references,
+        active_runner,
+        now=now or datetime.now(UTC),
+        warn=warn,
+    )
+    if failed_pr_ids:
+        raise PrCommentQueueBlocked(failed_pr_ids)
+    if not candidates:
+        return None
+    reference, path = candidates[0]
+    return EligibleLeafSelection(
+        reference=reference,
+        in_scope=in_scope,
+        path=path,
+    )
+
+
+def selection_payload(
+    selection: EligibleLeafSelection | None,
+) -> Mapping[str, Any]:
+    if selection is None:
+        return {"status": "empty"}
+    reference = selection.reference
+    in_scope = selection.in_scope
+    return {
+        "status": "ready",
+        "connection": resolve_bitbucket_connection(),
+        "source": {
+            "workspace": reference.workspace,
+            "repo": reference.repo,
+            "pr_id": reference.pr_id,
+            "url": reference.url,
+        },
+        "in_scope_destination": {
+            "workspace": in_scope.workspace,
+            "repo": in_scope.repo,
+            "pr_id": in_scope.pr_id,
+            "url": in_scope.url,
+        },
+        "leaf_id": selection.leaf_id,
+        "path": serialize_comment_path(selection.path),
+    }
+
+
+def get_next_pr_comment_leaf_payload(
+    *,
+    pr_list_path: Path | None = None,
+    runner: GtRunner | None = None,
+    now: datetime | None = None,
+    warn: WarningSink = _ignore_warning,
+) -> Mapping[str, Any]:
+    try:
+        return selection_payload(
+            select_next_pr_comment_leaf(
+                pr_list_path=pr_list_path,
+                runner=runner,
+                now=now,
+                warn=warn,
+            )
+        )
+    except PrCommentQueueBlocked as error:
+        return {
+            "status": "blocked",
+            "reason": "configured_pr_unavailable",
+            "failed_pr_ids": list(error.failed_pr_ids),
+        }
+    except (OSError, PrCommentGateError, UnicodeError) as error:
+        warn(f"selection blocked: {error}")
+        return {
+            "status": "blocked",
+            "reason": "selection_unavailable",
+            "error_type": type(error).__name__,
+        }
+
+
 def _warn_gate(message: str) -> None:
     print(f"PR comment queue warning: {message}", file=sys.stderr)
 
@@ -473,29 +706,20 @@ def evaluate_pr_comment_leaves(
         in_scope = require_in_scope_pr(references)
         active_runner = runner or make_subprocess_gt_runner()
         _ensure_in_scope_pr_is_open(in_scope, active_runner)
-        failed_pr_ids: list[int] = []
         evaluated_at = now or datetime.now(UTC)
-        for reference in references:
-            try:
-                comments = _list_all_comments(
-                    reference,
-                    active_runner,
-                    warn=_warn_gate,
-                )
-                if has_eligible_leaves(
-                    comments,
-                    now=evaluated_at,
-                    warn=_warn_gate,
-                ):
-                    return no("eligible_pr_leaves_present")
-            except (OSError, PrCommentGateError, UnicodeError) as error:
-                failed_pr_ids.append(reference.pr_id)
-                _warn_gate(f"PR {reference.pr_id} could not be inspected: {error}")
+        candidates, failed_pr_ids = _collect_eligible_candidates(
+            references,
+            active_runner,
+            now=evaluated_at,
+            warn=_warn_gate,
+        )
         if failed_pr_ids:
             return yes(
                 "pr_comment_queue_blocked",
                 failed_pr_ids=failed_pr_ids,
             )
+        if candidates:
+            return no("eligible_pr_leaves_present")
         return yes("no_eligible_pr_leaves")
     except (OSError, PrCommentGateError, UnicodeError) as error:
         print(f"PR comment queue check blocked: {error}", file=sys.stderr)

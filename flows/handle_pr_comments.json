@@ -1,5 +1,5 @@
 {
-  "description": "Continuously drain eligible PROJ-5204 pull-request comment leaves, using a deterministic stateless queue gate before invoking review agents.",
+  "description": "Continuously drain globally ordered PROJ-5204 pull-request comment leaves while keeping rich thread context away from the loop controller.",
   "steps": [
     {
       "type": "startLoop",
@@ -25,7 +25,7 @@
             },
             {
               "type": "llm",
-              "label": "Handle Oldest Eligible Pull Request Concept",
+              "label": "Handle Globally Oldest Eligible Pull Request Leaf",
               "agentType": "pr_agent",
               "identifier": "pr_agent",
               "markdownFile": "handle_pr_comments.md"

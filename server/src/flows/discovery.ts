@@ -23,6 +23,7 @@ import { append } from '../logStore.js';
 import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import {
   getFlowDefinitionCatalog,
+  resolveConfiguredFlowsRoot,
   type FlowDefinitionCatalog,
 } from './flowDefinitionCatalog.js';
 import { parseFlowFile, type FlowFile, type FlowStep } from './flowSchema.js';
@@ -88,10 +89,7 @@ const resolveSafeChildFlowPath = (
 
 const resolveFlowsDir = (baseDir?: string): string => {
   if (baseDir) return path.resolve(baseDir);
-  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
-  const { codeInfoRoot } = resolveAgentHomeEnv();
-  if (codeInfoRoot) return path.join(codeInfoRoot, 'flows');
-  return path.resolve('flows');
+  return resolveConfiguredFlowsRoot();
 };
 
 const resolveFlowAgentLookupRoot = (flowsDir: string) => {

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { resolveAgentHomeEnv } from '../agents/roots.js';
 import { parseFlowFile } from './flowSchema.js';
 
 export type FlowDefinitionCatalogEntry = {
@@ -19,6 +20,13 @@ const catalogByRoot = new Map<
   string,
   Promise<Map<string, FlowDefinitionCatalogEntry>>
 >();
+
+export const resolveConfiguredFlowsRoot = (): string => {
+  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
+  const { codeInfoRoot } = resolveAgentHomeEnv();
+  if (codeInfoRoot) return path.join(codeInfoRoot, 'flows');
+  return path.resolve('flows');
+};
 
 const loadCatalog = async (
   flowsRoot: string,
@@ -73,6 +81,9 @@ export const getFlowDefinitionCatalog = async (
   }
   return catalog;
 };
+
+export const initializeConfiguredFlowDefinitionCatalog = () =>
+  getFlowDefinitionCatalog(resolveConfiguredFlowsRoot());
 
 export const getFlowDefinitionCatalogEntry = async (params: {
   flowsRoot: string;

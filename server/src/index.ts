@@ -26,6 +26,7 @@ import {
   resolveOpenAiEmbeddingCapabilityState,
 } from './config/startupEnv.js';
 import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.js';
+import { initializeConfiguredFlowDefinitionCatalog } from './flows/flowDefinitionCatalog.js';
 import './flows/flowSchema.js';
 import { reconcileInterruptedFlowRunsForStartup } from './flows/service.js';
 import './ingest/index.js';
@@ -427,6 +428,7 @@ const start = async () => {
     copilotHome: process.env.CODEINFO_COPILOT_HOME,
     lmstudioHome: resolveLmStudioChatDefaultsHome(),
   });
+  await initializeConfiguredFlowDefinitionCatalog();
   baseLogger.info(
     {
       event: 'story.0000057.task19.provider_bootstrap_complete',

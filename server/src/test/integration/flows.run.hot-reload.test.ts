@@ -8,6 +8,7 @@ import express from 'express';
 import supertest from 'supertest';
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import { initializeConfiguredFlowDefinitionCatalog } from '../../flows/flowDefinitionCatalog.js';
 import {
   __resetFlowServiceDepsForTests,
   startFlowRun,
@@ -98,6 +99,26 @@ test('Flow run pins flow definitions until the next server generation', async ()
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
+  await initializeConfiguredFlowDefinitionCatalog();
+  await fs.writeFile(
+    path.join(tmpDir, 'hot-reload.json'),
+    JSON.stringify(
+      {
+        description: 'Hot reload flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'reload',
+            messages: [{ role: 'user', content: ['Changed before first run'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
 
   const observedMessages: string[] = [];
   let nextMessageResolver: (() => void) | null = null;

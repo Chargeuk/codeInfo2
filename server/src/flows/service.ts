@@ -119,6 +119,7 @@ import { runFlowDecisionScript } from './flowDecisionScript.js';
 import {
   __resetFlowDefinitionCatalogForTests,
   getFlowDefinitionCatalogEntry,
+  resolveConfiguredFlowsRoot,
 } from './flowDefinitionCatalog.js';
 import {
   hashFlowInput,
@@ -1652,12 +1653,7 @@ const ensureFlowAgentConversation = async (params: {
   }
 };
 
-const flowsDirForRun = () => {
-  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
-  const { codeInfoRoot } = resolveAgentHomeEnv();
-  if (codeInfoRoot) return path.join(codeInfoRoot, 'flows');
-  return path.resolve('flows');
-};
+const flowsDirForRun = resolveConfiguredFlowsRoot;
 
 const codeInfo2RootForRun = () => resolveAgentHomeEnv().codeInfoRoot;
 

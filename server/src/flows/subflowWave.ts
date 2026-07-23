@@ -163,6 +163,9 @@ const targetIdentity = (item: FlowJsonValue, index: number): string => {
   return String(index);
 };
 
+const waveInstanceId = (...parts: string[]) =>
+  parts.map((part) => encodeURIComponent(part)).join(':');
+
 export const expandSubflowWaveJobs = (params: {
   step: FlowSubflowWaveStep;
   input: FlowJsonObject;
@@ -175,7 +178,7 @@ export const expandSubflowWaveJobs = (params: {
         bindings: group.bindings,
       });
       jobs.push({
-        instanceId: `${group.id}:${group.flowName}`,
+        instanceId: waveInstanceId(group.id, group.flowName),
         flowName: group.flowName,
         displayName: group.flowName,
         ...bindings,
@@ -198,7 +201,7 @@ export const expandSubflowWaveJobs = (params: {
       const bindings = buildBindings({ root, bindings: group.bindings });
       group.flowNames.forEach((flowName) => {
         jobs.push({
-          instanceId: `${group.id}:${targetId}:${flowName}`,
+          instanceId: waveInstanceId(group.id, targetId, flowName),
           flowName,
           targetId,
           displayName: `${flowName} [${targetId}]`,

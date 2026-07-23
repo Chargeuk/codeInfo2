@@ -61,6 +61,32 @@ test('expandSubflowWaveJobs creates matrix and singleton jobs with stable bindin
   assert.match(jobs[0]?.inputHash ?? '', /^[0-9a-f]{64}$/u);
 });
 
+test('expandSubflowWaveJobs distinguishes valid tuple components containing delimiters', () => {
+  const jobs = expandSubflowWaveJobs({
+    step: {
+      type: 'subflowWave',
+      groups: [
+        {
+          kind: 'matrix',
+          id: 'reviews',
+          itemsFrom: 'targets',
+          itemName: 'target',
+          flowNames: ['b:c', 'c'],
+        },
+      ],
+    },
+    input: {
+      targets: [{ target_id: 'a' }, { target_id: 'a:b' }],
+    },
+  });
+
+  assert.deepEqual(
+    jobs.map((job) => job.instanceId),
+    ['reviews:a:b%3Ac', 'reviews:a:c', 'reviews:a%3Ab:b%3Ac', 'reviews:a%3Ab:c'],
+  );
+  assert.equal(new Set(jobs.map((job) => job.instanceId)).size, jobs.length);
+});
+
 test('expandSubflowWaveJobs rejects missing arrays and unresolved bindings', () => {
   assert.throws(() => expandSubflowWaveJobs({ step, input: {} }));
   assert.throws(() =>

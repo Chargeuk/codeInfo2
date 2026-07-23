@@ -125,6 +125,7 @@ export async function prepareReviewBatchWorkspace(params: {
     const inputRoot = path.join(
       batchRoot,
       'inputs',
+      'targets',
       safeSegment(target.target_id),
     );
     await Promise.all([
@@ -180,7 +181,7 @@ export async function prepareReviewBatchWorkspace(params: {
     const outputDir = path.join(jobRoot, 'output');
     const verificationDir = path.join(jobRoot, 'verification');
     const inputDir = job.targetId
-      ? path.join(batchRoot, 'inputs', safeSegment(job.targetId))
+      ? path.join(batchRoot, 'inputs', 'targets', safeSegment(job.targetId))
       : crossRepositoryInput;
     await Promise.all([
       fs.mkdir(workDir, { recursive: true }),

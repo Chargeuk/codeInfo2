@@ -677,7 +677,7 @@ test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
   }
 });
 
-test('POST /flows/:flowName/run distinguishes omitted identifiers from explicit blank values', async () => {
+test('POST /flows/:flowName/run normalizes blank optional identifiers to omission', async () => {
   const starts: Array<Parameters<typeof startFlowRun>[0]> = [];
   const app = express();
   app.use(
@@ -726,15 +726,12 @@ test('POST /flows/:flowName/run distinguishes omitted identifiers from explicit 
       const response = await supertest(app)
         .post('/flows/llm-basic/run')
         .send({ [field]: value })
-        .expect(400);
-      assert.equal(response.body.error, 'invalid_request');
-      assert.match(
-        String(response.body.message),
-        new RegExp(`${field}.*blank`),
-      );
+        .expect(202);
+      assert.equal(response.body.status, 'started');
+      assert.equal(starts.at(-1)?.[field], undefined);
     }
   }
-  assert.equal(starts.length, 1);
+  assert.equal(starts.length, 1 + identifierFields.length * 2);
 });
 
 test('fresh flow start creates a new parent conversation when an older conversationId is supplied', async () => {

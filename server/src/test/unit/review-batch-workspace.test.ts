@@ -51,8 +51,8 @@ test('review batch workspace shares agent-readable input and pre-creates discove
       created_at: '2026-07-21T00:00:00.000Z',
       targets: [
         {
-          target_id: 'current_repository',
-          repo_alias: 'current_repository',
+          target_id: 'cross-repository',
+          repo_alias: 'cross-repository',
           repo_root: repoRoot,
           repository_id: 'repo-1',
           branch: 'feature/0000064-review',
@@ -65,16 +65,16 @@ test('review batch workspace shares agent-readable input and pre-creates discove
     };
     const jobs: SubflowWaveJob[] = [
       {
-        instanceId: 'target_reviews:current_repository:codex_review',
+        instanceId: 'target_reviews:cross-repository:codex_review',
         flowName: 'codex_review',
-        targetId: 'current_repository',
-        displayName: 'codex_review [current_repository]',
+        targetId: 'cross-repository',
+        displayName: 'codex_review [cross-repository]',
       },
       {
-        instanceId: 'target_reviews:current_repository:open_code_review',
+        instanceId: 'target_reviews:cross-repository:open_code_review',
         flowName: 'open_code_review',
-        targetId: 'current_repository',
-        displayName: 'open_code_review [current_repository]',
+        targetId: 'cross-repository',
+        displayName: 'open_code_review [cross-repository]',
       },
       {
         instanceId: 'story_review:cross_repository_review',
@@ -96,7 +96,14 @@ test('review batch workspace shares agent-readable input and pre-creates discove
       string,
       unknown
     >;
+    const crossRepositoryJob = result.jobs[2]?.input?.review_job as Record<
+      string,
+      unknown
+    >;
     assert.equal(codexJob.input_dir, openCodeJob.input_dir);
+    assert.match(String(codexJob.input_dir), /inputs[\\/]targets[\\/]cross-repository$/u);
+    assert.match(String(crossRepositoryJob.input_dir), /inputs[\\/]cross-repository$/u);
+    assert.notEqual(codexJob.input_dir, crossRepositoryJob.input_dir);
     assert.notEqual(codexJob.output_dir, openCodeJob.output_dir);
     assert.match(
       await fs.readFile(

@@ -1,0 +1,22 @@
+{
+  "description": "Wait inside a bounded test loop",
+  "steps": [
+    {
+      "type": "startLoop",
+      "steps": [
+        {
+          "type": "wait",
+          "label": "Loop pause",
+          "seconds": 2
+        },
+        {
+          "type": "break",
+          "agentType": "coding_agent",
+          "identifier": "wait-loop-break",
+          "question": "Exit wait loop?",
+          "breakOn": "yes"
+        }
+      ]
+    }
+  ]
+}

@@ -225,6 +225,9 @@ describe('GET /flows', () => {
         'loop-continue',
         'multi-agent',
         'valid-flow',
+        'wait-basic',
+        'wait-loop',
+        'wait-resume',
       ]);
 
       const invalidJson = response.body.flows.find(
@@ -243,6 +246,11 @@ describe('GET /flows', () => {
         (flow: { name: string }) => flow.name === 'valid-flow',
       );
       assert.equal(valid.disabled, false);
+
+      const wait = response.body.flows.find(
+        (flow: { name: string }) => flow.name === 'wait-basic',
+      );
+      assert.equal(wait.disabled, false);
       assert.equal(valid.description, 'Valid flow');
     });
 

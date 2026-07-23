@@ -60,6 +60,12 @@ export type FlowCommandStep = {
   commandName: string;
 };
 
+export type FlowWaitStep = {
+  type: 'wait';
+  label?: string;
+  seconds: number;
+};
+
 export type FlowResetStep = {
   type: 'reset';
   label?: string;
@@ -110,6 +116,7 @@ export type FlowStep =
   | FlowBreakStep
   | FlowContinueStep
   | FlowCommandStep
+  | FlowWaitStep
   | FlowResetStep
   | FlowPrepareReviewBaseStep
   | FlowCodexReviewStep
@@ -180,6 +187,18 @@ const FlowCommandStepSchema = z
     agentType: trimmedNonEmptyString,
     identifier: trimmedNonEmptyString,
     commandName: trimmedNonEmptyString,
+  })
+  .strict();
+
+const FlowWaitStepSchema = z
+  .object({
+    type: z.literal('wait'),
+    label: trimmedNonEmptyString.optional(),
+    seconds: z
+      .number()
+      .int()
+      .positive()
+      .max(24 * 60 * 60),
   })
   .strict();
 
@@ -318,6 +337,7 @@ function flowStepUnionSchema() {
     FlowBreakStepSchema,
     FlowContinueStepSchema,
     FlowCommandStepSchema,
+    FlowWaitStepSchema,
     FlowResetStepSchema,
     FlowPrepareReviewBaseStepSchema,
     FlowCodexReviewStepSchema,

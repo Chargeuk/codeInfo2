@@ -17,18 +17,6 @@ Keep the same behavior and standards described here even when the exact task cha
 
 Re-read this file at the start of each session. Assume it may have changed since the last context window.
 
-## Required Onboarding
-
-Perform this onboarding only when you are first working in this folder structure or when history has been compacted.
-
-1. Before doing anything else, call the `code_info` MCP tool unless instructed not to do so.
-2. In that tool call, include the full repository path for this repository when doing so.
-3. Ask for:
-   - a concise project overview, including a summary of the last 3 git commits.
-   - Confirm the current git branch.
-4. Without performaing any additional research directly, relying only on thin information provided by code_info, summarize for the user the project overview and the current branch
-5. The `code_info` MCP tool can take some time to comples, so please be patient while waiting for a response.
-
 ## Working with Planning Files
 
 1. Do NOT read whole planning files directly unless the user asks for specific plan content and the required information cannot be obtained from the Python helpers in `$CODEINFO_ROOT/scripts`. Planning files can be very large, so query their structured summaries first and read only the smallest relevant section as a fallback.

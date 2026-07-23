@@ -59,11 +59,33 @@ class PullRequestTask:
 
 
 @dataclass(frozen=True)
-class PullRequestTaskBatch:
+class WorkablePullRequest:
     reference: PullRequestRef
     source_branch: str
+    source_commit: str
     working_folder: Path
+
+
+@dataclass(frozen=True)
+class PullRequestTaskBatch:
+    pull_request: WorkablePullRequest
     tasks: tuple[PullRequestTask, ...]
+
+    @property
+    def reference(self) -> PullRequestRef:
+        return self.pull_request.reference
+
+    @property
+    def source_branch(self) -> str:
+        return self.pull_request.source_branch
+
+    @property
+    def source_commit(self) -> str:
+        return self.pull_request.source_commit
+
+    @property
+    def working_folder(self) -> Path:
+        return self.pull_request.working_folder
 
 
 def _normalize_repo_name(value: str) -> str:
@@ -135,6 +157,24 @@ def _current_branch(runner: GitRunner) -> str:
     return branch
 
 
+def current_git_head(runner: GitRunner) -> str:
+    commit = runner(["rev-parse", "HEAD"]).strip()
+    if not commit:
+        raise PrTaskGateError("working repository has no usable HEAD")
+    return commit
+
+
+def commits_match(left: str, right: str) -> bool:
+    """Match full or safely abbreviated Git commit hashes."""
+    normalized_left = left.strip().casefold()
+    normalized_right = right.strip().casefold()
+    if len(normalized_left) < 7 or len(normalized_right) < 7:
+        return False
+    return normalized_left.startswith(normalized_right) or normalized_right.startswith(
+        normalized_left
+    )
+
+
 def _pull_request_source_branch(payload: Mapping[str, Any]) -> str:
     source = payload.get("source")
     branch = source.get("branch") if isinstance(source, Mapping) else None
@@ -142,6 +182,15 @@ def _pull_request_source_branch(payload: Mapping[str, Any]) -> str:
     if not isinstance(name, str) or not name.strip():
         raise PrTaskGateError("pull request has no source branch")
     return name.strip()
+
+
+def _pull_request_source_commit(payload: Mapping[str, Any]) -> str:
+    source = payload.get("source")
+    commit = source.get("commit") if isinstance(source, Mapping) else None
+    commit_hash = commit.get("hash") if isinstance(commit, Mapping) else None
+    if not isinstance(commit_hash, str) or not commit_hash.strip():
+        raise PrTaskGateError("pull request has no source commit")
+    return commit_hash.strip()
 
 
 def _task_state(task: Mapping[str, Any]) -> str:
@@ -194,9 +243,11 @@ def _parse_task(task: Mapping[str, Any]) -> PullRequestTask:
     )
 
 
-def _list_all_tasks(
+def list_pull_request_tasks(
     reference: PullRequestRef,
     runner: GtRunner,
+    *,
+    unresolved_only: bool,
 ) -> tuple[PullRequestTask, ...]:
     tasks_by_id: dict[int, PullRequestTask] = {}
     page = 1
@@ -233,20 +284,20 @@ def _list_all_tasks(
                     tasks_by_id.values(),
                     key=lambda candidate: candidate.task_id,
                 )
-                if task.state == "UNRESOLVED"
+                if not unresolved_only or task.state == "UNRESOLVED"
             )
         page += 1
     raise PrTaskGateError("gt tasks pagination exceeded safety limit")
 
 
-def select_open_pr_task_batch(
+def select_workable_pull_request(
     *,
     pr_list_path: Path | None = None,
     working_folder: Path | None = None,
     gt_runner: GtRunner | None = None,
     git_runner: GitRunner | None = None,
-) -> PullRequestTaskBatch:
-    """Select every unresolved task for the workable in-scope pull request."""
+) -> WorkablePullRequest:
+    """Resolve the open in-scope PR that belongs to the current checkout."""
     target_path = pr_list_path or resolve_pr_list_path()
     references = parse_pr_list(target_path.read_text(encoding="utf-8"))
     in_scope = require_in_scope_pr(references)
@@ -283,11 +334,36 @@ def select_open_pr_task_batch(
     if _current_branch(active_git_runner) != source_branch:
         raise PrTaskNotWorkable("working_branch_mismatch")
 
-    return PullRequestTaskBatch(
+    return WorkablePullRequest(
         reference=in_scope,
         source_branch=source_branch,
+        source_commit=_pull_request_source_commit(pr_payload),
         working_folder=target_folder,
-        tasks=_list_all_tasks(in_scope, active_gt_runner),
+    )
+
+
+def select_open_pr_task_batch(
+    *,
+    pr_list_path: Path | None = None,
+    working_folder: Path | None = None,
+    gt_runner: GtRunner | None = None,
+    git_runner: GitRunner | None = None,
+) -> PullRequestTaskBatch:
+    """Select every unresolved task for the workable in-scope pull request."""
+    active_gt_runner = gt_runner or make_subprocess_gt_runner()
+    pull_request = select_workable_pull_request(
+        pr_list_path=pr_list_path,
+        working_folder=working_folder,
+        gt_runner=active_gt_runner,
+        git_runner=git_runner,
+    )
+    return PullRequestTaskBatch(
+        pull_request=pull_request,
+        tasks=list_pull_request_tasks(
+            pull_request.reference,
+            active_gt_runner,
+            unresolved_only=True,
+        ),
     )
 
 
@@ -305,6 +381,7 @@ def task_batch_payload(
             "pr_id": reference.pr_id,
             "url": reference.url,
             "source_branch": batch.source_branch,
+            "source_commit": batch.source_commit,
         },
         "working_folder": str(batch.working_folder),
         "tasks": [

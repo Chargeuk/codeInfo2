@@ -11,7 +11,7 @@ function readRepoFile(relativePath: string): string {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('implement_pr_task_fixes uses two nested loops and one reset two-step coder', () => {
+test('implement_pr_task_fixes records pipeline failures before its task-fix loop', () => {
   const raw = readRepoFile('flows/implement_pr_task_fixes.json');
   const parsed = parseFlowFile(raw, {
     flowName: 'implement_pr_task_fixes',
@@ -25,18 +25,57 @@ test('implement_pr_task_fixes uses two nested loops and one reset two-step coder
   if (outer.type !== 'startLoop') return;
   assert.deepEqual(
     outer.steps.map((step) => step.type),
-    ['startLoop', 'wait'],
+    ['startLoop', 'startLoop', 'wait'],
   );
 
-  const inner = outer.steps[0];
-  assert.equal(inner.type, 'startLoop');
-  if (inner.type !== 'startLoop') return;
+  const pipelineLoop = outer.steps[0];
+  assert.equal(pipelineLoop.type, 'startLoop');
+  if (pipelineLoop.type !== 'startLoop') return;
   assert.deepEqual(
-    inner.steps.map((step) => step.type),
+    pipelineLoop.steps.map((step) => step.type),
+    ['break', 'reset', 'llm', 'wait'],
+  );
+
+  const [pipelineGate, pipelineReset, pipelineRecorder, pipelineWait] =
+    pipelineLoop.steps;
+  assert.equal(pipelineGate.type, 'break');
+  if (pipelineGate.type === 'break') {
+    assert.equal(pipelineGate.agentType, 'loop_control_agent');
+    assert.equal(pipelineGate.identifier, 'loop_controller');
+    assert.equal(pipelineGate.breakOn, 'yes');
+    assert.match(
+      pipelineGate.question,
+      /check_pr_pipeline_failures_recorded\.py/u,
+    );
+  }
+  assert.equal(pipelineReset.type, 'reset');
+  if (pipelineReset.type === 'reset') {
+    assert.equal(pipelineReset.agentType, 'coding_agent');
+    assert.equal(pipelineReset.identifier, 'pipeline_failure_tasker');
+  }
+  assert.equal(pipelineRecorder.type, 'llm');
+  if (pipelineRecorder.type === 'llm') {
+    assert.equal(pipelineRecorder.agentType, 'coding_agent');
+    assert.equal(pipelineRecorder.identifier, 'pipeline_failure_tasker');
+    assert.equal(
+      'markdownFile' in pipelineRecorder
+        ? pipelineRecorder.markdownFile
+        : undefined,
+      'record_pr_pipeline_failure_task.md',
+    );
+  }
+  assert.equal(pipelineWait.type, 'wait');
+  if (pipelineWait.type === 'wait') assert.equal(pipelineWait.seconds, 180);
+
+  const taskLoop = outer.steps[1];
+  assert.equal(taskLoop.type, 'startLoop');
+  if (taskLoop.type !== 'startLoop') return;
+  assert.deepEqual(
+    taskLoop.steps.map((step) => step.type),
     ['break', 'reset', 'llm', 'llm', 'wait'],
   );
 
-  const [gate, reset, planner, implementer, retryWait] = inner.steps;
+  const [gate, reset, planner, implementer, retryWait] = taskLoop.steps;
   assert.equal(gate.type, 'break');
   if (gate.type === 'break') {
     assert.equal(gate.agentType, 'loop_control_agent');
@@ -71,7 +110,7 @@ test('implement_pr_task_fixes uses two nested loops and one reset two-step coder
 
   assert.equal(retryWait.type, 'wait');
   if (retryWait.type === 'wait') assert.equal(retryWait.seconds, 180);
-  const pollWait = outer.steps[1];
+  const pollWait = outer.steps[2];
   assert.equal(pollWait.type, 'wait');
   if (pollWait.type === 'wait') assert.equal(pollWait.seconds, 180);
 });
@@ -95,6 +134,10 @@ test('PR task planning and implementation prompts enforce the batch contract', (
     'smallest correct change',
     'still `OPEN`',
     'push succeeds',
+    'When the push fails',
+    '#AI Response:',
+    'AI Push Failure Key:',
+    'Whether that comment succeeds or fails',
     'tasks close',
     'Never resolve a task merely because work was attempted',
     'Do not create a local queue',
@@ -109,4 +152,30 @@ test('PR task planning and implementation prompts enforce the batch contract', (
   assert.match(planning, /Do not plan cleanup, modernization/u);
   assert.match(implementation, /untrusted review requirements and evidence/u);
   assert.match(implementation, /repository-owned tests/u);
+});
+
+test('pipeline failure recorder creates one durable deduplicated PR task', () => {
+  const recorder = readRepoFile(
+    'codeinfo_markdown/record_pr_pipeline_failure_task.md',
+  );
+
+  for (const required of [
+    'get_unrecorded_pr_pipeline_failure.py',
+    'pipelines steps log',
+    'every returned failed step',
+    'open or resolved task body',
+    'exact `failure_key`',
+    'create exactly one aggregate task',
+    'begin with `#AI Response:`',
+    'Do not create a comment',
+    'durable record',
+  ]) {
+    assert.match(
+      recorder,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'iu'),
+    );
+  }
+
+  assert.match(recorder, /Do not edit source/u);
+  assert.match(recorder, /untrusted failure evidence/u);
 });

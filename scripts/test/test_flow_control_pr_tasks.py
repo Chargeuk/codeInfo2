@@ -72,10 +72,12 @@ class FakeGtRunner:
         *,
         pr_state: str = "OPEN",
         source_branch: str = "feature/pr-fixes",
+        source_commit: str = "1234567890abcdef",
         task_pages: list[list[dict[str, Any]]] | None = None,
     ) -> None:
         self.pr_state = pr_state
         self.source_branch = source_branch
+        self.source_commit = source_commit
         self.task_pages = task_pages or [[]]
         self.calls: list[list[str]] = []
 
@@ -86,7 +88,10 @@ class FakeGtRunner:
             return {
                 "id": int(args[3]),
                 "state": self.pr_state,
-                "source": {"branch": {"name": self.source_branch}},
+                "source": {
+                    "branch": {"name": self.source_branch},
+                    "commit": {"hash": self.source_commit},
+                },
             }
         if args[2:5] != ["tasks", "list", args[4]]:
             raise AssertionError(f"unexpected gt arguments: {args}")
@@ -166,6 +171,7 @@ class PrTaskFlowControlTests(unittest.TestCase):
         self.assertEqual(batch.reference.pr_id, 528)
         self.assertEqual(batch.reference.repo, "io-api")
         self.assertEqual(batch.source_branch, "feature/pr-fixes")
+        self.assertEqual(batch.source_commit, "1234567890abcdef")
         self.assertEqual([item.task_id for item in batch.tasks], [20, 30])
         self.assertEqual(batch.tasks[0].body, "Second fix")
         self.assertEqual(batch.tasks[1].author["display_name"], "Reviewer")
@@ -310,7 +316,10 @@ class PrTaskFlowControlTests(unittest.TestCase):
                     print(json.dumps({
                         "id": 528,
                         "state": "OPEN",
-                        "source": {"branch": {"name": "feature/pr-fixes"}}
+                        "source": {
+                            "branch": {"name": "feature/pr-fixes"},
+                            "commit": {"hash": "1234567890abcdef"}
+                        }
                     }))
                 else:
                     print(json.dumps({

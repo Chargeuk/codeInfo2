@@ -51,6 +51,24 @@ class ReviewWorkspaceCheckTests(unittest.TestCase):
             self.assertEqual(result["status"], "failed")
             self.assertTrue(any("missing directory" in item for item in result["errors"]))
 
+    def test_rejects_job_boundary_redirected_to_a_sibling(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            batch = self.make_batch(Path(tmpdir))
+            sibling = batch / "jobs" / "reviewer-b"
+            for name in ("work", "output", "verification"):
+                (sibling / name).mkdir(parents=True)
+            (sibling / "job.md").write_text("# Sibling job\n", encoding="utf-8")
+
+            redirected_output = batch / "jobs" / "reviewer-a" / "output"
+            redirected_output.rmdir()
+            redirected_output.symlink_to(sibling / "output", target_is_directory=True)
+
+            result = check_workspace(batch)
+            self.assertEqual(result["status"], "failed")
+            self.assertIn(
+                "job reviewer-a output/ escapes its job root", result["errors"]
+            )
+
     def test_checks_git_head_as_a_fact(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

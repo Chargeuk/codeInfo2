@@ -46,6 +46,12 @@ const buildBindings = (params: {
   if (workingFolder !== undefined && typeof workingFolder !== 'string') {
     throw new Error('Wave working-folder binding must resolve to a string.');
   }
+  const normalizedWorkingFolder = workingFolder?.trim();
+  if (params.bindings?.workingFolderFrom && !normalizedWorkingFolder) {
+    throw new Error(
+      'Wave working-folder binding must resolve to a non-empty string.',
+    );
+  }
   const inputEntries = Object.entries(params.bindings?.input ?? {}).map(
     ([key, bindingPath]) => {
       const value = resolveFlowValue(params.root, bindingPath);
@@ -66,7 +72,9 @@ const buildBindings = (params: {
         })
       : undefined;
   return {
-    ...(workingFolder ? { workingFolder } : {}),
+    ...(normalizedWorkingFolder
+      ? { workingFolder: normalizedWorkingFolder }
+      : {}),
     ...(input ? { input, inputHash: hashFlowInput(input) } : {}),
   };
 };

@@ -97,6 +97,19 @@ test('expandSubflowWaveJobs rejects missing arrays and unresolved bindings', () 
   );
 });
 
+test('expandSubflowWaveJobs rejects blank explicit working-folder bindings', () => {
+  for (const repoRoot of ['', '   ']) {
+    assert.throws(
+      () =>
+        expandSubflowWaveJobs({
+          step,
+          input: { targets: [{ target_id: 'client', repo_root: repoRoot }] },
+        }),
+      /working-folder binding must resolve to a non-empty string/u,
+    );
+  }
+});
+
 test('expandSubflowWaveJobs discovers dynamic groups and preserves literal scheduling input', () => {
   const jobs = expandSubflowWaveJobs({
     step: {

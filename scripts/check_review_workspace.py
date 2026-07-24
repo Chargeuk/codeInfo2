@@ -56,9 +56,14 @@ def check_workspace(
                 errors.append(f"job escapes batch root: {job_root}")
             for name in ("work", "output", "verification"):
                 directory = job_root / name
-                if not directory.is_dir():
+                if not _contained(job_root, directory):
+                    errors.append(f"job {job_root.name} {name}/ escapes its job root")
+                elif not directory.is_dir():
                     errors.append(f"job {job_root.name} is missing {name}/")
-            if not (job_root / "job.md").is_file():
+            job_handoff = job_root / "job.md"
+            if not _contained(job_root, job_handoff):
+                errors.append(f"job {job_root.name} job.md escapes its job root")
+            elif not job_handoff.is_file():
                 errors.append(f"job {job_root.name} is missing job.md")
             output = job_root / "output"
             output_entries = sorted(path.name for path in output.iterdir()) if output.is_dir() else []

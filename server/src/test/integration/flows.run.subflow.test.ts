@@ -2002,6 +2002,7 @@ test('review workspace records attempts for a configured reviewer with a non-rev
       await execFile('git', ['rev-parse', 'HEAD'], { cwd: repoDir })
     ).stdout.trim();
     const reviewCycleId = '0000027-rc-generic-attempt';
+    const pinnedReviewCycleId = '0000027-rc-pinned-attempt';
     await fs.writeFile(
       path.join(
         repoDir,
@@ -2054,7 +2055,7 @@ test('review workspace records attempts for a configured reviewer with a non-rev
           plan_path: 'planning/0000027-codex-review.md',
           branched_from: 'main',
           plan_host_root: repoDir,
-          review_cycle_id: reviewCycleId,
+          review_cycle_id: pinnedReviewCycleId,
           review_wave_id: '0000027-rw-generic-attempt',
           targets_sha256: 'a'.repeat(64),
           created_at: '2026-07-24T00:00:00.000Z',
@@ -2085,7 +2086,7 @@ test('review workspace records attempts for a configured reviewer with a non-rev
       repoDir,
       'codeInfoTmp',
       'reviews',
-      reviewCycleId,
+      pinnedReviewCycleId,
       'attempts',
     );
     const [attempt] = await fs.readdir(attemptsDir);
@@ -2095,12 +2096,30 @@ test('review workspace records attempts for a configured reviewer with a non-rev
     );
     assert.match(evidence, /Flow: configured-review-child/u);
     assert.match(evidence, /Status: completed/u);
+    await assert.rejects(
+      fs.readdir(
+        path.join(
+          repoDir,
+          'codeInfoTmp',
+          'reviews',
+          reviewCycleId,
+          'attempts',
+        ),
+      ),
+      /ENOENT/u,
+    );
 
     const failedPreparation = await startFlowRun({
       flowName: 'parent-configured-review-wave',
       source: 'REST',
       working_folder: repoDir,
-      input: { review_batch_targets: { targets: [] } },
+      input: {
+        review_batch_targets: {
+          review_cycle_id: pinnedReviewCycleId,
+          review_wave_id: '0000027-rw-generic-attempt',
+          targets: [],
+        },
+      },
       chatFactory: () => new SubflowChat(25),
       listIngestedRepositories: async () => ({
         repos: [buildRepoEntry(repoDir)],

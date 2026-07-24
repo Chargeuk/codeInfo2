@@ -1011,6 +1011,46 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('main implementation flows reset the coder immediately before proof repair context', async () => {
+    const flowFiles = [
+      'flows/implement_next_plan.json',
+      'flows/implement_current_plan.json',
+      'flows/improve_task_implement_plan.json',
+      'flows/task_and_implement_plan.json',
+    ] as const;
+
+    for (const relativePath of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const steps = flattenSteps(parsed.steps ?? []);
+      const contextIndex = steps.findIndex(
+        (step) => step.label === 'Load coder current task context before proof repair',
+      );
+      assert.ok(contextIndex > 0, relativePath);
+      const reset = steps[contextIndex - 1];
+      const context = steps[contextIndex];
+      assert.equal(reset?.label, 'Reset coder before proof repair', relativePath);
+      assert.equal(reset?.type, 'reset', relativePath);
+      assert.equal(reset?.agentType, 'coding_agent', relativePath);
+      assert.equal(reset?.identifier, 'coder', relativePath);
+      assert.equal(context?.agentType, reset?.agentType, relativePath);
+      assert.equal(context?.identifier, reset?.identifier, relativePath);
+    }
+  });
+
+  test('reviewer flows preserve terminal reviewer failures for factual wave accounting', async () => {
+    for (const relativePath of [
+      'flows/codex_review.json',
+      'flows/open_code_review.json',
+    ]) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const reviewer = parsed.steps?.[0];
+      assert.equal(reviewer?.type, 'llm', relativePath);
+      assert.equal(reviewer?.continueOnFailure, undefined, relativePath);
+    }
+  });
+
   test('implement_current_plan preserves the persisted plan while retaining the canonical review path', async () => {
     const [currentRaw, nextRaw, repairPrompt] = await Promise.all([
       fs.readFile(

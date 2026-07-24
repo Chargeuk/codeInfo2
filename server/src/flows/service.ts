@@ -5139,6 +5139,10 @@ async function runFlowUnlocked(params: {
     nextPath: number[],
     isWave = false,
     isReviewBatch = false,
+    reviewAttemptIdentity?: {
+      reviewCycleId?: string;
+      reviewBatchId?: string;
+    },
   ): Promise<TurnStatus> => {
     if (jobs.length === 0) {
       throw toFlowRunError(
@@ -5485,6 +5489,8 @@ async function runFlowUnlocked(params: {
           status: paramsForAttempt.status,
           conversationId: paramsForAttempt.conversationId,
           reason: paramsForAttempt.reason,
+          reviewCycleId: reviewAttemptIdentity?.reviewCycleId,
+          reviewBatchId: reviewAttemptIdentity?.reviewBatchId,
         });
       } catch (error) {
         append({
@@ -6110,6 +6116,9 @@ async function runFlowUnlocked(params: {
   ) => {
     const root = { ...(params.input ?? {}), ...flowValues };
     let jobs = expandSubflowWaveJobs({ step, input: root });
+    let reviewAttemptIdentity:
+      | { reviewCycleId?: string; reviewBatchId?: string }
+      | undefined;
     if (step.reviewWorkspace) {
       const snapshot = resolveFlowValue(
         root,
@@ -6125,9 +6134,14 @@ async function runFlowUnlocked(params: {
           `Review workspace snapshot binding "${step.reviewWorkspace.snapshotFrom}" did not resolve.`,
         );
       }
+      const reviewSnapshot = snapshot as ReviewTargetSnapshot;
+      reviewAttemptIdentity = {
+        reviewCycleId: reviewSnapshot.review_cycle_id,
+        reviewBatchId: reviewSnapshot.review_wave_id,
+      };
       try {
         const workspace = await prepareReviewBatchWorkspace({
-          snapshot: snapshot as ReviewTargetSnapshot,
+          snapshot: reviewSnapshot,
           jobs,
           signal: getInflight(params.conversationId)?.abortController.signal,
         });
@@ -6168,6 +6182,8 @@ async function runFlowUnlocked(params: {
                   displayName: job.displayName,
                   status: 'failed',
                   reason,
+                  reviewCycleId: reviewAttemptIdentity?.reviewCycleId,
+                  reviewBatchId: reviewAttemptIdentity?.reviewBatchId,
                 }),
               ),
             );
@@ -6197,6 +6213,7 @@ async function runFlowUnlocked(params: {
       nextPath,
       true,
       Boolean(step.reviewWorkspace),
+      reviewAttemptIdentity,
     );
   };
 

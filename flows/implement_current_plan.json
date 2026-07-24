@@ -240,6 +240,12 @@
                       "breakOn": "yes"
                     },
                     {
+                      "type": "reset",
+                      "label": "Reset coder before proof repair",
+                      "agentType": "coding_agent",
+                      "identifier": "coder"
+                    },
+                    {
                       "type": "llm",
                       "label": "Load coder current task context before proof repair",
                       "agentType": "coding_agent",

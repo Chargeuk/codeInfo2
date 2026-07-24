@@ -3584,6 +3584,9 @@ const findFirstAgentStep = (
     ) {
       return step;
     }
+    if (step.type === 'subflowWave') {
+      return undefined;
+    }
     if (step.type === 'startLoop') {
       const nested = findFirstAgentStep(step.steps);
       if (nested) return nested;
@@ -3642,6 +3645,9 @@ const findRuntimeIdentityStep = (
       step.type === 'command'
     ) {
       return step;
+    }
+    if (step.type === 'subflowWave') {
+      return undefined;
     }
     if (step.type === 'startLoop') {
       const nested = findRuntimeIdentityStep(step.steps, null);

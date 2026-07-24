@@ -166,7 +166,8 @@
           "agentType": "loop_control_agent",
           "identifier": "batch_research_loop_controller",
           "question": "The optional stronger repair attempt for this batch has now had its single allowed invocation. Return exact JSON only: {\"answer\":\"yes\"}.",
-          "breakOn": "yes"
+          "breakOn": "yes",
+          "continueOnFailure": true
         }
       ]
     },

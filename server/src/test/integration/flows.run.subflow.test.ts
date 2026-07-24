@@ -1860,6 +1860,74 @@ test('parallel subflow waits for every child and continues best-effort when one 
   }
 });
 
+test('a review wave starts before an unavailable later loop controller is resolved', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-loop-controller-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-child',
+      steps: [llmStep('review child work')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-review-wave',
+      steps: [
+        {
+          type: 'startLoop',
+          maxIterations: 1,
+          steps: [
+            {
+              type: 'subflowWave',
+              failureMode: 'best_effort',
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'review',
+                  flowName: 'review-child',
+                },
+              ],
+            },
+            {
+              type: 'break',
+              agentType: 'loop_control_agent',
+              identifier: 'loop-controller',
+              question: 'Is another review wave needed?',
+              breakOn: 'yes',
+              breakOnFailure: true,
+            },
+          ],
+        },
+        llmStep('record review outcome'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'parent-review-wave',
+      source: 'REST',
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+          if (message.includes('Is another review wave needed?')) {
+            throw new Error('loop controller unavailable');
+          }
+        }),
+    });
+
+    await waitFor(() =>
+      executions.includes('review child work') &&
+      executions.includes('record review outcome'),
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('subflow wave preserves a failed child launch reason in progress state', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-launch-failure-'),

@@ -169,6 +169,32 @@ export async function prepareReviewBatchWorkspace(params: {
   const seenJobDirectories = new Set<string>();
   for (const job of params.jobs) {
     params.signal?.throwIfAborted();
+    const target = job.targetId
+      ? params.snapshot.targets.find(
+          (candidate) => candidate.target_id === job.targetId,
+        )
+      : undefined;
+    if (job.targetId && !target) {
+      throw new Error(
+        `Review job ${job.instanceId} references an unknown target.`,
+      );
+    }
+    if (target) {
+      if (!job.workingFolder) {
+        throw new Error(
+          `Review job ${job.instanceId} is missing a working folder for target ${job.targetId}.`,
+        );
+      }
+      const [workingFolder, targetRoot] = await Promise.all([
+        fs.realpath(job.workingFolder),
+        fs.realpath(target.repo_root),
+      ]);
+      if (workingFolder !== targetRoot) {
+        throw new Error(
+          `Review job ${job.instanceId} working folder does not match target ${job.targetId}.`,
+        );
+      }
+    }
     const directoryName = jobDirectorySegment(job.instanceId);
     if (seenJobDirectories.has(directoryName)) {
       throw new Error(
@@ -205,15 +231,7 @@ export async function prepareReviewBatchWorkspace(params: {
         `- Verification directory: ${verificationDir}`,
       ].join('\n')}\n`,
     );
-    if (job.targetId) {
-      const target = params.snapshot.targets.find(
-        (candidate) => candidate.target_id === job.targetId,
-      );
-      if (!target) {
-        throw new Error(
-          `Review job ${job.instanceId} references an unknown target.`,
-        );
-      }
+    if (target) {
       await atomicWriteText(
         path.join(
           target.repo_root,

@@ -4272,7 +4272,7 @@ No finding was rejected by this disposition. Both scope artifacts report no full
 
 ### Task 61. Re-Validate Story 64 After Complete Agent-Native Review Repair
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `final_revalidation`
 - Prerequisite: Tasks 1–60 remain complete. Revalidate settlement-time HEAD `6016cac6f5171abcf97ec54e30c5c48c66ceacdb`, or the latest Story 64 HEAD after any same-task repair.
@@ -4337,3 +4337,4 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 - Ran `npm run compose:down` successfully; all containers and the main Compose network started for proof were removed cleanly.
 - Ran `npm run lint` successfully with no errors or warnings; no additional repair was required.
 - Ran `npm run format:check` successfully; all matched files use Prettier code style and no additional repair was required.
+- Audit confirmed the implementation-plus-automated-proof pass is complete: the two test expectation updates only align fixtures with the scheduler-owned flow definitions, no unapproved user-facing behavior drift was introduced, all checklist items are complete, and no live blocker remains.

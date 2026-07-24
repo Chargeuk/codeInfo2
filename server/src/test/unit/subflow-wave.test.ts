@@ -141,6 +141,24 @@ test('expandSubflowWaveJobs discovers dynamic groups and preserves literal sched
   });
 });
 
+test('expandSubflowWaveJobs applies static binding validation to dynamic groups', () => {
+  assert.throws(() =>
+    expandSubflowWaveJobs({
+      step: { type: 'subflowWave', groupsFrom: 'review_groups' },
+      input: {
+        review_groups: [
+          {
+            kind: 'singleton',
+            id: 'review',
+            flowName: 'new_reviewer',
+            bindings: { inputValues: 'not an object' },
+          },
+        ],
+      },
+    }),
+  );
+});
+
 test('production review policy configures repeated and one-shot batches without review phase metadata', async () => {
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),

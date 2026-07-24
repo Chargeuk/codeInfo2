@@ -1,5 +1,8 @@
 import { hashFlowInput, normalizeFlowInput } from './flowInput.js';
-import type { FlowSubflowWaveStep } from './flowSchema.js';
+import {
+  parseFlowSubflowWaveGroups,
+  type FlowSubflowWaveStep,
+} from './flowSchema.js';
 import type { FlowJsonObject, FlowJsonValue } from './types.js';
 
 export type SubflowWaveJob = {
@@ -82,59 +85,7 @@ const buildBindings = (params: {
 const dynamicBindings = (
   value: FlowJsonValue | undefined,
 ): FlowSubflowWaveStep['groups'] => {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new Error('Dynamic subflow wave groups must be a non-empty array.');
-  }
-  return value.map((entry, index) => {
-    if (!isRecord(entry)) {
-      throw new Error(`Dynamic wave group ${index} must be an object.`);
-    }
-    const kind = entry.kind;
-    const id = entry.id;
-    if (
-      (kind !== 'matrix' && kind !== 'singleton') ||
-      typeof id !== 'string' ||
-      !id.trim()
-    ) {
-      throw new Error(`Dynamic wave group ${index} has invalid kind or id.`);
-    }
-    const bindings = isRecord(entry.bindings)
-      ? (entry.bindings as NonNullable<
-          NonNullable<FlowSubflowWaveStep['groups']>[number]['bindings']
-        >)
-      : undefined;
-    if (kind === 'singleton') {
-      if (typeof entry.flowName !== 'string' || !entry.flowName.trim()) {
-        throw new Error(`Dynamic singleton group ${id} lacks flowName.`);
-      }
-      return {
-        kind,
-        id: id.trim(),
-        flowName: entry.flowName.trim(),
-        ...(bindings ? { bindings } : {}),
-      };
-    }
-    if (
-      typeof entry.itemsFrom !== 'string' ||
-      typeof entry.itemName !== 'string' ||
-      !Array.isArray(entry.flowNames) ||
-      entry.flowNames.length === 0 ||
-      !entry.flowNames.every(
-        (flowName): flowName is string =>
-          typeof flowName === 'string' && Boolean(flowName.trim()),
-      )
-    ) {
-      throw new Error(`Dynamic matrix group ${id} is incomplete.`);
-    }
-    return {
-      kind,
-      id: id.trim(),
-      itemsFrom: entry.itemsFrom,
-      itemName: entry.itemName,
-      flowNames: entry.flowNames.map((flowName) => flowName.trim()),
-      ...(bindings ? { bindings } : {}),
-    };
-  });
+  return parseFlowSubflowWaveGroups(value);
 };
 
 export const resolveSubflowWaveGroups = (params: {

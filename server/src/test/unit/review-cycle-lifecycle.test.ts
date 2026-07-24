@@ -265,6 +265,49 @@ test('review invocation evidence survives a failed launch without a batch worksp
   );
 });
 
+test('review invocation evidence keeps distinct invocation identities separate', async () => {
+  const repo = await makeRepo();
+  await initializeReviewCycle(
+    { workingRepositoryPath: repo, mode: 'final' },
+    {
+      now: () => new Date('2026-07-18T12:00:00.000Z'),
+      randomHex: () => '22222222',
+    },
+  );
+  const firstPath = await recordReviewInvocationAttempt(
+    {
+      workingRepositoryPath: repo,
+      invocationId: 'batch:b%3Ac',
+      flowName: 'review_batch',
+      displayName: 'First review batch',
+      status: 'scheduled',
+    },
+    { now: () => new Date('2026-07-18T12:01:00.000Z') },
+  );
+  const secondPath = await recordReviewInvocationAttempt(
+    {
+      workingRepositoryPath: repo,
+      invocationId: 'batch:b-3Ac',
+      flowName: 'review_batch',
+      displayName: 'Second review batch',
+      status: 'scheduled',
+    },
+    { now: () => new Date('2026-07-18T12:01:01.000Z') },
+  );
+
+  assert.ok(firstPath);
+  assert.ok(secondPath);
+  assert.notEqual(firstPath, secondPath);
+  assert.match(
+    await fs.readFile(firstPath, 'utf8'),
+    /Invocation: batch:b%3Ac/u,
+  );
+  assert.match(
+    await fs.readFile(secondPath, 'utf8'),
+    /Invocation: batch:b-3Ac/u,
+  );
+});
+
 test('pending-only cleanup preserves an explicit agent-decided outcome', async () => {
   const repo = await makeRepo();
   await initializeReviewCycle(

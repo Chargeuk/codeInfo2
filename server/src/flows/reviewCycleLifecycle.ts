@@ -184,6 +184,9 @@ const safePathSegment = (value: string) =>
   value.trim().replace(/[^A-Za-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '') ||
   'review-attempt';
 
+const attemptPathSegment = (invocationId: string) =>
+  crypto.createHash('sha256').update(invocationId).digest('hex');
+
 const oneLine = (value: string) => value.replace(/\s+/gu, ' ').trim();
 
 export async function recordReviewInvocationAttempt(
@@ -242,7 +245,7 @@ export async function recordReviewInvocationAttempt(
     'reviews',
     safePathSegment(reviewOwnerId),
     'attempts',
-    `${safePathSegment(params.invocationId)}.md`,
+    `${attemptPathSegment(params.invocationId)}.md`,
   );
   let existing = '';
   try {

@@ -116,7 +116,10 @@ test('review batch workspace shares agent-readable input and pre-creates discove
       unknown
     >;
     assert.equal(codexJob.input_dir, openCodeJob.input_dir);
-    assert.match(String(codexJob.input_dir), /inputs[\\/]targets[\\/]cross-repository$/u);
+    assert.match(
+      String(codexJob.input_dir),
+      /inputs[\\/]targets[\\/][0-9a-f]{64}$/u,
+    );
     assert.match(String(crossRepositoryJob.input_dir), /inputs[\\/]cross-repository$/u);
     assert.notEqual(codexJob.input_dir, crossRepositoryJob.input_dir);
     assert.notEqual(codexJob.output_dir, openCodeJob.output_dir);
@@ -149,7 +152,7 @@ test('review batch workspace shares agent-readable input and pre-creates discove
       /Job directory/u,
     );
     const distinctIdentityResult = await prepareReviewBatchWorkspace({
-      snapshot,
+      snapshot: { ...snapshot, review_wave_id: '0000064-rw-distinct-identities' },
       jobs: [
         {
           instanceId: 'a-b:c:d',
@@ -168,6 +171,65 @@ test('review batch workspace shares agent-readable input and pre-creates discove
     const secondJob = distinctIdentityResult.jobs[1]?.input
       ?.review_job as Record<string, unknown>;
     assert.notEqual(firstJob.job_dir, secondJob.job_dir);
+
+    const longTargetId = 'target-identity-'.repeat(32);
+    const longIdentityResult = await prepareReviewBatchWorkspace({
+      snapshot: {
+        ...snapshot,
+        review_wave_id: '0000064-rw-long-identity',
+        targets: [{ ...snapshot.targets[0]!, target_id: longTargetId }],
+      },
+      jobs: [
+        {
+          instanceId: `target_reviews:${longTargetId}:codex_review`,
+          flowName: 'codex_review',
+          targetId: longTargetId,
+          displayName: 'codex_review [long identity]',
+          workingFolder: repoRoot,
+        },
+      ],
+    });
+    const longIdentityJob = longIdentityResult.jobs[0]?.input
+      ?.review_job as Record<string, unknown>;
+    assert.equal(path.basename(String(longIdentityJob.input_dir)).length, 64);
+    assert.equal(path.basename(String(longIdentityJob.job_dir)).length, 64);
+
+    const originalTargetInput = await fs.readFile(
+      path.join(String(codexJob.input_dir), 'review-target.md'),
+      'utf8',
+    );
+    const originalLaunchRecord = await fs.readFile(
+      path.join(result.batchRoot, 'batch-launch.md'),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(String(codexJob.output_dir), 'review.md'),
+      'original reviewer output',
+    );
+    await fs.writeFile(
+      path.join(repoRoot, 'planning', '0000064-review.md'),
+      '# Changed plan after launch',
+    );
+    const resumed = await prepareReviewBatchWorkspace({ snapshot, jobs });
+    assert.equal(resumed.batchRoot, result.batchRoot);
+    assert.equal(
+      await fs.readFile(
+        path.join(String(codexJob.input_dir), 'review-target.md'),
+        'utf8',
+      ),
+      originalTargetInput,
+    );
+    assert.equal(
+      await fs.readFile(
+        path.join(String(codexJob.output_dir), 'review.md'),
+        'utf8',
+      ),
+      'original reviewer output',
+    );
+    assert.equal(
+      await fs.readFile(path.join(result.batchRoot, 'batch-launch.md'), 'utf8'),
+      originalLaunchRecord,
+    );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

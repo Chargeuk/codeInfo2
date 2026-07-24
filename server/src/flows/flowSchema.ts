@@ -336,19 +336,23 @@ const FlowSubflowWaveSingletonGroupSchema = z
   })
   .strict();
 
+const FlowSubflowWaveGroupsSchema = z
+  .array(
+    z.union([
+      FlowSubflowWaveMatrixGroupSchema,
+      FlowSubflowWaveSingletonGroupSchema,
+    ]),
+  )
+  .min(1);
+
+export const parseFlowSubflowWaveGroups = (value: unknown) =>
+  FlowSubflowWaveGroupsSchema.parse(value);
+
 const FlowSubflowWaveStepSchema = z
   .object({
     type: z.literal('subflowWave'),
     label: trimmedNonEmptyString.optional(),
-    groups: z
-      .array(
-        z.union([
-          FlowSubflowWaveMatrixGroupSchema,
-          FlowSubflowWaveSingletonGroupSchema,
-        ]),
-      )
-      .min(1)
-      .optional(),
+    groups: FlowSubflowWaveGroupsSchema.optional(),
     groupsFrom: flowWaveBindingPath.optional(),
     failureMode: z.literal('best_effort').optional(),
     reviewWorkspace: z

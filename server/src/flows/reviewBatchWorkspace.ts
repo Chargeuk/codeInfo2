@@ -18,6 +18,8 @@ const safeSegment = (value: string) => {
   return normalized.replace(/^-+|-+$/gu, '') || 'review-job';
 };
 
+const locatorSegment = (flowName: string) => encodeURIComponent(flowName);
+
 const identityDirectorySegment = (identity: string) =>
   createHash('sha256').update(identity).digest('hex');
 
@@ -43,6 +45,15 @@ const atomicWriteText = async (filePath: string, content: string) => {
 const isDirectory = async (directoryPath: string) => {
   try {
     return (await fs.stat(directoryPath)).isDirectory();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+};
+
+const isFile = async (filePath: string) => {
+  try {
+    return (await fs.stat(filePath)).isFile();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
     throw error;
@@ -136,7 +147,9 @@ export async function prepareReviewBatchWorkspace(params: {
     'batches',
     safeSegment(batchId),
   );
-  const reusingBatch = await isDirectory(batchRoot);
+  const batchExists = await isDirectory(batchRoot);
+  const reusingBatch =
+    batchExists && (await isFile(path.join(batchRoot, 'batch-launch.md')));
   if (reusingBatch) {
     await Promise.all([
       requireDirectory(path.join(batchRoot, 'inputs'), 'inputs directory'),
@@ -347,7 +360,7 @@ export async function prepareReviewBatchWorkspace(params: {
           target.repo_root,
           'codeInfoTmp',
           'reviews',
-          `${params.snapshot.story_id}-current-${safeSegment(job.flowName)}-review-job.md`,
+          `${params.snapshot.story_id}-current-${locatorSegment(job.flowName)}-review-job.md`,
         ),
         `${[
           `# Current review job for ${job.flowName}`,

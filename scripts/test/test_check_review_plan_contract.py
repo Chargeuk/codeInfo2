@@ -29,6 +29,21 @@ class ReviewPlanContractTests(unittest.TestCase):
         self.assertFalse(result["valid"])
         self.assertEqual(result["violations"][0]["task_number"], 3)
 
+    def test_rejects_dash_and_star_unfinished_final_review_checkboxes(self) -> None:
+        result = inspect_plan(
+            """### Task 3. Implement
+
+- [ ] Run `two_phase_review_cycle` after completion.
+* [ ] Run `npm run review:cycle:summary -- --working-folder /repo`.
+"""
+        )
+
+        self.assertFalse(result["valid"])
+        self.assertEqual(
+            [violation["task_number"] for violation in result["violations"]],
+            [3, 3],
+        )
+
     def test_allows_checked_historical_review_and_diagnostic_wording(self) -> None:
         result = inspect_plan(
             """### Task 3. Implement

@@ -228,32 +228,29 @@ test('prepareReviewTargets ignores a redundant primary root but rejects duplicat
   }
 });
 
-test('prepareReviewTargets accepts equivalent unpadded story branches but rejects longer tokens', async () => {
+test('prepareReviewTargets requires canonical seven-digit story branches', async () => {
   const fixture = await prepareFixture(0);
   try {
     await execFile('git', ['branch', '-m', 'feature/64-other-story'], {
       cwd: fixture.primary,
     });
-    const accepted = await prepareReviewTargets(
-      { workingRepositoryPath: fixture.primary },
-      {
-        listIngestedRepositories: async () => ({
-          repos: fixture.repositories,
-          lockedModelId: null,
-        }),
-        resolveWorkingDirectory: async (workingFolder) => workingFolder,
-      },
-    );
-    assert.equal(
-      accepted.snapshot.targets[0]?.branch,
-      'feature/64-other-story',
+    await assert.rejects(
+      prepareReviewTargets(
+        { workingRepositoryPath: fixture.primary },
+        {
+          listIngestedRepositories: async () => ({
+            repos: fixture.repositories,
+            lockedModelId: null,
+          }),
+          resolveWorkingDirectory: async (workingFolder) => workingFolder,
+        },
+      ),
+      /does not match plan story 0000064/u,
     );
 
-    await execFile(
-      'git',
-      ['branch', '-m', 'feature/00000640-other-story'],
-      { cwd: fixture.primary },
-    );
+    await execFile('git', ['branch', '-m', 'feature/00000640-other-story'], {
+      cwd: fixture.primary,
+    });
 
     await assert.rejects(
       prepareReviewTargets(

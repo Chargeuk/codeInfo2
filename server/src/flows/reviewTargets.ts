@@ -21,11 +21,8 @@ import {
 } from './reviewIdentity.js';
 
 const execFile = promisify(execFileCb);
-const BRANCH_STORY_PATTERN = /^(\d+)(?:-|$)/u;
+const BRANCH_STORY_PATTERN = /^(\d{7})(?:-|$)/u;
 const SAFE_ALIAS_PATTERN = /[^A-Za-z0-9._-]+/gu;
-
-const normalizeStoryNumberToken = (value: string): string =>
-  value.replace(/^0+/u, '') || '0';
 
 export const REVIEW_TARGETS_SCHEMA_VERSION = 'codeinfo-review-targets/v1';
 
@@ -315,11 +312,7 @@ export async function prepareReviewTargets(
       .split('/')
       .at(-1)
       ?.match(BRANCH_STORY_PATTERN)?.[1];
-    if (
-      !branchStoryId ||
-      normalizeStoryNumberToken(branchStoryId) !==
-        normalizeStoryNumberToken(storyId)
-    ) {
+    if (!branchStoryId || branchStoryId !== storyId) {
       throw new Error(
         `Review target branch "${branch}" does not match plan story ${storyId}.`,
       );

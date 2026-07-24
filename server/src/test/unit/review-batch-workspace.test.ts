@@ -151,6 +151,46 @@ test('review batch workspace shares agent-readable input and pre-creates discove
       ),
       /Job directory/u,
     );
+    const distinctLocatorResult = await prepareReviewBatchWorkspace({
+      snapshot: { ...snapshot, review_wave_id: '0000064-rw-distinct-locators' },
+      jobs: [
+        {
+          instanceId: 'target_reviews:cross-repository:a:b',
+          flowName: 'a:b',
+          targetId: 'cross-repository',
+          displayName: 'first locator collision candidate',
+          workingFolder: repoRoot,
+        },
+        {
+          instanceId: 'target_reviews:cross-repository:a-b',
+          flowName: 'a-b',
+          targetId: 'cross-repository',
+          displayName: 'second locator collision candidate',
+          workingFolder: repoRoot,
+        },
+      ],
+    });
+    assert.notEqual(
+      await fs.readFile(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000064-current-a%3Ab-review-job.md',
+        ),
+        'utf8',
+      ),
+      await fs.readFile(
+        path.join(
+          repoRoot,
+          'codeInfoTmp',
+          'reviews',
+          '0000064-current-a-b-review-job.md',
+        ),
+        'utf8',
+      ),
+    );
+    assert.equal(distinctLocatorResult.jobs.length, 2);
     const distinctIdentityResult = await prepareReviewBatchWorkspace({
       snapshot: { ...snapshot, review_wave_id: '0000064-rw-distinct-identities' },
       jobs: [
@@ -193,6 +233,24 @@ test('review batch workspace shares agent-readable input and pre-creates discove
       ?.review_job as Record<string, unknown>;
     assert.equal(path.basename(String(longIdentityJob.input_dir)).length, 64);
     assert.equal(path.basename(String(longIdentityJob.job_dir)).length, 64);
+
+    const incompleteBatch = await prepareReviewBatchWorkspace({
+      snapshot: {
+        ...snapshot,
+        review_wave_id: '0000064-rw-interrupted-construction',
+      },
+      jobs,
+    });
+    await fs.rm(path.join(incompleteBatch.batchRoot, 'batch-launch.md'));
+    const recoveredBatch = await prepareReviewBatchWorkspace({
+      snapshot: {
+        ...snapshot,
+        review_wave_id: '0000064-rw-interrupted-construction',
+      },
+      jobs,
+    });
+    assert.equal(recoveredBatch.batchRoot, incompleteBatch.batchRoot);
+    await fs.access(path.join(recoveredBatch.batchRoot, 'batch-launch.md'));
 
     const originalTargetInput = await fs.readFile(
       path.join(String(codexJob.input_dir), 'review-target.md'),

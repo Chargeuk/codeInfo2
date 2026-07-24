@@ -6,7 +6,6 @@
       "label": "Review Cross-Repository Contracts",
       "agentType": "review_agent_heavy",
       "identifier": "cross_repository_reviewer",
-      "continueOnFailure": true,
       "markdownFile": "run_cross_repository_review_workspace.md"
     }
   ]

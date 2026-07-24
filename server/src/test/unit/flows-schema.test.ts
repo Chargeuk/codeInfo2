@@ -499,6 +499,29 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('terminal review output steps propagate failure to existing recovery', async () => {
+    const crossRepositoryRaw = await fs.readFile(
+      path.join(repoRoot, 'flows/cross_repository_review.json'),
+      'utf8',
+    );
+    const crossRepository = JSON.parse(crossRepositoryRaw) as {
+      steps?: FlowStep[];
+    };
+    const crossRepositoryReviewer = crossRepository.steps?.[0];
+
+    const artifactsRaw = await fs.readFile(
+      path.join(repoRoot, 'flows/review_artifacts_main.json'),
+      'utf8',
+    );
+    const artifacts = JSON.parse(artifactsRaw) as { steps?: FlowStep[] };
+    const consolidator = artifacts.steps?.at(-1);
+
+    assert.equal(crossRepositoryReviewer?.label, 'Review Cross-Repository Contracts');
+    assert.equal(crossRepositoryReviewer?.continueOnFailure, undefined);
+    assert.equal(consolidator?.label, 'Consolidate Multi-Agent Review');
+    assert.equal(consolidator?.continueOnFailure, undefined);
+  });
+
   test('review policy uses generic repeated and one-shot batches without leaking scheduling classes', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/two_phase_review_cycle.json'),

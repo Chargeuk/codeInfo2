@@ -213,9 +213,9 @@ describe('ConversationList control gating', () => {
                   subflowWaveProgress: {
                     expected: 7,
                     running: 0,
-                    completed: 6,
-                    failed: 0,
-                    stopped: 0,
+                    completed: 4,
+                    failed: 1,
+                    stopped: 1,
                     notApplicable: 1,
                   },
                 },

@@ -4308,9 +4308,9 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
-2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
-3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
+1. [x] In `codeInfo2`, run `npm run build:summary:server`.
+2. [x] In `codeInfo2`, run `npm run build:summary:client`.
+3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
 4. [ ] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
 5. [ ] In `codeInfo2`, run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, and full Playwright e2e suite without targeted filters.
 6. [ ] In `codeInfo2`, stop only the supported main stack started for this proof with `npm run compose:down`.
@@ -4339,6 +4339,10 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 - Ran `npm run compose:down` successfully; all containers and the main Compose network started for proof were removed cleanly.
 - Ran `npm run lint` successfully with no errors or warnings; no additional repair was required.
 - Ran `npm run format:check` successfully; all matched files use Prettier code style and no additional repair was required.
+- Ran `npm run build:summary:server` successfully in this automated-proof pass; no repair was required.
+- Ran `npm run build:summary:client` successfully in this automated-proof pass; the existing large-chunk warning remained non-fatal and no repair was required.
+- Ran `npm run compose:build:summary` successfully in this automated-proof pass; both Compose image builds passed and no repair was required.
+- **BLOCKER** Automated proof stopped at Testing item 4 (`npm run compose:up`): the wrapper preflight reported that required host port 5010 was already in use. `docker ps` showed the existing supported `codeinfo2-*` main stack already running, but this proof did not start it; stopping that stack to retry would violate the requirement to stop only the stack started by this proof. The task should be rerun after the existing main stack is released or explicitly handed off, not split or re-owned.
 - Ran `npm run lint` successfully with no lint errors or warnings; no story-caused repair was required in this pass.
 - Ran `npm run format:check` successfully; all matched files use Prettier code style and no story-caused repair was required in this pass.
 - Prior execution audit confirmed the implementation-plus-automated-proof pass for the earlier target HEAD; its results are retained as historical proof, but the later five repair commits make this reopened final validation necessary.

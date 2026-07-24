@@ -61,6 +61,20 @@ test('final review readiness requires done tasks and checked implementation and 
   assert.equal(result.unchecked_work[0]?.section, 'Testing');
 });
 
+test('final review readiness recognizes unchecked bullet work in subtasks and testing', () => {
+  const result = inspectFinalReviewReadiness(
+    completePlan
+      .replace('1. [x] Implement it.', '- [ ] Implement it.')
+      .replace('1. [x] Prove it.', '* [ ] Prove it.'),
+  );
+
+  assert.equal(result.eligible, false);
+  assert.deepEqual(result.unchecked_work, [
+    { task_number: 1, section: 'Subtasks', text: 'Implement it.' },
+    { task_number: 1, section: 'Testing', text: 'Prove it.' },
+  ]);
+});
+
 test('final review readiness preserves canonical live blockers', () => {
   const result = inspectFinalReviewReadiness(
     `${completePlan}\n- **BLOCKER** Waiting for the required proof.\n`,

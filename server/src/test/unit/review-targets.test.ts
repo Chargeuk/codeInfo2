@@ -120,6 +120,42 @@ test('prepareReviewTargets snapshots one and three canonical repository targets'
   }
 });
 
+test('prepareReviewTargets resolves relative additional repositories from the plan host', async () => {
+  const fixture = await prepareFixture(1);
+  try {
+    await fs.writeFile(
+      path.join(
+        fixture.primary,
+        'codeInfoStatus',
+        'flow-state',
+        'current-plan.json',
+      ),
+      JSON.stringify({
+        plan_path: 'planning/0000064-parallel-review.md',
+        additional_repositories: [
+          { path: path.relative(fixture.primary, fixture.additional[0]!) },
+        ],
+      }),
+    );
+
+    const result = await prepareReviewTargets(
+      { workingRepositoryPath: fixture.primary },
+      {
+        listIngestedRepositories: async () => ({
+          repos: fixture.repositories,
+          lockedModelId: null,
+        }),
+        resolveWorkingDirectory: async (workingFolder) =>
+          path.isAbsolute(workingFolder) ? workingFolder : undefined,
+      },
+    );
+
+    assert.equal(result.snapshot.targets[1]?.repo_root, fixture.additional[0]);
+  } finally {
+    await fs.rm(fixture.tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('prepareReviewTargets ignores a redundant primary root but rejects duplicate additional roots and story-mismatched branches', async () => {
   const fixture = await prepareFixture(1);
   try {

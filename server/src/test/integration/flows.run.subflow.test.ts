@@ -2141,6 +2141,84 @@ test('review workspace records attempts for a configured reviewer with a non-rev
   }
 });
 
+test('outer review_batch launch failures leave attempt evidence before a workspace exists', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-outer-review-batch-attempt-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    const reviewCycleId = '0000027-rc-outer-attempt';
+    await fs.writeFile(
+      path.join(
+        repoDir,
+        'codeInfoStatus',
+        'flow-state',
+        'active-review-cycle.json',
+      ),
+      JSON.stringify({
+        schema_version: 'codeinfo-active-review-cycle/v2',
+        review_cycle_id: reviewCycleId,
+        review_mode: 'final',
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        status: 'in_progress',
+        created_at: '2026-07-24T00:00:00.000Z',
+      }),
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'outer-review-batch-parent',
+      steps: [
+        {
+          type: 'subflowWave',
+          failureMode: 'best_effort',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'outer-review-batch',
+              flowName: 'review_batch',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'outer-review-batch-parent',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const attemptsDir = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      reviewCycleId,
+      'attempts',
+    );
+    const [attempt] = await fs.readdir(attemptsDir);
+    const evidence = await fs.readFile(
+      path.join(attemptsDir, String(attempt)),
+      'utf8',
+    );
+    assert.match(evidence, /Flow: review_batch/u);
+    assert.match(evidence, /Status: scheduled/u);
+    assert.match(evidence, /Status: failed/u);
+    assert.match(evidence, /FLOW_NOT_FOUND/u);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('nested subflows track only direct children per conversation and still complete recursively', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-nested-parallel-'),

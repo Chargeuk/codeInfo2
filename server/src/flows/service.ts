@@ -6212,7 +6212,8 @@ async function runFlowUnlocked(params: {
       command,
       nextPath,
       true,
-      Boolean(step.reviewWorkspace),
+      Boolean(step.reviewWorkspace) ||
+        jobs.some((job) => job.flowName === 'review_batch'),
       reviewAttemptIdentity,
     );
   };

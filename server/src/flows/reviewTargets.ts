@@ -274,7 +274,9 @@ export async function prepareReviewTargets(
   const targets: ReviewTarget[] = [];
   let primaryRealRoot: string | undefined;
   for (const [index, requestedTarget] of requestedTargets.entries()) {
-    const requestedPath = requestedTarget.path;
+    const requestedPath = path.isAbsolute(requestedTarget.path)
+      ? requestedTarget.path
+      : path.resolve(planHostRoot, requestedTarget.path);
     params.signal?.throwIfAborted();
     const mapped = await resolvedDeps.resolveWorkingDirectory(requestedPath);
     if (!mapped) {

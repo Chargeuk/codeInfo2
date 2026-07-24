@@ -91,7 +91,9 @@ export const inspectFinalReviewReadiness = (
     }
     for (const section of ['Subtasks', 'Testing']) {
       const body = sectionBody(taskText, section);
-      for (const match of body.matchAll(/^\s*\d+\. \[ \] (.+)$/gmu)) {
+      for (const match of body.matchAll(
+        /^\s*(?:[-*]|\d+\.)\s+\[ \] (.+)$/gmu,
+      )) {
         uncheckedWork.push({
           task_number: taskNumber,
           section,

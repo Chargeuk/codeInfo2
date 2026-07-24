@@ -197,6 +197,15 @@ Shortcut:
 3. Fix the failing container, config, or env issue.
 4. Re-run the same wrapper.
 
+### Repository-Owned Test Stack Reclamation
+
+- Manual and automated testing agents may stop a pre-existing or stale Docker or Compose stack when current repository evidence proves that it belongs to a repository they are permitted to test and is the documented stack required by the current testing step.
+- Establish ownership from repository-supported wrappers, Compose configuration, and Compose metadata or labels. An occupied port or container name alone is not sufficient.
+- Reclaim the stack with its repository-supported shutdown wrapper, then continue the documented startup and proof lifecycle. The stack does not need to have been started by the same agent or flow step.
+- Do not interrupt a healthy stack in the middle of the current startup, test, and shutdown lifecycle.
+- If repository ownership or testing applicability remains uncertain, do not stop the stack; report the conflict honestly.
+- These permissions apply to repository test stacks only. The protected local development stack rules below still take precedence.
+
 ## Local Stack Safety
 
 - If `docker-compose.local.yml` services are running, assume they may be hosting the current Codex or manual-testing session.

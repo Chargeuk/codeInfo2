@@ -5,6 +5,7 @@ Research the current blocker, prove the best technical solution, and record that
 <task>
 
 Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before classifying any Docker, Compose, occupied-port, or runtime-ownership blocker.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk if it exists, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape.
 Load a fresh bounded blocker-repair packet before checking for blockers.
@@ -61,6 +62,7 @@ If the implementation notes contain a blocker, your research must cover all of t
 4. Blocker-family classification
 
 - classify the blocker as one of: product or story seam; proof or test harness seam; shared wrapper or baseline seam; manual or runtime environment seam; task-shape or planning seam
+- Do not classify a proven repository-owned test stack as external or human-owned solely because the current agent did not start it. When its documented shutdown wrapper can reclaim it for the current proof, record that supported reclaim-and-retry path as immediately actionable rather than requiring a runtime handoff.
 - state whether the current task actually owns the blocker, or whether the evidence points to prerequisite baseline, harness, runtime-handoff, or task-shape repair
 
 5. Active runtime configuration

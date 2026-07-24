@@ -30,6 +30,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 <blocker_detection_rules>
 
 - Before deciding whether the current task has a live blocker, read `$CODEINFO_ROOT/codeinfo_markdown/shared/blocker-detection.md`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before preserving or adding any Docker, Compose, occupied-port, or runtime-ownership blocker.
 - Determine the bound task number from `current-task.json`, then run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <that-number>`.
 - Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
 - Treat only lines reported by the parser under `selected_task.live_blockers` as live blockers for this audit.
@@ -52,6 +53,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - Normalize checklist state from evidence before deciding whether a blocker is needed.
 - Mark completed subtasks and completed `Testing` items complete when the repository evidence shows they were honestly completed but left unchecked.
 - A bookkeeping omission is not a blocker by itself.
+- A proven repository-owned test stack that can be reclaimed with its documented shutdown wrapper is recoverable proof state. Retire any blocker whose only claim is that the current proof agent did not start that stack, leave the applicable testing item unchecked, and allow the proof loop to retry it.
 - After normalizing completed checklist items, recompute which subtasks and `Testing` items are truly still open.
 - A task must not remain `__done__` if it still has unchecked subtasks, unchecked testing, or a live standalone `**BLOCKER**`; if you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
 - Identify any blocker notes marked `**BLOCKER**`.

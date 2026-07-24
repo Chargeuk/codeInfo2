@@ -5,6 +5,7 @@ Remove every live implementation blocker preventing the bound task from progress
 <critical_rules>
 
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before classifying or repairing any Docker, Compose, occupied-port, or runtime-ownership blocker.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk next and determine the exact bound task from its contents.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`.
@@ -16,6 +17,7 @@ Remove every live implementation blocker preventing the bound task from progress
 - Do not ask the user to make a product or implementation decision. Research the available evidence and infer the most strongly supported answer.
 - Do not stop merely because the cause lies outside the current task, spans repositories, requires deeper investigation, or defeated an earlier agent.
 - Do not stop or restart `compose:local`.
+- A proven repository-owned test stack required by current proof may be reclaimed through its documented shutdown wrapper even when another agent or flow step started it. This permission never includes a protected `compose:local` stack.
 
 </critical_rules>
 
@@ -82,6 +84,8 @@ Give priority to:
 Do not stop because the repair appears to require a product decision. Infer the most strongly supported outcome from the available evidence.
 
 When the blocker concerns a missing `$CODEINFO_ROOT` asset or runtime mapping, inspect the Compose file named by `CODEINFO_RUNTIME_COMPOSE_FILE` and the relevant Dockerfile before classifying it as external. A missing mapping in the active checked-in Compose file is repository-owned configuration work when the persisted story scope permits that repair. Another Compose variant is not evidence that the active runtime is provisioned correctly. Implement and prove the checked-in repair when possible, but never stop or restart `compose:local`; record any required later container recreation honestly.
+
+When the blocker concerns an occupied port or a pre-existing Docker or Compose stack, establish repository ownership and testing applicability using `shared/test-stack-lifecycle.md`. If the stack is the repository-owned test stack required by current proof, reclaim it through the supported shutdown wrapper and retry. Do not require an external handoff solely because this agent did not start it.
 
 </research_rules>
 

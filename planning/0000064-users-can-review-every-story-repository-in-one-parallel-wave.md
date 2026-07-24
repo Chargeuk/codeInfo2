@@ -4307,14 +4307,14 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
-2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
-3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
-4. [ ] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
-5. [ ] In `codeInfo2`, run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, and full Playwright e2e suite without targeted filters.
-6. [ ] In `codeInfo2`, stop only the supported main stack started for this proof with `npm run compose:down`.
-7. [ ] In `codeInfo2`, run `npm run lint`.
-8. [ ] In `codeInfo2`, run `npm run format:check`.
+1. [x] In `codeInfo2`, run `npm run build:summary:server`.
+2. [x] In `codeInfo2`, run `npm run build:summary:client`.
+3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [x] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
+5. [x] In `codeInfo2`, run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, and full Playwright e2e suite without targeted filters.
+6. [x] In `codeInfo2`, stop only the supported main stack started for this proof with `npm run compose:down`.
+7. [x] In `codeInfo2`, run `npm run lint`.
+8. [x] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -4328,3 +4328,12 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 - Settlement audit aligned the startup proof with the exact supported `npm run compose:up` wrapper by removing an unsupported health-wait clause; optional health and browser observation remains non-blocking in `Manual Testing Guidance`.
 - Ran `npm run lint` successfully with no lint errors or warnings; no story-caused repair was required.
 - Ran `npm run format:check` successfully; all matched files use Prettier code style and no story-caused repair was required.
+- Ran `npm run build:summary:server` successfully on the current Story 64 HEAD; no repair was required.
+- Ran `npm run build:summary:client` successfully on the current Story 64 HEAD; the existing large-chunk warning was reported, with no build failure or story-caused repair required.
+- Ran `npm run compose:build:summary` successfully with both Compose image builds passing; no repair was required.
+- Ran `npm run compose:up` successfully; the supported main stack started and the server reached healthy state.
+- The first all-tests run exposed two stale production review-flow expectations for removed `continueOnFailure` fields; removed those fields from the Codex and production OpenCode unit-test expectations, then reran the canonical wrapper successfully.
+- Ran `npm run test:summary:all:parallel` successfully after repair: client 900/900, server unit 2604/2604, server Cucumber 133/133, and Playwright e2e 77/77 passed.
+- Ran `npm run compose:down` successfully; all containers and the main Compose network started for proof were removed cleanly.
+- Ran `npm run lint` successfully with no errors or warnings; no additional repair was required.
+- Ran `npm run format:check` successfully; all matched files use Prettier code style and no additional repair was required.

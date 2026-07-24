@@ -41,7 +41,6 @@ test('production OpenCode flow uses only the scheduler-provided workspace', () =
       label: 'Run OpenCode Workspace Review',
       agentType: 'review_agent_heavy',
       identifier: 'ocr_reviewer',
-      continueOnFailure: true,
       markdownFile: 'run_open_code_review_workspace.md',
     },
   ]);

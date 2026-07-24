@@ -4277,7 +4277,7 @@ No finding was rejected by this disposition. Both scope artifacts report no full
 
 ### Task 61. Re-Validate Story 64 After Complete Agent-Native Review Repair
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Repository Name: `codeInfo2`
 - Review Task Role: `final_revalidation`
 - Prerequisite: Tasks 1–60 remain complete. Revalidate settlement-time HEAD `43c992e41e2a7bdb3b1ede38ed49b28a2e9798d5`, or the latest Story 64 HEAD after any same-task repair.
@@ -4369,6 +4369,7 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 - Ran `npm run compose:down` after the repaired full-suite proof; the supported main proof stack and network were removed cleanly.
 - Reran `npm run lint` after the repaired flow definitions and test changes; it passed with no errors or warnings.
 - Reran `npm run format:check` after the repaired flow definitions and test changes; all matched files passed Prettier validation.
+- Implementation-plus-automated-proof audit completed at HEAD `c0960e95`: the final repair removed deprecated break-control flags from all four implementation flows and stabilized the repeated-wave title assertion, then the affected server build, Compose build/startup, full client/server/Cucumber/Playwright suite, shutdown, lint, and formatting checks all passed. All four subtasks and all eight automated testing items are now complete, and `plan_status.py --task-number 61` reports no live blockers. No story-caused preserved-behavior regression or unapproved user-facing drift was found; optional browser/provider scenarios remain non-blocking Manual Testing Guidance and are not claimed as executed. Task 61 is therefore honestly `__done__` pending no further automated proof work.
 
 ## Code Review Findings
 

@@ -4300,8 +4300,8 @@ Run fresh whole-story automated validation after all six agent-native review bat
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `codeInfo2`, run the supported lint command `npm run lint` and fix story-caused issues.
-2. [ ] In `codeInfo2`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+1. [x] In `codeInfo2`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [x] In `codeInfo2`, run the supported formatting check `npm run format:check` and fix story-caused issues.
 
 #### Testing
 
@@ -4326,3 +4326,5 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 
 - Created from the complete-pass settlement recommendation after six completed review batches. All actionable findings were resolved by committed normal repairs, and the final stronger repair completed with no-work confirmation; no review-fix task was created.
 - Settlement audit aligned the startup proof with the exact supported `npm run compose:up` wrapper by removing an unsupported health-wait clause; optional health and browser observation remains non-blocking in `Manual Testing Guidance`.
+- Ran `npm run lint` successfully with no lint errors or warnings; no story-caused repair was required.
+- Ran `npm run format:check` successfully; all matched files use Prettier code style and no story-caused repair was required.

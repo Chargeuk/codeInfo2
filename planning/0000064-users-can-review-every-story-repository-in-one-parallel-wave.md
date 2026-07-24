@@ -4301,8 +4301,8 @@ Run fresh whole-story automated validation after all six agent-native review bat
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `codeInfo2`, run the supported lint command `npm run lint` and fix story-caused issues.
-2. [ ] In `codeInfo2`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+1. [x] In `codeInfo2`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [x] In `codeInfo2`, run the supported formatting check `npm run format:check` and fix story-caused issues.
 
 #### Testing
 
@@ -4339,6 +4339,8 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 - Ran `npm run compose:down` successfully; all containers and the main Compose network started for proof were removed cleanly.
 - Ran `npm run lint` successfully with no errors or warnings; no additional repair was required.
 - Ran `npm run format:check` successfully; all matched files use Prettier code style and no additional repair was required.
+- Ran `npm run lint` successfully with no lint errors or warnings; no story-caused repair was required in this pass.
+- Ran `npm run format:check` successfully; all matched files use Prettier code style and no story-caused repair was required in this pass.
 - Prior execution audit confirmed the implementation-plus-automated-proof pass for the earlier target HEAD; its results are retained as historical proof, but the later five repair commits make this reopened final validation necessary.
 - Manual testing ran as final-task full-story proof after restarting the freshness-unknown main stack with `npm run compose:build` and `npm run compose:up`; `http://localhost:5010/health` returned `status: ok` and `http://localhost:5001` returned HTTP 200. The desktop and 390px-mobile Flows UI rendered persisted target/run identity chips and a completed diagnostic outcome; Chrome DevTools recorded successful provider, flow, conversation, and health requests with no console errors. No new provider review, cancellation, or resume was launched because the existing persisted completed run supplied the task-scoped visible evidence without contaminating runtime state; optional provider-backed launch coverage therefore remains intentionally unclaimed. Playwright screenshot capture was attempted, but its active MCP runtime saved only to an inaccessible `.playwright-mcp` path and neither `$CODEINFO_ROOT/playwright-output-local` nor `codeinfo2-playwright-mcp-local:/tmp/playwright-output` contained the images, so no scratch artifact was retained under `codeInfoTmp/manual-testing/0000064/61/`. `npm run compose:down` then removed only the main stack started for this proof; no code, subtasks, or testing steps were changed.
 

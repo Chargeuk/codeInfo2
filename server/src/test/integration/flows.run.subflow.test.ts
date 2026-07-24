@@ -1157,6 +1157,12 @@ test('repeated subflow wave titles show their loop iteration', async () => {
       chatFactory: () => new SubflowChat(25),
     });
     await waitForAssistantStatus(result.conversationId, 'ok');
+    await waitFor(() =>
+      findChildFlowConversations({
+        parentConversationId: result.conversationId,
+        childFlowNames: ['repeated-wave-child'],
+      }).length === 2,
+    );
 
     const titles = findChildFlowConversations({
       parentConversationId: result.conversationId,

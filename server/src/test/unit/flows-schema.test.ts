@@ -979,7 +979,7 @@ describe('flow schema (v1)', () => {
       assert.equal(normalGate?.identifier, 'coder', relativePath);
       assert.equal(normalGate?.breakOn, 'yes', relativePath);
       assert.equal(normalGate?.continueOnFailure, true, relativePath);
-      assert.equal(normalGate?.continueOnInvalidResponse, true, relativePath);
+      assert.equal(normalGate?.continueOnInvalidResponse, undefined, relativePath);
       assert.equal(normalGate?.breakOnFailure, undefined, relativePath);
       assert.match(normalGate?.question ?? '', /positively confirms/u);
       assert.match(normalGate?.question ?? '', /malformed, or uncertain/u);
@@ -1027,7 +1027,7 @@ describe('flow schema (v1)', () => {
         'implementation_research_loop_controller',
       );
       assert.equal(explicitExit?.breakOn, 'yes', relativePath);
-      assert.equal(explicitExit?.breakOnFailure, true, relativePath);
+      assert.equal(explicitExit?.breakOnFailure, undefined, relativePath);
       assert.match(explicitExit?.question ?? '', /single allowed invocation/u);
 
       if (canonicalOptionalRepair === undefined) {

@@ -4318,9 +4318,9 @@ Final-task repair scope: the whole approved story is in scope for failures found
 1. [x] In `codeInfo2`, run `npm run build:summary:server`.
 2. [x] In `codeInfo2`, run `npm run build:summary:client`.
 3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
-4. [ ] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
-5. [ ] In `codeInfo2`, run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, and full Playwright e2e suite without targeted filters.
-6. [ ] In `codeInfo2`, stop only the supported main stack started for this proof with `npm run compose:down`.
+4. [x] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
+5. [x] In `codeInfo2`, run `npm run test:summary:all:parallel`, covering the full client suite, full server unit/integration suite, full server Cucumber suite, and full Playwright e2e suite without targeted filters.
+6. [x] In `codeInfo2`, stop only the supported main stack started for this proof with `npm run compose:down`.
 7. [x] In `codeInfo2`, run `npm run lint`.
 8. [x] In `codeInfo2`, run `npm run format:check`.
 
@@ -4360,6 +4360,15 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 - Prior execution audit confirmed the implementation-plus-automated-proof pass for the earlier target HEAD; its results are retained as historical proof, but the later five repair commits make this reopened final validation necessary.
 - Manual testing ran as final-task full-story proof after restarting the freshness-unknown main stack with `npm run compose:build` and `npm run compose:up`; `http://localhost:5010/health` returned `status: ok` and `http://localhost:5001` returned HTTP 200. The desktop and 390px-mobile Flows UI rendered persisted target/run identity chips and a completed diagnostic outcome; Chrome DevTools recorded successful provider, flow, conversation, and health requests with no console errors. No new provider review, cancellation, or resume was launched because the existing persisted completed run supplied the task-scoped visible evidence without contaminating runtime state; optional provider-backed launch coverage therefore remains intentionally unclaimed. Playwright screenshot capture was attempted, but its active MCP runtime saved only to an inaccessible `.playwright-mcp` path and neither `$CODEINFO_ROOT/playwright-output-local` nor `codeinfo2-playwright-mcp-local:/tmp/playwright-output` contained the images, so no scratch artifact was retained under `codeInfoTmp/manual-testing/0000064/61/`. `npm run compose:down` then removed only the main stack started for this proof; no code, subtasks, or testing steps were changed.
 - Implementation-only audit after the latest repair commits found no story-caused preserved-behavior regression or unapproved user-facing drift. The preceding implementation pass had already run `npm run lint` and `npm run format:check` successfully on the current story work, so Testing items 7 and 8 are now checked; Compose startup, the unfiltered all-tests wrapper, and proof-stack shutdown remain open for the separate automated-proof pass. Task 61 remains `__in_progress__`, with all implementation subtasks complete and no live `**BLOCKER**`.
+- Ran `npm run compose:up` successfully in this automated-proof pass; the supported main stack started and the server reached healthy state.
+- The full all-tests wrapper exposed stale implementation-flow expectations and a race in the repeated-wave title test. The repair removed deprecated break-control flags from all four sibling implementation flows, updated the shared schema expectations, and added a bounded wait for both repeated-wave child conversations before asserting titles; targeted server checks passed, so affected prior server/Compose/startup/full-suite/lint/format proof was reset for honest rerun.
+- Reran `npm run build:summary:server` after the review-flow repair; it passed without warnings.
+- Reran `npm run compose:build:summary` after the review-flow repair; both Compose image builds passed.
+- Reran `npm run compose:up` after rebuilding the repaired server image; the supported main stack started and the server reached healthy state.
+- Reran `npm run test:summary:all:parallel` after the repair; client 900/900, server unit/integration 2619/2619, server Cucumber 133/133, and Playwright e2e 77/77 passed.
+- Ran `npm run compose:down` after the repaired full-suite proof; the supported main proof stack and network were removed cleanly.
+- Reran `npm run lint` after the repaired flow definitions and test changes; it passed with no errors or warnings.
+- Reran `npm run format:check` after the repaired flow definitions and test changes; all matched files passed Prettier validation.
 
 ## Code Review Findings
 

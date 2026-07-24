@@ -4,6 +4,11 @@ set -euo pipefail
 
 if [ -n "${CODEINFO_TEST_DOCKER_FIXTURE_LOG:-}" ]; then
   printf '%s\n' "$*" >>"${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  if [ "${CODEINFO_TEST_RECORD_DISPLAY_ENV:-0}" = "1" ]; then
+    printf 'display_env locale=%s time_zone=%s\n' \
+      "${CODEINFO_DISPLAY_LOCALE:-}" \
+      "${CODEINFO_DISPLAY_TIME_ZONE:-}" >>"${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  fi
 fi
 
 case "${1:-}" in

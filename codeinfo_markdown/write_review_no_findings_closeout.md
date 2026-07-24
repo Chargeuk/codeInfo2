@@ -1,6 +1,7 @@
 # Goal
 
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first whenever a review-set manifest exists, and do not treat unusable wave coverage as a no-findings result.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md` before deciding whether a structured current-pass findings block already owns the durable outcome.
 
 Append or repair the durable `Post-Implementation Code Review` closeout when the current review loop has finished cleanly with no remaining findings or follow-up review work.
 

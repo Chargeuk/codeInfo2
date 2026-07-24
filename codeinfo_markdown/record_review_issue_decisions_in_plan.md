@@ -1,6 +1,7 @@
 # Goal
 
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and record wave coverage, target ownership, and severity conflicts explicitly.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md` and use it as the authoritative human-readable plan block contract.
 
 Record the current review pass's accepted and ignored issue decisions in the canonical story plan before any minor review fix or task-up implementation begins.
 
@@ -61,11 +62,14 @@ Write this bounded current-pass result into `review-disposition-state.json` with
 
 <section_contract>
 
+Apply `shared/review-findings-plan-record.md` completely. The more specific identity, comparison, ordering, and retry rules below supplement that shared contract but never weaken its timestamp, review-harness, simple-description, example, or idempotency requirements.
+
 Write one block with this shape:
 
 ```markdown
 ## Code Review Findings
 
+- Findings recorded: `<local display timestamp including locale and IANA time zone>`
 - Review pass: `<review_pass_id>`
 - Review cycle: `<review_cycle_id>`
 - Comparison context: local `HEAD` `<head_commit>` versus resolved base `<comparison_base_ref>@<comparison_base_commit>` from the stored review handoff, with comparison rule `<comparison_rule>`, resolved base source `<resolved_base_source>`, and remote fetch status `<remote_fetch_status>`.
@@ -75,8 +79,9 @@ Write one block with this shape:
 #### 1. <plain-language title>
 
 - Finding ID: `<stable finding id>`
-- Found by: <every distinct validated review name, qualified by target alias when needed>
-- Description: <short, simple explanation of the issue>
+- Review harnesses:
+  - <human-readable harness name; flow/job identifier; target alias when known>
+- Simple description: <short, simple explanation of the issue>
 - Example: <small concrete example grounded in the validated review evidence>
 - Why accepted: <why the issue is valid and belongs to the current story>
 
@@ -85,8 +90,9 @@ Write one block with this shape:
 #### 2. <plain-language title>
 
 - Finding ID or Review reference: `<stable finding id or existing artifact source reference>`
-- Found by: <every distinct validated review name, or the exact existing source reference when no validated review name exists>
-- Description: <short, simple explanation of the issue>
+- Review harnesses:
+  - <human-readable harness name; flow/job identifier; target alias when known, or an honest unknown-harness entry with the exact existing source reference>
+- Simple description: <short, simple explanation of the issue>
 - Example: <small concrete example grounded in the validated review evidence>
 - Why ignored: <why the issue is invalid, unproven, already covered, or outside current-story scope>
 ```
@@ -98,12 +104,12 @@ Write one block with this shape:
 - Preserve material validated comparison details such as `comparison_rule`, `resolved_base_source`, `remote_fetch_status`, and a sanitized local fallback reason when one exists.
 - Add a concise confidence or provenance note only when a validated artifact records a material caveat, partial reviewer coverage, external-review origin, or safe descriptive inference. Keep that note with the metadata before `### Accepted` so it cannot be mistaken for part of an issue. Never use a note to excuse an identity mismatch.
 - Number issue titles continuously across both categories. Preserve stable finding IDs or existing review references separately because the display number is presentation, not workflow identity. Never manufacture a workflow finding ID for an artifact-only ignored candidate.
-- Derive `Found by` from the finding's canonical `review_sources`. Deduplicate exact review names, sort them deterministically by `review_name`, `repo_alias`, and `instance_id`, and qualify repeated names with `repo_alias` when present, then `instance_id` only when the alias still does not make them unique.
-- For a legacy or artifact-only ignored candidate with no canonical `review_sources`, write its exact existing source reference in `Found by`. If neither a validated review name nor an existing source reference is available, do not invent one; omit that unsafe candidate and record the existing confidence-note fallback when the remaining current-pass identity is still valid.
+- Derive `Review harnesses` from the finding's canonical `review_sources` and any validated corroborating source jobs. Deduplicate exact job identities, sort them deterministically by `review_name`, `repo_alias`, `flow_name`, and `instance_id`, and include the human-readable name, flow, and source job for each entry.
+- For a legacy or artifact-only ignored candidate with no canonical `review_sources`, write an honest unknown-harness entry with its exact existing source reference. If neither a validated review identity nor an existing source reference is available, do not invent one; omit that unsafe candidate and record the existing confidence-note fallback when the remaining current-pass identity is still valid.
 - Order accepted findings by their order in the validated findings artifact, then order ignored findings by their order in the validated artifacts. Use stable finding ID or existing source-reference order only as a deterministic fallback.
 - If one category has no current-pass entries, write `- None.` below that category instead of omitting the category.
-- Keep descriptions easy to understand and limited to the issue itself.
-- Ground every example in the validated finding's repository evidence. If the artifacts contain no honest concrete example, write `Example: No concrete example was recorded in the validated review evidence.` rather than inventing one.
+- Keep simple descriptions easy to understand and limited to the issue itself.
+- Ground every example in the validated finding's repository evidence. When the original artifact lacks an example, derive a truthful trigger, behavior, and consequence from that evidence. If no honest scenario can be inferred, name the exact evidence limitation instead of using a generic no-example placeholder.
 - Derive `Why accepted` from the finding evidence plus its final routed reason. Derive `Why ignored` from the stored rejection reason and any recorded scope gate. Do not re-adjudicate either decision.
 
 </section_contract>
@@ -148,7 +154,7 @@ Write one block with this shape:
 - Confirm classification and promotion were not changed.
 - Confirm any identity or commit recovery updated only retry bookkeeping, preserved every finding queue and `needs_task_up_path`, and did not create an incomplete-review blocker or bypass the one-shot path.
 - Confirm every listed issue belongs to the current review pass and exactly one category.
-- Confirm every issue has a numbered title, a stable finding ID or existing review reference, one non-empty `Found by` bullet, a simple description, an evidence-backed example or the explicit no-example fallback, and a decision rationale.
+- Confirm every issue has a numbered title, a stable finding ID or existing review reference, at least one non-empty `Review harnesses` entry, a simple description, an evidence-backed example or an exact explanation of the evidence that is unavailable, and a decision rationale.
 - Confirm accepted and ignored categories both exist, including `- None.` when applicable.
 - Confirm the current review pass appears in exactly one `## Code Review Findings` block.
 - Confirm historical review-pass blocks and existing tasks remain unchanged.

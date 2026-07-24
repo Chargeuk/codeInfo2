@@ -844,12 +844,13 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("- Review pass: `<review_pass_id>`", record_text)
         self.assertIn("- Review cycle: `<review_cycle_id>`", record_text)
         self.assertIn("- Comparison context:", record_text)
-        self.assertIn("- Description:", record_text)
+        self.assertIn("- Findings recorded:", record_text)
+        self.assertIn("- Simple description:", record_text)
         self.assertIn("- Example:", record_text)
-        self.assertIn("- Found by:", record_text)
+        self.assertIn("- Review harnesses:", record_text)
         self.assertIn("- Why accepted:", record_text)
         self.assertIn("- Why ignored:", record_text)
-        self.assertIn(
+        self.assertNotIn(
             "No concrete example was recorded in the validated review evidence",
             record_text,
         )
@@ -978,6 +979,86 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("minor_fix_loop_audit", task_up_text)
         self.assertIn("immutable historical evidence", task_up_text)
         self.assertIn("Addresses Findings", task_up_text)
+
+    def test_review_findings_and_completed_batch_records_share_human_contracts(
+        self,
+    ) -> None:
+        findings_contract = read_text(
+            "codeinfo_markdown/shared/review-findings-plan-record.md"
+        )
+        completed_contract = read_text(
+            "codeinfo_markdown/shared/completed-review-fix-task.md"
+        )
+
+        for required in (
+            "Findings recorded",
+            "CODEINFO_DISPLAY_LOCALE",
+            "CODEINFO_DISPLAY_TIME_ZONE",
+            "Review harnesses",
+            "Simple description",
+            "Example",
+            "generating or corroborating",
+            "Unknown review harness",
+            "never rewrite a historical block",
+        ):
+            self.assertIn(required, findings_contract)
+        self.assertIn("format-display-timestamp.mjs", findings_contract)
+        self.assertIn("UTC machine timestamps", findings_contract)
+        self.assertNotIn(
+            "No concrete example was recorded in the validated review evidence",
+            findings_contract,
+        )
+
+        for required in (
+            "Task Status: __done__",
+            "Review Task Role: completed_review_fixes",
+            "one matching task",
+            "Create no completed-review-fix task for a batch with no repair commit",
+            "Affected Repositories",
+            "Review Harnesses",
+            "Addresses Findings",
+            "exact full commits",
+            "final whole-story revalidation task",
+        ):
+            self.assertIn(required, completed_contract)
+
+        for relative_path in (
+            "codeinfo_markdown/disposition_review_batch.md",
+            "codeinfo_markdown/record_review_issue_decisions_in_plan.md",
+            "codeinfo_markdown/review_disposition.md",
+            "codeinfo_markdown/external_review_disposition.md",
+            "codeinfo_markdown/write_review_no_findings_closeout.md",
+            "codeinfo_markdown/audit_agent_native_review_settlement.md",
+        ):
+            self.assertIn(
+                "shared/review-findings-plan-record.md",
+                read_text(relative_path),
+                relative_path,
+            )
+
+        for relative_path in (
+            "codeinfo_markdown/record_review_batch_outcome.md",
+            "codeinfo_markdown/settle_agent_native_review_pass.md",
+            "codeinfo_markdown/apply_agent_native_review_settlement.md",
+            "codeinfo_markdown/audit_agent_native_review_settlement.md",
+        ):
+            self.assertIn(
+                "shared/completed-review-fix-task.md",
+                read_text(relative_path),
+                relative_path,
+            )
+
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        self.assertIn("every generating or corroborating review harness", disposition)
+        self.assertIn("short simple description", disposition)
+        self.assertIn("concrete evidence-grounded example", disposition)
+
+        settlement = read_text(
+            "codeinfo_markdown/apply_agent_native_review_settlement.md"
+        )
+        self.assertIn("exactly one `__done__` completed-review-fixes task", settlement)
+        self.assertIn("never create a task for a no-fix batch", settlement)
+        self.assertIn("Match by exact batch ID", settlement)
 
     def test_regression_fixtures_cover_real_runtime_miss_patterns(self) -> None:
         self.assertTrue(FIXTURES_DIR.is_dir())

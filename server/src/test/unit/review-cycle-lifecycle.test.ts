@@ -61,6 +61,19 @@ test('final review readiness requires done tasks and checked implementation and 
   assert.equal(result.unchecked_work[0]?.section, 'Testing');
 });
 
+test('final review readiness preserves canonical live blockers', () => {
+  const result = inspectFinalReviewReadiness(
+    `${completePlan}\n- **BLOCKER** Waiting for the required proof.\n`,
+  );
+  assert.equal(result.eligible, false);
+  assert.deepEqual(result.live_blockers, [
+    {
+      task_number: 1,
+      text: '- **BLOCKER** Waiting for the required proof.',
+    },
+  ]);
+});
+
 test('fresh final review archives stale disposition and records an in-progress cycle', async () => {
   const repo = await makeRepo();
   const stateRoot = path.join(repo, 'codeInfoStatus', 'flow-state');

@@ -253,6 +253,24 @@ test('review runner reports a terminal diagnostic ok outcome as successful', () 
   );
 });
 
+test('review runner does not report an all-failed diagnostic wave as successful', () => {
+  assert.equal(
+    isSuccessfulTerminalReview(
+      {
+        status: 'ok',
+        terminal: true,
+        subflowWaveProgress: {
+          expected: 2,
+          completed: 0,
+          failed: 2,
+        },
+      },
+      'diagnostic_review_cycle',
+    ),
+    false,
+  );
+});
+
 test('review runner gives equivalent launches the same retry ownership', () => {
   const launch = {
     workingFolder: '/repo',

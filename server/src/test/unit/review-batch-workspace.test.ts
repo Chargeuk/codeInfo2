@@ -8,6 +8,19 @@ import { prepareReviewBatchWorkspace } from '../../flows/reviewBatchWorkspace.js
 import type { ReviewTargetSnapshot } from '../../flows/reviewTargets.js';
 import type { SubflowWaveJob } from '../../flows/subflowWave.js';
 
+test('review batch workspace observes an already-aborted preparation signal', async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    prepareReviewBatchWorkspace({
+      snapshot: {} as ReviewTargetSnapshot,
+      jobs: [],
+      signal: controller.signal,
+    }),
+    /aborted/u,
+  );
+});
+
 test('review batch workspace shares agent-readable input and pre-creates discoverable jobs', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'review-batch-workspace-'),

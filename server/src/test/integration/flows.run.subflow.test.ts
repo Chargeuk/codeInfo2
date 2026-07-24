@@ -1989,6 +1989,139 @@ test('subflow wave preserves a failed child launch reason in progress state', as
   }
 });
 
+test('review workspace records attempts for a configured reviewer with a non-review_batch name', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-workspace-generic-attempt-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    const head = (
+      await execFile('git', ['rev-parse', 'HEAD'], { cwd: repoDir })
+    ).stdout.trim();
+    const reviewCycleId = '0000027-rc-generic-attempt';
+    await fs.writeFile(
+      path.join(
+        repoDir,
+        'codeInfoStatus',
+        'flow-state',
+        'active-review-cycle.json',
+      ),
+      JSON.stringify({
+        schema_version: 'codeinfo-active-review-cycle/v2',
+        review_cycle_id: reviewCycleId,
+        review_mode: 'final',
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        status: 'in_progress',
+        created_at: '2026-07-24T00:00:00.000Z',
+      }),
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'configured-review-child',
+      steps: [llmStep('configured reviewer work')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-configured-review-wave',
+      steps: [
+        {
+          type: 'subflowWave',
+          failureMode: 'best_effort',
+          reviewWorkspace: { snapshotFrom: 'review_batch_targets' },
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'configured-review',
+              flowName: 'configured-review-child',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-configured-review-wave',
+      source: 'REST',
+      working_folder: repoDir,
+      input: {
+        review_batch_targets: {
+          schema_version: 'codeinfo-review-targets/v1',
+          story_id: '0000027',
+          plan_path: 'planning/0000027-codex-review.md',
+          branched_from: 'main',
+          plan_host_root: repoDir,
+          review_cycle_id: reviewCycleId,
+          review_wave_id: '0000027-rw-generic-attempt',
+          targets_sha256: 'a'.repeat(64),
+          created_at: '2026-07-24T00:00:00.000Z',
+          targets: [
+            {
+              target_id: 'current_repository',
+              repo_alias: 'current_repository',
+              repo_root: repoDir,
+              repository_id: repoDir,
+              branch: 'feature/0000027-codex-review',
+              head_commit: head,
+              comparison_base_commit: head,
+              story_id: '0000027',
+              is_primary: true,
+            },
+          ],
+        },
+      },
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const attemptsDir = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      reviewCycleId,
+      'attempts',
+    );
+    const [attempt] = await fs.readdir(attemptsDir);
+    const evidence = await fs.readFile(
+      path.join(attemptsDir, String(attempt)),
+      'utf8',
+    );
+    assert.match(evidence, /Flow: configured-review-child/u);
+    assert.match(evidence, /Status: completed/u);
+
+    const failedPreparation = await startFlowRun({
+      flowName: 'parent-configured-review-wave',
+      source: 'REST',
+      working_folder: repoDir,
+      input: { review_batch_targets: { targets: [] } },
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitForAssistantStatus(failedPreparation.conversationId, 'failed');
+    const failureEvidence = await fs.readFile(
+      path.join(attemptsDir, String(attempt)),
+      'utf8',
+    );
+    assert.match(failureEvidence, /Status: failed/u);
+    assert.match(
+      failureEvidence,
+      /Review batch snapshot lacks a primary target/u,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('nested subflows track only direct children per conversation and still complete recursively', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-nested-parallel-'),

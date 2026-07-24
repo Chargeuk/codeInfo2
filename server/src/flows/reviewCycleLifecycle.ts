@@ -35,6 +35,7 @@ export type ReviewPlanReadiness = {
   task_count: number;
   incomplete_tasks: Array<{ number: number; status: string | null }>;
   unchecked_work: Array<{ task_number: number; section: string; text: string }>;
+  live_blockers: Array<{ task_number: number; text: string }>;
 };
 
 type ReviewCycleLifecycleDeps = {
@@ -77,6 +78,7 @@ export const inspectFinalReviewReadiness = (
   const headings = [...planMarkdown.matchAll(taskHeadingPattern)];
   const incompleteTasks: ReviewPlanReadiness['incomplete_tasks'] = [];
   const uncheckedWork: ReviewPlanReadiness['unchecked_work'] = [];
+  const liveBlockers: ReviewPlanReadiness['live_blockers'] = [];
   for (const [index, heading] of headings.entries()) {
     const taskNumber = Number(heading[1]);
     const start = heading.index ?? 0;
@@ -97,15 +99,25 @@ export const inspectFinalReviewReadiness = (
         });
       }
     }
+    for (const match of taskText.matchAll(
+      /^- \*\*BLOCKER\*\*(?:\s|$)(.*)$/gmu,
+    )) {
+      liveBlockers.push({
+        task_number: taskNumber,
+        text: (match[0] ?? '').trim(),
+      });
+    }
   }
   return {
     eligible:
       headings.length > 0 &&
       incompleteTasks.length === 0 &&
-      uncheckedWork.length === 0,
+      uncheckedWork.length === 0 &&
+      liveBlockers.length === 0,
     task_count: headings.length,
     incomplete_tasks: incompleteTasks,
     unchecked_work: uncheckedWork,
+    live_blockers: liveBlockers,
   };
 };
 

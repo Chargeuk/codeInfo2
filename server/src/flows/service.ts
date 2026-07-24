@@ -5138,6 +5138,7 @@ async function runFlowUnlocked(params: {
     command: TurnCommandMetadata,
     nextPath: number[],
     isWave = false,
+    isReviewBatch = false,
   ): Promise<TurnStatus> => {
     if (jobs.length === 0) {
       throw toFlowRunError(
@@ -5468,10 +5469,7 @@ async function runFlowUnlocked(params: {
       conversationId?: string;
       reason?: string;
     }) => {
-      if (
-        paramsForAttempt.job.flowName !== 'review_batch' ||
-        !waveInvocationId
-      ) {
+      if (!isReviewBatch || !waveInvocationId) {
         return;
       }
       const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
@@ -6127,25 +6125,79 @@ async function runFlowUnlocked(params: {
           `Review workspace snapshot binding "${step.reviewWorkspace.snapshotFrom}" did not resolve.`,
         );
       }
-      const workspace = await prepareReviewBatchWorkspace({
-        snapshot: snapshot as ReviewTargetSnapshot,
-        jobs,
-      });
-      jobs = workspace.jobs;
-      append({
-        level: 'info',
-        message: 'flows.run.review_batch_workspace_prepared',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          flowName: params.flowName,
-          batchId: workspace.batchId,
-          batchRoot: workspace.batchRoot,
-          jobCount: workspace.jobs.length,
-        },
-      });
+      try {
+        const workspace = await prepareReviewBatchWorkspace({
+          snapshot: snapshot as ReviewTargetSnapshot,
+          jobs,
+          signal: getInflight(params.conversationId)?.abortController.signal,
+        });
+        jobs = workspace.jobs;
+        append({
+          level: 'info',
+          message: 'flows.run.review_batch_workspace_prepared',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            batchId: workspace.batchId,
+            batchRoot: workspace.batchRoot,
+            jobCount: workspace.jobs.length,
+          },
+        });
+      } catch (error) {
+        const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+          params.repositoryContext,
+        );
+        const waveInvocationId = getWaveInvocationId(
+          nextPath,
+          loopStack,
+          waveInvocationGeneration,
+        );
+        const reason =
+          error instanceof Error
+            ? error.message
+            : 'Review workspace preparation failed.';
+        if (reviewRepositoryPath) {
+          try {
+            await Promise.all(
+              jobs.map((job) =>
+                recordReviewInvocationAttempt({
+                  workingRepositoryPath: reviewRepositoryPath,
+                  invocationId: `${waveInvocationId}--${job.instanceId}`,
+                  flowName: job.flowName,
+                  displayName: job.displayName,
+                  status: 'failed',
+                  reason,
+                }),
+              ),
+            );
+          } catch (attemptError) {
+            append({
+              level: 'warn',
+              message: 'flows.run.review_invocation_evidence_unavailable',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              context: {
+                flowName: params.flowName,
+                reason:
+                  attemptError instanceof Error
+                    ? attemptError.message
+                    : String(attemptError),
+              },
+            });
+          }
+        }
+        throw error;
+      }
     }
-    return runSubflowJobs(jobs, step.label, command, nextPath, true);
+    return runSubflowJobs(
+      jobs,
+      step.label,
+      command,
+      nextPath,
+      true,
+      Boolean(step.reviewWorkspace),
+    );
   };
 
   const runCommandStep = async (
@@ -6510,7 +6562,7 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
         instruction,
         response: exitFlow
-          ? `Skipped final review because story work remains: ${result.readiness.incomplete_tasks.length} incomplete task(s), ${result.readiness.unchecked_work.length} unchecked implementation or testing item(s).`
+          ? `Skipped final review because story work remains: ${result.readiness.incomplete_tasks.length} incomplete task(s), ${result.readiness.unchecked_work.length} unchecked implementation or testing item(s), ${result.readiness.live_blockers.length} live blocker(s).`
           : result.action === 'diagnostic'
             ? 'Initialized isolated diagnostic review without final-review disposition ownership.'
             : `Initialized review cycle ${result.cycle?.review_cycle_id}.`,

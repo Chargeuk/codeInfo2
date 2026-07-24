@@ -90,8 +90,14 @@ export const isSuccessfulTerminalReview = (
 ) =>
   status.terminalOutcome === 'not_applicable' ||
   (status.status === 'ok' &&
-    (flowName === 'diagnostic_review_cycle' ||
-      status.reviewCycleStatus === 'completed'));
+    (flowName === 'diagnostic_review_cycle'
+      ? !(
+          status.subflowWaveProgress?.expected > 0 &&
+          status.subflowWaveProgress.completed === 0 &&
+          status.subflowWaveProgress.failed ===
+            status.subflowWaveProgress.expected
+        )
+      : status.reviewCycleStatus === 'completed'));
 
 export const buildReviewRetryOwnershipId = ({
   workingFolder,

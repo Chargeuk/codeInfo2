@@ -93,9 +93,7 @@ export const isSuccessfulTerminalReview = (
     (flowName === 'diagnostic_review_cycle'
       ? !(
           status.subflowWaveProgress?.expected > 0 &&
-          status.subflowWaveProgress.completed === 0 &&
-          status.subflowWaveProgress.failed ===
-            status.subflowWaveProgress.expected
+          status.subflowWaveProgress.completed === 0
         )
       : status.reviewCycleStatus === 'completed'));
 

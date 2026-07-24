@@ -253,22 +253,24 @@ test('review runner reports a terminal diagnostic ok outcome as successful', () 
   );
 });
 
-test('review runner does not report an all-failed diagnostic wave as successful', () => {
-  assert.equal(
-    isSuccessfulTerminalReview(
-      {
-        status: 'ok',
-        terminal: true,
-        subflowWaveProgress: {
-          expected: 2,
-          completed: 0,
-          failed: 2,
+test('review runner does not report a zero-completion diagnostic wave as successful', () => {
+  for (const subflowWaveProgress of [
+    { expected: 2, completed: 0, failed: 2 },
+    { expected: 2, completed: 0, failed: 1, stopped: 1 },
+    { expected: 2, completed: 0, failed: 1, notApplicable: 1 },
+  ]) {
+    assert.equal(
+      isSuccessfulTerminalReview(
+        {
+          status: 'ok',
+          terminal: true,
+          subflowWaveProgress,
         },
-      },
-      'diagnostic_review_cycle',
-    ),
-    false,
-  );
+        'diagnostic_review_cycle',
+      ),
+      false,
+    );
+  }
 });
 
 test('review runner gives equivalent launches the same retry ownership', () => {

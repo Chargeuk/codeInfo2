@@ -164,7 +164,8 @@
                           "identifier": "coder",
                           "question": "Read the persisted current-plan and current-task handoffs, then run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>` using the task number resolved from the current-task handoff. Has the normal repair removed every live implementation blocker from the bound task? Answer yes only when the current parser output positively confirms that `selected_task.live_blockers` is empty. Answer no when any live blocker remains or the evidence is unavailable, malformed, or uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
                           "breakOn": "yes",
-                          "continueOnFailure": true
+                          "continueOnFailure": true,
+                          "continueOnInvalidResponse": true
                         },
                         {
                           "type": "reset",
@@ -186,7 +187,8 @@
                           "agentType": "loop_control_agent",
                           "identifier": "implementation_research_loop_controller",
                           "question": "The optional stronger implementation-blocker repair has now had its single allowed invocation. Return exact JSON only: {\"answer\":\"yes\"}.",
-                          "breakOn": "yes"
+                          "breakOn": "yes",
+                          "breakOnFailure": true
                         }
                       ]
                     },

@@ -44,6 +44,7 @@ export type FlowBreakStep = {
   question: string;
   breakOn: 'yes' | 'no';
   continueOnFailure?: boolean;
+  continueOnInvalidResponse?: boolean;
   breakOnFailure?: boolean;
   haltFlow?: boolean;
   exitFlow?: boolean;
@@ -189,6 +190,7 @@ const FlowBreakStepSchema = z
     question: trimmedNonEmptyString,
     breakOn: z.union([z.literal('yes'), z.literal('no')]),
     continueOnFailure: z.boolean().optional(),
+    continueOnInvalidResponse: z.boolean().optional(),
     breakOnFailure: z.boolean().optional(),
     haltFlow: z.boolean().optional(),
     exitFlow: z.boolean().optional(),

@@ -66,7 +66,15 @@ def check_workspace(
             elif not job_handoff.is_file():
                 errors.append(f"job {job_root.name} is missing job.md")
             output = job_root / "output"
-            output_entries = sorted(path.name for path in output.iterdir()) if output.is_dir() else []
+            output_entries: list[str] = []
+            if output.is_dir():
+                for entry in sorted(output.iterdir()):
+                    if not _contained(output, entry):
+                        errors.append(
+                            f"job {job_root.name} output entry escapes its output directory: {entry.name}"
+                        )
+                        continue
+                    output_entries.append(entry.name)
             job["output_entries"] = output_entries
             job["output_empty"] = not output_entries
             if not output_entries:

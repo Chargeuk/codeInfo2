@@ -781,6 +781,7 @@ const buildSubflowConversationTitle = (params: {
   stepLabel?: string;
   childFlowName: string;
   multipleChildren?: boolean;
+  waveLabel?: string;
 }) => {
   const parentTitle =
     params.parentPersistedTitle?.trim() ||
@@ -791,7 +792,9 @@ const buildSubflowConversationTitle = (params: {
     params.multipleChildren && trimmedStepLabel
       ? `${trimmedStepLabel}-${params.childFlowName}`
       : trimmedStepLabel || params.childFlowName;
-  return `${parentTitle}-${stepTitle}`;
+  return `${parentTitle}-${stepTitle}${
+    params.waveLabel ? ` (${params.waveLabel})` : ''
+  }`;
 };
 
 const buildFlowPathEntry = (params: { flowName: string; sourceId?: string }) =>
@@ -5291,6 +5294,10 @@ async function runFlowUnlocked(params: {
         stepLabel,
         childFlowName: job.displayName,
         multipleChildren: launchesMultipleChildren,
+        waveLabel:
+          isWave && loopStack.length > 0
+            ? `wave ${loopStack.map((frame) => frame.iteration).join('.')}`
+            : undefined,
       });
     const buildSubflowSummaryText = (prefix: string) =>
       launchesMultipleChildren
@@ -7159,8 +7166,9 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           if (
             status === 'failed' &&
-            step.continueOnFailure &&
-            failureKind === 'execution'
+            ((step.continueOnFailure && failureKind === 'execution') ||
+              (step.continueOnInvalidResponse &&
+                failureKind === 'invalid_response'))
           ) {
             lastCompletedStepPath = nextPath;
             clearContinueBoundaryForActiveLoop();

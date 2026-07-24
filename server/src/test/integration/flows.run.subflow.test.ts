@@ -1114,6 +1114,65 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
   }
 });
 
+test('repeated subflow wave titles show their loop iteration', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-title-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'repeated-wave-child',
+      steps: [llmStep('repeated wave child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'repeated-wave-parent',
+      steps: [
+        {
+          type: 'startLoop',
+          maxIterations: 2,
+          steps: [
+            {
+              type: 'subflowWave',
+              label: 'Run Repeated Review Wave',
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'repeated-review',
+                  flowName: 'repeated-wave-child',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'repeated-wave-parent',
+      customTitle: 'Repeated Review',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25),
+    });
+    await waitForAssistantStatus(result.conversationId, 'ok');
+
+    const titles = findChildFlowConversations({
+      parentConversationId: result.conversationId,
+      childFlowNames: ['repeated-wave-child'],
+    })
+      .map((conversation) => conversation.title)
+      .sort();
+    assert.deepEqual(titles, [
+      'Repeated Review-Run Repeated Review Wave (wave 1)',
+      'Repeated Review-Run Repeated Review Wave (wave 2)',
+    ]);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('stopping a subflow wave stops every repeated matrix and singleton child', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-stop-'),

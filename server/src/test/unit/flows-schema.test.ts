@@ -23,6 +23,7 @@ describe('flow schema (v1)', () => {
     breakOn?: string;
     breakOnFailure?: boolean;
     continueOnFailure?: boolean;
+    continueOnInvalidResponse?: boolean;
     continueOn?: string;
     haltFlow?: boolean;
     exitFlow?: boolean;
@@ -751,6 +752,7 @@ describe('flow schema (v1)', () => {
     assert.equal(completionGate?.identifier, 'batch_fixer');
     assert.equal(completionGate?.breakOn, 'yes');
     assert.equal(completionGate?.continueOnFailure, true);
+    assert.equal(completionGate?.continueOnInvalidResponse, true);
     assert.equal(completionGate?.breakOnFailure, undefined);
     assert.match(completionGate?.question ?? '', /positively confirmed/u);
     assert.match(completionGate?.question ?? '', /evidence is uncertain/u);
@@ -977,6 +979,7 @@ describe('flow schema (v1)', () => {
       assert.equal(normalGate?.identifier, 'coder', relativePath);
       assert.equal(normalGate?.breakOn, 'yes', relativePath);
       assert.equal(normalGate?.continueOnFailure, true, relativePath);
+      assert.equal(normalGate?.continueOnInvalidResponse, true, relativePath);
       assert.equal(normalGate?.breakOnFailure, undefined, relativePath);
       assert.match(normalGate?.question ?? '', /positively confirms/u);
       assert.match(normalGate?.question ?? '', /malformed, or uncertain/u);
@@ -1024,6 +1027,7 @@ describe('flow schema (v1)', () => {
         'implementation_research_loop_controller',
       );
       assert.equal(explicitExit?.breakOn, 'yes', relativePath);
+      assert.equal(explicitExit?.breakOnFailure, true, relativePath);
       assert.match(explicitExit?.question ?? '', /single allowed invocation/u);
 
       if (canonicalOptionalRepair === undefined) {

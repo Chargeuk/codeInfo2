@@ -69,6 +69,24 @@ class ReviewWorkspaceCheckTests(unittest.TestCase):
                 "job reviewer-a output/ escapes its job root", result["errors"]
             )
 
+    def test_rejects_output_entry_symlink_that_escapes_its_job(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            batch = self.make_batch(root)
+            output = batch / "jobs" / "reviewer-a" / "output"
+            external_output = root / "external-review.md"
+            external_output.write_text("outside", encoding="utf-8")
+            (output / "review.md").symlink_to(external_output)
+
+            result = check_workspace(batch)
+
+            self.assertEqual(result["status"], "failed")
+            self.assertTrue(result["facts"]["jobs"][0]["output_empty"])
+            self.assertIn(
+                "job reviewer-a output entry escapes its output directory: review.md",
+                result["errors"],
+            )
+
     def test_checks_git_head_as_a_fact(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

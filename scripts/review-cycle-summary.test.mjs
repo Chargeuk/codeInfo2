@@ -236,6 +236,23 @@ test('review runner requires completed durable settlement before reporting succe
   );
 });
 
+test('review runner reports a terminal diagnostic ok outcome as successful', () => {
+  assert.equal(
+    isSuccessfulTerminalReview(
+      {
+        status: 'ok',
+        terminal: true,
+      },
+      'diagnostic_review_cycle',
+    ),
+    true,
+  );
+  assert.equal(
+    isSuccessfulTerminalReview({ status: 'ok', terminal: true }),
+    false,
+  );
+});
+
 test('review runner gives equivalent launches the same retry ownership', () => {
   const launch = {
     workingFolder: '/repo',

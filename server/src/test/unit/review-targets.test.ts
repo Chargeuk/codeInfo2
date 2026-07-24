@@ -192,6 +192,33 @@ test('prepareReviewTargets ignores a redundant primary root but rejects duplicat
   }
 });
 
+test('prepareReviewTargets rejects a branch whose longer story token only shares the canonical prefix', async () => {
+  const fixture = await prepareFixture(0);
+  try {
+    await execFile(
+      'git',
+      ['branch', '-m', 'feature/00000640-other-story'],
+      { cwd: fixture.primary },
+    );
+
+    await assert.rejects(
+      prepareReviewTargets(
+        { workingRepositoryPath: fixture.primary },
+        {
+          listIngestedRepositories: async () => ({
+            repos: fixture.repositories,
+            lockedModelId: null,
+          }),
+          resolveWorkingDirectory: async (workingFolder) => workingFolder,
+        },
+      ),
+      /does not match plan story 0000064/u,
+    );
+  } finally {
+    await fs.rm(fixture.tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('prepareReviewTargets disambiguates colliding normalized additional aliases', async () => {
   const fixture = await prepareFixture(2);
   try {

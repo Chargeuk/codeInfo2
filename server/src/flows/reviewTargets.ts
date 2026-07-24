@@ -21,7 +21,7 @@ import {
 } from './reviewIdentity.js';
 
 const execFile = promisify(execFileCb);
-const BRANCH_STORY_PATTERN = /(\d{7})/u;
+const BRANCH_STORY_PATTERN = /^(\d+)(?:-|$)/u;
 const SAFE_ALIAS_PATTERN = /[^A-Za-z0-9._-]+/gu;
 
 export const REVIEW_TARGETS_SCHEMA_VERSION = 'codeinfo-review-targets/v1';
@@ -306,7 +306,11 @@ export async function prepareReviewTargets(
     if (!branch) {
       throw new Error(`Review target "${realRoot}" has a detached HEAD.`);
     }
-    if (branch.match(BRANCH_STORY_PATTERN)?.[1] !== storyId) {
+    const branchStoryId = branch
+      .split('/')
+      .at(-1)
+      ?.match(BRANCH_STORY_PATTERN)?.[1];
+    if (branchStoryId !== storyId) {
       throw new Error(
         `Review target branch "${branch}" does not match plan story ${storyId}.`,
       );

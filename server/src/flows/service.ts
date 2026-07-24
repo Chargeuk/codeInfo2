@@ -4220,6 +4220,11 @@ async function runFlowUnlocked(params: {
   let lastLoopExit = params.resumeState?.lastLoopExit;
   let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
+  const interruptedWaveStepPathKey =
+    params.resumeState?.restartReconciliation?.status === 'interrupted' &&
+    params.resumeState.subflowWaveProgress
+      ? getStepPathKey(params.resumeState.subflowWaveProgress.stepPath)
+      : null;
   if (params.resumeState) {
     params.resumeState.loopStack.forEach((frame) => {
       resumeLoopIterations.set(
@@ -6933,25 +6938,29 @@ async function runFlowUnlocked(params: {
 
       if (resumePathRemaining && resumeIndex === index) {
         if (resumePathRemaining.length === 1) {
+          const reenterInterruptedWave =
+            interruptedWaveStepPathKey === getStepPathKey(nextPath);
           resumePathRemaining = null;
           resumeIndex = undefined;
-          continue;
-        }
-        if (step.type !== 'startLoop') {
+          if (!reenterInterruptedWave) {
+            continue;
+          }
+        } else if (step.type !== 'startLoop') {
           throw toFlowRunError(
             'INVALID_REQUEST',
             'resumeStepPath must reference loop steps for nested indices',
           );
+        } else {
+          const outcome = await runStartLoopStep(
+            step,
+            nextPath,
+            resumePathRemaining.slice(1),
+          );
+          resumePathRemaining = null;
+          resumeIndex = undefined;
+          if (outcome !== 'ok') return outcome;
+          continue;
         }
-        const outcome = await runStartLoopStep(
-          step,
-          nextPath,
-          resumePathRemaining.slice(1),
-        );
-        resumePathRemaining = null;
-        resumeIndex = undefined;
-        if (outcome !== 'ok') return outcome;
-        continue;
       }
 
       if (step.type === 'llm') {
@@ -8090,7 +8099,9 @@ export const reconcileInterruptedFlowResumeStateForStartup = (
     restartReconciliation: {
       status: 'interrupted',
       reconciledAt,
-      resumeStepPath: [...resumeState.stepPath],
+      resumeStepPath: [
+        ...(resumeState.subflowWaveProgress?.stepPath ?? resumeState.stepPath),
+      ],
       interruptedSubflowCount,
       interruptedWaveRunningCount,
     },

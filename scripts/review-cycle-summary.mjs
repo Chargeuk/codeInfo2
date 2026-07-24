@@ -84,9 +84,14 @@ const progressFingerprint = (status) => {
   });
 };
 
-export const isSuccessfulTerminalReview = (status) =>
+export const isSuccessfulTerminalReview = (
+  status,
+  flowName = 'two_phase_review_cycle',
+) =>
   status.terminalOutcome === 'not_applicable' ||
-  (status.status === 'ok' && status.reviewCycleStatus === 'completed');
+  (status.status === 'ok' &&
+    (flowName === 'diagnostic_review_cycle' ||
+      status.reviewCycleStatus === 'completed'));
 
 export const buildReviewRetryOwnershipId = ({
   workingFolder,
@@ -404,14 +409,15 @@ const main = async () => {
           workingFolder: undefined,
           sourceId: values['source-id'],
         };
+    const flowName = values.diagnostic
+      ? 'diagnostic_review_cycle'
+      : 'two_phase_review_cycle';
     const result = await waitForReviewCycle({
       baseUrl,
       workingFolder: launch.workingFolder,
       sourceId: launch.sourceId,
       customTitle: values['custom-title'],
-      flowName: values.diagnostic
-        ? 'diagnostic_review_cycle'
-        : 'two_phase_review_cycle',
+      flowName,
       conversationId: values['conversation-id'],
       resumeOrphaned: Boolean(values['resume-orphaned']),
       pollMs,
@@ -434,7 +440,7 @@ const main = async () => {
         );
       },
     });
-    const passed = isSuccessfulTerminalReview(result.status);
+    const passed = isSuccessfulTerminalReview(result.status, flowName);
     const skipped = result.status.terminalOutcome === 'not_applicable';
     await run.closeLog();
     run.protocol.emitFinal({

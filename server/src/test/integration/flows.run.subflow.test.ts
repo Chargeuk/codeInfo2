@@ -317,6 +317,7 @@ const activeSubflowState = (params: {
   conversationId: string;
   runToken: string;
   instanceId?: string;
+  waveInvocationId?: string;
   title?: string;
 }) => ({
   stepPath: params.stepPath,
@@ -324,6 +325,9 @@ const activeSubflowState = (params: {
   conversationId: params.conversationId,
   runToken: params.runToken,
   ...(params.instanceId ? { instanceId: params.instanceId } : {}),
+  ...(params.waveInvocationId
+    ? { waveInvocationId: params.waveInvocationId }
+    : {}),
   ...(params.title ? { title: params.title } : {}),
 });
 
@@ -3424,6 +3428,159 @@ test('restart recovery resumes an interrupted wave child in its existing convers
         (turn) => turn.role === 'assistant' && turn.status === 'ok',
       ).length,
       2,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('restart recovery re-enters an interrupted later-loop wave with its existing child identity', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-later-loop-restart-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-wave-later-loop-restart',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-wave-later-loop-restart',
+      steps: [
+        {
+          type: 'startLoop',
+          maxIterations: 2,
+          steps: [
+            llmStep('completed decision'),
+            {
+              type: 'subflowWave',
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'later-loop-restart',
+                  flowName: 'child-wave-later-loop-restart',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const childConversationId = 'wave-later-loop-restart-child';
+    const parentConversationId = 'wave-later-loop-restart-parent';
+    const parentExecutionId = 'wave-later-loop-restart-execution';
+    const waveInvocationId = JSON.stringify({
+      stepPath: [0, 1],
+      loopStack: [{ loopStepPath: [0], iteration: 2 }],
+    });
+    const now = new Date();
+    memoryConversations.set(childConversationId, {
+      _id: childConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Later Loop Restarted Wave Child',
+      flowName: 'child-wave-later-loop-restart',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'wave-later-loop-restart-child-execution',
+          stepPath: [],
+          loopStack: [],
+          runLifecycle: { status: 'running', updatedAt: now.toISOString() },
+          agentConversations: {},
+          agentThreads: {},
+        },
+        flowChild: {
+          executionId: parentExecutionId,
+          instanceId: 'later-loop-restart:child-wave-later-loop-restart',
+          waveInvocationId,
+          displayName: 'Later Loop Restarted Wave Child',
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Later Loop Restarted Wave Parent',
+      flowName: 'parent-wave-later-loop-restart',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: parentExecutionId,
+          stepPath: [0, 0],
+          loopStack: [{ loopStepPath: [0], iteration: 2 }],
+          restartReconciliation: {
+            status: 'interrupted',
+            reconciledAt: now.toISOString(),
+            resumeStepPath: [0, 1],
+            interruptedSubflowCount: 1,
+            interruptedWaveRunningCount: 1,
+          },
+          activeSubflows: [
+            activeSubflowState({
+              stepPath: [0, 1],
+              flowName: 'child-wave-later-loop-restart',
+              conversationId: childConversationId,
+              runToken: 'interrupted-later-loop-child-run-token',
+              instanceId: 'later-loop-restart:child-wave-later-loop-restart',
+              waveInvocationId,
+              title: 'Later Loop Restarted Wave Child',
+            }),
+          ],
+          subflowWaveProgress: {
+            stepPath: [0, 1],
+            expected: 1,
+            running: 1,
+            completed: 0,
+            failed: 0,
+            stopped: 0,
+            notApplicable: 0,
+            jobs: [
+              {
+                instanceId: 'later-loop-restart:child-wave-later-loop-restart',
+                flowName: 'child-wave-later-loop-restart',
+                title: 'Later Loop Restarted Wave Child',
+                status: 'running',
+              },
+            ],
+            updatedAt: now.toISOString(),
+          },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-wave-later-loop-restart',
+      conversationId: parentConversationId,
+      resumeStepPath: [0, 1],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25),
+    });
+
+    assert.equal(resumed.conversationId, parentConversationId);
+    await waitForAssistantStatus(parentConversationId, 'ok');
+    await waitForAssistantStatus(childConversationId, 'ok');
+    assert.equal(
+      Array.from(memoryConversations.values()).filter(
+        (conversation) =>
+          conversation.flowName === 'child-wave-later-loop-restart',
+      ).length,
+      1,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

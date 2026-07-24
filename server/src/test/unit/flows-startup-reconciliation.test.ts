@@ -70,6 +70,25 @@ test('startup reconciliation preserves tracked children for deduplicated explici
   assert.deepEqual(reconciled.loopStack, [{ loopStepPath: [0], iteration: 3 }]);
 });
 
+test('startup reconciliation resumes the active later-loop wave instead of a stale completed step', () => {
+  const state = baseState();
+  state.stepPath = [0, 1];
+  state.loopStack = [{ loopStepPath: [0], iteration: 2 }];
+  state.activeSubflows![0]!.stepPath = [0, 2];
+  state.subflowWaveProgress!.stepPath = [0, 2];
+
+  const reconciled = reconcileInterruptedFlowResumeStateForStartup(
+    state,
+    '2026-07-18T08:00:00.000Z',
+  );
+
+  assert(reconciled);
+  assert.deepEqual(reconciled.restartReconciliation?.resumeStepPath, [0, 2]);
+  assert.deepEqual(reconciled.loopStack, [
+    { loopStepPath: [0], iteration: 2 },
+  ]);
+});
+
 test('startup reconciliation leaves a non-running checkpoint untouched', () => {
   const state = baseState();
   state.activeSubflows = undefined;

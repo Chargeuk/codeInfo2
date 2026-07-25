@@ -61,6 +61,41 @@ test('final review readiness requires done tasks and checked implementation and 
   assert.equal(result.unchecked_work[0]?.section, 'Testing');
 });
 
+test('final review readiness accepts canonical unquoted task statuses', () => {
+  const result = inspectFinalReviewReadiness(
+    completePlan.replace('`__done__`', '__done__'),
+  );
+  assert.equal(result.eligible, true);
+  assert.deepEqual(result.incomplete_tasks, []);
+});
+
+test('final review readiness recognizes unchecked bullet work in subtasks and testing', () => {
+  const result = inspectFinalReviewReadiness(
+    completePlan
+      .replace('1. [x] Implement it.', '- [ ] Implement it.')
+      .replace('1. [x] Prove it.', '* [ ] Prove it.'),
+  );
+
+  assert.equal(result.eligible, false);
+  assert.deepEqual(result.unchecked_work, [
+    { task_number: 1, section: 'Subtasks', text: 'Implement it.' },
+    { task_number: 1, section: 'Testing', text: 'Prove it.' },
+  ]);
+});
+
+test('final review readiness preserves canonical live blockers', () => {
+  const result = inspectFinalReviewReadiness(
+    `${completePlan}\n- **BLOCKER** Waiting for the required proof.\n`,
+  );
+  assert.equal(result.eligible, false);
+  assert.deepEqual(result.live_blockers, [
+    {
+      task_number: 1,
+      text: '- **BLOCKER** Waiting for the required proof.',
+    },
+  ]);
+});
+
 test('fresh final review archives stale disposition and records an in-progress cycle', async () => {
   const repo = await makeRepo();
   const stateRoot = path.join(repo, 'codeInfoStatus', 'flow-state');
@@ -238,6 +273,49 @@ test('review invocation evidence survives a failed launch without a batch worksp
       ),
     ),
     /ENOENT/u,
+  );
+});
+
+test('review invocation evidence keeps distinct invocation identities separate', async () => {
+  const repo = await makeRepo();
+  await initializeReviewCycle(
+    { workingRepositoryPath: repo, mode: 'final' },
+    {
+      now: () => new Date('2026-07-18T12:00:00.000Z'),
+      randomHex: () => '22222222',
+    },
+  );
+  const firstPath = await recordReviewInvocationAttempt(
+    {
+      workingRepositoryPath: repo,
+      invocationId: 'batch:b%3Ac',
+      flowName: 'review_batch',
+      displayName: 'First review batch',
+      status: 'scheduled',
+    },
+    { now: () => new Date('2026-07-18T12:01:00.000Z') },
+  );
+  const secondPath = await recordReviewInvocationAttempt(
+    {
+      workingRepositoryPath: repo,
+      invocationId: 'batch:b-3Ac',
+      flowName: 'review_batch',
+      displayName: 'Second review batch',
+      status: 'scheduled',
+    },
+    { now: () => new Date('2026-07-18T12:01:01.000Z') },
+  );
+
+  assert.ok(firstPath);
+  assert.ok(secondPath);
+  assert.notEqual(firstPath, secondPath);
+  assert.match(
+    await fs.readFile(firstPath, 'utf8'),
+    /Invocation: batch:b%3Ac/u,
+  );
+  assert.match(
+    await fs.readFile(secondPath, 'utf8'),
+    /Invocation: batch:b-3Ac/u,
   );
 });
 

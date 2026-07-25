@@ -1763,7 +1763,9 @@ test('codebase_question stops before chat construction when persisted metadata r
                 }),
               },
             ),
-            (error: unknown) => error instanceof assert.AssertionError,
+            (error: unknown) =>
+              error instanceof assert.AssertionError &&
+              /response\.result/.test(error.message),
           );
 
           assert.equal(conversations.get(conversationId)?.provider, 'codex');

@@ -625,7 +625,7 @@ test('direct command execution searches the working repository before the select
         },
         {
           sourceId: path.resolve(repoRoot),
-          sourceLabel: path.basename(repoRoot),
+          sourceLabel: 'codeInfo2',
           slot: 'codeinfo2',
         },
       ],

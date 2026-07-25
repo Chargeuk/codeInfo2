@@ -4752,9 +4752,7 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
       agentName,
       'config.toml',
     );
-    const configContents = (
-      await fs.readFile(fixtureConfigPath, 'utf8')
-    ).replace(/^codeinfo_openai_endpoint\s*=.*(?:\r?\n|$)/gmu, '');
+    const configContents = await fs.readFile(fixtureConfigPath, 'utf8');
     const agentHome = path.join(tempAgentsHome, agentName);
     await fs.mkdir(agentHome, { recursive: true });
     await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
@@ -4840,14 +4838,7 @@ test('T19 fixture-sweep parity keeps runtime config consistent across REST, flow
             flowFlags.push(flags);
           }),
       });
-      try {
-        await waitFor(() => flowFlags.length > 0, 5000);
-      } catch (error) {
-        throw new Error(
-          `Flow runtime flags were not captured for agent ${agentName}`,
-          { cause: error },
-        );
-      }
+      await waitFor(() => flowFlags.length > 0, 5000);
       await callTool(
         'run_agent_instruction',
         {

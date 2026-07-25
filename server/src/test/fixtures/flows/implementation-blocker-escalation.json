@@ -49,7 +49,8 @@
               "identifier": "coder",
               "question": "Did normal repair clear the implementation blocker?",
               "breakOn": "yes",
-              "continueOnFailure": true
+              "continueOnFailure": true,
+              "continueOnInvalidResponse": true
             },
             {
               "type": "reset",
@@ -76,7 +77,8 @@
               "agentType": "loop_control_agent",
               "identifier": "implementation_research_loop_controller",
               "question": "Exit the bounded stronger implementation repair?",
-              "breakOn": "yes"
+              "breakOn": "yes",
+              "breakOnFailure": true
             }
           ]
         },

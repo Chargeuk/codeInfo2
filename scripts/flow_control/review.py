@@ -201,13 +201,7 @@ def _structured_review_block_status(
             else "- Finding ID or Review reference:"
         )
         reason_prefix = "- Why accepted:" if accepted else "- Why ignored:"
-        required_prefixes = [
-            id_prefix,
-            "- Found by:",
-            "- Description:",
-            "- Example:",
-            reason_prefix,
-        ]
+        required_prefixes = [id_prefix, "- Example:", reason_prefix]
         for position, heading_index in enumerate(heading_indexes):
             match = heading_pattern.match(content[heading_index])
             if match is None:
@@ -231,6 +225,45 @@ def _structured_review_block_status(
                 if not value or value.startswith("<"):
                     return False, "issue_detail_missing", [], []
                 values[prefix] = value
+            legacy_provenance = [
+                "- Found by:",
+                "- Description:",
+            ]
+            current_provenance = [
+                "- Review harnesses:",
+                "- Simple description:",
+            ]
+            has_legacy_provenance = all(
+                sum(line.startswith(prefix) for line in item_lines) == 1
+                and any(
+                    line.startswith(prefix)
+                    and line[len(prefix) :].strip().strip("`").strip()
+                    for line in item_lines
+                )
+                for prefix in legacy_provenance
+            )
+            harness_indexes = [
+                index
+                for index, line in enumerate(item_lines)
+                if line.startswith(current_provenance[0])
+            ]
+            simple_descriptions = [
+                line[len(current_provenance[1]) :].strip().strip("`").strip()
+                for line in item_lines
+                if line.startswith(current_provenance[1])
+            ]
+            has_current_provenance = (
+                len(harness_indexes) == 1
+                and item_lines[harness_indexes[0]] == current_provenance[0]
+                and harness_indexes[0] + 1 < len(item_lines)
+                and item_lines[harness_indexes[0] + 1].startswith("- ")
+                and bool(item_lines[harness_indexes[0] + 1][2:].strip())
+                and len(simple_descriptions) == 1
+                and bool(simple_descriptions[0])
+                and not simple_descriptions[0].startswith("<")
+            )
+            if not has_legacy_provenance and not has_current_provenance:
+                return False, "issue_detail_missing", [], []
             finding_ids.append(values[id_prefix])
         return True, "category_valid", numbers, finding_ids
 

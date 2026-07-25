@@ -126,7 +126,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/review_job_workspace_contract.md"
         )
 
-        self.assertIn("current-review_artifacts_main-review-job.md", contract_text)
+        self.assertIn("Do not use a provider-specific per-job locator", contract_text)
         self.assertIn("Internal agent identifiers are stages", contract_text)
         for sibling in ("Codex", "OpenCode", "cross-repository"):
             self.assertIn(sibling, contract_text)
@@ -444,6 +444,9 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md"
         )
         disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        materiality = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md"
+        )
         authorization = read_text(
             "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
         )
@@ -474,7 +477,10 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Do not assume a provider list, expected reviewer count", batch_filter)
 
         self.assertIn("separate positive authorization gate", authorization)
-        self.assertIn("exact acceptance criterion", authorization)
+        self.assertIn(
+            "current top-level story Description, Acceptance Criteria, or Out Of Scope",
+            authorization,
+        )
         self.assertIn("counterfactual test", authorization)
         self.assertIn("Technical validity and positive story authorization", authorization)
         self.assertIn("cap, quota, threshold, timeout, retry count", authorization)
@@ -484,10 +490,72 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("scope-filtered-findings.md", disposition)
         self.assertIn("scope-authorized-findings.md", disposition)
-        self.assertIn("Never restore, direct-fix, or task up", disposition)
+        self.assertIn("materiality-filtered-findings.md", disposition)
+        self.assertIn("Never restore, direct-fix, or task it", disposition)
         self.assertIn("Ignored for This Story", disposition)
-        self.assertIn("only surviving positively authorized findings", disposition)
-        self.assertIn("Deduplicate by the finding's stable identity", disposition)
+        self.assertIn("materiality survivors", disposition)
+        self.assertIn("Deduplicate by stable identity and meaning", disposition)
+
+        self.assertIn("surviving positively authorized finding", materiality)
+        self.assertIn("concrete supported scenario", materiality)
+        self.assertIn("Meaningful impact", materiality)
+        self.assertIn("Value proportionate to change risk", materiality)
+        self.assertIn("Borderline", materiality)
+        self.assertIn("Do not invent numeric", materiality)
+        self.assertIn("materiality-filtered-findings.md", materiality)
+        self.assertIn("Do not modify implementation code", materiality)
+        self.assertIn("completed, partial, or unavailable", materiality)
+
+    def test_historical_review_decisions_never_authorize_current_work(self) -> None:
+        behavior_lock = read_text(
+            "codeinfo_markdown/shared/story_behavior_lock.md"
+        )
+        authorization = read_text(
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
+        )
+        scope_audit = read_text(
+            "codeinfo_markdown/audit_review_batch_scope_filter.md"
+        )
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        normal_fix = read_text(
+            "codeinfo_markdown/implement_review_batch_direct_fixes.md"
+        )
+        stronger_fix = read_text(
+            "codeinfo_markdown/implement_review_batch_remaining_fixes.md"
+        )
+        outcome = read_text("codeinfo_markdown/record_review_batch_outcome.md")
+
+        for prompt in (
+            behavior_lock,
+            authorization,
+            scope_audit,
+            disposition,
+            normal_fix,
+            stronger_fix,
+            outcome,
+        ):
+            self.assertIn("Historical `Code Review Findings`", prompt)
+            self.assertIn("never authorization", prompt)
+
+        self.assertIn(
+            "current top-level story Description, Acceptance Criteria, or Out Of Scope",
+            authorization,
+        )
+        self.assertIn(
+            "later user-approved expansion only after it has been incorporated",
+            authorization,
+        )
+        self.assertIn("comparison-base repository evidence", authorization)
+        self.assertIn(
+            "Never interpret a historical `Accepted` section as an explicit story decision",
+            authorization,
+        )
+        self.assertIn(
+            "A prior review decision or an implementation commit cannot establish preserved behavior by itself",
+            authorization,
+        )
+        self.assertIn("historically authorized", scope_audit)
+        self.assertIn("authorization conflict", outcome)
 
     def test_agent_native_derived_artifacts_are_autonomous_and_self_auditing(
         self,
@@ -505,6 +573,9 @@ class ReviewPromptContractTests(unittest.TestCase):
         authorization = read_text(
             "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
         )
+        materiality = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md"
+        )
         disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
 
         for prompt in (
@@ -512,6 +583,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             reconciliation_audit,
             scope_filter,
             authorization,
+            materiality,
             scope_audit,
             disposition,
         ):
@@ -530,12 +602,18 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("scope-authorized-findings.md", authorization)
         self.assertIn("partial or unavailable authorization artifact", authorization)
         self.assertIn("Do not select arbitrary values", authorization)
+        self.assertIn("materiality-filtered-findings.md", materiality)
+        self.assertIn("Do not reconsider", materiality)
         self.assertIn("independent audit and recovery", scope_audit)
         self.assertIn("question-only", scope_audit)
         self.assertIn("scope-filter-audit.md", scope_audit)
         self.assertIn("scope-authorized-findings.md", scope_audit)
-        self.assertIn("positive authorization tied to an exact acceptance criterion", scope_audit)
-        self.assertIn("never treat an absent or unusable authorization record as approval", disposition)
+        self.assertIn("materiality-filtered-findings.md", scope_audit)
+        self.assertIn(
+            "positive authorization tied to an exact statement in the current top-level",
+            scope_audit,
+        )
+        self.assertIn("Never treat an absent or unusable authorization record as approval", disposition)
         self.assertIn('plan_sections.py" --profile review-scope', scope_audit)
         self.assertIn("filter_review_findings_to_story_scope.md", scope_audit)
         self.assertIn("every job's immutable evidence remains unchanged", scope_audit)
@@ -544,7 +622,7 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("completed, partial, or unavailable", disposition)
         self.assertIn("scope-filter-audit.md", disposition)
-        self.assertIn("repairs recorded by the independent combined scope audit", disposition)
+        self.assertIn("repairs recorded by the independent combined filtering audit", disposition)
         self.assertIn("reopen the disposition", disposition)
         self.assertIn("without asking follow-up questions", disposition)
 
@@ -576,7 +654,10 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("Repair difficulty is advisory", disposition)
         self.assertIn("do not make a final implementation-task decision here", disposition)
-        self.assertIn("Consider every supported positively authorized actionable finding", normal_fix)
+        self.assertIn(
+            "Consider only supported, positively authorized findings that survived materiality",
+            normal_fix,
+        )
         self.assertIn("Group findings by owning target repository", normal_fix)
         self.assertIn("process repositories sequentially", normal_fix)
         self.assertIn("Create separate commits in every changed repository", normal_fix)
@@ -596,12 +677,18 @@ class ReviewPromptContractTests(unittest.TestCase):
             )
             self.assertIn("why every changed file was necessary", repair_prompt)
             self.assertIn("scope", repair_prompt.lower())
-        self.assertIn("Do not introduce an unapproved cap, quota, threshold", normal_fix)
+        self.assertIn("Do not introduce an unapproved policy", normal_fix)
         self.assertIn("Research authority does not authorize new story scope", stronger_fix)
         self.assertIn("genuinely unapproved product or runtime policy", stronger_fix)
-        self.assertIn("Reconstruct every supported positively authorized actionable finding", stronger_fix)
+        self.assertIn(
+            "Reconstruct only supported, positively authorized materiality survivors",
+            stronger_fix,
+        )
         self.assertIn("If the normal audit is missing or incomplete", stronger_fix)
-        self.assertIn("Your objective is to fix every remaining positively authorized finding", stronger_fix)
+        self.assertIn(
+            "Your objective is to fix every remaining positively authorized materiality survivor",
+            stronger_fix,
+        )
         self.assertIn("Create and execute an internal dependency-aware plan", stronger_fix)
         self.assertIn("related past stories and implementation notes", stronger_fix)
         self.assertIn("other ingested repositories", stronger_fix)
@@ -787,12 +874,13 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("- Review pass: `<review_pass_id>`", record_text)
         self.assertIn("- Review cycle: `<review_cycle_id>`", record_text)
         self.assertIn("- Comparison context:", record_text)
-        self.assertIn("- Description:", record_text)
+        self.assertIn("- Findings recorded:", record_text)
+        self.assertIn("- Simple description:", record_text)
         self.assertIn("- Example:", record_text)
-        self.assertIn("- Found by:", record_text)
+        self.assertIn("- Review harnesses:", record_text)
         self.assertIn("- Why accepted:", record_text)
         self.assertIn("- Why ignored:", record_text)
-        self.assertIn(
+        self.assertNotIn(
             "No concrete example was recorded in the validated review evidence",
             record_text,
         )
@@ -921,6 +1009,86 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("minor_fix_loop_audit", task_up_text)
         self.assertIn("immutable historical evidence", task_up_text)
         self.assertIn("Addresses Findings", task_up_text)
+
+    def test_review_findings_and_completed_batch_records_share_human_contracts(
+        self,
+    ) -> None:
+        findings_contract = read_text(
+            "codeinfo_markdown/shared/review-findings-plan-record.md"
+        )
+        completed_contract = read_text(
+            "codeinfo_markdown/shared/completed-review-fix-task.md"
+        )
+
+        for required in (
+            "Findings recorded",
+            "CODEINFO_DISPLAY_LOCALE",
+            "CODEINFO_DISPLAY_TIME_ZONE",
+            "Review harnesses",
+            "Simple description",
+            "Example",
+            "generating or corroborating",
+            "Unknown review harness",
+            "never rewrite a historical block",
+        ):
+            self.assertIn(required, findings_contract)
+        self.assertIn("format-display-timestamp.mjs", findings_contract)
+        self.assertIn("UTC machine timestamps", findings_contract)
+        self.assertNotIn(
+            "No concrete example was recorded in the validated review evidence",
+            findings_contract,
+        )
+
+        for required in (
+            "Task Status: __done__",
+            "Review Task Role: completed_review_fixes",
+            "one matching task",
+            "Create no completed-review-fix task for a batch with no repair commit",
+            "Affected Repositories",
+            "Review Harnesses",
+            "Addresses Findings",
+            "exact full commits",
+            "final whole-story revalidation task",
+        ):
+            self.assertIn(required, completed_contract)
+
+        for relative_path in (
+            "codeinfo_markdown/disposition_review_batch.md",
+            "codeinfo_markdown/record_review_issue_decisions_in_plan.md",
+            "codeinfo_markdown/review_disposition.md",
+            "codeinfo_markdown/external_review_disposition.md",
+            "codeinfo_markdown/write_review_no_findings_closeout.md",
+            "codeinfo_markdown/audit_agent_native_review_settlement.md",
+        ):
+            self.assertIn(
+                "shared/review-findings-plan-record.md",
+                read_text(relative_path),
+                relative_path,
+            )
+
+        for relative_path in (
+            "codeinfo_markdown/record_review_batch_outcome.md",
+            "codeinfo_markdown/settle_agent_native_review_pass.md",
+            "codeinfo_markdown/apply_agent_native_review_settlement.md",
+            "codeinfo_markdown/audit_agent_native_review_settlement.md",
+        ):
+            self.assertIn(
+                "shared/completed-review-fix-task.md",
+                read_text(relative_path),
+                relative_path,
+            )
+
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        self.assertIn("every generating or corroborating review harness", disposition)
+        self.assertIn("short simple description", disposition)
+        self.assertIn("concrete evidence-grounded example", disposition)
+
+        settlement = read_text(
+            "codeinfo_markdown/apply_agent_native_review_settlement.md"
+        )
+        self.assertIn("exactly one `__done__` completed-review-fixes task", settlement)
+        self.assertIn("never create a task for a no-fix batch", settlement)
+        self.assertIn("Match by exact batch ID", settlement)
 
     def test_regression_fixtures_cover_real_runtime_miss_patterns(self) -> None:
         self.assertTrue(FIXTURES_DIR.is_dir())

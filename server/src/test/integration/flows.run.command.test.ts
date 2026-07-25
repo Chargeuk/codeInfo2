@@ -1045,7 +1045,7 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
               },
               {
                 sourceId: path.resolve(repoRoot),
-                sourceLabel: path.basename(repoRoot),
+                sourceLabel: 'codeInfo2',
                 slot: 'owner_repository',
               },
             ],

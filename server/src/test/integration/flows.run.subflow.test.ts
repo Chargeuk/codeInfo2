@@ -7,7 +7,11 @@ import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import { getActiveRunOwnership } from '../../agents/runLock.js';
+import {
+  getActiveRunOwnership,
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
 import {
   abortInflight,
   registerPendingConversationCancel,
@@ -20,7 +24,12 @@ import {
 } from '../../chat/memoryPersistence.js';
 import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
-import { startFlowRun } from '../../flows/service.js';
+import {
+  getFlowConversationLifecycleStatus,
+  getFlowRunStatus,
+  startFlowRun,
+} from '../../flows/service.js';
+import type { FlowJsonObject } from '../../flows/types.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
@@ -73,7 +82,11 @@ class SubflowChat extends ChatInterface {
     _model: string,
   ) {
     void _model;
-    await this.onExecute?.({ message, flags, conversationId });
+    const responseOverride = await this.onExecute?.({
+      message,
+      flags,
+      conversationId,
+    });
     const signal = (flags as { signal?: AbortSignal }).signal;
     const abortIfNeeded = () => {
       if (!signal?.aborted) return false;
@@ -99,6 +112,12 @@ class SubflowChat extends ChatInterface {
 
     if (message.includes('child fail')) {
       this.emit('error', { type: 'error', message: 'child failed' });
+      return;
+    }
+
+    if (typeof responseOverride === 'string') {
+      this.emit('final', { type: 'final', content: responseOverride });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
       return;
     }
 
@@ -315,6 +334,8 @@ const activeSubflowState = (params: {
   conversationId: string;
   runToken: string;
   instanceId?: string;
+  waveInvocationId?: string;
+  inputHash?: string;
   title?: string;
 }) => ({
   stepPath: params.stepPath,
@@ -322,6 +343,10 @@ const activeSubflowState = (params: {
   conversationId: params.conversationId,
   runToken: params.runToken,
   ...(params.instanceId ? { instanceId: params.instanceId } : {}),
+  ...(params.waveInvocationId
+    ? { waveInvocationId: params.waveInvocationId }
+    : {}),
+  ...(params.inputHash ? { inputHash: params.inputHash } : {}),
   ...(params.title ? { title: params.title } : {}),
 });
 
@@ -372,6 +397,95 @@ afterEach(async () => {
   }
   memoryConversations.clear();
   memoryTurns.clear();
+});
+
+test('child lifecycle observation stays coherent across terminal persistence and ownership release', async () => {
+  const conversationId = 'child-lifecycle-terminal-transition';
+  const now = new Date();
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Child lifecycle transition',
+    flowName: 'child-lifecycle-transition',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'child-lifecycle-transition-execution',
+        stepPath: [],
+        loopStack: [],
+        runLifecycle: {
+          status: 'running',
+          updatedAt: now.toISOString(),
+        },
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: now,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  } as Conversation);
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+  const ownership = getActiveRunOwnership(conversationId);
+  assert.ok(ownership);
+
+  try {
+    assert.equal(
+      await getFlowConversationLifecycleStatus({
+        conversationId,
+        runToken: ownership.runToken,
+      }),
+      'running',
+    );
+
+    const conversation = memoryConversations.get(conversationId);
+    assert.ok(conversation);
+    memoryConversations.set(conversationId, {
+      ...conversation,
+      flags: {
+        ...conversation.flags,
+        flow: {
+          ...((conversation.flags as { flow: Record<string, unknown> }).flow ??
+            {}),
+          runLifecycle: {
+            status: 'ok',
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      },
+      updatedAt: new Date(),
+    } as Conversation);
+    recordMemoryTurn({
+      conversationId,
+      role: 'assistant',
+      content: 'child completed',
+      model: 'gpt-5.1-codex-max',
+      provider: 'codex',
+      toolCalls: null,
+      status: 'ok',
+      source: 'REST',
+      createdAt: new Date(),
+    });
+    const observedTerminal = await getFlowRunStatus(conversationId);
+    assert.equal(observedTerminal?.status, 'ok');
+    assert.equal(observedTerminal?.terminal, true);
+    assert.equal(
+      releaseConversationLock(conversationId, ownership.runToken),
+      true,
+    );
+
+    assert.equal(
+      await getFlowConversationLifecycleStatus({
+        conversationId,
+        runToken: ownership.runToken,
+      }),
+      'ok',
+    );
+  } finally {
+    releaseConversationLock(conversationId, ownership.runToken);
+  }
 });
 
 test('review initialization failures fail the flow instead of silently skipping the review cycle', async () => {
@@ -1112,6 +1226,151 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
   }
 });
 
+test('an active subflow wave recovers an orphaned child in place', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-orphan-recovery-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  let releaseChildGate: (() => void) | undefined;
+  const slowChildGate = new Promise<void>((resolve) => {
+    releaseChildGate = resolve;
+  });
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'orphaned-wave-child',
+      steps: [llmStep('slow child orphaned-wave-child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'orphaned-wave-parent',
+      steps: [
+        {
+          type: 'subflowWave',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'orphaned',
+              flowName: 'orphaned-wave-child',
+            },
+          ],
+        },
+      ],
+    });
+
+    const parent = await startFlowRun({
+      flowName: 'orphaned-wave-parent',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25, undefined, slowChildGate),
+    });
+    const [activeChild] = await waitForActiveSubflowCount(
+      parent.conversationId,
+      1,
+    );
+    assert.ok(activeChild?.conversationId);
+    const ownership = getActiveRunOwnership(String(activeChild.conversationId));
+    assert.ok(ownership);
+    assert.equal(
+      releaseConversationLock(
+        String(activeChild.conversationId),
+        ownership.runToken,
+      ),
+      true,
+    );
+    assert.equal(
+      await getFlowConversationLifecycleStatus({
+        conversationId: String(activeChild.conversationId),
+        runToken: ownership.runToken,
+      }),
+      'orphaned',
+    );
+
+    await waitFor(() =>
+      Boolean(getActiveRunOwnership(String(activeChild.conversationId))),
+    );
+    releaseChildGate?.();
+    await waitForAssistantStatus(parent.conversationId, 'ok');
+    assert.equal(
+      findChildFlowConversations({
+        parentConversationId: parent.conversationId,
+        childFlowNames: ['orphaned-wave-child'],
+      }).length,
+      1,
+    );
+  } finally {
+    releaseChildGate?.();
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('repeated subflow wave titles show their loop iteration', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-title-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'repeated-wave-child',
+      steps: [llmStep('repeated wave child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'repeated-wave-parent',
+      steps: [
+        {
+          type: 'startLoop',
+          maxIterations: 2,
+          steps: [
+            {
+              type: 'subflowWave',
+              label: 'Run Repeated Review Wave',
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'repeated-review',
+                  flowName: 'repeated-wave-child',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'repeated-wave-parent',
+      customTitle: 'Repeated Review',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25),
+    });
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    await waitFor(
+      () =>
+        findChildFlowConversations({
+          parentConversationId: result.conversationId,
+          childFlowNames: ['repeated-wave-child'],
+        }).length === 2,
+    );
+
+    const titles = findChildFlowConversations({
+      parentConversationId: result.conversationId,
+      childFlowNames: ['repeated-wave-child'],
+    })
+      .map((conversation) => conversation.title)
+      .sort();
+    assert.deepEqual(titles, [
+      'Repeated Review-Run Repeated Review Wave (wave 1)',
+      'Repeated Review-Run Repeated Review Wave (wave 2)',
+    ]);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('stopping a subflow wave stops every repeated matrix and singleton child', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-stop-'),
@@ -1372,14 +1631,20 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
       steps: [waveStep],
     });
     const input = { targets: [{ id: 'a' }, { id: 'b' }] };
-    const jobs = [
+    const jobs: Array<{
+      instanceId: string;
+      flowName: string;
+      input?: FlowJsonObject;
+    }> = [
       {
         instanceId: 'locals:a:wave-resume-local',
         flowName: 'wave-resume-local',
+        input: { target: { id: 'a' } },
       },
       {
         instanceId: 'locals:b:wave-resume-local',
         flowName: 'wave-resume-local',
+        input: { target: { id: 'b' } },
       },
       { instanceId: 'cross:wave-resume-cross', flowName: 'wave-resume-cross' },
     ];
@@ -1389,7 +1654,7 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
       const child = await startFlowRun({
         flowName: job.flowName,
         source: 'REST',
-        input: { target: job.instanceId },
+        input: job.input,
         chatFactory: () => new SubflowChat(300),
         onOwnershipReady: ({ runToken }) => {
           childRunToken = runToken;
@@ -1402,6 +1667,9 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
         instanceId: job.instanceId,
         conversationId: child.conversationId,
         runToken: childRunToken,
+        ...(job.input
+          ? { input: job.input, inputHash: hashFlowInput(job.input) }
+          : {}),
       });
     }
 
@@ -1861,6 +2129,144 @@ test('parallel subflow waits for every child and continues best-effort when one 
   }
 });
 
+test('a review wave starts before an unavailable later loop controller is resolved', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-loop-controller-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-child',
+      steps: [llmStep('review child work')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-review-wave',
+      steps: [
+        {
+          type: 'startLoop',
+          maxIterations: 1,
+          steps: [
+            {
+              type: 'subflowWave',
+              failureMode: 'best_effort',
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'review',
+                  flowName: 'review-child',
+                },
+              ],
+            },
+            {
+              type: 'break',
+              agentType: 'loop_control_agent',
+              identifier: 'loop-controller',
+              question: 'Is another review wave needed?',
+              breakOn: 'yes',
+              breakOnFailure: true,
+            },
+          ],
+        },
+        llmStep('record review outcome'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'parent-review-wave',
+      source: 'REST',
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+          if (message.includes('Is another review wave needed?')) {
+            throw new Error('loop controller unavailable');
+          }
+        }),
+    });
+
+    await waitFor(
+      () =>
+        executions.includes('review child work') &&
+        executions.includes('record review outcome'),
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('a malformed later review-loop decision still records the review outcome', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-malformed-loop-controller-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-child',
+      steps: [llmStep('review child work')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-review-wave',
+      steps: [
+        {
+          type: 'startLoop',
+          maxIterations: 1,
+          steps: [
+            {
+              type: 'subflowWave',
+              failureMode: 'best_effort',
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'review',
+                  flowName: 'review-child',
+                },
+              ],
+            },
+            {
+              type: 'break',
+              agentType: 'loop_control_agent',
+              identifier: 'loop-controller',
+              question: 'Is another review wave needed?',
+              breakOn: 'yes',
+              breakOnFailure: true,
+            },
+          ],
+        },
+        llmStep('record review outcome'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'parent-review-wave',
+      source: 'REST',
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+          if (message.includes('Is another review wave needed?')) {
+            return 'not json';
+          }
+        }),
+    });
+
+    await waitFor(
+      () =>
+        executions.includes('review child work') &&
+        executions.includes('record review outcome'),
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('subflow wave preserves a failed child launch reason in progress state', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-launch-failure-'),
@@ -1917,6 +2323,230 @@ test('subflow wave preserves a failed child launch reason in progress state', as
     assert.equal(progress?.jobs?.[0]?.status, 'failed');
     assert.match(progress?.jobs?.[0]?.reason ?? '', /FLOW_NOT_FOUND/u);
     assert.equal(typeof progress?.jobs?.[0]?.conversationId, 'string');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('review workspace records attempts for a configured reviewer with a non-review_batch name', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-workspace-generic-attempt-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    const head = (
+      await execFile('git', ['rev-parse', 'HEAD'], { cwd: repoDir })
+    ).stdout.trim();
+    const reviewCycleId = '0000027-rc-generic-attempt';
+    const pinnedReviewCycleId = '0000027-rc-pinned-attempt';
+    await fs.writeFile(
+      path.join(
+        repoDir,
+        'codeInfoStatus',
+        'flow-state',
+        'active-review-cycle.json',
+      ),
+      JSON.stringify({
+        schema_version: 'codeinfo-active-review-cycle/v2',
+        review_cycle_id: reviewCycleId,
+        review_mode: 'final',
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        status: 'in_progress',
+        created_at: '2026-07-24T00:00:00.000Z',
+      }),
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'configured-review-child',
+      steps: [llmStep('configured reviewer work')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-configured-review-wave',
+      steps: [
+        {
+          type: 'subflowWave',
+          failureMode: 'best_effort',
+          reviewWorkspace: { snapshotFrom: 'review_batch_targets' },
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'configured-review',
+              flowName: 'configured-review-child',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'parent-configured-review-wave',
+      source: 'REST',
+      working_folder: repoDir,
+      input: {
+        review_batch_targets: {
+          schema_version: 'codeinfo-review-targets/v1',
+          story_id: '0000027',
+          plan_path: 'planning/0000027-codex-review.md',
+          branched_from: 'main',
+          plan_host_root: repoDir,
+          review_cycle_id: pinnedReviewCycleId,
+          review_wave_id: '0000027-rw-generic-attempt',
+          targets_sha256: 'a'.repeat(64),
+          created_at: '2026-07-24T00:00:00.000Z',
+          targets: [
+            {
+              target_id: 'current_repository',
+              repo_alias: 'current_repository',
+              repo_root: repoDir,
+              repository_id: repoDir,
+              branch: 'feature/0000027-codex-review',
+              head_commit: head,
+              comparison_base_commit: head,
+              story_id: '0000027',
+              is_primary: true,
+            },
+          ],
+        },
+      },
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const attemptsDir = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      pinnedReviewCycleId,
+      'attempts',
+    );
+    const [attempt] = await fs.readdir(attemptsDir);
+    const evidence = await fs.readFile(
+      path.join(attemptsDir, String(attempt)),
+      'utf8',
+    );
+    assert.match(evidence, /Flow: configured-review-child/u);
+    assert.match(evidence, /Status: completed/u);
+    await assert.rejects(
+      fs.readdir(
+        path.join(repoDir, 'codeInfoTmp', 'reviews', reviewCycleId, 'attempts'),
+      ),
+      /ENOENT/u,
+    );
+
+    const failedPreparation = await startFlowRun({
+      flowName: 'parent-configured-review-wave',
+      source: 'REST',
+      working_folder: repoDir,
+      input: {
+        review_batch_targets: {
+          review_cycle_id: pinnedReviewCycleId,
+          review_wave_id: '0000027-rw-generic-attempt',
+          targets: [],
+        },
+      },
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitForAssistantStatus(failedPreparation.conversationId, 'failed');
+    const failureEvidence = await fs.readFile(
+      path.join(attemptsDir, String(attempt)),
+      'utf8',
+    );
+    assert.match(failureEvidence, /Status: failed/u);
+    assert.match(
+      failureEvidence,
+      /Review batch snapshot lacks a primary target/u,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('outer review_batch launch failures leave attempt evidence before a workspace exists', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-outer-review-batch-attempt-'),
+  );
+  const repoDir = path.join(tmpDir, 'repo');
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    const reviewCycleId = '0000027-rc-outer-attempt';
+    await fs.writeFile(
+      path.join(
+        repoDir,
+        'codeInfoStatus',
+        'flow-state',
+        'active-review-cycle.json',
+      ),
+      JSON.stringify({
+        schema_version: 'codeinfo-active-review-cycle/v2',
+        review_cycle_id: reviewCycleId,
+        review_mode: 'final',
+        story_id: '0000027',
+        plan_path: 'planning/0000027-codex-review.md',
+        status: 'in_progress',
+        created_at: '2026-07-24T00:00:00.000Z',
+      }),
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'outer-review-batch-parent',
+      steps: [
+        {
+          type: 'subflowWave',
+          failureMode: 'best_effort',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'outer-review-batch',
+              flowName: 'review_batch',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await startFlowRun({
+      flowName: 'outer-review-batch-parent',
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory: () => new SubflowChat(25),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForAssistantStatus(result.conversationId, 'ok');
+    const attemptsDir = path.join(
+      repoDir,
+      'codeInfoTmp',
+      'reviews',
+      reviewCycleId,
+      'attempts',
+    );
+    const [attempt] = await fs.readdir(attemptsDir);
+    const evidence = await fs.readFile(
+      path.join(attemptsDir, String(attempt)),
+      'utf8',
+    );
+    assert.match(evidence, /Flow: review_batch/u);
+    assert.match(evidence, /Status: scheduled/u);
+    assert.match(evidence, /Status: failed/u);
+    assert.match(evidence, /FLOW_NOT_FOUND/u);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -3281,7 +3911,7 @@ test('resume rejects malformed persisted child inputs and prior flow values', as
   }
 });
 
-test('restart recovery resumes an interrupted wave child in its existing conversation', async () => {
+test('restart recovery rejects a stale wave input hash and launches the current child', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-restart-recovery-'),
   );
@@ -3304,6 +3934,7 @@ test('restart recovery resumes an interrupted wave child in its existing convers
               kind: 'singleton',
               id: 'restart',
               flowName: 'child-wave-restart',
+              bindings: { inputValues: { generation: 'current' } },
             },
           ],
         },
@@ -3372,6 +4003,7 @@ test('restart recovery resumes an interrupted wave child in its existing convers
               conversationId: childConversationId,
               runToken: 'interrupted-wave-child-run-token',
               instanceId: 'restart:child-wave-restart',
+              inputHash: 'stale-input-hash',
               title: 'Restarted Wave Parent-child-wave-restart',
             }),
           ],
@@ -3413,22 +4045,173 @@ test('restart recovery resumes an interrupted wave child in its existing convers
 
     assert.equal(resumed.conversationId, parentConversationId);
     await waitForAssistantStatus(parentConversationId, 'ok');
-    await waitForAssistantStatus(childConversationId, 'ok');
-    assert.equal(
-      memoryConversations.get(childConversationId)?.flowName,
-      'child-wave-restart',
+    const childConversations = Array.from(memoryConversations.values()).filter(
+      (conversation) => conversation.flowName === 'child-wave-restart',
     );
-    assert.equal(
-      Array.from(memoryConversations.values()).filter(
-        (conversation) => conversation.flowName === 'child-wave-restart',
-      ).length,
-      1,
+    assert.equal(childConversations.length, 2);
+    const recreatedChild = childConversations.find(
+      (conversation) => conversation._id !== childConversationId,
     );
+    assert(recreatedChild);
+    await waitForAssistantStatus(recreatedChild._id, 'ok');
     assert.equal(
       (memoryTurns.get(childConversationId) ?? []).filter(
         (turn) => turn.role === 'assistant' && turn.status === 'ok',
       ).length,
-      2,
+      1,
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('restart recovery re-enters an interrupted later-loop wave with its existing child identity', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-later-loop-restart-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-wave-later-loop-restart',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-wave-later-loop-restart',
+      steps: [
+        {
+          type: 'startLoop',
+          maxIterations: 2,
+          steps: [
+            llmStep('completed decision'),
+            {
+              type: 'subflowWave',
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'later-loop-restart',
+                  flowName: 'child-wave-later-loop-restart',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const childConversationId = 'wave-later-loop-restart-child';
+    const parentConversationId = 'wave-later-loop-restart-parent';
+    const parentExecutionId = 'wave-later-loop-restart-execution';
+    const waveInvocationId = JSON.stringify({
+      stepPath: [0, 1],
+      loopStack: [{ loopStepPath: [0], iteration: 2 }],
+    });
+    const now = new Date();
+    memoryConversations.set(childConversationId, {
+      _id: childConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Later Loop Restarted Wave Child',
+      flowName: 'child-wave-later-loop-restart',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'wave-later-loop-restart-child-execution',
+          stepPath: [],
+          loopStack: [],
+          runLifecycle: { status: 'running', updatedAt: now.toISOString() },
+          agentConversations: {},
+          agentThreads: {},
+        },
+        flowChild: {
+          executionId: parentExecutionId,
+          instanceId: 'later-loop-restart:child-wave-later-loop-restart',
+          waveInvocationId,
+          displayName: 'Later Loop Restarted Wave Child',
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      title: 'Later Loop Restarted Wave Parent',
+      flowName: 'parent-wave-later-loop-restart',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: parentExecutionId,
+          stepPath: [0, 0],
+          loopStack: [{ loopStepPath: [0], iteration: 2 }],
+          restartReconciliation: {
+            status: 'interrupted',
+            reconciledAt: now.toISOString(),
+            resumeStepPath: [0, 1],
+            interruptedSubflowCount: 1,
+            interruptedWaveRunningCount: 1,
+          },
+          activeSubflows: [
+            activeSubflowState({
+              stepPath: [0, 1],
+              flowName: 'child-wave-later-loop-restart',
+              conversationId: childConversationId,
+              runToken: 'interrupted-later-loop-child-run-token',
+              instanceId: 'later-loop-restart:child-wave-later-loop-restart',
+              waveInvocationId,
+              title: 'Later Loop Restarted Wave Child',
+            }),
+          ],
+          subflowWaveProgress: {
+            stepPath: [0, 1],
+            expected: 1,
+            running: 1,
+            completed: 0,
+            failed: 0,
+            stopped: 0,
+            notApplicable: 0,
+            jobs: [
+              {
+                instanceId: 'later-loop-restart:child-wave-later-loop-restart',
+                flowName: 'child-wave-later-loop-restart',
+                title: 'Later Loop Restarted Wave Child',
+                status: 'running',
+              },
+            ],
+            updatedAt: now.toISOString(),
+          },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    const resumed = await startFlowRun({
+      flowName: 'parent-wave-later-loop-restart',
+      conversationId: parentConversationId,
+      resumeStepPath: [0, 1],
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25),
+    });
+
+    assert.equal(resumed.conversationId, parentConversationId);
+    await waitForAssistantStatus(parentConversationId, 'ok');
+    await waitForAssistantStatus(childConversationId, 'ok');
+    assert.equal(
+      Array.from(memoryConversations.values()).filter(
+        (conversation) =>
+          conversation.flowName === 'child-wave-later-loop-restart',
+      ).length,
+      1,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

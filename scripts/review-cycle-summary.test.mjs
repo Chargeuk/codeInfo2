@@ -236,6 +236,43 @@ test('review runner requires completed durable settlement before reporting succe
   );
 });
 
+test('review runner reports a terminal diagnostic ok outcome as successful', () => {
+  assert.equal(
+    isSuccessfulTerminalReview(
+      {
+        status: 'ok',
+        terminal: true,
+      },
+      'diagnostic_review_cycle',
+    ),
+    true,
+  );
+  assert.equal(
+    isSuccessfulTerminalReview({ status: 'ok', terminal: true }),
+    false,
+  );
+});
+
+test('review runner does not report a zero-completion diagnostic wave as successful', () => {
+  for (const subflowWaveProgress of [
+    { expected: 2, completed: 0, failed: 2 },
+    { expected: 2, completed: 0, failed: 1, stopped: 1 },
+    { expected: 2, completed: 0, failed: 1, notApplicable: 1 },
+  ]) {
+    assert.equal(
+      isSuccessfulTerminalReview(
+        {
+          status: 'ok',
+          terminal: true,
+          subflowWaveProgress,
+        },
+        'diagnostic_review_cycle',
+      ),
+      false,
+    );
+  }
+});
+
 test('review runner gives equivalent launches the same retry ownership', () => {
   const launch = {
     workingFolder: '/repo',
@@ -336,6 +373,7 @@ test('review runner resumes an orphan only when explicitly requested', async () 
   const calls = [];
   const statuses = [
     flowStatus('orphaned', true, { resumeStepPath: [0, 2] }),
+    flowStatus('orphaned', true, { resumeStepPath: [0, 2] }),
     flowStatus('ok', true),
   ];
   const result = await waitForReviewCycle({
@@ -369,35 +407,27 @@ test('review runner resumes an orphan only when explicitly requested', async () 
   });
 });
 
-test('review runner requests cancellation only after an explicit stall threshold', async () => {
+test('review runner keeps polling a nonterminal review without cancelling it', async () => {
   const calls = [];
-  let now = 0;
   const statuses = [
     flowStatus('running', false),
     flowStatus('running', false),
-    flowStatus('stopped', true),
+    flowStatus('ok', true),
   ];
   const result = await waitForReviewCycle({
     baseUrl: 'http://server',
     workingFolder: '/repo',
     pollMs: 5,
-    cancelAfterNoProgressMs: 10,
-    now: () => now,
-    sleep: async () => {
-      now += 10;
-    },
+    sleep: async () => {},
     fetchImpl: async (url, options = {}) => {
       calls.push({ url, method: options.method ?? 'GET' });
       if (url.endsWith('/run')) {
         return response(202, { conversationId: 'conversation-2' });
       }
-      if (url.endsWith('/stop')) {
-        return response(202, { status: 'stopping' });
-      }
       return response(200, statuses.shift());
     },
   });
 
-  assert.equal(result.status.status, 'stopped');
-  assert.equal(calls.filter((call) => call.url.endsWith('/stop')).length, 1);
+  assert.equal(result.status.status, 'ok');
+  assert.equal(calls.filter((call) => call.url.endsWith('/stop')).length, 0);
 });

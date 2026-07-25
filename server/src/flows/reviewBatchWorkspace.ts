@@ -1,6 +1,8 @@
+import { execFile as execFileCb } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
 
 import { hashFlowInput, normalizeFlowInput } from './flowInput.js';
 import {
@@ -12,13 +14,20 @@ import type { SubflowWaveJob } from './subflowWave.js';
 import type { FlowJsonObject } from './types.js';
 
 const SAFE_PATH_SEGMENT = /[^A-Za-z0-9._-]+/gu;
+const execFile = promisify(execFileCb);
 
 const safeSegment = (value: string) => {
   const normalized = value.trim().replace(SAFE_PATH_SEGMENT, '-');
   return normalized.replace(/^-+|-+$/gu, '') || 'review-job';
 };
 
+const identityDirectorySegment = (identity: string) =>
+  createHash('sha256').update(identity).digest('hex');
+
 const jobDirectorySegment = (instanceId: string) =>
+  identityDirectorySegment(instanceId);
+
+const legacyJobDirectorySegment = (instanceId: string) =>
   `${safeSegment(instanceId)}-${createHash('sha256')
     .update(instanceId)
     .digest('hex')
@@ -32,6 +41,148 @@ const atomicWriteText = async (filePath: string, content: string) => {
   const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
   await fs.writeFile(temporaryPath, content, 'utf8');
   await fs.rename(temporaryPath, filePath);
+};
+
+const isDirectory = async (directoryPath: string) => {
+  try {
+    return (await fs.stat(directoryPath)).isDirectory();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+};
+
+const isFile = async (filePath: string) => {
+  try {
+    return (await fs.stat(filePath)).isFile();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+};
+
+const requireDirectory = async (directoryPath: string, description: string) => {
+  if (!(await isDirectory(directoryPath))) {
+    throw new Error(`Existing review batch lacks ${description}.`);
+  }
+};
+
+const requireFile = async (filePath: string, description: string) => {
+  try {
+    if (!(await isFile(filePath))) {
+      throw new Error(`Existing review batch lacks ${description}.`);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`Existing review batch lacks ${description}.`);
+    }
+    throw error;
+  }
+};
+
+const isContainedPath = (parentPath: string, candidatePath: string) => {
+  const relativePath = path.relative(parentPath, candidatePath);
+  return (
+    relativePath === '' ||
+    (!relativePath.startsWith(`..${path.sep}`) &&
+      relativePath !== '..' &&
+      !path.isAbsolute(relativePath))
+  );
+};
+
+const requireContainedPath = async (
+  candidatePath: string,
+  parentPath: string,
+  description: string,
+) => {
+  const [resolvedCandidate, resolvedParent] = await Promise.all([
+    fs.realpath(candidatePath),
+    fs.realpath(parentPath),
+  ]);
+  if (!isContainedPath(resolvedParent, resolvedCandidate)) {
+    throw new Error(
+      `Existing review batch ${description} resolves outside its assigned private boundary.`,
+    );
+  }
+};
+
+const requirePrivateInput = async (params: {
+  privateInputDir: string;
+  sharedInputDir: string;
+  inputFiles: string[];
+  jobInstanceId: string;
+  jobRoot: string;
+}) => {
+  await Promise.all([
+    requireDirectory(
+      params.privateInputDir,
+      `private input directory for ${params.jobInstanceId}`,
+    ),
+    requireContainedPath(
+      params.privateInputDir,
+      params.jobRoot,
+      `private input directory for ${params.jobInstanceId}`,
+    ),
+    ...params.inputFiles.map((fileName) =>
+      requireFile(
+        path.join(params.privateInputDir, fileName),
+        `private input ${fileName} for ${params.jobInstanceId}`,
+      ),
+    ),
+    ...params.inputFiles.map((fileName) =>
+      requireContainedPath(
+        path.join(params.privateInputDir, fileName),
+        params.privateInputDir,
+        `private input ${fileName} for ${params.jobInstanceId}`,
+      ),
+    ),
+  ]);
+  await Promise.all(
+    params.inputFiles.map(async (fileName) => {
+      const [privateInput, sharedInput] = await Promise.all([
+        fs.readFile(path.join(params.privateInputDir, fileName)),
+        fs.readFile(path.join(params.sharedInputDir, fileName)),
+      ]);
+      if (!privateInput.equals(sharedInput)) {
+        throw new Error(
+          `Existing review batch private input ${fileName} does not match the pinned source for ${params.jobInstanceId}.`,
+        );
+      }
+    }),
+  );
+};
+
+const gitStdout = async (repoRoot: string, args: string[]) => {
+  const result = await execFile('git', ['-C', repoRoot, ...args], {
+    encoding: 'utf8',
+  });
+  return result.stdout.trim();
+};
+
+const ensurePrivateInput = async (
+  sourceDirectory: string,
+  inputDirectory: string,
+  fileNames: string[],
+) => {
+  await fs.mkdir(inputDirectory, { recursive: true });
+  await Promise.all(
+    fileNames.map(async (fileName) => {
+      const inputPath = path.join(inputDirectory, fileName);
+      if (await isFile(inputPath)) return;
+      await fs.copyFile(path.join(sourceDirectory, fileName), inputPath);
+    }),
+  );
+  await Promise.all([
+    ...fileNames.map((fileName) =>
+      fs.chmod(path.join(inputDirectory, fileName), 0o444),
+    ),
+    fs.chmod(inputDirectory, 0o555),
+  ]);
+};
+
+const ensureText = async (filePath: string, content: string) => {
+  if (await isFile(filePath)) return;
+  await atomicWriteText(filePath, content);
 };
 
 const describeTarget = (target: ReviewTargetSnapshot['targets'][number]) =>
@@ -102,41 +253,116 @@ export async function prepareReviewBatchWorkspace(params: {
     'batches',
     safeSegment(batchId),
   );
-  const context = await prepareReviewContext({
-    repoRoot: params.snapshot.plan_host_root,
-    storyNumber: params.snapshot.story_id,
-    planPath: params.snapshot.plan_path,
-    branch: primary.branch,
-    signal: params.signal,
-  });
-  const contextMarkdown = formatPreparedReviewContext(context.artifact);
-  const storyContext = describeStoryContext({
-    snapshot: params.snapshot,
-    contextMarkdown,
-    excludedPaths: context.artifact.excluded_paths,
-  });
+  const batchParent = path.dirname(batchRoot);
+  const inputsRoot = path.join(batchRoot, 'inputs');
+  const jobsRoot = path.join(batchRoot, 'jobs');
+  const reconciliationRoot = path.join(batchRoot, 'reconciliation');
+  const batchExists = await isDirectory(batchRoot);
+  const batchLaunchPath = path.join(batchRoot, 'batch-launch.md');
+  const reusingBatch = batchExists && (await isFile(batchLaunchPath));
+  if (reusingBatch) {
+    await Promise.all([
+      requireDirectory(batchRoot, 'batch directory'),
+      requireContainedPath(batchParent, reviewRoot, 'batch parent directory'),
+      requireContainedPath(batchRoot, batchParent, 'batch directory'),
+      requireDirectory(inputsRoot, 'inputs directory'),
+      requireContainedPath(inputsRoot, batchRoot, 'inputs directory'),
+      requireDirectory(jobsRoot, 'jobs directory'),
+      requireContainedPath(jobsRoot, batchRoot, 'jobs directory'),
+      requireDirectory(reconciliationRoot, 'reconciliation directory'),
+      requireContainedPath(
+        reconciliationRoot,
+        batchRoot,
+        'reconciliation directory',
+      ),
+      requireFile(batchLaunchPath, 'batch launch record'),
+      requireContainedPath(batchLaunchPath, batchRoot, 'batch launch record'),
+    ]);
+  } else {
+    await Promise.all([
+      fs.mkdir(inputsRoot, { recursive: true }),
+      fs.mkdir(jobsRoot, { recursive: true }),
+      fs.mkdir(reconciliationRoot, { recursive: true }),
+    ]);
+  }
 
-  await fs.mkdir(path.join(batchRoot, 'inputs'), { recursive: true });
-  await fs.mkdir(path.join(batchRoot, 'jobs'), { recursive: true });
-  await fs.mkdir(path.join(batchRoot, 'reconciliation'), { recursive: true });
+  let storyContext: string | undefined;
+  if (!reusingBatch) {
+    const context = await prepareReviewContext({
+      repoRoot: params.snapshot.plan_host_root,
+      storyNumber: params.snapshot.story_id,
+      planPath: params.snapshot.plan_path,
+      branch: primary.branch,
+      signal: params.signal,
+    });
+    storyContext = describeStoryContext({
+      snapshot: params.snapshot,
+      contextMarkdown: formatPreparedReviewContext(context.artifact),
+      excludedPaths: context.artifact.excluded_paths,
+    });
+  }
 
+  const targetInputRoots = new Map<string, string>();
   for (const target of params.snapshot.targets) {
     params.signal?.throwIfAborted();
-    const inputRoot = path.join(
+    const hashedInputRoot = path.join(
       batchRoot,
       'inputs',
-      safeSegment(target.target_id),
+      'targets',
+      identityDirectorySegment(target.target_id),
     );
-    await Promise.all([
-      atomicWriteText(
-        path.join(inputRoot, 'review-target.md'),
-        `${describeTarget(target)}\n`,
-      ),
-      atomicWriteText(
-        path.join(inputRoot, 'story-context.md'),
-        `${storyContext}\n`,
-      ),
-    ]);
+    const inputRoot =
+      reusingBatch && !(await isDirectory(hashedInputRoot))
+        ? path.join(
+            batchRoot,
+            'inputs',
+            'targets',
+            safeSegment(target.target_id),
+          )
+        : hashedInputRoot;
+    targetInputRoots.set(target.target_id, inputRoot);
+    if (reusingBatch) {
+      await Promise.all([
+        requireDirectory(
+          inputRoot,
+          `target input directory for ${target.target_id}`,
+        ),
+        requireContainedPath(
+          inputRoot,
+          inputsRoot,
+          `target input directory for ${target.target_id}`,
+        ),
+        requireFile(
+          path.join(inputRoot, 'review-target.md'),
+          `target input for ${target.target_id}`,
+        ),
+        requireContainedPath(
+          path.join(inputRoot, 'review-target.md'),
+          inputRoot,
+          `target input for ${target.target_id}`,
+        ),
+        requireFile(
+          path.join(inputRoot, 'story-context.md'),
+          `story context for ${target.target_id}`,
+        ),
+        requireContainedPath(
+          path.join(inputRoot, 'story-context.md'),
+          inputRoot,
+          `story context for ${target.target_id}`,
+        ),
+      ]);
+    } else {
+      await Promise.all([
+        ensureText(
+          path.join(inputRoot, 'review-target.md'),
+          `${describeTarget(target)}\n`,
+        ),
+        ensureText(
+          path.join(inputRoot, 'story-context.md'),
+          `${storyContext}\n`,
+        ),
+      ]);
+    }
   }
 
   const crossRepositoryInput = path.join(
@@ -144,93 +370,203 @@ export async function prepareReviewBatchWorkspace(params: {
     'inputs',
     'cross-repository',
   );
-  await Promise.all([
-    atomicWriteText(
-      path.join(crossRepositoryInput, 'story-context.md'),
-      `${storyContext}\n`,
-    ),
-    atomicWriteText(
-      path.join(crossRepositoryInput, 'review-targets.md'),
-      `${[
-        '# Review targets',
-        '',
-        ...params.snapshot.targets.flatMap((target) => [
-          `## ${target.repo_alias}`,
+  if (reusingBatch) {
+    await Promise.all([
+      requireDirectory(
+        crossRepositoryInput,
+        'cross-repository input directory',
+      ),
+      requireContainedPath(
+        crossRepositoryInput,
+        inputsRoot,
+        'cross-repository input directory',
+      ),
+      requireFile(
+        path.join(crossRepositoryInput, 'story-context.md'),
+        'cross-repository story context',
+      ),
+      requireContainedPath(
+        path.join(crossRepositoryInput, 'story-context.md'),
+        crossRepositoryInput,
+        'cross-repository story context',
+      ),
+      requireFile(
+        path.join(crossRepositoryInput, 'review-targets.md'),
+        'cross-repository target inputs',
+      ),
+      requireContainedPath(
+        path.join(crossRepositoryInput, 'review-targets.md'),
+        crossRepositoryInput,
+        'cross-repository target inputs',
+      ),
+    ]);
+  } else {
+    await Promise.all([
+      ensureText(
+        path.join(crossRepositoryInput, 'story-context.md'),
+        `${storyContext}\n`,
+      ),
+      ensureText(
+        path.join(crossRepositoryInput, 'review-targets.md'),
+        `${[
+          '# Review targets',
           '',
-          describeTarget(target),
-          '',
-        ]),
-      ].join('\n')}\n`,
-    ),
-  ]);
+          ...params.snapshot.targets.flatMap((target) => [
+            `## ${target.repo_alias}`,
+            '',
+            describeTarget(target),
+            '',
+          ]),
+        ].join('\n')}\n`,
+      ),
+    ]);
+  }
 
   const augmentedJobs: SubflowWaveJob[] = [];
   const seenJobDirectories = new Set<string>();
+  const jobRoots = new Map<string, string>();
   for (const job of params.jobs) {
     params.signal?.throwIfAborted();
-    const directoryName = jobDirectorySegment(job.instanceId);
+    const target = job.targetId
+      ? params.snapshot.targets.find(
+          (candidate) => candidate.target_id === job.targetId,
+        )
+      : undefined;
+    if (job.targetId && !target) {
+      throw new Error(
+        `Review job ${job.instanceId} references an unknown target.`,
+      );
+    }
+    if (target) {
+      if (!job.workingFolder) {
+        throw new Error(
+          `Review job ${job.instanceId} is missing a working folder for target ${job.targetId}.`,
+        );
+      }
+      const [workingFolder, targetRoot] = await Promise.all([
+        fs.realpath(job.workingFolder),
+        fs.realpath(target.repo_root),
+      ]);
+      if (workingFolder !== targetRoot) {
+        throw new Error(
+          `Review job ${job.instanceId} working folder does not match target ${job.targetId}.`,
+        );
+      }
+      const [branch, headCommit] = await Promise.all([
+        gitStdout(targetRoot, ['branch', '--show-current']),
+        gitStdout(targetRoot, ['rev-parse', 'HEAD^{commit}']),
+      ]);
+      if (branch !== target.branch) {
+        throw new Error(
+          `Review job ${job.instanceId} branch does not match target ${job.targetId}.`,
+        );
+      }
+      if (headCommit !== target.head_commit) {
+        throw new Error(
+          `Review job ${job.instanceId} HEAD does not match target ${job.targetId}.`,
+        );
+      }
+    }
+    const hashedDirectoryName = jobDirectorySegment(job.instanceId);
+    const directoryName =
+      reusingBatch &&
+      !(await isDirectory(path.join(batchRoot, 'jobs', hashedDirectoryName)))
+        ? legacyJobDirectorySegment(job.instanceId)
+        : hashedDirectoryName;
     if (seenJobDirectories.has(directoryName)) {
       throw new Error(
         `Review job directory collision for instance "${job.instanceId}" at "${directoryName}".`,
       );
     }
     seenJobDirectories.add(directoryName);
-    const jobRoot = path.join(batchRoot, 'jobs', directoryName);
+    const jobRoot = path.join(jobsRoot, directoryName);
+    jobRoots.set(job.instanceId, jobRoot);
     const workDir = path.join(jobRoot, 'work');
     const outputDir = path.join(jobRoot, 'output');
     const verificationDir = path.join(jobRoot, 'verification');
-    const inputDir = job.targetId
-      ? path.join(batchRoot, 'inputs', safeSegment(job.targetId))
+    const sharedInputDir = job.targetId
+      ? targetInputRoots.get(job.targetId)!
       : crossRepositoryInput;
-    await Promise.all([
-      fs.mkdir(workDir, { recursive: true }),
-      fs.mkdir(outputDir, { recursive: true }),
-      fs.mkdir(verificationDir, { recursive: true }),
-    ]);
-    await atomicWriteText(
-      path.join(jobRoot, 'job.md'),
-      `${[
-        `# Review job: ${job.displayName}`,
-        '',
-        'This directory was created before the reviewer launched. Empty output therefore remains visible for recovery.',
-        '',
-        `- Batch: ${params.snapshot.review_wave_id}`,
-        `- Flow: ${job.flowName}`,
-        `- Instance: ${job.instanceId}`,
-        `- Target: ${job.targetId ?? 'cross-repository story scope'}`,
-        `- Input directory: ${inputDir}`,
-        `- Work directory: ${workDir}`,
-        `- Output directory: ${outputDir}`,
-        `- Verification directory: ${verificationDir}`,
-      ].join('\n')}\n`,
-    );
-    if (job.targetId) {
-      const target = params.snapshot.targets.find(
-        (candidate) => candidate.target_id === job.targetId,
-      );
-      if (!target) {
-        throw new Error(
-          `Review job ${job.instanceId} references an unknown target.`,
-        );
-      }
-      await atomicWriteText(
-        path.join(
-          target.repo_root,
-          'codeInfoTmp',
-          'reviews',
-          `${params.snapshot.story_id}-current-${safeSegment(job.flowName)}-review-job.md`,
+    const privateInputDir = path.join(jobRoot, 'input');
+    const inputDir = privateInputDir;
+    const inputFiles = job.targetId
+      ? ['review-target.md', 'story-context.md']
+      : ['review-targets.md', 'story-context.md'];
+    if (reusingBatch) {
+      await Promise.all([
+        requireDirectory(jobRoot, `job directory for ${job.instanceId}`),
+        requireContainedPath(
+          jobRoot,
+          jobsRoot,
+          `job directory for ${job.instanceId}`,
         ),
+        requireDirectory(workDir, `work directory for ${job.instanceId}`),
+        requireContainedPath(
+          workDir,
+          jobRoot,
+          `work directory for ${job.instanceId}`,
+        ),
+        requireDirectory(outputDir, `output directory for ${job.instanceId}`),
+        requireContainedPath(
+          outputDir,
+          jobRoot,
+          `output directory for ${job.instanceId}`,
+        ),
+        requireDirectory(
+          verificationDir,
+          `verification directory for ${job.instanceId}`,
+        ),
+        requireContainedPath(
+          verificationDir,
+          jobRoot,
+          `verification directory for ${job.instanceId}`,
+        ),
+        requireFile(
+          path.join(jobRoot, 'job.md'),
+          `job brief for ${job.instanceId}`,
+        ),
+        requireContainedPath(
+          path.join(jobRoot, 'job.md'),
+          jobRoot,
+          `job brief for ${job.instanceId}`,
+        ),
+        requirePrivateInput({
+          privateInputDir,
+          sharedInputDir,
+          inputFiles,
+          jobInstanceId: job.instanceId,
+          jobRoot,
+        }),
+      ]);
+    } else {
+      await Promise.all([
+        fs.mkdir(workDir, { recursive: true }),
+        fs.mkdir(outputDir, { recursive: true }),
+        fs.mkdir(verificationDir, { recursive: true }),
+      ]);
+      await ensurePrivateInput(sharedInputDir, privateInputDir, inputFiles);
+      await requirePrivateInput({
+        privateInputDir,
+        sharedInputDir,
+        inputFiles,
+        jobInstanceId: job.instanceId,
+        jobRoot,
+      });
+      await ensureText(
+        path.join(jobRoot, 'job.md'),
         `${[
-          `# Current review job for ${job.flowName}`,
+          `# Review job: ${job.displayName}`,
           '',
-          'This agent-readable locator is replaced whenever the same reviewer flow is scheduled again for this target. Concurrent top-level review passes are unsupported.',
+          'This directory was created before the reviewer launched. Empty output therefore remains visible for recovery.',
           '',
-          `- Story: ${params.snapshot.story_id}`,
           `- Batch: ${params.snapshot.review_wave_id}`,
-          `- Target: ${job.targetId}`,
-          `- Job directory: ${jobRoot}`,
-          `- Job brief: ${path.join(jobRoot, 'job.md')}`,
+          `- Flow: ${job.flowName}`,
+          `- Instance: ${job.instanceId}`,
+          `- Target: ${job.targetId ?? 'cross-repository story scope'}`,
           `- Input directory: ${inputDir}`,
+          `- Work directory: ${workDir}`,
+          `- Output directory: ${outputDir}`,
+          `- Verification directory: ${verificationDir}`,
         ].join('\n')}\n`,
       );
     }
@@ -282,14 +618,17 @@ export async function prepareReviewBatchWorkspace(params: {
     '## Scheduled job directories',
     '',
     ...augmentedJobs.map(
-      (job) =>
-        `- ${job.displayName}: ${path.join(batchRoot, 'jobs', jobDirectorySegment(job.instanceId))}`,
+      (job) => `- ${job.displayName}: ${jobRoots.get(job.instanceId)}`,
     ),
   ].join('\n')}\n`;
-  await Promise.all([
-    atomicWriteText(path.join(batchRoot, 'batch-launch.md'), launchText),
-    atomicWriteText(currentBatchHandoff, launchText),
-  ]);
+  await Promise.all(
+    reusingBatch
+      ? [atomicWriteText(currentBatchHandoff, launchText)]
+      : [
+          atomicWriteText(batchLaunchPath, launchText),
+          atomicWriteText(currentBatchHandoff, launchText),
+        ],
+  );
 
   return {
     batchId: params.snapshot.review_wave_id,

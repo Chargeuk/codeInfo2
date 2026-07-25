@@ -119,6 +119,7 @@ import { runFlowDecisionScript } from './flowDecisionScript.js';
 import {
   __resetFlowDefinitionCatalogForTests,
   getFlowDefinitionCatalogEntry,
+  resolveConfiguredFlowsRoot,
 } from './flowDefinitionCatalog.js';
 import {
   hashFlowInput,
@@ -138,8 +139,8 @@ import {
   type FlowInitializeReviewCycleStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
-  type FlowWaitStep,
   type FlowSubflowWaveStep,
+  type FlowWaitStep,
   type FlowStep,
 } from './flowSchema.js';
 import type {
@@ -798,6 +799,7 @@ const buildSubflowConversationTitle = (params: {
   stepLabel?: string;
   childFlowName: string;
   multipleChildren?: boolean;
+  waveLabel?: string;
 }) => {
   const parentTitle =
     params.parentPersistedTitle?.trim() ||
@@ -808,7 +810,9 @@ const buildSubflowConversationTitle = (params: {
     params.multipleChildren && trimmedStepLabel
       ? `${trimmedStepLabel}-${params.childFlowName}`
       : trimmedStepLabel || params.childFlowName;
-  return `${parentTitle}-${stepTitle}`;
+  return `${parentTitle}-${stepTitle}${
+    params.waveLabel ? ` (${params.waveLabel})` : ''
+  }`;
 };
 
 const buildFlowPathEntry = (params: { flowName: string; sourceId?: string }) =>
@@ -1668,12 +1672,7 @@ const ensureFlowAgentConversation = async (params: {
   }
 };
 
-const flowsDirForRun = () => {
-  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
-  const { codeInfoRoot } = resolveAgentHomeEnv();
-  if (codeInfoRoot) return path.join(codeInfoRoot, 'flows');
-  return path.resolve('flows');
-};
+const flowsDirForRun = resolveConfiguredFlowsRoot;
 
 const codeInfo2RootForRun = () => resolveAgentHomeEnv().codeInfoRoot;
 
@@ -2693,15 +2692,20 @@ const createNoopChat = () =>
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const getFlowConversationTerminalStatus = async (params: {
+export type FlowChildLifecycleStatus =
+  | NonNullable<FlowResumeState['runLifecycle']>['status']
+  | 'missing';
+
+const isTerminalFlowChildLifecycleStatus = (
+  status: FlowChildLifecycleStatus,
+): status is TurnStatus =>
+  status === 'ok' || status === 'failed' || status === 'stopped';
+
+export const getFlowConversationLifecycleStatus = async (params: {
   conversationId: string;
   runToken: string;
-}): Promise<TurnStatus | null> => {
+}): Promise<FlowChildLifecycleStatus> => {
   const activeOwnership = getActiveRunOwnership(params.conversationId);
-  if (activeOwnership?.runToken === params.runToken) {
-    return null;
-  }
-
   if (activeOwnership && activeOwnership.runToken !== params.runToken) {
     throw toFlowRunError(
       'INVALID_REQUEST',
@@ -2715,12 +2719,18 @@ const getFlowConversationTerminalStatus = async (params: {
       ? (conversation.flags as Record<string, unknown>)
       : undefined,
   );
-  if (
-    resumeState?.restartReconciliation?.status === 'interrupted' ||
-    resumeState?.runLifecycle?.status === 'running' ||
-    resumeState?.runLifecycle?.status === 'orphaned'
-  ) {
-    return null;
+  if (resumeState?.restartReconciliation?.status === 'interrupted') {
+    return 'orphaned';
+  }
+  if (resumeState?.runLifecycle) {
+    if (resumeState.runLifecycle.status === 'running' && !activeOwnership) {
+      return 'orphaned';
+    }
+    return resumeState.runLifecycle.status;
+  }
+
+  if (activeOwnership?.runToken === params.runToken) {
+    return 'running';
   }
 
   if (shouldUseMemoryPersistence()) {
@@ -2731,7 +2741,7 @@ const getFlowConversationTerminalStatus = async (params: {
         return turn.status;
       }
     }
-    return null;
+    return 'missing';
   }
 
   const persistedTurns = await listTurns({
@@ -2741,7 +2751,7 @@ const getFlowConversationTerminalStatus = async (params: {
   const assistantTurn = persistedTurns.items.find(
     (turn) => turn.role === 'assistant',
   );
-  return assistantTurn?.status ?? null;
+  return assistantTurn?.status ?? 'missing';
 };
 
 const getFlowConversationTerminalOutcome = async (
@@ -3605,6 +3615,9 @@ const findFirstAgentStep = (
     ) {
       return step;
     }
+    if (step.type === 'subflowWave') {
+      return undefined;
+    }
     if (step.type === 'startLoop') {
       const nested = findFirstAgentStep(step.steps);
       if (nested) return nested;
@@ -3663,6 +3676,9 @@ const findRuntimeIdentityStep = (
       step.type === 'command'
     ) {
       return step;
+    }
+    if (step.type === 'subflowWave') {
+      return undefined;
     }
     if (step.type === 'startLoop') {
       const nested = findRuntimeIdentityStep(step.steps, null);
@@ -4241,6 +4257,11 @@ async function runFlowUnlocked(params: {
   let lastLoopExit = params.resumeState?.lastLoopExit;
   let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
+  const interruptedWaveStepPathKey =
+    params.resumeState?.restartReconciliation?.status === 'interrupted' &&
+    params.resumeState.subflowWaveProgress
+      ? getStepPathKey(params.resumeState.subflowWaveProgress.stepPath)
+      : null;
   if (params.resumeState) {
     params.resumeState.loopStack.forEach((frame) => {
       resumeLoopIterations.set(
@@ -4915,63 +4936,90 @@ async function runFlowUnlocked(params: {
       };
     }
 
-    const result = await runInstruction({
-      agentType: step.agentType,
-      identifier: step.identifier,
-      instruction,
-      deferFinal: true,
-      command,
-      postProcess: (candidate) => {
-        if (candidate.status !== 'ok') {
-          return {
-            failureKind: 'execution',
-          };
-        }
-        const parsed = parseBreakAnswer(candidate.content);
-        parsed.attempts.forEach((attempt) => {
+    let result: FlowInstructionResult;
+    try {
+      result = await runInstruction({
+        agentType: step.agentType,
+        identifier: step.identifier,
+        instruction,
+        deferFinal: true,
+        command,
+        postProcess: (candidate) => {
+          if (candidate.status !== 'ok') {
+            return {
+              failureKind: 'execution',
+            };
+          }
+          const parsed = parseBreakAnswer(candidate.content);
+          parsed.attempts.forEach((attempt) => {
+            append({
+              level: 'info',
+              message: 'DEV-0000036:T4:break_parse_strategy_attempted',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              context: {
+                strategy: attempt.strategy,
+                candidateCount: attempt.candidateCount,
+              },
+            });
+          });
           append({
-            level: 'info',
-            message: 'DEV-0000036:T4:break_parse_strategy_attempted',
+            level: parsed.ok ? 'info' : 'warn',
+            message: 'DEV-0000036:T4:break_parse_result',
             timestamp: new Date().toISOString(),
             source: 'server',
             context: {
-              strategy: attempt.strategy,
-              candidateCount: attempt.candidateCount,
+              accepted: parsed.ok,
+              reasonCode: parsed.reasonCode,
             },
           });
-        });
-        append({
-          level: parsed.ok ? 'info' : 'warn',
-          message: 'DEV-0000036:T4:break_parse_result',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            accepted: parsed.ok,
-            reasonCode: parsed.reasonCode,
-          },
-        });
 
-        if (!parsed.ok) {
-          return {
-            status: 'failed',
-            content: parsed.message,
-            finalOverride: {
+          if (!parsed.ok) {
+            return {
               status: 'failed',
-              error: {
-                code: 'INVALID_BREAK_RESPONSE',
-                message: parsed.message,
+              content: parsed.message,
+              finalOverride: {
+                status: 'failed',
+                error: {
+                  code: 'INVALID_BREAK_RESPONSE',
+                  message: parsed.message,
+                },
               },
-            },
-            failureKind: 'invalid_response',
-          };
-        }
+              failureKind: 'invalid_response',
+            };
+          }
 
-        breakAnswer = parsed.answer;
-        return {
-          content: parsed.normalizedContent,
-        };
-      },
-    });
+          breakAnswer = parsed.answer;
+          return {
+            content: parsed.normalizedContent,
+          };
+        },
+      });
+    } catch (error) {
+      const message = isFlowRunError(error)
+        ? (error.reason ?? error.code)
+        : error instanceof Error
+          ? error.message
+          : 'Failed to prepare flow break step';
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message,
+        errorCode: isFlowRunError(error)
+          ? error.code
+          : 'FLOW_BREAK_SETUP_FAILED',
+        command,
+      });
+      return {
+        status: 'failed',
+        shouldBreak: false,
+        failureKind: 'execution',
+      };
+    }
 
     if (shouldStopAfter(result.status)) {
       params.onStopUnwindCheckpoint?.({
@@ -5148,6 +5196,11 @@ async function runFlowUnlocked(params: {
     command: TurnCommandMetadata,
     nextPath: number[],
     isWave = false,
+    isReviewBatch = false,
+    reviewAttemptIdentity?: {
+      reviewCycleId?: string;
+      reviewBatchId?: string;
+    },
   ): Promise<TurnStatus> => {
     if (jobs.length === 0) {
       throw toFlowRunError(
@@ -5171,15 +5224,16 @@ async function runFlowUnlocked(params: {
     const jobByInstanceId = new Map(jobs.map((job) => [job.instanceId, job]));
     const rememberedSubflowsByInstance = new Map(
       getActiveSubflowsForStep(nextPath)
-        .filter(
-          (activeSubflow) =>
-            jobs.some(
-              (job) => job.instanceId === activeInstanceId(activeSubflow),
-            ) &&
+        .filter((activeSubflow) => {
+          const job = jobByInstanceId.get(activeInstanceId(activeSubflow));
+          if (!job) return false;
+          return (
             (!waveInvocationId ||
               !activeSubflow.waveInvocationId ||
-              activeSubflow.waveInvocationId === waveInvocationId),
-        )
+              activeSubflow.waveInvocationId === waveInvocationId) &&
+            (!job.inputHash || activeSubflow.inputHash === job.inputHash)
+          );
+        })
         .map((activeSubflow) => [
           activeInstanceId(activeSubflow),
           activeSubflow,
@@ -5250,7 +5304,16 @@ async function runFlowUnlocked(params: {
       const resumesStoppedChild =
         Boolean(params.resumeState) &&
         childResumeState.runLifecycle?.status === 'stopped';
-      if (!resumesInterruptedChild && !resumesStoppedChild) return null;
+      const resumesOrphanedChild =
+        childResumeState.runLifecycle?.status === 'running' &&
+        !getActiveRunOwnership(childRun.conversationId);
+      if (
+        !resumesInterruptedChild &&
+        !resumesStoppedChild &&
+        !resumesOrphanedChild
+      ) {
+        return null;
+      }
 
       let resumedRunToken: string | undefined;
       await startFlowRun({
@@ -5294,6 +5357,10 @@ async function runFlowUnlocked(params: {
         stepLabel,
         childFlowName: job.displayName,
         multipleChildren: launchesMultipleChildren,
+        waveLabel:
+          isWave && loopStack.length > 0
+            ? `wave ${loopStack.map((frame) => frame.iteration).join('.')}`
+            : undefined,
       });
     const buildSubflowSummaryText = (prefix: string) =>
       launchesMultipleChildren
@@ -5476,10 +5543,7 @@ async function runFlowUnlocked(params: {
       conversationId?: string;
       reason?: string;
     }) => {
-      if (
-        paramsForAttempt.job.flowName !== 'review_batch' ||
-        !waveInvocationId
-      ) {
+      if (!isReviewBatch || !waveInvocationId) {
         return;
       }
       const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
@@ -5495,6 +5559,8 @@ async function runFlowUnlocked(params: {
           status: paramsForAttempt.status,
           conversationId: paramsForAttempt.conversationId,
           reason: paramsForAttempt.reason,
+          reviewCycleId: reviewAttemptIdentity?.reviewCycleId,
+          reviewBatchId: reviewAttemptIdentity?.reviewBatchId,
         });
       } catch (error) {
         append({
@@ -5519,11 +5585,11 @@ async function runFlowUnlocked(params: {
       }
 
       for (const childRun of childRuns) {
-        const childStatus = await getFlowConversationTerminalStatus({
+        const childStatus = await getFlowConversationLifecycleStatus({
           conversationId: childRun.conversationId,
           runToken: childRun.runToken,
         });
-        if (!childStatus) return false;
+        if (!isTerminalFlowChildLifecycleStatus(childStatus)) return false;
       }
 
       const consumedPendingCancel = consumePendingConversationCancel({
@@ -5603,7 +5669,7 @@ async function runFlowUnlocked(params: {
       await persistRuntimeResumeState(lastCompletedStepPath);
       const resumableChildRuns: FlowActiveSubflow[] = [];
       for (const childRun of childRuns) {
-        const status = await getFlowConversationTerminalStatus({
+        const status = await getFlowConversationLifecycleStatus({
           conversationId: childRun.conversationId,
           runToken: childRun.runToken,
         });
@@ -5614,7 +5680,10 @@ async function runFlowUnlocked(params: {
             continue;
           }
         }
-        if (status || getActiveRunOwnership(childRun.conversationId)) {
+        if (
+          status === 'running' ||
+          isTerminalFlowChildLifecycleStatus(status)
+        ) {
           resumableChildRuns.push(childRun);
           continue;
         }
@@ -5783,12 +5852,16 @@ async function runFlowUnlocked(params: {
 
         const childStatuses = await Promise.all(
           childRuns.map(async (childRun) => {
-            const status = await getFlowConversationTerminalStatus({
+            const lifecycleStatus = await getFlowConversationLifecycleStatus({
               conversationId: childRun.conversationId,
               runToken: childRun.runToken,
             });
+            const status = isTerminalFlowChildLifecycleStatus(lifecycleStatus)
+              ? lifecycleStatus
+              : null;
             return {
               childRun,
+              lifecycleStatus,
               status,
               terminalOutcome: status
                 ? await getFlowConversationTerminalOutcome(
@@ -5840,9 +5913,40 @@ async function runFlowUnlocked(params: {
           publishCurrentWaveProgress();
           await persistRuntimeResumeState(lastCompletedStepPath);
         }
+        const orphanedChildren = childStatuses.filter(
+          ({ lifecycleStatus }) => lifecycleStatus === 'orphaned',
+        );
+        if (orphanedChildren.length > 0) {
+          const resumedChildren = await Promise.all(
+            orphanedChildren.map(async ({ childRun }) => {
+              const resumedChildRun = await resumeWaveChild(childRun);
+              return resumedChildRun
+                ? { instanceId: activeInstanceId(childRun), resumedChildRun }
+                : null;
+            }),
+          );
+          const resumedByInstanceId = new Map<string, FlowActiveSubflow>(
+            resumedChildren.flatMap((entry) =>
+              entry ? [[entry.instanceId, entry.resumedChildRun]] : [],
+            ),
+          );
+          if (resumedByInstanceId.size > 0) {
+            childRuns.forEach((childRun, index) => {
+              const instanceId = activeInstanceId(childRun);
+              const resumedChildRun = resumedByInstanceId.get(instanceId);
+              if (!resumedChildRun) return;
+              childRuns[index] = resumedChildRun;
+              rememberedSubflowsByInstance.set(instanceId, resumedChildRun);
+            });
+            setActiveSubflowsForStep(nextPath, childRuns);
+            publishCurrentWaveProgress();
+            await persistRuntimeResumeState(lastCompletedStepPath);
+            allChildrenOkObservedAt = null;
+            continue;
+          }
+        }
         const staleChildren = childStatuses.filter(
-          ({ childRun, status }) =>
-            !status && !getActiveRunOwnership(childRun.conversationId),
+          ({ lifecycleStatus }) => lifecycleStatus === 'missing',
         );
         if (staleChildren.length > 0) {
           const staleConversationIds = new Set<string>();
@@ -6126,6 +6230,9 @@ async function runFlowUnlocked(params: {
   ) => {
     const root = { ...(params.input ?? {}), ...flowValues };
     let jobs = expandSubflowWaveJobs({ step, input: root });
+    let reviewAttemptIdentity:
+      | { reviewCycleId?: string; reviewBatchId?: string }
+      | undefined;
     if (step.reviewWorkspace) {
       const snapshot = resolveFlowValue(
         root,
@@ -6141,25 +6248,88 @@ async function runFlowUnlocked(params: {
           `Review workspace snapshot binding "${step.reviewWorkspace.snapshotFrom}" did not resolve.`,
         );
       }
-      const workspace = await prepareReviewBatchWorkspace({
-        snapshot: snapshot as ReviewTargetSnapshot,
-        jobs,
-      });
-      jobs = workspace.jobs;
-      append({
-        level: 'info',
-        message: 'flows.run.review_batch_workspace_prepared',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          flowName: params.flowName,
-          batchId: workspace.batchId,
-          batchRoot: workspace.batchRoot,
-          jobCount: workspace.jobs.length,
-        },
-      });
+      const reviewSnapshot = snapshot as ReviewTargetSnapshot;
+      reviewAttemptIdentity = {
+        reviewCycleId: reviewSnapshot.review_cycle_id,
+        reviewBatchId: reviewSnapshot.review_wave_id,
+      };
+      try {
+        const workspace = await prepareReviewBatchWorkspace({
+          snapshot: reviewSnapshot,
+          jobs,
+          signal: getInflight(params.conversationId)?.abortController.signal,
+        });
+        jobs = workspace.jobs;
+        append({
+          level: 'info',
+          message: 'flows.run.review_batch_workspace_prepared',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            batchId: workspace.batchId,
+            batchRoot: workspace.batchRoot,
+            jobCount: workspace.jobs.length,
+          },
+        });
+      } catch (error) {
+        const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+          params.repositoryContext,
+        );
+        const waveInvocationId = getWaveInvocationId(
+          nextPath,
+          loopStack,
+          waveInvocationGeneration,
+        );
+        const reason =
+          error instanceof Error
+            ? error.message
+            : 'Review workspace preparation failed.';
+        if (reviewRepositoryPath) {
+          try {
+            await Promise.all(
+              jobs.map((job) =>
+                recordReviewInvocationAttempt({
+                  workingRepositoryPath: reviewRepositoryPath,
+                  invocationId: `${waveInvocationId}--${job.instanceId}`,
+                  flowName: job.flowName,
+                  displayName: job.displayName,
+                  status: 'failed',
+                  reason,
+                  reviewCycleId: reviewAttemptIdentity?.reviewCycleId,
+                  reviewBatchId: reviewAttemptIdentity?.reviewBatchId,
+                }),
+              ),
+            );
+          } catch (attemptError) {
+            append({
+              level: 'warn',
+              message: 'flows.run.review_invocation_evidence_unavailable',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              context: {
+                flowName: params.flowName,
+                reason:
+                  attemptError instanceof Error
+                    ? attemptError.message
+                    : String(attemptError),
+              },
+            });
+          }
+        }
+        throw error;
+      }
     }
-    return runSubflowJobs(jobs, step.label, command, nextPath, true);
+    return runSubflowJobs(
+      jobs,
+      step.label,
+      command,
+      nextPath,
+      true,
+      Boolean(step.reviewWorkspace) ||
+        jobs.some((job) => job.flowName === 'review_batch'),
+      reviewAttemptIdentity,
+    );
   };
 
   const runCommandStep = async (
@@ -6524,7 +6694,7 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
         instruction,
         response: exitFlow
-          ? `Skipped final review because story work remains: ${result.readiness.incomplete_tasks.length} incomplete task(s), ${result.readiness.unchecked_work.length} unchecked implementation or testing item(s).`
+          ? `Skipped final review because story work remains: ${result.readiness.incomplete_tasks.length} incomplete task(s), ${result.readiness.unchecked_work.length} unchecked implementation or testing item(s), ${result.readiness.live_blockers.length} live blocker(s).`
           : result.action === 'diagnostic'
             ? 'Initialized isolated diagnostic review without final-review disposition ownership.'
             : `Initialized review cycle ${result.cycle?.review_cycle_id}.`,
@@ -7077,25 +7247,29 @@ async function runFlowUnlocked(params: {
 
       if (resumePathRemaining && resumeIndex === index) {
         if (resumePathRemaining.length === 1) {
+          const reenterInterruptedWave =
+            interruptedWaveStepPathKey === getStepPathKey(nextPath);
           resumePathRemaining = null;
           resumeIndex = undefined;
-          continue;
-        }
-        if (step.type !== 'startLoop') {
+          if (!reenterInterruptedWave) {
+            continue;
+          }
+        } else if (step.type !== 'startLoop') {
           throw toFlowRunError(
             'INVALID_REQUEST',
             'resumeStepPath must reference loop steps for nested indices',
           );
+        } else {
+          const outcome = await runStartLoopStep(
+            step,
+            nextPath,
+            resumePathRemaining.slice(1),
+          );
+          resumePathRemaining = null;
+          resumeIndex = undefined;
+          if (outcome !== 'ok') return outcome;
+          continue;
         }
-        const outcome = await runStartLoopStep(
-          step,
-          nextPath,
-          resumePathRemaining.slice(1),
-        );
-        resumePathRemaining = null;
-        resumeIndex = undefined;
-        if (outcome !== 'ok') return outcome;
-        continue;
       }
 
       if (step.type === 'llm') {
@@ -7218,8 +7392,9 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           if (
             status === 'failed' &&
-            step.continueOnFailure &&
-            failureKind === 'execution'
+            ((step.continueOnFailure && failureKind === 'execution') ||
+              (step.continueOnInvalidResponse &&
+                failureKind === 'invalid_response'))
           ) {
             lastCompletedStepPath = nextPath;
             clearContinueBoundaryForActiveLoop();
@@ -8268,7 +8443,9 @@ export const reconcileInterruptedFlowResumeStateForStartup = (
     restartReconciliation: {
       status: 'interrupted',
       reconciledAt,
-      resumeStepPath: [...resumeState.stepPath],
+      resumeStepPath: [
+        ...(resumeState.subflowWaveProgress?.stepPath ?? resumeState.stepPath),
+      ],
       interruptedSubflowCount,
       interruptedWaveRunningCount,
     },
@@ -8363,17 +8540,18 @@ export async function getFlowRunStatus(
       (resumeState?.subflowWaveProgress?.running ?? 0) > 0,
   );
   const persistedLifecycle = resumeState?.runLifecycle?.status;
-  const status = ownership
-    ? ('running' as const)
-    : resumeState?.restartReconciliation?.status === 'interrupted'
-      ? ('orphaned' as const)
-      : persistedChildrenStillRunning
-        ? ('orphaned' as const)
-        : persistedLifecycle && persistedLifecycle !== 'running'
-          ? persistedLifecycle
-          : persistedLifecycle === 'running'
+  const status =
+    persistedLifecycle && persistedLifecycle !== 'running'
+      ? persistedLifecycle
+      : ownership
+        ? ('running' as const)
+        : resumeState?.restartReconciliation?.status === 'interrupted'
+          ? ('orphaned' as const)
+          : persistedChildrenStillRunning
             ? ('orphaned' as const)
-            : (latestAssistant?.status ?? 'orphaned');
+            : persistedLifecycle === 'running'
+              ? ('orphaned' as const)
+              : (latestAssistant?.status ?? 'orphaned');
   const reviewCycleStatus =
     conversation.flowName === 'two_phase_review_cycle' &&
     resumeState?.workingFolder

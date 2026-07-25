@@ -6,11 +6,11 @@
 
 ## Final Summary
 
-1. Story 64 is complete, including final validation, lint and format proof, and curated manual-proof artifacts.
-2. The story delivers a parallel review-wave flow with aligned review coverage, target ownership, comparison bases, recovery, and handoff recording.
-3. Wave validation and publication preserve identity and scope while aggregating multi-step review evidence safely.
-4. Reviewer focus should remain on review-cycle handoff integrity, final recovery validation, and the durable manual-proof bundle.
+1. Story 64 is complete: the final proof task, server/client/Compose build wrappers, supported main-stack up/down sequence, and full `test:summary:all:parallel` rerun after the Cucumber fixture fix are recorded on disk.
+2. The closeout state reflects the final validated review-wave implementation, including target ownership, comparison bases, recovery, and durable handoff evidence.
+3. The closeout repair updated the Cucumber fixture so its temporary repository has a real Git branch and commit for exact workspace identity validation.
+4. Reviewer focus should remain on `server/src/flows/reviewBatchWorkspace.ts`, `server/src/test/steps/review-wave.steps.ts`, and the curated manual-proof bundle.
 
 ## Review Status
 
-The final plan records the story as complete and retains the review findings and review-cycle evidence as the authoritative closeout record.
+The final plan records the story as complete and retains the final review/revalidation findings and review-cycle evidence as the authoritative closeout record.

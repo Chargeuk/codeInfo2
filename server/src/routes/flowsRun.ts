@@ -35,7 +35,7 @@ const optionalNonBlankString = (
     throw new Error(`${name} must be a string`);
   }
   if (value.trim().length === 0) {
-    throw new Error(`${name} must not be blank`);
+    return undefined;
   }
   return options.trim === false ? value : value.trim();
 };

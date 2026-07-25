@@ -35,6 +35,7 @@ export type ReviewPlanReadiness = {
   task_count: number;
   incomplete_tasks: Array<{ number: number; status: string | null }>;
   unchecked_work: Array<{ task_number: number; section: string; text: string }>;
+  live_blockers: Array<{ task_number: number; text: string }>;
 };
 
 type ReviewCycleLifecycleDeps = {
@@ -77,19 +78,22 @@ export const inspectFinalReviewReadiness = (
   const headings = [...planMarkdown.matchAll(taskHeadingPattern)];
   const incompleteTasks: ReviewPlanReadiness['incomplete_tasks'] = [];
   const uncheckedWork: ReviewPlanReadiness['unchecked_work'] = [];
+  const liveBlockers: ReviewPlanReadiness['live_blockers'] = [];
   for (const [index, heading] of headings.entries()) {
     const taskNumber = Number(heading[1]);
     const start = heading.index ?? 0;
     const end = headings[index + 1]?.index ?? planMarkdown.length;
     const taskText = planMarkdown.slice(start, end);
     const status =
-      /^- Task Status: `([^`]+)`\s*$/mu.exec(taskText)?.[1] ?? null;
+      /^- Task Status:\s*`?([^`\n]+)`?\s*$/mu.exec(taskText)?.[1] ?? null;
     if (status !== '__done__') {
       incompleteTasks.push({ number: taskNumber, status });
     }
     for (const section of ['Subtasks', 'Testing']) {
       const body = sectionBody(taskText, section);
-      for (const match of body.matchAll(/^\s*\d+\. \[ \] (.+)$/gmu)) {
+      for (const match of body.matchAll(
+        /^\s*(?:[-*]|\d+\.)\s+\[ \] (.+)$/gmu,
+      )) {
         uncheckedWork.push({
           task_number: taskNumber,
           section,
@@ -97,15 +101,25 @@ export const inspectFinalReviewReadiness = (
         });
       }
     }
+    for (const match of taskText.matchAll(
+      /^- \*\*BLOCKER\*\*(?:\s|$)(.*)$/gmu,
+    )) {
+      liveBlockers.push({
+        task_number: taskNumber,
+        text: (match[0] ?? '').trim(),
+      });
+    }
   }
   return {
     eligible:
       headings.length > 0 &&
       incompleteTasks.length === 0 &&
-      uncheckedWork.length === 0,
+      uncheckedWork.length === 0 &&
+      liveBlockers.length === 0,
     task_count: headings.length,
     incomplete_tasks: incompleteTasks,
     unchecked_work: uncheckedWork,
+    live_blockers: liveBlockers,
   };
 };
 
@@ -172,6 +186,9 @@ const safePathSegment = (value: string) =>
     .replace(/[^A-Za-z0-9._-]+/gu, '-')
     .replace(/^-+|-+$/gu, '') || 'review-attempt';
 
+const attemptPathSegment = (invocationId: string) =>
+  crypto.createHash('sha256').update(invocationId).digest('hex');
+
 const oneLine = (value: string) => value.replace(/\s+/gu, ' ').trim();
 
 export async function recordReviewInvocationAttempt(
@@ -183,6 +200,8 @@ export async function recordReviewInvocationAttempt(
     status: ReviewInvocationAttemptStatus;
     conversationId?: string;
     reason?: string;
+    reviewCycleId?: string;
+    reviewBatchId?: string;
   },
   deps: Partial<ReviewCycleLifecycleDeps> = {},
 ): Promise<string | null> {
@@ -190,30 +209,47 @@ export async function recordReviewInvocationAttempt(
   const repoRoot = await resolveReviewRepositoryRoot(
     params.workingRepositoryPath,
   );
-  const activePath = path.join(
-    repoRoot,
-    'codeInfoStatus',
-    'flow-state',
-    'active-review-cycle.json',
-  );
-  const active = await readJsonIfPresent(activePath, resolvedDeps);
-  if (
-    !active ||
-    active.schema_version !== ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION ||
-    typeof active.review_cycle_id !== 'string' ||
-    !reviewCycleIdPattern.test(active.review_cycle_id) ||
-    active.review_mode !== 'final'
-  ) {
-    return null;
+  const reviewCycleId =
+    typeof params.reviewCycleId === 'string' &&
+    reviewCycleIdPattern.test(params.reviewCycleId)
+      ? params.reviewCycleId
+      : undefined;
+  const reviewBatchId =
+    typeof params.reviewBatchId === 'string' && params.reviewBatchId.trim()
+      ? params.reviewBatchId.trim()
+      : undefined;
+  let activeReviewCycleId: string | undefined;
+  if (!reviewCycleId && !reviewBatchId) {
+    const active = await readJsonIfPresent(
+      path.join(
+        repoRoot,
+        'codeInfoStatus',
+        'flow-state',
+        'active-review-cycle.json',
+      ),
+      resolvedDeps,
+    );
+    if (
+      !active ||
+      active.schema_version !== ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION ||
+      typeof active.review_cycle_id !== 'string' ||
+      !reviewCycleIdPattern.test(active.review_cycle_id) ||
+      active.review_mode !== 'final'
+    ) {
+      return null;
+    }
+    activeReviewCycleId = active.review_cycle_id;
   }
+  const reviewOwnerId = reviewCycleId ?? reviewBatchId ?? activeReviewCycleId;
+  if (!reviewOwnerId) return null;
 
   const attemptPath = path.join(
     repoRoot,
     'codeInfoTmp',
     'reviews',
-    safePathSegment(active.review_cycle_id),
+    safePathSegment(reviewOwnerId),
     'attempts',
-    `${safePathSegment(params.invocationId)}.md`,
+    `${attemptPathSegment(params.invocationId)}.md`,
   );
   let existing = '';
   try {
@@ -229,7 +265,8 @@ export async function recordReviewInvocationAttempt(
         'This is factual launch evidence, not a machine-parsed review result schema.',
         'Settlement agents should interpret it with the other self-describing review artifacts and recover imperfect evidence with best effort.',
         '',
-        `- Review cycle: ${active.review_cycle_id}`,
+        `- Review cycle: ${reviewCycleId ?? activeReviewCycleId ?? 'not assigned'}`,
+        ...(reviewBatchId ? [`- Review batch: ${reviewBatchId}`] : []),
         `- Invocation: ${params.invocationId}`,
         `- Flow: ${params.flowName}`,
       ].join('\n');

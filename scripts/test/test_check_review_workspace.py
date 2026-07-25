@@ -22,7 +22,7 @@ class ReviewWorkspaceCheckTests(unittest.TestCase):
         (batch / "inputs" / "target").mkdir(parents=True)
         (batch / "reconciliation").mkdir()
         job = batch / "jobs" / "reviewer-a"
-        for name in ("work", "output", "verification"):
+        for name in ("input", "work", "output", "verification"):
             (job / name).mkdir(parents=True)
         (job / "job.md").write_text("# Agent-readable job\n", encoding="utf-8")
         (batch / "batch-launch.md").write_text("# Launch\n", encoding="utf-8")
@@ -50,6 +50,52 @@ class ReviewWorkspaceCheckTests(unittest.TestCase):
             result = check_workspace(batch)
             self.assertEqual(result["status"], "failed")
             self.assertTrue(any("missing directory" in item for item in result["errors"]))
+
+    def test_reports_a_missing_private_job_input_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            batch = self.make_batch(Path(tmpdir))
+            (batch / "jobs" / "reviewer-a" / "input").rmdir()
+
+            result = check_workspace(batch)
+
+            self.assertEqual(result["status"], "failed")
+            self.assertIn("job reviewer-a is missing input/", result["errors"])
+
+    def test_rejects_job_boundary_redirected_to_a_sibling(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            batch = self.make_batch(Path(tmpdir))
+            sibling = batch / "jobs" / "reviewer-b"
+            for name in ("work", "output", "verification"):
+                (sibling / name).mkdir(parents=True)
+            (sibling / "job.md").write_text("# Sibling job\n", encoding="utf-8")
+
+            redirected_output = batch / "jobs" / "reviewer-a" / "output"
+            redirected_output.rmdir()
+            redirected_output.symlink_to(sibling / "output", target_is_directory=True)
+
+            result = check_workspace(batch)
+            self.assertEqual(result["status"], "failed")
+            self.assertIn(
+                "job reviewer-a output/ escapes its job root", result["errors"]
+            )
+
+    def test_rejects_output_entry_symlink_that_escapes_its_job(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            batch = self.make_batch(root)
+            output = batch / "jobs" / "reviewer-a" / "output"
+            external_output = root / "external-review.md"
+            external_output.write_text("outside", encoding="utf-8")
+            (output / "review.md").symlink_to(external_output)
+
+            result = check_workspace(batch)
+
+            self.assertEqual(result["status"], "failed")
+            self.assertTrue(result["facts"]["jobs"][0]["output_empty"])
+            self.assertIn(
+                "job reviewer-a output entry escapes its output directory: review.md",
+                result["errors"],
+            )
 
     def test_checks_git_head_as_a_fact(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

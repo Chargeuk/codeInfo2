@@ -92,6 +92,34 @@ codeinfo2_run_compose_wrapper() {
   assert_success
 }
 
+@test "compose wrapper preserves explicit display locale and time-zone overrides" {
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    CODEINFO_TEST_RECORD_DISPLAY_ENV=1 \
+    CODEINFO_DISPLAY_LOCALE=fr-FR \
+    CODEINFO_DISPLAY_TIME_ZONE=Europe/Paris
+
+  assert_success
+  run grep -F "display_env locale=fr-FR time_zone=Europe/Paris" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_success
+}
+
+@test "compose wrapper infers non-empty display settings when overrides are absent" {
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    CODEINFO_TEST_RECORD_DISPLAY_ENV=1 \
+    CODEINFO_DISPLAY_LOCALE= \
+    CODEINFO_DISPLAY_TIME_ZONE=
+
+  assert_success
+  run grep -E "display_env locale=.+ time_zone=.+" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_success
+}
+
 @test "compose wrapper creates missing repo-owned local bind-mount directories before startup" {
   local workspace_root
   workspace_root="${CODEINFO2_TASK9_TMPDIR}/workspace"

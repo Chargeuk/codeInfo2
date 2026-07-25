@@ -23,6 +23,7 @@ describe('flow schema (v1)', () => {
     breakOn?: string;
     breakOnFailure?: boolean;
     continueOnFailure?: boolean;
+    continueOnInvalidResponse?: boolean;
     continueOn?: string;
     haltFlow?: boolean;
     exitFlow?: boolean;
@@ -501,6 +502,32 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('terminal review output steps propagate failure to existing recovery', async () => {
+    const crossRepositoryRaw = await fs.readFile(
+      path.join(repoRoot, 'flows/cross_repository_review.json'),
+      'utf8',
+    );
+    const crossRepository = JSON.parse(crossRepositoryRaw) as {
+      steps?: FlowStep[];
+    };
+    const crossRepositoryReviewer = crossRepository.steps?.[0];
+
+    const artifactsRaw = await fs.readFile(
+      path.join(repoRoot, 'flows/review_artifacts_main.json'),
+      'utf8',
+    );
+    const artifacts = JSON.parse(artifactsRaw) as { steps?: FlowStep[] };
+    const consolidator = artifacts.steps?.at(-1);
+
+    assert.equal(
+      crossRepositoryReviewer?.label,
+      'Review Cross-Repository Contracts',
+    );
+    assert.equal(crossRepositoryReviewer?.continueOnFailure, undefined);
+    assert.equal(consolidator?.label, 'Consolidate Multi-Agent Review');
+    assert.equal(consolidator?.continueOnFailure, undefined);
+  });
+
   test('review policy uses generic repeated and one-shot batches without leaking scheduling classes', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
@@ -544,7 +571,7 @@ describe('flow schema (v1)', () => {
     assert.match(serialized, /review_batch/u);
   });
 
-  test('generic review batch verifies, reconciles, scope filters, dispositions, applies optional stronger repair, and records in order', async () => {
+  test('generic review batch verifies, reconciles, applies survivor-only filtering gates, dispositions, applies optional stronger repair, and records in order', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/review_batch.json'),
       'utf8',
@@ -589,16 +616,26 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Positively Authorize Review Findings For Story',
-      'Reset Review Batch Scope Auditor',
+      'Reset Review Batch Materiality Filter',
     );
     assertOrdered(
       labels,
-      'Reset Review Batch Scope Auditor',
-      'Audit Review Batch Scope Gates',
+      'Reset Review Batch Materiality Filter',
+      'Filter Review Findings By Materiality And Realistic Impact',
     );
     assertOrdered(
       labels,
-      'Audit Review Batch Scope Gates',
+      'Filter Review Findings By Materiality And Realistic Impact',
+      'Reset Review Batch Filtering Auditor',
+    );
+    assertOrdered(
+      labels,
+      'Reset Review Batch Filtering Auditor',
+      'Audit Review Batch Filtering Gates',
+    );
+    assertOrdered(
+      labels,
+      'Audit Review Batch Filtering Gates',
       'Reset Review Batch Dispositioner',
     );
     assertOrdered(
@@ -670,11 +707,32 @@ describe('flow schema (v1)', () => {
     );
     assert.notEqual(scopeAuthorizer?.identifier, scopeFilter?.identifier);
 
+    const materialityReset = (parsed.steps ?? []).find(
+      (step) => step.label === 'Reset Review Batch Materiality Filter',
+    );
+    const materialityFilter = (parsed.steps ?? []).find(
+      (step) =>
+        step.label ===
+        'Filter Review Findings By Materiality And Realistic Impact',
+    );
+    assert.equal(materialityReset?.type, 'reset');
+    assert.equal(materialityReset?.agentType, 'planning_agent');
+    assert.equal(materialityReset?.identifier, 'batch_materiality_filter');
+    assert.equal(materialityFilter?.type, 'llm');
+    assert.equal(materialityFilter?.agentType, materialityReset?.agentType);
+    assert.equal(materialityFilter?.identifier, materialityReset?.identifier);
+    assert.equal(materialityFilter?.continueOnFailure, true);
+    assert.equal(
+      materialityFilter?.markdownFile,
+      'filter_review_batch_findings_by_materiality.md',
+    );
+    assert.notEqual(materialityFilter?.identifier, scopeAuthorizer?.identifier);
+
     const scopeAuditReset = (parsed.steps ?? []).find(
-      (step) => step.label === 'Reset Review Batch Scope Auditor',
+      (step) => step.label === 'Reset Review Batch Filtering Auditor',
     );
     const scopeAudit = (parsed.steps ?? []).find(
-      (step) => step.label === 'Audit Review Batch Scope Gates',
+      (step) => step.label === 'Audit Review Batch Filtering Gates',
     );
     assert.equal(scopeAuditReset?.type, 'reset');
     assert.equal(scopeAuditReset?.agentType, 'review_agent_heavy');
@@ -730,8 +788,10 @@ describe('flow schema (v1)', () => {
     assert.equal(completionGate?.identifier, 'batch_fixer');
     assert.equal(completionGate?.breakOn, 'yes');
     assert.equal(completionGate?.continueOnFailure, true);
+    assert.equal(completionGate?.continueOnInvalidResponse, true);
     assert.equal(completionGate?.breakOnFailure, undefined);
     assert.match(completionGate?.question ?? '', /positively confirmed/u);
+    assert.match(completionGate?.question ?? '', /materiality survivor/u);
     assert.match(completionGate?.question ?? '', /evidence is uncertain/u);
     const strongerReset = optionalSteps[1];
     const strongerFix = optionalSteps[2];
@@ -754,6 +814,7 @@ describe('flow schema (v1)', () => {
     assert.equal(exitGate?.type, 'break');
     assert.equal(exitGate?.agentType, 'loop_control_agent');
     assert.equal(exitGate?.breakOn, 'yes');
+    assert.equal(exitGate?.breakOnFailure, true);
     assert.match(exitGate?.question ?? '', /single allowed invocation/u);
   });
 
@@ -960,6 +1021,7 @@ describe('flow schema (v1)', () => {
       assert.equal(normalGate?.identifier, 'coder', relativePath);
       assert.equal(normalGate?.breakOn, 'yes', relativePath);
       assert.equal(normalGate?.continueOnFailure, true, relativePath);
+      assert.equal(normalGate?.continueOnInvalidResponse, true, relativePath);
       assert.equal(normalGate?.breakOnFailure, undefined, relativePath);
       assert.match(normalGate?.question ?? '', /positively confirms/u);
       assert.match(normalGate?.question ?? '', /malformed, or uncertain/u);
@@ -1007,6 +1069,7 @@ describe('flow schema (v1)', () => {
         'implementation_research_loop_controller',
       );
       assert.equal(explicitExit?.breakOn, 'yes', relativePath);
+      assert.equal(explicitExit?.breakOnFailure, true, relativePath);
       assert.match(explicitExit?.question ?? '', /single allowed invocation/u);
 
       if (canonicalOptionalRepair === undefined) {
@@ -1014,6 +1077,51 @@ describe('flow schema (v1)', () => {
       } else {
         assert.deepEqual(optionalRepair, canonicalOptionalRepair, relativePath);
       }
+    }
+  });
+
+  test('main implementation flows reset the coder immediately before proof repair context', async () => {
+    const flowFiles = [
+      'flows/implement_next_plan.json',
+      'flows/implement_current_plan.json',
+      'flows/improve_task_implement_plan.json',
+      'flows/task_and_implement_plan.json',
+    ] as const;
+
+    for (const relativePath of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const steps = flattenSteps(parsed.steps ?? []);
+      const contextIndex = steps.findIndex(
+        (step) =>
+          step.label === 'Load coder current task context before proof repair',
+      );
+      assert.ok(contextIndex > 0, relativePath);
+      const reset = steps[contextIndex - 1];
+      const context = steps[contextIndex];
+      assert.equal(
+        reset?.label,
+        'Reset coder before proof repair',
+        relativePath,
+      );
+      assert.equal(reset?.type, 'reset', relativePath);
+      assert.equal(reset?.agentType, 'coding_agent', relativePath);
+      assert.equal(reset?.identifier, 'coder', relativePath);
+      assert.equal(context?.agentType, reset?.agentType, relativePath);
+      assert.equal(context?.identifier, reset?.identifier, relativePath);
+    }
+  });
+
+  test('reviewer flows preserve terminal reviewer failures for factual wave accounting', async () => {
+    for (const relativePath of [
+      'flows/codex_review.json',
+      'flows/open_code_review.json',
+    ]) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const reviewer = parsed.steps?.[0];
+      assert.equal(reviewer?.type, 'llm', relativePath);
+      assert.equal(reviewer?.continueOnFailure, undefined, relativePath);
     }
   });
 
@@ -1532,6 +1640,78 @@ describe('flow schema (v1)', () => {
       assert.ok(
         settleIndex >= 0 && settleIndex < applyIndex && applyIndex < auditIndex,
         `${flowFile} should settle, apply tasking, then independently audit`,
+      );
+    }
+  });
+
+  test('main implementation flows keep mid-loop pushes persistence-only and force settlement before completion', async () => {
+    const flowFiles = [
+      'flows/implement_current_plan.json',
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ] as const;
+    const checkpointPrompt = await fs.readFile(
+      path.join(repoRoot, 'codeinfo_markdown/checkpoint_push.md'),
+      'utf8',
+    );
+
+    assert.match(checkpointPrompt, /This is a checkpoint only\./u);
+    assert.match(
+      checkpointPrompt,
+      /Do not implement any task or review finding\./u,
+    );
+    assert.match(checkpointPrompt, /Do not change any task status, checkbox/u);
+    assert.match(
+      checkpointPrompt,
+      /If commit or push fails, report the failure and continue/u,
+    );
+
+    for (const flowFile of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const rawSteps = flattenSteps(parsed.steps ?? []);
+      const checkpoints = rawSteps.filter(
+        (step) =>
+          step.label === 'Checkpoint Push Before Review Loop' ||
+          step.label === 'Checkpoint Push Before Story Completion Check',
+      );
+      assert.equal(
+        checkpoints.length,
+        2,
+        `${flowFile} should have both mid-loop checkpoints`,
+      );
+      assert.ok(
+        checkpoints.every((step) => step.markdownFile === 'checkpoint_push.md'),
+        `${flowFile} should use the persistence-only checkpoint prompt`,
+      );
+      assert.equal(
+        rawSteps.filter((step) => step.markdownFile === 'final_push.md').length,
+        1,
+        `${flowFile} should reserve final_push.md for true story closeout`,
+      );
+
+      const expandedSteps = await loadExpandedFlowSteps(flowFile);
+      const settlementIndex = expandedSteps.findIndex(
+        (step) =>
+          step.markdownFile === 'apply_agent_native_review_settlement.md',
+      );
+      const checkpointIndex = expandedSteps.findIndex(
+        (step) =>
+          step.label === 'Checkpoint Push Before Story Completion Check',
+      );
+      const completionIndex = expandedSteps.findIndex(
+        (step, index) =>
+          index > checkpointIndex &&
+          step.type === 'break' &&
+          step.label === 'Check for completion',
+      );
+
+      assert.ok(
+        settlementIndex >= 0 &&
+          settlementIndex < checkpointIndex &&
+          checkpointIndex < completionIndex,
+        `${flowFile} should settle and task work, persist it, then decide completion`,
       );
     }
   });

@@ -127,7 +127,7 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
       Object.keys(
         server.harness.getState().lastCreateSessionConfig?.mcpServers ?? {},
       ).sort(),
-      ['context7', 'deepwiki', 'ingested_repos', 'mui', 'web_tools'],
+      ['code_info', 'context7', 'deepwiki', 'mui', 'web_tools'],
     );
 
     await request(server.httpServer)
@@ -159,7 +159,7 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
       Object.keys(
         server.harness.getState().lastResumeSession?.config.mcpServers ?? {},
       ).sort(),
-      ['context7', 'deepwiki', 'ingested_repos', 'mui', 'web_tools'],
+      ['code_info', 'context7', 'deepwiki', 'mui', 'web_tools'],
     );
 
     await request(server.httpServer)
@@ -188,9 +188,9 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
         server.harness.getState().lastCreateSessionConfig?.mcpServers,
       ),
       {
+        code_info: [],
         context7: [],
         deepwiki: [],
-        ingested_repos: [],
         mui: [],
         web_tools: [],
       },
@@ -226,9 +226,9 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
         server.harness.getState().lastResumeSession?.config.mcpServers,
       ),
       {
+        code_info: [],
         context7: [],
         deepwiki: [],
-        ingested_repos: [],
         mui: [],
         web_tools: [],
       },

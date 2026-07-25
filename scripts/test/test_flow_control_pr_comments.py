@@ -111,6 +111,7 @@ class PrCommentFlowControlTests(unittest.TestCase):
                 522,
                 525,
                 527,
+                529,
                 528,
             ],
         )

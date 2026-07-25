@@ -945,6 +945,76 @@ test('continueOnFailure lets a later llm step run after a terminal llm failure',
   });
 });
 
+test('continueOnFailure lets a later step run after break setup fails', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
+    const conversationId = 'flow-break-setup-failure-continues';
+    const flowName = 'break-setup-failure-continues';
+
+    await writeFlowFile({
+      tmpDir,
+      flowName,
+      steps: [
+        makeLlmStep(),
+        {
+          type: 'break',
+          agentType: 'missing_agent',
+          identifier: 'missing',
+          question: 'Continue after setup failure?',
+          breakOn: 'yes',
+          continueOnFailure: true,
+        },
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          messages: [{ role: 'user', content: ['after break setup failure'] }],
+        },
+      ],
+    });
+
+    subscribeConversation(ws, conversationId);
+    await supertest(baseUrl)
+      .post(`/flows/${flowName}/run`)
+      .send({ conversationId })
+      .expect(202);
+
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+    const turns = await waitForTurns(
+      conversationId,
+      (items) =>
+        items.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'failed' &&
+            turn.content.includes('Agent missing_agent not found'),
+        ) &&
+        items.some(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('after break setup failure'),
+        ),
+    );
+
+    assert.equal(
+      turns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'failed' &&
+          turn.content.includes('Agent missing_agent not found'),
+      ),
+      true,
+    );
+    assert.equal(
+      turns.some(
+        (turn) =>
+          turn.role === 'user' &&
+          turn.content.includes('after break setup failure'),
+      ),
+      true,
+    );
+  });
+});
+
 test('dedicated flow reingest terminal error remains non-fatal to later steps', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
     await writeFlowFile({

@@ -1573,7 +1573,7 @@ describe('runtimeConfig Context7 overlay', () => {
     );
 
     assert.deepEqual(
-      (normalized.mcp_servers as Record<string, unknown>).ingested_repos,
+      (normalized.mcp_servers as Record<string, unknown>).code_info,
       {
         command: 'npx',
         args: ['-y', 'mcp-remote', 'http://localhost:6010/mcp'],

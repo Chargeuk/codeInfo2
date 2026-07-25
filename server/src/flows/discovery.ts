@@ -23,6 +23,7 @@ import { append } from '../logStore.js';
 import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import {
   getFlowDefinitionCatalog,
+  resolveConfiguredFlowsRoot,
   type FlowDefinitionCatalog,
 } from './flowDefinitionCatalog.js';
 import { parseFlowFile, type FlowFile, type FlowStep } from './flowSchema.js';
@@ -88,10 +89,7 @@ const resolveSafeChildFlowPath = (
 
 const resolveFlowsDir = (baseDir?: string): string => {
   if (baseDir) return path.resolve(baseDir);
-  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
-  const { codeInfoRoot } = resolveAgentHomeEnv();
-  if (codeInfoRoot) return path.join(codeInfoRoot, 'flows');
-  return path.resolve('flows');
+  return resolveConfiguredFlowsRoot();
 };
 
 const resolveFlowAgentLookupRoot = (flowsDir: string) => {
@@ -164,11 +162,19 @@ const collectSubflowReferenceWarnings = async (params: {
       });
       continue;
     }
-    if (step.type !== 'subflow') {
+    const childFlowNames =
+      step.type === 'subflow'
+        ? step.flowNames
+        : step.type === 'subflowWave'
+          ? (step.groups ?? []).flatMap((group) =>
+              group.kind === 'matrix' ? group.flowNames : [group.flowName],
+            )
+          : undefined;
+    if (!childFlowNames) {
       continue;
     }
 
-    for (const childFlowName of step.flowNames) {
+    for (const childFlowName of childFlowNames) {
       if (visited.has(childFlowName)) {
         continue;
       }

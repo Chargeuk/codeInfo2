@@ -44,6 +44,7 @@ export type FlowBreakStep = {
   question: string;
   breakOn: 'yes' | 'no';
   continueOnFailure?: boolean;
+  continueOnInvalidResponse?: boolean;
   breakOnFailure?: boolean;
   haltFlow?: boolean;
   exitFlow?: boolean;
@@ -196,6 +197,7 @@ const FlowBreakStepSchema = z
     question: trimmedNonEmptyString,
     breakOn: z.union([z.literal('yes'), z.literal('no')]),
     continueOnFailure: z.boolean().optional(),
+    continueOnInvalidResponse: z.boolean().optional(),
     breakOnFailure: z.boolean().optional(),
     haltFlow: z.boolean().optional(),
     exitFlow: z.boolean().optional(),
@@ -355,19 +357,23 @@ const FlowSubflowWaveSingletonGroupSchema = z
   })
   .strict();
 
+const FlowSubflowWaveGroupsSchema = z
+  .array(
+    z.union([
+      FlowSubflowWaveMatrixGroupSchema,
+      FlowSubflowWaveSingletonGroupSchema,
+    ]),
+  )
+  .min(1);
+
+export const parseFlowSubflowWaveGroups = (value: unknown) =>
+  FlowSubflowWaveGroupsSchema.parse(value);
+
 const FlowSubflowWaveStepSchema = z
   .object({
     type: z.literal('subflowWave'),
     label: trimmedNonEmptyString.optional(),
-    groups: z
-      .array(
-        z.union([
-          FlowSubflowWaveMatrixGroupSchema,
-          FlowSubflowWaveSingletonGroupSchema,
-        ]),
-      )
-      .min(1)
-      .optional(),
+    groups: FlowSubflowWaveGroupsSchema.optional(),
     groupsFrom: flowWaveBindingPath.optional(),
     failureMode: z.literal('best_effort').optional(),
     reviewWorkspace: z

@@ -1,5 +1,8 @@
 import { hashFlowInput, normalizeFlowInput } from './flowInput.js';
-import type { FlowSubflowWaveStep } from './flowSchema.js';
+import {
+  parseFlowSubflowWaveGroups,
+  type FlowSubflowWaveStep,
+} from './flowSchema.js';
 import type { FlowJsonObject, FlowJsonValue } from './types.js';
 
 export type SubflowWaveJob = {
@@ -46,6 +49,12 @@ const buildBindings = (params: {
   if (workingFolder !== undefined && typeof workingFolder !== 'string') {
     throw new Error('Wave working-folder binding must resolve to a string.');
   }
+  const normalizedWorkingFolder = workingFolder?.trim();
+  if (params.bindings?.workingFolderFrom && !normalizedWorkingFolder) {
+    throw new Error(
+      'Wave working-folder binding must resolve to a non-empty string.',
+    );
+  }
   const inputEntries = Object.entries(params.bindings?.input ?? {}).map(
     ([key, bindingPath]) => {
       const value = resolveFlowValue(params.root, bindingPath);
@@ -66,7 +75,9 @@ const buildBindings = (params: {
         })
       : undefined;
   return {
-    ...(workingFolder ? { workingFolder } : {}),
+    ...(normalizedWorkingFolder
+      ? { workingFolder: normalizedWorkingFolder }
+      : {}),
     ...(input ? { input, inputHash: hashFlowInput(input) } : {}),
   };
 };
@@ -74,59 +85,7 @@ const buildBindings = (params: {
 const dynamicBindings = (
   value: FlowJsonValue | undefined,
 ): FlowSubflowWaveStep['groups'] => {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new Error('Dynamic subflow wave groups must be a non-empty array.');
-  }
-  return value.map((entry, index) => {
-    if (!isRecord(entry)) {
-      throw new Error(`Dynamic wave group ${index} must be an object.`);
-    }
-    const kind = entry.kind;
-    const id = entry.id;
-    if (
-      (kind !== 'matrix' && kind !== 'singleton') ||
-      typeof id !== 'string' ||
-      !id.trim()
-    ) {
-      throw new Error(`Dynamic wave group ${index} has invalid kind or id.`);
-    }
-    const bindings = isRecord(entry.bindings)
-      ? (entry.bindings as NonNullable<
-          NonNullable<FlowSubflowWaveStep['groups']>[number]['bindings']
-        >)
-      : undefined;
-    if (kind === 'singleton') {
-      if (typeof entry.flowName !== 'string' || !entry.flowName.trim()) {
-        throw new Error(`Dynamic singleton group ${id} lacks flowName.`);
-      }
-      return {
-        kind,
-        id: id.trim(),
-        flowName: entry.flowName.trim(),
-        ...(bindings ? { bindings } : {}),
-      };
-    }
-    if (
-      typeof entry.itemsFrom !== 'string' ||
-      typeof entry.itemName !== 'string' ||
-      !Array.isArray(entry.flowNames) ||
-      entry.flowNames.length === 0 ||
-      !entry.flowNames.every(
-        (flowName): flowName is string =>
-          typeof flowName === 'string' && Boolean(flowName.trim()),
-      )
-    ) {
-      throw new Error(`Dynamic matrix group ${id} is incomplete.`);
-    }
-    return {
-      kind,
-      id: id.trim(),
-      itemsFrom: entry.itemsFrom,
-      itemName: entry.itemName,
-      flowNames: entry.flowNames.map((flowName) => flowName.trim()),
-      ...(bindings ? { bindings } : {}),
-    };
-  });
+  return parseFlowSubflowWaveGroups(value);
 };
 
 export const resolveSubflowWaveGroups = (params: {
@@ -163,6 +122,9 @@ const targetIdentity = (item: FlowJsonValue, index: number): string => {
   return String(index);
 };
 
+const waveInstanceId = (...parts: string[]) =>
+  parts.map((part) => encodeURIComponent(part)).join(':');
+
 export const expandSubflowWaveJobs = (params: {
   step: FlowSubflowWaveStep;
   input: FlowJsonObject;
@@ -175,7 +137,7 @@ export const expandSubflowWaveJobs = (params: {
         bindings: group.bindings,
       });
       jobs.push({
-        instanceId: `${group.id}:${group.flowName}`,
+        instanceId: waveInstanceId(group.id, group.flowName),
         flowName: group.flowName,
         displayName: group.flowName,
         ...bindings,
@@ -198,7 +160,7 @@ export const expandSubflowWaveJobs = (params: {
       const bindings = buildBindings({ root, bindings: group.bindings });
       group.flowNames.forEach((flowName) => {
         jobs.push({
-          instanceId: `${group.id}:${targetId}:${flowName}`,
+          instanceId: waveInstanceId(group.id, targetId, flowName),
           flowName,
           targetId,
           displayName: `${flowName} [${targetId}]`,

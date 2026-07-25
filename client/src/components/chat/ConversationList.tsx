@@ -819,7 +819,19 @@ export function ConversationList({
                             {conversation.flags?.flow?.subflowWaveProgress &&
                               !conversation.flags?.flowChild?.executionId && (
                                 <Chip
-                                  label={`Wave ${conversation.flags.flow.subflowWaveProgress.completed + conversation.flags.flow.subflowWaveProgress.notApplicable}/${conversation.flags.flow.subflowWaveProgress.expected}`}
+                                  label={`Wave ${
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .completed +
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .failed +
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .stopped +
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .notApplicable
+                                  }/${
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .expected
+                                  }`}
                                   title={`Running ${conversation.flags.flow.subflowWaveProgress.running}; failed ${conversation.flags.flow.subflowWaveProgress.failed}; stopped ${conversation.flags.flow.subflowWaveProgress.stopped}; not applicable ${conversation.flags.flow.subflowWaveProgress.notApplicable}`}
                                   size="small"
                                   variant="outlined"

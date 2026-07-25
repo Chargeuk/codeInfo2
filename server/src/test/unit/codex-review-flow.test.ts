@@ -57,7 +57,6 @@ test('Codex review flow uses the generic workspace agent and launcher prompt', (
       label: 'Run Codex Workspace Review',
       agentType: 'review_agent_heavy',
       identifier: 'codex_workspace_reviewer',
-      continueOnFailure: true,
       markdownFile: 'run_codex_review_workspace.md',
     },
   ]);

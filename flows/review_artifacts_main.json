@@ -51,7 +51,6 @@
       "label": "Consolidate Multi-Agent Review",
       "agentType": "review_agent_heavy",
       "identifier": "reviewer_consolidator",
-      "continueOnFailure": true,
       "markdownFile": "consolidate_deep_review_workspace.md"
     }
   ]

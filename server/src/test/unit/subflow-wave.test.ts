@@ -61,6 +61,37 @@ test('expandSubflowWaveJobs creates matrix and singleton jobs with stable bindin
   assert.match(jobs[0]?.inputHash ?? '', /^[0-9a-f]{64}$/u);
 });
 
+test('expandSubflowWaveJobs distinguishes valid tuple components containing delimiters', () => {
+  const jobs = expandSubflowWaveJobs({
+    step: {
+      type: 'subflowWave',
+      groups: [
+        {
+          kind: 'matrix',
+          id: 'reviews',
+          itemsFrom: 'targets',
+          itemName: 'target',
+          flowNames: ['b:c', 'c'],
+        },
+      ],
+    },
+    input: {
+      targets: [{ target_id: 'a' }, { target_id: 'a:b' }],
+    },
+  });
+
+  assert.deepEqual(
+    jobs.map((job) => job.instanceId),
+    [
+      'reviews:a:b%3Ac',
+      'reviews:a:c',
+      'reviews:a%3Ab:b%3Ac',
+      'reviews:a%3Ab:c',
+    ],
+  );
+  assert.equal(new Set(jobs.map((job) => job.instanceId)).size, jobs.length);
+});
+
 test('expandSubflowWaveJobs rejects missing arrays and unresolved bindings', () => {
   assert.throws(() => expandSubflowWaveJobs({ step, input: {} }));
   assert.throws(() =>
@@ -69,6 +100,19 @@ test('expandSubflowWaveJobs rejects missing arrays and unresolved bindings', () 
       input: { targets: [{ target_id: 'client' }] },
     }),
   );
+});
+
+test('expandSubflowWaveJobs rejects blank explicit working-folder bindings', () => {
+  for (const repoRoot of ['', '   ']) {
+    assert.throws(
+      () =>
+        expandSubflowWaveJobs({
+          step,
+          input: { targets: [{ target_id: 'client', repo_root: repoRoot }] },
+        }),
+      /working-folder binding must resolve to a non-empty string/u,
+    );
+  }
 });
 
 test('expandSubflowWaveJobs discovers dynamic groups and preserves literal scheduling input', () => {
@@ -100,6 +144,24 @@ test('expandSubflowWaveJobs discovers dynamic groups and preserves literal sched
   assert.deepEqual(jobs[0]?.input, {
     scheduling_hint: 'configured by parent only',
   });
+});
+
+test('expandSubflowWaveJobs applies static binding validation to dynamic groups', () => {
+  assert.throws(() =>
+    expandSubflowWaveJobs({
+      step: { type: 'subflowWave', groupsFrom: 'review_groups' },
+      input: {
+        review_groups: [
+          {
+            kind: 'singleton',
+            id: 'review',
+            flowName: 'new_reviewer',
+            bindings: { inputValues: 'not an object' },
+          },
+        ],
+      },
+    }),
+  );
 });
 
 test('production review policy configures repeated and one-shot batches without review phase metadata', async () => {

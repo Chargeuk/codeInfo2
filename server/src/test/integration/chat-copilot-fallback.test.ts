@@ -258,7 +258,7 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
   }
 });
 
-test('explicit Copilot chat requests fail closed when endpoint discovery leaves no usable endpoint', async () => {
+test('explicit Copilot chat requests tolerate endpoint discovery failures during inference', async () => {
   let server: Awaited<ReturnType<typeof startCopilotChatServer>> | undefined;
 
   try {
@@ -284,11 +284,11 @@ test('explicit Copilot chat requests fail closed when endpoint discovery leaves 
       message: 'Continue even if endpoint discovery throws',
     });
 
-    assert.equal(response.status, 503);
-    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.equal(response.status, 202);
+    assert.equal(response.body.provider, 'copilot');
     assert.equal(
       memoryConversations.get('copilot-discovery-failure-tolerated')?.provider,
-      undefined,
+      'copilot',
     );
   } finally {
     await server?.stop();

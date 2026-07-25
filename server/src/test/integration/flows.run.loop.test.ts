@@ -923,6 +923,7 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
     {
       name: 'normal repair cleared blocker',
       normalGate: 'yes',
+      exitGate: 'yes',
       blockerRemains: 'no',
       normalResponse: 'ok',
       researchResponse: 'ok',
@@ -932,6 +933,7 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
     {
       name: 'normal repair left blocker for stronger repair',
       normalGate: 'no',
+      exitGate: 'yes',
       blockerRemains: 'no',
       normalResponse: 'ok',
       researchResponse: 'ok',
@@ -941,6 +943,7 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
     {
       name: 'normal repair failure still reaches stronger repair and blocker gate',
       normalGate: 'no',
+      exitGate: 'yes',
       blockerRemains: 'no',
       normalResponse: '__throw',
       researchResponse: 'ok',
@@ -948,11 +951,42 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
       expectedNormalContinuation: 1,
     },
     {
+      name: 'invalid normal completion still reaches stronger repair and blocker gate',
+      normalGate: 'invalid',
+      exitGate: 'yes',
+      blockerRemains: 'no',
+      normalResponse: 'ok',
+      researchResponse: 'ok',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 1,
+    },
+    {
       name: 'stronger repair failure preserves authoritative blocker routing',
       normalGate: 'no',
+      exitGate: 'yes',
       blockerRemains: 'yes',
       normalResponse: 'ok',
       researchResponse: '__throw',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 0,
+    },
+    {
+      name: 'post-research control failure preserves authoritative blocker routing',
+      normalGate: 'no',
+      exitGate: 'invalid',
+      blockerRemains: 'yes',
+      normalResponse: 'ok',
+      researchResponse: 'ok',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 0,
+    },
+    {
+      name: 'post-research provider failure preserves authoritative blocker routing',
+      normalGate: 'no',
+      exitGate: '__throw',
+      blockerRemains: 'yes',
+      normalResponse: 'ok',
+      researchResponse: 'ok',
       expectedResearchCalls: 1,
       expectedNormalContinuation: 0,
     },
@@ -967,6 +1001,9 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
             'Did normal repair clear the implementation blocker?',
           )
         ) {
+          if (scenario.normalGate === 'invalid') {
+            return 'normal completion evidence was malformed';
+          }
           return JSON.stringify({ answer: scenario.normalGate });
         }
         if (message.includes('Normal deep blocker repair.')) {
@@ -979,7 +1016,11 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
         if (
           message.includes('Exit the bounded stronger implementation repair?')
         ) {
-          return JSON.stringify({ answer: 'yes' });
+          if (scenario.exitGate === 'invalid') {
+            return 'post-research control evidence was malformed';
+          }
+          if (scenario.exitGate === '__throw') return '__throw';
+          return JSON.stringify({ answer: scenario.exitGate });
         }
         if (
           message.includes(

@@ -6,11 +6,13 @@ Decide whether the current blocker proves that the plan itself is wrong or incom
 
 Read the stored current-plan handoff and use only that scope for this step.
 Use the same current-task context and blocker-owner conclusion from the immediately preceding blocker-solution step rather than re-reading `current-task.json` again in this same planning-agent pass.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before treating any Docker, Compose, occupied-port, or runtime-ownership condition as an external blocker or plan defect.
 Load fresh bounded blocker and story-scope packets before deciding whether the blocker changes the plan.
 Read the selected task's latest `**BLOCKING ANSWER**` from the bounded blocker-repair packet and extract any blocker-family and ownership conclusion before deciding whether to repair the plan.
 If there is no blocker, or there was a blocker but no plan repair is needed, state that explicitly.
 If the blocker proves the plan is wrong or incomplete, repair the story before work continues.
 If the blocker is an external reviewer, provider, runtime, or terminal-artifact dependency and the same condition still exists, preserve the parser-visible `**BLOCKER**` line. Documenting ownership or a retry path does not resolve that blocker. Do not convert it to `**RESOLVED ISSUE**` unless fresh repository evidence shows the external condition changed or the required terminal artifact now exists.
+A proven repository-owned test stack that can be reclaimed through its documented shutdown wrapper is not an external runtime dependency. Retire a blocker whose only remaining basis is that a different agent or flow step started that stack, preserve the testing item as unchecked, and let normal proof retry it.
 
 </task>
 

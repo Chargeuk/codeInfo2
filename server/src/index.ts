@@ -26,12 +26,17 @@ import {
   resolveOpenAiEmbeddingCapabilityState,
 } from './config/startupEnv.js';
 import { createFakeCopilotRuntimeSeamFromEnv } from './copilot/fake/runtimeSeam.js';
+import {
+  initializeConfiguredFlowDefinitionCatalog,
+  initializeFlowDefinitionCatalogs,
+} from './flows/flowDefinitionCatalog.js';
 import './flows/flowSchema.js';
 import { reconcileInterruptedFlowRunsForStartup } from './flows/service.js';
 import './ingest/index.js';
 import { setIngestDeps } from './ingest/ingestJob.js';
 import './mongo/astCoverage.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
+import { listIngestedRepositories } from './lmstudio/toolService.js';
 import { append } from './logStore.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
@@ -427,6 +432,7 @@ const start = async () => {
     copilotHome: process.env.CODEINFO_COPILOT_HOME,
     lmstudioHome: resolveLmStudioChatDefaultsHome(),
   });
+  await initializeConfiguredFlowDefinitionCatalog();
   baseLogger.info(
     {
       event: 'story.0000057.task19.provider_bootstrap_complete',
@@ -446,6 +452,10 @@ const start = async () => {
   });
   if (isMongoConnected()) {
     await recoverIngestQueueForStartup();
+    const { repos } = await listIngestedRepositories();
+    await initializeFlowDefinitionCatalogs(
+      repos.map((repo) => path.join(repo.containerPath, 'flows')),
+    );
   }
 
   if (isMongoConnected()) {

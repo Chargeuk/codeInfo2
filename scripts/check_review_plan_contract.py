@@ -14,7 +14,7 @@ FINAL_REVIEW_PATTERN = re.compile(
     r"(?:two_phase_review_cycle|review:cycle:summary)", re.IGNORECASE
 )
 TASK_PATTERN = re.compile(r"^### Task (\d+)\.[^\n]*$", re.MULTILINE)
-CHECKBOX_PATTERN = re.compile(r"^\s*\d+\. \[ \] (.+)$", re.MULTILINE)
+CHECKBOX_PATTERN = re.compile(r"^\s*(?:[-*]|\d+\.)\s+\[ \]\s+(.+)$", re.MULTILINE)
 
 
 def inspect_plan(plan_text: str) -> dict[str, Any]:

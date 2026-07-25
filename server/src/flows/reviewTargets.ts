@@ -21,7 +21,7 @@ import {
 } from './reviewIdentity.js';
 
 const execFile = promisify(execFileCb);
-const BRANCH_STORY_PATTERN = /(\d{7})/u;
+const BRANCH_STORY_PATTERN = /^(\d{7})(?:-|$)/u;
 const SAFE_ALIAS_PATTERN = /[^A-Za-z0-9._-]+/gu;
 
 export const REVIEW_TARGETS_SCHEMA_VERSION = 'codeinfo-review-targets/v1';
@@ -272,7 +272,9 @@ export async function prepareReviewTargets(
   const targets: ReviewTarget[] = [];
   let primaryRealRoot: string | undefined;
   for (const [index, requestedTarget] of requestedTargets.entries()) {
-    const requestedPath = requestedTarget.path;
+    const requestedPath = path.isAbsolute(requestedTarget.path)
+      ? requestedTarget.path
+      : path.resolve(planHostRoot, requestedTarget.path);
     params.signal?.throwIfAborted();
     const mapped = await resolvedDeps.resolveWorkingDirectory(requestedPath);
     if (!mapped) {
@@ -307,7 +309,11 @@ export async function prepareReviewTargets(
     if (!branch) {
       throw new Error(`Review target "${realRoot}" has a detached HEAD.`);
     }
-    if (branch.match(BRANCH_STORY_PATTERN)?.[1] !== storyId) {
+    const branchStoryId = branch
+      .split('/')
+      .at(-1)
+      ?.match(BRANCH_STORY_PATTERN)?.[1];
+    if (!branchStoryId || branchStoryId !== storyId) {
       throw new Error(
         `Review target branch "${branch}" does not match plan story ${storyId}.`,
       );

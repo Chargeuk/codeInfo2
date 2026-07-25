@@ -49,7 +49,7 @@ const readJsonResponse = async (response, label) => {
   return body;
 };
 
-const progressFingerprint = (status) => {
+const validateFlowRunStatus = (status) => {
   if (!status || typeof status !== 'object' || Array.isArray(status)) {
     throw new Error('Review status returned an invalid response object.');
   }
@@ -76,17 +76,20 @@ const progressFingerprint = (status) => {
       }.`,
     );
   }
-  return JSON.stringify({
-    status: status.status,
-    terminal: status.terminal,
-    latestAssistantAt: status.latestAssistantAt,
-    subflowWaveProgress: status.subflowWaveProgress,
-  });
 };
 
-export const isSuccessfulTerminalReview = (status) =>
+export const isSuccessfulTerminalReview = (
+  status,
+  flowName = 'two_phase_review_cycle',
+) =>
   status.terminalOutcome === 'not_applicable' ||
-  (status.status === 'ok' && status.reviewCycleStatus === 'completed');
+  (status.status === 'ok' &&
+    (flowName === 'diagnostic_review_cycle'
+      ? !(
+          status.subflowWaveProgress?.expected > 0 &&
+          status.subflowWaveProgress.completed === 0
+        )
+      : status.reviewCycleStatus === 'completed'));
 
 export const buildReviewRetryOwnershipId = ({
   workingFolder,
@@ -207,10 +210,8 @@ export const waitForReviewCycle = async ({
     launchNonce: randomUUID(),
   }),
   pollMs = DEFAULT_POLL_MS,
-  cancelAfterNoProgressMs = null,
   fetchImpl = fetch,
   sleep = delay,
-  now = Date.now,
   onStatus = () => {},
 }) => {
   let conversationId = attachedConversationId;
@@ -231,9 +232,6 @@ export const waitForReviewCycle = async ({
     }
     conversationId = started.conversationId;
   }
-  let lastFingerprint = '';
-  let lastProgressAt = now();
-  let stopRequested = false;
   let resumeRequested = false;
 
   while (true) {
@@ -241,13 +239,8 @@ export const waitForReviewCycle = async ({
       `${baseUrl}/flows/runs/${encodeURIComponent(conversationId)}`,
     );
     const status = await readJsonResponse(response, 'Review status');
-    onStatus({ conversationId, status, stopRequested });
-
-    const fingerprint = progressFingerprint(status);
-    if (fingerprint !== lastFingerprint) {
-      lastFingerprint = fingerprint;
-      lastProgressAt = now();
-    }
+    validateFlowRunStatus(status);
+    onStatus({ conversationId, status });
 
     if (
       status.status === 'orphaned' &&
@@ -270,21 +263,11 @@ export const waitForReviewCycle = async ({
       );
       await readJsonResponse(resumeResponse, 'Review resume');
       resumeRequested = true;
-    } else if (status.terminal) {
-      return { conversationId, status };
-    }
-
-    if (
-      cancelAfterNoProgressMs !== null &&
-      !stopRequested &&
-      now() - lastProgressAt >= cancelAfterNoProgressMs
+    } else if (
+      !(resumeRequested && status.status === 'orphaned') &&
+      status.terminal
     ) {
-      const stopResponse = await fetchImpl(
-        `${baseUrl}/flows/runs/${encodeURIComponent(conversationId)}/stop`,
-        { method: 'POST' },
-      );
-      await readJsonResponse(stopResponse, 'Review stop');
-      stopRequested = true;
+      return { conversationId, status };
     }
 
     await sleep(pollMs);
@@ -343,12 +326,6 @@ const main = async () => {
         description: `Status poll interval (default ${DEFAULT_POLL_MS}).`,
       },
       {
-        name: 'cancel-after-no-progress-ms',
-        type: 'string',
-        description:
-          'Optional explicit stall threshold. Omit to wait without a time limit.',
-      },
-      {
         name: 'help',
         alias: 'h',
         type: 'boolean',
@@ -375,17 +352,10 @@ const main = async () => {
   }
 
   let pollMs;
-  let cancelAfterNoProgressMs = null;
   try {
     pollMs = values['poll-ms']
       ? parseTimerMs(values['poll-ms'], '--poll-ms')
       : DEFAULT_POLL_MS;
-    cancelAfterNoProgressMs = values['cancel-after-no-progress-ms']
-      ? parseTimerMs(
-          values['cancel-after-no-progress-ms'],
-          '--cancel-after-no-progress-ms',
-        )
-      : null;
   } catch (error) {
     return run.failCli(error instanceof Error ? error.message : String(error));
   }
@@ -404,37 +374,34 @@ const main = async () => {
           workingFolder: undefined,
           sourceId: values['source-id'],
         };
+    const flowName = values.diagnostic
+      ? 'diagnostic_review_cycle'
+      : 'two_phase_review_cycle';
     const result = await waitForReviewCycle({
       baseUrl,
       workingFolder: launch.workingFolder,
       sourceId: launch.sourceId,
       customTitle: values['custom-title'],
-      flowName: values.diagnostic
-        ? 'diagnostic_review_cycle'
-        : 'two_phase_review_cycle',
+      flowName,
       conversationId: values['conversation-id'],
       resumeOrphaned: Boolean(values['resume-orphaned']),
       pollMs,
-      cancelAfterNoProgressMs,
-      onStatus: ({ conversationId, status, stopRequested }) => {
+      onStatus: ({ conversationId, status }) => {
         run.protocol.setHeartbeatFields({
           conversation_id: conversationId,
         });
-        run.protocol.setPhase(
-          stopRequested ? 'waiting_for_stop' : `review_${status.status}`,
-        );
+        run.protocol.setPhase(`review_${status.status}`);
         writeLogLine(
           run.logStream,
           JSON.stringify({
             timestamp: new Date().toISOString(),
             conversationId,
             status,
-            stopRequested,
           }),
         );
       },
     });
-    const passed = isSuccessfulTerminalReview(result.status);
+    const passed = isSuccessfulTerminalReview(result.status, flowName);
     const skipped = result.status.terminalOutcome === 'not_applicable';
     await run.closeLog();
     run.protocol.emitFinal({

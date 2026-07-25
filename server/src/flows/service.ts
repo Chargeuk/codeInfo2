@@ -8377,10 +8377,26 @@ export async function getFlowRunStatus(
             : persistedLifecycle === 'running'
               ? ('orphaned' as const)
               : (latestAssistant?.status ?? 'orphaned');
+  const finalReviewCycle = Object.values(resumeState?.values ?? {}).find(
+    (value) =>
+      Boolean(value) &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      (value as FlowJsonObject).action === 'initialized' &&
+      (value as FlowJsonObject).review_mode === 'final' &&
+      typeof (value as FlowJsonObject).review_cycle_id === 'string',
+  ) as FlowJsonObject | undefined;
+  const expectedReviewCycleId = finalReviewCycle?.review_cycle_id as
+    | string
+    | undefined;
   const reviewCycleStatus =
     conversation.flowName === 'two_phase_review_cycle' &&
-    resumeState?.workingFolder
-      ? await readActiveFinalReviewCycleStatus(resumeState.workingFolder)
+    resumeState?.workingFolder &&
+    expectedReviewCycleId
+      ? await readActiveFinalReviewCycleStatus(
+          resumeState.workingFolder,
+          expectedReviewCycleId,
+        )
       : null;
 
   return {

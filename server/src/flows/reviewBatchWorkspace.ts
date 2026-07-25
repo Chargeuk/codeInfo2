@@ -180,8 +180,7 @@ export async function prepareReviewBatchWorkspace(params: {
     safeSegment(batchId),
   );
   const batchExists = await isDirectory(batchRoot);
-  const reusingBatch =
-    batchExists && (await isFile(path.join(batchRoot, 'batch-launch.md')));
+  const reusingBatch = batchExists;
   if (reusingBatch) {
     await Promise.all([
       requireDirectory(path.join(batchRoot, 'inputs'), 'inputs directory'),
@@ -366,10 +365,7 @@ export async function prepareReviewBatchWorkspace(params: {
       ? targetInputRoots.get(job.targetId)!
       : crossRepositoryInput;
     const privateInputDir = path.join(jobRoot, 'input');
-    const hasPrivateInput =
-      reusingBatch && (await isDirectory(privateInputDir));
-    const inputDir =
-      reusingBatch && !hasPrivateInput ? sharedInputDir : privateInputDir;
+    const inputDir = privateInputDir;
     const inputFiles = job.targetId
       ? ['review-target.md', 'story-context.md']
       : ['review-targets.md', 'story-context.md'];
@@ -383,20 +379,6 @@ export async function prepareReviewBatchWorkspace(params: {
           `verification directory for ${job.instanceId}`,
         ),
         requireFile(path.join(jobRoot, 'job.md'), `job brief for ${job.instanceId}`),
-        ...(hasPrivateInput
-          ? [
-              requireDirectory(
-                privateInputDir,
-                `private input directory for ${job.instanceId}`,
-              ),
-              ...inputFiles.map((fileName) =>
-                requireFile(
-                  path.join(privateInputDir, fileName),
-                  `private input ${fileName} for ${job.instanceId}`,
-                ),
-              ),
-            ]
-          : []),
       ]);
     } else {
       await Promise.all([

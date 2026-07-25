@@ -667,6 +667,51 @@ describe('GET /flows', () => {
         'child-invalid',
         '{"description":"Broken"',
       );
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-wave-missing-child',
+        JSON.stringify({
+          description: 'Parent wave missing child',
+          steps: [
+            {
+              type: 'subflowWave',
+              groups: [
+                {
+                  kind: 'matrix',
+                  id: 'children',
+                  itemsFrom: 'targets',
+                  itemName: 'target',
+                  flowNames: ['wave-child-missing'],
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-wave-invalid-child',
+        JSON.stringify({
+          description: 'Parent wave invalid child',
+          steps: [
+            {
+              type: 'subflowWave',
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'child',
+                  flowName: 'wave-child-invalid',
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'wave-child-invalid',
+        '{"description":"Broken"',
+      );
 
       await withFlowsDir(tmpDir, async () => {
         const response = await supertest(buildApp()).get('/flows');
@@ -690,6 +735,26 @@ describe('GET /flows', () => {
         assert.match(
           String((invalidChild.warnings ?? []).join('\n')),
           /Subflow "child-invalid" is invalid/u,
+        );
+
+        const missingWaveChild = response.body.flows.find(
+          (flow: { name: string }) =>
+            flow.name === 'parent-wave-missing-child',
+        );
+        assert.ok(missingWaveChild);
+        assert.match(
+          String((missingWaveChild.warnings ?? []).join('\n')),
+          /Subflow "wave-child-missing" could not be read/u,
+        );
+
+        const invalidWaveChild = response.body.flows.find(
+          (flow: { name: string }) =>
+            flow.name === 'parent-wave-invalid-child',
+        );
+        assert.ok(invalidWaveChild);
+        assert.match(
+          String((invalidWaveChild.warnings ?? []).join('\n')),
+          /Subflow "wave-child-invalid" is invalid/u,
         );
       });
     } finally {

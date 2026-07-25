@@ -280,15 +280,33 @@ test('review batch workspace gives every job immutable private input and pre-cre
       jobs,
     });
     await fs.rm(path.join(incompleteBatch.batchRoot, 'batch-launch.md'));
-    const recoveredBatch = await prepareReviewBatchWorkspace({
-      snapshot: {
-        ...snapshot,
-        review_wave_id: '0000064-rw-interrupted-construction',
-      },
-      jobs,
-    });
-    assert.equal(recoveredBatch.batchRoot, incompleteBatch.batchRoot);
-    await fs.access(path.join(recoveredBatch.batchRoot, 'batch-launch.md'));
+    const incompletePrivateInput = path.join(
+      incompleteBatch.batchRoot,
+      'jobs',
+      path.basename(String(codexJob.job_dir)),
+      'input',
+      'story-context.md',
+    );
+    const incompleteInput = await fs.readFile(incompletePrivateInput, 'utf8');
+    await assert.rejects(
+      prepareReviewBatchWorkspace({
+        snapshot: {
+          ...snapshot,
+          review_wave_id: '0000064-rw-interrupted-construction',
+        },
+        jobs,
+      }),
+      /Existing review batch lacks batch launch record/u,
+    );
+    assert.equal(
+      await fs.readFile(incompletePrivateInput, 'utf8'),
+      incompleteInput,
+      'an interrupted batch keeps its original private input untouched',
+    );
+    await assert.rejects(
+      fs.access(path.join(incompleteBatch.batchRoot, 'batch-launch.md')),
+      /ENOENT/u,
+    );
 
     const originalTargetInput = await fs.readFile(
       path.join(String(codexJob.input_dir), 'review-target.md'),
@@ -322,6 +340,7 @@ test('review batch workspace gives every job immutable private input and pre-cre
     );
     const resumed = await prepareReviewBatchWorkspace({ snapshot, jobs });
     assert.equal(resumed.batchRoot, result.batchRoot);
+    assert.equal(resumed.jobs[0]?.inputHash, result.jobs[0]?.inputHash);
     assert.equal(
       await fs.readFile(
         path.join(String(codexJob.input_dir), 'review-target.md'),
@@ -339,6 +358,25 @@ test('review batch workspace gives every job immutable private input and pre-cre
     assert.equal(
       await fs.readFile(path.join(result.batchRoot, 'batch-launch.md'), 'utf8'),
       originalLaunchRecord,
+    );
+    await fs.chmod(String(codexJob.input_dir), 0o755);
+    await fs.rm(String(codexJob.input_dir), { recursive: true, force: true });
+    const resumedWithMissingPrivateInput = await prepareReviewBatchWorkspace({
+      snapshot,
+      jobs,
+    });
+    assert.equal(
+      (
+        resumedWithMissingPrivateInput.jobs[0]?.input?.review_job as Record<
+          string,
+          unknown
+        >
+      ).input_dir,
+      codexJob.input_dir,
+    );
+    assert.equal(
+      resumedWithMissingPrivateInput.jobs[0]?.inputHash,
+      result.jobs[0]?.inputHash,
     );
     await assert.rejects(
       prepareReviewBatchWorkspace({

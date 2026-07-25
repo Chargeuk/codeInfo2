@@ -162,11 +162,19 @@ const collectSubflowReferenceWarnings = async (params: {
       });
       continue;
     }
-    if (step.type !== 'subflow') {
+    const childFlowNames =
+      step.type === 'subflow'
+        ? step.flowNames
+        : step.type === 'subflowWave'
+          ? (step.groups ?? []).flatMap((group) =>
+              group.kind === 'matrix' ? group.flowNames : [group.flowName],
+            )
+          : undefined;
+    if (!childFlowNames) {
       continue;
     }
 
-    for (const childFlowName of step.flowNames) {
+    for (const childFlowName of childFlowNames) {
       if (visited.has(childFlowName)) {
         continue;
       }

@@ -318,6 +318,7 @@ const activeSubflowState = (params: {
   runToken: string;
   instanceId?: string;
   waveInvocationId?: string;
+  inputHash?: string;
   title?: string;
 }) => ({
   stepPath: params.stepPath,
@@ -328,6 +329,7 @@ const activeSubflowState = (params: {
   ...(params.waveInvocationId
     ? { waveInvocationId: params.waveInvocationId }
     : {}),
+  ...(params.inputHash ? { inputHash: params.inputHash } : {}),
   ...(params.title ? { title: params.title } : {}),
 });
 
@@ -3666,6 +3668,7 @@ test('restart recovery resumes an interrupted wave child in its existing convers
               kind: 'singleton',
               id: 'restart',
               flowName: 'child-wave-restart',
+              bindings: { inputValues: { generation: 'current' } },
             },
           ],
         },
@@ -3734,6 +3737,7 @@ test('restart recovery resumes an interrupted wave child in its existing convers
               conversationId: childConversationId,
               runToken: 'interrupted-wave-child-run-token',
               instanceId: 'restart:child-wave-restart',
+              inputHash: 'stale-input-hash',
               title: 'Restarted Wave Parent-child-wave-restart',
             }),
           ],
@@ -3775,22 +3779,20 @@ test('restart recovery resumes an interrupted wave child in its existing convers
 
     assert.equal(resumed.conversationId, parentConversationId);
     await waitForAssistantStatus(parentConversationId, 'ok');
-    await waitForAssistantStatus(childConversationId, 'ok');
-    assert.equal(
-      memoryConversations.get(childConversationId)?.flowName,
-      'child-wave-restart',
+    const childConversations = Array.from(memoryConversations.values()).filter(
+      (conversation) => conversation.flowName === 'child-wave-restart',
     );
-    assert.equal(
-      Array.from(memoryConversations.values()).filter(
-        (conversation) => conversation.flowName === 'child-wave-restart',
-      ).length,
-      1,
+    assert.equal(childConversations.length, 2);
+    const recreatedChild = childConversations.find(
+      (conversation) => conversation._id !== childConversationId,
     );
+    assert(recreatedChild);
+    await waitForAssistantStatus(recreatedChild._id, 'ok');
     assert.equal(
       (memoryTurns.get(childConversationId) ?? []).filter(
         (turn) => turn.role === 'assistant' && turn.status === 'ok',
       ).length,
-      2,
+      1,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

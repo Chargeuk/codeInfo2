@@ -777,7 +777,7 @@ describe('flow schema (v1)', () => {
     assert.equal(exitGate?.type, 'break');
     assert.equal(exitGate?.agentType, 'loop_control_agent');
     assert.equal(exitGate?.breakOn, 'yes');
-    assert.equal(exitGate?.continueOnFailure, true);
+    assert.equal(exitGate?.breakOnFailure, true);
     assert.match(exitGate?.question ?? '', /single allowed invocation/u);
   });
 

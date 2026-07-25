@@ -475,7 +475,7 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("separate positive authorization gate", authorization)
         self.assertIn(
-            "current top-level story Description or Overview, Acceptance Criteria, or Out Of Scope",
+            "current top-level story Description, Acceptance Criteria, or Out Of Scope",
             authorization,
         )
         self.assertIn("counterfactual test", authorization)
@@ -524,7 +524,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             self.assertIn("never authorization", prompt)
 
         self.assertIn(
-            "current top-level story Description or Overview, Acceptance Criteria, or Out Of Scope",
+            "current top-level story Description, Acceptance Criteria, or Out Of Scope",
             authorization,
         )
         self.assertIn(

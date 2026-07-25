@@ -96,8 +96,9 @@ class FlowControlReviewTests(unittest.TestCase):
 #### 1. Example
 
 - Finding ID: `finding-1`
-- Found by: Codex Review (current_repository), Open Code Review (current_repository)
-- Description: A simple problem.
+- Review harnesses:
+  - Codex Review (current_repository), Open Code Review (current_repository)
+- Simple description: A simple problem.
 - Example: The example demonstrates the problem.
 - Why accepted: The issue belongs to this story.
 
@@ -633,7 +634,7 @@ class FlowControlReviewTests(unittest.TestCase):
             }
         )
         plan_text = self.structured_review_block().replace(
-            "- Found by: Codex Review (current_repository), Open Code Review (current_repository)\n",
+            "- Review harnesses:\n  - Codex Review (current_repository), Open Code Review (current_repository)\n",
             "",
         )
         self.write_plan_handoff(repo, plan_text=plan_text)

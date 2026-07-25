@@ -5169,14 +5169,16 @@ async function runFlowUnlocked(params: {
     const jobByInstanceId = new Map(jobs.map((job) => [job.instanceId, job]));
     const rememberedSubflowsByInstance = new Map(
       getActiveSubflowsForStep(nextPath)
-        .filter((activeSubflow) =>
-          jobs.some(
-            (job) => job.instanceId === activeInstanceId(activeSubflow),
-          ) &&
-          (!waveInvocationId ||
-            !activeSubflow.waveInvocationId ||
-            activeSubflow.waveInvocationId === waveInvocationId),
-        )
+        .filter((activeSubflow) => {
+          const job = jobByInstanceId.get(activeInstanceId(activeSubflow));
+          if (!job) return false;
+          return (
+            (!waveInvocationId ||
+              !activeSubflow.waveInvocationId ||
+              activeSubflow.waveInvocationId === waveInvocationId) &&
+            (!job.inputHash || activeSubflow.inputHash === job.inputHash)
+          );
+        })
         .map((activeSubflow) => [
           activeInstanceId(activeSubflow),
           activeSubflow,

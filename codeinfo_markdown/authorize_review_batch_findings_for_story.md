@@ -10,7 +10,7 @@ This is a separate positive authorization gate after negative filtering. Technic
 
 For every finding that remains actionable after negative filtering, independently establish all of the following in ordinary evidence-based prose:
 
-1. Identify the exact statement in the current top-level story Description or Overview, Acceptance Criteria, or Out Of Scope contract that authorizes changing implementation behavior; identify a later user-approved expansion only after it has been incorporated into those top-level sections; or identify comparison-base repository evidence proving restoration of behavior that predated the story.
+1. Identify the exact statement in the current top-level story Description, Acceptance Criteria, or Out Of Scope contract that authorizes changing implementation behavior; identify a later user-approved expansion only after it has been incorporated into those top-level sections; or identify comparison-base repository evidence proving restoration of behavior that predated the story.
 2. Explain the direct causal chain from the finding to violation of that exact requirement or preserved behavior.
 3. Apply the counterfactual test: explain why leaving the finding unresolved would keep the story incomplete or leave a story-caused regression in place.
 4. Explain why the smallest authorized repair restores the cited behavior without inventing a new product or runtime policy.

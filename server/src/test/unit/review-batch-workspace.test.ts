@@ -359,24 +359,30 @@ test('review batch workspace gives every job immutable private input and pre-cre
       await fs.readFile(path.join(result.batchRoot, 'batch-launch.md'), 'utf8'),
       originalLaunchRecord,
     );
+    const openCodeResumeJob = result.jobs[1]?.input?.review_job as Record<
+      string,
+      unknown
+    >;
+    const openCodeContextPath = path.join(
+      String(openCodeResumeJob.input_dir),
+      'story-context.md',
+    );
+    const openCodeContext = await fs.readFile(openCodeContextPath, 'utf8');
+    await fs.chmod(String(openCodeResumeJob.input_dir), 0o755);
+    await fs.chmod(openCodeContextPath, 0o644);
+    await fs.writeFile(openCodeContextPath, 'stale private input');
+    await assert.rejects(
+      prepareReviewBatchWorkspace({ snapshot, jobs }),
+      /does not match the pinned source/u,
+    );
+    await fs.writeFile(openCodeContextPath, openCodeContext);
+    await fs.chmod(openCodeContextPath, 0o444);
+    await fs.chmod(String(openCodeResumeJob.input_dir), 0o555);
     await fs.chmod(String(codexJob.input_dir), 0o755);
     await fs.rm(String(codexJob.input_dir), { recursive: true, force: true });
-    const resumedWithMissingPrivateInput = await prepareReviewBatchWorkspace({
-      snapshot,
-      jobs,
-    });
-    assert.equal(
-      (
-        resumedWithMissingPrivateInput.jobs[0]?.input?.review_job as Record<
-          string,
-          unknown
-        >
-      ).input_dir,
-      codexJob.input_dir,
-    );
-    assert.equal(
-      resumedWithMissingPrivateInput.jobs[0]?.inputHash,
-      result.jobs[0]?.inputHash,
+    await assert.rejects(
+      prepareReviewBatchWorkspace({ snapshot, jobs }),
+      /private input directory/u,
     );
     await assert.rejects(
       prepareReviewBatchWorkspace({

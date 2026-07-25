@@ -82,6 +82,39 @@ const requireFile = async (filePath: string, description: string) => {
   }
 };
 
+const requirePrivateInput = async (params: {
+  privateInputDir: string;
+  sharedInputDir: string;
+  inputFiles: string[];
+  jobInstanceId: string;
+}) => {
+  await Promise.all([
+    requireDirectory(
+      params.privateInputDir,
+      `private input directory for ${params.jobInstanceId}`,
+    ),
+    ...params.inputFiles.map((fileName) =>
+      requireFile(
+        path.join(params.privateInputDir, fileName),
+        `private input ${fileName} for ${params.jobInstanceId}`,
+      ),
+    ),
+  ]);
+  await Promise.all(
+    params.inputFiles.map(async (fileName) => {
+      const [privateInput, sharedInput] = await Promise.all([
+        fs.readFile(path.join(params.privateInputDir, fileName)),
+        fs.readFile(path.join(params.sharedInputDir, fileName)),
+      ]);
+      if (!privateInput.equals(sharedInput)) {
+        throw new Error(
+          `Existing review batch private input ${fileName} does not match the pinned source for ${params.jobInstanceId}.`,
+        );
+      }
+    }),
+  );
+};
+
 const gitStdout = async (repoRoot: string, args: string[]) => {
   const result = await execFile('git', ['-C', repoRoot, ...args], {
     encoding: 'utf8',
@@ -379,6 +412,12 @@ export async function prepareReviewBatchWorkspace(params: {
           `verification directory for ${job.instanceId}`,
         ),
         requireFile(path.join(jobRoot, 'job.md'), `job brief for ${job.instanceId}`),
+        requirePrivateInput({
+          privateInputDir,
+          sharedInputDir,
+          inputFiles,
+          jobInstanceId: job.instanceId,
+        }),
       ]);
     } else {
       await Promise.all([

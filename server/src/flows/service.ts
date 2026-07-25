@@ -4908,63 +4908,88 @@ async function runFlowUnlocked(params: {
       };
     }
 
-    const result = await runInstruction({
-      agentType: step.agentType,
-      identifier: step.identifier,
-      instruction,
-      deferFinal: true,
-      command,
-      postProcess: (candidate) => {
-        if (candidate.status !== 'ok') {
-          return {
-            failureKind: 'execution',
-          };
-        }
-        const parsed = parseBreakAnswer(candidate.content);
-        parsed.attempts.forEach((attempt) => {
+    let result: FlowInstructionResult;
+    try {
+      result = await runInstruction({
+        agentType: step.agentType,
+        identifier: step.identifier,
+        instruction,
+        deferFinal: true,
+        command,
+        postProcess: (candidate) => {
+          if (candidate.status !== 'ok') {
+            return {
+              failureKind: 'execution',
+            };
+          }
+          const parsed = parseBreakAnswer(candidate.content);
+          parsed.attempts.forEach((attempt) => {
+            append({
+              level: 'info',
+              message: 'DEV-0000036:T4:break_parse_strategy_attempted',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              context: {
+                strategy: attempt.strategy,
+                candidateCount: attempt.candidateCount,
+              },
+            });
+          });
           append({
-            level: 'info',
-            message: 'DEV-0000036:T4:break_parse_strategy_attempted',
+            level: parsed.ok ? 'info' : 'warn',
+            message: 'DEV-0000036:T4:break_parse_result',
             timestamp: new Date().toISOString(),
             source: 'server',
             context: {
-              strategy: attempt.strategy,
-              candidateCount: attempt.candidateCount,
+              accepted: parsed.ok,
+              reasonCode: parsed.reasonCode,
             },
           });
-        });
-        append({
-          level: parsed.ok ? 'info' : 'warn',
-          message: 'DEV-0000036:T4:break_parse_result',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            accepted: parsed.ok,
-            reasonCode: parsed.reasonCode,
-          },
-        });
 
-        if (!parsed.ok) {
-          return {
-            status: 'failed',
-            content: parsed.message,
-            finalOverride: {
+          if (!parsed.ok) {
+            return {
               status: 'failed',
-              error: {
-                code: 'INVALID_BREAK_RESPONSE',
-                message: parsed.message,
+              content: parsed.message,
+              finalOverride: {
+                status: 'failed',
+                error: {
+                  code: 'INVALID_BREAK_RESPONSE',
+                  message: parsed.message,
+                },
               },
-            },
-            failureKind: 'invalid_response',
-          };
-        }
+              failureKind: 'invalid_response',
+            };
+          }
 
-        breakAnswer = parsed.answer;
-        return {
-          content: parsed.normalizedContent,
-        };
-      },
-    });
+          breakAnswer = parsed.answer;
+          return {
+            content: parsed.normalizedContent,
+          };
+        },
+      });
+    } catch (error) {
+      const message = isFlowRunError(error)
+        ? (error.reason ?? error.code)
+        : error instanceof Error
+          ? error.message
+          : 'Failed to prepare flow break step';
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message,
+        errorCode: isFlowRunError(error) ? error.code : 'FLOW_BREAK_SETUP_FAILED',
+        command,
+      });
+      return {
+        status: 'failed',
+        shouldBreak: false,
+        failureKind: 'execution',
+      };
+    }
 
     if (shouldStopAfter(result.status)) {
       params.onStopUnwindCheckpoint?.({

@@ -22,7 +22,7 @@ class ReviewWorkspaceCheckTests(unittest.TestCase):
         (batch / "inputs" / "target").mkdir(parents=True)
         (batch / "reconciliation").mkdir()
         job = batch / "jobs" / "reviewer-a"
-        for name in ("work", "output", "verification"):
+        for name in ("input", "work", "output", "verification"):
             (job / name).mkdir(parents=True)
         (job / "job.md").write_text("# Agent-readable job\n", encoding="utf-8")
         (batch / "batch-launch.md").write_text("# Launch\n", encoding="utf-8")
@@ -50,6 +50,16 @@ class ReviewWorkspaceCheckTests(unittest.TestCase):
             result = check_workspace(batch)
             self.assertEqual(result["status"], "failed")
             self.assertTrue(any("missing directory" in item for item in result["errors"]))
+
+    def test_reports_a_missing_private_job_input_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            batch = self.make_batch(Path(tmpdir))
+            (batch / "jobs" / "reviewer-a" / "input").rmdir()
+
+            result = check_workspace(batch)
+
+            self.assertEqual(result["status"], "failed")
+            self.assertIn("job reviewer-a is missing input/", result["errors"])
 
     def test_rejects_job_boundary_redirected_to_a_sibling(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

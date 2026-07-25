@@ -1,4 +1,5 @@
 import { execFile as execFileCb } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -32,7 +33,15 @@ export const resolveFlowDecisionScriptPath = (
       'Flow decision scripts must be Python files under scripts/flow_control.',
     );
   }
-  return scriptPath;
+  const resolvedAllowedRoot = realpathSync(allowedRoot);
+  const resolvedScriptPath = realpathSync(scriptPath);
+  const resolvedRelative = path.relative(resolvedAllowedRoot, resolvedScriptPath);
+  if (resolvedRelative.startsWith('..') || path.isAbsolute(resolvedRelative)) {
+    throw new Error(
+      'Flow decision scripts must be Python files under scripts/flow_control.',
+    );
+  }
+  return resolvedScriptPath;
 };
 
 export const runFlowDecisionScript = async (params: {

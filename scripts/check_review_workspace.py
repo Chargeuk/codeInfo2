@@ -54,7 +54,7 @@ def check_workspace(
             job: dict[str, Any] = {"name": job_root.name, "path": str(job_root)}
             if not _contained(root, job_root):
                 errors.append(f"job escapes batch root: {job_root}")
-            for name in ("work", "output", "verification"):
+            for name in ("input", "work", "output", "verification"):
                 directory = job_root / name
                 if not _contained(job_root, directory):
                     errors.append(f"job {job_root.name} {name}/ escapes its job root")

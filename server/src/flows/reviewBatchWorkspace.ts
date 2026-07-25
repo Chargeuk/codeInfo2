@@ -161,19 +161,18 @@ const gitStdout = async (repoRoot: string, args: string[]) => {
   return result.stdout.trim();
 };
 
-const createPrivateInput = async (
+const ensurePrivateInput = async (
   sourceDirectory: string,
   inputDirectory: string,
   fileNames: string[],
 ) => {
   await fs.mkdir(inputDirectory, { recursive: true });
   await Promise.all(
-    fileNames.map((fileName) =>
-      fs.copyFile(
-        path.join(sourceDirectory, fileName),
-        path.join(inputDirectory, fileName),
-      ),
-    ),
+    fileNames.map(async (fileName) => {
+      const inputPath = path.join(inputDirectory, fileName);
+      if (await isFile(inputPath)) return;
+      await fs.copyFile(path.join(sourceDirectory, fileName), inputPath);
+    }),
   );
   await Promise.all([
     ...fileNames.map((fileName) =>
@@ -181,6 +180,11 @@ const createPrivateInput = async (
     ),
     fs.chmod(inputDirectory, 0o555),
   ]);
+};
+
+const ensureText = async (filePath: string, content: string) => {
+  if (await isFile(filePath)) return;
+  await atomicWriteText(filePath, content);
 };
 
 const describeTarget = (target: ReviewTargetSnapshot['targets'][number]) =>
@@ -256,7 +260,8 @@ export async function prepareReviewBatchWorkspace(params: {
   const jobsRoot = path.join(batchRoot, 'jobs');
   const reconciliationRoot = path.join(batchRoot, 'reconciliation');
   const batchExists = await isDirectory(batchRoot);
-  const reusingBatch = batchExists;
+  const batchLaunchPath = path.join(batchRoot, 'batch-launch.md');
+  const reusingBatch = batchExists && (await isFile(batchLaunchPath));
   if (reusingBatch) {
     await Promise.all([
       requireDirectory(batchRoot, 'batch directory'),
@@ -272,15 +277,8 @@ export async function prepareReviewBatchWorkspace(params: {
         batchRoot,
         'reconciliation directory',
       ),
-      requireFile(
-        path.join(batchRoot, 'batch-launch.md'),
-        'batch launch record',
-      ),
-      requireContainedPath(
-        path.join(batchRoot, 'batch-launch.md'),
-        batchRoot,
-        'batch launch record',
-      ),
+      requireFile(batchLaunchPath, 'batch launch record'),
+      requireContainedPath(batchLaunchPath, batchRoot, 'batch launch record'),
     ]);
   } else {
     await Promise.all([
@@ -357,11 +355,11 @@ export async function prepareReviewBatchWorkspace(params: {
       ]);
     } else {
       await Promise.all([
-        atomicWriteText(
+        ensureText(
           path.join(inputRoot, 'review-target.md'),
           `${describeTarget(target)}\n`,
         ),
-        atomicWriteText(
+        ensureText(
           path.join(inputRoot, 'story-context.md'),
           `${storyContext}\n`,
         ),
@@ -406,11 +404,11 @@ export async function prepareReviewBatchWorkspace(params: {
     ]);
   } else {
     await Promise.all([
-      atomicWriteText(
+      ensureText(
         path.join(crossRepositoryInput, 'story-context.md'),
         `${storyContext}\n`,
       ),
-      atomicWriteText(
+      ensureText(
         path.join(crossRepositoryInput, 'review-targets.md'),
         `${[
           '# Review targets',
@@ -548,8 +546,15 @@ export async function prepareReviewBatchWorkspace(params: {
         fs.mkdir(outputDir, { recursive: true }),
         fs.mkdir(verificationDir, { recursive: true }),
       ]);
-      await createPrivateInput(sharedInputDir, privateInputDir, inputFiles);
-      await atomicWriteText(
+      await ensurePrivateInput(sharedInputDir, privateInputDir, inputFiles);
+      await requirePrivateInput({
+        privateInputDir,
+        sharedInputDir,
+        inputFiles,
+        jobInstanceId: job.instanceId,
+        jobRoot,
+      });
+      await ensureText(
         path.join(jobRoot, 'job.md'),
         `${[
           `# Review job: ${job.displayName}`,
@@ -568,7 +573,7 @@ export async function prepareReviewBatchWorkspace(params: {
       );
     }
     if (target && !reusingBatch) {
-      await atomicWriteText(
+      await ensureText(
         path.join(
           target.repo_root,
           'codeInfoTmp',
@@ -644,7 +649,7 @@ export async function prepareReviewBatchWorkspace(params: {
     reusingBatch
       ? [atomicWriteText(currentBatchHandoff, launchText)]
       : [
-          atomicWriteText(path.join(batchRoot, 'batch-launch.md'), launchText),
+          atomicWriteText(batchLaunchPath, launchText),
           atomicWriteText(currentBatchHandoff, launchText),
         ],
   );

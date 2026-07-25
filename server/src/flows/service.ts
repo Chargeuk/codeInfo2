@@ -5288,7 +5288,16 @@ async function runFlowUnlocked(params: {
       const resumesStoppedChild =
         Boolean(params.resumeState) &&
         childResumeState.runLifecycle?.status === 'stopped';
-      if (!resumesInterruptedChild && !resumesStoppedChild) return null;
+      const resumesOrphanedChild =
+        childResumeState.runLifecycle?.status === 'running' &&
+        !getActiveRunOwnership(childRun.conversationId);
+      if (
+        !resumesInterruptedChild &&
+        !resumesStoppedChild &&
+        !resumesOrphanedChild
+      ) {
+        return null;
+      }
 
       let resumedRunToken: string | undefined;
       await startFlowRun({
@@ -5883,6 +5892,38 @@ async function runFlowUnlocked(params: {
         if (progressChanged) {
           publishCurrentWaveProgress();
           await persistRuntimeResumeState(lastCompletedStepPath);
+        }
+        const orphanedChildren = childStatuses.filter(
+          ({ lifecycleStatus }) => lifecycleStatus === 'orphaned',
+        );
+        if (orphanedChildren.length > 0) {
+          const resumedChildren = await Promise.all(
+            orphanedChildren.map(async ({ childRun }) => {
+              const resumedChildRun = await resumeWaveChild(childRun);
+              return resumedChildRun
+                ? { instanceId: activeInstanceId(childRun), resumedChildRun }
+                : null;
+            }),
+          );
+          const resumedByInstanceId = new Map<string, FlowActiveSubflow>(
+            resumedChildren.flatMap((entry) =>
+              entry ? [[entry.instanceId, entry.resumedChildRun]] : [],
+            ),
+          );
+          if (resumedByInstanceId.size > 0) {
+            childRuns.forEach((childRun, index) => {
+              const instanceId = activeInstanceId(childRun);
+              const resumedChildRun = resumedByInstanceId.get(instanceId);
+              if (!resumedChildRun) return;
+              childRuns[index] = resumedChildRun;
+              rememberedSubflowsByInstance.set(instanceId, resumedChildRun);
+            });
+            setActiveSubflowsForStep(nextPath, childRuns);
+            publishCurrentWaveProgress();
+            await persistRuntimeResumeState(lastCompletedStepPath);
+            allChildrenOkObservedAt = null;
+            continue;
+          }
         }
         const staleChildren = childStatuses.filter(
           ({ lifecycleStatus }) => lifecycleStatus === 'missing',

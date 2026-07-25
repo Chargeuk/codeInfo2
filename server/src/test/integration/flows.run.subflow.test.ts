@@ -1220,6 +1220,85 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
   }
 });
 
+test('an active subflow wave recovers an orphaned child in place', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-orphan-recovery-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  let releaseChildGate: (() => void) | undefined;
+  const slowChildGate = new Promise<void>((resolve) => {
+    releaseChildGate = resolve;
+  });
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'orphaned-wave-child',
+      steps: [llmStep('slow child orphaned-wave-child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'orphaned-wave-parent',
+      steps: [
+        {
+          type: 'subflowWave',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'orphaned',
+              flowName: 'orphaned-wave-child',
+            },
+          ],
+        },
+      ],
+    });
+
+    const parent = await startFlowRun({
+      flowName: 'orphaned-wave-parent',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25, undefined, slowChildGate),
+    });
+    const [activeChild] = await waitForActiveSubflowCount(
+      parent.conversationId,
+      1,
+    );
+    assert.ok(activeChild?.conversationId);
+    const ownership = getActiveRunOwnership(String(activeChild.conversationId));
+    assert.ok(ownership);
+    assert.equal(
+      releaseConversationLock(
+        String(activeChild.conversationId),
+        ownership.runToken,
+      ),
+      true,
+    );
+    assert.equal(
+      await getFlowConversationLifecycleStatus({
+        conversationId: String(activeChild.conversationId),
+        runToken: ownership.runToken,
+      }),
+      'orphaned',
+    );
+
+    await waitFor(() =>
+      Boolean(getActiveRunOwnership(String(activeChild.conversationId))),
+    );
+    releaseChildGate?.();
+    await waitForAssistantStatus(parent.conversationId, 'ok');
+    assert.equal(
+      findChildFlowConversations({
+        parentConversationId: parent.conversationId,
+        childFlowNames: ['orphaned-wave-child'],
+      }).length,
+      1,
+    );
+  } finally {
+    releaseChildGate?.();
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('repeated subflow wave titles show their loop iteration', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-title-'),

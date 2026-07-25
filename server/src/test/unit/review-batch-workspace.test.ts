@@ -288,24 +288,28 @@ test('review batch workspace gives every job immutable private input and pre-cre
       'story-context.md',
     );
     const incompleteInput = await fs.readFile(incompletePrivateInput, 'utf8');
-    await assert.rejects(
-      prepareReviewBatchWorkspace({
-        snapshot: {
-          ...snapshot,
-          review_wave_id: '0000064-rw-interrupted-construction',
-        },
-        jobs,
-      }),
-      /Existing review batch lacks batch launch record/u,
+    const completedInterruptedBatch = await prepareReviewBatchWorkspace({
+      snapshot: {
+        ...snapshot,
+        review_wave_id: '0000064-rw-interrupted-construction',
+      },
+      jobs,
+    });
+    assert.equal(
+      completedInterruptedBatch.batchRoot,
+      incompleteBatch.batchRoot,
     );
     assert.equal(
       await fs.readFile(incompletePrivateInput, 'utf8'),
       incompleteInput,
       'an interrupted batch keeps its original private input untouched',
     );
-    await assert.rejects(
-      fs.access(path.join(incompleteBatch.batchRoot, 'batch-launch.md')),
-      /ENOENT/u,
+    assert.match(
+      await fs.readFile(
+        path.join(incompleteBatch.batchRoot, 'batch-launch.md'),
+        'utf8',
+      ),
+      /Scheduled job directories/u,
     );
 
     const originalTargetInput = await fs.readFile(

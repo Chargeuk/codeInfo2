@@ -8365,17 +8365,18 @@ export async function getFlowRunStatus(
       (resumeState?.subflowWaveProgress?.running ?? 0) > 0,
   );
   const persistedLifecycle = resumeState?.runLifecycle?.status;
-  const status = ownership
-    ? ('running' as const)
-    : resumeState?.restartReconciliation?.status === 'interrupted'
-      ? ('orphaned' as const)
-      : persistedChildrenStillRunning
-        ? ('orphaned' as const)
-        : persistedLifecycle && persistedLifecycle !== 'running'
-          ? persistedLifecycle
-          : persistedLifecycle === 'running'
+  const status =
+    persistedLifecycle && persistedLifecycle !== 'running'
+      ? persistedLifecycle
+      : ownership
+        ? ('running' as const)
+        : resumeState?.restartReconciliation?.status === 'interrupted'
+          ? ('orphaned' as const)
+          : persistedChildrenStillRunning
             ? ('orphaned' as const)
-            : (latestAssistant?.status ?? 'orphaned');
+            : persistedLifecycle === 'running'
+              ? ('orphaned' as const)
+              : (latestAssistant?.status ?? 'orphaned');
   const reviewCycleStatus =
     conversation.flowName === 'two_phase_review_cycle' &&
     resumeState?.workingFolder

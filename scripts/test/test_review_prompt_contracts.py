@@ -126,7 +126,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/review_job_workspace_contract.md"
         )
 
-        self.assertIn("current-review_artifacts_main-review-job.md", contract_text)
+        self.assertIn("Do not use a provider-specific per-job locator", contract_text)
         self.assertIn("Internal agent identifiers are stages", contract_text)
         for sibling in ("Codex", "OpenCode", "cross-repository"):
             self.assertIn(sibling, contract_text)

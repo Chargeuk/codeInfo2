@@ -85,7 +85,7 @@ export const inspectFinalReviewReadiness = (
     const end = headings[index + 1]?.index ?? planMarkdown.length;
     const taskText = planMarkdown.slice(start, end);
     const status =
-      /^- Task Status: `([^`]+)`\s*$/mu.exec(taskText)?.[1] ?? null;
+      /^- Task Status:\s*`?([^`\n]+)`?\s*$/mu.exec(taskText)?.[1] ?? null;
     if (status !== '__done__') {
       incompleteTasks.push({ number: taskNumber, status });
     }

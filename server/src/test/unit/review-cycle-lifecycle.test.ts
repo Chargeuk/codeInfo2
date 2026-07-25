@@ -61,6 +61,14 @@ test('final review readiness requires done tasks and checked implementation and 
   assert.equal(result.unchecked_work[0]?.section, 'Testing');
 });
 
+test('final review readiness accepts canonical unquoted task statuses', () => {
+  const result = inspectFinalReviewReadiness(
+    completePlan.replace('`__done__`', '__done__'),
+  );
+  assert.equal(result.eligible, true);
+  assert.deepEqual(result.incomplete_tasks, []);
+});
+
 test('final review readiness recognizes unchecked bullet work in subtasks and testing', () => {
   const result = inspectFinalReviewReadiness(
     completePlan

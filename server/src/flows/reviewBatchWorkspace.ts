@@ -21,8 +21,6 @@ const safeSegment = (value: string) => {
   return normalized.replace(/^-+|-+$/gu, '') || 'review-job';
 };
 
-const locatorSegment = (flowName: string) => encodeURIComponent(flowName);
-
 const identityDirectorySegment = (identity: string) =>
   createHash('sha256').update(identity).digest('hex');
 
@@ -569,28 +567,6 @@ export async function prepareReviewBatchWorkspace(params: {
           `- Work directory: ${workDir}`,
           `- Output directory: ${outputDir}`,
           `- Verification directory: ${verificationDir}`,
-        ].join('\n')}\n`,
-      );
-    }
-    if (target && !reusingBatch) {
-      await ensureText(
-        path.join(
-          target.repo_root,
-          'codeInfoTmp',
-          'reviews',
-          `${params.snapshot.story_id}-current-${locatorSegment(job.flowName)}-review-job.md`,
-        ),
-        `${[
-          `# Current review job for ${job.flowName}`,
-          '',
-          'This agent-readable locator is replaced whenever the same reviewer flow is scheduled again for this target. Concurrent top-level review passes are unsupported.',
-          '',
-          `- Story: ${params.snapshot.story_id}`,
-          `- Batch: ${params.snapshot.review_wave_id}`,
-          `- Target: ${job.targetId}`,
-          `- Job directory: ${jobRoot}`,
-          `- Job brief: ${path.join(jobRoot, 'job.md')}`,
-          `- Input directory: ${inputDir}`,
         ].join('\n')}\n`,
       );
     }

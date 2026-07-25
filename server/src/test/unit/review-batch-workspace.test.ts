@@ -174,58 +174,17 @@ test('review batch workspace gives every job immutable private input and pre-cre
       await fs.readFile(result.currentBatchHandoff, 'utf8'),
       /Scheduled job directories/u,
     );
-    assert.match(
-      await fs.readFile(
+    await assert.rejects(
+      fs.access(
         path.join(
           repoRoot,
           'codeInfoTmp',
           'reviews',
           '0000064-current-codex_review-review-job.md',
         ),
-        'utf8',
       ),
-      /Job directory/u,
+      /ENOENT/u,
     );
-    const distinctLocatorResult = await prepareReviewBatchWorkspace({
-      snapshot: { ...snapshot, review_wave_id: '0000064-rw-distinct-locators' },
-      jobs: [
-        {
-          instanceId: 'target_reviews:cross-repository:a:b',
-          flowName: 'a:b',
-          targetId: 'cross-repository',
-          displayName: 'first locator collision candidate',
-          workingFolder: repoRoot,
-        },
-        {
-          instanceId: 'target_reviews:cross-repository:a-b',
-          flowName: 'a-b',
-          targetId: 'cross-repository',
-          displayName: 'second locator collision candidate',
-          workingFolder: repoRoot,
-        },
-      ],
-    });
-    assert.notEqual(
-      await fs.readFile(
-        path.join(
-          repoRoot,
-          'codeInfoTmp',
-          'reviews',
-          '0000064-current-a%3Ab-review-job.md',
-        ),
-        'utf8',
-      ),
-      await fs.readFile(
-        path.join(
-          repoRoot,
-          'codeInfoTmp',
-          'reviews',
-          '0000064-current-a-b-review-job.md',
-        ),
-        'utf8',
-      ),
-    );
-    assert.equal(distinctLocatorResult.jobs.length, 2);
     const distinctIdentityResult = await prepareReviewBatchWorkspace({
       snapshot: { ...snapshot, review_wave_id: '0000064-rw-distinct-identities' },
       jobs: [

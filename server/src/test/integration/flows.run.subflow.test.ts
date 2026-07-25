@@ -28,6 +28,7 @@ import {
 import { hashFlowInput } from '../../flows/flowInput.js';
 import {
   getFlowConversationLifecycleStatus,
+  getFlowRunStatus,
   startFlowRun,
 } from '../../flows/service.js';
 import type { FlowJsonObject } from '../../flows/types.js';
@@ -469,6 +470,9 @@ test('child lifecycle observation stays coherent across terminal persistence and
       source: 'REST',
       createdAt: new Date(),
     });
+    const observedTerminal = await getFlowRunStatus(conversationId);
+    assert.equal(observedTerminal?.status, 'ok');
+    assert.equal(observedTerminal?.terminal, true);
     assert.equal(
       releaseConversationLock(conversationId, ownership.runToken),
       true,

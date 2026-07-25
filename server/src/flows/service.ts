@@ -8162,7 +8162,6 @@ export async function startFlowRun(
       const releaseConversationLockFn =
         params.releaseConversationLockFn ?? releaseConversationLock;
       let released = false;
-      let retryCompletionDurable = true;
       if (retryOwnershipId && !resumeStepPath && completedSuccessfully) {
         const completedResult = {
           flowName,
@@ -8172,7 +8171,6 @@ export async function startFlowRun(
           modelId,
           ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
         };
-        retryCompletionDurable = false;
         for (let attempt = 1; attempt <= 2; attempt += 1) {
           try {
             await persistFreshRunRetryOwnershipCompletion({
@@ -8181,7 +8179,6 @@ export async function startFlowRun(
               launch: retryOwnershipLaunch,
               result: completedResult,
             });
-            retryCompletionDurable = true;
             break;
           } catch (error) {
             baseLogger.error(
@@ -8198,10 +8195,8 @@ export async function startFlowRun(
           result: completedResult,
         });
       }
-      if (retryCompletionDurable) {
-        released = releaseConversationLockFn(conversationId, runToken);
-      }
-      if (retryOwnershipId && !resumeStepPath && retryCompletionDurable) {
+      released = releaseConversationLockFn(conversationId, runToken);
+      if (retryOwnershipId && !resumeStepPath) {
         clearFreshRunRetryOwnership({
           flowName,
           sourceId,

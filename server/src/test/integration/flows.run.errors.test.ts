@@ -2454,6 +2454,63 @@ test('post-success retry completion write failure is retried before ownership re
   });
 });
 
+test('terminal retry completion write failures still release the lock and active ownership', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'retry-completion-persist-terminal-failure',
+      steps: [makeLlmStep()],
+    });
+    const originalSet = memoryConversations.set;
+    let injectedFailureCount = 0;
+    memoryConversations.set = ((key: string, value: Conversation) => {
+      const flow = value.flags?.flow as
+        | { retryOwnershipCompletion?: unknown }
+        | undefined;
+      if (injectedFailureCount < 2 && flow?.retryOwnershipCompletion) {
+        injectedFailureCount += 1;
+        throw new Error('post-success completion write failed');
+      }
+      return originalSet.call(memoryConversations, key, value);
+    }) as typeof memoryConversations.set;
+
+    try {
+      const firstResult = await startFlowRun({
+        flowName: 'retry-completion-persist-terminal-failure',
+        source: 'REST',
+        retryOwnershipId: 'fresh-run-retry-terminal-failure',
+        chatFactory: () => new MinimalChat(),
+      });
+      subscribeConversation(ws, firstResult.conversationId);
+      await waitForFlowFinal({
+        ws,
+        conversationId: firstResult.conversationId,
+        status: 'ok',
+      });
+      await waitForConversationUnlocked(firstResult.conversationId);
+      assert.equal(injectedFailureCount, 2);
+
+      __resetFreshRunRetryOwnershipCompletionForTests();
+      memoryConversations.set = originalSet;
+      const retryResult = await startFlowRun({
+        flowName: 'retry-completion-persist-terminal-failure',
+        source: 'REST',
+        retryOwnershipId: 'fresh-run-retry-terminal-failure',
+        chatFactory: () => new MinimalChat(),
+      });
+      assert.notEqual(retryResult.conversationId, firstResult.conversationId);
+      subscribeConversation(ws, retryResult.conversationId);
+      await waitForFlowFinal({
+        ws,
+        conversationId: retryResult.conversationId,
+        status: 'ok',
+      });
+    } finally {
+      memoryConversations.set = originalSet;
+    }
+  });
+});
+
 test('completed retryOwnershipId replay rejects a contradictory fresh-run launch after the earlier result has been accepted', async () => {
   await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
     await writeFlowFile({

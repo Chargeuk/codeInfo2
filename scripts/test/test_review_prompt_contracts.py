@@ -677,6 +677,36 @@ class ReviewPromptContractTests(unittest.TestCase):
             )
             self.assertIn("why every changed file was necessary", repair_prompt)
             self.assertIn("scope", repair_prompt.lower())
+            self.assertIn(
+                "complete and before creating its repair commit",
+                repair_prompt,
+            )
+            self.assertIn(
+                "supported formatting and lint workflow",
+                repair_prompt,
+            )
+            self.assertIn(
+                "Run the repository-supported formatter or safe auto-fix command once",
+                repair_prompt,
+            )
+            self.assertIn(
+                "non-mutating formatting and lint checks",
+                repair_prompt,
+            )
+            self.assertIn("Prefer a changed-file target", repair_prompt)
+            self.assertIn(
+                "re-run the directly affected focused proof",
+                repair_prompt,
+            )
+            self.assertIn(
+                "Do not invent a command, add a tool or dependency",
+                repair_prompt,
+            )
+            self.assertIn("unrelated baseline failures", repair_prompt)
+            self.assertIn(
+                "formatting and lint commands and results",
+                repair_prompt,
+            )
         self.assertIn("Do not introduce an unapproved policy", normal_fix)
         self.assertIn("Research authority does not authorize new story scope", stronger_fix)
         self.assertIn("genuinely unapproved product or runtime policy", stronger_fix)

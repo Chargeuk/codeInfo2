@@ -518,9 +518,125 @@ describe('flow schema (v1)', () => {
     const consolidator = artifacts.steps?.at(-1);
 
     assert.equal(crossRepositoryReviewer?.label, 'Review Cross-Repository Contracts');
+    assert.equal(crossRepositoryReviewer?.agentType, 'review_agent_heavy');
     assert.equal(crossRepositoryReviewer?.continueOnFailure, undefined);
     assert.equal(consolidator?.label, 'Consolidate Multi-Agent Review');
+    assert.equal(consolidator?.agentType, 'review_agent_max');
     assert.equal(consolidator?.continueOnFailure, undefined);
+  });
+
+  test('review capability tiers reserve Sol maximum review for high-consequence synthesis and audits without changing fixers', async () => {
+    const batch = JSON.parse(
+      await fs.readFile(path.join(repoRoot, 'flows/review_batch.json'), 'utf8'),
+    ) as { steps?: FlowStep[] };
+    const cycle = JSON.parse(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+        'utf8',
+      ),
+    ) as { steps?: FlowStep[] };
+    const artifacts = JSON.parse(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/review_artifacts_main.json'),
+        'utf8',
+      ),
+    ) as { steps?: FlowStep[] };
+
+    const batchSteps = flattenSteps(batch.steps ?? []);
+    const cycleSteps = flattenSteps(cycle.steps ?? []);
+    const artifactSteps = flattenSteps(artifacts.steps ?? []);
+    const expectAgent = (
+      steps: FlowStep[],
+      label: string,
+      agentType: string,
+      identifier?: string,
+    ) => {
+      const step = steps.find((candidate) => candidate.label === label);
+      assert.equal(step?.agentType, agentType, label);
+      if (identifier !== undefined) {
+        assert.equal(step?.identifier, identifier, label);
+      }
+    };
+
+    expectAgent(
+      batchSteps,
+      'Reset Review Batch Verifier',
+      'review_agent_heavy',
+      'batch_verifier',
+    );
+    expectAgent(
+      batchSteps,
+      'Verify And Recover Review Batch Jobs',
+      'review_agent_heavy',
+      'batch_verifier',
+    );
+    expectAgent(
+      batchSteps,
+      'Audit Review Batch Reconciliation',
+      'review_agent_heavy',
+      'batch_verifier',
+    );
+    expectAgent(
+      batchSteps,
+      'Reset Review Batch Filtering Auditor',
+      'review_agent_max',
+      'batch_scope_auditor',
+    );
+    expectAgent(
+      batchSteps,
+      'Audit Review Batch Filtering Gates',
+      'review_agent_max',
+      'batch_scope_auditor',
+    );
+    expectAgent(
+      artifactSteps,
+      'Consolidate Multi-Agent Review',
+      'review_agent_max',
+      'reviewer_consolidator',
+    );
+    expectAgent(
+      cycleSteps,
+      'Reset Complete-Pass Settlement Auditor',
+      'review_agent_max',
+      'settlement_auditor',
+    );
+    expectAgent(
+      cycleSteps,
+      'Audit Complete Review Settlement',
+      'review_agent_max',
+      'settlement_auditor',
+    );
+
+    expectAgent(
+      batchSteps,
+      'Reset Direct Review Fixer',
+      'coding_agent',
+      'batch_fixer',
+    );
+    expectAgent(
+      batchSteps,
+      'Implement Direct Review Fixes',
+      'coding_agent',
+      'batch_fixer',
+    );
+    expectAgent(
+      batchSteps,
+      'Skip Stronger Repair When Normal Fixer Completed All Findings',
+      'coding_agent',
+      'batch_fixer',
+    );
+    expectAgent(
+      batchSteps,
+      'Reset Stronger Review Fixer',
+      'research_agent',
+      'batch_research_fixer',
+    );
+    expectAgent(
+      batchSteps,
+      'Implement Remaining Review Fixes',
+      'research_agent',
+      'batch_research_fixer',
+    );
   });
 
   test('review policy uses generic repeated and one-shot batches without leaking scheduling classes', async () => {
@@ -730,7 +846,7 @@ describe('flow schema (v1)', () => {
       (step) => step.label === 'Audit Review Batch Filtering Gates',
     );
     assert.equal(scopeAuditReset?.type, 'reset');
-    assert.equal(scopeAuditReset?.agentType, 'review_agent_heavy');
+    assert.equal(scopeAuditReset?.agentType, 'review_agent_max');
     assert.equal(scopeAuditReset?.identifier, 'batch_scope_auditor');
     assert.equal(scopeAudit?.type, 'llm');
     assert.equal(scopeAudit?.agentType, scopeAuditReset?.agentType);

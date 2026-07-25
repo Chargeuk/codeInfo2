@@ -123,13 +123,13 @@
     {
       "type": "reset",
       "label": "Reset Complete-Pass Settlement Auditor",
-      "agentType": "review_agent_heavy",
+      "agentType": "review_agent_max",
       "identifier": "settlement_auditor"
     },
     {
       "type": "llm",
       "label": "Audit Complete Review Settlement",
-      "agentType": "review_agent_heavy",
+      "agentType": "review_agent_max",
       "identifier": "settlement_auditor",
       "continueOnFailure": true,
       "markdownFile": "audit_agent_native_review_settlement.md"

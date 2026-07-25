@@ -359,6 +359,30 @@ test('review batch workspace gives every job immutable private input and pre-cre
       await fs.readFile(path.join(result.batchRoot, 'batch-launch.md'), 'utf8'),
       originalLaunchRecord,
     );
+    const codexJobRoot = String(codexJob.job_dir);
+    const escapedJobRoot = path.join(repoRoot, 'escaped-review-job');
+    await fs.cp(codexJobRoot, escapedJobRoot, { recursive: true });
+    await fs.rm(codexJobRoot, { recursive: true, force: true });
+    await fs.symlink(escapedJobRoot, codexJobRoot, 'dir');
+    await assert.rejects(
+      prepareReviewBatchWorkspace({ snapshot, jobs }),
+      /job directory.*outside its assigned private boundary/u,
+    );
+    await fs.unlink(codexJobRoot);
+    await fs.rename(escapedJobRoot, codexJobRoot);
+
+    const codexOutputDir = path.join(codexJobRoot, 'output');
+    const escapedOutputDir = path.join(repoRoot, 'escaped-review-output');
+    await fs.cp(codexOutputDir, escapedOutputDir, { recursive: true });
+    await fs.rm(codexOutputDir, { recursive: true, force: true });
+    await fs.symlink(escapedOutputDir, codexOutputDir, 'dir');
+    await assert.rejects(
+      prepareReviewBatchWorkspace({ snapshot, jobs }),
+      /output directory.*outside its assigned private boundary/u,
+    );
+    await fs.unlink(codexOutputDir);
+    await fs.rename(escapedOutputDir, codexOutputDir);
+
     const openCodeResumeJob = result.jobs[1]?.input?.review_job as Record<
       string,
       unknown

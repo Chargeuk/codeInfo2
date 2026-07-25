@@ -82,20 +82,59 @@ const requireFile = async (filePath: string, description: string) => {
   }
 };
 
+const isContainedPath = (parentPath: string, candidatePath: string) => {
+  const relativePath = path.relative(parentPath, candidatePath);
+  return (
+    relativePath === '' ||
+    (!relativePath.startsWith(`..${path.sep}`) &&
+      relativePath !== '..' &&
+      !path.isAbsolute(relativePath))
+  );
+};
+
+const requireContainedPath = async (
+  candidatePath: string,
+  parentPath: string,
+  description: string,
+) => {
+  const [resolvedCandidate, resolvedParent] = await Promise.all([
+    fs.realpath(candidatePath),
+    fs.realpath(parentPath),
+  ]);
+  if (!isContainedPath(resolvedParent, resolvedCandidate)) {
+    throw new Error(
+      `Existing review batch ${description} resolves outside its assigned private boundary.`,
+    );
+  }
+};
+
 const requirePrivateInput = async (params: {
   privateInputDir: string;
   sharedInputDir: string;
   inputFiles: string[];
   jobInstanceId: string;
+  jobRoot: string;
 }) => {
   await Promise.all([
     requireDirectory(
       params.privateInputDir,
       `private input directory for ${params.jobInstanceId}`,
     ),
+    requireContainedPath(
+      params.privateInputDir,
+      params.jobRoot,
+      `private input directory for ${params.jobInstanceId}`,
+    ),
     ...params.inputFiles.map((fileName) =>
       requireFile(
         path.join(params.privateInputDir, fileName),
+        `private input ${fileName} for ${params.jobInstanceId}`,
+      ),
+    ),
+    ...params.inputFiles.map((fileName) =>
+      requireContainedPath(
+        path.join(params.privateInputDir, fileName),
+        params.privateInputDir,
         `private input ${fileName} for ${params.jobInstanceId}`,
       ),
     ),
@@ -212,23 +251,42 @@ export async function prepareReviewBatchWorkspace(params: {
     'batches',
     safeSegment(batchId),
   );
+  const batchParent = path.dirname(batchRoot);
+  const inputsRoot = path.join(batchRoot, 'inputs');
+  const jobsRoot = path.join(batchRoot, 'jobs');
+  const reconciliationRoot = path.join(batchRoot, 'reconciliation');
   const batchExists = await isDirectory(batchRoot);
   const reusingBatch = batchExists;
   if (reusingBatch) {
     await Promise.all([
-      requireDirectory(path.join(batchRoot, 'inputs'), 'inputs directory'),
-      requireDirectory(path.join(batchRoot, 'jobs'), 'jobs directory'),
-      requireDirectory(
-        path.join(batchRoot, 'reconciliation'),
+      requireDirectory(batchRoot, 'batch directory'),
+      requireContainedPath(batchParent, reviewRoot, 'batch parent directory'),
+      requireContainedPath(batchRoot, batchParent, 'batch directory'),
+      requireDirectory(inputsRoot, 'inputs directory'),
+      requireContainedPath(inputsRoot, batchRoot, 'inputs directory'),
+      requireDirectory(jobsRoot, 'jobs directory'),
+      requireContainedPath(jobsRoot, batchRoot, 'jobs directory'),
+      requireDirectory(reconciliationRoot, 'reconciliation directory'),
+      requireContainedPath(
+        reconciliationRoot,
+        batchRoot,
         'reconciliation directory',
       ),
-      requireFile(path.join(batchRoot, 'batch-launch.md'), 'batch launch record'),
+      requireFile(
+        path.join(batchRoot, 'batch-launch.md'),
+        'batch launch record',
+      ),
+      requireContainedPath(
+        path.join(batchRoot, 'batch-launch.md'),
+        batchRoot,
+        'batch launch record',
+      ),
     ]);
   } else {
     await Promise.all([
-      fs.mkdir(path.join(batchRoot, 'inputs'), { recursive: true }),
-      fs.mkdir(path.join(batchRoot, 'jobs'), { recursive: true }),
-      fs.mkdir(path.join(batchRoot, 'reconciliation'), { recursive: true }),
+      fs.mkdir(inputsRoot, { recursive: true }),
+      fs.mkdir(jobsRoot, { recursive: true }),
+      fs.mkdir(reconciliationRoot, { recursive: true }),
     ]);
   }
 
@@ -269,13 +327,31 @@ export async function prepareReviewBatchWorkspace(params: {
     targetInputRoots.set(target.target_id, inputRoot);
     if (reusingBatch) {
       await Promise.all([
-        requireDirectory(inputRoot, `target input directory for ${target.target_id}`),
+        requireDirectory(
+          inputRoot,
+          `target input directory for ${target.target_id}`,
+        ),
+        requireContainedPath(
+          inputRoot,
+          inputsRoot,
+          `target input directory for ${target.target_id}`,
+        ),
         requireFile(
           path.join(inputRoot, 'review-target.md'),
           `target input for ${target.target_id}`,
         ),
+        requireContainedPath(
+          path.join(inputRoot, 'review-target.md'),
+          inputRoot,
+          `target input for ${target.target_id}`,
+        ),
         requireFile(
           path.join(inputRoot, 'story-context.md'),
+          `story context for ${target.target_id}`,
+        ),
+        requireContainedPath(
+          path.join(inputRoot, 'story-context.md'),
+          inputRoot,
           `story context for ${target.target_id}`,
         ),
       ]);
@@ -300,13 +376,31 @@ export async function prepareReviewBatchWorkspace(params: {
   );
   if (reusingBatch) {
     await Promise.all([
-      requireDirectory(crossRepositoryInput, 'cross-repository input directory'),
+      requireDirectory(
+        crossRepositoryInput,
+        'cross-repository input directory',
+      ),
+      requireContainedPath(
+        crossRepositoryInput,
+        inputsRoot,
+        'cross-repository input directory',
+      ),
       requireFile(
         path.join(crossRepositoryInput, 'story-context.md'),
         'cross-repository story context',
       ),
+      requireContainedPath(
+        path.join(crossRepositoryInput, 'story-context.md'),
+        crossRepositoryInput,
+        'cross-repository story context',
+      ),
       requireFile(
         path.join(crossRepositoryInput, 'review-targets.md'),
+        'cross-repository target inputs',
+      ),
+      requireContainedPath(
+        path.join(crossRepositoryInput, 'review-targets.md'),
+        crossRepositoryInput,
         'cross-repository target inputs',
       ),
     ]);
@@ -389,7 +483,7 @@ export async function prepareReviewBatchWorkspace(params: {
       );
     }
     seenJobDirectories.add(directoryName);
-    const jobRoot = path.join(batchRoot, 'jobs', directoryName);
+    const jobRoot = path.join(jobsRoot, directoryName);
     jobRoots.set(job.instanceId, jobRoot);
     const workDir = path.join(jobRoot, 'work');
     const outputDir = path.join(jobRoot, 'output');
@@ -405,18 +499,47 @@ export async function prepareReviewBatchWorkspace(params: {
     if (reusingBatch) {
       await Promise.all([
         requireDirectory(jobRoot, `job directory for ${job.instanceId}`),
+        requireContainedPath(
+          jobRoot,
+          jobsRoot,
+          `job directory for ${job.instanceId}`,
+        ),
         requireDirectory(workDir, `work directory for ${job.instanceId}`),
+        requireContainedPath(
+          workDir,
+          jobRoot,
+          `work directory for ${job.instanceId}`,
+        ),
         requireDirectory(outputDir, `output directory for ${job.instanceId}`),
+        requireContainedPath(
+          outputDir,
+          jobRoot,
+          `output directory for ${job.instanceId}`,
+        ),
         requireDirectory(
           verificationDir,
           `verification directory for ${job.instanceId}`,
         ),
-        requireFile(path.join(jobRoot, 'job.md'), `job brief for ${job.instanceId}`),
+        requireContainedPath(
+          verificationDir,
+          jobRoot,
+          `verification directory for ${job.instanceId}`,
+        ),
+        requireFile(
+          path.join(jobRoot, 'job.md'),
+          `job brief for ${job.instanceId}`,
+        ),
+        requireContainedPath(
+          path.join(jobRoot, 'job.md'),
+          jobRoot,
+          `job brief for ${job.instanceId}`,
+        ),
         requirePrivateInput({
           privateInputDir,
           sharedInputDir,
           inputFiles,
           jobInstanceId: job.instanceId,
+          jobRoot,
         }),
       ]);
     } else {

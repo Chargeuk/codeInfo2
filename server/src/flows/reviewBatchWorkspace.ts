@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import { execFile as execFileCb } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -71,7 +71,7 @@ const requireDirectory = async (directoryPath: string, description: string) => {
 
 const requireFile = async (filePath: string, description: string) => {
   try {
-    if (!(await fs.stat(filePath)).isFile()) {
+    if (!(await isFile(filePath))) {
       throw new Error(`Existing review batch lacks ${description}.`);
     }
   } catch (error) {

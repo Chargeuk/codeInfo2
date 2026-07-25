@@ -4627,3 +4627,741 @@ None. The filtered reconciliation contains no surviving positively authorized fi
 - The positive authorization artifact records no survivor and no authorized repair.
 - The independent scope audit repaired only a false derived-artifact identity discrepancy; it did not restore a finding or authorize work.
 - No additional finding was rejected by this disposition. The complete non-actionable set is the reconciliation-rejected candidate above and the explicit no-survivor/no-narrowing records in both scope artifacts.
+
+## Code Review Findings
+
+- Findings recorded: `July 25, 2026 at 1:56:56 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260725T001404Z-e63ed39c`
+- Review cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Reviewed primary HEAD: `49d5a292733d18d0aad8473c8d3ca3cf72eee9b2`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260725T001403Z-81cc8ab9/batches/0000064-rw-20260725T001404Z-e63ed39c--head-49d5a292733d/reconciliation/disposition.md`
+- Scope evidence: `reconciliation/reconciliation.md`, `reconciliation/reconciliation-audit.md`, `reconciliation/scope-filtered-findings.md`, `reconciliation/scope-authorized-findings.md`, and `reconciliation/scope-filter-audit.md` in the same batch directory.
+- Disposition result: complete; three findings are positively authorized and remain available for later repair opportunities. Repair routing is advisory; no final implementation-task decision was made here.
+
+### Accepted
+
+#### 1. Invalid normal-repair answers terminate the implementation flow before stronger repair
+
+- Finding ID: `Finding A — P1: invalid normal-repair answers terminate the implementation flow`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); generated and independently verified the finding.
+- Simple description: The four production implementation flows do not continue malformed or invalid normal-repair completion answers. An uncertain answer can stop the flow before the required stronger repair and final blocker check.
+- Example: A malformed answer at the normal-repair completion break returns an invalid-response failure instead of being treated as not positively confirmed and reaching the one allowed stronger repair attempt.
+- Why accepted: The current top-level Acceptance Criteria require exact yes/no completion evidence, require stronger repair whenever completion is not positively confirmed, and keep the final blocker gate authoritative. The pinned flow definitions and runtime provide the direct causal evidence. The smallest authorized repair is existing invalid-response fail-forward handling across the four production flows; no new limit, timeout, retry, fallback, validation, concurrency, or skipping policy is authorized. This remains available to repair agents without deciding normal-versus-stronger routing.
+
+#### 2. Stronger-repair loop-controller failure bypasses the final blocker gate
+
+- Finding ID: `Finding B — P2: loop-controller failure bypasses the final blocker gate`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); generated and independently verified the finding.
+- Simple description: The post-repair loop-exit controller has no failure continuation in the four production implementation flows. A provider execution failure can unwind the parent before the authoritative blocker gate records whether work remains.
+- Example: If `implementation_research_loop_controller` fails after the stronger attempt, the controller break returns failure and the following `Implementation blocker remains` break is never run.
+- Why accepted: The current top-level Acceptance Criteria explicitly require stronger-repair provider failure to fail forward and require the final blocker gate to run. The pinned flow definitions and runtime show the direct failure path. The smallest authorized repair preserves the bounded loop and reaches the existing gate without fabricating completion or adding any new recovery policy. This remains available to repair agents without deciding final task routing.
+
+#### 3. Accepted orphan resume can return a stale orphaned result
+
+- Finding ID: `Finding C — Medium: accepted orphan resume can return a stale orphaned result`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`; source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`); generated and independently verified the finding.
+- Simple description: After an orphan-resume request is accepted, a subsequent poll can still return the old orphaned terminal result before the resumed attempt acquires ownership. The command can report failure even though resume was accepted.
+- Example: Two consecutive orphaned responses cause the first poll to request resume and the second poll to be returned as the stale orphan result instead of waiting for the resumed attempt.
+- Why accepted: The current top-level Acceptance Criteria explicitly require resume to reattach without duplicate launches. The pinned source, test gap, and read-only reproduction establish the causal violation. The smallest authorized repair reuses existing polling and ownership semantics and adds consecutive-orphaned-poll coverage; no arbitrary count, delay, timeout, retry, fallback status, or duplicate-launch policy is authorized. This remains available to repair agents without deciding final task routing.
+
+### Ignored for This Story
+
+- None. No finding was rejected by disposition, and both scope artifacts report no fully removed finding and no narrowed-away remedy. The single-target cross-repository result is non-actionable not-applicable coverage evidence, not a finding or clean-review authorization; partial provider coverage and unrun validation surfaces remain limitations only. Historical decisions, tasks, repairs, commits, tests, and agent-authored records remain evidence only.
+
+## Code Review Findings
+
+- Findings recorded: `July 25, 2026 at 2:56:55 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260725T011049Z-acf4e561`
+- Review cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Reviewed primary HEAD: `533d1a8f4dcf9d0ee9eb424580e8c7de996aa6be`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260725T001403Z-81cc8ab9/batches/0000064-rw-20260725T011049Z-acf4e561--head-533d1a8f4dcf/reconciliation/disposition.md`
+- Scope evidence: `reconciliation/reconciliation.md`, `reconciliation/reconciliation-audit.md`, `reconciliation/scope-filtered-findings.md`, `reconciliation/scope-authorized-findings.md`, and `reconciliation/scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: complete; F1–F3 are positively authorized and remain available for normal and stronger repair opportunities, while F4–F5 are technically supported but non-actionable because exact positive authorization is absent. No final implementation-task decision was made.
+
+### Accepted
+
+#### 1. Authorization policy incorrectly treats `Overview` as story authorization
+
+- Finding ID: `F1` (batch reconciliation identity)
+- Review harnesses:
+  - `codex_review` (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: The shared behavior-lock policy allows a top-level Overview to authorize autonomous repair, while the story contract limits authorization to Description, Acceptance Criteria, Out Of Scope, approved expansions incorporated into those sections, or proven comparison-base restoration. This can turn context or design history into permission for an otherwise unapproved change.
+- Example: A finding mentioned only in an Overview could be treated as approved even though it never appears in Acceptance Criteria or Out Of Scope, allowing an autonomous agent to commit a repair the story never authorized.
+- Why accepted: The current top-level Description and Acceptance Criteria establish the narrower authorization boundary, and the shared policy directly conflicts with it. Aligning the policy with that contract is authorized and introduces no new runtime policy. The finding remains available for later bounded repair opportunities.
+
+#### 2. Review workspace preparation does not revalidate the pinned branch and HEAD
+
+- Finding ID: `F2` (batch reconciliation identity)
+- Review harnesses:
+  - `codex_review` (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: Workspace preparation checks only the resolved repository path and does not re-check the target branch and full HEAD against the pinned review snapshot before launch. A reviewer can inspect changed code while its brief still claims the original target identity.
+- Example: After the snapshot records the pinned branch and HEAD, another process advances the checkout before preparation; the reviewer launches against the new code and attributes findings to the old commit.
+- Why accepted: The current top-level Description and Acceptance Criteria explicitly require factual Git-identity validation and exact pinned branch and full HEAD review targets. Revalidating those facts restores the stated contract without adding a new policy. The finding remains available for later bounded repair opportunities.
+
+#### 3. Sibling review jobs share owner-writable target input
+
+- Finding ID: `F3` (batch reconciliation identity)
+- Review harnesses:
+  - `codex_review` (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: Target-local sibling jobs receive the same ordinary writable input directory instead of a private immutable job input boundary. One reviewer can change the story or target brief while another reviewer is reading it, making results depend on execution order.
+- Example: Codex and OpenCode start from one shared `story-context.md`; one reviewer changes it while the other prepares its prompt, so the jobs no longer review the same assigned input.
+- Why accepted: The current top-level Description and Acceptance Criteria explicitly require every review job to receive a private immutable input/work/output/verification boundary. Per-job immutable inputs or an equivalent read-only boundary directly restore that contract without changing review semantics. The finding remains available for later bounded repair opportunities.
+
+### Ignored for This Story
+
+#### 4. Failed outer review-batch launches depend on the literal `review_batch` flow name
+
+- Finding ID or Review reference: `F4` (batch reconciliation identity)
+- Review harnesses:
+  - `codex_review` (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: Review-attempt recording recognizes an outer review wrapper by the literal `review_batch` flow name when no explicit review workspace is present. A differently named wrapper could fail before workspace creation without leaving the same attempt evidence.
+- Example: A future configuration places reviewers behind `custom_review_wrapper`; it fails before creating a batch workspace, and settlement cannot identify the failed launch because the name is not `review_batch`.
+- Why ignored: The finding remains technically supported in the filtered reconciliation, but the current top-level contract does not authorize arbitrary replacement or renaming of the outer wrapper. Generalizing which wrapper names receive attempt semantics would add an unapproved classification policy, and no comparison-base evidence proves renamed wrappers are preserved behavior. Both scope artifacts report no complete finding or remedy removed or narrowed; this item is non-actionable only because positive authorization is absent.
+
+#### 5. Attached conversation identity is not checked against the requested flow and repository
+
+- Finding ID or Review reference: `F5` (batch reconciliation identity)
+- Review harnesses:
+  - `open_code_review` (`open_code_review`, job `target_reviews:current_repository:open_code_review`; source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: When an operator supplies a conversation ID, the summary wrapper evaluates terminal status using the requested flow policy without proving that the attached conversation belongs to that flow and repository. An unrelated terminal or not-applicable conversation can therefore be accepted as review proof.
+- Example: An operator supplies a completed conversation from another flow with `terminalOutcome: not_applicable`; the wrapper accepts it under the requested OpenCode policy even though the requested review never ran for this repository.
+- Why ignored: The finding remains technically supported in the filtered reconciliation, but the current top-level contract does not require the separate conversation-attachment option to authenticate a supplied conversation against flow and repository. The proposed repair would add a new mismatch validation failure or unproven-result policy, and no comparison-base behavior authorizes that change. The preserved native bundle also cannot independently reproduce the provider conversation identity. Both scope artifacts report no complete removal or narrowed remedy; this item is non-actionable only because positive authorization is absent.
+
+- Scope removals and narrowed remedies: none. Every supported finding in the filtered reconciliation is accounted for above; F1–F3 survive as authorized, and F4–F5 survive as technically supported but unauthorized.
+
+## Code Review Findings
+
+- Findings recorded: `July 25, 2026 at 4:08:42 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260725T021825Z-455343ec`
+- Review cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Reviewed primary HEAD: `477146b40c831390f865e7835cd0b519d6de0767`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260725T001403Z-81cc8ab9/batches/0000064-rw-20260725T021825Z-455343ec--head-477146b40c83/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, and `scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: complete; R1, R2, R3, and R5 are positively authorized and remain available for normal or stronger repair opportunities. R4 and R6 are technically supported but non-actionable because exact positive authorization is absent. X1 was rejected before scope filtering on comparison-base evidence. No final implementation-task decision was made here.
+
+### Accepted
+
+#### 1. Legacy review decision loops can become unbounded
+
+- Finding ID: `R1`
+- Review harnesses:
+  - Codex review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`); generated and independently verified the finding. Source job directory ending `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`.
+- Simple description: The durable record producer writes nested `Review harnesses` and `Simple description` fields, while the readiness consumer still requires legacy `Found by` and `Description` lines. A valid current-format decision block can remain unready and keep the review decision loop from converging.
+- Example: A plan block contains the required current-format harness and simple-description fields, but `_structured_review_block_status()` reports `issue_detail_missing`; the decision loop retries instead of recognizing the completed block.
+- Why accepted: The current top-level Description and Acceptance Criteria require this self-describing record shape and bounded review convergence. The direct mismatch makes the required record unusable. Aligning the consumer with the already-authorized shape, while preserving necessary legacy compatibility, adds no new cap, quota, threshold, timeout, retry, fallback, validation failure, or product policy. Apparently suitable for the normal repair attempt; still available to the stronger attempt if unresolved.
+
+#### 2. `Overview` improperly broadens positive authorization
+
+- Finding ID: `R2`
+- Review harnesses:
+  - Codex review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`); generated and independently verified the finding. Source job directory ending `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`.
+- Simple description: The authorization guidance allows a story `Overview` to authorize repairs even though the story contract limits authority to the top-level Description, Acceptance Criteria, Out Of Scope, approved expansions incorporated there, or comparison-base preserved behavior. The current plan has no top-level `Overview` section.
+- Example: A finding mentioned only in contextual Overview text could be promoted into repair even though it appears in none of the three authorized top-level contract sections.
+- Why accepted: The current top-level Description and Acceptance Criteria explicitly define the narrower authorization boundary. Leaving `Overview` in the source list allows implementation outside that boundary; removing it restores the exact story contract without adding runtime or product policy. Apparently suitable for the normal repair attempt; still available to the stronger attempt if unresolved.
+
+#### 3. Malformed repair-controller output can abort best-effort settlement
+
+- Finding ID: `R3`
+- Review harnesses:
+  - Codex review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`); generated and independently verified the finding. Source job directory ending `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`.
+- Simple description: A malformed final repair-loop controller reply is classified as `invalid_response`, but the configured continuation handling does not cover that advisory outcome. The parent can fail before `Record Review Batch Outcome` runs.
+- Example: The final controller returns malformed JSON after repair; the parent exits on invalid response before it records the batch outcome and follows the normal one-shot settlement route.
+- Why accepted: The Acceptance Criteria explicitly require invalid or unavailable advisory decisions to continue through the normal one-shot and settlement path, while the top-level Description requires best-effort continuation with honest failure visibility. Routing this existing outcome through that path adds no retry count, clean-result fallback, validation policy, or new limit. Likely to need the stronger repair attempt; it remains available to the normal attempt first.
+
+#### 4. Restart recovery can reuse a child with stale immutable input
+
+- Finding ID: `R5`
+- Review harnesses:
+  - OpenCode review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`); generated and independently verified the finding. Source job directory ending `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`.
+- Simple description: Remembered wave children are matched by instance and wave identity without comparing their stored input hash with the newly expanded job's input hash, although the later persisted-child path performs that comparison. A restarted run can therefore reuse an old child input for a new job identity.
+- Example: A flow-definition generation changes a child input after restart; the remembered child has the same instance and wave identity but an older input hash, and is reattached as if it represented the new job.
+- Why accepted: The Acceptance Criteria require bounded immutable child inputs, one coherent generation for resumed launches, and resume reattachment without duplicate launches. The missing hash comparison directly violates that contract. Mirroring the existing persisted-child hash check restores the identity guarantee without adding a cap, quota, timeout, retry, fallback, validation failure, or selection policy. Apparently suitable for the normal repair attempt; still available to the stronger attempt if unresolved.
+
+### Ignored for This Story
+
+#### 5. Cancellation has a terminal-state race
+
+- Finding ID or Review reference: `R4`
+- Review harnesses:
+  - Codex review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`); generated and independently verified the finding. Source job directory ending `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`.
+- Simple description: A review can become terminal after the last status poll but before the cancellation stop request. The server returns `409 FLOW_NOT_RUNNING`, which the summary wrapper reports as failure instead of re-reading the terminal result.
+- Example: The poll sees a non-terminal run, the run completes before the stop request arrives, and the stop request returns `409`; the wrapper reports failure although the review is already terminal.
+- Why ignored: Negative filtering retained the technically supported finding, but no exact current top-level Description, Acceptance Criteria, or Out Of Scope statement authorizes this post-terminal wrapper behavior. The comparison base contains no `scripts/review-cycle-summary.mjs`. Re-polling and choosing which terminal result to accept would add an unapproved error-path fallback/retry policy. The complete finding was removed from final actionable routing and must not be restored, directly fixed, or tasked.
+
+#### 6. Diagnostic summary resolution depends on the final review flow
+
+- Finding ID or Review reference: `R6`
+- Review harnesses:
+  - OpenCode review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`); generated and independently verified the finding. Source job directory ending `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`.
+- Simple description: `resolveReviewLaunch` filters only for `two_phase_review_cycle` before the main path selects `diagnostic_review_cycle`. A diagnostic summary can fail before launch when the diagnostic flow exists but the final flow is absent, invalid, or disabled.
+- Example: A catalogue with a diagnostic flow but no usable final flow is rejected during source resolution before the diagnostic flow can be selected.
+- Why ignored: No exact current top-level contract promises diagnostic-only catalogue selection in that missing or invalid-final-flow state, and the comparison base contains no summary script to establish preserved behavior. Any repair would choose a new missing/invalid-flow selection or fallback policy. The complete finding was removed from final actionable routing and must not be restored, directly fixed, or tasked.
+
+#### 7. Existing `subflow` JSON is no longer backward-compatible
+
+- Finding ID or Review reference: `X1`
+- Review harnesses:
+  - OpenCode review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`); native candidate and generated report were rejected by verification. Source job directory ending `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`.
+- Simple description: The native review claimed that duplicate validation newly rejects duplicate entries in the existing `subflow.flowNames` contract.
+- Example: A flow with duplicate child names would be claimed to fail validation after this story.
+- Why ignored: The pinned comparison-base file already contains the same duplicate-name validation, so this is not a story-caused regression and does not establish behavior to restore. It was rejected before scope filtering and must not be restored, directly fixed, or tasked.
+
+- Scope removals and narrowed remedies: neither scope artifact recorded a fully removed finding or narrowed-away remedy. R4 and R6 are preserved here because positive authorization removed the complete findings from final actionable routing; no removed meaning is restored under another heading.
+
+## Code Review Findings
+
+- Findings recorded: `July 25, 2026 at 5:44:46 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260725T035222Z-c8c880c7`
+- Review cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Reviewed primary HEAD: `28a7d37209656ba2f27f18cb6387581472c1674c`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260725T001403Z-81cc8ab9/batches/0000064-rw-20260725T035222Z-c8c880c7--head-28a7d3720965/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, and `scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: complete; R1, R2, and R5 are positively authorized in the narrowed or unchanged forms recorded below and remain available to normal and stronger repair opportunities. R3, R4, and R6 remain non-actionable because exact positive authorization is absent. R1 and R2 remedies removed by negative filtering are recorded under `Ignored for This Story`; no final implementation-task decision was made.
+
+### Accepted
+
+#### 1. Interrupted preparation can mutate private immutable input
+
+- Finding ID: `R1`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`; source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`); generated and independently verified the finding.
+- Simple description: An interrupted batch preparation can make private input read-only before the launch record exists. A later attempt can fail or overwrite evidence that should remain immutable.
+- Example: Preparation changes a job input directory to read-only mode, the process stops before writing `batch-launch.md`, and the retry either receives `EACCES` or replaces the supposedly immutable files.
+- Why accepted: The current top-level Acceptance Criteria require private immutable job boundaries, factual evidence for every attempted batch, and visible incomplete coverage. `server/src/flows/reviewBatchWorkspace.ts:183-204` directly violates those requirements. Acceptance is limited to preserving the assigned input evidence and factual incomplete state; it does not authorize retry, recreation, cleanup, fallback, timeout, or corruption policy.
+
+#### 2. Resume can change private input identity and duplicate a child launch
+
+- Finding ID: `R2`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); generated and independently verified the finding.
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`; source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`); corroborated the shared-input boundary condition.
+- Simple description: When a reused batch lacks its job-local input, preparation substitutes the shared target input. That changes the child-input hash and can make resume miss the existing child and launch a duplicate.
+- Example: A resumed job no longer has its private `input/` directory, so the shared target path is hashed instead; the stored child hash no longer matches and the same stable wave job starts again.
+- Why accepted: The current top-level Acceptance Criteria require bounded immutable child inputs, stable job identity, private immutable job boundaries, and resume without duplicate launches. `server/src/flows/reviewBatchWorkspace.ts:369-372,448-471` and `server/src/flows/service.ts:5170-5213` provide the direct causal chain. Acceptance is limited to preserving the original job-local input path and child identity; it does not authorize corruption handling, reconstruction, fallback, skipping, or retry policy.
+
+#### 3. Discovery skips statically linked `subflowWave` children
+
+- Finding ID: `R5`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); generated and independently verified the finding.
+- Simple description: Discovery validates ordinary `subflow` children but skips statically named matrix and singleton children inside `subflowWave`. Missing or invalid static children therefore avoid coherent catalogue-validation warnings.
+- Example: A static wave names a child flow that is missing or invalid; the parent appears runnable because discovery continues past the wave step, and the problem is not reported until execution.
+- Why accepted: The current top-level Acceptance Criteria explicitly require generic matrix and singleton `subflowWave` groups and validation of every linked schema-bearing flow definition in one coherent server generation. `server/src/flows/discovery.ts:152-169` directly leaves static wave children outside that path. Acceptance covers only statically knowable names; dynamic `groupsFrom` behavior and new policy are not authorized.
+
+### Ignored for This Story
+
+#### 4. R1 narrowed-away recovery or recreation remedy
+
+- Finding ID or Review reference: `R1` narrowed-away remedy.
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`; source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`); generated R1.
+- Simple description: The negative scope gate removed the choice between reusing a partial preparation and deleting or recreating it.
+- Example: After a crash before `batch-launch.md`, the system could retry, rebuild, clean up, or reject the partial directory, but the story does not select which policy to add.
+- Why ignored: Only the remedy was removed; the underlying R1 finding is accepted in narrowed form. The current contract does not authorize a new retry, cleanup, recreation, fallback, timeout, rejection, or corruption policy. Do not restore this removed remedy.
+
+#### 5. R2 narrowed-away corruption-handling remedy
+
+- Finding ID or Review reference: `R2` narrowed-away remedy.
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); generated R2.
+- Simple description: The negative scope gate removed the choice of what to do when reused private input is genuinely missing or altered.
+- Example: A missing or changed private input could be rejected, reconstructed, skipped, retried, or replaced, but selecting one response would add product policy beyond the story contract.
+- Why ignored: Only the remedy was removed; the underlying R2 finding is accepted in narrowed form. The current contract authorizes preserving the original input path and child hash, not a new corruption, validation-failure, fallback, skipping, or retry policy. Do not restore this removed remedy.
+
+#### 6. Workspace preflight omits the job input boundary
+
+- Finding ID or Review reference: `R3`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); generated and independently verified R3.
+- Simple description: The factual workspace checker validates `work`, `output`, and `verification`, but not the job-local `input/` directory or its required files.
+- Example: A job has no private input directory, yet the checker fixture passes because it checks only the other three boundaries.
+- Why ignored: Positive authorization fails. The current contract says factual validation may check assigned paths, containment, and required directories; it does not require this auxiliary checker to introduce a new input validation failure or required-file policy, and the comparison base contains no checker behavior to restore. Technical merit and story proximity are insufficient.
+
+#### 7. The bounded review-repair loop resets its controller
+
+- Finding ID or Review reference: `R4`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); generated and independently verified R4.
+- Simple description: The review-repair flow resets `batch_research_loop_controller` immediately before that controller performs its explicit one-iteration exit.
+- Example: The controller is reset, then asked to make the bounded loop decision; the flow still performs the one stronger review attempt and explicit break, but the story does not state that this review controller must persist.
+- Why ignored: Positive authorization fails. The persistent-controller requirement and matching Out Of Scope statement apply to implementation-repair escalation, not this review-repair loop, and the comparison base has no flow to restore. Removing the reset would rely on similarity rather than an exact authorized requirement.
+
+#### 8. Historical run status can report another review cycle
+
+- Finding ID or Review reference: `R6`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`; source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`); generated and independently verified R6.
+- Simple description: `getFlowRunStatus` reads the repository's active review-cycle status without checking whether it belongs to the requested conversation's cycle.
+- Example: After cycle B becomes active, polling a conversation from cycle A can report cycle B's status instead of an explicit stale or unavailable result.
+- Why ignored: Positive authorization fails. No current top-level contract defines per-conversation cycle identity or the stale-status response, and the comparison base contains no behavior to restore. Choosing a stale, unavailable, null, fallback, or other status policy would be unapproved.
+
+- Scope removals and narrowed remedies: no complete finding was removed. R1 and R2's removed remedies are recorded as ignored entries 4 and 5. The single-target cross-repository result and unrun validation surfaces are coverage limitations, not findings or authorization.
+
+## Code Review Findings
+
+- Findings recorded: `July 25, 2026 at 7:05:23 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260725T050518Z-8aad22d7`
+- Review cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Reviewed primary HEAD: `22e4bcd30e53372cc4551b645c1d97617b231f0f`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260725T001403Z-81cc8ab9/batches/0000064-rw-20260725T050518Z-8aad22d7--head-22e4bcd30e53/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, and `scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: complete; three findings are positively authorized and remain available to normal and stronger repair opportunities. The diagnostic-wrapper finding and comparison-base-contradicted duplicate-subflow candidate are non-actionable and preserved under `Ignored for This Story`. No final implementation-task decision was made.
+
+### Accepted
+
+#### 1. Decision-script containment can be bypassed through a symlink
+
+- Finding ID: `reconciliation finding 1; decision-script containment can be bypassed through a symlink`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`; source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`); generated the finding and verification confirmed it.
+- Simple description: The decision-script check compares lexical paths before executing the selected Python file. A symlink inside `scripts/flow_control` can point outside that directory, so the server may execute an external target.
+- Example: A temporary `scripts/flow_control/decision.py` symlink points to a Python file outside the allowed directory; the resolver accepts the apparent path and execution reaches the outside file.
+- Why accepted: The current top-level Description states, “Runtime code validates only factual boundaries such as assigned paths, containment, Git commits, directory presence, execution status, cancellation, and resume.” The Acceptance Criteria likewise require that runtime validation “may check assigned paths, containment, required directories, Git HEADs, non-empty output presence, execution outcomes, cancellation, and resume.” The lexical-only check is followed by execution of the unresolved target, so resolving the allowed root and candidate before applying the existing containment rule repairs the declared boundary without adding an unapproved policy. This is apparently suitable for the normal repair attempt and remains available to the stronger attempt if unresolved; no final task decision is made here.
+
+#### 2. Reused review batches do not validate private job input
+
+- Finding ID: `reconciliation finding 2; deduplicated OpenCode/Codex private-input finding`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`; source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`); generated the finding and verified the reuse omission.
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); corroborated the same missing or stale private-input boundary.
+- Simple description: New batches create a private job input directory, but reuse checks the job root, work, output, verification, and brief without checking that private input or its expected files. A resumed reviewer can therefore receive missing or stale evidence.
+- Example: A reused job has no `input/` directory, yet preparation succeeds and still advertises that path as `review_job.input_dir`; the reviewer starts without the immutable input that the batch recorded.
+- Why accepted: The current top-level Description states, “Every scheduled review receives the same kind of agent-readable story and repository inputs plus a private immutable job workspace.” The Acceptance Criteria require, “Every review job receives a private immutable job directory with input, work, output, and verification boundaries.” The reuse/checker omission accepts a job whose advertised private input is missing or altered, so requiring the existing directory and assigned files and comparing them with the pinned source repairs the declared contract without inventing a new quota, threshold, timeout, retry, fallback, or validation policy. This is apparently suitable for the normal repair attempt and remains available to the stronger attempt if unresolved; no final task decision is made here.
+
+#### 3. Break-step setup exceptions bypass best-effort policies
+
+- Finding ID: `reconciliation finding 3; break-step setup exceptions bypass best-effort policies`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); generated the finding and verification confirmed the control-flow gap.
+- Simple description: Provider or agent setup can throw before `runBreakStep` returns the failed execution result consumed by `breakOnFailure` and `continueOnFailure`. The configured best-effort route is therefore bypassed for this failure class.
+- Example: `resolveFlowInstructionPrerequisites` or `ensureAgentState` throws while preparing a review repair break step; the parent awaits the exception before it can record a failed step or continue to the one-shot, stronger-repair, settlement, or blocker route.
+- Why accepted: The current top-level Description states, “Failures and incomplete coverage remain visible and the flow continues with best effort.” The Acceptance Criteria require, “Review and settlement steps continue with best effort when a reviewer or provider fails.” Setup can throw before the existing policy-bearing route receives a failed result, so translating this exception into the existing execution-failure result restores the declared behavior without adding retry, timeout, fallback, default, concurrency, skipping, truncation, or new recovery policy. This is apparently suitable for the normal repair attempt and remains available to the stronger attempt if unresolved; no final task decision is made here.
+
+### Ignored for This Story
+
+#### 4. Diagnostic summary source discovery resolves the wrong flow
+
+- Finding ID or Review reference: `reconciliation finding 4; fully removed by negative scope gates 7 and 10`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); generated and directly reproduced the diagnostic-only behavior.
+- Simple description: Automatic source discovery is hard-coded to enabled `two_phase_review_cycle` entries even when the diagnostic wrapper is selected. A diagnostic-only catalogue can therefore fail before its diagnostic flow runs.
+- Example: With `diagnostic_review_cycle` enabled and `two_phase_review_cycle` disabled, running the diagnostic summary without `--source-id` reports that it cannot resolve the two-phase source instead of launching the diagnostic flow.
+- Why ignored: The negative scope gate fully removed this finding, and the positive gate did not authorize it. The current top-level Description, Acceptance Criteria, and Out Of Scope contract do not require a diagnostic review-cycle CLI, name `diagnostic_review_cycle`, or define its source-selection behavior. The comparison base contains no diagnostic wrapper to restore. Technical validity, story-added code, and same-subsystem proximity are not authorization, so the complete finding and proposed remedy must not be restored, repaired, tasked, or used to block settlement.
+
+#### 5. Duplicate ordinary `subflow.flowNames` rejected as a regression
+
+- Finding ID or Review reference: `Codex native candidate; rejected before actionable reconciliation because comparison-base behavior is identical`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`; source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`); generated the candidate and its verification rejected it as non-regressive.
+- Simple description: Ordinary `subflow` input containing duplicate flow names is rejected by the current schema. The candidate claimed this was a new backward-compatibility regression.
+- Example: A pre-story flow with repeated names reaches the same duplicate-name `superRefine` and rejection message in both the reviewed HEAD and comparison base, so the observed rejection does not begin with this story.
+- Why ignored: Comparison-base repository evidence at `00ced5bb15524d12395dfc5c0d427b3c65eb7f97:server/src/flows/flowSchema.ts:268-288` proves the behavior predated the story. This candidate is therefore not actionable, even though the native review described it as a regression. It is preserved as non-actionable evidence and must not be restored, repaired, tasked, or used to block settlement. No narrowed-away remedy was recorded.
+
+- Scope removals and narrowed remedies: the negative scope artifact records no narrowed survivor and no narrowed-away remedy. Finding 4 is the complete current-batch removal; finding 5 was already rejected by comparison-base evidence. The one-target cross-repository result, excluded paths, unrun full-suite proof, and residual uncertainty are coverage limitations rather than findings or authorization.
+
+## Code Review Findings
+
+- Findings recorded: `July 25, 2026 at 8:29:21 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260725T063324Z-f37f5d42`
+- Review cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Reviewed primary HEAD: `4ce2de071425764dd58f98023e6fc6a840fa8e59`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260725T001403Z-81cc8ab9/batches/0000064-rw-20260725T063324Z-f37f5d42--head-4ce2de071425/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, and `scope-filter-audit.md` under `codeInfoTmp/reviews/0000064-rc-20260725T001403Z-81cc8ab9/batches/0000064-rw-20260725T063324Z-f37f5d42--head-4ce2de071425/reconciliation/`.
+- Disposition result: complete with partial substantive coverage; R1 is positively authorized and retained for normal and stronger repair opportunities. C1 and C2 are non-actionable and preserved under `Ignored for This Story`. Neither scope artifact records a fully removed finding or narrowed-away remedy, and no final implementation-task decision was made.
+
+### Accepted
+
+#### 1. Reused review batches can expose paths outside the private job boundary through symlinks
+
+- Finding ID: `R1` (single actionable survivor in the filtered reconciliation; source finding: “resumed review paths can escape private job boundaries”)
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`); generated and corroborated the finding across its evidence, findings, saturation, blind-spots, consolidated output, and verification artifacts.
+- Simple description: Resume validation follows symlinks while checking reused job, input, work, output, and verification paths, but does not prove that their resolved locations remain inside the assigned private job boundary. A tampered reused path can redirect the child to input or artifact directories outside its private workspace.
+- Example: A valid reused `jobs/<hash>` directory is replaced with a symlink to an external directory containing the expected files. Preparation accepts the apparent path and returns batch-relative boundaries while `fs.realpath(job_dir)` resolves outside the batch root, so the child can receive escaped read or write paths.
+- Why accepted: The current top-level Acceptance Criteria require every review job to have “a private immutable job directory with input, work, output, and verification boundaries” and permit factual runtime validation of assigned paths, containment, required directories, and resume. The Description likewise requires private immutable job workspaces and factual containment validation. Symlink-following checks accept an external target, then return apparent paths without resolved containment checks, so the child can operate outside its private workspace and the exact contract remains incomplete. A narrow resolved-path containment check plus focused regression proof is authorized and adds no unapproved cap, quota, threshold, timeout, retry, default, fallback, validation policy, concurrency rule, skipping rule, truncation rule, or other product policy. R1 is apparently suitable for the normal repair attempt and remains available to the stronger repair attempt if normal repair cannot resolve it; no final implementation-task decision is made here.
+
+### Ignored for This Story
+
+#### 2. Anonymous matrix identities are order-dependent
+
+- Finding ID or Review reference: `C1` (medium candidate; residual uncertainty in the reconciliation)
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`); generated the candidate, while blind-spots, consolidated output, and verification adjudicated the uncertainty.
+- Simple description: Anonymous matrix items fall back to their array index for identity, so reordering them can change instance IDs and may affect resume or reconciliation stability. The available evidence does not show an anonymous item on this story’s shipped review path.
+- Example: If two matrix entries have no explicit identity and are reordered, the first entry changes from index `0` to `1`. The reviewed `flows/two_phase_review_cycle.json` targets use explicit `target_id` values, so this demonstrates a possible contract question rather than a proven current story-path failure.
+- Why ignored: The candidate remains visible as evidence-limited residual uncertainty, but it is not actionable because the source job does not establish anonymous items on the shipped path and the current contract does not independently authorize changing anonymous identity policy. Technical validity and similarity to stable-identity wording are insufficient without a demonstrated story-path violation. No repair or task routing is authorized.
+
+#### 3. Sanitized fallback locator names could collide
+
+- Finding ID or Review reference: `C2` (withdrawn locator-collision candidate)
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`); generated the candidate, and saturation, consolidated output, and verification withdrew it.
+- Simple description: An earlier candidate claimed that normalized locator names could collide for distinct repositories or flows. The reviewed implementation uses SHA-256-derived job directory names and encoded flow locators, so the claimed collision is not supported at the reviewed HEAD.
+- Example: A collision would require distinct inputs to produce the same effective job directory or locator. The reviewed code instead uses hash-derived job directories and `encodeURIComponent(flowName)`, and no collision scenario is established.
+- Why ignored: The candidate was withdrawn as unsupported by immutable reviewed-HEAD evidence and is not an actionable survivor. It is not a duplicate of R1 and is not authorized for repair or task creation. Preserve it only as rejected review evidence; do not restore, directly fix, or task it.
+
+- Scope removals and narrowed remedies: none recorded by either scope artifact. No fully removed finding or narrowed-away remedy is restored here; coverage limitations, visual non-applicability, and unrun validation surfaces are evidence limitations rather than additional findings.
+
+### Task 62. Record Review Fixes From Batch 0000064-rw-20260725T001404Z-e63ed39c
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `completed_review_fixes`
+- Review Cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Review Batch: `0000064-rw-20260725T001404Z-e63ed39c`
+- Findings Recorded: `July 25, 2026 at 2:09:08 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Display Timestamp: `July 25, 2026 at 8:58:58 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review Harnesses: `codex_review` job `target_reviews:current_repository:codex_review` (source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) generated and corroborated Findings A and B; `open_code_review` job `target_reviews:current_repository:open_code_review` (source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) generated and corroborated Finding C. The `cross_repository_review` job `story_review:cross_repository_review` (source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`) completed as not applicable because the immutable target inventory contained only `current_repository`.
+- Reviewed HEAD: `49d5a292733d18d0aad8473c8d3ca3cf72eee9b2`.
+- Final Repair HEAD: `533d1a8f4dcf9d0ee9eb424580e8c7de996aa6be`.
+
+#### Overview
+
+Record the already completed normal repair for the three authorized findings from this immutable batch. Finding A covered malformed or invalid normal-repair completion answers terminating before stronger repair. Finding B covered stronger loop-controller failure bypassing the final blocker gate. Finding C covered an accepted orphan resume returning a stale orphaned result. No actionable finding remains from this batch.
+
+#### Addresses Findings
+
+- Finding A — invalid normal-repair answers did not reach the existing stronger-repair route; owner `current_repository` / `codeInfo2`.
+- Finding B — stronger-repair loop-controller failure could bypass the authoritative final blocker gate; owner `current_repository` / `codeInfo2`.
+- Finding C — an accepted orphan resume could return the stale orphaned result before resumed ownership was observed; owner `current_repository` / `codeInfo2`.
+
+#### Subtasks
+
+1. [x] Apply the existing `continueOnInvalidResponse: true` behavior to the normal-repair completion break in `flows/implement_current_plan.json`, `flows/implement_next_plan.json`, `flows/improve_task_implement_plan.json`, and `flows/task_and_implement_plan.json`, so malformed or uncertain completion evidence reaches the bounded stronger-repair route.
+2. [x] Apply the existing `breakOnFailure: true` behavior to the post-repair loop-exit break in those four production flows, so controller failure reaches the unchanged authoritative blocker gate.
+3. [x] Update `scripts/review-cycle-summary.mjs` and `scripts/review-cycle-summary.test.mjs` so an accepted resume ignores only the stale orphaned terminal state while preserving existing polling, cancellation, terminal handling, and one-resume behavior.
+
+#### Testing
+
+1. [x] Run `node --test scripts/review-cycle-summary.test.mjs`; 16 tests passed, including consecutive orphaned-poll regression coverage.
+2. [x] Run `npm run test:summary:server:unit -- --file src/test/unit/flows-schema.test.ts`; 83 tests passed and the wrapper completed cleanly.
+3. [x] Run `npm run test:summary:server:unit -- --skip-build --file src/test/integration/flows.run.loop.test.ts --test-name 'bounded implementation blocker escalation'`; 1 test passed.
+4. [x] Run `jq empty` across the four changed flow JSON files and `git diff --check`; both passed.
+
+#### Manual Testing Guidance
+
+Manual proof was not part of this focused repair record. Any later browser, provider, screenshot, or agent-driven proof is optional and non-blocking and belongs only to the final revalidation task.
+
+#### Implementation Notes
+
+- Normal repair committed `533d1a8f4dcf9d0ee9eb424580e8c7de996aa6be` (`DEV-64 - repair authorized review findings`) from reviewed HEAD `49d5a292733d18d0aad8473c8d3ca3cf72eee9b2`.
+- The normal repair changed the four implementation flow JSON files, `scripts/review-cycle-summary.mjs`, `scripts/review-cycle-summary.test.mjs`, and `server/src/test/unit/flows-schema.test.ts`.
+- The stronger repair was positively skipped after the normal audit confirmed no actionable finding remained; it was not failed or unavailable and produced no commit or test.
+- Full client, server Cucumber, e2e, all-tests, build, lint, repository-wide formatting, and manual/main-stack proof were not run by this focused repair. OpenCode also left 131 of 226 changed paths outside its provider-reviewable scope. These are final-revalidation limitations, not unresolved findings.
+- The batch outcome, disposition, normal repair audit, reconciliation artifacts, three job records, and usable job outputs are the evidence for this historical task.
+
+### Task 63. Record Review Fixes From Batch 0000064-rw-20260725T011049Z-acf4e561
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `completed_review_fixes`
+- Review Cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Review Batch: `0000064-rw-20260725T011049Z-acf4e561`
+- Findings Recorded: `July 25, 2026 at 2:56:55 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Display Timestamp: `July 25, 2026 at 8:58:58 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review Harnesses: `codex_review` job `target_reviews:current_repository:codex_review` (source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) generated F1–F3. OpenCode generated only non-actionable F5 and did not corroborate an addressed finding. The `cross_repository_review` job `story_review:cross_repository_review` (source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`) was not applicable to the single target.
+- Reviewed HEAD: `533d1a8f4dcf9d0ee9eb424580e8c7de996aa6be`.
+- Final Repair HEAD: `477146b40c831390f865e7835cd0b519d6de0767`.
+
+#### Overview
+
+Record the already completed normal repair for F1–F3. F1 removed `Overview` from the authorization source list. F2 revalidated the pinned branch and full HEAD before review preparation. F3 created distinct read-only per-job input copies. F4 and F5 remained technically supported but positively unauthorized and are not task work.
+
+#### Addresses Findings
+
+- F1 — `Overview` was incorrectly treated as an authorization source; owner `current_repository` / `codeInfo2`.
+- F2 — review workspace preparation did not revalidate the pinned branch and full HEAD; owner `current_repository` / `codeInfo2`.
+- F3 — sibling review jobs shared owner-writable target input; owner `current_repository` / `codeInfo2`.
+
+#### Subtasks
+
+1. [x] Remove `Overview` from the authorization source list in `codeinfo_markdown/shared/story_behavior_lock.md`, preserving the current top-level contract boundary.
+2. [x] Update `server/src/flows/reviewBatchWorkspace.ts` to re-read and compare the checkout branch and `HEAD^{commit}` after realpath validation, rejecting factual drift.
+3. [x] Update `server/src/test/unit/review-batch-workspace.test.ts` with a real temporary Git repository and per-job input assertions covering branch/full-HEAD drift, distinct input paths, read-only modes, and resume preservation.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file src/test/unit/review-batch-workspace.test.ts`; 3 tests passed after the server build.
+2. [x] Run `git diff --check`; it passed before the repair commit.
+
+#### Manual Testing Guidance
+
+Manual proof was not part of this focused repair record. Any later browser, provider, screenshot, or agent-driven proof is optional and non-blocking and belongs only to the final revalidation task.
+
+#### Implementation Notes
+
+- Normal repair committed `477146b40c831390f865e7835cd0b519d6de0767` (`DEV-64 - enforce review workspace identity boundaries`) from reviewed HEAD `533d1a8f4dcf9d0ee9eb424580e8c7de996aa6be`.
+- Changed files were `codeinfo_markdown/shared/story_behavior_lock.md`, `server/src/flows/reviewBatchWorkspace.ts`, and `server/src/test/unit/review-batch-workspace.test.ts`.
+- The stronger repair was positively skipped after normal completion evidence confirmed no authorized finding remained; it was not failed or unavailable and produced no commit or test.
+- F4, literal `review_batch` launch classification, and F5, operator-supplied conversation identity validation, remain non-actionable evidence only. Full client/server/Cucumber/e2e/Compose/lint/format/manual proof was not run.
+- The batch outcome, disposition, normal repair audit, reconciliation artifacts, three job records, and usable job outputs are the evidence for this historical task.
+
+### Task 64. Record Review Fixes From Batch 0000064-rw-20260725T021825Z-455343ec
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `completed_review_fixes`
+- Review Cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Review Batch: `0000064-rw-20260725T021825Z-455343ec`
+- Findings Recorded: `July 25, 2026 at 4:08:42 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Display Timestamp: `July 25, 2026 at 8:58:58 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review Harnesses: `codex_review` job `target_reviews:current_repository:codex_review` (source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) generated and independently verified R1, R2, and R3; `open_code_review` job `target_reviews:current_repository:open_code_review` (source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) generated and independently verified R5; `cross_repository_review` job `story_review:cross_repository_review` (source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`) was completed as not applicable because the inventory contained one repository.
+- Reviewed HEAD: `477146b40c831390f865e7835cd0b519d6de0767`.
+- Normal Repair HEAD: `4648baf8eeeb983651879843b792697f6dfdf93c`.
+- Stronger Repair HEAD: `28a7d37209656ba2f27f18cb6387581472c1674c`.
+
+#### Overview
+
+Record both repair contributions from this batch. The normal repair resolved R1, R2, R3, and R5. The stronger repair added malformed-response runtime proof, repaired truthful valid-reattachment/hash fixtures, and repaired Git-backed review-production fixtures without changing production code. R4 and R6 remained unauthorized and X1 was rejected by comparison-base evidence.
+
+#### Addresses Findings
+
+- R1 — legacy review decision loops could become unbounded; owner `current_repository` / `codeInfo2`.
+- R2 — `Overview` improperly broadened positive authorization; owner `current_repository` / `codeInfo2`.
+- R3 — malformed repair-controller output could abort best-effort settlement; owner `current_repository` / `codeInfo2`.
+- R5 — restart recovery could reuse a child with stale immutable input; owner `current_repository` / `codeInfo2`.
+
+#### Subtasks
+
+1. [x] Update `scripts/flow_control/review.py` and its proof so current nested `Review harnesses` and `Simple description` records are accepted while required legacy provenance remains compatible.
+2. [x] Remove `Overview` as an authorization source from the five repair/scope prompt files and update `scripts/test/test_review_prompt_contracts.py`.
+3. [x] Configure the bounded review repair loop in `flows/review_batch.json` to fail forward on malformed controller output and add the schema assertion in `server/src/test/unit/flows-schema.test.ts`.
+4. [x] Add the `inputHash` guard in `server/src/flows/service.ts` and stale-hash coverage in `server/src/test/integration/flows.run.subflow.test.ts`.
+5. [x] In the stronger repair, add explicit malformed-response runtime proof, truthful expanded-input/hash persistence in `server/src/test/integration/flows.run.subflow.test.ts`, and Git-backed target fixtures in `server/src/test/integration/review-production-loop.test.ts`.
+
+#### Testing
+
+1. [x] Run `python3 -m unittest scripts.test.test_flow_control_review scripts.test.test_review_prompt_contracts`; 74 tests passed.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows-schema.test.ts --file server/src/test/integration/flows.run.subflow.test.ts --test-name 'review batch|review wave starts before|restart recovery resumes an interrupted wave child'`; 3 tests passed.
+3. [x] Run `git diff --check`; it passed before the stronger repair commit.
+
+#### Manual Testing Guidance
+
+Manual proof was not part of this focused repair record. Any later browser, provider, screenshot, or agent-driven proof is optional and non-blocking and belongs only to the final revalidation task.
+
+#### Implementation Notes
+
+- Normal repair committed `4648baf8eeeb983651879843b792697f6dfdf93c` (`DEV-64 - repair authorized review findings`) from reviewed HEAD `477146b40c831390f865e7835cd0b519d6de0767`.
+- Stronger repair committed `28a7d37209656ba2f27f18cb6387581472c1674c` (`DEV-64 - prove remaining review repairs`) from the normal repair HEAD. It changed only `server/src/test/integration/flows.run.subflow.test.ts` and `server/src/test/integration/review-production-loop.test.ts`; no production file changed in the stronger commit.
+- The normal commit changed the five review-contract prompt files, `flows/review_batch.json`, `scripts/flow_control/review.py`, both named Python tests, `server/src/flows/service.ts`, `server/src/test/integration/flows.run.subflow.test.ts`, and `server/src/test/unit/flows-schema.test.ts`.
+- The final full server-unit proof recorded by the stronger audit passed 2,620 tests with 0 failures. Interim failed fixture runs were repaired and remain historical limitations, not successful proof claims.
+- No client, Cucumber, e2e, Compose, manual-browser, lint-only, or full all-surfaces parallel suite was run for this repair batch. The standalone normal audit was unavailable; the stronger audit reconstructed it from immutable evidence, source, commits, and fresh proof.
+
+### Task 65. Record Review Fixes From Batch 0000064-rw-20260725T035222Z-c8c880c7
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `completed_review_fixes`
+- Review Cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Review Batch: `0000064-rw-20260725T035222Z-c8c880c7`
+- Findings Recorded: `July 25, 2026 at 5:12:54 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Display Timestamp: `July 25, 2026 at 8:58:58 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review Harnesses: `open_code_review` job `target_reviews:current_repository:open_code_review` (source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) generated R1; `codex_review` job `target_reviews:current_repository:codex_review` (source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) generated R2 and R5 and OpenCode corroborated R2. The `cross_repository_review` job `story_review:cross_repository_review` (source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`) was not applicable to the single target.
+- Reviewed HEAD: `28a7d37209656ba2f27f18cb6387581472c1674c`.
+- Final Repair HEAD: `22e4bcd30e53372cc4551b645c1d97617b231f0f`.
+
+#### Overview
+
+Record the normal repair for narrowed R1, narrowed R2, and R5. The repair preserved interrupted private input boundaries and hashed child identity and routed static matrix and singleton `subflowWave` references through existing child-reference warning logic. R3, R4, and R6 remained positively unauthorized, and their narrowed-away remedies were not restored.
+
+#### Addresses Findings
+
+- R1 — interrupted preparation could mutate private immutable input; owner `current_repository` / `codeInfo2`.
+- R2 — resume could change private input identity and duplicate a child launch; owner `current_repository` / `codeInfo2`.
+- R5 — discovery skipped statically linked `subflowWave` children; owner `current_repository` / `codeInfo2`.
+
+#### Subtasks
+
+1. [x] Update `server/src/flows/reviewBatchWorkspace.ts` to preserve the existing batch boundary and private input/hash identity across interrupted preparation and resume.
+2. [x] Update `server/src/flows/discovery.ts` to inspect statically knowable matrix `flowNames` and singleton `flowName` references through the existing missing-child warning path, leaving dynamic `groupsFrom` resolution unchanged.
+3. [x] Extend `server/src/test/unit/review-batch-workspace.test.ts` and `server/src/test/integration/flows.list.test.ts` for interrupted-input preservation, stable reuse hashes, static matrix missing-child warnings, and singleton invalid-child warnings.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/review-batch-workspace.test.ts`; 3 tests passed after the server build.
+2. [x] Run `npm run test:summary:server:unit -- --skip-build --file server/src/test/integration/flows.list.test.ts`; 24 tests passed.
+3. [x] Run `git diff --check`; it passed before the repair commit.
+
+#### Manual Testing Guidance
+
+Manual proof was not part of this focused repair record. Any later browser, provider, screenshot, or agent-driven proof is optional and non-blocking and belongs only to the final revalidation task.
+
+#### Implementation Notes
+
+- Normal repair committed `22e4bcd30e53372cc4551b645c1d97617b231f0f` (`DEV-64 - preserve review workspace identity`) from reviewed HEAD `28a7d37209656ba2f27f18cb6387581472c1674c`.
+- Changed files were `server/src/flows/reviewBatchWorkspace.ts`, `server/src/flows/discovery.ts`, `server/src/test/unit/review-batch-workspace.test.ts`, and `server/src/test/integration/flows.list.test.ts`.
+- The stronger repair was positively skipped after the normal audit confirmed no actionable finding remained; it produced no commit or test and was not failed or unavailable.
+- Full server/client/Cucumber/e2e/lint/format/Compose/manual proof was not run. Review jobs used shared assigned inputs, so this batch did not independently prove private input boundaries before the repair. No authorized finding remained.
+
+### Task 66. Record Review Fixes From Batch 0000064-rw-20260725T050518Z-8aad22d7
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `completed_review_fixes`
+- Review Cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Review Batch: `0000064-rw-20260725T050518Z-8aad22d7`
+- Findings Recorded: `July 25, 2026 at 7:05:23 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Display Timestamp: `July 25, 2026 at 8:58:58 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review Harnesses: `open_code_review` job `target_reviews:current_repository:open_code_review` (source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) generated the symlink-containment and private-input findings; `codex_review` job `target_reviews:current_repository:codex_review` (source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) corroborated private-input and generated the break-step setup finding. The `cross_repository_review` job `story_review:cross_repository_review` (source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`) was not applicable to the single target.
+- Reviewed HEAD: `22e4bcd30e53372cc4551b645c1d97617b231f0f`.
+- Final Repair HEAD: `4ce2de071425764dd58f98023e6fc6a840fa8e59`.
+
+#### Overview
+
+Record the normal repair for three authorized findings: decision-script containment could be bypassed through a symlink, reused review batches did not validate private job input, and break-step setup exceptions bypassed best-effort policies. The diagnostic-summary source finding was removed or unauthorized, and the duplicate-subflow candidate was rejected by comparison-base evidence.
+
+#### Addresses Findings
+
+- Reconciliation finding 1 — decision-script containment could be bypassed through a symlink; owner `current_repository` / `codeInfo2`.
+- Reconciliation finding 2 — reused review batches did not validate private job input; owner `current_repository` / `codeInfo2`.
+- Reconciliation finding 3 — break-step setup exceptions bypassed best-effort policies; owner `current_repository` / `codeInfo2`.
+
+#### Subtasks
+
+1. [x] Update `server/src/flows/flowDecisionScript.ts` to resolve the allowed root and candidate before enforcing the existing containment boundary, and add the contained-symlink regression in `server/src/test/unit/flow-decision-script.test.ts`.
+2. [x] Update `server/src/flows/reviewBatchWorkspace.ts` and `scripts/check_review_workspace.py` to validate existing private input boundaries and assigned files on reuse, with proof in `server/src/test/unit/review-batch-workspace.test.ts` and `scripts/test/test_check_review_workspace.py`.
+3. [x] Update `server/src/flows/service.ts` to convert only break-step instruction/setup exceptions into the existing failed flow-step representation, with the `continueOnFailure` regression in `server/src/test/integration/flows.run.errors.test.ts`.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`; 2 tests passed.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/review-batch-workspace.test.ts`; 3 tests passed.
+3. [x] Run `python3 -m unittest scripts/test/test_check_review_workspace.py`; 6 tests passed.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "continueOnFailure lets a later step run after break setup fails"`; 1 test passed.
+5. [x] Run `git diff --check`; it passed before the repair commit.
+
+#### Manual Testing Guidance
+
+Manual proof was not part of this focused repair record. Any later browser, provider, screenshot, or agent-driven proof is optional and non-blocking and belongs only to the final revalidation task.
+
+#### Implementation Notes
+
+- Normal repair committed `4ce2de071425764dd58f98023e6fc6a840fa8e59` (`DEV-64 - repair review batch boundaries`) from reviewed HEAD `22e4bcd30e53372cc4551b645c1d97617b231f0f`.
+- Changed files were `scripts/check_review_workspace.py`, `scripts/test/test_check_review_workspace.py`, `server/src/flows/flowDecisionScript.ts`, `server/src/flows/reviewBatchWorkspace.ts`, `server/src/flows/service.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/unit/flow-decision-script.test.ts`, and `server/src/test/unit/review-batch-workspace.test.ts`.
+- The stronger repair was positively skipped after normal completion evidence confirmed no authorized finding remained; it was not failed or unavailable and produced no commit or test.
+- Full server/client/Cucumber/e2e/build/lint/format/Compose/manual proof was not run; provider coverage remained incomplete and cross-repository review was not applicable. No authorized finding remained.
+
+### Task 67. Record Review Fixes From Batch 0000064-rw-20260725T063324Z-f37f5d42
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `completed_review_fixes`
+- Review Cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Review Batch: `0000064-rw-20260725T063324Z-f37f5d42`
+- Findings Recorded: `July 25, 2026 at 8:42:41 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Display Timestamp: `July 25, 2026 at 8:58:58 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review Harnesses: `review_artifacts_main [current_repository]` job `target_reviews:current_repository:review_artifacts_main` (source job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) generated and corroborated R1 through its evidence, findings, saturation, blind-spots, consolidated output, and verification artifacts.
+- Reviewed HEAD: `4ce2de071425764dd58f98023e6fc6a840fa8e59`.
+- Final Repair HEAD: `cda6e4b7ef91ba7d38089290ab28397a4a7b5085`.
+
+#### Overview
+
+Record the normal repair for R1, the only positively authorized actionable survivor: resumed review-batch validation could follow symlinks outside the private job boundary. C1, anonymous matrix identity uncertainty, remains evidence-limited and C2, locator collision, was withdrawn as unsupported; neither is task work.
+
+#### Addresses Findings
+
+- R1 — reused review batches could expose paths outside the private job boundary through symlinks; owner `current_repository` / `codeInfo2`.
+
+#### Subtasks
+
+1. [x] Update `server/src/flows/reviewBatchWorkspace.ts` to resolve reused batch parents, batch roots, target and cross-repository inputs, job roots, private inputs, briefs, and work/output/verification paths before enforcing containment within their existing assigned parents.
+2. [x] Add symlink escape regression proof in `server/src/test/unit/review-batch-workspace.test.ts` for both a reused job directory and a reused output directory.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/review-batch-workspace.test.ts`; 3 tests passed after the server build.
+2. [x] Run `npx prettier --check server/src/flows/reviewBatchWorkspace.ts`; it passed.
+3. [x] Run `git diff --check`; it passed before the repair commit.
+
+#### Manual Testing Guidance
+
+Manual proof was not part of this focused repair record. Any later browser, provider, screenshot, or agent-driven proof is optional and non-blocking and belongs only to the final revalidation task.
+
+#### Implementation Notes
+
+- Normal repair committed `cda6e4b7ef91ba7d38089290ab28397a4a7b5085` (`DEV-64 - contain reused review workspaces`) from reviewed HEAD `4ce2de071425764dd58f98023e6fc6a840fa8e59`.
+- Changed files were `server/src/flows/reviewBatchWorkspace.ts` and `server/src/test/unit/review-batch-workspace.test.ts`.
+- The stronger repair was positively skipped after the normal audit stated that no authorized finding remained unresolved; it was not failed or unavailable and produced no commit or test.
+- Targeted lint reported only the pre-existing unused `isFile` helper and it was deliberately not removed. Full client/server/Cucumber/e2e/Compose/build/lint/format/manual proof was not run; the review covered only part of the large diff. C1 and C2 remain non-actionable evidence only.
+
+### Task 68. Re-Validate Story 64 After Complete Agent-Native Review Repair
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Review Task Role: `final_revalidation`
+- Review Cycle: `0000064-rc-20260725T001403Z-81cc8ab9`
+- Prerequisite: Tasks 1–67 remain complete. Validate settlement-time HEAD `cda6e4b7ef91ba7d38089290ab28397a4a7b5085`, or the latest Story 64 HEAD after any same-task repair.
+- Proof-Scope Inventory: `codeInfo2` server and client workspaces, flow JSON and review lifecycle/runtime code, flow-control scripts, Compose runtime, server unit/integration and Cucumber suites, client suite, and Playwright e2e suite.
+
+#### Overview
+
+Run fresh whole-story automated validation after the six active-cycle fix-bearing batches and all seven repair commits. Revalidate the current Story 64 contract and every repaired review-wave behavior at the latest target HEAD. Findings fixed on later reviewed HEADs are resolved evidence rather than new task work. Review-provider limitations, one-target not-applicable cross-repository coverage, and optional manual scenarios remain visible evidence and are not automated success claims or blockers.
+
+#### Review Revalidation Scope
+
+- Revalidate the current target after repair commits `533d1a8f4dcf9d0ee9eb424580e8c7de996aa6be`, `477146b40c831390f865e7835cd0b519d6de0767`, `4648baf8eeeb983651879843b792697f6dfdf93c`, `28a7d37209656ba2f27f18cb6387581472c1674c`, `22e4bcd30e53372cc4551b645c1d97617b231f0f`, `4ce2de071425764dd58f98023e6fc6a840fa8e59`, and `cda6e4b7ef91ba7d38089290ab28397a4a7b5085`.
+- The third batch has both normal and stronger repair commits; the other five batches have normal repair commits and positively skipped stronger opportunities. No stronger failure with unresolved authorized work was recorded.
+- Revalidate the sole affected repository, `codeInfo2`; no second repository or cross-repository implementation owner exists in the active pass.
+- Preserve non-actionable F4/F5, R4/R6, X1, diagnostic and duplicate-subflow evidence, C1 residual uncertainty, C2 withdrawn evidence, and the failed OpenCode child event as limitations only.
+
+#### Task Exit Criteria
+
+- The supported server, client, and Compose build wrappers pass on the latest Story 64 HEAD.
+- The supported main Compose stack starts and shuts down cleanly through the repository wrappers.
+- The full unfiltered client, server unit/integration, server Cucumber, and Playwright e2e coverage passes through the canonical all-tests wrapper.
+- Lint and formatting pass after any practical same-task repair, with no story-caused issue left unaddressed.
+- Final proof records the actual final HEAD and all seven repair commits without claiming unavailable review-provider coverage or optional manual scenarios as completed.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [x] In `codeInfo2`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [x] In `codeInfo2`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+1. [x] In `codeInfo2`, run `npm run build:summary:server`.
+2. [x] In `codeInfo2`, run `npm run build:summary:client`.
+3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [x] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
+5. [x] In `codeInfo2`, run `npm run test:summary:all:parallel` without targeted filters, covering the full client suite, server unit/integration suite, server Cucumber suite, and Playwright e2e suite.
+6. [x] In `codeInfo2`, stop only the supported main stack started for this proof with `npm run compose:down`.
+7. [x] In `codeInfo2`, run `npm run lint`.
+8. [x] In `codeInfo2`, run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+Manual proof is optional and non-blocking. If a later manual-testing agent exercises browser-visible Story 64 surfaces, use the supported main stack at `http://localhost:5010/health` and `http://localhost:5001`, preserve the protected `codeinfo:local` stack, and follow the repository's human-controlled-2FA skip rule without autonomous re-authentication. Browser, agent-driven, screenshot, provider-login, cancellation, resume, and other manual scenarios are not automated gates. If screenshots or logs are captured, stage Playwright artifacts first in the output directory, normally visible at `$CODEINFO_ROOT/playwright-output-local/<relative-path>`, then transfer optional proof to `codeInfoTmp/manual-testing/0000064/68/`; do not commit those artifacts. Later closeout may promote a curated bundle to `codeInfoStatus/manual-proof/0000064/`. Record any artifact-transfer or provider limitation honestly without blocking the automated task.
+
+#### Implementation Notes
+
+- Full proof rerun passed after fixing the cucumber temp-repo fixture to create a real Git repository and commit. Final validated HEAD is `cda6e4b7ef91ba7d38089290ab28397a4a7b5085`.
+- Lint and formatting were rerun after the final cucumber fixture repair and remained clean.
+- Lint and formatting checks were rerun after removing the unused helper from `server/src/flows/reviewBatchWorkspace.ts` and fixing the import order warning.
+- Server, client, and compose build wrappers all passed; the client build reported a size warning only and did not fail the wrapper.
+- Created from the active-cycle settlement recommendation after six fix-bearing batches. This task is the sole new open settlement owner; no unresolved implementation task was created.
+- The failed OpenCode child event in the third batch remains unavailable provider coverage with recovered matching batch evidence; it is not converted into a clean-coverage claim or an implementation task.

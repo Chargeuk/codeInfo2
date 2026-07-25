@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 
 import { After, Given, Then, When } from '@cucumber/cucumber';
 
@@ -12,6 +14,8 @@ import {
   type SubflowWaveJob,
 } from '../../flows/subflowWave.js';
 import type { FlowJsonValue } from '../../flows/types.js';
+
+const execFile = promisify(execFileCb);
 
 let tempRoot: string | undefined;
 let snapshot: ReviewTargetSnapshot | undefined;
@@ -45,6 +49,19 @@ const expand = (groups: FlowJsonValue[]) => {
   });
 };
 
+const initializeGitRepository = async (root: string, branch: string) => {
+  await execFile('git', ['init', '-b', branch], { cwd: root });
+  await execFile('git', ['config', 'user.email', 'review-wave@example.com'], {
+    cwd: root,
+  });
+  await execFile('git', ['config', 'user.name', 'Review Wave'], {
+    cwd: root,
+  });
+  await execFile('git', ['commit', '--allow-empty', '-m', 'initial commit'], {
+    cwd: root,
+  });
+};
+
 Given(
   'a generic review batch with {int} pinned target\\(s\\)',
   async (targetCount: number) => {
@@ -62,17 +79,26 @@ Given(
       path.join(tempRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
       JSON.stringify({ plan_path: planPath }),
     );
+    await initializeGitRepository(tempRoot, 'feature/0000064-review');
     const targets = await Promise.all(
       Array.from({ length: targetCount }, async (_, index) => {
         const repoRoot = index === 0 ? tempRoot! : path.join(tempRoot!, `repo-${index}`);
         await fs.mkdir(repoRoot, { recursive: true });
+        if (repoRoot !== tempRoot) {
+          await initializeGitRepository(repoRoot, 'feature/0000064-review');
+        }
+        const headCommit = await execFile(
+          'git',
+          ['-C', repoRoot, 'rev-parse', 'HEAD^{commit}'],
+          { encoding: 'utf8' },
+        ).then((result) => result.stdout.trim());
         return {
           target_id: index === 0 ? 'current_repository' : `repo-${index}`,
           repo_alias: index === 0 ? 'current_repository' : `repo-${index}`,
           repo_root: repoRoot,
           repository_id: `repo-${index}`,
           branch: 'feature/0000064-review',
-          head_commit: String(index + 1).repeat(40),
+          head_commit: headCommit,
           comparison_base_commit: 'a'.repeat(40),
           story_id: '0000064',
           is_primary: index === 0,

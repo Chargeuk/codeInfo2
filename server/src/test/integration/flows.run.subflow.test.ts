@@ -7,7 +7,11 @@ import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import { getActiveRunOwnership } from '../../agents/runLock.js';
+import {
+  getActiveRunOwnership,
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
 import {
   abortInflight,
   registerPendingConversationCancel,
@@ -22,7 +26,10 @@ import {
   __resetProviderBootstrapStatusForTests,
 } from '../../config/runtimeConfig.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
-import { startFlowRun } from '../../flows/service.js';
+import {
+  getFlowConversationLifecycleStatus,
+  startFlowRun,
+} from '../../flows/service.js';
 import type { FlowJsonObject } from '../../flows/types.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
@@ -391,6 +398,92 @@ afterEach(async () => {
   }
   memoryConversations.clear();
   memoryTurns.clear();
+});
+
+test('child lifecycle observation stays coherent across terminal persistence and ownership release', async () => {
+  const conversationId = 'child-lifecycle-terminal-transition';
+  const now = new Date();
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Child lifecycle transition',
+    flowName: 'child-lifecycle-transition',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'child-lifecycle-transition-execution',
+        stepPath: [],
+        loopStack: [],
+        runLifecycle: {
+          status: 'running',
+          updatedAt: now.toISOString(),
+        },
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: now,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  } as Conversation);
+  assert.equal(tryAcquireConversationLock(conversationId), true);
+  const ownership = getActiveRunOwnership(conversationId);
+  assert.ok(ownership);
+
+  try {
+    assert.equal(
+      await getFlowConversationLifecycleStatus({
+        conversationId,
+        runToken: ownership.runToken,
+      }),
+      'running',
+    );
+
+    const conversation = memoryConversations.get(conversationId);
+    assert.ok(conversation);
+    memoryConversations.set(conversationId, {
+      ...conversation,
+      flags: {
+        ...conversation.flags,
+        flow: {
+          ...((conversation.flags as { flow: Record<string, unknown> }).flow ??
+            {}),
+          runLifecycle: {
+            status: 'ok',
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      },
+      updatedAt: new Date(),
+    } as Conversation);
+    recordMemoryTurn({
+      conversationId,
+      role: 'assistant',
+      content: 'child completed',
+      model: 'gpt-5.1-codex-max',
+      provider: 'codex',
+      toolCalls: null,
+      status: 'ok',
+      source: 'REST',
+      createdAt: new Date(),
+    });
+    assert.equal(
+      releaseConversationLock(conversationId, ownership.runToken),
+      true,
+    );
+
+    assert.equal(
+      await getFlowConversationLifecycleStatus({
+        conversationId,
+        runToken: ownership.runToken,
+      }),
+      'ok',
+    );
+  } finally {
+    releaseConversationLock(conversationId, ownership.runToken);
+  }
 });
 
 test('review initialization failures fail the flow instead of silently skipping the review cycle', async () => {

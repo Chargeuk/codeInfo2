@@ -64,6 +64,8 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - The outer story loop implements newly settled work and starts a fresh complete review pass until a pass is genuinely clean.
 - Every mid-loop push checkpoint is persistence-only: it may commit and push changes that existed when the step began, but it never implements tasks or findings, changes plan completion, runs validation or auto-fixes, or performs story closeout.
 - The outer completion decision refuses to close when the current review settlement created or updated work, requests another review, is unsafe to exit cleanly, is invalid, or belongs to a different review cycle, even if every plan checkbox currently appears complete.
+- Persisted `runLifecycle.status` is the authoritative child-flow progress state for every generic `subflow` and `subflowWave`; active-run ownership prevents duplicate execution and targets cancellation but is not a second completion signal.
+- A parent uses one coherent lifecycle observation per poll and never combines an earlier non-terminal observation with a later ownership lookup; `running` waits, terminal states settle, `orphaned` follows recovery, and genuinely missing legacy state remains an honest best-effort failure.
 - Every main implementation flow gives the normal coding agent the first deep implementation-blocker repair attempt, then uses a one-iteration optional-research loop that skips only when the coding agent positively confirms no live blocker remains.
 - Every main implementation flow resets the normal `coding_agent` immediately before loading current-task repair context and resets the stronger `research_agent` immediately before its repair invocation, while the persistent loop-control agent is not reset inside the optional repair loop.
 - The implementation-blocker research agent is reset immediately before invocation, may repair directly causal code, configuration, tests, documentation, workflow support, prerequisites, or cross-repository contracts outside the bound task but within persisted plan scope, and must use the smallest focused evidence-backed change that completely removes the blocker.
@@ -103,6 +105,7 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - Treating any historical review decision, `Accepted` section, task, implementation note, review artifact, commit, test, or agent statement as a user-approved story expansion or as proof of preserved behavior.
 - Automatically implementing technically plausible hardening or introducing a new limit, threshold, timeout, retry, default, validation failure, concurrency rule, or other policy that the story did not explicitly request or approve.
 - Moving settlement-created tasking after checkpoint persistence, or allowing a checkpoint agent to complete that work, instead of returning it to the normal implementation and review loop.
+- Adding a child-completion timeout, provider-specific lifecycle behavior, artifact-based runtime completion, a new persisted child-status schema, or a broader event-driven parent/child rewrite.
 - Guaranteeing meaningful review or settlement content when every relevant AI/provider is unavailable; the workflow preserves honest incomplete state instead of inventing findings or a clean result.
 - Opening a pull request as part of this story unless separately requested.
 
@@ -5413,3 +5416,48 @@ Keep review settlement and its task creation before the mid-loop commit-and-push
 - Repository formatting passed. Because the wrapper intentionally checks tracked files and the new prompt was not tracked yet, the same Prettier check was also run directly against `codeinfo_markdown/checkpoint_push.md` and passed.
 - Updated the story contract to make persistence-only mid-loop checkpoints and settlement-state completion blocking explicit, while keeping post-settlement task creation before the checkpoint.
 - A live invocation of `check_plan_scope_story_complete.py` now returns `no` for the current post-run-S state, so these newly implemented changes cannot be treated as already covered by the earlier completed review cycle.
+
+### Task 70. Make Persisted Child Lifecycle Authoritative
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Prerequisite: Tasks 1–69 remain complete. Repair the generic child-flow completion race exposed by the wave-3 OpenCode invocation without adding review-provider behavior or another state schema.
+
+#### Overview
+
+Use the existing persisted `runLifecycle.status` as the single authoritative child-progress observation. Keep in-memory run ownership for duplicate-run exclusion, run identity, and cancellation only. Remove the parent-wave logic that combined an earlier non-terminal result with a later ownership check and therefore falsely marked a successfully completed child as stale.
+
+#### Task Exit Criteria
+
+- Generic child polling directly distinguishes `running`, terminal, `orphaned`, and genuinely missing legacy lifecycle state.
+- Normal child completion does not depend on ownership disappearance and cannot be misclassified by finishing between two parent checks.
+- Terminal assistant turns remain a fallback only for legacy conversations without persisted lifecycle.
+- Existing restart, stopped-child resume, cancellation, stale legacy, and best-effort continuation behavior remains covered.
+- No timeout, provider-specific branch, artifact inspection, or new persisted schema is introduced.
+
+#### Subtasks
+
+1. [x] Refactor child lifecycle observation around persisted `runLifecycle.status`, with bounded legacy fallback.
+2. [x] Update generic child resume, cancellation, and wave polling to consume one lifecycle observation and remove the racy ownership recheck.
+3. [x] Add deterministic lifecycle-transition coverage and preserve existing restart and stale-legacy tests.
+
+#### Testing
+
+1. [x] Run the focused lifecycle-transition regression test through the server unit wrapper.
+2. [x] Run the complete `server/src/test/integration/flows.run.subflow.test.ts` file through the server unit wrapper.
+3. [x] Run the complete `server/src/test/unit/flows-startup-reconciliation.test.ts` file through the server unit wrapper.
+4. [x] Run `npm run lint`.
+5. [x] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Added after run S showed OpenCode persist an `ok` result and release ownership before the parent reused its earlier non-terminal observation, producing a false stale-child failure four milliseconds later.
+- The repair is generic to all child flows; OpenCode only exposed the timing window.
+- Replaced the overloaded terminal-status `null` with one lifecycle observation that returns persisted `running`, terminal, or `orphaned` states and uses active ownership or assistant turns only when legacy state has no lifecycle.
+- Updated pre-launch cancellation, resumed-child recovery, and wave polling to consume that observation; the stale-child path now handles only the explicit `missing` legacy result and no longer performs a second ownership read.
+- Added a deterministic regression that observes the child as `running`, persists its terminal lifecycle, releases ownership, and then proves the next observation is `ok`; the focused wrapper passed 1/1.
+- The complete generic subflow integration file passed 48/48, including cancellation, parallel waves, resume, restart reconciliation, malformed state, and stale legacy coverage.
+- Startup reconciliation passed 6/6, preserving interrupted-parent orphaning and restart recovery behavior.
+- Repository lint passed with zero warnings.
+- Repository formatting passed with all tracked files using the configured Prettier style.
+- Final diff review found the broad format wrapper had not reported one changed TypeScript formatting issue. Direct Prettier output was used to correct the changed blocks, then unrelated baseline reformatting was deliberately removed to keep the patch focused; the rebuilt complete subflow file again passed 48/48, lint passed, the required broad format wrapper passed, and `git diff --check` remained clean.

@@ -2675,15 +2675,20 @@ const createNoopChat = () =>
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const getFlowConversationTerminalStatus = async (params: {
+export type FlowChildLifecycleStatus =
+  | NonNullable<FlowResumeState['runLifecycle']>['status']
+  | 'missing';
+
+const isTerminalFlowChildLifecycleStatus = (
+  status: FlowChildLifecycleStatus,
+): status is TurnStatus =>
+  status === 'ok' || status === 'failed' || status === 'stopped';
+
+export const getFlowConversationLifecycleStatus = async (params: {
   conversationId: string;
   runToken: string;
-}): Promise<TurnStatus | null> => {
+}): Promise<FlowChildLifecycleStatus> => {
   const activeOwnership = getActiveRunOwnership(params.conversationId);
-  if (activeOwnership?.runToken === params.runToken) {
-    return null;
-  }
-
   if (activeOwnership && activeOwnership.runToken !== params.runToken) {
     throw toFlowRunError(
       'INVALID_REQUEST',
@@ -2697,12 +2702,18 @@ const getFlowConversationTerminalStatus = async (params: {
       ? (conversation.flags as Record<string, unknown>)
       : undefined,
   );
-  if (
-    resumeState?.restartReconciliation?.status === 'interrupted' ||
-    resumeState?.runLifecycle?.status === 'running' ||
-    resumeState?.runLifecycle?.status === 'orphaned'
-  ) {
-    return null;
+  if (resumeState?.restartReconciliation?.status === 'interrupted') {
+    return 'orphaned';
+  }
+  if (resumeState?.runLifecycle) {
+    if (resumeState.runLifecycle.status === 'running' && !activeOwnership) {
+      return 'orphaned';
+    }
+    return resumeState.runLifecycle.status;
+  }
+
+  if (activeOwnership?.runToken === params.runToken) {
+    return 'running';
   }
 
   if (shouldUseMemoryPersistence()) {
@@ -2713,7 +2724,7 @@ const getFlowConversationTerminalStatus = async (params: {
         return turn.status;
       }
     }
-    return null;
+    return 'missing';
   }
 
   const persistedTurns = await listTurns({
@@ -2723,7 +2734,7 @@ const getFlowConversationTerminalStatus = async (params: {
   const assistantTurn = persistedTurns.items.find(
     (turn) => turn.role === 'assistant',
   );
-  return assistantTurn?.status ?? null;
+  return assistantTurn?.status ?? 'missing';
 };
 
 const getFlowConversationTerminalOutcome = async (
@@ -5549,11 +5560,11 @@ async function runFlowUnlocked(params: {
       }
 
       for (const childRun of childRuns) {
-        const childStatus = await getFlowConversationTerminalStatus({
+        const childStatus = await getFlowConversationLifecycleStatus({
           conversationId: childRun.conversationId,
           runToken: childRun.runToken,
         });
-        if (!childStatus) return false;
+        if (!isTerminalFlowChildLifecycleStatus(childStatus)) return false;
       }
 
       const consumedPendingCancel = consumePendingConversationCancel({
@@ -5632,7 +5643,7 @@ async function runFlowUnlocked(params: {
       await persistRuntimeResumeState(lastCompletedStepPath);
       const resumableChildRuns: FlowActiveSubflow[] = [];
       for (const childRun of childRuns) {
-        const status = await getFlowConversationTerminalStatus({
+        const status = await getFlowConversationLifecycleStatus({
           conversationId: childRun.conversationId,
           runToken: childRun.runToken,
         });
@@ -5643,7 +5654,10 @@ async function runFlowUnlocked(params: {
             continue;
           }
         }
-        if (status || getActiveRunOwnership(childRun.conversationId)) {
+        if (
+          status === 'running' ||
+          isTerminalFlowChildLifecycleStatus(status)
+        ) {
           resumableChildRuns.push(childRun);
           continue;
         }
@@ -5812,12 +5826,16 @@ async function runFlowUnlocked(params: {
 
         const childStatuses = await Promise.all(
           childRuns.map(async (childRun) => {
-            const status = await getFlowConversationTerminalStatus({
+            const lifecycleStatus = await getFlowConversationLifecycleStatus({
               conversationId: childRun.conversationId,
               runToken: childRun.runToken,
             });
+            const status = isTerminalFlowChildLifecycleStatus(lifecycleStatus)
+              ? lifecycleStatus
+              : null;
             return {
               childRun,
+              lifecycleStatus,
               status,
               terminalOutcome: status
                 ? await getFlowConversationTerminalOutcome(
@@ -5867,8 +5885,7 @@ async function runFlowUnlocked(params: {
           await persistRuntimeResumeState(lastCompletedStepPath);
         }
         const staleChildren = childStatuses.filter(
-          ({ childRun, status }) =>
-            !status && !getActiveRunOwnership(childRun.conversationId),
+          ({ lifecycleStatus }) => lifecycleStatus === 'missing',
         );
         if (staleChildren.length > 0) {
           const staleConversationIds = new Set<string>();

@@ -6,6 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
+import { memoryConversations, memoryTurns } from '../../chat/memoryPersistence.js';
 import {
   finalizeActiveReviewCycle,
   finalizeActiveReviewCycleIfPending,
@@ -14,7 +15,6 @@ import {
   readActiveFinalReviewCycleStatus,
   recordReviewInvocationAttempt,
 } from '../../flows/reviewCycleLifecycle.js';
-import { memoryConversations, memoryTurns } from '../../chat/memoryPersistence.js';
 import { getFlowRunStatus } from '../../flows/service.js';
 
 const exec = promisify(execFile);

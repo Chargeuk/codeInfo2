@@ -11,4 +11,5 @@
 - https://bitbucket.org/marex-prod/io-api/pull-requests/522
 - https://bitbucket.org/marex-prod/io-api/pull-requests/525
 - https://bitbucket.org/marex-prod/io-api/pull-requests/527
+- https://bitbucket.org/marex-prod/io-api/pull-requests/529
 - https://bitbucket.org/marex-prod/io-api/pull-requests/528 **IN_SCOPE**

@@ -15,10 +15,6 @@ args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_K
 command = 'npx'
 startup_timeout_sec = 20.0
 
-[mcp_servers.mui]
-args = ['-y', '@mui/mcp@latest']
-command = 'npx'
-
 [mcp_servers.deepwiki]
 url = "https://mcp.deepwiki.com/mcp"
 startup_timeout_sec = 20.0
@@ -44,32 +40,6 @@ args = [
 ]
 startup_timeout_sec = 20
 
-# Bearer tokens are supplied from server/.env.local at runtime.
-[mcp_servers.gravitee_local]
-command = "node"
-args = [
-  "/home/dastapleton/code/gravitee-apim-mcp-server/bin/mcp-server.js",
-  "start",
-  "--bearer-auth",
-  "${CODEINFO_GRAVITEE_LOCAL_BEARER_TOKEN}",
-  "--server-url",
-  "http://localhost:8083/management/v2"
-]
-startup_timeout_sec = 60
-tool_timeout_sec = 300
-
-[mcp_servers.gravitee_dev]
-command = "node"
-args = [
-  "/home/dastapleton/code/gravitee-apim-mcp-server/bin/mcp-server.js",
-  "start",
-  "--bearer-auth",
-  "${CODEINFO_GRAVITEE_DEV_BEARER_TOKEN}",
-  "--server-url",
-  "https://org-marex.eu.ba813.api.gravitee.io/management/v2"
-]
-startup_timeout_sec = 60
-tool_timeout_sec = 300
 
 [projects]
 [projects."/data"]

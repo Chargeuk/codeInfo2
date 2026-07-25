@@ -1,5 +1,5 @@
 {
-  "description": "Run any configured set of ordinary reviews in parallel, then verify, reconcile, negatively scope-filter, positively authorize, disposition, and apply escalating multi-repository repairs to their self-describing workspace output.",
+  "description": "Run any configured set of ordinary reviews in parallel, then verify, reconcile, negatively scope-filter, positively authorize, materially filter, audit, disposition, and apply escalating multi-repository repairs to their self-describing workspace output.",
   "steps": [
     {
       "type": "prepareReviewTargets",
@@ -81,13 +81,27 @@
     },
     {
       "type": "reset",
-      "label": "Reset Review Batch Scope Auditor",
+      "label": "Reset Review Batch Materiality Filter",
+      "agentType": "planning_agent",
+      "identifier": "batch_materiality_filter"
+    },
+    {
+      "type": "llm",
+      "label": "Filter Review Findings By Materiality And Realistic Impact",
+      "agentType": "planning_agent",
+      "identifier": "batch_materiality_filter",
+      "continueOnFailure": true,
+      "markdownFile": "filter_review_batch_findings_by_materiality.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Filtering Auditor",
       "agentType": "review_agent_heavy",
       "identifier": "batch_scope_auditor"
     },
     {
       "type": "llm",
-      "label": "Audit Review Batch Scope Gates",
+      "label": "Audit Review Batch Filtering Gates",
       "agentType": "review_agent_heavy",
       "identifier": "batch_scope_auditor",
       "continueOnFailure": true,
@@ -136,7 +150,7 @@
           "label": "Skip Stronger Repair When Normal Fixer Completed All Findings",
           "agentType": "coding_agent",
           "identifier": "batch_fixer",
-          "question": "Read the current immutable batch, filtered reconciliation, disposition, your normal-repair audit, and current Git state for every target repository from disk. Have all supported in-scope actionable findings been resolved? Answer yes only when completion is positively confirmed. Answer no when any finding remains or the evidence is uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+          "question": "Read the current immutable batch, filtered reconciliation, materiality record, combined filtering audit, disposition, your normal-repair audit, and current Git state for every target repository from disk. Have all supported, positively authorized materiality survivors been resolved? Answer yes only when completion is positively confirmed. Do not restore any finding removed by an earlier gate. Answer no when any material survivor remains or the evidence is uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
           "breakOn": "yes",
           "continueOnFailure": true,
           "continueOnInvalidResponse": true

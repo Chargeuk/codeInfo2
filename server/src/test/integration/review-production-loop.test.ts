@@ -216,6 +216,7 @@ type ProductionReviewProbe = {
   reconciliationAuditCalls: number;
   scopeFilterCalls: number;
   scopeAuthorizationCalls: number;
+  materialityFilterCalls: number;
   scopeAuditCalls: number;
   dispositionCalls: number;
   scopeIdentityVerifiedAtDisposition: boolean;
@@ -370,7 +371,32 @@ class ProductionReviewChat extends ChatInterface {
 
     if (
       message.includes(
-        '# Audit the current batch negative and positive scope gates',
+        '# Filter the current review batch by materiality and realistic impact',
+      )
+    ) {
+      this.probe.materialityFilterCalls += 1;
+      const { batchId, batchRoot } = await readCurrentBatch(this.probe.repo);
+      await fs.writeFile(
+        path.join(
+          batchRoot,
+          'reconciliation',
+          'materiality-filtered-findings.md',
+        ),
+        [
+          '# Materiality-filtered findings',
+          '',
+          'Status: completed.',
+          `Batch: ${batchId}`,
+          `Batch directory: ${batchRoot}`,
+          'Every positive-authorization survivor was checked; no actionable findings remain.',
+          '',
+        ].join('\n'),
+      );
+    }
+
+    if (
+      message.includes(
+        '# Audit the current batch negative, positive, and materiality gates',
       )
     ) {
       this.probe.scopeAuditCalls += 1;
@@ -417,11 +443,21 @@ class ProductionReviewChat extends ChatInterface {
         path.join(batchRoot, 'reconciliation', 'scope-authorized-findings.md'),
         'utf8',
       );
+      const materialityFilter = await fs.readFile(
+        path.join(
+          batchRoot,
+          'reconciliation',
+          'materiality-filtered-findings.md',
+        ),
+        'utf8',
+      );
       this.probe.scopeIdentityVerifiedAtDisposition &&=
         scopeFilter.includes(`Batch: ${batchId}`) &&
         scopeFilter.includes(`Batch directory: ${batchRoot}`) &&
         scopeAuthorization.includes(`Batch: ${batchId}`) &&
-        scopeAuthorization.includes(`Batch directory: ${batchRoot}`);
+        scopeAuthorization.includes(`Batch directory: ${batchRoot}`) &&
+        materialityFilter.includes(`Batch: ${batchId}`) &&
+        materialityFilter.includes(`Batch directory: ${batchRoot}`);
       await fs.writeFile(
         path.join(batchRoot, 'reconciliation', 'disposition.md'),
         [
@@ -465,7 +501,7 @@ class ProductionReviewChat extends ChatInterface {
 
     if (
       message.includes(
-        'Have all supported in-scope actionable findings been resolved?',
+        'Have all supported, positively authorized materiality survivors been resolved?',
       )
     ) {
       this.probe.normalCompletionGateCalls += 1;
@@ -855,6 +891,7 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       reconciliationAuditCalls: 0,
       scopeFilterCalls: 0,
       scopeAuthorizationCalls: 0,
+      materialityFilterCalls: 0,
       scopeAuditCalls: 0,
       dispositionCalls: 0,
       scopeIdentityVerifiedAtDisposition: true,
@@ -894,6 +931,7 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     assert.equal(probe.reconciliationAuditCalls, 3, JSON.stringify(probe));
     assert.equal(probe.scopeFilterCalls, 3, JSON.stringify(probe));
     assert.equal(probe.scopeAuthorizationCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.materialityFilterCalls, 3, JSON.stringify(probe));
     assert.equal(probe.scopeAuditCalls, 3, JSON.stringify(probe));
     assert.equal(probe.dispositionCalls, 3, JSON.stringify(probe));
     assert.equal(probe.scopeIdentityVerifiedAtDisposition, true);
@@ -921,6 +959,14 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       path.join(batchRoot, 'reconciliation', 'scope-authorized-findings.md'),
       'utf8',
     );
+    const finalMaterialityFilter = await fs.readFile(
+      path.join(
+        batchRoot,
+        'reconciliation',
+        'materiality-filtered-findings.md',
+      ),
+      'utf8',
+    );
     assert.match(finalScopeFilter, new RegExp(`Batch: ${batchId}`, 'u'));
     assert.match(
       finalScopeFilter,
@@ -930,6 +976,14 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     assert.match(finalScopeAuthorization, new RegExp(`Batch: ${batchId}`, 'u'));
     assert.match(
       finalScopeAuthorization,
+      new RegExp(`Batch directory: ${batchRoot}`, 'u'),
+    );
+    assert.match(
+      finalMaterialityFilter,
+      new RegExp(`Batch: ${batchId}`, 'u'),
+    );
+    assert.match(
+      finalMaterialityFilter,
       new RegExp(`Batch directory: ${batchRoot}`, 'u'),
     );
     await fs.access(path.join(batchRoot, 'reconciliation', 'disposition.md'));

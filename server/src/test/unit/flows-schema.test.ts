@@ -566,7 +566,7 @@ describe('flow schema (v1)', () => {
     assert.match(serialized, /review_batch/u);
   });
 
-  test('generic review batch verifies, reconciles, scope filters, dispositions, applies optional stronger repair, and records in order', async () => {
+  test('generic review batch verifies, reconciles, applies survivor-only filtering gates, dispositions, applies optional stronger repair, and records in order', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/review_batch.json'),
       'utf8',
@@ -611,16 +611,26 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Positively Authorize Review Findings For Story',
-      'Reset Review Batch Scope Auditor',
+      'Reset Review Batch Materiality Filter',
     );
     assertOrdered(
       labels,
-      'Reset Review Batch Scope Auditor',
-      'Audit Review Batch Scope Gates',
+      'Reset Review Batch Materiality Filter',
+      'Filter Review Findings By Materiality And Realistic Impact',
     );
     assertOrdered(
       labels,
-      'Audit Review Batch Scope Gates',
+      'Filter Review Findings By Materiality And Realistic Impact',
+      'Reset Review Batch Filtering Auditor',
+    );
+    assertOrdered(
+      labels,
+      'Reset Review Batch Filtering Auditor',
+      'Audit Review Batch Filtering Gates',
+    );
+    assertOrdered(
+      labels,
+      'Audit Review Batch Filtering Gates',
       'Reset Review Batch Dispositioner',
     );
     assertOrdered(
@@ -692,11 +702,32 @@ describe('flow schema (v1)', () => {
     );
     assert.notEqual(scopeAuthorizer?.identifier, scopeFilter?.identifier);
 
+    const materialityReset = (parsed.steps ?? []).find(
+      (step) => step.label === 'Reset Review Batch Materiality Filter',
+    );
+    const materialityFilter = (parsed.steps ?? []).find(
+      (step) =>
+        step.label ===
+        'Filter Review Findings By Materiality And Realistic Impact',
+    );
+    assert.equal(materialityReset?.type, 'reset');
+    assert.equal(materialityReset?.agentType, 'planning_agent');
+    assert.equal(materialityReset?.identifier, 'batch_materiality_filter');
+    assert.equal(materialityFilter?.type, 'llm');
+    assert.equal(materialityFilter?.agentType, materialityReset?.agentType);
+    assert.equal(materialityFilter?.identifier, materialityReset?.identifier);
+    assert.equal(materialityFilter?.continueOnFailure, true);
+    assert.equal(
+      materialityFilter?.markdownFile,
+      'filter_review_batch_findings_by_materiality.md',
+    );
+    assert.notEqual(materialityFilter?.identifier, scopeAuthorizer?.identifier);
+
     const scopeAuditReset = (parsed.steps ?? []).find(
-      (step) => step.label === 'Reset Review Batch Scope Auditor',
+      (step) => step.label === 'Reset Review Batch Filtering Auditor',
     );
     const scopeAudit = (parsed.steps ?? []).find(
-      (step) => step.label === 'Audit Review Batch Scope Gates',
+      (step) => step.label === 'Audit Review Batch Filtering Gates',
     );
     assert.equal(scopeAuditReset?.type, 'reset');
     assert.equal(scopeAuditReset?.agentType, 'review_agent_heavy');
@@ -755,6 +786,7 @@ describe('flow schema (v1)', () => {
     assert.equal(completionGate?.continueOnInvalidResponse, true);
     assert.equal(completionGate?.breakOnFailure, undefined);
     assert.match(completionGate?.question ?? '', /positively confirmed/u);
+    assert.match(completionGate?.question ?? '', /materiality survivor/u);
     assert.match(completionGate?.question ?? '', /evidence is uncertain/u);
     const strongerReset = optionalSteps[1];
     const strongerFix = optionalSteps[2];

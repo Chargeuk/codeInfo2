@@ -4,9 +4,15 @@ This is an autonomous flow execution step, not a planning interview. Do not ask 
 
 Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving its padded story identifier. Resolve the current immutable batch through `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`. Copy batch identity, repository identity, and reviewed commits directly from the authoritative handoff, `batch-launch.md`, and assigned inputs.
 
-Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` for the exact selected plan. Read `$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md`. Read the audited reconciliation, the current actionable reconciliation, and `reconciliation/scope-filtered-findings.md`; reopen immutable job evidence only when needed.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` for the exact selected plan. Read `$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md`. Read the audited reconciliation, the current actionable reconciliation, and `reconciliation/scope-filtered-findings.md`; reopen immutable job evidence only when needed for a current negative-gate survivor.
 
 This is a separate positive authorization gate after negative filtering. Technical validity and positive story authorization are different decisions. A finding may be factually correct, caused by story-added code, and worth separate follow-up while still being unauthorized for implementation in this story.
+
+## Survivor-only boundary
+
+Evaluate only findings that remain actionable after the completed negative scope gate. Findings and remedies already removed, narrowed away, rejected, unsupported, duplicated, or resolved are an append-only audit and reporting trail, not authorization candidates.
+
+Read earlier removal records only far enough to identify the exact survivor set, conserve identities and provenance, prevent duplicate wording or accidental resurrection, and resolve a factual contradiction. Do not substantially reconsider an earlier removal, repeat its negative-scope reasoning, or reopen immutable evidence for it unless conflicting identities make the survivor set impossible to establish. Never restore an earlier removal.
 
 For every finding that remains actionable after negative filtering, independently establish all of the following in ordinary evidence-based prose:
 
@@ -15,7 +21,7 @@ For every finding that remains actionable after negative filtering, independentl
 3. Apply the counterfactual test: explain why leaving the finding unresolved would keep the story incomplete or leave a story-caused regression in place.
 4. Explain why the smallest authorized repair restores the cited behavior without inventing a new product or runtime policy.
 
-Historical `Code Review Findings`, `Accepted`, `Ignored for This Story`, tasks, subtasks, implementation notes, testing instructions, reconciliation, disposition, scope, repair, outcome, commit, test, and agent-authored records are evidence and decision history only. They are never authorization sources, even when an older record accepted, implemented, or proved the identical finding. Never interpret a historical `Accepted` section as an explicit story decision, a user-approved expansion, or proof of preserved behavior. Historical records may help locate evidence or prevent duplication, but each current authorization decision must stand without them.
+Historical `Code Review Findings`, `Accepted`, `Ignored for This Story`, tasks, subtasks, implementation notes, testing instructions, reconciliation, disposition, scope, repair, outcome, commit, test, and agent-authored records are evidence and decision history only. They are never authorization sources, even when an older record accepted, implemented, or proved the identical finding. Never interpret a historical `Accepted` section as an explicit story decision, a user-approved expansion, or proof of preserved behavior. Historical records may help locate evidence or prevent duplication, but do not read or reason through them beyond that bounded need; each current authorization decision must stand without them.
 
 The following are never sufficient positive authorization by themselves:
 
@@ -36,4 +42,4 @@ Always write `reconciliation/scope-authorized-findings.md`, even when every surv
 
 If the exact batch or bounded story scope cannot be established safely, leave the actionable reconciliation unchanged and write an honest partial or unavailable authorization artifact. Missing authorization must never be described as approval; the later independent audit and disposition will recover the decision and keep unproven work non-actionable while the flow continues.
 
-Before returning, reopen the reconciliation, `scope-filtered-findings.md`, and `scope-authorized-findings.md`; confirm every negative-gate survivor is accounted for and no unauthorized item remains actionable under another heading or duplicate description. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" --batch-root <batch-directory>` and repair only factual derived-workspace issues this step owns. Return a concise execution summary and artifact paths, not questions.
+Before returning, reopen the reconciliation, `scope-filtered-findings.md`, and `scope-authorized-findings.md`; confirm every negative-gate survivor is accounted for, no earlier removal was restored, and no unauthorized item remains actionable under another heading or duplicate description. Perform only identity-conservation checks on coherent earlier removals rather than repeating substantial semantic analysis. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" --batch-root <batch-directory>` and repair only factual derived-workspace issues this step owns. Return a concise execution summary and artifact paths, not questions.

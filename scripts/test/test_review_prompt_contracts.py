@@ -444,6 +444,9 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md"
         )
         disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        materiality = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md"
+        )
         authorization = read_text(
             "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
         )
@@ -487,10 +490,21 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("scope-filtered-findings.md", disposition)
         self.assertIn("scope-authorized-findings.md", disposition)
-        self.assertIn("Never restore, direct-fix, or task up", disposition)
+        self.assertIn("materiality-filtered-findings.md", disposition)
+        self.assertIn("Never restore, direct-fix, or task it", disposition)
         self.assertIn("Ignored for This Story", disposition)
-        self.assertIn("only surviving positively authorized findings", disposition)
-        self.assertIn("Deduplicate by the finding's stable identity", disposition)
+        self.assertIn("materiality survivors", disposition)
+        self.assertIn("Deduplicate by stable identity and meaning", disposition)
+
+        self.assertIn("surviving positively authorized finding", materiality)
+        self.assertIn("concrete supported scenario", materiality)
+        self.assertIn("Meaningful impact", materiality)
+        self.assertIn("Value proportionate to change risk", materiality)
+        self.assertIn("Borderline", materiality)
+        self.assertIn("Do not invent numeric", materiality)
+        self.assertIn("materiality-filtered-findings.md", materiality)
+        self.assertIn("Do not modify implementation code", materiality)
+        self.assertIn("completed, partial, or unavailable", materiality)
 
     def test_historical_review_decisions_never_authorize_current_work(self) -> None:
         behavior_lock = read_text(
@@ -559,6 +573,9 @@ class ReviewPromptContractTests(unittest.TestCase):
         authorization = read_text(
             "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
         )
+        materiality = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md"
+        )
         disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
 
         for prompt in (
@@ -566,6 +583,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             reconciliation_audit,
             scope_filter,
             authorization,
+            materiality,
             scope_audit,
             disposition,
         ):
@@ -584,15 +602,18 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("scope-authorized-findings.md", authorization)
         self.assertIn("partial or unavailable authorization artifact", authorization)
         self.assertIn("Do not select arbitrary values", authorization)
+        self.assertIn("materiality-filtered-findings.md", materiality)
+        self.assertIn("Do not reconsider", materiality)
         self.assertIn("independent audit and recovery", scope_audit)
         self.assertIn("question-only", scope_audit)
         self.assertIn("scope-filter-audit.md", scope_audit)
         self.assertIn("scope-authorized-findings.md", scope_audit)
+        self.assertIn("materiality-filtered-findings.md", scope_audit)
         self.assertIn(
             "positive authorization tied to an exact statement in the current top-level",
             scope_audit,
         )
-        self.assertIn("never treat an absent or unusable authorization record as approval", disposition)
+        self.assertIn("Never treat an absent or unusable authorization record as approval", disposition)
         self.assertIn('plan_sections.py" --profile review-scope', scope_audit)
         self.assertIn("filter_review_findings_to_story_scope.md", scope_audit)
         self.assertIn("every job's immutable evidence remains unchanged", scope_audit)
@@ -601,7 +622,7 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("completed, partial, or unavailable", disposition)
         self.assertIn("scope-filter-audit.md", disposition)
-        self.assertIn("repairs recorded by the independent combined scope audit", disposition)
+        self.assertIn("repairs recorded by the independent combined filtering audit", disposition)
         self.assertIn("reopen the disposition", disposition)
         self.assertIn("without asking follow-up questions", disposition)
 
@@ -633,7 +654,10 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         self.assertIn("Repair difficulty is advisory", disposition)
         self.assertIn("do not make a final implementation-task decision here", disposition)
-        self.assertIn("Consider every supported positively authorized actionable finding", normal_fix)
+        self.assertIn(
+            "Consider only supported, positively authorized findings that survived materiality",
+            normal_fix,
+        )
         self.assertIn("Group findings by owning target repository", normal_fix)
         self.assertIn("process repositories sequentially", normal_fix)
         self.assertIn("Create separate commits in every changed repository", normal_fix)
@@ -653,12 +677,18 @@ class ReviewPromptContractTests(unittest.TestCase):
             )
             self.assertIn("why every changed file was necessary", repair_prompt)
             self.assertIn("scope", repair_prompt.lower())
-        self.assertIn("Do not introduce an unapproved cap, quota, threshold", normal_fix)
+        self.assertIn("Do not introduce an unapproved policy", normal_fix)
         self.assertIn("Research authority does not authorize new story scope", stronger_fix)
         self.assertIn("genuinely unapproved product or runtime policy", stronger_fix)
-        self.assertIn("Reconstruct every supported positively authorized actionable finding", stronger_fix)
+        self.assertIn(
+            "Reconstruct only supported, positively authorized materiality survivors",
+            stronger_fix,
+        )
         self.assertIn("If the normal audit is missing or incomplete", stronger_fix)
-        self.assertIn("Your objective is to fix every remaining positively authorized finding", stronger_fix)
+        self.assertIn(
+            "Your objective is to fix every remaining positively authorized materiality survivor",
+            stronger_fix,
+        )
         self.assertIn("Create and execute an internal dependency-aware plan", stronger_fix)
         self.assertIn("related past stories and implementation notes", stronger_fix)
         self.assertIn("other ingested repositories", stronger_fix)

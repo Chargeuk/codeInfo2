@@ -44,7 +44,7 @@ Record accepted and ignored findings with the same understandable core:
   - <human-readable review flow name> (`<flow name>`, job `<job instance id>`)
 - Simple description: <one to three short sentences explaining what happens and why it matters>
 - Example: <a small concrete scenario showing the trigger, behavior, and problem>
-- Why accepted: <why the issue is valid and authorized for this story>
+- Why accepted: <why the issue is valid, authorized, realistically reachable, and materially worth repair for this story>
 
 ### Ignored for This Story
 
@@ -55,7 +55,7 @@ Record accepted and ignored findings with the same understandable core:
   - <human-readable review flow name> (`<flow name>`, job `<job instance id>`)
 - Simple description: <one to three short sentences explaining the claimed issue>
 - Example: <a small concrete scenario showing what the claim would mean>
-- Why ignored: <why it is invalid, unproven, already resolved, duplicate, or outside scope>
+- Why ignored: <why it is invalid, unproven, already resolved, duplicate, outside scope, unauthorized, or below the materiality threshold>
 ```
 
 Number findings continuously across both categories. If a category is empty, write `- None.`.
@@ -90,6 +90,8 @@ Every finding must have a concrete example. Derive one from validated repository
 Do not invent facts. If no honest concrete scenario can be inferred after reopening the available evidence, explain the exact missing evidence in the `Example` bullet instead of using a generic `No concrete example was recorded` placeholder.
 
 Keep implementation advice, scope authorization, and final routing out of the simple description and example. Put those decisions only in `Why accepted` or `Why ignored`.
+
+Only findings that survive negative scope, positive authorization, and materiality belong under `Accepted`. Preserve every removal and narrowed-away meaning from all three gates under `Ignored for This Story`. A materiality removal must say that the finding may be technically supported and positively authorized while its realistic reachability, meaningful impact, or value for changing completed code was not sufficiently demonstrated.
 
 ## Idempotency And Audit
 

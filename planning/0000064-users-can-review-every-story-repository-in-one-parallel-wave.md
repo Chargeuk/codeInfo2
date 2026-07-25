@@ -62,6 +62,8 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - Settlement-created and repaired tasks keep runnable automated proof only in `Testing`; optional browser, screenshot, agent-driven, or other manual scenarios remain checkbox-free and non-blocking in `Manual Testing Guidance`.
 - Normalization, automated proof, proof audit, and blocker research semantically repair a misplaced manual checklist item by preserving its meaning in manual guidance, removing only the misplaced checkbox, and retiring a blocker whose sole cause was waiting for the later manual-testing agent.
 - The outer story loop implements newly settled work and starts a fresh complete review pass until a pass is genuinely clean.
+- Every mid-loop push checkpoint is persistence-only: it may commit and push changes that existed when the step began, but it never implements tasks or findings, changes plan completion, runs validation or auto-fixes, or performs story closeout.
+- The outer completion decision refuses to close when the current review settlement created or updated work, requests another review, is unsafe to exit cleanly, is invalid, or belongs to a different review cycle, even if every plan checkbox currently appears complete.
 - Every main implementation flow gives the normal coding agent the first deep implementation-blocker repair attempt, then uses a one-iteration optional-research loop that skips only when the coding agent positively confirms no live blocker remains.
 - Every main implementation flow resets the normal `coding_agent` immediately before loading current-task repair context and resets the stronger `research_agent` immediately before its repair invocation, while the persistent loop-control agent is not reset inside the optional repair loop.
 - The implementation-blocker research agent is reset immediately before invocation, may repair directly causal code, configuration, tests, documentation, workflow support, prerequisites, or cross-repository contracts outside the bound task but within persisted plan scope, and must use the smallest focused evidence-backed change that completely removes the blocker.
@@ -100,6 +102,7 @@ The parent flow only owns scheduling policy. It currently runs one configurable 
 - Requiring immutable reviewer output, reconciliation, repair audits, or completed-review-fix records to match one rigid schema; agents discover and preserve their meaning with best effort.
 - Treating any historical review decision, `Accepted` section, task, implementation note, review artifact, commit, test, or agent statement as a user-approved story expansion or as proof of preserved behavior.
 - Automatically implementing technically plausible hardening or introducing a new limit, threshold, timeout, retry, default, validation failure, concurrency rule, or other policy that the story did not explicitly request or approve.
+- Moving settlement-created tasking after checkpoint persistence, or allowing a checkpoint agent to complete that work, instead of returning it to the normal implementation and review loop.
 - Guaranteeing meaningful review or settlement content when every relevant AI/provider is unavailable; the workflow preserves honest incomplete state instead of inventing findings or a clean result.
 - Opening a pull request as part of this story unless separately requested.
 
@@ -5366,9 +5369,54 @@ Manual proof is optional and non-blocking. If a later manual-testing agent exerc
 - Created from the active-cycle settlement recommendation after six fix-bearing batches. This task is the sole new open settlement owner; no unresolved implementation task was created.
 - The failed OpenCode child event in the third batch remains unavailable provider coverage with recovered matching batch evidence; it is not converted into a clean-coverage claim or an implementation task.
 
+### Task 69. Preserve Review-Created Work Across Mid-Loop Checkpoints
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Prerequisite: Tasks 1–68 remain complete. Repair the outer implementation/review loop exposed by run S without changing review-settlement ordering or weakening best-effort continuation.
+
+#### Overview
+
+Keep review settlement and its task creation before the mid-loop commit-and-push checkpoint, but make that checkpoint persistence-only. A checkpoint must never implement newly created work, alter plan completion, or perform final validation. The outer completion decision must also treat the existing review-settlement signal that work was created or another review is required as authoritative reason to continue, even if plan checkboxes were changed incorrectly elsewhere.
+
+#### Task Exit Criteria
+
+- Every main implementation flow uses a dedicated persistence-only prompt for the checkpoint between review settlement and the outer completion decision.
+- The genuine story-closeout steps retain `final_push.md`; no mid-loop checkpoint uses that broad closeout prompt.
+- Review settlement still creates or updates tasks before the checkpoint persists them.
+- The outer completion decision returns `no` when the active settlement says work was created, another review is required, or the review loop is not safe to exit cleanly.
+- Checkpoint and completion failures remain best-effort loop outcomes rather than fatal flow failures.
+
+#### Subtasks
+
+1. [x] Add the dedicated persistence-only checkpoint prompt and wire every main implementation flow to it without changing settlement ordering.
+2. [x] Strengthen the plan-scope completion decision using the existing agent-produced review settlement state.
+3. [x] Add regression coverage for prompt isolation, ordering, and forced continuation after review-created work.
+
+#### Testing
+
+1. [x] Run the focused Python flow-control tests for plan-scope completion.
+2. [x] Run the focused server flow-schema tests covering the four main implementation flows.
+3. [x] Run `npm run lint`.
+4. [x] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Added after run S showed that the broad mid-loop `final_push.md` prompt completed the settlement-created final revalidation task before the outer completion gate, allowing the story loop to exit without a post-change review.
+- The repair deliberately preserves task creation before checkpoint persistence; moving task creation after the checkpoint would leave settlement state uncommitted and would not fix the checkpoint's excessive authority.
+- Added `checkpoint_push.md` with an explicit persistence-only boundary and wired both mid-loop checkpoint locations in all four main implementation flows to it; the final story-closeout steps still use `final_push.md`.
+- Strengthened the final plan-scope decision to require valid, current-cycle settlement state that created no work, requests no rerun, and explicitly says the review loop is safe to finish; this reuses existing agent-produced state rather than adding another rigid handoff format.
+- Added Python decision tests for review-created work, rerun requests, and stale-cycle state, plus flow-schema coverage proving settlement → checkpoint → completion ordering and that only true closeout uses `final_push.md`.
+- Focused plan-scope flow-control validation passed all 5 tests.
+- The focused server flow-schema contract passed 1/1. The first wrapper invocation used a basename instead of the required repository-relative test path and found no file; rerunning through the same wrapper with `server/src/test/unit/flows-schema.test.ts` passed.
+- Repository lint passed with zero warnings.
+- Repository formatting passed. Because the wrapper intentionally checks tracked files and the new prompt was not tracked yet, the same Prettier check was also run directly against `codeinfo_markdown/checkpoint_push.md` and passed.
+- Updated the story contract to make persistence-only mid-loop checkpoints and settlement-state completion blocking explicit, while keeping post-settlement task creation before the checkpoint.
+- A live invocation of `check_plan_scope_story_complete.py` now returns `no` for the current post-run-S state, so these newly implemented changes cannot be treated as already covered by the earlier completed review cycle.
+
 ## Final Summary
 
-1. The story now has the final validation state recorded on disk, including the completed proof task, the successful server/client/compose build wrappers, the supported main stack up/down sequence, and the passing full `test:summary:all:parallel` rerun after the cucumber fixture fix. The plan also now reflects the final review/revalidation state and the existing curated manual-proof bundle under `codeInfoStatus/manual-proof/0000064/`.
-2. This changed because the story needed a closeout summary that matched the latest validated plan state rather than earlier review-cycle snapshots, so the summary was aligned to the final proof results and the current implementation notes.
-3. The only nontrivial logic added during closeout was the cucumber test fixture adjustment: the temp repository now initializes as a real Git repo with a branch and commit so the workspace code can verify branch and `HEAD` metadata exactly as intended.
-4. Reviewers should focus on `server/src/flows/reviewBatchWorkspace.ts` and `server/src/test/steps/review-wave.steps.ts`, because those are the hotspots that tied the final proof together, and the curated proof bundle in `codeInfoStatus/manual-proof/0000064/` provides the on-disk manual evidence referenced by closeout.
+1. Story 64 now includes persistence-only mid-loop checkpoints, settlement-aware outer completion, completed automated proof, and the existing curated manual-proof bundle under `codeInfoStatus/manual-proof/0000064/`.
+2. Run S exposed that reusing the broad final-closeout prompt inside the outer loop allowed its checkpoint agent to complete newly settled work before the completion decision, so all four main implementation flows now use the dedicated `checkpoint_push.md` prompt at both mid-loop persistence points.
+3. The plan-scope completion gate now requires valid settlement state from the active review cycle and refuses completion when that pass created work, requests another review, or is not explicitly safe to finish; this preserves best-effort continuation without introducing another rigid review-output schema.
+4. Reviewers should focus on `codeinfo_markdown/checkpoint_push.md`, the four main implementation flow files, and `scripts/flow_control/plan_scope.py`; focused Python and server flow-schema tests, repository lint, and formatting all passed.

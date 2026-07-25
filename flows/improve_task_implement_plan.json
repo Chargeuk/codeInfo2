@@ -655,7 +655,7 @@
           "label": "Checkpoint Push Before Review Loop",
           "agentType": "planning_agent_lite",
           "identifier": "planner_lite",
-          "markdownFile": "final_push.md"
+          "markdownFile": "checkpoint_push.md"
         },
         {
           "type": "subflow",
@@ -681,7 +681,7 @@
           "label": "Checkpoint Push Before Story Completion Check",
           "agentType": "planning_agent_lite",
           "identifier": "planner_lite",
-          "markdownFile": "final_push.md"
+          "markdownFile": "checkpoint_push.md"
         },
         {
           "type": "break",

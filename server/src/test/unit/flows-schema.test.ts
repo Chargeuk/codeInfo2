@@ -1597,6 +1597,87 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('main implementation flows keep mid-loop pushes persistence-only and force settlement before completion', async () => {
+    const flowFiles = [
+      'flows/implement_current_plan.json',
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ] as const;
+    const checkpointPrompt = await fs.readFile(
+      path.join(repoRoot, 'codeinfo_markdown/checkpoint_push.md'),
+      'utf8',
+    );
+
+    assert.match(
+      checkpointPrompt,
+      /This is a checkpoint only\./u,
+    );
+    assert.match(
+      checkpointPrompt,
+      /Do not implement any task or review finding\./u,
+    );
+    assert.match(
+      checkpointPrompt,
+      /Do not change any task status, checkbox/u,
+    );
+    assert.match(
+      checkpointPrompt,
+      /If commit or push fails, report the failure and continue/u,
+    );
+
+    for (const flowFile of flowFiles) {
+      const raw = await fs.readFile(path.join(repoRoot, flowFile), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const rawSteps = flattenSteps(parsed.steps ?? []);
+      const checkpoints = rawSteps.filter(
+        (step) =>
+          step.label === 'Checkpoint Push Before Review Loop' ||
+          step.label === 'Checkpoint Push Before Story Completion Check',
+      );
+      assert.equal(
+        checkpoints.length,
+        2,
+        `${flowFile} should have both mid-loop checkpoints`,
+      );
+      assert.ok(
+        checkpoints.every(
+          (step) => step.markdownFile === 'checkpoint_push.md',
+        ),
+        `${flowFile} should use the persistence-only checkpoint prompt`,
+      );
+      assert.equal(
+        rawSteps.filter((step) => step.markdownFile === 'final_push.md')
+          .length,
+        1,
+        `${flowFile} should reserve final_push.md for true story closeout`,
+      );
+
+      const expandedSteps = await loadExpandedFlowSteps(flowFile);
+      const settlementIndex = expandedSteps.findIndex(
+        (step) =>
+          step.markdownFile === 'apply_agent_native_review_settlement.md',
+      );
+      const checkpointIndex = expandedSteps.findIndex(
+        (step) =>
+          step.label === 'Checkpoint Push Before Story Completion Check',
+      );
+      const completionIndex = expandedSteps.findIndex(
+        (step, index) =>
+          index > checkpointIndex &&
+          step.type === 'break' &&
+          step.label === 'Check for completion',
+      );
+
+      assert.ok(
+        settlementIndex >= 0 &&
+          settlementIndex < checkpointIndex &&
+          checkpointIndex < completionIndex,
+        `${flowFile} should settle and task work, persist it, then decide completion`,
+      );
+    }
+  });
+
   test('main implementation flows reconcile before disposition and settlement', async () => {
     const flowFiles = [
       'flows/implement_current_plan.json',

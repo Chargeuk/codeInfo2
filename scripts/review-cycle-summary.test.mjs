@@ -373,6 +373,7 @@ test('review runner resumes an orphan only when explicitly requested', async () 
   const calls = [];
   const statuses = [
     flowStatus('orphaned', true, { resumeStepPath: [0, 2] }),
+    flowStatus('orphaned', true, { resumeStepPath: [0, 2] }),
     flowStatus('ok', true),
   ];
   const result = await waitForReviewCycle({

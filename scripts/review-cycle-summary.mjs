@@ -279,7 +279,10 @@ export const waitForReviewCycle = async ({
       );
       await readJsonResponse(resumeResponse, 'Review resume');
       resumeRequested = true;
-    } else if (status.terminal) {
+    } else if (
+      !(resumeRequested && status.status === 'orphaned') &&
+      status.terminal
+    ) {
       return { conversationId, status };
     }
 

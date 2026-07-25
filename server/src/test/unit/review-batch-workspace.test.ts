@@ -1,12 +1,32 @@
 import assert from 'node:assert/strict';
+import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { promisify } from 'node:util';
 
 import { prepareReviewBatchWorkspace } from '../../flows/reviewBatchWorkspace.js';
 import type { ReviewTargetSnapshot } from '../../flows/reviewTargets.js';
 import type { SubflowWaveJob } from '../../flows/subflowWave.js';
+
+const execFile = promisify(execFileCb);
+
+const initializeGitRepository = async (repoRoot: string) => {
+  await execFile('git', ['init', '-b', 'feature/0000064-review'], {
+    cwd: repoRoot,
+  });
+  await execFile('git', ['config', 'user.email', 'tests@example.com'], {
+    cwd: repoRoot,
+  });
+  await execFile('git', ['config', 'user.name', 'Tests'], { cwd: repoRoot });
+  await execFile('git', ['add', '.'], { cwd: repoRoot });
+  await execFile('git', ['commit', '-m', 'initial'], { cwd: repoRoot });
+  const { stdout } = await execFile('git', ['rev-parse', 'HEAD^{commit}'], {
+    cwd: repoRoot,
+  });
+  return stdout.trim();
+};
 
 test('review batch workspace observes an already-aborted preparation signal', async () => {
   const controller = new AbortController();
@@ -21,7 +41,7 @@ test('review batch workspace observes an already-aborted preparation signal', as
   );
 });
 
-test('review batch workspace shares agent-readable input and pre-creates discoverable jobs', async () => {
+test('review batch workspace gives every job immutable private input and pre-creates discoverable jobs', async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'review-batch-workspace-'),
   );
@@ -52,6 +72,7 @@ test('review batch workspace shares agent-readable input and pre-creates discove
       path.join(repoRoot, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
       JSON.stringify({ plan_path: 'planning/0000064-review.md' }),
     );
+    const headCommit = await initializeGitRepository(repoRoot);
     const snapshot: ReviewTargetSnapshot = {
       schema_version: 'codeinfo-review-targets/v1',
       story_id: '0000064',
@@ -69,7 +90,7 @@ test('review batch workspace shares agent-readable input and pre-creates discove
           repo_root: repoRoot,
           repository_id: 'repo-1',
           branch: 'feature/0000064-review',
-          head_commit: 'b'.repeat(40),
+          head_commit: headCommit,
           comparison_base_commit: 'c'.repeat(40),
           story_id: '0000064',
           is_primary: true,
@@ -115,12 +136,15 @@ test('review batch workspace shares agent-readable input and pre-creates discove
       string,
       unknown
     >;
-    assert.equal(codexJob.input_dir, openCodeJob.input_dir);
+    assert.notEqual(codexJob.input_dir, openCodeJob.input_dir);
     assert.match(
       String(codexJob.input_dir),
-      /inputs[\\/]targets[\\/][0-9a-f]{64}$/u,
+      /jobs[\\/][0-9a-f]{64}[\\/]input$/u,
     );
-    assert.match(String(crossRepositoryJob.input_dir), /inputs[\\/]cross-repository$/u);
+    assert.match(
+      String(crossRepositoryJob.input_dir),
+      /jobs[\\/][0-9a-f]{64}[\\/]input$/u,
+    );
     assert.notEqual(codexJob.input_dir, crossRepositoryJob.input_dir);
     assert.notEqual(codexJob.output_dir, openCodeJob.output_dir);
     assert.match(
@@ -129,6 +153,17 @@ test('review batch workspace shares agent-readable input and pre-creates discove
         'utf8',
       ),
       /Review every repository/u,
+    );
+    assert.equal(
+      (await fs.stat(String(codexJob.input_dir))).mode & 0o222,
+      0,
+      'private input directories are read-only',
+    );
+    assert.equal(
+      (await fs.stat(path.join(String(codexJob.input_dir), 'story-context.md')))
+        .mode & 0o222,
+      0,
+      'private input files are read-only',
     );
     assert.deepEqual(
       await fs.readdir(String(codexJob.output_dir)),
@@ -231,7 +266,10 @@ test('review batch workspace shares agent-readable input and pre-creates discove
     });
     const longIdentityJob = longIdentityResult.jobs[0]?.input
       ?.review_job as Record<string, unknown>;
-    assert.equal(path.basename(String(longIdentityJob.input_dir)).length, 64);
+    assert.equal(
+      path.basename(path.dirname(String(longIdentityJob.input_dir))).length,
+      64,
+    );
     assert.equal(path.basename(String(longIdentityJob.job_dir)).length, 64);
 
     const incompleteBatch = await prepareReviewBatchWorkspace({
@@ -266,7 +304,21 @@ test('review batch workspace shares agent-readable input and pre-creates discove
     );
     await fs.writeFile(
       path.join(repoRoot, 'planning', '0000064-review.md'),
-      '# Changed plan after launch',
+      [
+        '# Story',
+        '',
+        '## Description',
+        '',
+        'Changed plan after launch.',
+        '',
+        '## Acceptance Criteria',
+        '',
+        '- Review jobs run in parallel.',
+        '',
+        '## Out Of Scope',
+        '',
+        '- Concurrent top-level flows.',
+      ].join('\n'),
     );
     const resumed = await prepareReviewBatchWorkspace({ snapshot, jobs });
     assert.equal(resumed.batchRoot, result.batchRoot);
@@ -287,6 +339,30 @@ test('review batch workspace shares agent-readable input and pre-creates discove
     assert.equal(
       await fs.readFile(path.join(result.batchRoot, 'batch-launch.md'), 'utf8'),
       originalLaunchRecord,
+    );
+    await assert.rejects(
+      prepareReviewBatchWorkspace({
+        snapshot: {
+          ...snapshot,
+          review_wave_id: '0000064-rw-head-mismatch',
+          targets: [{ ...snapshot.targets[0]!, head_commit: 'a'.repeat(40) }],
+        },
+        jobs,
+      }),
+      /HEAD does not match target cross-repository/u,
+    );
+    await assert.rejects(
+      prepareReviewBatchWorkspace({
+        snapshot: {
+          ...snapshot,
+          review_wave_id: '0000064-rw-branch-mismatch',
+          targets: [
+            { ...snapshot.targets[0]!, branch: 'feature/0000064-other' },
+          ],
+        },
+        jobs,
+      }),
+      /branch does not match target cross-repository/u,
     );
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });

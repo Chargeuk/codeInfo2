@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
+import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
 
 import { hashFlowInput, normalizeFlowInput } from './flowInput.js';
 import {
@@ -12,6 +14,7 @@ import type { SubflowWaveJob } from './subflowWave.js';
 import type { FlowJsonObject } from './types.js';
 
 const SAFE_PATH_SEGMENT = /[^A-Za-z0-9._-]+/gu;
+const execFile = promisify(execFileCb);
 
 const safeSegment = (value: string) => {
   const normalized = value.trim().replace(SAFE_PATH_SEGMENT, '-');
@@ -77,6 +80,35 @@ const requireFile = async (filePath: string, description: string) => {
     }
     throw error;
   }
+};
+
+const gitStdout = async (repoRoot: string, args: string[]) => {
+  const result = await execFile('git', ['-C', repoRoot, ...args], {
+    encoding: 'utf8',
+  });
+  return result.stdout.trim();
+};
+
+const createPrivateInput = async (
+  sourceDirectory: string,
+  inputDirectory: string,
+  fileNames: string[],
+) => {
+  await fs.mkdir(inputDirectory, { recursive: true });
+  await Promise.all(
+    fileNames.map((fileName) =>
+      fs.copyFile(
+        path.join(sourceDirectory, fileName),
+        path.join(inputDirectory, fileName),
+      ),
+    ),
+  );
+  await Promise.all([
+    ...fileNames.map((fileName) =>
+      fs.chmod(path.join(inputDirectory, fileName), 0o444),
+    ),
+    fs.chmod(inputDirectory, 0o555),
+  ]);
 };
 
 const describeTarget = (target: ReviewTargetSnapshot['targets'][number]) =>
@@ -298,6 +330,20 @@ export async function prepareReviewBatchWorkspace(params: {
           `Review job ${job.instanceId} working folder does not match target ${job.targetId}.`,
         );
       }
+      const [branch, headCommit] = await Promise.all([
+        gitStdout(targetRoot, ['branch', '--show-current']),
+        gitStdout(targetRoot, ['rev-parse', 'HEAD^{commit}']),
+      ]);
+      if (branch !== target.branch) {
+        throw new Error(
+          `Review job ${job.instanceId} branch does not match target ${job.targetId}.`,
+        );
+      }
+      if (headCommit !== target.head_commit) {
+        throw new Error(
+          `Review job ${job.instanceId} HEAD does not match target ${job.targetId}.`,
+        );
+      }
     }
     const hashedDirectoryName = jobDirectorySegment(job.instanceId);
     const directoryName =
@@ -316,9 +362,17 @@ export async function prepareReviewBatchWorkspace(params: {
     const workDir = path.join(jobRoot, 'work');
     const outputDir = path.join(jobRoot, 'output');
     const verificationDir = path.join(jobRoot, 'verification');
-    const inputDir = job.targetId
+    const sharedInputDir = job.targetId
       ? targetInputRoots.get(job.targetId)!
       : crossRepositoryInput;
+    const privateInputDir = path.join(jobRoot, 'input');
+    const hasPrivateInput =
+      reusingBatch && (await isDirectory(privateInputDir));
+    const inputDir =
+      reusingBatch && !hasPrivateInput ? sharedInputDir : privateInputDir;
+    const inputFiles = job.targetId
+      ? ['review-target.md', 'story-context.md']
+      : ['review-targets.md', 'story-context.md'];
     if (reusingBatch) {
       await Promise.all([
         requireDirectory(jobRoot, `job directory for ${job.instanceId}`),
@@ -329,6 +383,20 @@ export async function prepareReviewBatchWorkspace(params: {
           `verification directory for ${job.instanceId}`,
         ),
         requireFile(path.join(jobRoot, 'job.md'), `job brief for ${job.instanceId}`),
+        ...(hasPrivateInput
+          ? [
+              requireDirectory(
+                privateInputDir,
+                `private input directory for ${job.instanceId}`,
+              ),
+              ...inputFiles.map((fileName) =>
+                requireFile(
+                  path.join(privateInputDir, fileName),
+                  `private input ${fileName} for ${job.instanceId}`,
+                ),
+              ),
+            ]
+          : []),
       ]);
     } else {
       await Promise.all([
@@ -336,6 +404,7 @@ export async function prepareReviewBatchWorkspace(params: {
         fs.mkdir(outputDir, { recursive: true }),
         fs.mkdir(verificationDir, { recursive: true }),
       ]);
+      await createPrivateInput(sharedInputDir, privateInputDir, inputFiles);
       await atomicWriteText(
         path.join(jobRoot, 'job.md'),
         `${[

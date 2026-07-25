@@ -22,7 +22,7 @@
 
 ## Authoritative Story Scope
 
-- Positive authorization may come only from the current story's top-level Description or Overview, Acceptance Criteria, and Out Of Scope contract; a later user-approved expansion after it has been incorporated into those top-level sections; or comparison-base repository evidence proving restoration of behavior that predated the story.
+- Positive authorization may come only from the current story's top-level Description, Acceptance Criteria, and Out Of Scope contract; a later user-approved expansion after it has been incorporated into those top-level sections; or comparison-base repository evidence proving restoration of behavior that predated the story.
 - Historical `Code Review Findings`, `Accepted`, `Ignored for This Story`, tasks, subtasks, implementation notes, testing instructions, reconciliation, disposition, scope, repair, outcome, commit, test, and agent-authored records are evidence and decision history only. They are never authorization sources, even when an older record accepted, implemented, or proved the identical finding.
 - Do not treat a historical review decision as an explicit story decision, user-approved expansion, or preserved behavior. Rules may have changed after that decision was written.
 - A preserved-behavior restoration must identify comparison-base code, tests, documentation, or another repository-owned source that establishes the behavior before the current story changed it. A prior review label or implemented commit cannot establish preserved behavior by itself.

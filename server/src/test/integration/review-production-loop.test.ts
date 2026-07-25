@@ -65,15 +65,31 @@ const createFixture = async (targetCount: number) => {
   const targets = await Promise.all(
     Array.from({ length: targetCount }, async (_, index) => {
       const repoRoot = index === 0 ? root : path.join(root, `repo-${index}`);
+      const branch = 'feature/0000064-generic-review';
       await fs.mkdir(repoRoot, { recursive: true });
+      await execFile('git', ['init', '-b', branch], { cwd: repoRoot });
+      await execFile('git', ['config', 'user.email', 'tests@example.com'], {
+        cwd: repoRoot,
+      });
+      await execFile('git', ['config', 'user.name', 'Tests'], {
+        cwd: repoRoot,
+      });
+      await execFile('git', ['commit', '--allow-empty', '-m', 'initial'], {
+        cwd: repoRoot,
+      });
+      const { stdout: headCommit } = await execFile(
+        'git',
+        ['rev-parse', 'HEAD^{commit}'],
+        { cwd: repoRoot },
+      );
       return {
         target_id: index === 0 ? 'current_repository' : `repo-${index}`,
         repo_alias: index === 0 ? 'current_repository' : `repo-${index}`,
         repo_root: repoRoot,
         repository_id: `repo-${index}`,
-        branch: 'feature/0000064-generic-review',
-        head_commit: String(index + 1).repeat(40),
-        comparison_base_commit: 'a'.repeat(40),
+        branch,
+        head_commit: headCommit.trim(),
+        comparison_base_commit: headCommit.trim(),
         story_id: '0000064',
         is_primary: index === 0,
       };

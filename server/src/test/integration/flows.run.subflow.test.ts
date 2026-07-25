@@ -23,6 +23,7 @@ import {
 } from '../../config/runtimeConfig.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
 import { startFlowRun } from '../../flows/service.js';
+import type { FlowJsonObject } from '../../flows/types.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
@@ -75,7 +76,11 @@ class SubflowChat extends ChatInterface {
     _model: string,
   ) {
     void _model;
-    await this.onExecute?.({ message, flags, conversationId });
+    const responseOverride = await this.onExecute?.({
+      message,
+      flags,
+      conversationId,
+    });
     const signal = (flags as { signal?: AbortSignal }).signal;
     const abortIfNeeded = () => {
       if (!signal?.aborted) return false;
@@ -101,6 +106,12 @@ class SubflowChat extends ChatInterface {
 
     if (message.includes('child fail')) {
       this.emit('error', { type: 'error', message: 'child failed' });
+      return;
+    }
+
+    if (typeof responseOverride === 'string') {
+      this.emit('final', { type: 'final', content: responseOverride });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
       return;
     }
 
@@ -1438,14 +1449,20 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
       steps: [waveStep],
     });
     const input = { targets: [{ id: 'a' }, { id: 'b' }] };
-    const jobs = [
+    const jobs: Array<{
+      instanceId: string;
+      flowName: string;
+      input?: FlowJsonObject;
+    }> = [
       {
         instanceId: 'locals:a:wave-resume-local',
         flowName: 'wave-resume-local',
+        input: { target: { id: 'a' } },
       },
       {
         instanceId: 'locals:b:wave-resume-local',
         flowName: 'wave-resume-local',
+        input: { target: { id: 'b' } },
       },
       { instanceId: 'cross:wave-resume-cross', flowName: 'wave-resume-cross' },
     ];
@@ -1455,7 +1472,7 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
       const child = await startFlowRun({
         flowName: job.flowName,
         source: 'REST',
-        input: { target: job.instanceId },
+        input: job.input,
         chatFactory: () => new SubflowChat(300),
         onOwnershipReady: ({ runToken }) => {
           childRunToken = runToken;
@@ -1468,6 +1485,9 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
         instanceId: job.instanceId,
         conversationId: child.conversationId,
         runToken: childRunToken,
+        ...(job.input
+          ? { input: job.input, inputHash: hashFlowInput(job.input) }
+          : {}),
       });
     }
 
@@ -1981,6 +2001,74 @@ test('a review wave starts before an unavailable later loop controller is resolv
           executions.push(message);
           if (message.includes('Is another review wave needed?')) {
             throw new Error('loop controller unavailable');
+          }
+        }),
+    });
+
+    await waitFor(() =>
+      executions.includes('review child work') &&
+      executions.includes('record review outcome'),
+    );
+    await waitForAssistantStatus(result.conversationId, 'ok');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('a malformed later review-loop decision still records the review outcome', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-malformed-loop-controller-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'review-child',
+      steps: [llmStep('review child work')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'parent-review-wave',
+      steps: [
+        {
+          type: 'startLoop',
+          maxIterations: 1,
+          steps: [
+            {
+              type: 'subflowWave',
+              failureMode: 'best_effort',
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'review',
+                  flowName: 'review-child',
+                },
+              ],
+            },
+            {
+              type: 'break',
+              agentType: 'loop_control_agent',
+              identifier: 'loop-controller',
+              question: 'Is another review wave needed?',
+              breakOn: 'yes',
+              breakOnFailure: true,
+            },
+          ],
+        },
+        llmStep('record review outcome'),
+      ],
+    });
+
+    const executions: string[] = [];
+    const result = await startFlowRun({
+      flowName: 'parent-review-wave',
+      source: 'REST',
+      chatFactory: () =>
+        new SubflowChat(25, ({ message }) => {
+          executions.push(message);
+          if (message.includes('Is another review wave needed?')) {
+            return 'not json';
           }
         }),
     });
@@ -3645,7 +3733,7 @@ test('resume rejects malformed persisted child inputs and prior flow values', as
   }
 });
 
-test('restart recovery resumes an interrupted wave child in its existing conversation', async () => {
+test('restart recovery rejects a stale wave input hash and launches the current child', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-restart-recovery-'),
   );

@@ -5365,3 +5365,10 @@ Manual proof is optional and non-blocking. If a later manual-testing agent exerc
 - Server, client, and compose build wrappers all passed; the client build reported a size warning only and did not fail the wrapper.
 - Created from the active-cycle settlement recommendation after six fix-bearing batches. This task is the sole new open settlement owner; no unresolved implementation task was created.
 - The failed OpenCode child event in the third batch remains unavailable provider coverage with recovered matching batch evidence; it is not converted into a clean-coverage claim or an implementation task.
+
+## Final Summary
+
+1. The story now has the final validation state recorded on disk, including the completed proof task, the successful server/client/compose build wrappers, the supported main stack up/down sequence, and the passing full `test:summary:all:parallel` rerun after the cucumber fixture fix. The plan also now reflects the final review/revalidation state and the existing curated manual-proof bundle under `codeInfoStatus/manual-proof/0000064/`.
+2. This changed because the story needed a closeout summary that matched the latest validated plan state rather than earlier review-cycle snapshots, so the summary was aligned to the final proof results and the current implementation notes.
+3. The only nontrivial logic added during closeout was the cucumber test fixture adjustment: the temp repository now initializes as a real Git repo with a branch and commit so the workspace code can verify branch and `HEAD` metadata exactly as intended.
+4. Reviewers should focus on `server/src/flows/reviewBatchWorkspace.ts` and `server/src/test/steps/review-wave.steps.ts`, because those are the hotspots that tied the final proof together, and the curated proof bundle in `codeInfoStatus/manual-proof/0000064/` provides the on-disk manual evidence referenced by closeout.

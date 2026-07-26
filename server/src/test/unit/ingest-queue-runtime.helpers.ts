@@ -22,6 +22,7 @@ import {
   clearScopedTestEnvValue,
   setScopedTestEnvValue,
 } from '../support/processEnvIsolation.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 
@@ -36,7 +37,7 @@ export async function waitForQueueManagedTerminalResult(
   timeoutMs = 20_000,
 ) {
   return await waitForQueueRequestTerminalStatus(requestId, {
-    timeoutMs,
+    timeoutMs: resolveConfiguredTestTimeoutMs(timeoutMs),
   });
 }
 

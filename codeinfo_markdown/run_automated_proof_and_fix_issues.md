@@ -20,6 +20,7 @@ Do not perform manual testing in this step.
 <scope_rules>
 
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before inspecting, starting, stopping, repairing, or classifying a Docker or Compose stack.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
@@ -54,6 +55,7 @@ Do not perform manual testing in this step.
 
 <skip_rules>
 
+- Before applying skip or blocker rules, inspect every unchecked `Testing` item semantically. If an item is actually a browser walkthrough, screenshot request, agent-driven manual scenario, or other manual-testing-agent action rather than a runnable automated command, do not attempt it and do not create a blocker. Preserve and merge its useful meaning into checkbox-free `Manual Testing Guidance`, remove only the misplaced checklist item, add a concise correction note, rerun the plan helper, and continue with the remaining automated items. This is task-shape recovery, not completion of the unperformed manual scenario.
 - If `selected_task.live_blockers` is non-empty, do not run automated proof.
 - If the candidate task still has unchecked subtasks that require additional non-proof implementation work, do not run automated proof.
 - If the candidate task has no unchecked items left in its `Testing` section, do not run automated proof again in this step.
@@ -67,6 +69,9 @@ Do not perform manual testing in this step.
 - Run the unchecked items in the candidate task's `Testing` section until all are complete or the task is honestly blocked.
 - Treat every unchecked `Testing` checklist item as mandatory blocking proof in this step.
 - Follow the repository's wrapper-first guidance and the exact testing commands listed in the task.
+- Before treating an occupied port or pre-existing stack as a failed startup or external blocker, determine whether it is the repository-owned test stack required by the current testing item under `shared/test-stack-lifecycle.md`.
+- When that ownership and testing applicability are established, run the repository-supported shutdown wrapper, retry the required startup or proof item, and continue. The current automated-proof agent does not need to have started the earlier stack.
+- Do not tear down the healthy stack belonging to the current in-progress startup, test, and shutdown sequence. Reclaim only a pre-existing, stale, freshness-unknown, or conflicting repository-owned test stack.
 - Treat checked `Testing` items as already completed proof and do not rerun them in this step unless you first add an implementation note explaining why that earlier proof is no longer honest and uncheck the affected testing items before rerunning them.
 - For the dedicated final task, compare its planned affected-surface inventory with actual story-owned changes before proof. Add any missing worked-on repository build, runtime, full-suite, shutdown, supported lint, or supported formatting steps to this same task, omit unsupported commands, and uncheck every previously completed testing item made stale by later story-owned repairs.
 - Inspect saved logs only when the wrapper output requires it or when the command otherwise fails unexpectedly.
@@ -115,6 +120,7 @@ Do not perform manual testing in this step.
 <blocker_rules>
 
 - If a testing step becomes honestly blocked, stop and write a `**BLOCKER**` note into the task's `Implementation Notes`.
+- A confirmed repository-owned test stack that can be reclaimed through its documented shutdown wrapper is recoverable proof state, not an external dependency or human-owned blocker. Attempt that reclaim-and-retry path before applying the blocker conditions below.
 - A blocker is honest only when at least one of the following is true:
   - you have made up to 3 credible in-scope repair attempts and still cannot close the issue honestly;
   - you cannot identify a credible next in-scope fix after inspecting the failure evidence;

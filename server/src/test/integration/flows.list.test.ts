@@ -11,10 +11,7 @@ import {
   __resetAgentAvailabilityDepsForTests,
   __setAgentAvailabilityDepsForTests,
 } from '../../agents/availability.js';
-import {
-  __resetProviderBootstrapStatusForTests,
-  __setProviderBootstrapStatusForTests,
-} from '../../config/runtimeConfig.js';
+import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRouter } from '../../routes/flows.js';
 import {
@@ -222,12 +219,17 @@ describe('GET /flows', () => {
       );
       assert.deepEqual(names, [
         'command-step',
+        'exit-break',
+        'halt-break',
         'hot-reload',
+        'implementation-blocker-escalation',
         'invalid-json',
         'invalid-schema',
         'llm-basic',
         'loop-break',
+        'loop-break-on-failure',
         'loop-continue',
+        'loop-max-iterations',
         'multi-agent',
         'valid-flow',
       ]);
@@ -546,110 +548,6 @@ describe('GET /flows', () => {
     await fs.rm(ingestedRoot, { recursive: true, force: true });
   });
 
-  test('codexReview-only flows stay enabled and expose warnings when Codex bootstrap is unavailable', async () => {
-    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
-
-    try {
-      await writeRawFlowFile(
-        tmpDir,
-        'codex-review-only',
-        JSON.stringify({
-          description: 'Codex review only',
-          steps: [
-            {
-              type: 'codexReview',
-              label: 'Run Codex Review',
-              outputKey: 'current-codex-review',
-              basePolicy: 'branched_from_or_default_if_merged',
-              modelSource: 'flow_request_or_step',
-              model: 'gpt-5.4',
-              reasoningEffort: 'medium',
-            },
-          ],
-        }),
-      );
-
-      __setProviderBootstrapStatusForTests('codex', {
-        healthy: false,
-        reason: 'codex unavailable for list test',
-        warnings: [],
-      });
-
-      await withFlowsDir(tmpDir, async () => {
-        const response = await supertest(buildApp()).get('/flows');
-
-        assert.equal(response.status, 200);
-        const listed = response.body.flows.find(
-          (flow: { name: string }) => flow.name === 'codex-review-only',
-        );
-        assert.ok(listed);
-        assert.equal(listed.disabled, false);
-        assert.match(
-          String((listed.warnings ?? []).join('\n')),
-          /codex unavailable for list test/u,
-        );
-      });
-    } finally {
-      await fs.rm(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test('parent flows stay enabled when child subflows require Codex and Codex is unavailable', async () => {
-    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
-
-    try {
-      await writeRawFlowFile(
-        tmpDir,
-        'parent-subflow',
-        JSON.stringify({
-          description: 'Parent flow',
-          steps: [{ type: 'subflow', flowNames: ['child-codex-review'] }],
-        }),
-      );
-      await writeRawFlowFile(
-        tmpDir,
-        'child-codex-review',
-        JSON.stringify({
-          description: 'Child Codex review',
-          steps: [
-            {
-              type: 'codexReview',
-              label: 'Run Codex Review',
-              outputKey: 'current-codex-review',
-              basePolicy: 'branched_from_or_default_if_merged',
-              modelSource: 'flow_request_or_step',
-              model: 'gpt-5.4',
-              reasoningEffort: 'medium',
-            },
-          ],
-        }),
-      );
-
-      __setProviderBootstrapStatusForTests('codex', {
-        healthy: false,
-        reason: 'codex unavailable for subflow list test',
-        warnings: [],
-      });
-
-      await withFlowsDir(tmpDir, async () => {
-        const response = await supertest(buildApp()).get('/flows');
-
-        assert.equal(response.status, 200);
-        const listed = response.body.flows.find(
-          (flow: { name: string }) => flow.name === 'parent-subflow',
-        );
-        assert.ok(listed);
-        assert.equal(listed.disabled, false);
-        assert.match(
-          String((listed.warnings ?? []).join('\n')),
-          /codex unavailable for subflow list test/u,
-        );
-      });
-    } finally {
-      await fs.rm(tmpDir, { recursive: true, force: true });
-    }
-  });
-
   test('parent flows stay enabled when child subflows reference unavailable agents', async () => {
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
 
@@ -774,6 +672,51 @@ describe('GET /flows', () => {
         'child-invalid',
         '{"description":"Broken"',
       );
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-wave-missing-child',
+        JSON.stringify({
+          description: 'Parent wave missing child',
+          steps: [
+            {
+              type: 'subflowWave',
+              groups: [
+                {
+                  kind: 'matrix',
+                  id: 'children',
+                  itemsFrom: 'targets',
+                  itemName: 'target',
+                  flowNames: ['wave-child-missing'],
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'parent-wave-invalid-child',
+        JSON.stringify({
+          description: 'Parent wave invalid child',
+          steps: [
+            {
+              type: 'subflowWave',
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'child',
+                  flowName: 'wave-child-invalid',
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      await writeRawFlowFile(
+        tmpDir,
+        'wave-child-invalid',
+        '{"description":"Broken"',
+      );
 
       await withFlowsDir(tmpDir, async () => {
         const response = await supertest(buildApp()).get('/flows');
@@ -797,6 +740,24 @@ describe('GET /flows', () => {
         assert.match(
           String((invalidChild.warnings ?? []).join('\n')),
           /Subflow "child-invalid" is invalid/u,
+        );
+
+        const missingWaveChild = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'parent-wave-missing-child',
+        );
+        assert.ok(missingWaveChild);
+        assert.match(
+          String((missingWaveChild.warnings ?? []).join('\n')),
+          /Subflow "wave-child-missing" could not be read/u,
+        );
+
+        const invalidWaveChild = response.body.flows.find(
+          (flow: { name: string }) => flow.name === 'parent-wave-invalid-child',
+        );
+        assert.ok(invalidWaveChild);
+        assert.match(
+          String((invalidWaveChild.warnings ?? []).join('\n')),
+          /Subflow "wave-child-invalid" is invalid/u,
         );
       });
     } finally {
@@ -1314,7 +1275,7 @@ describe('GET /flows', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  test('ingested Story 60 GitHub review variant is disabled when review_agent is only missing inside a nested branch', async () => {
+  test('ingested Story 60 GitHub review variant delegates nested review_agent availability to its review subflow', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const flowsRoot = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),
@@ -1326,18 +1287,10 @@ describe('GET /flows', () => {
       path.join(process.cwd(), 'tmp-flows-ingested-'),
     );
 
-    await fs.mkdir(path.join(ingestedRoot, 'flows'), { recursive: true });
-    await fs.copyFile(
-      path.join(
-        checkedInRepoRoot,
-        'flows',
-        'implement_next_plan_github_review.json',
-      ),
-      path.join(
-        ingestedRoot,
-        'flows',
-        'implement_next_plan_github_review.json',
-      ),
+    await fs.cp(
+      path.join(checkedInRepoRoot, 'flows'),
+      path.join(ingestedRoot, 'flows'),
+      { recursive: true },
     );
 
     for (const agentName of [
@@ -1348,6 +1301,10 @@ describe('GET /flows', () => {
       'manual_testing_agent',
       'loop_control_agent',
       'automated_testing_agent',
+      'research_agent',
+      'review_agent_lite',
+      'review_agent_heavy',
+      'tasking_agent',
     ]) {
       await copyCheckedInAgentHome({
         destinationRoot: runtimeRoot,
@@ -1383,11 +1340,20 @@ describe('GET /flows', () => {
               flow.sourceId === ingestedRoot,
           );
           assert.ok(listed);
-          assert.equal(listed.disabled, true);
-          assert.match(String(listed.error ?? ''), /review_agent/u);
+          assert.equal(listed.disabled, false);
+          assert.equal(listed.error, undefined);
+
+          const reviewSubflow = listResponse.body.flows.find(
+            (flow: { name: string; sourceId?: string }) =>
+              flow.name === 'review_artifacts_main' &&
+              flow.sourceId === ingestedRoot,
+          );
+          assert.ok(reviewSubflow);
+          assert.equal(reviewSubflow.disabled, true);
+          assert.match(String(reviewSubflow.error ?? ''), /review_agent/u);
 
           const detailsResponse = await supertest(app)
-            .get('/flows/implement_next_plan_github_review')
+            .get('/flows/review_artifacts_main')
             .query({ sourceId: ingestedRoot });
           assert.equal(detailsResponse.status, 200);
           assert.equal(detailsResponse.body.flow.disabled, true);
@@ -1420,29 +1386,11 @@ describe('GET /flows', () => {
       path.join(process.cwd(), 'tmp-flows-ingested-'),
     );
 
-    await fs.mkdir(path.join(ingestedRoot, 'flows'), { recursive: true });
-    await fs.copyFile(
-      path.join(
-        checkedInRepoRoot,
-        'flows',
-        'implement_next_plan_github_review.json',
-      ),
-      path.join(
-        ingestedRoot,
-        'flows',
-        'implement_next_plan_github_review.json',
-      ),
+    await fs.cp(
+      path.join(checkedInRepoRoot, 'flows'),
+      path.join(ingestedRoot, 'flows'),
+      { recursive: true },
     );
-    for (const dependencyName of [
-      'review_artifacts_main',
-      'codex_review',
-      'open_code_review',
-    ]) {
-      await fs.copyFile(
-        path.join(checkedInRepoRoot, 'flows', `${dependencyName}.json`),
-        path.join(ingestedRoot, 'flows', `${dependencyName}.json`),
-      );
-    }
 
     for (const agentName of [
       'planning_agent',
@@ -1452,6 +1400,10 @@ describe('GET /flows', () => {
       'manual_testing_agent',
       'loop_control_agent',
       'automated_testing_agent',
+      'research_agent',
+      'review_agent_lite',
+      'review_agent_heavy',
+      'tasking_agent',
     ]) {
       await copyCheckedInAgentHome({
         destinationRoot: runtimeRoot,
@@ -1501,14 +1453,7 @@ describe('GET /flows', () => {
             .query({ sourceId: ingestedRoot });
           assert.equal(detailsResponse.status, 200);
           assert.equal(detailsResponse.body.flow.disabled, false);
-          assert.deepEqual(detailsResponse.body.flow.warnings, [
-            {
-              code: 'discovery_warning',
-              message:
-                'Unknown key agent.features.view_image; preserved for forward compatibility',
-              visibility: 'details',
-            },
-          ]);
+          assert.deepEqual(detailsResponse.body.flow.warnings, []);
           assert.equal(detailsResponse.body.flow.disabledReason, undefined);
         });
       },

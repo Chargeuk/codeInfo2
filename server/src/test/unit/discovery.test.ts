@@ -49,6 +49,10 @@ test('git repo uses tracked files only', async () => {
     await execFile('git', ['-C', repo, 'init']);
     await execFile('git', ['-C', repo, 'add', 'tracked.ts']);
     await execFile('git', [
+        '-c',
+        'user.name=CodeInfo Test',
+        '-c',
+        'user.email=codeinfo-test@example.invalid',
         '-C',
         repo,
         'commit',

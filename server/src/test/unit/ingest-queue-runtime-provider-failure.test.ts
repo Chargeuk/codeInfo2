@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { __setQueueRuntimeOpsForTest, __setQueueRequestIdForRunForTest, __setRunSchedulerForTest, startIngest, waitForTerminalIngestStatus, } from '../../ingest/ingestJob.js';
 import { disposeOpenAiTokenizer, setOpenAiTokenizerFactoryForTests, type OpenAiClientLike, } from '../../ingest/providers/index.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import { createQueueRequest, createTempRepo, installQueueRuntimeTestHooks, setupIngestChromaMocks, waitForNextTurn, } from './ingest-queue-runtime.helpers.js';
 installQueueRuntimeTestHooks();
 test('queued ingest OpenAI 429 failure becomes terminal status without unhandled rejection', async () => {
@@ -89,7 +90,7 @@ test('queued ingest OpenAI 429 failure becomes terminal status without unhandled
         assert.equal(scheduledTasks.length, 1);
         scheduledTasks[0]!();
         const result = await waitForTerminalIngestStatus(runId, {
-            timeoutMs: 5000,
+            timeoutMs: resolveConfiguredTestTimeoutMs(5000),
             pollMs: 1,
         });
         assert.equal(result.reason, 'terminal');

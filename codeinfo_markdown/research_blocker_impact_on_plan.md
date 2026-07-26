@@ -6,10 +6,13 @@ Decide whether the current blocker proves that the plan itself is wrong or incom
 
 Read the stored current-plan handoff and use only that scope for this step.
 Use the same current-task context and blocker-owner conclusion from the immediately preceding blocker-solution step rather than re-reading `current-task.json` again in this same planning-agent pass.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before treating any Docker, Compose, occupied-port, or runtime-ownership condition as an external blocker or plan defect.
 Load fresh bounded blocker and story-scope packets before deciding whether the blocker changes the plan.
 Read the selected task's latest `**BLOCKING ANSWER**` from the bounded blocker-repair packet and extract any blocker-family and ownership conclusion before deciding whether to repair the plan.
 If there is no blocker, or there was a blocker but no plan repair is needed, state that explicitly.
 If the blocker proves the plan is wrong or incomplete, repair the story before work continues.
+If the blocker is an external reviewer, provider, runtime, or terminal-artifact dependency and the same condition still exists, preserve the parser-visible `**BLOCKER**` line. Documenting ownership or a retry path does not resolve that blocker. Do not convert it to `**RESOLVED ISSUE**` unless fresh repository evidence shows the external condition changed or the required terminal artifact now exists.
+A proven repository-owned test stack that can be reclaimed through its documented shutdown wrapper is not an external runtime dependency. Retire a blocker whose only remaining basis is that a different agent or flow step started that stack, preserve the testing item as unchecked, and let normal proof retry it.
 
 </task>
 
@@ -59,6 +62,10 @@ If there is or was a blocker, decide whether it reveals any of the following:
 - a task that has remained `__in_progress__` across repeated passes without closing its remaining subtasks, showing that it is too broad, too open-ended, too investigative, or insufficiently concrete for the implementation loop;
 - a recurring blocker-family mismatch, classified as product or story seam, proof or test harness seam, shared wrapper or baseline seam, manual or runtime environment seam, or task-shape or planning seam;
 - later tasks that now require renumbering or reference updates.
+
+Before classifying an apparent manual/runtime blocker as durable, interpret the blocked checklist item by meaning. If the item is only a browser walkthrough, screenshot request, agent-driven manual scenario, or another action owned by the later manual-testing agent, repair the task shape now: preserve and merge the scenario into checkbox-free `Manual Testing Guidance`, remove only the misplaced checklist item, retire the false blocker as resolved, and keep automated completion honest. Do not create a prerequisite or preserve a blocker merely to hand work to an agent that the normal flow can invoke once automated readiness is satisfied.
+
+For a Compose or runtime-handoff blocker, identify the active configuration from `CODEINFO_RUNTIME_COMPOSE_FILE` and compare it with the relevant Dockerfile before assigning ownership. If that checked-in file omits a required harness mapping, treat the repair as repository-owned executable work even when applying the new mapping still requires a later container recreation. Do not classify the problem as external merely because a different Compose variant already contains the mapping.
 
 </decision_rules>
 
@@ -170,6 +177,7 @@ If this step rewrites, narrows, or re-owns a task in a way that makes all of tha
 - Do not let one task accumulate multiple generations of long blocker prose when a fresh successor task would give a cleaner handoff.
 - Prefer one concise historical summary plus one current blocker state over repeated full blocker narratives in the same task.
 - Do not invent unnecessary extra work; keep repairs aligned to the KISS principle and only add what is required to unblock honest execution.
+- Never stop or restart `compose:local` from this planning step. When a checked-in local-runtime repair needs container recreation, make the repair and leave a precise restart handoff while allowing the enclosing flow to exit successfully with its incomplete plan state preserved.
 
 </behavior_rules>
 

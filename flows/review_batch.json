@@ -1,0 +1,198 @@
+{
+  "description": "Run any configured set of ordinary reviews in parallel, then verify, reconcile, negatively scope-filter, positively authorize, materially filter, audit, disposition, and apply escalating multi-repository repairs to their self-describing workspace output.",
+  "steps": [
+    {
+      "type": "prepareReviewTargets",
+      "label": "Snapshot Generic Review Batch Targets",
+      "outputKey": "review_batch_targets"
+    },
+    {
+      "type": "subflowWave",
+      "label": "Run Configured Review Batch",
+      "failureMode": "best_effort",
+      "groupsFrom": "review_groups",
+      "reviewWorkspace": {
+        "snapshotFrom": "review_batch_targets"
+      }
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Verifier",
+      "agentType": "review_agent_heavy",
+      "identifier": "batch_verifier"
+    },
+    {
+      "type": "llm",
+      "label": "Verify And Recover Review Batch Jobs",
+      "agentType": "review_agent_heavy",
+      "identifier": "batch_verifier",
+      "continueOnFailure": true,
+      "markdownFile": "verify_review_batch_jobs.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Reconciler",
+      "agentType": "planning_agent",
+      "identifier": "batch_reconciler"
+    },
+    {
+      "type": "llm",
+      "label": "Reconcile Review Batch",
+      "agentType": "planning_agent",
+      "identifier": "batch_reconciler",
+      "continueOnFailure": true,
+      "markdownFile": "reconcile_review_batch.md"
+    },
+    {
+      "type": "llm",
+      "label": "Audit Review Batch Reconciliation",
+      "agentType": "review_agent_heavy",
+      "identifier": "batch_verifier",
+      "continueOnFailure": true,
+      "markdownFile": "audit_review_batch_reconciliation.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Scope Filter",
+      "agentType": "planning_agent",
+      "identifier": "batch_scope_filter"
+    },
+    {
+      "type": "llm",
+      "label": "Filter Review Findings To Story Scope",
+      "agentType": "planning_agent",
+      "identifier": "batch_scope_filter",
+      "continueOnFailure": true,
+      "markdownFile": "filter_review_batch_findings_to_story_scope.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Scope Authorizer",
+      "agentType": "planning_agent",
+      "identifier": "batch_scope_authorizer"
+    },
+    {
+      "type": "llm",
+      "label": "Positively Authorize Review Findings For Story",
+      "agentType": "planning_agent",
+      "identifier": "batch_scope_authorizer",
+      "continueOnFailure": true,
+      "markdownFile": "authorize_review_batch_findings_for_story.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Materiality Filter",
+      "agentType": "planning_agent",
+      "identifier": "batch_materiality_filter"
+    },
+    {
+      "type": "llm",
+      "label": "Filter Review Findings By Materiality And Realistic Impact",
+      "agentType": "planning_agent",
+      "identifier": "batch_materiality_filter",
+      "continueOnFailure": true,
+      "markdownFile": "filter_review_batch_findings_by_materiality.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Filtering Auditor",
+      "agentType": "review_agent_heavy",
+      "identifier": "batch_scope_auditor"
+    },
+    {
+      "type": "llm",
+      "label": "Audit Review Batch Filtering Gates",
+      "agentType": "review_agent_heavy",
+      "identifier": "batch_scope_auditor",
+      "continueOnFailure": true,
+      "markdownFile": "audit_review_batch_scope_filter.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Review Batch Dispositioner",
+      "agentType": "planning_agent",
+      "identifier": "batch_dispositioner"
+    },
+    {
+      "type": "llm",
+      "label": "Disposition Review Batch",
+      "agentType": "planning_agent",
+      "identifier": "batch_dispositioner",
+      "continueOnFailure": true,
+      "markdownFile": "disposition_review_batch.md"
+    },
+    {
+      "type": "reingest",
+      "label": "Re-embed Plan Scope Before Direct Review Fixes",
+      "target": "plan_scope"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Direct Review Fixer",
+      "agentType": "coding_agent",
+      "identifier": "batch_fixer"
+    },
+    {
+      "type": "llm",
+      "label": "Implement Direct Review Fixes",
+      "agentType": "coding_agent",
+      "identifier": "batch_fixer",
+      "continueOnFailure": true,
+      "markdownFile": "implement_review_batch_direct_fixes.md"
+    },
+    {
+      "type": "startLoop",
+      "label": "Optional Stronger Review Repair",
+      "maxIterations": 1,
+      "steps": [
+        {
+          "type": "break",
+          "label": "Skip Stronger Repair When Normal Fixer Completed All Findings",
+          "agentType": "coding_agent",
+          "identifier": "batch_fixer",
+          "question": "Read the current immutable batch, filtered reconciliation, materiality record, combined filtering audit, disposition, your normal-repair audit, and current Git state for every target repository from disk. Have all supported, positively authorized materiality survivors been resolved? Answer yes only when completion is positively confirmed. Do not restore any finding removed by an earlier gate. Answer no when any material survivor remains or the evidence is uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+          "breakOn": "yes",
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true
+        },
+        {
+          "type": "reset",
+          "label": "Reset Stronger Review Fixer",
+          "agentType": "research_agent",
+          "identifier": "batch_research_fixer"
+        },
+        {
+          "type": "llm",
+          "label": "Implement Remaining Review Fixes",
+          "agentType": "research_agent",
+          "identifier": "batch_research_fixer",
+          "continueOnFailure": true,
+          "markdownFile": "implement_review_batch_remaining_fixes.md"
+        },
+        {
+          "type": "reset",
+          "label": "Reset Optional Repair Loop Controller",
+          "agentType": "loop_control_agent",
+          "identifier": "batch_research_loop_controller"
+        },
+        {
+          "type": "break",
+          "label": "Exit Optional Stronger Repair After One Attempt",
+          "agentType": "loop_control_agent",
+          "identifier": "batch_research_loop_controller",
+          "question": "The optional stronger repair attempt for this batch has now had its single allowed invocation. Return exact JSON only: {\"answer\":\"yes\"}.",
+          "breakOn": "yes",
+          "breakOnFailure": true
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Record Review Batch Outcome",
+      "agentType": "planning_agent",
+      "identifier": "batch_dispositioner",
+      "continueOnFailure": true,
+      "markdownFile": "record_review_batch_outcome.md"
+    }
+  ]
+}

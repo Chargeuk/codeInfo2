@@ -10,7 +10,7 @@ import {
 } from './processEnvIsolation.js';
 import { runWithTestEnvOverrides } from './testEnvOverrideScope.js';
 
-type IsolatedProviderHomeEnv = {
+export type IsolatedProviderHomeEnv = {
   tempRoot: string;
   codexHome: string;
   copilotHome: string;

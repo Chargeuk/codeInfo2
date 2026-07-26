@@ -1,4 +1,5 @@
 Read and follow `$CODEINFO_ROOT/codeinfo_markdown/review_disposition.md` first as the base disposition contract for this step.
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md` before creating, repairing, or validating the durable findings block.
 
 Then apply these external-review-specific additions:
 

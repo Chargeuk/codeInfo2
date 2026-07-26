@@ -17,18 +17,6 @@ Keep the same behavior and standards described here even when the exact task cha
 
 Re-read this file at the start of each session. Assume it may have changed since the last context window.
 
-## Required Onboarding
-
-Perform this onboarding only when you are first working in this folder structure or when history has been compacted.
-
-1. Before doing anything else, call the `code_info` MCP tool unless instructed not to do so.
-2. In that tool call, include the full repository path for this repository when doing so.
-3. Ask for:
-   - a concise project overview, including a summary of the last 3 git commits.
-   - Confirm the current git branch.
-4. Without performaing any additional research directly, relying only on thin information provided by code_info, summarize for the user the project overview and the current branch
-5. The `code_info` MCP tool can take some time to comples, so please be patient while waiting for a response.
-
 ## Working with Planning Files
 
 1. Do NOT read whole planning files directly unless the user asks for specific plan content and the required information cannot be obtained from the Python helpers in `$CODEINFO_ROOT/scripts`. Planning files can be very large, so query their structured summaries first and read only the smallest relevant section as a fallback.
@@ -196,6 +184,15 @@ Shortcut:
 2. Tail logs with `npm run compose:logs`.
 3. Fix the failing container, config, or env issue.
 4. Re-run the same wrapper.
+
+### Repository-Owned Test Stack Reclamation
+
+- Manual and automated testing agents may stop a pre-existing or stale Docker or Compose stack when current repository evidence proves that it belongs to a repository they are permitted to test and is the documented stack required by the current testing step.
+- Establish ownership from repository-supported wrappers, Compose configuration, and Compose metadata or labels. An occupied port or container name alone is not sufficient.
+- Reclaim the stack with its repository-supported shutdown wrapper, then continue the documented startup and proof lifecycle. The stack does not need to have been started by the same agent or flow step.
+- Do not interrupt a healthy stack in the middle of the current startup, test, and shutdown lifecycle.
+- If repository ownership or testing applicability remains uncertain, do not stop the stack; report the conflict honestly.
+- These permissions apply to repository test stacks only. The protected local development stack rules below still take precedence.
 
 ## Local Stack Safety
 

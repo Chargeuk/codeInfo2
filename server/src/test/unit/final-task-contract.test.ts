@@ -433,4 +433,32 @@ describe('final task contract', () => {
       assert.match(testingContract, /unsupported commands/, testingPrompt);
     }
   });
+
+  test('keeps settlement and proof agents tolerant of imperfect evidence and manual task-shape errors', async () => {
+    for (const promptPath of [
+      'codeinfo_markdown/settle_agent_native_review_pass.md',
+      'codeinfo_markdown/apply_agent_native_review_settlement.md',
+      'codeinfo_markdown/audit_agent_native_review_settlement.md',
+    ]) {
+      const prompt = await read(promptPath);
+      assert.match(prompt, /attempts\//u, promptPath);
+      assert.match(prompt, /imperfect|imperfections/u, promptPath);
+      assert.match(prompt, /schemas|schema/u, promptPath);
+      assert.match(prompt, /Manual Testing Guidance/u, promptPath);
+      assert.match(prompt, /manual.*(?:blocker|blocking)/isu, promptPath);
+    }
+
+    for (const promptPath of [
+      'codeinfo_markdown/normalize_inconsistent_active_task.md',
+      'codeinfo_markdown/run_automated_proof_and_fix_issues.md',
+      'codeinfo_markdown/audit_after_automated_proof.md',
+      'codeinfo_markdown/research_blocker_impact_on_plan.md',
+    ]) {
+      const prompt = await read(promptPath);
+      assert.match(prompt, /by meaning|semantically/u, promptPath);
+      assert.match(prompt, /Manual Testing Guidance/u, promptPath);
+      assert.match(prompt, /remove only the misplaced checklist item/u, promptPath);
+      assert.match(prompt, /retire.*blocker/isu, promptPath);
+    }
+  });
 });

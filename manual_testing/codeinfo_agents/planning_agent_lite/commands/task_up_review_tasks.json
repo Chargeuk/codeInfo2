@@ -1,0 +1,75 @@
+{
+  "Description": "Task up newly added review-created todo tasks using a stronger scoped subset of task_up2 without re-tasking the whole story.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_task_enhancement/01-shared-contract.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "shared/final-task-creation.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_task_enhancement/02-select-scope.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_task_enhancement/02b-risk-and-prerequisite-scan.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_task_enhancement/05-compact-granularity.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/06-proof-matrix.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_task_enhancement/07-compact-proof-expansion.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/08-stateful-ui-proof.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_task_enhancement/09-compact-proof-and-testing.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/10-test-semantics-audit.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/11-review-preemption-audit.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/12-subtasks-and-testing-separation.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "task_up/13-junior-executor-audit.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_task_enhancement/03-finalize.md"
+    }
+  ]
+}

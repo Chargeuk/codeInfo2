@@ -5,12 +5,14 @@ Research the current blocker, prove the best technical solution, and record that
 <task>
 
 Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before classifying any Docker, Compose, occupied-port, or runtime-ownership blocker.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk if it exists, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine its meaning from what it contains rather than depending on an exact JSON shape.
 Load a fresh bounded blocker-repair packet before checking for blockers.
 If the current implementation does not contain a blocker, state that and stop.
 If the current implementation contains a blocker, you MUST research and prove the solution before work continues.
 Write the proven blocker answer into the implementation notes marked as `**BLOCKING ANSWER**`.
+Keep the task's existing parser-visible `**BLOCKER**` line intact while the required external state, terminal artifact, or prerequisite remains unavailable. A proven retry recipe is context, not blocker resolution. Do not rename the live blocker to `**RESOLVED ISSUE**`, remove it, or claim it is retired unless fresh evidence proves the blocking condition itself changed.
 
 </task>
 
@@ -60,7 +62,15 @@ If the implementation notes contain a blocker, your research must cover all of t
 4. Blocker-family classification
 
 - classify the blocker as one of: product or story seam; proof or test harness seam; shared wrapper or baseline seam; manual or runtime environment seam; task-shape or planning seam
+- Do not classify a proven repository-owned test stack as external or human-owned solely because the current agent did not start it. When its documented shutdown wrapper can reclaim it for the current proof, record that supported reclaim-and-retry path as immediately actionable rather than requiring a runtime handoff.
 - state whether the current task actually owns the blocker, or whether the evidence points to prerequisite baseline, harness, runtime-handoff, or task-shape repair
+
+5. Active runtime configuration
+
+- When the blocker involves a missing `$CODEINFO_ROOT` asset, mount, port, startup path, or other Compose-owned runtime surface, read `CODEINFO_RUNTIME_COMPOSE_FILE` from the current environment and inspect that exact checked-in Compose file first.
+- Do not use `docker-compose.yml` as evidence for a `docker-compose.local.yml` or e2e run merely because the main stack is the normal manual-proof surface.
+- Compare the active Compose mapping with the relevant Dockerfile. A file that exists in the harness repository but is neither mounted by the active Compose service nor copied into the image is a repository-owned provisioning defect, not unexplained external runtime state.
+- A running container cannot acquire a newly declared bind mount without recreation. Implement and prove the checked-in configuration repair when it is in scope, record that recreation is still required, and do not restart or stop `compose:local` from inside the flow.
 
 </research_rules>
 

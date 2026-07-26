@@ -71,6 +71,31 @@ const fallbackFilterState: ConversationFilterState = {
   archived: false,
 };
 
+type ConversationFlowWithTargetInput = NonNullable<
+  ConversationFlags['flow']
+> & {
+  input?: {
+    target?: {
+      target_id?: unknown;
+    };
+  };
+};
+
+const getConversationRootTargetId = (flags?: ConversationFlags) => {
+  const targetId = (flags?.flow as ConversationFlowWithTargetInput | undefined)
+    ?.input?.target?.target_id;
+  return typeof targetId === 'string' && targetId.length > 0
+    ? targetId
+    : undefined;
+};
+
+const getVisibleTargetLabel = (targetId: string) => {
+  if (targetId.length <= 32) return targetId;
+
+  const suffix = targetId.split('-').slice(-2).join('-');
+  return `…${suffix}`;
+};
+
 const normalizeVisibleFilterState = (state: ConversationFilterState) =>
   state.active || state.archived ? state : fallbackFilterState;
 
@@ -653,6 +678,9 @@ export function ConversationList({
                     conversation.provider,
                     conversation.model,
                   );
+                const rootTargetId = getConversationRootTargetId(
+                  conversation.flags,
+                );
                 const timestamp = formatConversationRowTimestamp(
                   conversation.lastMessageAt,
                   relativeTimeNowMs,
@@ -788,8 +816,79 @@ export function ConversationList({
                                   }}
                                 />
                               )}
+                            {conversation.flags?.flow?.subflowWaveProgress &&
+                              !conversation.flags?.flowChild?.executionId && (
+                                <Chip
+                                  label={`Wave ${
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .completed +
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .failed +
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .stopped +
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .notApplicable
+                                  }/${
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .expected
+                                  }`}
+                                  title={`Running ${conversation.flags.flow.subflowWaveProgress.running}; failed ${conversation.flags.flow.subflowWaveProgress.failed}; stopped ${conversation.flags.flow.subflowWaveProgress.stopped}; not applicable ${conversation.flags.flow.subflowWaveProgress.notApplicable}`}
+                                  size="small"
+                                  variant="outlined"
+                                  color={
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .failed > 0 ||
+                                    conversation.flags.flow.subflowWaveProgress
+                                      .stopped > 0
+                                      ? 'warning'
+                                      : 'success'
+                                  }
+                                  data-testid="conversation-wave-progress-chip"
+                                  sx={{
+                                    minWidth: 0,
+                                    maxWidth: '100%',
+                                    flexShrink: 1,
+                                    '& .MuiChip-label': {
+                                      px: { xs: 0.75, sm: 1 },
+                                      fontSize: {
+                                        xs: '0.67rem',
+                                        sm: '0.75rem',
+                                      },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    },
+                                  }}
+                                />
+                              )}
+                            {rootTargetId &&
+                              !conversation.flags?.flowChild?.instanceId && (
+                                <Chip
+                                  label={getVisibleTargetLabel(rootTargetId)}
+                                  size="small"
+                                  variant="outlined"
+                                  color="info"
+                                  data-testid="conversation-wave-target-chip"
+                                  sx={{
+                                    minWidth: 0,
+                                    maxWidth: '100%',
+                                    flexShrink: 0,
+                                    '& .MuiChip-label': {
+                                      px: { xs: 0.75, sm: 1 },
+                                      fontSize: {
+                                        xs: '0.67rem',
+                                        sm: '0.75rem',
+                                      },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    },
+                                  }}
+                                />
+                              )}
                             {conversation.flags?.flowChild?.executionId &&
-                              !conversation.flags?.flow?.executionId && (
+                              (!conversation.flags?.flow?.executionId ||
+                                conversation.flags.flowChild.instanceId) && (
                                 <Chip
                                   label={`Run ${conversation.flags.flowChild.executionId.split('-')[0]}`}
                                   size="small"
@@ -800,6 +899,33 @@ export function ConversationList({
                                     minWidth: 0,
                                     maxWidth: '100%',
                                     flexShrink: 1,
+                                    '& .MuiChip-label': {
+                                      px: { xs: 0.75, sm: 1 },
+                                      fontSize: {
+                                        xs: '0.67rem',
+                                        sm: '0.75rem',
+                                      },
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    },
+                                  }}
+                                />
+                              )}
+                            {conversation.flags?.flowChild?.instanceId &&
+                              conversation.flags.flowChild.targetId && (
+                                <Chip
+                                  label={getVisibleTargetLabel(
+                                    conversation.flags.flowChild.targetId,
+                                  )}
+                                  size="small"
+                                  variant="outlined"
+                                  color="info"
+                                  data-testid="conversation-wave-target-chip"
+                                  sx={{
+                                    minWidth: 0,
+                                    maxWidth: '100%',
+                                    flexShrink: 0,
                                     '& .MuiChip-label': {
                                       px: { xs: 0.75, sm: 1 },
                                       fontSize: {

@@ -1,6 +1,10 @@
 import { Router, json, type Request, type Response } from 'express';
 
-import { startFlowRun } from '../flows/service.js';
+import {
+  getFlowRunStatus,
+  startFlowRun,
+  stopFlowRun,
+} from '../flows/service.js';
 import type { FlowRunError } from '../flows/types.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { bindCurrentTestEnvOverrides } from '../test/support/testEnvOverrideScope.js';
@@ -8,6 +12,8 @@ import { getWorkingFolderClientMessage } from '../workingFolders/state.js';
 
 type Deps = {
   startFlowRun: typeof startFlowRun;
+  getFlowRunStatus: typeof getFlowRunStatus;
+  stopFlowRun: typeof stopFlowRun;
 };
 
 type FlowRunBody = {
@@ -18,6 +24,21 @@ type FlowRunBody = {
   working_folder?: unknown;
   resumeStepPath?: unknown;
   customTitle?: unknown;
+};
+
+const optionalNonBlankString = (
+  value: unknown,
+  name: string,
+  options: { trim?: boolean } = {},
+): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string') {
+    throw new Error(`${name} must be a string`);
+  }
+  if (value.trim().length === 0) {
+    return undefined;
+  }
+  return options.trim === false ? value : value.trim();
 };
 
 const isFlowRunError = (err: unknown): err is FlowRunError =>
@@ -38,64 +59,24 @@ const validateBody = (
 } => {
   const candidate = (body ?? {}) as FlowRunBody;
 
-  const rawConversationId = candidate.conversationId;
-  if (rawConversationId !== undefined && rawConversationId !== null) {
-    if (typeof rawConversationId !== 'string') {
-      throw new Error('conversationId must be a string');
-    }
-  }
-  const conversationId =
-    typeof rawConversationId === 'string' && rawConversationId.trim().length > 0
-      ? rawConversationId
-      : undefined;
-
-  const rawSourceId = candidate.sourceId;
-  if (rawSourceId !== undefined && rawSourceId !== null) {
-    if (typeof rawSourceId !== 'string') {
-      throw new Error('sourceId must be a string');
-    }
-  }
-  const sourceId =
-    typeof rawSourceId === 'string' && rawSourceId.trim().length > 0
-      ? rawSourceId.trim()
-      : undefined;
-
-  const rawRetryOwnershipId = candidate.retryOwnershipId;
-  if (rawRetryOwnershipId !== undefined && rawRetryOwnershipId !== null) {
-    if (typeof rawRetryOwnershipId !== 'string') {
-      throw new Error('retryOwnershipId must be a string');
-    }
-  }
-  const retryOwnershipId =
-    typeof rawRetryOwnershipId === 'string' &&
-    rawRetryOwnershipId.trim().length > 0
-      ? rawRetryOwnershipId.trim()
-      : undefined;
-
-  const rawCodexReviewModelId = candidate.codexReviewModelId;
-  if (
-    rawCodexReviewModelId !== undefined &&
-    rawCodexReviewModelId !== null &&
-    typeof rawCodexReviewModelId !== 'string'
-  ) {
-    throw new Error('codexReviewModelId must be a string');
-  }
-  const codexReviewModelId =
-    typeof rawCodexReviewModelId === 'string' &&
-    rawCodexReviewModelId.trim().length > 0
-      ? rawCodexReviewModelId.trim()
-      : undefined;
-
-  const rawWorkingFolder = candidate.working_folder;
-  if (rawWorkingFolder !== undefined && rawWorkingFolder !== null) {
-    if (typeof rawWorkingFolder !== 'string') {
-      throw new Error('working_folder must be a string');
-    }
-  }
-  const working_folder =
-    typeof rawWorkingFolder === 'string' && rawWorkingFolder.trim().length > 0
-      ? rawWorkingFolder.trim()
-      : undefined;
+  const conversationId = optionalNonBlankString(
+    candidate.conversationId,
+    'conversationId',
+    { trim: false },
+  );
+  const sourceId = optionalNonBlankString(candidate.sourceId, 'sourceId');
+  const retryOwnershipId = optionalNonBlankString(
+    candidate.retryOwnershipId,
+    'retryOwnershipId',
+  );
+  const codexReviewModelId = optionalNonBlankString(
+    candidate.codexReviewModelId,
+    'codexReviewModelId',
+  );
+  const working_folder = optionalNonBlankString(
+    candidate.working_folder,
+    'working_folder',
+  );
 
   const rawResumeStepPath = candidate.resumeStepPath;
   if (rawResumeStepPath !== undefined && rawResumeStepPath !== null) {
@@ -140,170 +121,219 @@ const validateBody = (
   };
 };
 
-export function createFlowsRunRouter(
-  deps: Deps = {
+export function createFlowsRunRouter(overrides: Partial<Deps> = {}) {
+  const deps: Deps = {
     startFlowRun,
-  },
-) {
+    getFlowRunStatus,
+    stopFlowRun,
+    ...overrides,
+  };
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
   router.use(json({ limit: `${maxClientBytes}b`, strict: false }));
 
-  router.post('/flows/:flowName/run', bindCurrentTestEnvOverrides(async (req: Request, res: Response) => {
-    const requestId =
-      (res.locals?.requestId as string | undefined) ?? undefined;
-    const flowName = String(req.params.flowName ?? '').trim();
-    if (!flowName) {
-      return res.status(400).json({ error: 'invalid_request' });
-    }
+  router.get(
+    '/flows/runs/:conversationId',
+    bindCurrentTestEnvOverrides(async (req: Request, res: Response) => {
+      const conversationId = String(req.params.conversationId ?? '').trim();
+      if (!conversationId) {
+        return res.status(400).json({ error: 'invalid_request' });
+      }
+      try {
+        const result = await deps.getFlowRunStatus(conversationId);
+        if (!result) return res.status(404).json({ error: 'not_found' });
+        return res.json(result);
+      } catch (err) {
+        return res.status(500).json({
+          error: 'server_error',
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }),
+  );
 
-    const rawSize = JSON.stringify(req.body ?? {}).length;
-    if (rawSize > maxClientBytes) {
-      return res.status(400).json({ error: 'payload too large' });
-    }
-
-    let parsedBody: {
-      conversationId?: string;
-      retryOwnershipId?: string;
-      codexReviewModelId?: string;
-      sourceId?: string;
-      working_folder?: string;
-      resumeStepPath?: number[];
-      customTitle?: string;
-    };
-    try {
-      parsedBody = validateBody(req.body);
-    } catch (err) {
-      return res
-        .status(400)
-        .json({ error: 'invalid_request', message: (err as Error).message });
-    }
-
-    baseLogger.info(
-      {
-        requestId,
-        flowName,
-        customTitleProvided: Boolean(parsedBody.customTitle),
-        customTitleLength: parsedBody.customTitle?.length ?? 0,
-        retryOwnershipIdProvided: Boolean(parsedBody.retryOwnershipId),
-      },
-      'flows.run.custom_title.validated',
-    );
-
-    try {
-      const result = await deps.startFlowRun({
-        flowName,
-        conversationId: parsedBody.conversationId,
-        retryOwnershipId: parsedBody.retryOwnershipId,
-        codexReviewModelId: parsedBody.codexReviewModelId,
-        sourceId: parsedBody.sourceId,
-        working_folder: parsedBody.working_folder,
-        resumeStepPath: parsedBody.resumeStepPath,
-        customTitle: parsedBody.customTitle,
-        source: 'REST',
+  router.post(
+    '/flows/runs/:conversationId/stop',
+    bindCurrentTestEnvOverrides(async (req: Request, res: Response) => {
+      const conversationId = String(req.params.conversationId ?? '').trim();
+      if (!conversationId) {
+        return res.status(400).json({ error: 'invalid_request' });
+      }
+      const accepted = deps.stopFlowRun(conversationId);
+      if (!accepted) {
+        return res.status(409).json({
+          error: 'conflict',
+          code: 'FLOW_NOT_RUNNING',
+          message: 'The flow conversation has no active run.',
+        });
+      }
+      return res.status(202).json({
+        status: 'stopping',
+        conversationId,
       });
+    }),
+  );
+
+  router.post(
+    '/flows/:flowName/run',
+    bindCurrentTestEnvOverrides(async (req: Request, res: Response) => {
+      const requestId =
+        (res.locals?.requestId as string | undefined) ?? undefined;
+      const flowName = String(req.params.flowName ?? '').trim();
+      if (!flowName) {
+        return res.status(400).json({ error: 'invalid_request' });
+      }
+
+      const rawSize = JSON.stringify(req.body ?? {}).length;
+      if (rawSize > maxClientBytes) {
+        return res.status(400).json({ error: 'payload too large' });
+      }
+
+      let parsedBody: {
+        conversationId?: string;
+        retryOwnershipId?: string;
+        codexReviewModelId?: string;
+        sourceId?: string;
+        working_folder?: string;
+        resumeStepPath?: number[];
+        customTitle?: string;
+      };
+      try {
+        parsedBody = validateBody(req.body);
+      } catch (err) {
+        return res
+          .status(400)
+          .json({ error: 'invalid_request', message: (err as Error).message });
+      }
 
       baseLogger.info(
         {
           requestId,
           flowName,
-          conversationId: result.conversationId,
-          inflightId: result.inflightId,
+          customTitleProvided: Boolean(parsedBody.customTitle),
+          customTitleLength: parsedBody.customTitle?.length ?? 0,
+          retryOwnershipIdProvided: Boolean(parsedBody.retryOwnershipId),
         },
-        'flows run started',
+        'flows.run.custom_title.validated',
       );
 
-      return res.status(202).json({
-        status: 'started',
-        flowName,
-        conversationId: result.conversationId,
-        inflightId: result.inflightId,
-        providerId: result.providerId,
-        modelId: result.modelId,
-        ...(result.warnings ? { warnings: result.warnings } : {}),
-      });
-    } catch (err) {
-      if (isFlowRunError(err)) {
-        if (err.code === 'FLOW_NOT_FOUND') {
-          return res
-            .status(404)
-            .json({ error: 'not_found', code: err.code, message: err.reason });
-        }
-        if (err.code === 'CONVERSATION_ARCHIVED') {
-          return res
-            .status(410)
-            .json({ error: 'archived', code: err.code, message: err.reason });
-        }
-        if (err.code === 'RUN_IN_PROGRESS') {
-          return res.status(409).json({
-            error: 'conflict',
-            code: 'RUN_IN_PROGRESS',
-            message:
-              err.reason ??
-              'A run is already in progress for this conversation.',
-          });
-        }
-        if (
-          err.code === 'CODEX_UNAVAILABLE' ||
-          err.code === 'PROVIDER_UNAVAILABLE'
-        ) {
-          return res.status(503).json({
-            error: 'provider_unavailable',
-            code: err.code,
-            reason: err.reason,
-          });
-        }
-        if (err.code === 'INVALID_PROVIDER') {
-          return res.status(409).json({
-            error: 'agent_disabled',
-            code: err.code,
-            reason: err.reason,
-          });
-        }
-        if (err.code === 'AGENT_MISMATCH') {
-          return res.status(400).json({
-            error: 'agent_mismatch',
-            message: err.reason ?? 'resume agent mismatch',
-          });
-        }
-        if (
-          err.code === 'WORKING_FOLDER_INVALID' ||
-          err.code === 'WORKING_FOLDER_NOT_FOUND'
-        ) {
-          return res.status(400).json({
-            error: 'invalid_request',
-            code: err.code,
-            message: err.reason ?? 'working_folder validation failed',
-          });
-        }
-        if (
-          err.code === 'WORKING_FOLDER_UNAVAILABLE' ||
-          err.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
-        ) {
-          return res.status(503).json({
-            error: 'working_folder_unavailable',
-            code: err.code,
-            message: getWorkingFolderClientMessage(err),
-          });
-        }
-        if (err.code === 'INVALID_REQUEST') {
+      try {
+        const result = await deps.startFlowRun({
+          flowName,
+          conversationId: parsedBody.conversationId,
+          retryOwnershipId: parsedBody.retryOwnershipId,
+          codexReviewModelId: parsedBody.codexReviewModelId,
+          sourceId: parsedBody.sourceId,
+          working_folder: parsedBody.working_folder,
+          resumeStepPath: parsedBody.resumeStepPath,
+          customTitle: parsedBody.customTitle,
+          source: 'REST',
+        });
+
+        baseLogger.info(
+          {
+            requestId,
+            flowName,
+            conversationId: result.conversationId,
+            inflightId: result.inflightId,
+          },
+          'flows run started',
+        );
+
+        return res.status(202).json({
+          status: 'started',
+          flowName,
+          conversationId: result.conversationId,
+          inflightId: result.inflightId,
+          providerId: result.providerId,
+          modelId: result.modelId,
+          ...(result.warnings ? { warnings: result.warnings } : {}),
+        });
+      } catch (err) {
+        if (isFlowRunError(err)) {
+          if (err.code === 'FLOW_NOT_FOUND') {
+            return res.status(404).json({
+              error: 'not_found',
+              code: err.code,
+              message: err.reason,
+            });
+          }
+          if (err.code === 'CONVERSATION_ARCHIVED') {
+            return res
+              .status(410)
+              .json({ error: 'archived', code: err.code, message: err.reason });
+          }
+          if (err.code === 'RUN_IN_PROGRESS') {
+            return res.status(409).json({
+              error: 'conflict',
+              code: 'RUN_IN_PROGRESS',
+              message:
+                err.reason ??
+                'A run is already in progress for this conversation.',
+            });
+          }
+          if (
+            err.code === 'CODEX_UNAVAILABLE' ||
+            err.code === 'PROVIDER_UNAVAILABLE'
+          ) {
+            return res.status(503).json({
+              error: 'provider_unavailable',
+              code: err.code,
+              reason: err.reason,
+            });
+          }
+          if (err.code === 'INVALID_PROVIDER') {
+            return res.status(409).json({
+              error: 'agent_disabled',
+              code: err.code,
+              reason: err.reason,
+            });
+          }
+          if (err.code === 'AGENT_MISMATCH') {
+            return res.status(400).json({
+              error: 'agent_mismatch',
+              message: err.reason ?? 'resume agent mismatch',
+            });
+          }
+          if (
+            err.code === 'WORKING_FOLDER_INVALID' ||
+            err.code === 'WORKING_FOLDER_NOT_FOUND'
+          ) {
+            return res.status(400).json({
+              error: 'invalid_request',
+              code: err.code,
+              message: err.reason ?? 'working_folder validation failed',
+            });
+          }
+          if (
+            err.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+            err.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+          ) {
+            return res.status(503).json({
+              error: 'working_folder_unavailable',
+              code: err.code,
+              message: getWorkingFolderClientMessage(err),
+            });
+          }
+          if (err.code === 'INVALID_REQUEST') {
+            return res.status(400).json({
+              error: 'invalid_request',
+              code: err.code,
+              message: err.reason ?? 'flow run validation failed',
+            });
+          }
           return res.status(400).json({
             error: 'invalid_request',
             code: err.code,
             message: err.reason ?? 'flow run validation failed',
           });
         }
-        return res.status(400).json({
-          error: 'invalid_request',
-          code: err.code,
-          message: err.reason ?? 'flow run validation failed',
-        });
-      }
 
-      baseLogger.error({ requestId, flowName, err }, 'flows run failed');
-      return res.status(500).json({ error: 'flow_run_failed' });
-    }
-  }));
+        baseLogger.error({ requestId, flowName, err }, 'flows run failed');
+        return res.status(500).json({ error: 'flow_run_failed' });
+      }
+    }),
+  );
 
   return router;
 }

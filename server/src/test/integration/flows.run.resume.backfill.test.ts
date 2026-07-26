@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { execFile as execFileCallback } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
@@ -29,6 +31,8 @@ import {
 } from '../support/codexAvailabilityBootstrap.js';
 import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+
+const execFile = promisify(execFileCallback);
 
 const waitFor = async (
   predicate: () => boolean,
@@ -143,6 +147,11 @@ const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
     },
     async () => await run(),
   );
+
+const trackFixtureFiles = async (root: string, files: string[]) => {
+  await execFile('git', ['-C', root, 'init']);
+  await execFile('git', ['-C', root, 'add', '--', ...files]);
+};
 
 const writeResumeFlow = async (dir: string) => {
   const flow = {
@@ -278,6 +287,10 @@ const writeConditionalWaitResumeFlow = async (dir: string) => {
       2,
     ),
   );
+  await trackFixtureFiles(dir, [
+    'scripts/select-then.py',
+    'conditional-wait-resume.json',
+  ]);
 };
 
 class MinimalChat extends ChatInterface {
@@ -911,6 +924,11 @@ test('startup recovery re-registers persisted waits through the normal startup p
             },
           };
         },
+        resumeFlowRun: async (params) =>
+          await startFlowRun({
+            ...params,
+            chatFactory: () => new TrackingChat(),
+          }),
       });
 
       await resumePendingFlowWaitsForStartup();
@@ -1347,6 +1365,10 @@ test('exhausted nested GitHub review recovery skips the marked review branch', a
       2,
     ),
   );
+  await trackFixtureFiles(tmpDir, [
+    'scripts/yes.py',
+    'github-recovery-scope.json',
+  ]);
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
@@ -1768,12 +1790,8 @@ test('wake-time run ownership collision does not restore wait state after the ac
       assert.ok(initialWake, 'expected captured wake callback');
       initialWake();
 
-      await waitFor(
-        () => wakes.length > 0,
-        10000,
-        50,
-        () => describeResumeBackfillState(conversationId),
-      );
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(wakes.length, 0);
       assert.equal(getPersistedWaitState(conversationId), undefined);
       const flowState = memoryConversations.get(conversationId)?.flags?.flow as
         | { stepPath?: number[] }
@@ -1958,25 +1976,20 @@ test('startup recovery retires a persisted wait after a durable invalid-state co
         () => describeResumeBackfillState(conversationId),
       );
 
-      await fs.writeFile(
-        path.join(tmpDir, 'wait-resume.json'),
-        JSON.stringify(
-          {
-            description: 'Wait resume backfill flow with removed wait step',
-            steps: [
-              {
-                type: 'llm',
-                label: 'Step 1',
-                agentType: 'coding_agent',
-                identifier: 'resume-test',
-                messages: [{ role: 'user', content: ['Step 1'] }],
-              },
-            ],
-          },
-          null,
-          2,
-        ),
-      );
+      __setFlowWaitResumeDepsForTests({
+        now: () => 1_700_000_000_000,
+        nowIso: () => '2026-06-29T18:00:00.000Z',
+        scheduleWake: ({ onWake }) => {
+          wakes.push(onWake);
+          return { cancel: () => {} };
+        },
+        resumeFlowRun: async () => {
+          throw Object.assign(new Error('resumeStepPath out of range'), {
+            code: 'INVALID_REQUEST',
+            reason: 'resumeStepPath out of range',
+          });
+        },
+      });
 
       wakes.length = 0;
       await resumePendingFlowWaitsForStartup();

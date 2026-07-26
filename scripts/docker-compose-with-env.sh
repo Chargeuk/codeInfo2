@@ -28,6 +28,30 @@ docker_cmd() {
   "${DOCKER_BIN}" "$@"
 }
 
+resolve_display_locale() {
+  if [ -n "${CODEINFO_DISPLAY_LOCALE:-}" ]; then
+    printf '%s\n' "${CODEINFO_DISPLAY_LOCALE}"
+    return 0
+  fi
+
+  node -e '
+const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+process.stdout.write(locale || "en-US");
+'
+}
+
+resolve_display_time_zone() {
+  if [ -n "${CODEINFO_DISPLAY_TIME_ZONE:-}" ]; then
+    printf '%s\n' "${CODEINFO_DISPLAY_TIME_ZONE}"
+    return 0
+  fi
+
+  node -e '
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+process.stdout.write(timeZone || "UTC");
+'
+}
+
 PORT_PROBE_LAST_ERROR=""
 
 json_bool() {
@@ -781,6 +805,8 @@ export CODEINFO_DOCKER_RUNTIME_SUPPLEMENTARY_GIDS="${RUNTIME_SUPPLEMENTARY_GIDS}
 export CODEINFO_DOCKER_SOCKET_PATH="${SOCKET_PATH}"
 export CODEINFO_RUNTIME_CODEINFO_CONFIG_DIR="$(resolve_runtime_codeinfo_config_dir)"
 export CODEINFO_HOST_CODEX_HOME="$(resolve_host_codex_home_dir)"
+export CODEINFO_DISPLAY_LOCALE="$(resolve_display_locale)"
+export CODEINFO_DISPLAY_TIME_ZONE="$(resolve_display_time_zone)"
 
 compose_args="$*"
 if [[ "${compose_args}" == *"--env-file .env.e2e"* ]]; then

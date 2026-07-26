@@ -204,40 +204,40 @@ const waitFor = async (
 };
 
 const describeRelevantFlowRuntimeLogs = (conversationId: string): string =>
-  JSON.stringify(
-    {
-      runtimeLogs: query({ text: 'flows.test.' }, 300)
-        .filter((entry) => entry.context?.conversationId === conversationId)
-        .slice(-25)
-        .map((entry) => ({
-          message: entry.message,
-          context: entry.context,
-        })),
-      runtimeResolutionLogs: query(
-        { text: 'flows.test.runtime_resolution_' },
-        120,
+  JSON.stringify({
+    runtimeLogs: query({ text: 'flows.test.' }, 300)
+      .filter((entry) => entry.context?.conversationId === conversationId)
+      .slice(-25)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+    runtimeResolutionLogs: query(
+      { text: 'flows.test.runtime_resolution_' },
+      120,
+    )
+      .filter((entry) => entry.context?.conversationId === conversationId)
+      .slice(-25)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+    runtimeConfigLogs: query({ text: 'runtime.' }, 120)
+      .filter(
+        (entry) =>
+          entry.message.startsWith('runtime.chat_config_') ||
+          entry.message.startsWith('runtime.runtime_config_resolution_'),
       )
-        .filter((entry) => entry.context?.conversationId === conversationId)
-        .slice(-25)
-        .map((entry) => ({
-          message: entry.message,
-          context: entry.context,
-        })),
-      runtimeConfigLogs: query({ text: 'runtime.' }, 120)
-        .filter(
-          (entry) =>
-            entry.message.startsWith('runtime.chat_config_') ||
-            entry.message.startsWith('runtime.runtime_config_resolution_'),
-        )
-        .slice(-25)
-        .map((entry) => ({
-          message: entry.message,
-          context: entry.context,
-        })),
-    },
-  );
+      .slice(-25)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+  });
 
-const summarizeFlowChildAgentConversations = (conversationId: string): string => {
+const summarizeFlowChildAgentConversations = (
+  conversationId: string,
+): string => {
   const conversation = memoryConversations.get(conversationId);
   const flowFlags = (conversation?.flags ?? {}) as {
     flow?: { agentConversations?: Record<string, string> };
@@ -920,6 +920,63 @@ test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
   }
 });
 
+test('POST /flows/:flowName/run normalizes blank optional identifiers to omission', async () => {
+  const starts: Array<Parameters<typeof startFlowRun>[0]> = [];
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (async (params) => {
+        starts.push(params);
+        return {
+          flowName: params.flowName,
+          conversationId: 'flow-run-admission',
+          inflightId: 'flow-run-admission-inflight',
+          providerId: 'codex',
+          modelId: 'test-model',
+        };
+      }) as typeof startFlowRun,
+    }),
+  );
+
+  const omitted = await supertest(app)
+    .post('/flows/llm-basic/run')
+    .send({})
+    .expect(202);
+  assert.equal(omitted.body.status, 'started');
+  assert.deepEqual(starts, [
+    {
+      flowName: 'llm-basic',
+      conversationId: undefined,
+      retryOwnershipId: undefined,
+      codexReviewModelId: undefined,
+      sourceId: undefined,
+      working_folder: undefined,
+      resumeStepPath: undefined,
+      customTitle: undefined,
+      source: 'REST',
+    },
+  ]);
+
+  const identifierFields = [
+    'conversationId',
+    'retryOwnershipId',
+    'codexReviewModelId',
+    'sourceId',
+    'working_folder',
+  ] as const;
+  for (const field of identifierFields) {
+    for (const value of ['', '   ']) {
+      const response = await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({ [field]: value })
+        .expect(202);
+      assert.equal(response.body.status, 'started');
+      assert.equal(starts.at(-1)?.[field], undefined);
+    }
+  }
+  assert.equal(starts.length, 1 + identifierFields.length * 2);
+});
+
 test('fresh flow start creates a new parent conversation when an older conversationId is supplied', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-fresh-parent-'),
@@ -1386,11 +1443,15 @@ test('retryOwnershipPending replay distinguishes still running, finished, and ac
     assert.deepEqual(replayAfterCompletion, firstResult);
     await waitForTurnCountToStay(firstResult.conversationId, 2);
 
-    const firstConversation = memoryConversations.get(firstResult.conversationId);
+    const firstConversation = memoryConversations.get(
+      firstResult.conversationId,
+    );
     assert.ok(firstConversation, 'expected original retry conversation');
-    const originalFlow = ((firstConversation.flags ?? {}) as {
-      flow?: Record<string, unknown>;
-    }).flow;
+    const originalFlow = (
+      (firstConversation.flags ?? {}) as {
+        flow?: Record<string, unknown>;
+      }
+    ).flow;
     assert.ok(originalFlow, 'expected persisted flow state');
 
     memoryConversations.set(firstResult.conversationId, {
@@ -1439,6 +1500,7 @@ test('retryOwnershipPending replay distinguishes still running, finished, and ac
       'flow-retry-ownership-finished',
       'flow-retry-ownership-crash-retry',
     );
+    cleanupMemory('flow-retry-ownership-a', 'flow-retry-ownership-b');
     __resetFreshRunRetryOwnershipCompletionForTests();
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -1576,6 +1638,8 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
         assert.equal(result.conversationId, conversationId);
         await waitFor(() => updateAttempts > 0, 30000);
         await waitForConversationUnlocked(conversationId, 30000);
+        await waitFor(() => updateAttempts > 0, 20000);
+        await waitForConversationUnlocked(conversationId, 20000);
 
         assert.ok(updateAttempts > 0);
         assert.equal(turns.length, 0);
@@ -1989,9 +2053,15 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
             void _flags;
             void _model;
             executeStarted = true;
-            this.emit('thread', { type: 'thread', threadId: childConversationId });
+            this.emit('thread', {
+              type: 'thread',
+              threadId: childConversationId,
+            });
             this.emit('final', { type: 'final', content: 'ok' });
-            this.emit('complete', { type: 'complete', threadId: childConversationId });
+            this.emit('complete', {
+              type: 'complete',
+              threadId: childConversationId,
+            });
           }
         })(),
       listIngestedRepositories: async () => ({
@@ -2001,10 +2071,7 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
     });
 
     assert.notEqual(result.conversationId, conversationId);
-    await waitFor(
-      () => executeStarted,
-      4000,
-    );
+    await waitFor(() => executeStarted, 4000);
 
     await waitForTurns(
       result.conversationId,
@@ -2104,12 +2171,7 @@ test('flow llm.markdownFile prefers the parent flow repository before codeInfo2'
 
 test('ingested flows execute with the agent configuration that made them discoverable', async () => {
   await withMarkdownFlowHarness(
-    async ({
-      tempRoot,
-      buildRepoEntry,
-      writeFlowFile,
-      runFlow,
-    }) => {
+    async ({ tempRoot, buildRepoEntry, writeFlowFile, runFlow }) => {
       const sourceRepo = path.join(tempRoot, 'repo-agent-owner');
       const flowName = 'repository-agent-flow';
       const conversationId = 'flow-repository-agent-owner';
@@ -2255,9 +2317,7 @@ test('github review open PR keeps the created identity when post-create reconcil
           if (joined === 'rev-parse HEAD') {
             return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
           }
-          if (
-            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
-          ) {
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
             return {
               exitCode: 0,
               stdout:
@@ -2423,9 +2483,7 @@ test('github review open PR records recovered gh pr create ambiguity without a t
           if (joined === 'rev-parse HEAD') {
             return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
           }
-          if (
-            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
-          ) {
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
             return {
               exitCode: 0,
               stdout:
@@ -2537,20 +2595,27 @@ test('github review fetch without an open pull request publishes completed-with-
       'utf8',
     );
     __setGitHubReviewDepsForTests({
-      readFile: async (filePath, encoding) => await fs.readFile(filePath, encoding),
+      readFile: async (filePath, encoding) =>
+        await fs.readFile(filePath, encoding),
       runCommand: async ({ command, args }) => {
         if (command === 'git') {
           const joined = args.join(' ');
           if (joined === 'branch --show-current') {
-            return { exitCode: 0, stdout: 'feature/0000060-test\n', stderr: '' };
+            return {
+              exitCode: 0,
+              stdout: 'feature/0000060-test\n',
+              stderr: '',
+            };
           }
           if (joined === 'rev-parse HEAD') {
             return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
           }
-          if (
-            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
-          ) {
-            return { exitCode: 0, stdout: 'origin/feature/0000060-test\n', stderr: '' };
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+            return {
+              exitCode: 0,
+              stdout: 'origin/feature/0000060-test\n',
+              stderr: '',
+            };
           }
           if (joined === 'remote get-url origin') {
             return {
@@ -2588,6 +2653,18 @@ test('github review fetch without an open pull request publishes completed-with-
       flowName: 'github-no-open-pr',
       steps: [{ type: 'github_fetch_reviews', label: 'Fetch reviews' }],
     });
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-adjacent-ok',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          messages: [{ role: 'user', content: ['Still OK'] }],
+        },
+      ],
+    });
 
     const warningConversationId = 'github-no-open-pr-conversation';
     await startFlowRun({
@@ -2615,25 +2692,16 @@ test('github review fetch without an open pull request publishes completed-with-
     assert.equal(warningTurn.status, 'warning');
     assert.match(warningTurn.content, /no latest open pull request/i);
 
-    await writeFlowFile({
-      flowsRoot: tempFlowsDir,
-      flowName: 'github-adjacent-ok',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'coding_agent',
-          identifier: 'basic',
-          messages: [{ role: 'user', content: ['Still OK'] }],
-        },
-      ],
-    });
-
     const okConversationId = 'github-adjacent-ok-conversation';
     await startFlowRun({
       flowName: 'github-adjacent-ok',
       conversationId: okConversationId,
       source: 'REST',
       chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [],
+        lockedModelId: null,
+      }),
     });
 
     await waitForTurns(
@@ -2673,14 +2741,16 @@ test('resumed github review warning-stop stays provider-free until a later provi
         if (command === 'git') {
           const joined = args.join(' ');
           if (joined === 'branch --show-current') {
-            return { exitCode: 0, stdout: 'feature/0000060-test\n', stderr: '' };
+            return {
+              exitCode: 0,
+              stdout: 'feature/0000060-test\n',
+              stderr: '',
+            };
           }
           if (joined === 'rev-parse HEAD') {
             return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
           }
-          if (
-            joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}'
-          ) {
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
             return {
               exitCode: 0,
               stdout: 'origin/feature/0000060-test\n',
@@ -2734,7 +2804,9 @@ test('resumed github review warning-stop stays provider-free until a later provi
           type: 'llm',
           agentType: 'coding_agent',
           identifier: 'basic',
-          messages: [{ role: 'user', content: ['Should never run after warning'] }],
+          messages: [
+            { role: 'user', content: ['Should never run after warning'] },
+          ],
         },
       ],
     });
@@ -2801,7 +2873,10 @@ test('resumed github review warning-stop stays provider-free until a later provi
       'resume should not bootstrap a second provider-backed step before the warning-stop seam finishes',
     );
   } finally {
-    cleanupMemory(conversationId, ...collectAgentConversationIds(conversationId));
+    cleanupMemory(
+      conversationId,
+      ...collectAgentConversationIds(conversationId),
+    );
     __resetGitHubReviewDepsForTests();
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
@@ -647,6 +648,15 @@ const subscribeConversation = (ws: WebSocket, conversationId: string) => {
   sendJson(ws, { type: 'subscribe_conversation', conversationId });
 };
 
+const startSubscribedFlowRun = async (
+  ws: WebSocket,
+  params: Parameters<typeof startFlowRun>[0],
+) => {
+  const conversationId = params.conversationId ?? randomUUID();
+  subscribeConversation(ws, conversationId);
+  return await startFlowRun({ ...params, conversationId });
+};
+
 test('POST /flows/:flowName/run returns 404 for missing flow file', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-missing-'),
@@ -1075,6 +1085,11 @@ test('continueOnFailure does not strand a following persisted authored wait', as
         wakes.push(onWake);
         return { cancel: () => {} };
       },
+      resumeFlowRun: async (params) =>
+        await startFlowRun({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+        }),
     });
 
     await writeFlowFile({
@@ -1257,12 +1272,11 @@ test('malformed sourceId stops the dedicated flow reingest step before later ste
       }),
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-invalid-source',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1286,12 +1300,11 @@ test('missing working folder stops dedicated flow target working before later st
       steps: [{ type: 'reingest', target: 'working' }, makeLlmStep()],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-working-missing-folder',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     const final = await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1318,12 +1331,11 @@ test('missing working folder stops dedicated flow target plan_scope before later
       steps: [{ type: 'reingest', target: 'plan_scope' }, makeLlmStep()],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-plan-scope-missing-folder',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     const final = await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1360,12 +1372,11 @@ test('unknown sourceId stops the dedicated flow reingest step before later steps
       }),
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-unknown-source',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1391,7 +1402,7 @@ test('selected working repository must already be ingested for dedicated flow ta
     });
     let listCallCount = 0;
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-plan-scope-not-ingested',
       source: 'REST',
       working_folder: workingRoot,
@@ -1408,7 +1419,6 @@ test('selected working repository must already be ingested for dedicated flow ta
         lockedModelId: null,
       }),
     });
-    subscribeConversation(ws, result.conversationId);
     const final = await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1445,12 +1455,11 @@ test('queue-unavailable reingest refusal stops the dedicated flow clearly', asyn
       }),
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-busy',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1482,12 +1491,11 @@ test('shared prestart formatter fallback stays aligned for dedicated flow failur
       }),
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-format-fallback',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -2737,12 +2745,11 @@ test('flows containing only dedicated reingest steps start with the fallback mod
       createCallId: () => 'call-only',
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-only-flow',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     assert.equal(result.modelId, 'gpt-5.6-sol');
     await waitForFlowFinal({
       ws,
@@ -2777,12 +2784,11 @@ test('dedicated reingest steps publish live and persisted flow metadata without 
       createCallId: () => 'call-metadata',
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-metadata',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     const snapshot = await waitForEvent({
       ws,
       predicate: (
@@ -2865,12 +2871,11 @@ test('multiple dedicated reingest steps targeting the same sourceId keep distinc
       },
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-double',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -2909,16 +2914,17 @@ test('shared decision seam fails hard for missing script file', async () => {
         ],
       });
 
+      const conversationId = randomUUID();
+      subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/missing-script-flow/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
         });
       assert.equal(result.status, 202);
 
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
       const final = await waitForFlowFinal({
         ws,
         conversationId,
@@ -3093,16 +3099,17 @@ test('shared decision seam rejects script symlinks that escape the worked reposi
           ],
         });
 
+        const conversationId = randomUUID();
+        subscribeConversation(ws, conversationId);
         const result = await supertest(baseUrl)
           .post('/flows/symlink-escape-flow/run')
           .send({
+            conversationId,
             source: 'REST',
             working_folder: tmpDir,
           });
         assert.equal(result.status, 202);
 
-        const conversationId = result.body.conversationId;
-        subscribeConversation(ws, conversationId);
         const final = await waitForFlowFinal({
           ws,
           conversationId,

@@ -595,15 +595,22 @@ describe('POST /copilot/device-auth integration behavior', () => {
     const [resA, resB] = await Promise.all([reqA, reqB]);
     assert.equal(resA.status, 200);
     assert.equal(resB.status, 200);
-    assert.equal(resA.body.state, 'verification_ready');
-    assert.deepEqual(resB.body, {
-      provider: 'copilot',
-      state: 'completion_pending',
-      verificationUrl: 'https://github.com/login/device',
-      userCode: 'ABCD-EFGH',
-      displayOutput:
+    assert.deepEqual(
+      [resA.body.state, resB.body.state].sort(),
+      ['completion_pending', 'verification_ready'],
+    );
+    for (const response of [resA, resB]) {
+      assert.equal(response.body.provider, 'copilot');
+      assert.equal(
+        response.body.verificationUrl,
+        'https://github.com/login/device',
+      );
+      assert.equal(response.body.userCode, 'ABCD-EFGH');
+      assert.equal(
+        response.body.displayOutput,
         'To continue signing in with GitHub Copilot:\n1. Open https://github.com/login/device\n2. Enter one-time code ABCD-EFGH',
-    });
+      );
+    }
     assert.equal(runCopilotDeviceAuth.mock.calls.length, 1);
   });
 

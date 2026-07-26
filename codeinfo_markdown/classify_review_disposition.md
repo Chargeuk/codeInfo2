@@ -1,15 +1,20 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and apply its wave-mode artifact, validation, ownership, and legacy-fallback rules.
+
 Classify the current review outcome into a machine-readable flow-state file for the review loop.
 
 This step is a traffic controller only. It must not fix findings, task up findings, or mutate the canonical plan.
 
 <critical_rules>
 
-- Read the prepared review base and `codeInfoTmp/reviews/<story-number>-current-review-validation.json` before classification. Accept overall `passed` or `partial` validation for the exact canonical seven-digit story, plan, review session, review pass, parent execution, HEAD, and comparison base recorded by the canonical handoff. Classify findings only from reviewer entries marked usable.
+- When `codeInfoTmp/reviews/<story-number>-current-review-set.json` exists, read it with the matching `current-review-wave-validation.json`, require exact wave identity, and classify only completed or partial job results and their aggregated findings.
+- A review set with `closeout_allowed: false` cannot produce a clean/no-findings classification. Missing or unusable cross-repository coverage is an `incomplete_review_blockers` entry when `cross_repository_required` is true; its intentional absence from a slow wave with `cross_repository_required: false` is not a blocker.
+- In wave mode, classify only completed or partial review-set jobs whose embedded server-owned validation is usable and exactly matches the target, review cycle, wave, canonical seven-digit story, plan, review session, review pass, HEAD, and comparison base; do not require the legacy plan-host `current-review-validation.json`. When no review set exists, read the prepared review base and `codeInfoTmp/reviews/<story-number>-current-review-validation.json`, accept overall `passed` or `partial` legacy validation for the exact canonical handoff identity, and classify findings only from reviewer entries marked usable.
 - Never infer, normalize, repair, or substitute machine identity fields. When at least one reviewer remains usable, record failed, missing, partial, or stale sibling-reviewer coverage as a non-blocking entry in `classification_notes`, continue classifying trustworthy findings, and do not create an `incomplete_review_blockers` entry solely for that lost coverage. Use `incomplete_review_blockers` only when no reviewer is usable or the surviving artifacts do not provide a trustworthy canonical review basis. When no reviewer is usable, do not claim there were no findings.
 
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
+- When `codeInfoStatus/flow-state/active-review-cycle.json` exists, read it immediately after `current-plan.json`. Require exact canonical story, plan, `status: "in_progress"`, and `review_mode: "final"` agreement with the current review artifacts. Use its `review_cycle_id` as authoritative; never preserve or mint a different cycle ID for that launch.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before classifying the review.
 - Derive the story number from `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 - Do not discover review artifacts by timestamp.
@@ -19,6 +24,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - Do not edit the canonical plan, review artifacts, code, tests, docs, or configuration in this step.
 - The only file this step may create or update is `codeInfoStatus/flow-state/review-disposition-state.json`.
 - Treat `codeInfoStatus/flow-state/review-disposition-state.json` as generated flow state. Do not commit it unless a later human explicitly asks to persist runtime state.
+- This classifier participates in a two-phase review cycle when same-cycle state contains `review_phase: "fast"` or `review_phase: "slow"`. Preserve that phase and its cumulative counters exactly; phase-transition prompts own changing it.
 
 </critical_rules>
 
@@ -42,7 +48,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 6. Read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
 7. Read the `findings_file` referenced by the review handoff directly from disk, for example with `cat <findings_file>`, or safely infer it from the handoff and artifact naming only when necessary.
 8. Read `saturation_file` and `challenge_file` when present or safely inferable. Treat them as additive context, not as replacements for the findings artifact.
-9. Read the previous `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Preserve prior minor-fix loop history only when it clearly belongs to the same story and same canonical plan.
+9. Read the previous `codeInfoStatus/flow-state/review-disposition-state.json` from disk when it exists, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`. Preserve prior minor-fix loop history only when it belongs to the exact active `review_cycle_id`, story, and canonical plan.
 
 </scope_rules>
 
@@ -132,7 +138,6 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
   "story_number": "<story number from plan_path>",
   "plan_path": "<canonical plan path>",
   "review_session_id": "<validated server-owned review session ID>",
-  "parent_execution_id": "<validated parent flow execution ID>",
   "head_commit": "<validated full current repository HEAD>",
   "comparison_base_commit": "<validated full current repository comparison base>",
   "review_cycle_id": "<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>",
@@ -170,7 +175,18 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
       "severity": "<must_fix|should_fix|optional_simplification|incomplete_review>",
       "repository": "<repository owner>",
       "summary": "<short summary>",
-      "reason": "<why this needs task-up>"
+      "reason": "<why this needs task-up>",
+      "review_sources": [
+        {
+          "instance_id": "<validated wave job instance>",
+          "flow_name": "<validated flow name>",
+          "review_phase": "<fast|slow|standalone>",
+          "target_id": "<target id or null>",
+          "repo_alias": "<repository alias or null>",
+          "review_name": "<server-owned human-readable review name>",
+          "severity": "<source severity>"
+        }
+      ]
     }
   ],
   "unresolved_minor_batchable_findings": [
@@ -179,7 +195,8 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
       "severity": "<must_fix|should_fix|optional_simplification>",
       "repository": "<repository owner>",
       "summary": "<short summary>",
-      "reason": "<why this is safe for inline minor fixing>"
+      "reason": "<why this is safe for inline minor fixing>",
+      "review_sources": ["<same canonical source-object shape as above>"]
     }
   ],
   "operationally_blocked_minor_findings": [
@@ -198,14 +215,30 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
       "repository": "<repository owner>",
       "summary": "<short summary>",
       "resolution_commit": "<exact full 40-character git commit SHA or null>",
-      "proof": "<proof summary or null>"
+      "proof": "<proof summary or null>",
+      "review_sources": ["<same canonical source-object shape as above>"]
     }
   ],
   "rejected_or_non_actionable_findings": [
     {
       "id": "<finding id or note id>",
       "summary": "<short summary>",
-      "reason": "<why no task or minor fix is needed>"
+      "reason": "<why no task or minor fix is needed>",
+      "review_sources": [
+        "<canonical source objects when validated wave provenance exists>"
+      ],
+      "source_references": [
+        "<existing artifact source references when no canonical source object exists>"
+      ]
+    }
+  ],
+  "deferred_review_candidates": [
+    {
+      "id": "<stable candidate id>",
+      "severity": "<source severity>",
+      "summary": "<candidate title>",
+      "reason": "<why adjudication was deferred>",
+      "review_sources": ["<canonical source objects>"]
     }
   ],
   "incomplete_review_blockers": [
@@ -230,6 +263,8 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
   "needs_task_up_path": false,
   "minor_fixes_made_in_review_loop": false,
   "minor_fix_commit_shas": [],
+  "minor_fix_audit_schema_version": 1,
+  "minor_fix_pass_audits": [],
   "minor_fix_revalidation_cycle_closed": false,
   "final_revalidation_owned_by_task_up_path": false,
   "task_up_owned_final_revalidation_task_title": null,
@@ -251,22 +286,27 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - `needs_minor_fix_path` is true whenever unresolved minor-batchable findings remain, even when task-required findings or incomplete-review blockers already exist from earlier minor-fix attempts in the same review cycle.
 - `needs_task_up_path` is true when unresolved task-required findings or incomplete-review blockers exist.
 - Any populated `resolution_commit` or `minor_fix_commit_shas` value must be an exact full 40-character git commit SHA, not a short SHA and not a guessed expansion.
-- `reset_review_cycle_state.md` runs before every fresh `Review Findings Disposition Loop`, so any previous state that still exists here should be treated as same-active-loop carry-forward only.
+- The native `initializeReviewCycle` flow step owns fresh-cycle reset and archives prior disposition state before reviewers launch. Treat any remaining previous state as carry-forward only when it matches the authoritative active-cycle marker exactly.
 - `review_cycle_id` must use the format `<story-number>-rc-<YYYYMMDDTHHMMSSZ>-<8char-hex>`.
-- `review_cycle_id` must stay stable for one active review loop. Preserve it only when the previous state clearly belongs to the same still-active review loop for the same story and same canonical `plan_path`. Otherwise mint a fresh cycle id when writing new classifier state.
-- `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state only when they clearly belong to the same still-active review loop for the same story and plan. Otherwise initialize them as empty, null, or false.
-- Do not try to close a new review cycle by scanning the canonical plan for an older completed final revalidation task from an earlier cycle. Fresh review-loop starts are separated by `reset_review_cycle_state.md`.
+- `review_cycle_id` must stay stable for one active review loop. When the active-cycle marker exists, copy its ID exactly. Only legacy standalone review without that marker may mint a fresh cycle ID.
+- `minor_fixes_made_in_review_loop`, `minor_fix_commit_shas`, `resolved_minor_findings`, `minor_fix_audit_schema_version`, `minor_fix_pass_audits`, `minor_fix_revalidation_cycle_closed`, `final_revalidation_owned_by_task_up_path`, and `task_up_owned_final_revalidation_task_title` should be preserved from the previous state only when they clearly belong to the same still-active review loop for the same story and plan. Otherwise initialize the audit schema at version `1` with an empty pass list and initialize the remaining fields as empty, null, or false.
+- For the same active two-phase cycle, preserve `review_phase`, `fast_review_pass_count`, `fast_reviewed_pass_ids`, `fast_current_pass_minor_count_before_fix`, all `fast_current_pass_*job_count`, `fast_current_pass_coverage_*`, and legacy `fast_current_pass_*reviewer*` fields, `fast_review_coverage_exhausted`, `fast_phase_complete`, and `slow_review_completed`. The dedicated fast-pass recorder and phase-transition prompts own those fields.
+- Treat those two-phase fields as optional extensions to the JSON shape above. Do not initialize them in this classifier when `review_phase` is absent; the first fast-pass recorder owns creating them, and standalone review flows must remain phase-free.
+- Preserve and deduplicate same-cycle `unresolved_task_required_findings` and `incomplete_review_blockers` across fast passes and into the slow pass because task-up deliberately runs once after both phases. Do not discard a serious fast-review finding merely because the current canonical artifact belongs to a later pass.
+- Copy every validated aggregated finding `sources` object into its routed entry as `review_sources`. Preserve that array unchanged when moving the finding between actionable, resolved, blocked, or rejected buckets, and deduplicate only exact repeats of the full canonical source identity.
+- Keep `deferred_review_candidates` as an array. Put every otherwise usable reviewer candidate that could not be adjudicated into this array with its title, severity, reason, and complete `review_sources`; remove an entry only after it is routed into another explicit finding bucket. A merge skip, phase mismatch, or best-effort child skip must never erase a candidate from all routing buckets.
+- Keep `finding_disposition_ledger` as an append-only array keyed by stable finding fingerprint and review pass. For every candidate from every exact versioned fast or slow review set, record exactly one terminal disposition: `fixed`, `tasked`, `rejected`, or `deferred`, with its complete `review_sources`. Recompute `finding_conservation` with candidate, fixed, tasked, rejected, deferred, missing, and duplicate counts; any missing or duplicate candidate creates an `incomplete_review_blockers` entry and prevents clean closeout.
+- Treat unresolved minor findings as current-pass work. Preserve cumulative resolved-minor history, but build the current minor queue from the current validated findings plus any still-visible operationally blocked minor state.
+- Do not try to close a new review cycle by scanning the canonical plan for an older completed final revalidation task from an earlier cycle. The native `initializeReviewCycle` step separates fresh final-review starts; standalone disposition-only flows use `reset_review_cycle_state.md`.
 - `operationally_blocked_minor_findings` is not part of the initial endorsed-finding classification from the findings artifact. It is a later review-loop state bucket populated only after an inline minor-fix attempt ends with `status: "blocked"`.
-- `needs_review_rerun_before_close` is true when minor fixes have been made and the current review pass has not yet proven a clean or task-required follow-up state for the new HEAD, or when `operationally_blocked_minor_findings` is non-empty and the cycle still needs a fresh rerun after that operational interruption is repaired.
-- A review cycle gets at most one fresh rerun after inline minor-fix work or an operational interruption.
-- If the previous same-cycle state already had `needs_review_rerun_before_close: true`, the current pass is the one allowed rerun for that `review_cycle_id`.
-- After that one allowed rerun, do not leave any still-unresolved condition on the minor-fix rerun path. Do not request another rerun, do not leave the outcome represented only as `needs_review_rerun_before_close: true`, and do not leave the remaining issue only in `unresolved_minor_batchable_findings` or `operationally_blocked_minor_findings`.
-- Instead route any still-unresolved condition into durable follow-up by setting `needs_review_rerun_before_close` to false, setting `needs_task_up_path` to true, and recording the unresolved condition in the normal task-up source buckets for this step.
-- When a concrete same-story issue remains after that one allowed rerun, convert it into an `unresolved_task_required_findings` entry that explains why review did not converge after one allowed rerun.
-- When the rerun still cannot converge because the review basis is too incomplete, ambiguous, or operationally blocked to describe as one concrete task, convert the remaining condition into an `incomplete_review_blockers` entry instead.
-- `needs_final_minor_fix_revalidation_task` is true only when minor fixes have been made, the current review pass has no unresolved findings or incomplete-review blockers, `minor_fix_revalidation_cycle_closed` is not true, and `final_revalidation_owned_by_task_up_path` is not true.
+- During the fast phase, do not promote a valid minor finding to task-required merely because an earlier fast pass fixed other minor findings. The bounded fast-review controller permits up to five successfully recorded reviewer passes and owns deciding when that phase stops.
+- During the slow phase, classify the one slow pass normally and leave its minor findings in the minor queue for the existing fix path. Do not request another slow reviewer invocation.
+- `needs_review_rerun_before_close` is phase-local routing state. The fast-pass recorder sets it from accepted minor work, manifest-driven job coverage, and the pass number; the slow phase and combined finalizer keep it false.
+- Outside an active two-phase cycle, preserve the established standalone policy: allow at most one fresh rerun after inline minor-fix work or an operational interruption. If the previous same-cycle state already requested that rerun, route any still-unresolved concrete condition to `unresolved_task_required_findings`, or an ambiguous/incomplete condition to `incomplete_review_blockers`, and set `needs_task_up_path` true instead of requesting another rerun.
+- During an active two-phase cycle, `needs_final_minor_fix_revalidation_task` must remain false during classification. The combined finalizer sets it only after both review phases have completed and all minor queues have been drained.
+- Outside an active two-phase cycle, `needs_final_minor_fix_revalidation_task` is true only when minor fixes have been made, the current pass has no unresolved findings or incomplete-review blockers, `minor_fix_revalidation_cycle_closed` is not true, and `final_revalidation_owned_by_task_up_path` is not true.
 - `review_created_tasks_added_or_updated` must remain false in this classifier step. Later task-up or final-revalidation steps may update it.
-- `safe_to_exit_review_loop_without_tasking` is true only when no unresolved task-required findings, no unresolved minor-batchable findings, no operationally blocked minor findings, no incomplete-review blockers, no needed review rerun, and no needed final minor-fix revalidation task remain.
+- `safe_to_exit_review_loop_without_tasking` must remain false during fast or slow classification. The combined finalizer is the only pre-tasking step that may set it true after both phases complete without actionable work. Outside an active two-phase cycle, recompute it using the established standalone closeout conditions.
 - Initialize `review_decision_recording` for every newly classified pass with the exact current `review_pass_id`, `outcome: "pending"`, zero counts, and `plan_commit_sha: null`. Never carry a recording outcome from an earlier pass into the current pass. The recorder and verifier own replacing this pending value before downstream review work begins.
 
 </state_field_rules>
@@ -305,7 +345,8 @@ Write `codeInfoStatus/flow-state/review-disposition-state.json` with this JSON s
 - Confirm any carry-forward state you preserved came from the same still-active review loop rather than an earlier completed review cycle.
 - Confirm `review_cycle_id` is present and belongs to the active review loop you just classified.
 - Confirm you did not treat an older completed final revalidation task in the canonical plan as proof that a fresh new review cycle was already closed.
-- Confirm any second consecutive rerun request for the same `review_cycle_id` was converted into `unresolved_task_required_findings` or `incomplete_review_blockers` plus `needs_task_up_path = true`, instead of requesting another review rerun.
+- Confirm two-phase counters and cumulative serious/fixed-finding history were preserved only from the same active `review_cycle_id`.
+- Confirm no valid minor finding was promoted to task-required solely because a previous fast-review pass already fixed findings.
 - Confirm the state file is valid JSON after writing.
 - Confirm the state counts match the arrays in the state file.
 - Confirm this step did not edit the canonical plan, review artifacts, code, tests, docs, or config.

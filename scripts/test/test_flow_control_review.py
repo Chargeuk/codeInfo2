@@ -27,6 +27,7 @@ class FlowControlReviewTests(unittest.TestCase):
         *,
         review_state: dict[str, object] | None,
         minor_fix_result: dict[str, object] | None = None,
+        active_cycle: dict[str, object] | None = None,
     ) -> Path:
         tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(tmpdir.cleanup)
@@ -41,6 +42,10 @@ class FlowControlReviewTests(unittest.TestCase):
         if minor_fix_result is not None:
             (flow_state / "minor-review-fix-result.json").write_text(
                 json.dumps(minor_fix_result, indent=2)
+            )
+        if active_cycle is not None:
+            (flow_state / "active-review-cycle.json").write_text(
+                json.dumps(active_cycle, indent=2)
             )
         return repo
 
@@ -91,7 +96,9 @@ class FlowControlReviewTests(unittest.TestCase):
 #### 1. Example
 
 - Finding ID: `finding-1`
-- Description: A simple problem.
+- Review harnesses:
+  - Codex Review (current_repository), Open Code Review (current_repository)
+- Simple description: A simple problem.
 - Example: The example demonstrates the problem.
 - Why accepted: The issue belongs to this story.
 
@@ -118,6 +125,7 @@ class FlowControlReviewTests(unittest.TestCase):
 #### 1. Out-of-scope suggestion
 
 - Finding ID or Review reference: `ignored-1`
+- Found by: `external-review-note-1`
 - Description: The suggestion changes unrelated behavior.
 - Example: It asks for a separate user interface change.
 - Why ignored: That behavior is outside this story.
@@ -160,6 +168,392 @@ class FlowControlReviewTests(unittest.TestCase):
 
         self.assertEqual(outcome.answer, "yes")
         self.assertEqual(outcome.reason_code, "review_state_unreadable")
+
+    def test_fast_review_exits_early_when_current_pass_had_no_minor_findings(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 2,
+                "fast_reviewed_pass_ids": ["pass-1", "pass-2"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 2,
+                "fast_current_pass_reviewers_complete": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "fast_review_converged_without_minor_findings"
+        )
+
+    def test_fast_review_does_not_claim_convergence_from_non_fast_phase(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "slow",
+                "fast_phase_complete": True,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_phase_not_active")
+
+    def test_fast_review_requires_current_cycle_and_recorded_current_pass(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "story_number": "0000001",
+                "plan_path": "planning/0000001-story.md",
+                "review_phase": "fast",
+                "fast_review_pass_count": 1,
+                "fast_reviewed_pass_ids": [self.REVIEW_PASS_ID],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_job_count": 1,
+                "fast_current_pass_completed_job_count": 1,
+                "fast_current_pass_partial_job_count": 0,
+                "fast_current_pass_failed_job_count": 0,
+                "fast_current_pass_missing_job_count": 0,
+                "fast_current_pass_coverage_complete": True,
+                "fast_current_pass_coverage_trusted": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+                "review_decision_recording": {
+                    "review_pass_id": self.REVIEW_PASS_ID,
+                    "outcome": "retry_required",
+                },
+            },
+            active_cycle={
+                "review_mode": "final",
+                "story_id": "0000001",
+                "plan_path": "planning/0000001-story.md",
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            },
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_counter_state_invalid")
+
+    def test_fast_review_repeats_before_fifth_pass_after_draining_findings(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 4,
+                "fast_reviewed_pass_ids": ["pass-1", "pass-2", "pass-3", "pass-4"],
+                "fast_current_pass_minor_count_before_fix": 3,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 2,
+                "fast_current_pass_reviewers_complete": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_requires_another_pass")
+
+    def test_fast_review_exits_after_draining_fifth_pass(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 5,
+                "fast_reviewed_pass_ids": [
+                    "pass-1",
+                    "pass-2",
+                    "pass-3",
+                    "pass-4",
+                    "pass-5",
+                ],
+                "fast_current_pass_minor_count_before_fix": 2,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 2,
+                "fast_current_pass_reviewers_complete": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(outcome.reason_code, "fast_review_fifth_pass_drained")
+
+    def test_fast_review_does_not_exit_while_minor_queue_remains(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 5,
+                "fast_reviewed_pass_ids": [
+                    "pass-1",
+                    "pass-2",
+                    "pass-3",
+                    "pass-4",
+                    "pass-5",
+                ],
+                "fast_current_pass_minor_count_before_fix": 1,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 2,
+                "fast_current_pass_reviewers_complete": True,
+                "needs_minor_fix_path": True,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_minor_findings_not_drained")
+
+    def test_fast_review_repeats_while_candidates_are_deferred(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 1,
+                "fast_reviewed_pass_ids": ["pass-1"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 2,
+                "fast_current_pass_reviewers_complete": True,
+                "needs_minor_fix_path": False,
+                "deferred_review_candidates": [
+                    {"id": "candidate-1", "summary": "Deferred candidate"}
+                ],
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_candidates_deferred")
+
+    def test_fast_review_converges_with_usable_sibling_and_incomplete_coverage(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 4,
+                "fast_reviewed_pass_ids": ["pass-1", "pass-2", "pass-3", "pass-4"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 1,
+                "fast_current_pass_reviewers_complete": False,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "fast_review_converged_with_degraded_provider_coverage"
+        )
+
+    def test_fast_review_stops_retrying_incomplete_coverage_after_fifth_pass(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 5,
+                "fast_reviewed_pass_ids": [
+                    "pass-1",
+                    "pass-2",
+                    "pass-3",
+                    "pass-4",
+                    "pass-5",
+                ],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 0,
+                "fast_current_pass_reviewers_complete": False,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "fast_review_converged_with_degraded_provider_coverage"
+        )
+
+    def test_fast_review_rejects_inconsistent_reviewer_coverage_state(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 1,
+                "fast_reviewed_pass_ids": ["pass-1"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_reviewer_count": 2,
+                "fast_current_pass_passed_reviewer_count": 1,
+                "fast_current_pass_reviewers_complete": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_counter_state_invalid")
+
+    def test_fast_review_accepts_complete_manifest_driven_wave_coverage(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 2,
+                "fast_reviewed_pass_ids": ["pass-1", "pass-2"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_job_count": 5,
+                "fast_current_pass_completed_job_count": 5,
+                "fast_current_pass_partial_job_count": 0,
+                "fast_current_pass_failed_job_count": 0,
+                "fast_current_pass_missing_job_count": 0,
+                "fast_current_pass_coverage_complete": True,
+                "fast_current_pass_coverage_trusted": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "fast_review_converged_without_minor_findings"
+        )
+
+    def test_fast_review_converges_with_incomplete_manifest_driven_wave_coverage(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 4,
+                "fast_reviewed_pass_ids": ["pass-1", "pass-2", "pass-3", "pass-4"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_job_count": 5,
+                "fast_current_pass_completed_job_count": 4,
+                "fast_current_pass_partial_job_count": 0,
+                "fast_current_pass_failed_job_count": 0,
+                "fast_current_pass_missing_job_count": 1,
+                "fast_current_pass_coverage_complete": False,
+                "fast_current_pass_coverage_trusted": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "fast_review_converged_with_degraded_provider_coverage"
+        )
+
+    def test_fast_review_exits_to_slow_when_no_provider_coverage_is_usable(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 1,
+                "fast_reviewed_pass_ids": ["pass-1"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_job_count": 0,
+                "fast_current_pass_completed_job_count": 0,
+                "fast_current_pass_partial_job_count": 0,
+                "fast_current_pass_failed_job_count": 0,
+                "fast_current_pass_missing_job_count": 0,
+                "fast_current_pass_coverage_complete": False,
+                "fast_current_pass_coverage_trusted": False,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "fast_review_converged_with_degraded_provider_coverage"
+        )
+
+    def test_fast_review_exits_after_fifth_incomplete_wave_with_exhaustion(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 5,
+                "fast_reviewed_pass_ids": [
+                    "pass-1",
+                    "pass-2",
+                    "pass-3",
+                    "pass-4",
+                    "pass-5",
+                ],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_job_count": 5,
+                "fast_current_pass_completed_job_count": 4,
+                "fast_current_pass_partial_job_count": 0,
+                "fast_current_pass_failed_job_count": 1,
+                "fast_current_pass_missing_job_count": 0,
+                "fast_current_pass_coverage_complete": False,
+                "fast_current_pass_coverage_trusted": True,
+                "fast_review_coverage_exhausted": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code, "fast_review_converged_with_degraded_provider_coverage"
+        )
+
+    def test_fast_review_rejects_inconsistent_wave_job_counts(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "review_phase": "fast",
+                "fast_review_pass_count": 1,
+                "fast_reviewed_pass_ids": ["pass-1"],
+                "fast_current_pass_minor_count_before_fix": 0,
+                "fast_current_pass_expected_job_count": 5,
+                "fast_current_pass_completed_job_count": 5,
+                "fast_current_pass_partial_job_count": 0,
+                "fast_current_pass_failed_job_count": 0,
+                "fast_current_pass_missing_job_count": 1,
+                "fast_current_pass_coverage_complete": True,
+                "fast_current_pass_coverage_trusted": True,
+                "needs_minor_fix_path": False,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+
+        outcome = self.run_in_repo(repo, review.check_fast_review_phase_complete)
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "fast_review_counter_state_invalid")
 
     def test_minor_fix_path_continues_when_unresolved_findings_remain(self) -> None:
         repo = self.make_repo(
@@ -227,6 +621,29 @@ class FlowControlReviewTests(unittest.TestCase):
         self.assertEqual(outcome.answer, "yes")
         self.assertEqual(
             outcome.details["block_reason"], "structured_categories_missing"
+        )
+
+    def test_minor_fix_path_exits_when_finding_provenance_is_missing(self) -> None:
+        repo = self.make_repo(
+            review_state={
+                "needs_minor_fix_path": True,
+                "needs_task_up_path": False,
+                "needs_review_rerun_before_close": True,
+                "review_pass_id": self.REVIEW_PASS_ID,
+                "review_cycle_id": self.REVIEW_CYCLE_ID,
+            }
+        )
+        plan_text = self.structured_review_block().replace(
+            "- Review harnesses:\n  - Codex Review (current_repository), Open Code Review (current_repository)\n",
+            "",
+        )
+        self.write_plan_handoff(repo, plan_text=plan_text)
+
+        outcome = self.run_in_repo(repo, review.check_review_minor_fix_path_clear)
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.details["block_reason"], "accepted_issue_detail_missing"
         )
 
     def test_minor_fix_path_exits_when_current_pass_block_is_uncommitted(self) -> None:
@@ -362,6 +779,7 @@ class FlowControlReviewTests(unittest.TestCase):
 #### 2. Duplicate out-of-scope suggestion
 
 - Finding ID or Review reference: `ignored-1`
+- Found by: `external-review-note-1`
 - Description: This repeats an earlier ignored entry.
 - Example: One rejected suggestion appears twice in the plan.
 - Why ignored: The recorder incorrectly duplicated it.
@@ -589,6 +1007,7 @@ class FlowControlReviewTests(unittest.TestCase):
         extra_issue = """#### 2. Extra accepted finding
 
 - Finding ID: `finding-extra`
+- Found by: Codex Review (current_repository)
 - Description: This finding is absent from disposition state.
 - Example: The plan lists work that the flow cannot route.
 - Why accepted: The recorder incorrectly added it.
@@ -661,6 +1080,7 @@ class FlowControlReviewTests(unittest.TestCase):
         duplicate_issue = """#### 2. Duplicate accepted finding
 
 - Finding ID: `finding-1`
+- Found by: Codex Review (current_repository)
 - Description: This finding repeats an earlier accepted entry.
 - Example: One routed issue appears twice in the plan.
 - Why accepted: The recorder incorrectly duplicated it.

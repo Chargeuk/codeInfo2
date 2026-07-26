@@ -1,0 +1,12 @@
+{
+  "description": "Run an ordinary workspace-owned review of cross-repository contracts.",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Review Cross-Repository Contracts",
+      "agentType": "review_agent_heavy",
+      "identifier": "cross_repository_reviewer",
+      "markdownFile": "run_cross_repository_review_workspace.md"
+    }
+  ]
+}

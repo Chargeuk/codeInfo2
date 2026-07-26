@@ -333,6 +333,8 @@ codeinfo_agents/<agentName>/
 5. Use **Flows** (`/flows`) for repeatable multi-step automations.
 6. Use **Ingest** (`/ingest`) before repository-aware answers if a repo is not indexed yet.
 
+Generic concurrent child-flow waves and the multi-repository review-set contract are documented in [`docs/subflow-waves-and-review-sets.md`](./docs/subflow-waves-and-review-sets.md).
+
 ## Story 48 Workflow Contract
 
 - Working-repo-first lookup now applies everywhere this story touched:

@@ -103,12 +103,28 @@ test('server entrypoint degrades malformed Copilot seed helper stdout into a war
     "#!/usr/bin/env sh\nprintf '%s\\n' 'not-json-helper-output'\n",
     'utf8',
   );
+  fs.writeFileSync(
+    path.join(fakeBinDir, 'jq'),
+    [
+      '#!/usr/bin/env sh',
+      'if [ "$1" = "-Rsa" ]; then',
+      '  printf \'"not-json-helper-output\\\\n"\\n\'',
+      '  exit 0',
+      'fi',
+      'exit 1',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
   fs.chmodSync(path.join(fakeBinDir, 'node'), 0o755);
+  fs.chmodSync(path.join(fakeBinDir, 'jq'), 0o755);
 
+  const stdoutPath = path.join(tempRoot, 'stdout.txt');
+  const stderrPath = path.join(tempRoot, 'stderr.txt');
   const shellScript = [
     'set -e',
     functionSource,
-    'run_copilot_seed_import >/tmp/entrypoint-seed-stdout.txt 2>/tmp/entrypoint-seed-stderr.txt',
+    `run_copilot_seed_import >"${stdoutPath}" 2>"${stderrPath}"`,
     'printf "%s\\n" survived',
   ].join('\n');
 
@@ -125,14 +141,12 @@ test('server entrypoint degrades malformed Copilot seed helper stdout into a war
   try {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /survived/u);
-    const stderr = fs.readFileSync('/tmp/entrypoint-seed-stderr.txt', 'utf8');
+    const stderr = fs.readFileSync(stderrPath, 'utf8');
     assert.match(stderr, /"status":"seed_copy_failed"/u);
     assert.match(stderr, /Malformed Copilot seed bootstrap output/u);
     assert.match(stderr, /not-json-helper-output/u);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
-    fs.rmSync('/tmp/entrypoint-seed-stdout.txt', { force: true });
-    fs.rmSync('/tmp/entrypoint-seed-stderr.txt', { force: true });
   }
 });
 

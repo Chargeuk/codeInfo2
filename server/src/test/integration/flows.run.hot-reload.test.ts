@@ -103,7 +103,7 @@ const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
     async () => await run(),
   );
 
-test('Flow run reloads flow file between runs', async () => {
+test('Flow run keeps the immutable catalog definition between runs', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-reload-'),
   );
@@ -165,7 +165,7 @@ test('Flow run reloads flow file between runs', async () => {
       await supertest(app).post('/flows/hot-reload/run').send({});
       await secondMessagePromise;
       await waitFor(() => observedMessages.length >= 2);
-      assert.equal(observedMessages[1], 'Updated run');
+      assert.equal(observedMessages[1], 'First run');
     });
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

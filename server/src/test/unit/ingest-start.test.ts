@@ -19,6 +19,7 @@ import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { INGEST_QUEUE_STARTUP_MONGO_UNAVAILABLE_MESSAGE } from '../../startup/ingestQueueStartup.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 type PumpIngestQueueResult = Awaited<ReturnType<typeof pumpIngestQueue>>;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 function buildQueueResult(overrides: Partial<EnqueueIngestRequestResult> = {}): EnqueueIngestRequestResult {
@@ -125,7 +126,7 @@ const createTempRepo = async (files: Record<string, string>) => {
 };
 const waitForTerminal = async (runId: string) => {
     const result = await waitForTerminalIngestStatus(runId, {
-        timeoutMs: 5000,
+        timeoutMs: resolveConfiguredTestTimeoutMs(5000),
         pollMs: 10,
     });
     if (result.reason === 'terminal' && result.status) {

@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
+import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import express from 'express';
 import supertest from 'supertest';
 import type WebSocket from 'ws';
+
+const execFile = promisify(execFileCb);
 
 import { AbortError, delayWithAbort } from '../../agents/retry.js';
 import {
@@ -249,6 +253,23 @@ const githubReviewFixturesDir = path.resolve(
   '../fixtures/flows/github-review',
 );
 
+const initializeTrackedFixtureRepository = async (
+  repositoryRoot: string,
+  branch = 'test-flow',
+) => {
+  await execFile('git', ['init', '-b', branch], { cwd: repositoryRoot });
+  await execFile('git', ['config', 'user.email', 'tests@example.com'], {
+    cwd: repositoryRoot,
+  });
+  await execFile('git', ['config', 'user.name', 'Tests'], {
+    cwd: repositoryRoot,
+  });
+  await execFile('git', ['add', '--all'], { cwd: repositoryRoot });
+  await execFile('git', ['commit', '-m', 'fixture'], {
+    cwd: repositoryRoot,
+  });
+};
+
 const createGitHubReviewRepoFixture = async () => {
   const repoRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-loop-repo-'),
@@ -325,6 +346,7 @@ const createGitHubReviewRepoFixture = async () => {
     'CODEINFO_PR_TOKEN=secret\n',
     'utf8',
   );
+  await initializeTrackedFixtureRepository(repoRoot, 'feature/0000060-demo');
   return repoRoot;
 };
 
@@ -340,10 +362,7 @@ const writeGitHubReviewHandoff = async (params: {
   await fs.mkdir(reviewsDir, { recursive: true });
   const executionId = params.executionId ?? 'exec-1';
 
-  const writeHandoff = async (
-    reviewCount: number,
-    commentCount: number,
-  ) => {
+  const writeHandoff = async (reviewCount: number, commentCount: number) => {
     const handoffPath = path.join(
       reviewsDir,
       `0000060-github-review-${executionId}-current.json`,
@@ -423,7 +442,8 @@ const writeGitHubReviewRuntimeFlow = async (params: {
   }
   steps.push({
     type: 'if',
-    condition: 'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    condition:
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
     then: params.thenSteps,
     else: params.elseSteps,
   });
@@ -498,8 +518,13 @@ const withFlowServer = async (
   },
 ) => {
   await withDeterministicCodexAvailabilityBootstrap(async () => {
-    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-loop-'));
+    const tmpDir = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-loop-'),
+    );
     await fs.cp(fixturesDir, tmpDir, { recursive: true });
+    if (options?.registerTmpDirAsRepo) {
+      await initializeTrackedFixtureRepository(tmpDir);
+    }
 
     try {
       await withIsolatedProviderHomeTestEnv(
@@ -523,11 +548,15 @@ const withFlowServer = async (
                     options?.listIngestedRepositoriesFn ??
                     (options?.registerTmpDirAsRepo
                       ? () => listHarnessRepo(tmpDir)
-                      : undefined),
+                      : async () => ({
+                          repos: [],
+                          lockedModelId: null,
+                        })),
                   onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
                   cleanupInflightFn: options?.cleanupInflightFn,
                   releaseConversationLockFn: options?.releaseConversationLockFn,
-                })),
+                }),
+              ),
             }),
           );
 
@@ -706,7 +735,7 @@ const describeFlowRuntimeState = (
             role: turn.role,
             status: turn.status,
             content: turn.content,
-        })),
+          })),
       }),
     ),
     scriptedMessages: options?.scriptedMessages
@@ -755,9 +784,7 @@ const getLatestLoopTerminalTurn = (
   conversationId: string,
 ): Turn | undefined => {
   const turns = memoryTurns.get(conversationId) ?? [];
-  return [...turns]
-    .reverse()
-    .find((turn) => turn.role === 'assistant');
+  return [...turns].reverse().find((turn) => turn.role === 'assistant');
 };
 
 const getLatestPublishedTurnFinalLog = (conversationId: string) =>
@@ -775,7 +802,7 @@ const getPersistedLoopTerminalOutcome = (
   const status =
     typeof statusFromLog === 'string'
       ? statusFromLog
-      : terminalTurn?.status ?? null;
+      : (terminalTurn?.status ?? null);
 
   if (!status) {
     return null;
@@ -1058,16 +1085,20 @@ test('flow loops until break answer matches breakOn', async () => {
           JSON.stringify({
             outerBreakCount,
             state: JSON.parse(
-              describeFlowRuntimeState(conversationId, [
-                'coding_agent:outer',
-                'coding_agent:inner',
-                'coding_agent:inner-break',
-                'coding_agent:outer-break',
-              ], {
-                expectedNextStepPath: [0, 1],
-                scriptedMessages,
-                stopUnwindCheckpoints,
-              }),
+              describeFlowRuntimeState(
+                conversationId,
+                [
+                  'coding_agent:outer',
+                  'coding_agent:inner',
+                  'coding_agent:inner-break',
+                  'coding_agent:outer-break',
+                ],
+                {
+                  expectedNextStepPath: [0, 1],
+                  scriptedMessages,
+                  stopUnwindCheckpoints,
+                },
+              ),
             ),
           }),
       );
@@ -1233,7 +1264,9 @@ test('github review bounded corpus scratch replacement stays authoritative befor
 
     const result = await materializeGitHubExternalReviewInput({
       handoff: await (async () => {
-        const parsed = await readGitHubReviewScratch({ handoffPath: selectorPath });
+        const parsed = await readGitHubReviewScratch({
+          handoffPath: selectorPath,
+        });
         assert.equal(parsed.kind, 'ok');
         return parsed.value;
       })(),
@@ -1311,8 +1344,7 @@ test('checked-in GitHub review flow is opt-in, runs after internal completion, a
     (step) => step.type === 'github_fetch_reviews',
   );
   const waitGateIndex = flattened.findIndex(
-    (step) =>
-      step.label === 'Only Wait When The GitHub Review Cycle Is Active',
+    (step) => step.label === 'Only Wait When The GitHub Review Cycle Is Active',
   );
   const dispositionIfIndex = flattened.findIndex(
     (step) =>
@@ -1370,10 +1402,7 @@ test('checked-in GitHub review flow is opt-in, runs after internal completion, a
   }
   await assert.rejects(
     fs.stat(
-      path.join(
-        repoRoot,
-        'flows/implement_next_plan_github_review_test.json',
-      ),
+      path.join(repoRoot, 'flows/implement_next_plan_github_review_test.json'),
     ),
     /ENOENT/u,
   );
@@ -1596,7 +1625,9 @@ test('github review runtime resumes through repaired wait and review handoff sta
               messages: [
                 {
                   role: 'user',
-                  content: ['Resumed review context stayed on findings branch.'],
+                  content: [
+                    'Resumed review context stayed on findings branch.',
+                  ],
                 },
               ],
             },
@@ -1633,18 +1664,22 @@ test('github review runtime resumes through repaired wait and review handoff sta
 
         const conversationId = result.body.conversationId;
         sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-        await waitForPredicate(() => {
-          const flowState = (memoryConversations.get(conversationId)?.flags ??
-            {}) as {
-            flow?: {
-              wait?: { stepPath?: number[] };
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: {
+                wait?: { stepPath?: number[] };
+              };
             };
-          };
-          return (
-            Array.isArray(flowState.flow?.wait?.stepPath) &&
-            flowState.flow?.wait?.stepPath?.[0] === 0
-          );
-        }, 4000, 'Timed out waiting for persisted review wait state');
+            return (
+              Array.isArray(flowState.flow?.wait?.stepPath) &&
+              flowState.flow?.wait?.stepPath?.[0] === 0
+            );
+          },
+          4000,
+          'Timed out waiting for persisted review wait state',
+        );
         const resumed = await supertest(baseUrl)
           .post('/flows/github-review-runtime-resume/run')
           .send({
@@ -1692,13 +1727,17 @@ test('github review runtime resumes through repaired wait and review handoff sta
           ).length,
           0,
         );
-        await waitForPredicate(() => {
-          const flowState = (memoryConversations.get(conversationId)?.flags ??
-            {}) as {
-            flow?: { wait?: unknown };
-          };
-          return flowState.flow?.wait === undefined;
-        }, 4000, 'Timed out waiting for resumed review wait state to clear');
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: { wait?: unknown };
+            };
+            return flowState.flow?.wait === undefined;
+          },
+          4000,
+          'Timed out waiting for resumed review wait state to clear',
+        );
         await cleanupConversationRuntime(
           conversationId,
           ...getAgentConversationIds(conversationId, ['planning_agent:main']),
@@ -1764,16 +1803,20 @@ test('github review runtime re-derives canonical execution-scoped handoff author
 
         const conversationId = result.body.conversationId;
         sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-        await waitForPredicate(() => {
-          const flowState = (memoryConversations.get(conversationId)?.flags ??
-            {}) as {
-            flow?: { wait?: { stepPath?: number[] } };
-          };
-          return (
-            Array.isArray(flowState.flow?.wait?.stepPath) &&
-            flowState.flow?.wait?.stepPath?.[0] === 0
-          );
-        }, 4000, 'Timed out waiting for persisted canonical review wait state');
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: { wait?: { stepPath?: number[] } };
+            };
+            return (
+              Array.isArray(flowState.flow?.wait?.stepPath) &&
+              flowState.flow?.wait?.stepPath?.[0] === 0
+            );
+          },
+          4000,
+          'Timed out waiting for persisted canonical review wait state',
+        );
 
         const foreignHandoffDir = path.join(
           workingRepo,
@@ -1873,13 +1916,17 @@ test('github review runtime re-derives canonical execution-scoped handoff author
           ),
           false,
         );
-        await waitForPredicate(() => {
-          const flowState = (memoryConversations.get(conversationId)?.flags ??
-            {}) as {
-            flow?: { wait?: unknown };
-          };
-          return flowState.flow?.wait === undefined;
-        }, 4000, 'Timed out waiting for canonical resumed review wait state to clear');
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: { wait?: unknown };
+            };
+            return flowState.flow?.wait === undefined;
+          },
+          4000,
+          'Timed out waiting for canonical resumed review wait state to clear',
+        );
         await cleanupConversationRuntime(
           conversationId,
           ...getAgentConversationIds(conversationId, ['planning_agent:main']),
@@ -1911,7 +1958,10 @@ test('github review runtime keeps the newer execution selector authoritative aft
       'utf8',
     );
     await fs.writeFile(
-      path.join(repoRoot, 'codeInfoTmp/reviews/0000060-external-review-input.md'),
+      path.join(
+        repoRoot,
+        'codeInfoTmp/reviews/0000060-external-review-input.md',
+      ),
       'stale input\n',
       'utf8',
     );
@@ -1994,6 +2044,7 @@ test('github review runtime keeps the newer execution selector authoritative aft
                 ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
               },
               base: { ref: 'main' },
+              user: { login: 'review-bot' },
             }),
             stderr: '',
           };
@@ -2063,16 +2114,20 @@ test('github review runtime keeps the newer execution selector authoritative aft
           .send({ conversationId, working_folder: repoRoot })
           .expect(202);
 
-        await waitForPredicate(() => {
-          const flowState = (memoryConversations.get(conversationId)?.flags ??
-            {}) as {
-            flow?: { wait?: { stepPath?: number[] } };
-          };
-          return (
-            Array.isArray(flowState.flow?.wait?.stepPath) &&
-            flowState.flow.wait.stepPath[0] === 1
-          );
-        }, 4000, 'Timed out waiting for recovered PR creation to reach its wait');
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: { wait?: { stepPath?: number[] } };
+            };
+            return (
+              Array.isArray(flowState.flow?.wait?.stepPath) &&
+              flowState.flow.wait.stepPath[0] === 1
+            );
+          },
+          4000,
+          'Timed out waiting for recovered PR creation to reach its wait',
+        );
         const turnsBeforeWake = memoryTurns.get(conversationId) ?? [];
         assert.equal(
           turnsBeforeWake.some(
@@ -2187,6 +2242,7 @@ test('github review runtime keeps the newer execution selector authoritative aft
             headRefName:
               'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
             baseRefName: 'main',
+            authorLogin: 'review-author',
           },
           artifact: {
             repository: { owner: 'example', name: 'repo' },
@@ -2203,7 +2259,10 @@ test('github review runtime keeps the newer execution selector authoritative aft
           },
         });
         assert.equal(reclaimAttempt.kind, 'error');
-        assert.match(reclaimAttempt.message, /newer or foreign flow execution/i);
+        assert.match(
+          reclaimAttempt.message,
+          /newer or foreign flow execution/i,
+        );
 
         const stillAuthoritative = await readGitHubReviewScratch({
           handoffPath: selectorPath,
@@ -2336,6 +2395,7 @@ test('github review resume keeps execution-scoped fetch and close authority even
             headRefName:
               'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
             baseRefName: 'main',
+            authorLogin: 'review-author',
           },
         },
         null,
@@ -2436,27 +2496,35 @@ test('github review resume keeps execution-scoped fetch and close authority even
           if (endpoint.includes('/pulls/77/reviews?')) {
             return {
               exitCode: 0,
-              stdout: JSON.stringify([[{
-                id: 101,
-                user: { login: 'reviewer' },
-                body: 'Persist the older execution authority.',
-                state: 'COMMENTED',
-                submitted_at: '2026-06-27T18:45:00Z',
-              }]]),
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 101,
+                    user: { login: 'reviewer' },
+                    body: 'Persist the older execution authority.',
+                    state: 'COMMENTED',
+                    submitted_at: '2026-06-27T18:45:00Z',
+                  },
+                ],
+              ]),
               stderr: '',
             };
           }
           if (endpoint.includes('/pulls/77/comments?')) {
             return {
               exitCode: 0,
-              stdout: JSON.stringify([[{
-                id: 202,
-                user: { login: 'reviewer' },
-                body: 'Inline reminder',
-                path: 'server/src/flows/service.ts',
-                line: 1,
-                created_at: '2026-06-27T18:46:00Z',
-              }]]),
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 202,
+                    user: { login: 'reviewer' },
+                    body: 'Inline reminder',
+                    path: 'server/src/flows/service.ts',
+                    line: 1,
+                    created_at: '2026-06-27T18:46:00Z',
+                  },
+                ],
+              ]),
               stderr: '',
             };
           }
@@ -2845,9 +2913,7 @@ test('github review resume rejects a persisted and resumed PR identity mismatch'
               (turn) =>
                 turn.role === 'assistant' &&
                 turn.status === 'failed' &&
-                turn.content.includes(
-                  'owns persisted pull request #77',
-                ),
+                turn.content.includes('owns persisted pull request #77'),
             ),
           4000,
         );
@@ -2860,22 +2926,26 @@ test('github review resume rejects a persisted and resumed PR identity mismatch'
           ).length,
           1,
         );
-        await waitForPredicate(() => {
-          const flowState = (memoryConversations.get(conversationId)?.flags ??
-            {}) as {
-            flow?: {
-              wait?: {
-                kind?: string;
-                stepPath?: number[];
-                githubReviewContext?: { retryAttempt?: number };
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: {
+                wait?: {
+                  kind?: string;
+                  stepPath?: number[];
+                  githubReviewContext?: { retryAttempt?: number };
+                };
               };
             };
-          };
-          return (
-            flowState.flow?.wait?.kind === 'review_retry' &&
-            flowState.flow.wait.githubReviewContext?.retryAttempt === 1
-          );
-        }, 4000, 'Timed out waiting for the failed review stage to persist retry ownership');
+            return (
+              flowState.flow?.wait?.kind === 'review_retry' &&
+              flowState.flow.wait.githubReviewContext?.retryAttempt === 1
+            );
+          },
+          4000,
+          'Timed out waiting for the failed review stage to persist retry ownership',
+        );
         const retryWait = (
           (memoryConversations.get(conversationId)?.flags ?? {}) as {
             flow?: { wait?: { stepPath?: number[] } };
@@ -2982,6 +3052,7 @@ test('github review resume verifies the exact resumed PR when the execution-scop
                   ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
                 },
                 base: { ref: 'main' },
+                user: { login: 'review-author' },
               }),
               stderr: '',
             };
@@ -3158,9 +3229,7 @@ test('github review resume verifies the exact resumed PR when the execution-scop
         assert.equal(updatedHandoff.value.pull_request.number, 78);
         assert.equal(updatedHandoff.value.filtered_review_count, 1);
         assert.equal(updatedHandoff.value.filtered_review_comment_count, 1);
-        assert.ok(
-          commandLog.some((entry) => entry.includes('/pulls/78')),
-        );
+        assert.ok(commandLog.some((entry) => entry.includes('/pulls/78')));
         assert.equal(
           commandLog.some((entry) => entry.includes('/pulls?state=open&head=')),
           false,
@@ -3557,7 +3626,9 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         describe: () =>
           JSON.stringify({
             phase: 'waiting_for_stopped_terminal_event',
-            current: JSON.parse(describeLoopContinueResumeState(conversationId)),
+            current: JSON.parse(
+              describeLoopContinueResumeState(conversationId),
+            ),
           }),
       });
 
@@ -3612,7 +3683,9 @@ test('continue resume keeps its boundary marker until the next iteration makes p
           JSON.stringify({
             phase: 'waiting_for_ok_terminal_event',
             stopSnapshot,
-            current: JSON.parse(describeLoopContinueResumeState(conversationId)),
+            current: JSON.parse(
+              describeLoopContinueResumeState(conversationId),
+            ),
           }),
       });
 
@@ -3622,8 +3695,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         (items) =>
           items.filter(
             (turn) =>
-              turn.role === 'user' &&
-              turn.content.includes('Outer loop step.'),
+              turn.role === 'user' && turn.content.includes('Outer loop step.'),
           ).length ===
             outerCountAfterStop + 1 &&
           items.filter(
@@ -3638,8 +3710,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
           ).length === 1 &&
           items.filter(
             (turn) =>
-              turn.role === 'user' &&
-              turn.content.includes('Exit outer loop?'),
+              turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 1,
         15000,
         () =>
@@ -3788,7 +3859,9 @@ test('continue step fails on invalid JSON response', async () => {
         expectedStatus: 'failed',
         timeoutMs: 8000,
         describe: () =>
-          describeFlowRuntimeState(conversationId, ['coding_agent:outer-break']),
+          describeFlowRuntimeState(conversationId, [
+            'coding_agent:outer-break',
+          ]),
       });
 
       assert.equal(final.status, 'failed');
@@ -4306,146 +4379,137 @@ test('failed flow step persists to agent conversation', async () => {
 
 test('flow step retries transient failures and eventually succeeds', async () => {
   let outerBreakAttempts = 0;
-  await runWithTestEnvOverrides(
-    { FLOW_AND_COMMAND_RETRIES: '3' },
-    async () => {
-      await withFlowServer(
-        (message) => {
-          if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
-          if (message.includes('Exit outer loop?')) {
-            outerBreakAttempts += 1;
-            if (outerBreakAttempts < 2) return '{"answer":"maybe"}';
-            return '{"answer":"yes"}';
-          }
-          return 'ok';
-        },
-        async ({ baseUrl, wsUrl }) => {
-          const conversationId = 'flow-loop-retry-success';
-          sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-          await supertest(baseUrl)
-            .post('/flows/loop-break/run')
-            .send({ conversationId })
-            .expect(202);
+  await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '3' }, async () => {
+    await withFlowServer(
+      (message) => {
+        if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
+        if (message.includes('Exit outer loop?')) {
+          outerBreakAttempts += 1;
+          if (outerBreakAttempts < 2) return '{"answer":"maybe"}';
+          return '{"answer":"yes"}';
+        }
+        return 'ok';
+      },
+      async ({ baseUrl, wsUrl }) => {
+        const conversationId = 'flow-loop-retry-success';
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await supertest(baseUrl)
+          .post('/flows/loop-break/run')
+          .send({ conversationId })
+          .expect(202);
 
-          await waitForTurns(
-            conversationId,
-            (items) =>
-              items.some(
-                (turn) =>
-                  turn.role === 'user' &&
-                  turn.content.includes('Exit outer loop?'),
-              ) &&
-              items.some(
-                (turn) =>
-                  turn.role === 'assistant' &&
-                  turn.content.includes('{"answer":"yes"}'),
+        await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('Exit outer loop?'),
+            ) &&
+            items.some(
+              (turn) =>
+                turn.role === 'assistant' &&
+                turn.content.includes('{"answer":"yes"}'),
+            ),
+          5000,
+          () =>
+            JSON.stringify({
+              outerBreakAttempts,
+              state: JSON.parse(
+                describeFlowRuntimeState(conversationId, [
+                  'coding_agent:outer-break',
+                ]),
               ),
-            5000,
-            () =>
-              JSON.stringify({
-                outerBreakAttempts,
-                state: JSON.parse(
-                  describeFlowRuntimeState(conversationId, [
-                    'coding_agent:outer-break',
-                  ]),
-                ),
-              }),
-          );
-          assert.equal(outerBreakAttempts, 2);
-          await cleanupConversationRuntime(conversationId);
-        },
-      );
-    },
-  );
+            }),
+        );
+        assert.equal(outerBreakAttempts, 2);
+        await cleanupConversationRuntime(conversationId);
+      },
+    );
+  });
 });
 
 test('flow step retries to exhaustion and emits one terminal failure', async () => {
   let outerBreakAttempts = 0;
-  await runWithTestEnvOverrides(
-    { FLOW_AND_COMMAND_RETRIES: '2' },
-    async () => {
-      await withFlowServer(
-        (message) => {
-          if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
-          if (message.includes('Exit outer loop?')) {
-            outerBreakAttempts += 1;
-            return '{"answer":"maybe"}';
-          }
-          return 'ok';
-        },
-        async ({ baseUrl, wsUrl }) => {
-          const conversationId = 'flow-loop-retry-exhausted';
-          sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-          await supertest(baseUrl)
-            .post('/flows/loop-break/run')
-            .send({ conversationId })
-            .expect(202);
+  await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '2' }, async () => {
+    await withFlowServer(
+      (message) => {
+        if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
+        if (message.includes('Exit outer loop?')) {
+          outerBreakAttempts += 1;
+          return '{"answer":"maybe"}';
+        }
+        return 'ok';
+      },
+      async ({ baseUrl, wsUrl }) => {
+        const conversationId = 'flow-loop-retry-exhausted';
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await supertest(baseUrl)
+          .post('/flows/loop-break/run')
+          .send({ conversationId })
+          .expect(202);
 
-          const final = await waitForLoopTerminalOutcome({
-            ws: wsUrl,
-            conversationId,
-            expectedStatus: 'failed',
-            timeoutMs: 5000,
-          });
+        const final = await waitForLoopTerminalOutcome({
+          ws: wsUrl,
+          conversationId,
+          expectedStatus: 'failed',
+          timeoutMs: 5000,
+        });
 
-          assert.equal(final.status, 'failed');
-          assert.equal(outerBreakAttempts, 2);
-          await expectNoTerminalFinal(wsUrl, conversationId);
-          await cleanupConversationRuntime(conversationId);
-        },
-      );
-    },
-  );
+        assert.equal(final.status, 'failed');
+        assert.equal(outerBreakAttempts, 2);
+        await expectNoTerminalFinal(wsUrl, conversationId);
+        await cleanupConversationRuntime(conversationId);
+      },
+    );
+  });
 });
 
-test(
-  'scoped deterministic Codex overrides stay isolated across concurrent runtime resolution work',
-  async () => {
-    const configPath = path.join(
-      repoRoot,
-      'codeinfo_agents/coding_agent/config.toml',
-    );
+test('scoped deterministic Codex overrides stay isolated across concurrent runtime resolution work', async () => {
+  const configPath = path.join(
+    repoRoot,
+    'codeinfo_agents/coding_agent/config.toml',
+  );
 
-    const [successProviderId] = await Promise.all([
-      withDeterministicCodexAvailabilityBootstrap(async () => {
-        await delay(25);
-        const result = await prepareFlowOwnedAgentExecution({
-          agentName: 'coding_agent',
-          configPath,
-          source: 'REST',
-          allowFallback: false,
-        });
-        return result.executionProviderId;
-      }),
-      withDeterministicCodexAvailabilityBootstrap(async () => {
-        setCodexDetection({
-          available: false,
-          authPresent: false,
-          configPresent: true,
-          reason: 'Missing auth.json',
-        });
-        await delay(10);
-        await assert.rejects(
-          async () =>
-            prepareFlowOwnedAgentExecution({
-              agentName: 'coding_agent',
-              configPath,
-              source: 'REST',
-              allowFallback: false,
-            }),
-          (error) =>
-            (error as { code?: string; reason?: string }).code ===
-              'PROVIDER_UNAVAILABLE' &&
-            /Missing auth\.json/i.test(
-              (error as { reason?: string }).reason ?? '',
-            ),
-        );
-      }),
-    ]);
+  const [successProviderId] = await Promise.all([
+    withDeterministicCodexAvailabilityBootstrap(async () => {
+      await delay(25);
+      const result = await prepareFlowOwnedAgentExecution({
+        agentName: 'coding_agent',
+        configPath,
+        source: 'REST',
+        allowFallback: false,
+      });
+      return result.executionProviderId;
+    }),
+    withDeterministicCodexAvailabilityBootstrap(async () => {
+      setCodexDetection({
+        available: false,
+        authPresent: false,
+        configPresent: true,
+        reason: 'Missing auth.json',
+      });
+      await delay(10);
+      await assert.rejects(
+        async () =>
+          prepareFlowOwnedAgentExecution({
+            agentName: 'coding_agent',
+            configPath,
+            source: 'REST',
+            allowFallback: false,
+          }),
+        (error) =>
+          (error as { code?: string; reason?: string }).code ===
+            'PROVIDER_UNAVAILABLE' &&
+          /Missing auth\.json/i.test(
+            (error as { reason?: string }).reason ?? '',
+          ),
+      );
+    }),
+  ]);
 
-    assert.equal(successProviderId, 'codex');
-  },
-);
+  assert.equal(successProviderId, 'codex');
+});
 
 test('deterministic runtime resolution ignores an ambient LM Studio URL', async () => {
   const configPath = path.join(
@@ -4525,134 +4589,128 @@ test('aborted flow step is not retried', async () => {
     JSON.stringify({
       outerBreakAttempts,
       flowState: JSON.parse(describeFlowRuntimeState(conversationId)),
-      recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
-        role: turn.role,
-        status: turn.status,
-        content: turn.content,
-      })),
+      recentTurns: (memoryTurns.get(conversationId) ?? [])
+        .slice(-8)
+        .map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
       cleanupEvents,
       ownershipReleaseCalls,
       stopUnwindCheckpoints,
     });
-  await runWithTestEnvOverrides(
-    { FLOW_AND_COMMAND_RETRIES: '3' },
-    async () => {
-      await withFlowServer(
-        (message) => {
-          if (message.includes('Say hello from a flow step.')) {
-            outerBreakAttempts += 1;
-            return '__delay:1000::Flow agent response';
-          }
-          return 'ok';
-        },
-        async ({ baseUrl, wsUrl }) => {
-          sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-          try {
-            const response = await supertest(baseUrl)
-              .post('/flows/llm-basic/run')
-              .send({ conversationId })
-              .expect(202);
+  await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '3' }, async () => {
+    await withFlowServer(
+      (message) => {
+        if (message.includes('Say hello from a flow step.')) {
+          outerBreakAttempts += 1;
+          return '__delay:1000::Flow agent response';
+        }
+        return 'ok';
+      },
+      async ({ baseUrl, wsUrl }) => {
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        try {
+          const response = await supertest(baseUrl)
+            .post('/flows/llm-basic/run')
+            .send({ conversationId })
+            .expect(202);
 
-            await waitFor(
-              () => stopRegisteredAtStepStart,
-              5000,
-              () =>
-                JSON.stringify({
-                  responseInflightId: response.body.inflightId as string,
-                  stopRegisteredAtStepStart,
-                  state: JSON.parse(describeAbortedRetryState(conversationId)),
-                }),
-            );
+          await waitFor(
+            () => stopRegisteredAtStepStart,
+            5000,
+            () =>
+              JSON.stringify({
+                responseInflightId: response.body.inflightId as string,
+                stopRegisteredAtStepStart,
+                state: JSON.parse(describeAbortedRetryState(conversationId)),
+              }),
+          );
 
-            const final = await waitForLoopTerminalOutcome({
-              ws: wsUrl,
-              conversationId,
-              expectedStatus: ['stopped', 'failed'],
-              timeoutMs: 5000,
-            });
+          const final = await waitForLoopTerminalOutcome({
+            ws: wsUrl,
+            conversationId,
+            expectedStatus: ['stopped', 'failed'],
+            timeoutMs: 5000,
+          });
 
-            assert.ok(final.status === 'stopped' || final.status === 'failed');
-            assert.equal(outerBreakAttempts <= 1, true);
-          } finally {
-            await waitForRuntimeCleanup(
-              conversationId,
-              15000,
-              () => describeAbortedRetryState(conversationId),
-            );
-            cleanupMemory(conversationId);
-          }
-        },
-        {
-          chatFactory: () =>
-            new ScriptedChat(
-              (message) => {
-                if (message.includes('Say hello from a flow step.')) {
-                  outerBreakAttempts += 1;
-                  return '__delay:1000::Flow agent response';
-                }
-                return 'ok';
-              },
-              {
-                onExecute: ({ message }) => {
-                  if (
-                    !stopRegisteredAtStepStart &&
-                    message.includes('Say hello from a flow step.')
-                  ) {
-                    const runToken =
-                      getActiveRunOwnership(conversationId)?.runToken;
-                    if (!runToken) {
-                      return;
-                    }
-                    stopRegisteredAtStepStart = true;
-                    registerPendingConversationCancel({
-                      conversationId,
-                      runToken,
-                    });
+          assert.ok(final.status === 'stopped' || final.status === 'failed');
+          assert.equal(outerBreakAttempts <= 1, true);
+        } finally {
+          await waitForRuntimeCleanup(conversationId, 15000, () =>
+            describeAbortedRetryState(conversationId),
+          );
+          cleanupMemory(conversationId);
+        }
+      },
+      {
+        chatFactory: () =>
+          new ScriptedChat(
+            (message) => {
+              if (message.includes('Say hello from a flow step.')) {
+                outerBreakAttempts += 1;
+                return '__delay:1000::Flow agent response';
+              }
+              return 'ok';
+            },
+            {
+              onExecute: ({ message }) => {
+                if (
+                  !stopRegisteredAtStepStart &&
+                  message.includes('Say hello from a flow step.')
+                ) {
+                  const runToken =
+                    getActiveRunOwnership(conversationId)?.runToken;
+                  if (!runToken) {
+                    return;
                   }
-                },
+                  stopRegisteredAtStepStart = true;
+                  registerPendingConversationCancel({
+                    conversationId,
+                    runToken,
+                  });
+                }
               },
-            ),
-          cleanupInflightFn: (params) => {
-            recordCleanupEvent(
-              'before cleanupInflightFn',
-              params.conversationId,
-              `inflightId=${params.inflightId ?? 'none'}`,
-            );
-            cleanupInflight(params);
-            recordCleanupEvent(
-              'after cleanupInflightFn',
-              params.conversationId,
-              `inflightId=${params.inflightId ?? 'none'}`,
-            );
-          },
-          releaseConversationLockFn: (conversationId, expectedRunToken) => {
-            const beforeState = snapshotRuntimeCleanupState(conversationId);
-            const released = releaseConversationLock(
-              conversationId,
-              expectedRunToken,
-            );
-            const afterState = snapshotRuntimeCleanupState(conversationId);
-            ownershipReleaseCalls.push({
-              expectedRunToken,
-              released,
-              beforeState,
-              afterState,
-            });
-            if (ownershipReleaseCalls.length > 12) {
-              ownershipReleaseCalls.splice(
-                0,
-                ownershipReleaseCalls.length - 12,
-              );
-            }
-            return released;
-          },
-          onStopUnwindCheckpoint: (params) => {
-            recordStopUnwindCheckpoint(params);
-          },
+            },
+          ),
+        cleanupInflightFn: (params) => {
+          recordCleanupEvent(
+            'before cleanupInflightFn',
+            params.conversationId,
+            `inflightId=${params.inflightId ?? 'none'}`,
+          );
+          cleanupInflight(params);
+          recordCleanupEvent(
+            'after cleanupInflightFn',
+            params.conversationId,
+            `inflightId=${params.inflightId ?? 'none'}`,
+          );
         },
-      );
-    },
-  );
+        releaseConversationLockFn: (conversationId, expectedRunToken) => {
+          const beforeState = snapshotRuntimeCleanupState(conversationId);
+          const released = releaseConversationLock(
+            conversationId,
+            expectedRunToken,
+          );
+          const afterState = snapshotRuntimeCleanupState(conversationId);
+          ownershipReleaseCalls.push({
+            expectedRunToken,
+            released,
+            beforeState,
+            afterState,
+          });
+          if (ownershipReleaseCalls.length > 12) {
+            ownershipReleaseCalls.splice(0, ownershipReleaseCalls.length - 12);
+          }
+          return released;
+        },
+        onStopUnwindCheckpoint: (params) => {
+          recordStopUnwindCheckpoint(params);
+        },
+      },
+    );
+  });
 });
 
 test('startup-race conversation-only stop still terminalizes a flow as stopped', async () => {
@@ -4771,22 +4829,19 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
             timeoutMs: 5000,
           }).catch(() => null)) ?? null;
 
-        await waitForRuntimeCleanup(
-          conversationId,
-          8000,
-          () =>
-            JSON.stringify({
-              stopOutcome,
-              recentEvents: peekBufferedEvents(wsUrl).slice(-12),
-              runtimeState: JSON.parse(
-                describeFlowRuntimeState(conversationId, [
-                  'coding_agent:outer',
-                  'coding_agent:inner',
-                  'coding_agent:inner-break',
-                  'coding_agent:outer-break',
-                ]),
-              ),
-            }),
+        await waitForRuntimeCleanup(conversationId, 8000, () =>
+          JSON.stringify({
+            stopOutcome,
+            recentEvents: peekBufferedEvents(wsUrl).slice(-12),
+            runtimeState: JSON.parse(
+              describeFlowRuntimeState(conversationId, [
+                'coding_agent:outer',
+                'coding_agent:inner',
+                'coding_agent:inner-break',
+                'coding_agent:outer-break',
+              ]),
+            ),
+          }),
         );
 
         if (stopOutcome) {
@@ -5202,19 +5257,23 @@ test('parallel subflow batch stop reports mixed child outcomes instead of a clea
         .send({ conversationId, customTitle: 'Parent Review' })
         .expect(202);
 
-      await waitForPredicate(() => {
-        const activeSubflows = (
-          (memoryConversations.get(conversationId)?.flags ?? {}) as {
-            flow?: {
-              activeSubflows?: Array<{
-                flowName?: string;
-                conversationId?: string;
-              }>;
-            };
-          }
-        ).flow?.activeSubflows;
-        return Array.isArray(activeSubflows) && activeSubflows.length === 2;
-      }, 4000, 'Timed out waiting for active parallel subflows');
+      await waitForPredicate(
+        () => {
+          const activeSubflows = (
+            (memoryConversations.get(conversationId)?.flags ?? {}) as {
+              flow?: {
+                activeSubflows?: Array<{
+                  flowName?: string;
+                  conversationId?: string;
+                }>;
+              };
+            }
+          ).flow?.activeSubflows;
+          return Array.isArray(activeSubflows) && activeSubflows.length === 2;
+        },
+        4000,
+        'Timed out waiting for active parallel subflows',
+      );
 
       const activeSubflows = (
         (memoryConversations.get(conversationId)?.flags ?? {}) as {
@@ -5514,6 +5573,11 @@ test('shared decision seam follows valid script-driven continue branch through h
           '',
         ].join('\n'),
         'utf8',
+      );
+      await execFile(
+        'git',
+        ['add', '--', 'flow-control/decision-continue-once.py'],
+        { cwd: tmpDir },
       );
       await fs.writeFile(
         path.join(tmpDir, 'shared-decision-continue-flow.json'),

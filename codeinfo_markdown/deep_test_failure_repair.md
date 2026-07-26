@@ -5,6 +5,7 @@ Perform a deep repair pass only for a live blocker caused by automated-proof fai
 <task>
 
 Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before inspecting, stopping, repairing, or classifying a Docker or Compose stack involved in automated proof.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
 Load a fresh bounded blocker-repair packet before doing anything else.
@@ -57,6 +58,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
   - when the live blocker is only that automated proof is still incomplete, the first unchecked task-owned `Testing` step.
 - If the blocker is only incomplete automated proof, treat the first unchecked `Testing` step as the next required action rather than as a passive blocked state. Run that step before deciding whether a narrower blocker still exists.
 - Before attempting a repair, re-run the exact failed task-owned proof step when one is identifiable from the blocker, task `Testing` section, wrapper summary, or saved log path. If the blocker is only that automated proof is incomplete, run the first unchecked task-owned `Testing` step first. Use that fresh rerun output as the primary debugging evidence unless rerunning is impossible or would be unsafe.
+- When fresh evidence identifies a pre-existing repository-owned test stack required by the failing proof, reclaim it with the documented shutdown wrapper and retry under `shared/test-stack-lifecycle.md`. Do not preserve the blocker merely because a different agent or flow step started the stack.
 - Inspect the concrete failure evidence first:
   - for a failed proof step, the failing assertion, error, stack, wrapper summary, or saved log path;
   - for an incomplete-proof blocker, the exact next unchecked `Testing` step and the wrapper or command it names.

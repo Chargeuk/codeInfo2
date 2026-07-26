@@ -30,6 +30,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 <blocker_detection_rules>
 
 - Before deciding whether the current task has a live blocker, read `$CODEINFO_ROOT/codeinfo_markdown/shared/blocker-detection.md`.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before preserving or adding any Docker, Compose, occupied-port, or runtime-ownership blocker.
 - Determine the bound task number from `current-task.json`, then run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <that-number>`.
 - Use the parser output, not visual scanning, to determine whether the selected task contains any live blocker lines.
 - Treat only lines reported by the parser under `selected_task.live_blockers` as live blockers for this audit.
@@ -52,6 +53,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - Normalize checklist state from evidence before deciding whether a blocker is needed.
 - Mark completed subtasks and completed `Testing` items complete when the repository evidence shows they were honestly completed but left unchecked.
 - A bookkeeping omission is not a blocker by itself.
+- A proven repository-owned test stack that can be reclaimed with its documented shutdown wrapper is recoverable proof state. Retire any blocker whose only claim is that the current proof agent did not start that stack, leave the applicable testing item unchecked, and allow the proof loop to retry it.
 - After normalizing completed checklist items, recompute which subtasks and `Testing` items are truly still open.
 - A task must not remain `__done__` if it still has unchecked subtasks, unchecked testing, or a live standalone `**BLOCKER**`; if you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
 - Identify any blocker notes marked `**BLOCKER**`.
@@ -89,6 +91,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - This audit is the step that should flip the task to `__done__` when planner repair or earlier proof work has already made the task honestly complete.
 - Do not require a new automated-proof execution in this pass if the task's testing section is already honestly complete from earlier work.
 - Do not keep the task `__in_progress__` solely because prose notes or exit-criteria text still mention remaining work when no unchecked subtasks, unchecked testing steps, or live standalone `**BLOCKER**` note remain.
+- Interpret every remaining checklist item and blocker semantically before preserving it. If an existing item actually belongs to browser, screenshot, agent-driven, or other manual-testing-agent proof, preserve and merge its useful meaning into checkbox-free `Manual Testing Guidance`, remove only the misplaced checklist item, and retire any blocker whose sole reason was waiting for that later manual action. Do not claim the manual scenario ran; make the task structurally eligible for the normal manual handoff.
 - If real unchecked subtasks or real unchecked `Testing` items remain after normalization and a live blocker exists, ensure the task remains `__in_progress__`.
 - If real unchecked subtasks or real unchecked `Testing` items remain after normalization and no live blocker exists, add a blocker and leave the task `__in_progress__`.
 - After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop.

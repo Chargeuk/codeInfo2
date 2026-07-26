@@ -176,7 +176,7 @@ const testProviderHomeRoot = buildServerUnitProviderHomeRoot();
 const unitEnv = {
   ...buildServerUnitWrapperEnv(process.env, {
     testProviderHomeRoot,
-    ...(options.files.length === 0 ? { defaultTestTimeoutMs: '60000' } : {}),
+    defaultTestTimeoutMs: '60000',
   }),
 };
 

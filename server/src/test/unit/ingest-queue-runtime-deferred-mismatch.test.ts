@@ -25,9 +25,11 @@ test('queue-managed deferred reembed executes a mounted requestPayload.path whil
     const canonicalRoot = `/data/${path.basename(mountedRoot)}`;
     setScopedTestEnvValue("CODEINFO_CODEX_WORKDIR", path.dirname(mountedRoot));
     let promotedOnce = false;
+    let activeRequest: ReturnType<typeof createQueueRequest> | null = null;
     try {
         __setQueueRuntimeOpsForTest({
             deleteQueueRequestById: async () => null,
+            findQueueRequestById: async () => activeRequest,
             findOldestCleanupBlockedQueueRequest: async () => null,
             markQueueRequestNonReplayable: async () => null,
             markQueueRequestTerminalPublished: async () => null,
@@ -36,7 +38,7 @@ test('queue-managed deferred reembed executes a mounted requestPayload.path whil
                     return null;
                 }
                 promotedOnce = true;
-                return {
+                activeRequest = {
                     ...createQueueRequest({
                         requestId: '23',
                         root: canonicalRoot,
@@ -51,6 +53,7 @@ test('queue-managed deferred reembed executes a mounted requestPayload.path whil
                         operation: 'reembed',
                     },
                 };
+                return activeRequest;
             },
         });
         const started = await pumpIngestQueue();

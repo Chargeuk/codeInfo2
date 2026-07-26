@@ -19,6 +19,7 @@ import { AstModuleImportModel } from '../../mongo/astModuleImport.js';
 import { AstReferenceModel } from '../../mongo/astReference.js';
 import { AstSymbolModel } from '../../mongo/astSymbol.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 const ORIGINAL_ENV = process.env.NODE_ENV;
 const ORIGINAL_READY_STATE = mongoose.connection.readyState;
 const baseAstResult: AstParseResult = {
@@ -48,7 +49,7 @@ const createTempRepo = async (files: Record<string, string>) => {
 };
 const waitForTerminal = async (runId: string) => {
     const terminal = await waitForTerminalIngestStatus(runId, {
-        timeoutMs: 5000,
+        timeoutMs: resolveConfiguredTestTimeoutMs(5000),
         pollMs: 10,
     });
     if (terminal.reason === 'terminal' && terminal.status) {

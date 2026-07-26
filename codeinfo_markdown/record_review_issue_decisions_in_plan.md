@@ -1,5 +1,8 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and record wave coverage, target ownership, and severity conflicts explicitly.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md` and use it as the authoritative human-readable plan block contract.
+
 Record the current review pass's accepted and ignored issue decisions in the canonical story plan before any minor review fix or task-up implementation begins.
 
 This step runs after story-scope filtering and actionable-finding promotion, immediately before the Minor Review Fix Path. It turns the final current-pass routing state into a concise human-readable `## Code Review Findings` block without changing any routing decision or creating implementation tasks.
@@ -10,8 +13,8 @@ This step runs after story-scope filtering and actionable-finding promotion, imm
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` before editing the plan.
 - Derive the story number from the stored `plan_path`, then read `codeInfoTmp/reviews/<story-number>-current-review.json` from disk, for example with `cat codeInfoTmp/reviews/<story-number>-current-review.json`.
-- Treat `current-plan.json` only as the owner of `plan_path`, optional `branched_from`, and `additional_repositories`. Derive the story number from its `plan_path` and validate its repository scope. Do not require `story_id`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, or `comparison_base_commit` to exist in `current-plan.json`.
-- Require the review handoff and review disposition state to agree on every machine identity field they both own for the validated current review, including the exact canonical seven-digit `story_id`, `plan_path`, `review_session_id`, `review_pass_id`, `parent_execution_id`, `head_commit`, and `comparison_base_commit` when those fields are present in both sources. Never infer, normalize, repair, or substitute a conflicting machine identity field.
+- Treat `current-plan.json` only as the owner of `plan_path`, optional `branched_from`, and `additional_repositories`. Derive the story number from its `plan_path` and validate its repository scope. Do not require `story_id`, `review_session_id`, `review_pass_id`, `head_commit`, or `comparison_base_commit` to exist in `current-plan.json`.
+- Require the review handoff and review disposition state to agree on every machine identity field they both own for the validated current review, including the exact canonical seven-digit `story_id`, `plan_path`, `review_session_id`, `review_pass_id`, `review_cycle_id`, `head_commit`, and `comparison_base_commit` when those fields are present in both sources. Never infer, normalize, repair, or substitute a conflicting machine identity field.
 - Treat missing optional comparison-description metadata as recoverable when the required handoff/state identity agrees. Use the validated handoff value when available and add a concise confidence note when the omission materially limits the description. A genuine identity conflict still requires a safe no-edit result, but must not be reported as a clean no-findings outcome.
 - Use `review-disposition-state.json` as the sole source of actionable accepted-versus-rejected routing. Also preserve explicitly rejected or non-adopted current-pass review candidates from the validated findings, challenge, saturation, and external-review artifacts under `Ignored for This Story`; those artifact entries are decision-recording inputs only and must never be promoted into actionable routing by this step.
 - Do not reclassify findings, edit review artifacts, change finding queues or task-up routing, create tasks, implement fixes, run proof, or push. The narrow retry bookkeeping below may set rerun/clean-exit flags without changing finding ownership.
@@ -59,11 +62,14 @@ Write this bounded current-pass result into `review-disposition-state.json` with
 
 <section_contract>
 
+Apply `shared/review-findings-plan-record.md` completely. The more specific identity, comparison, ordering, and retry rules below supplement that shared contract but never weaken its timestamp, review-harness, simple-description, example, or idempotency requirements.
+
 Write one block with this shape:
 
 ```markdown
 ## Code Review Findings
 
+- Findings recorded: `<local display timestamp including locale and IANA time zone>`
 - Review pass: `<review_pass_id>`
 - Review cycle: `<review_cycle_id>`
 - Comparison context: local `HEAD` `<head_commit>` versus resolved base `<comparison_base_ref>@<comparison_base_commit>` from the stored review handoff, with comparison rule `<comparison_rule>`, resolved base source `<resolved_base_source>`, and remote fetch status `<remote_fetch_status>`.
@@ -73,7 +79,9 @@ Write one block with this shape:
 #### 1. <plain-language title>
 
 - Finding ID: `<stable finding id>`
-- Description: <short, simple explanation of the issue>
+- Review harnesses:
+  - <human-readable harness name; flow/job identifier; target alias when known>
+- Simple description: <short, simple explanation of the issue>
 - Example: <small concrete example grounded in the validated review evidence>
 - Why accepted: <why the issue is valid and belongs to the current story>
 
@@ -82,7 +90,9 @@ Write one block with this shape:
 #### 2. <plain-language title>
 
 - Finding ID or Review reference: `<stable finding id or existing artifact source reference>`
-- Description: <short, simple explanation of the issue>
+- Review harnesses:
+  - <human-readable harness name; flow/job identifier; target alias when known, or an honest unknown-harness entry with the exact existing source reference>
+- Simple description: <short, simple explanation of the issue>
 - Example: <small concrete example grounded in the validated review evidence>
 - Why ignored: <why the issue is invalid, unproven, already covered, or outside current-story scope>
 ```
@@ -94,10 +104,12 @@ Write one block with this shape:
 - Preserve material validated comparison details such as `comparison_rule`, `resolved_base_source`, `remote_fetch_status`, and a sanitized local fallback reason when one exists.
 - Add a concise confidence or provenance note only when a validated artifact records a material caveat, partial reviewer coverage, external-review origin, or safe descriptive inference. Keep that note with the metadata before `### Accepted` so it cannot be mistaken for part of an issue. Never use a note to excuse an identity mismatch.
 - Number issue titles continuously across both categories. Preserve stable finding IDs or existing review references separately because the display number is presentation, not workflow identity. Never manufacture a workflow finding ID for an artifact-only ignored candidate.
+- Derive `Review harnesses` from the finding's canonical `review_sources` and any validated corroborating source jobs. Deduplicate exact job identities, sort them deterministically by `review_name`, `repo_alias`, `flow_name`, and `instance_id`, and include the human-readable name, flow, and source job for each entry.
+- For a legacy or artifact-only ignored candidate with no canonical `review_sources`, write an honest unknown-harness entry with its exact existing source reference. If neither a validated review identity nor an existing source reference is available, do not invent one; omit that unsafe candidate and record the existing confidence-note fallback when the remaining current-pass identity is still valid.
 - Order accepted findings by their order in the validated findings artifact, then order ignored findings by their order in the validated artifacts. Use stable finding ID or existing source-reference order only as a deterministic fallback.
 - If one category has no current-pass entries, write `- None.` below that category instead of omitting the category.
-- Keep descriptions easy to understand and limited to the issue itself.
-- Ground every example in the validated finding's repository evidence. If the artifacts contain no honest concrete example, write `Example: No concrete example was recorded in the validated review evidence.` rather than inventing one.
+- Keep simple descriptions easy to understand and limited to the issue itself.
+- Ground every example in the validated finding's repository evidence. When the original artifact lacks an example, derive a truthful trigger, behavior, and consequence from that evidence. If no honest scenario can be inferred, name the exact evidence limitation instead of using a generic no-example placeholder.
 - Derive `Why accepted` from the finding evidence plus its final routed reason. Derive `Why ignored` from the stored rejection reason and any recorded scope gate. Do not re-adjudicate either decision.
 
 </section_contract>
@@ -116,13 +128,13 @@ Write one block with this shape:
 
 <commit_rules>
 
-- Re-open the plan after editing and confirm the current-pass block exists exactly once and follows the required structure.
+- Reload the bounded `review-tasking` packet after editing and confirm the current-pass block exists exactly once and follows the required structure.
 - Run `git diff --check -- <plan_path>` before committing.
 - If the plan changed, commit only the canonical plan using the repository's required story commit convention and body requirements.
 - Do not include `codeInfoStatus/**`, `codeInfoTmp/**`, review artifacts, or unrelated working-tree changes in the commit.
 - If no plan change was needed, do not create an empty commit.
 - If committing fails, leave the validated plan edit in place for the verifier to retry, append one deduplicated retry note to disposition-state `classification_notes`, set `needs_review_rerun_before_close` to true and `safe_to_exit_review_loop_without_tasking` to false, and report the non-durable result normally. Do not claim a commit exists, do not task up the findings, and do not deliberately return a failed turn solely because this commit attempt failed.
-- After a successful commit, re-open the plan, obtain its exact latest full commit SHA, and write the matching `recorded` outcome before returning. For an already-valid committed block, obtain the existing plan commit in the same way rather than creating an empty commit.
+- After a successful commit, reload the bounded `review-tasking` packet, obtain the plan's exact latest full commit SHA, and write the matching `recorded` outcome before returning. For an already-valid committed block, obtain the existing plan commit in the same way rather than creating an empty commit.
 - Do not push.
 
 </commit_rules>
@@ -142,7 +154,7 @@ Write one block with this shape:
 - Confirm classification and promotion were not changed.
 - Confirm any identity or commit recovery updated only retry bookkeeping, preserved every finding queue and `needs_task_up_path`, and did not create an incomplete-review blocker or bypass the one-shot path.
 - Confirm every listed issue belongs to the current review pass and exactly one category.
-- Confirm every issue has a numbered title, a stable finding ID or existing review reference, a simple description, an evidence-backed example or the explicit no-example fallback, and a decision rationale.
+- Confirm every issue has a numbered title, a stable finding ID or existing review reference, at least one non-empty `Review harnesses` entry, a simple description, an evidence-backed example or an exact explanation of the evidence that is unavailable, and a decision rationale.
 - Confirm accepted and ignored categories both exist, including `- None.` when applicable.
 - Confirm the current review pass appears in exactly one `## Code Review Findings` block.
 - Confirm historical review-pass blocks and existing tasks remain unchanged.

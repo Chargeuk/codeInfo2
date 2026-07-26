@@ -4,7 +4,8 @@ import path from 'node:path';
 
 export const SUMMARY_WRAPPER_HEARTBEAT_ENV = 'SUMMARY_WRAPPER_HEARTBEAT_MS';
 export const DEFAULT_SUMMARY_WRAPPER_HEARTBEAT_MS = 60_000;
-export const DEFAULT_SUMMARY_WRAPPER_PROGRESS_STALL_MS = 5 * 60_000;
+export const DEFAULT_SUMMARY_WRAPPER_PROGRESS_STALL_MS =
+  Number.POSITIVE_INFINITY;
 export const DEFAULT_SUMMARY_WRAPPER_TERMINAL_GRACE_MS = 30_000;
 export const SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV =
   'CODEINFO_DEBUG_WRAPPER_LIFECYCLE';
@@ -112,6 +113,7 @@ export const createSummaryWrapperProtocol = ({
 }) => {
   let phase = initialPhase;
   let heartbeatTimer;
+  let heartbeatExtraFields = {};
 
   const emitStatus = ({
     status,
@@ -142,7 +144,11 @@ export const createSummaryWrapperProtocol = ({
   };
 
   const emitHeartbeat = () => {
-    emitStatus({ status: 'running', reason: 'running' });
+    emitStatus({
+      status: 'running',
+      reason: 'running',
+      extraFields: heartbeatExtraFields,
+    });
   };
 
   return {
@@ -151,6 +157,9 @@ export const createSummaryWrapperProtocol = ({
     },
     getPhase() {
       return phase;
+    },
+    setHeartbeatFields(fields = {}) {
+      heartbeatExtraFields = { ...fields };
     },
     startHeartbeat() {
       if (heartbeatTimer) return;

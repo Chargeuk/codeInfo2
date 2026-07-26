@@ -21,6 +21,7 @@ describe('flow schema (v1)', () => {
     maxIterations?: number;
     question?: string;
     breakOn?: string;
+    decisionScript?: string;
     breakOnFailure?: boolean;
     continueOnFailure?: boolean;
     continueOnInvalidResponse?: boolean;
@@ -1364,6 +1365,56 @@ describe('flow schema (v1)', () => {
           `${relativePath} should not orient ${staleLabel} immediately before resetting that agent`,
         );
       }
+    }
+  });
+
+  test('main implementation flows use the direct outer story completion decision', async () => {
+    for (const relativePath of [
+      'flows/implement_current_plan.json',
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ]) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const storyLoop = (parsed.steps ?? []).find(
+        (step) => step.label === 'Story Execution And Review Loop',
+      );
+      assert.ok(storyLoop?.steps, `${relativePath} should define the story loop`);
+
+      const labels = storyLoop.steps.map((step) => step.label);
+      assertOrdered(
+        labels,
+        'Run Two-Phase Review Cycle',
+        'Refresh Plan Handoff After Review Settlement',
+      );
+      assertOrdered(
+        labels,
+        'Refresh Plan Handoff After Review Settlement',
+        'Repair Story State After Review Settlement',
+      );
+      assertOrdered(
+        labels,
+        'Repair Story State After Review Settlement',
+        'Checkpoint Push Before Story Completion Check',
+      );
+      assertOrdered(
+        labels,
+        'Checkpoint Push Before Story Completion Check',
+        'Exit Story Loop When Plan And Review Are Complete',
+      );
+
+      const completionGates = storyLoop.steps.filter(
+        (step) =>
+          step.label === 'Exit Story Loop When Plan And Review Are Complete',
+      );
+      assert.equal(completionGates.length, 1, relativePath);
+      assert.equal(
+        completionGates[0]?.decisionScript,
+        'scripts/flow_control/check_plan_scope_story_complete.py',
+        relativePath,
+      );
+      assert.equal(completionGates[0]?.breakOn, 'yes', relativePath);
     }
   });
 

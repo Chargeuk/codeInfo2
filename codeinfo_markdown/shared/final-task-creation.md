@@ -58,6 +58,7 @@ Use this repository-agnostic contract whenever a task-up command or flow creates
 
 <review_cycle_rules>
 
+- Read and follow `review-created-task-timestamp.md` whenever the review cycle creates a new final testing, recovery, or revalidation task. Preserve an existing final task's original `Created` value when reopening or updating it.
 - Initial task-up appends one dedicated final validation task after all initial implementation tasks.
 - When unresolved task-required review findings create a contiguous block of repair tasks, append one fresh dedicated final revalidation task after that block. Its affected-surface inventory covers the whole story plus every current-cycle review repair, including minor findings already fixed inline.
 - Record the serious review task-up final task in `task_up_owned_final_revalidation_task_title`, set `final_revalidation_owned_by_task_up_path` to true, and set `needs_final_minor_fix_revalidation_task` to false so the cycle has one closeout owner.

@@ -1,6 +1,6 @@
 # Settle the complete agent-native review pass
 
-Read `$CODEINFO_ROOT/codeinfo_markdown/shared/completed-review-fix-task.md` before constructing the settlement recommendation.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/completed-review-fix-task.md` and `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` before constructing the settlement recommendation.
 
 Read the active review-cycle state, then locate its immutable review-pass directory under `codeInfoTmp/reviews/`. Discover every batch under `batches/` and every factual launch record under `attempts/` in order. Read every batch reconciliation, negative-scope, positive-authorization, materiality, combined-audit, disposition, normal and stronger repair audit, and outcome, reopening job evidence only when necessary for a surviving finding or factual contradiction. A launch record without a batch directory is unavailable coverage, not evidence that no review was attempted or that the pass was clean. Read current Git for every target repository and bounded plan state. Interpret incomplete or imperfect self-describing evidence semantically, repair understandable derived omissions with best effort, and never require exact repair filenames, schemas, reviewer counts, or scheduling-group identities.
 

@@ -88,6 +88,31 @@ describe('final task contract', () => {
     assert.doesNotMatch(contract, /exactly two checklist items for each repository/);
   });
 
+  test('preserves the local creation time for review-created final tasks', async () => {
+    const contract = await read(
+      'codeinfo_markdown/shared/final-task-creation.md',
+    );
+    const timestampContract = await read(
+      'codeinfo_markdown/shared/review-created-task-timestamp.md',
+    );
+
+    assert.match(contract, /review-created-task-timestamp\.md/);
+    assert.match(
+      contract,
+      /Preserve an existing final task's original `Created` value/,
+    );
+    assert.match(
+      timestampContract,
+      /node "\$CODEINFO_ROOT\/scripts\/format-display-timestamp\.mjs"/,
+    );
+    assert.match(timestampContract, /- Created: `<exact formatter stdout>`/);
+    assert.match(timestampContract, /positioned immediately above/);
+    assert.match(
+      timestampContract,
+      /Do not backfill or rewrite unrelated historical tasks/,
+    );
+  });
+
   test('loads the shared contract before initial task generation and in every review task-up command', async () => {
     const initial = JSON.parse(
       await read('codeinfo_agents/tasking_agent/commands/task_up2.json'),

@@ -5325,6 +5325,25 @@ async function runFlowUnlocked(params: {
       .filter((activeSubflow): activeSubflow is FlowActiveSubflow =>
         Boolean(activeSubflow),
       );
+    const stopActiveSubflowsAndWaitForTerminalStatus = async () =>
+      Promise.all(
+        childRuns.map(async (childRun) => {
+          requestActiveSubflowStop({
+            conversationId: childRun.conversationId,
+            runToken: childRun.runToken,
+          });
+          while (true) {
+            const status = await getFlowConversationLifecycleStatus({
+              conversationId: childRun.conversationId,
+              runToken: childRun.runToken,
+            });
+            if (isTerminalFlowChildLifecycleStatus(status)) {
+              return { childRun, status };
+            }
+            await sleep(25);
+          }
+        }),
+      );
     const resumeWaveChild = async (
       childRun: FlowActiveSubflow,
     ): Promise<FlowActiveSubflow | null> => {
@@ -5880,12 +5899,7 @@ async function runFlowUnlocked(params: {
         });
         if (parentPendingCancel) {
           parentStopRequested = true;
-          childRuns.forEach((childRun) => {
-            void requestActiveSubflowStop({
-              conversationId: childRun.conversationId,
-              runToken: childRun.runToken,
-            });
-          });
+          await stopActiveSubflowsAndWaitForTerminalStatus();
         }
 
         const childStatuses = await Promise.all(
@@ -6142,13 +6156,42 @@ async function runFlowUnlocked(params: {
       });
       return terminalStatus;
     } catch (error) {
-      childRuns.forEach((childRun) => {
-        void requestActiveSubflowStop({
-          conversationId: childRun.conversationId,
-          runToken: childRun.runToken,
-        });
-      });
+      const terminalChildren =
+        await stopActiveSubflowsAndWaitForTerminalStatus();
       if (isWave) {
+        for (const { childRun, status } of terminalChildren) {
+          const instanceId = activeInstanceId(childRun);
+          if (childOutcomes.has(instanceId)) continue;
+          const terminalOutcome = await getFlowConversationTerminalOutcome(
+            childRun.conversationId,
+          );
+          recordChildOutcome({
+            instanceId,
+            status:
+              status === 'ok' && terminalOutcome === 'not_applicable'
+                ? 'not_applicable'
+                : status,
+            conversationId: childRun.conversationId,
+          });
+          const childJob = jobByInstanceId.get(instanceId);
+          if (childJob) {
+            await recordReviewBatchAttempt({
+              job: childJob,
+              status:
+                status === 'ok' && terminalOutcome === 'not_applicable'
+                  ? 'not_applicable'
+                  : status === 'ok'
+                    ? 'completed'
+                    : status,
+              conversationId: childRun.conversationId,
+            });
+          }
+          await recordReviewCycleOutcome({
+            flowName: childRun.flowName,
+            status,
+            terminalOutcome,
+          });
+        }
         const newlyFailedJobs: SubflowWaveJob[] = [];
         jobs.forEach((job) => {
           if (!childOutcomes.has(job.instanceId)) {
@@ -6726,14 +6769,13 @@ async function runFlowUnlocked(params: {
       if (step.mode === 'final' && result.action === 'initialized') {
         initializedFinalReviewCycle = true;
       }
-      const exitFlow = result.action === 'skipped_incomplete_story';
+      const exitFlow = false;
       await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
         instruction,
-        response: exitFlow
-          ? `Skipped final review because story work remains: ${result.readiness.incomplete_tasks.length} incomplete task(s), ${result.readiness.unchecked_work.length} unchecked implementation or testing item(s), ${result.readiness.live_blockers.length} live blocker(s).`
-          : result.action === 'diagnostic'
+        response:
+          result.action === 'diagnostic'
             ? 'Initialized isolated diagnostic review without final-review disposition ownership.'
             : `Initialized review cycle ${result.cycle?.review_cycle_id}.`,
         modelId: params.modelId,

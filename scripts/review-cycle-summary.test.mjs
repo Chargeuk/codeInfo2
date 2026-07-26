@@ -234,6 +234,16 @@ test('review runner requires completed durable settlement before reporting succe
     }),
     true,
   );
+  for (const status of ['failed', 'stopped']) {
+    assert.equal(
+      isSuccessfulTerminalReview({
+        status,
+        terminal: true,
+        terminalOutcome: 'not_applicable',
+      }),
+      false,
+    );
+  }
 });
 
 test('review runner reports a terminal diagnostic ok outcome as successful', () => {

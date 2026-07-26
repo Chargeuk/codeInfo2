@@ -82,7 +82,7 @@ export const isSuccessfulTerminalReview = (
   status,
   flowName = 'two_phase_review_cycle',
 ) =>
-  status.terminalOutcome === 'not_applicable' ||
+  (status.status === 'ok' && status.terminalOutcome === 'not_applicable') ||
   (status.status === 'ok' &&
     (flowName === 'diagnostic_review_cycle'
       ? !(

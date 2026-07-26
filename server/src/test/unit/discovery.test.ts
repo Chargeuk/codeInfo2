@@ -1,26 +1,21 @@
 import fs from 'fs/promises';
 import assert from 'node:assert/strict';
 import { execFile as execFileCb } from 'node:child_process';
-import { afterEach, beforeEach, test } from 'node:test';
+import { test, type TestContext } from 'node:test';
 import { promisify } from 'node:util';
 import os from 'os';
 import path from 'path';
 import { discoverFiles, resolveConfig } from '../../ingest/index.js';
 const execFile = promisify(execFileCb);
-let tmpDir: string;
-let prevInclude: string | undefined;
-let prevExclude: string | undefined;
-beforeEach(async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-'));
-    prevInclude = process.env.CODEINFO_INGEST_INCLUDE;
-    prevExclude = process.env.CODEINFO_INGEST_EXCLUDE;
-});
-afterEach(async () => {
-    setScopedTestEnvValue("CODEINFO_INGEST_INCLUDE", prevInclude);
-    setScopedTestEnvValue("CODEINFO_INGEST_EXCLUDE", prevExclude);
-    await fs.rm(tmpDir, { recursive: true, force: true });
-});
-test('skips excluded directories and files', async () => {
+
+const makeTempDir = async (t: TestContext): Promise<string> => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-'));
+    t.after(() => fs.rm(tmpDir, { recursive: true, force: true }));
+    return tmpDir;
+};
+
+test('skips excluded directories and files', async (t) => {
+    const tmpDir = await makeTempDir(t);
     const srcDir = path.join(tmpDir, 'src');
     const nodeModules = path.join(tmpDir, 'node_modules');
     await fs.mkdir(srcDir, { recursive: true });
@@ -32,7 +27,8 @@ test('skips excluded directories and files', async () => {
     assert.equal(files[0].relPath, path.join('src', 'file.ts'));
     assert.equal(files[0].size, Buffer.byteLength('export const a = 1;', 'utf8'));
 });
-test('respects env include overrides', async () => {
+test('respects env include overrides', async (t) => {
+    const tmpDir = await makeTempDir(t);
     setScopedTestEnvValue("CODEINFO_INGEST_INCLUDE", 'md');
     const docPath = path.join(tmpDir, 'README.md');
     await fs.writeFile(docPath, '# hello');
@@ -41,7 +37,8 @@ test('respects env include overrides', async () => {
     assert.equal(files[0].relPath, 'README.md');
     assert.equal(files[0].size, Buffer.byteLength('# hello', 'utf8'));
 });
-test('git repo uses tracked files only', async () => {
+test('git repo uses tracked files only', async (t) => {
+    const tmpDir = await makeTempDir(t);
     const repo = tmpDir;
     await fs.writeFile(path.join(repo, 'tracked.ts'), 'export const t = 1;');
     await fs.writeFile(path.join(repo, 'ignored.log'), 'log');
@@ -65,7 +62,8 @@ test('git repo uses tracked files only', async () => {
     assert.equal(files[0].relPath, 'tracked.ts');
     assert.equal(files[0].size, Buffer.byteLength('export const t = 1;', 'utf8'));
 });
-test('falls back to walkDir when git ls-files fails', async () => {
+test('ignores an invalid git marker and falls back to walkDir', async (t) => {
+    const tmpDir = await makeTempDir(t);
     const repo = tmpDir;
     await fs.mkdir(path.join(repo, '.git'));
     await fs.writeFile(path.join(repo, 'fallback.ts'), 'export const f = 1;');

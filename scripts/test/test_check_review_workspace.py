@@ -13,12 +13,15 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from check_review_workspace import check_workspace
+from check_review_workspace import (
+    check_workspace,
+    check_workspace_handoff,
+    resolve_batch_handoff,
+)
 
 
 class ReviewWorkspaceCheckTests(unittest.TestCase):
-    def make_batch(self, root: Path) -> Path:
-        batch = root / "batch"
+    def populate_batch(self, batch: Path) -> Path:
         (batch / "inputs" / "target").mkdir(parents=True)
         (batch / "reconciliation").mkdir()
         job = batch / "jobs" / "reviewer-a"
@@ -27,6 +30,40 @@ class ReviewWorkspaceCheckTests(unittest.TestCase):
         (job / "job.md").write_text("# Agent-readable job\n", encoding="utf-8")
         (batch / "batch-launch.md").write_text("# Launch\n", encoding="utf-8")
         return batch
+
+    def make_batch(self, root: Path) -> Path:
+        return self.populate_batch(root / "batch")
+
+    def make_handoff_batch(self, root: Path) -> tuple[Path, Path]:
+        review_root = root / "project" / "codeInfoTmp" / "reviews"
+        cycle_id = "0000064-rc-20260726T120000Z-cycle"
+        batch_id = "0000064-rw-20260726T120001Z-batch"
+        batch = self.populate_batch(
+            review_root / cycle_id / "batches" / f"{batch_id}--head-0123456789ab"
+        )
+        handoff = review_root / "0000064-current-review-batch.md"
+        handoff.write_text(
+            "\n".join(
+                (
+                    "# Current review batch",
+                    "",
+                    "- Story: 0000064",
+                    f"- Review cycle: {cycle_id}",
+                    f"- Batch: {batch_id}",
+                    f"- Batch directory: {batch}",
+                    f"- Inputs directory: {batch / 'inputs'}",
+                    f"- Jobs directory: {batch / 'jobs'}",
+                    f"- Reconciliation directory: {batch / 'reconciliation'}",
+                    "",
+                    "## Scheduled job directories",
+                    "",
+                    f"- reviewer-a: {batch / 'jobs' / 'reviewer-a'}",
+                    "",
+                )
+            ),
+            encoding="utf-8",
+        )
+        return handoff, batch
 
     def test_accepts_empty_and_flexible_review_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -128,6 +165,125 @@ class ReviewWorkspaceCheckTests(unittest.TestCase):
             self.assertEqual(
                 check_workspace(batch, [(repository, "0" * 40)])["status"], "failed"
             )
+
+    def test_handoff_resolves_only_its_canonical_batch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            handoff, canonical_batch = self.make_handoff_batch(root)
+            lookalike_batch = self.populate_batch(
+                root
+                / "codeInfoTmp"
+                / "reviews"
+                / canonical_batch.parent.parent.parent.name
+                / "batches"
+                / canonical_batch.name
+            )
+            (
+                lookalike_batch
+                / "jobs"
+                / "reviewer-a"
+                / "output"
+                / "misleading-review.md"
+            ).write_text("wrong tree\n", encoding="utf-8")
+
+            resolved = resolve_batch_handoff(handoff)
+            checked = check_workspace_handoff(handoff)
+
+            self.assertEqual(Path(resolved["batch_root"]), canonical_batch.resolve())
+            self.assertEqual(checked["status"], "passed")
+            self.assertTrue(checked["facts"]["jobs"][0]["output_empty"])
+
+    def test_handoff_rejects_a_lookalike_declared_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            handoff, canonical_batch = self.make_handoff_batch(root)
+            lookalike_inputs = root / "codeInfoTmp" / "reviews" / "inputs"
+            handoff.write_text(
+                handoff.read_text(encoding="utf-8").replace(
+                    f"- Inputs directory: {canonical_batch / 'inputs'}",
+                    f"- Inputs directory: {lookalike_inputs}",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                ValueError, "inputs directory does not match canonical batch root"
+            ):
+                resolve_batch_handoff(handoff)
+
+    def test_handoff_rejects_story_or_cycle_identity_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            handoff, _ = self.make_handoff_batch(root)
+            wrong_filename = handoff.with_name("0000065-current-review-batch.md")
+            handoff.rename(wrong_filename)
+            with self.assertRaisesRegex(
+                ValueError, "filename does not match its story identity"
+            ):
+                resolve_batch_handoff(wrong_filename)
+
+            wrong_filename.rename(handoff)
+            handoff.write_text(
+                handoff.read_text(encoding="utf-8").replace(
+                    "- Review cycle: 0000064-rc-20260726T120000Z-cycle",
+                    "- Review cycle: 0000064-rc-20260726T120000Z-other",
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                ValueError, "does not match its review-cycle identity"
+            ):
+                resolve_batch_handoff(handoff)
+
+    def test_handoff_check_rejects_scheduled_job_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            handoff, canonical_batch = self.make_handoff_batch(root)
+            unexpected = canonical_batch / "jobs" / "reviewer-b"
+            for name in ("input", "work", "output", "verification"):
+                (unexpected / name).mkdir(parents=True)
+            (unexpected / "job.md").write_text("# Unexpected\n", encoding="utf-8")
+
+            result = check_workspace_handoff(handoff)
+
+            self.assertEqual(result["status"], "failed")
+            self.assertIn(
+                f"job directory is not declared by current-batch handoff: {unexpected}",
+                result["errors"],
+            )
+
+    def test_cli_resolves_and_checks_through_the_handoff(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            handoff, canonical_batch = self.make_handoff_batch(Path(tmpdir))
+            script = REPO_ROOT / "scripts" / "check_review_workspace.py"
+
+            resolved = subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "resolve",
+                    "--batch-handoff",
+                    str(handoff),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            checked = subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "check",
+                    "--batch-handoff",
+                    str(handoff),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(resolved.stdout.strip(), str(canonical_batch.resolve()))
+            self.assertIn('"status": "passed"', checked.stdout)
 
 
 if __name__ == "__main__":

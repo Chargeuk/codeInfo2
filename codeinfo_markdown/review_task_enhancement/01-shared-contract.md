@@ -6,6 +6,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 
 - Follow `AGENTS.md` for the current repository and any participating additional repository.
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md"` and preserve every selected task's original `Created` value and its placement immediately above `Overview`.
 - Use fresh disk reads and current git state, not conversational memory.
 - Read `codeInfoStatus/flow-state/current-plan.json` first and use only the stored `plan_path` and `additional_repositories` as the active scope for this command.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` before editing.
@@ -31,6 +32,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Do not merge, delete, absorb, or renumber selected review-created tasks in a way that changes which tasks are in scope for later enhancement passes.
 - Do not absorb selected review-created work into older pre-existing story tasks.
 - Preserve and improve any existing `Addresses Findings` coverage in the selected review-created tasks instead of removing or weakening it.
+- Treat each selected task's existing `Created` point as immutable task identity metadata. Never refresh it during enhancement, dependency repair, or renumbering; if the immediately preceding review task-up created a selected task without the required point, repair that current-invocation omission under the shared timestamp contract.
 - Treat the dedicated final revalidation task as a special selected task governed by `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`; do not apply substantive-task subtask expansion rules to it.
 
 </scope_contract>
@@ -71,6 +73,7 @@ Enhance only the newly added review-created `__to_do__` tasks so they meet the s
 - Check that the resulting task order still matches the next real executable work.
 - Check that the selected review-created tasks now follow the same `Subtasks` / automated-only `Testing` / optional `Manual Testing Guidance` contract as the main `task_up2` workflow.
 - Check that the selected review-created task identities remained stable throughout the enhancement pass.
+- Check that every selected task preserves exactly one original `Created` point immediately above `Overview`.
 - Check that any existing `Addresses Findings` coverage still remains clear and durable in the plan.
 
 </verification_loop>

@@ -1,12 +1,16 @@
 # Completed Review Fix Task Contract
 
-Use this contract during complete-pass settlement whenever either review repair agent committed one or more fixes in an immutable review batch.
+Read and follow `review-created-task-timestamp.md` for every newly created completed-review-fix task.
+
+Use this contract at the end of each immutable review batch whenever either review repair agent committed one or more fixes. Complete-pass settlement consumes the same contract to reconcile, repair, or recover the record.
 
 ## Purpose
 
 Create one durable completed plan task that records the changes already implemented for that batch. This is historical implementation evidence, not new work and not a substitute for the final whole-story revalidation task.
 
 Create no completed-review-fix task for a batch with no repair commit.
+
+Create or update the record in the final batch-outcome step, after the outcome evidence is written and before that batch returns. Complete-pass settlement is the idempotent recovery boundary when an earlier outcome step was unavailable or left an understandable omission; it is not the first expected writer.
 
 ## Identity And Ordering
 
@@ -26,7 +30,8 @@ The task must be `Task Status: __done__` and contain:
 
 - `Review Task Role: completed_review_fixes`;
 - the exact review-batch and review-cycle IDs;
-- a display timestamp produced by `node "$CODEINFO_ROOT/scripts/format-display-timestamp.mjs"`;
+- one immutable `Created` point immediately above `Overview`, produced at first task creation under `review-created-task-timestamp.md`;
+- a concise `Overview` describing the already completed batch repair;
 - one administrative `Repository Name`;
 - `Affected Repositories` naming every repository changed in the batch;
 - `Review Harnesses` naming every discovered harness that generated or corroborated the addressed findings;
@@ -50,6 +55,7 @@ Do not claim a fix, commit, test, repository, harness, or finding that the evide
 When the matching task already exists:
 
 - preserve its task number and completed status;
+- preserve its exact original `Created` value and placement;
 - merge newly discovered repositories, harnesses, findings, commits, tests, and limitations;
 - remove factual duplication;
 - keep every historical checkbox checked only when evidence proves the work ran;

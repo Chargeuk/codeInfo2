@@ -173,6 +173,7 @@ import {
 } from './reviewCycleLifecycle.js';
 import { prepareReviewTargets } from './reviewTargets.js';
 import type { ReviewTargetSnapshot } from './reviewTargets.js';
+import { writeReviewUsageArtifact } from './reviewUsage.js';
 import {
   expandSubflowWaveJobs,
   resolveFlowValue,
@@ -3223,6 +3224,7 @@ const buildFlowResumeState = (params: {
             ...(activeSubflow.workingFolder
               ? { workingFolder: activeSubflow.workingFolder }
               : {}),
+            ...(activeSubflow.input ? { input: activeSubflow.input } : {}),
             ...(activeSubflow.inputHash
               ? { inputHash: activeSubflow.inputHash }
               : {}),
@@ -4492,6 +4494,14 @@ async function runFlowUnlocked(params: {
     postProcess?: FlowInstructionPostProcess;
     command?: TurnCommandMetadata;
     runtime?: TurnRuntimeMetadata;
+    onAttemptResult?: (
+      result: FlowInstructionResult,
+      metadata: {
+        attempt: number;
+        providerId: ConversationProvider;
+        modelId: string;
+      },
+    ) => Promise<void>;
   }): Promise<FlowInstructionResult> => {
     const agent = agentByName.get(instructionParams.agentType);
     if (!agent) {
@@ -4605,6 +4615,12 @@ async function runFlowUnlocked(params: {
         },
       });
 
+      await instructionParams.onAttemptResult?.(result, {
+        attempt,
+        providerId: runtime.providerId,
+        modelId,
+      });
+
       if (shouldRetry) {
         previousError = result.content;
         const reason = result.content;
@@ -4686,8 +4702,47 @@ async function runFlowUnlocked(params: {
     step: FlowLlmStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
+    const reviewUsageRecorder = (invocation: number) =>
+      step.recordReviewUsage
+        ? async (
+            result: FlowInstructionResult,
+            metadata: {
+              attempt: number;
+              providerId: ConversationProvider;
+              modelId: string;
+            },
+          ) => {
+            const recorded = await writeReviewUsageArtifact({
+              input: params.input,
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              stepLabel: step.label,
+              stepIdentifier: step.identifier,
+              invocation,
+              attempt: metadata.attempt,
+              providerId: metadata.providerId,
+              modelId: metadata.modelId,
+              status: result.status,
+              usage: result.usage,
+            });
+            if (recorded.status === 'skipped') {
+              baseLogger.warn(
+                {
+                  flowName: params.flowName,
+                  stepIndex: command.stepIndex,
+                  identifier: step.identifier,
+                  invocation,
+                  attempt: metadata.attempt,
+                  reason: recorded.reason,
+                },
+                'optional actual-review usage evidence was not written',
+              );
+            }
+          }
+        : undefined;
+
     if ('messages' in step) {
-      for (const message of step.messages) {
+      for (const [messageIndex, message] of step.messages.entries()) {
         const instruction = prependAssignedReviewJobContext(
           joinMessageContent(message.content),
           params.input,
@@ -4699,6 +4754,7 @@ async function runFlowUnlocked(params: {
             identifier: step.identifier,
             instruction,
             command,
+            onAttemptResult: reviewUsageRecorder(messageIndex + 1),
           });
         } catch (error) {
           const agent = agentByName.get(step.agentType);
@@ -4813,6 +4869,7 @@ async function runFlowUnlocked(params: {
       identifier: step.identifier,
       instruction,
       command,
+      onAttemptResult: reviewUsageRecorder(1),
       runtime: {
         ...(params.repositoryContext.workingRepositoryPath
           ? { workingFolder: params.repositoryContext.workingRepositoryPath }
@@ -5286,6 +5343,25 @@ async function runFlowUnlocked(params: {
       .map((job) => rememberedSubflowsByInstance.get(job.instanceId))
       .filter((activeSubflow): activeSubflow is FlowActiveSubflow =>
         Boolean(activeSubflow),
+      );
+    const stopActiveSubflowsAndWaitForTerminalStatus = async () =>
+      Promise.all(
+        childRuns.map(async (childRun) => {
+          requestActiveSubflowStop({
+            conversationId: childRun.conversationId,
+            runToken: childRun.runToken,
+          });
+          while (true) {
+            const status = await getFlowConversationLifecycleStatus({
+              conversationId: childRun.conversationId,
+              runToken: childRun.runToken,
+            });
+            if (isTerminalFlowChildLifecycleStatus(status)) {
+              return { childRun, status };
+            }
+            await sleep(25);
+          }
+        }),
       );
     const resumeWaveChild = async (
       childRun: FlowActiveSubflow,
@@ -5842,12 +5918,7 @@ async function runFlowUnlocked(params: {
         });
         if (parentPendingCancel) {
           parentStopRequested = true;
-          childRuns.forEach((childRun) => {
-            void requestActiveSubflowStop({
-              conversationId: childRun.conversationId,
-              runToken: childRun.runToken,
-            });
-          });
+          await stopActiveSubflowsAndWaitForTerminalStatus();
         }
 
         const childStatuses = await Promise.all(
@@ -6104,13 +6175,42 @@ async function runFlowUnlocked(params: {
       });
       return terminalStatus;
     } catch (error) {
-      childRuns.forEach((childRun) => {
-        void requestActiveSubflowStop({
-          conversationId: childRun.conversationId,
-          runToken: childRun.runToken,
-        });
-      });
+      const terminalChildren =
+        await stopActiveSubflowsAndWaitForTerminalStatus();
       if (isWave) {
+        for (const { childRun, status } of terminalChildren) {
+          const instanceId = activeInstanceId(childRun);
+          if (childOutcomes.has(instanceId)) continue;
+          const terminalOutcome = await getFlowConversationTerminalOutcome(
+            childRun.conversationId,
+          );
+          recordChildOutcome({
+            instanceId,
+            status:
+              status === 'ok' && terminalOutcome === 'not_applicable'
+                ? 'not_applicable'
+                : status,
+            conversationId: childRun.conversationId,
+          });
+          const childJob = jobByInstanceId.get(instanceId);
+          if (childJob) {
+            await recordReviewBatchAttempt({
+              job: childJob,
+              status:
+                status === 'ok' && terminalOutcome === 'not_applicable'
+                  ? 'not_applicable'
+                  : status === 'ok'
+                    ? 'completed'
+                    : status,
+              conversationId: childRun.conversationId,
+            });
+          }
+          await recordReviewCycleOutcome({
+            flowName: childRun.flowName,
+            status,
+            terminalOutcome,
+          });
+        }
         const newlyFailedJobs: SubflowWaveJob[] = [];
         jobs.forEach((job) => {
           if (!childOutcomes.has(job.instanceId)) {
@@ -6688,14 +6788,13 @@ async function runFlowUnlocked(params: {
       if (step.mode === 'final' && result.action === 'initialized') {
         initializedFinalReviewCycle = true;
       }
-      const exitFlow = result.action === 'skipped_incomplete_story';
+      const exitFlow = false;
       await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
         instruction,
-        response: exitFlow
-          ? `Skipped final review because story work remains: ${result.readiness.incomplete_tasks.length} incomplete task(s), ${result.readiness.unchecked_work.length} unchecked implementation or testing item(s), ${result.readiness.live_blockers.length} live blocker(s).`
-          : result.action === 'diagnostic'
+        response:
+          result.action === 'diagnostic'
             ? 'Initialized isolated diagnostic review without final-review disposition ownership.'
             : `Initialized review cycle ${result.cycle?.review_cycle_id}.`,
         modelId: params.modelId,
@@ -8337,7 +8436,6 @@ export async function startFlowRun(
       const releaseConversationLockFn =
         params.releaseConversationLockFn ?? releaseConversationLock;
       let released = false;
-      let retryCompletionDurable = true;
       if (retryOwnershipId && !resumeStepPath && completedSuccessfully) {
         const completedResult = {
           flowName,
@@ -8347,7 +8445,6 @@ export async function startFlowRun(
           modelId,
           ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
         };
-        retryCompletionDurable = false;
         for (let attempt = 1; attempt <= 2; attempt += 1) {
           try {
             await persistFreshRunRetryOwnershipCompletion({
@@ -8356,7 +8453,6 @@ export async function startFlowRun(
               launch: retryOwnershipLaunch,
               result: completedResult,
             });
-            retryCompletionDurable = true;
             break;
           } catch (error) {
             baseLogger.error(
@@ -8373,10 +8469,8 @@ export async function startFlowRun(
           result: completedResult,
         });
       }
-      if (retryCompletionDurable) {
-        released = releaseConversationLockFn(conversationId, runToken);
-      }
-      if (retryOwnershipId && !resumeStepPath && retryCompletionDurable) {
+      released = releaseConversationLockFn(conversationId, runToken);
+      if (retryOwnershipId && !resumeStepPath) {
         clearFreshRunRetryOwnership({
           flowName,
           sourceId,
@@ -8552,16 +8646,32 @@ export async function getFlowRunStatus(
             : persistedLifecycle === 'running'
               ? ('orphaned' as const)
               : (latestAssistant?.status ?? 'orphaned');
+  const finalReviewCycle = Object.values(resumeState?.values ?? {}).find(
+    (value) =>
+      Boolean(value) &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      (value as FlowJsonObject).action === 'initialized' &&
+      (value as FlowJsonObject).review_mode === 'final' &&
+      typeof (value as FlowJsonObject).review_cycle_id === 'string',
+  ) as FlowJsonObject | undefined;
+  const expectedReviewCycleId = finalReviewCycle?.review_cycle_id as
+    | string
+    | undefined;
   const reviewCycleStatus =
     conversation.flowName === 'two_phase_review_cycle' &&
-    resumeState?.workingFolder
-      ? await readActiveFinalReviewCycleStatus(resumeState.workingFolder)
+    resumeState?.workingFolder &&
+    expectedReviewCycleId
+      ? await readActiveFinalReviewCycleStatus(
+          resumeState.workingFolder,
+          expectedReviewCycleId,
+        )
       : null;
 
   return {
     conversationId: normalizedConversationId,
     status,
-    terminal: status !== 'running',
+    terminal: status === 'ok' || status === 'stopped' || status === 'failed',
     terminalOutcome: resumeState?.terminalOutcome ?? null,
     reviewCycleStatus,
     executionId: resumeState?.executionId ?? null,

@@ -59,6 +59,7 @@ done
 [ -n "${comparison_base}" ] || fail '--base is required'
 [ -n "${review_model}" ] || fail '--model is required'
 [ -n "${reasoning_effort}" ] || fail '--reasoning-effort is required'
+[ "${reasoning_effort}" = 'high' ] || fail '--reasoning-effort must be high'
 [ -n "${instructions_file}" ] || fail '--instructions-file is required'
 [ -n "${output_file}" ] || fail '--output-file is required'
 [ -f "${instructions_file}" ] || fail "instructions file does not exist: ${instructions_file}"
@@ -77,6 +78,7 @@ fi
 review_instructions="$(<"${instructions_file}")"
 
 exec "${codex_bin}" exec review \
+  --json \
   --dangerously-bypass-approvals-and-sandbox \
   --ephemeral \
   --model "${review_model}" \

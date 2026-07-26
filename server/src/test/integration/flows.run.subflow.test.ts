@@ -488,6 +488,40 @@ test('child lifecycle observation stays coherent across terminal persistence and
   }
 });
 
+test('orphaned flow lifecycle observation remains recoverable', async () => {
+  const conversationId = 'orphaned-lifecycle-observation';
+  const now = new Date();
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Orphaned lifecycle observation',
+    flowName: 'orphaned-lifecycle-observation',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'orphaned-lifecycle-observation-execution',
+        stepPath: [],
+        loopStack: [],
+        runLifecycle: {
+          status: 'running',
+          updatedAt: now.toISOString(),
+        },
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: now,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  } as Conversation);
+
+  const observed = await getFlowRunStatus(conversationId);
+  assert.equal(observed?.status, 'orphaned');
+  assert.equal(observed?.terminal, false);
+});
+
 test('review initialization failures fail the flow instead of silently skipping the review cycle', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-review-initialization-failure-'),
@@ -556,7 +590,7 @@ test('review initialization failures fail the flow instead of silently skipping 
   }
 });
 
-test('a final review skipped for incomplete story work does not relabel an older cycle as completed', async () => {
+test('a final review runs despite incomplete Markdown task markers', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-review-skipped-incomplete-story-'),
   );
@@ -597,21 +631,21 @@ test('a final review skipped for incomplete story work does not relabel an older
           outputKey: 'review-cycle',
           mode: 'final',
         },
-        llmStep('reviewer must not run for incomplete story work'),
+        llmStep('reviewer runs despite incomplete Markdown task markers'),
       ],
     });
     await writeFlowFile({
       tmpDir,
-      flowName: 'review-parent-skipped',
+      flowName: 'review-parent-incomplete-markdown',
       steps: [
         { type: 'subflow', flowNames: ['two_phase_review_cycle'] },
-        llmStep('parent continued after skipped review'),
+        llmStep('parent continued after review'),
       ],
     });
 
     const executions: string[] = [];
     const result = await startFlowRun({
-      flowName: 'review-parent-skipped',
+      flowName: 'review-parent-incomplete-markdown',
       source: 'REST',
       working_folder: repoDir,
       chatFactory: () =>
@@ -622,21 +656,18 @@ test('a final review skipped for incomplete story work does not relabel an older
       }),
     });
 
-    await waitFor(() =>
-      executions.includes('parent continued after skipped review'),
-    );
+    await waitFor(() => executions.includes('parent continued after review'));
     await waitForAssistantStatus(result.conversationId, 'ok');
     assert.equal(
-      executions.includes('reviewer must not run for incomplete story work'),
-      false,
-    );
-    assert.equal(
-      executions.includes('parent continued after skipped review'),
+      executions.includes(
+        'reviewer runs despite incomplete Markdown task markers',
+      ),
       true,
     );
-    assert.deepEqual(
-      JSON.parse(await fs.readFile(activePath, 'utf8')),
-      priorCycle,
+    assert.equal(executions.includes('parent continued after review'), true);
+    assert.notEqual(
+      JSON.parse(await fs.readFile(activePath, 'utf8')).review_cycle_id,
+      priorCycle.review_cycle_id,
     );
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
@@ -1134,11 +1165,16 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
       new Set(activeSubflows.map((entry) => entry.conversationId)).size,
       5,
     );
-    assert.equal(
+    assert.deepEqual(
       activeSubflows.find(
         (entry) => entry.instanceId === 'reviews:client:main-review',
       )?.input,
-      undefined,
+      {
+        review_target: {
+          repo_root: '/repos/client',
+          target_id: 'client',
+        },
+      },
     );
     assert.deepEqual(
       (
@@ -1437,6 +1473,14 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
     });
     assert.equal(cancelled.ok, true);
 
+    await Promise.all(
+      activeSubflows.map((entry) =>
+        waitForConversationAssistantStatus(
+          String(entry.conversationId),
+          'stopped',
+        ),
+      ),
+    );
     const parentAssistant = await waitForAssistantStatus(
       result.conversationId,
       'stopped',
@@ -1447,14 +1491,6 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
       memoryTurns.get(result.conversationId) ?? []
     ).filter((turn) => turn.role === 'assistant' && turn.status === 'stopped');
     assert.equal(parentStoppedTurns.length, 1);
-    await Promise.all(
-      activeSubflows.map((entry) =>
-        waitForConversationAssistantStatus(
-          String(entry.conversationId),
-          'stopped',
-        ),
-      ),
-    );
     const parentFlow = (
       memoryConversations.get(result.conversationId)?.flags as {
         flow?: {
@@ -1533,6 +1569,10 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
       3,
     );
     assert.ok(parentRunToken);
+    assert.deepEqual(
+      activeSubflows.map((entry) => entry.input),
+      [{ target: { id: 'a' } }, { target: { id: 'b' } }, undefined],
+    );
 
     registerPendingConversationCancel({
       conversationId: result.conversationId,
@@ -1588,6 +1628,19 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
     )?.flow;
     assert.equal(parentFlow?.subflowWaveProgress?.completed, 3);
     assert.equal(parentFlow?.subflowWaveProgress?.stopped, 0);
+    const resumedLocalInputs = childConversations
+      .filter((conversation) => conversation.flowName === 'wave-resume-local')
+      .map(
+        (conversation) =>
+          (conversation.flags as { flow?: { input?: unknown } }).flow?.input,
+      )
+      .sort((left, right) =>
+        JSON.stringify(left).localeCompare(JSON.stringify(right)),
+      );
+    assert.deepEqual(resumedLocalInputs, [
+      { target: { id: 'a' } },
+      { target: { id: 'b' } },
+    ]);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

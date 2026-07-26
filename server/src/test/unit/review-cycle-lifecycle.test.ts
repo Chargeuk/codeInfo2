@@ -7,6 +7,10 @@ import test from 'node:test';
 import { promisify } from 'node:util';
 
 import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
+import {
   finalizeActiveReviewCycle,
   finalizeActiveReviewCycleIfPending,
   initializeReviewCycle,
@@ -14,6 +18,7 @@ import {
   readActiveFinalReviewCycleStatus,
   recordReviewInvocationAttempt,
 } from '../../flows/reviewCycleLifecycle.js';
+import { getFlowRunStatus } from '../../flows/service.js';
 
 const exec = promisify(execFile);
 
@@ -222,6 +227,81 @@ test('final review status is readable for terminal wrapper reporting', async () 
   assert.equal(await readActiveFinalReviewCycleStatus(repo), 'incomplete');
 });
 
+test('flow status ignores an active review cycle owned by a different conversation', async () => {
+  const repo = await makeRepo();
+  const first = await initializeReviewCycle(
+    { workingRepositoryPath: repo, mode: 'final' },
+    {
+      now: () => new Date('2026-07-18T12:00:00.000Z'),
+      randomHex: () => '11111111',
+    },
+  );
+  await initializeReviewCycle(
+    { workingRepositoryPath: repo, mode: 'final' },
+    {
+      now: () => new Date('2026-07-18T12:05:00.000Z'),
+      randomHex: () => '22222222',
+    },
+  );
+  const conversationId = 'review-cycle-status-first-conversation';
+  const now = new Date();
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.6-sol',
+    title: 'First review cycle',
+    flowName: 'two_phase_review_cycle',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'first-review-execution',
+        stepPath: [],
+        loopStack: [],
+        workingFolder: repo,
+        values: {
+          review_cycle: {
+            action: 'initialized',
+            review_mode: 'final',
+            review_cycle_id: first.cycle?.review_cycle_id,
+          },
+        },
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: now,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  try {
+    assert.equal(
+      (await getFlowRunStatus(conversationId))?.reviewCycleStatus,
+      null,
+    );
+    const conversation = memoryConversations.get(conversationId);
+    assert.ok(conversation);
+    memoryConversations.set(conversationId, {
+      ...conversation,
+      flags: {
+        ...conversation.flags,
+        flow: {
+          ...((conversation.flags.flow ?? {}) as Record<string, unknown>),
+          values: {},
+        },
+      },
+    });
+    assert.equal(
+      (await getFlowRunStatus(conversationId))?.reviewCycleStatus,
+      null,
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(repo, { recursive: true, force: true });
+  }
+});
+
 test('review invocation evidence survives a failed launch without a batch workspace', async () => {
   const repo = await makeRepo();
   const cycle = await initializeReviewCycle(
@@ -375,7 +455,7 @@ test('pending-only cleanup records an honest fallback when no agent outcome arri
   );
 });
 
-test('incomplete final review exits without resetting prior state', async () => {
+test('final review initializes regardless of human-readable task status', async () => {
   const repo = await makeRepo(
     completePlan
       .replace('__done__', '__in_progress__')
@@ -395,9 +475,6 @@ test('incomplete final review exits without resetting prior state', async () => 
     workingRepositoryPath: repo,
     mode: 'final',
   });
-  assert.equal(result.action, 'skipped_incomplete_story');
-  assert.equal(
-    JSON.parse(await fs.readFile(statePath, 'utf8')).review_phase,
-    'slow',
-  );
+  assert.equal(result.action, 'initialized');
+  await assert.rejects(fs.readFile(statePath), /ENOENT/u);
 });

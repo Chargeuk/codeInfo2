@@ -4,6 +4,7 @@ Load the bounded review-created task packet after the scoped review-task-up comm
 
 <instruction_priority>
 
+- Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md"` and preserve each selected task's original `Created` value and placement while improving its content.
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/review_task_enhancement/01-shared-contract.md"` and keep the scope limited to the selected newly added review-created `__to_do__` tasks.
 - Use fresh disk reads and current git state, not conversational memory.
 - Treat thin review notes, under-specified subtasks, and under-scoped testing as defects to repair now rather than acceptable output.

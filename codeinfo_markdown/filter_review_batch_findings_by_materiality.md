@@ -1,5 +1,7 @@
 # Filter the current review batch by materiality and realistic impact
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`. This materiality artifact is applicable only when the completed positive-authorization gate has survivors; when this step runs, it must leave a non-empty completed, partial, or unavailable record.
+
 This is an autonomous flow execution step, not a planning interview. Do not ask the user questions, offer choices, wait for confirmation, or finish with a question. Use the available evidence and best judgement, preserve uncertainty honestly, and continue with best effort.
 
 ## Purpose
@@ -10,7 +12,7 @@ This gate reduces low-value review churn without suppressing credible defects. I
 
 ## Authoritative inputs
 
-Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving its padded story identifier. Resolve the exact current immutable batch through `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`.
+Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving its padded story identifier. Set `batch_handoff` to `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`, then set `batch_dir` exactly once by running `batch_dir="$(python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" resolve --batch-handoff "$batch_handoff")"`. Reuse those exact variables throughout this invocation; never discover, retype, reconstruct, or switch to a similar-looking batch path.
 
 Copy batch identities, repository identities, reviewed commits, finding identities, and paths directly from the authoritative handoff, `batch-launch.md`, and assigned inputs. Do not reconstruct, normalize, abbreviate, or type them from memory.
 
@@ -100,7 +102,7 @@ Later disposition must place material survivors under `Accepted` and materiality
 
 ## Failure and recovery
 
-If the exact batch or positive-authorization survivor set cannot be established safely, leave the actionable reconciliation unchanged and write an honest partial or unavailable materiality artifact.
+If the exact batch or positive-authorization survivor set cannot initially be established safely, first salvage every understandable fragment and triangulate it with the other trustworthy assigned batch evidence. If uncertainty remains, leave the actionable reconciliation unchanged and write an honest partial or unavailable materiality artifact; do not fail the turn or stop the surrounding flow.
 
 A partial or unavailable result must not promote a finding or invent a clean review outcome. The surrounding independent audit and disposition steps continue with best effort and keep unproven work non-actionable.
 
@@ -113,8 +115,8 @@ Before returning:
 3. Confirm no previously removed finding was reconsidered or restored.
 4. Confirm every survivor received exactly one materiality decision.
 5. Confirm every removal or narrowing remains visible for later `Ignored for This Story` recording.
-6. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" --batch-root <batch-directory>`.
-7. Repair only factual derived-workspace issues owned by this step.
+6. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" check --batch-handoff "$batch_handoff"`.
+7. Repair only this step's derived materiality artifacts; report scheduler-owned structural failures without recreating their evidence.
 8. Reopen `materiality-filtered-findings.md`, compare every stated identity and path character-for-character with the authoritative handoff, and correct allowed mismatches.
 
 Return a concise execution summary and the materiality artifact path, not questions.

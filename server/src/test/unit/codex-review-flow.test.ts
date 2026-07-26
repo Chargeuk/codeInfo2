@@ -67,11 +67,17 @@ test('Codex review flow uses the generic workspace agent and launcher prompt', (
   for (const required of [
     '$CODEINFO_ROOT/scripts/run-codex-review.sh',
     'do not construct or invoke `codex exec review` directly',
-    'model `gpt-5.6-sol`',
+    'model `gpt-5.6-terra`',
     'reasoning effort `high`',
     '--dangerously-bypass-approvals-and-sandbox',
-    "Redirect the launcher's stdout and stderr to separate files",
+    "Redirect the launcher's JSONL stdout and diagnostic stderr",
+    'work/review-usage/native-codex.md',
+    "Do not include this wrapper agent's own usage",
     'actual process exit status',
+    'running cell or session handle',
+    'continue waiting on that exact handle',
+    'Only a terminal tool result',
+    'native-response file only after the process exits',
   ]) {
     assert.match(
       prompt,
@@ -100,7 +106,7 @@ test('Codex review launcher fixes Docker-native invocation settings', (t) => {
       '--base',
       '0123456789abcdef',
       '--model',
-      'gpt-5.6-sol',
+      'gpt-5.6-terra',
       '--reasoning-effort',
       'high',
       '--instructions-file',
@@ -130,10 +136,11 @@ test('Codex review launcher fixes Docker-native invocation settings', (t) => {
   assert.deepEqual(args, [
     'exec',
     'review',
+    '--json',
     '--dangerously-bypass-approvals-and-sandbox',
     '--ephemeral',
     '--model',
-    'gpt-5.6-sol',
+    'gpt-5.6-terra',
     '--base',
     '0123456789abcdef',
     '--config',
@@ -143,6 +150,51 @@ test('Codex review launcher fixes Docker-native invocation settings', (t) => {
     '--output-last-message',
     outputFile,
   ]);
+});
+
+test('Codex review launcher passes through another non-empty model', (t) => {
+  const tempRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'codex-review-model-pass-through-'),
+  );
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
+
+  const instructionsFile = path.join(tempRoot, 'instructions.md');
+  const outputFile = path.join(tempRoot, 'native-response.md');
+  const argsFile = path.join(tempRoot, 'args.bin');
+  fs.writeFileSync(instructionsFile, 'Review this diff.\n');
+
+  const result = spawnSync(
+    launcherPath,
+    [
+      '--base',
+      'base-commit',
+      '--model',
+      'custom-review-model',
+      '--reasoning-effort',
+      'high',
+      '--instructions-file',
+      instructionsFile,
+      '--output-file',
+      outputFile,
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CODEINFO_CODEX_BIN: createFakeCodex(tempRoot),
+        FAKE_CODEX_ARGS_FILE: argsFile,
+        FAKE_CODEX_STDIN_FILE: path.join(tempRoot, 'stdin.txt'),
+      },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  const args = fs.readFileSync(argsFile, 'utf8').split('\0').filter(Boolean);
+  assert.deepEqual(
+    args.slice(args.indexOf('--model'), args.indexOf('--model') + 2),
+    ['--model', 'custom-review-model'],
+  );
 });
 
 test('Codex review launcher preserves the native process exit status', (t) => {
@@ -157,9 +209,9 @@ test('Codex review launcher preserves the native process exit status', (t) => {
       '--base',
       'base-commit',
       '--model',
-      'review-model',
+      'gpt-5.6-terra',
       '--reasoning-effort',
-      'medium',
+      'high',
       '--instructions-file',
       instructionsFile,
       '--output-file',
@@ -181,6 +233,60 @@ test('Codex review launcher preserves the native process exit status', (t) => {
   assert.equal(result.status, 17);
 });
 
+test('Codex review launcher rejects missing model or mismatched reasoning before invoking Codex', (t) => {
+  const tempRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'codex-review-policy-'),
+  );
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
+
+  const instructionsFile = path.join(tempRoot, 'instructions.md');
+  fs.writeFileSync(instructionsFile, 'Review this diff.\n');
+
+  const mismatches: ReadonlyArray<readonly [string, string, RegExp]> = [
+    ['', 'high', /--model is required/u],
+    ['gpt-5.6-terra', 'medium', /--reasoning-effort must be high/u],
+  ];
+
+  for (const [model, reasoningEffort, expectedError] of mismatches) {
+    const argsFile = path.join(
+      tempRoot,
+      `${model}-${reasoningEffort}-args.bin`,
+    );
+    const result = spawnSync(
+      launcherPath,
+      [
+        '--base',
+        'base-commit',
+        '--model',
+        model,
+        '--reasoning-effort',
+        reasoningEffort,
+        '--instructions-file',
+        instructionsFile,
+        '--output-file',
+        path.join(tempRoot, `${model}-${reasoningEffort}-native-response.md`),
+      ],
+      {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          CODEINFO_CODEX_BIN: createFakeCodex(tempRoot),
+          FAKE_CODEX_ARGS_FILE: argsFile,
+          FAKE_CODEX_STDIN_FILE: path.join(
+            tempRoot,
+            `${model}-${reasoningEffort}-stdin.txt`,
+          ),
+        },
+      },
+    );
+
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, expectedError);
+    assert.equal(fs.existsSync(argsFile), false);
+  }
+});
+
 test('Codex review launcher rejects missing input before invoking Codex', (t) => {
   const tempRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'codex-review-input-'),
@@ -193,7 +299,7 @@ test('Codex review launcher rejects missing input before invoking Codex', (t) =>
       '--base',
       'base-commit',
       '--model',
-      'review-model',
+      'gpt-5.6-terra',
       '--reasoning-effort',
       'high',
       '--instructions-file',

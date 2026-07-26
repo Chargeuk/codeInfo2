@@ -110,8 +110,17 @@ class MinorFixAuditTaskTests(unittest.TestCase):
 
     def test_upsert_creates_one_completed_task_and_replays_idempotently(self) -> None:
         plan = self.make_plan()
-        first = upsert_audit_task(plan, self.audit())
-        second = upsert_audit_task(plan, self.audit())
+        created = "July 26, 2026 at 11:05:00 AM GMT+1 [locale=en-US; timeZone=Europe/London]"
+        first = upsert_audit_task(
+            plan,
+            self.audit(),
+            created_timestamp=created,
+        )
+        second = upsert_audit_task(
+            plan,
+            self.audit(),
+            created_timestamp="This replacement must not be used",
+        )
         text = plan.read_text(encoding="utf-8")
 
         self.assertEqual(first["action"], "created")
@@ -124,6 +133,9 @@ class MinorFixAuditTaskTests(unittest.TestCase):
         self.assertIn("`src/a.test.ts`, `src/a.ts`", text)
         self.assertIn("1. [x] `npm test -- a`", text)
         self.assertIn("Pending combined task-up", text)
+        self.assertEqual(text.count(f"- Created: `{created}`"), 1)
+        self.assertNotIn("This replacement must not be used", text)
+        self.assertIn(f"- Created: `{created}`\n\n#### Overview", text)
 
     def test_refresh_maps_escalation_to_grouped_task_without_duplication(self) -> None:
         plan = self.make_plan()

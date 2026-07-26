@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ from flow_state_utils import ScopeResolutionError, load_json_file, load_plan_sco
 ROLE_MARKER = "- Review Task Role: `minor_fix_loop_audit`"
 CYCLE_RE = re.compile(r"^- Review Cycle Id: `([^`]+)`$")
 PASS_RE = re.compile(r"^- Review Pass Id: `([^`]+)`$")
+CREATED_RE = re.compile(r"^- Created: `([^`]+)`$")
 ADDRESSES_HEADING_RE = re.compile(r"^#{4,6}\s+Addresses Findings\s*$", re.I)
 SECTION_HEADING_RE = re.compile(r"^#{4,6}\s+")
 
@@ -52,6 +54,28 @@ def _audit_identity(block: list[str]) -> tuple[str, str] | None:
     if cycle is None or review_pass is None:
         return None
     return cycle, review_pass
+
+
+def _created_timestamp(block: list[str]) -> str | None:
+    return next(
+        (
+            match.group(1)
+            for line in block
+            if (match := CREATED_RE.match(line.strip()))
+        ),
+        None,
+    )
+
+
+def _format_display_timestamp() -> str:
+    formatter = Path(__file__).resolve().parent / "format-display-timestamp.mjs"
+    result = subprocess.run(
+        ["node", str(formatter)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
 
 
 def _task_addresses_findings(block: list[str]) -> set[str]:
@@ -117,6 +141,7 @@ def render_audit_task(
     *,
     task_number: int,
     coverage: dict[str, list[dict[str, Any]]],
+    created_timestamp: str | None,
 ) -> str:
     review_pass_id = audit["review_pass_id"]
     lines = [
@@ -124,13 +149,19 @@ def render_audit_task(
         "",
         "- Task Status: `__done__`",
         "",
-        "#### Overview",
-        "",
-        "This completed audit records the terminal inline outcomes for this review pass.",
-        "",
-        "Escalated review items requiring combined task-up:",
-        "",
     ]
+    if created_timestamp is not None:
+        lines.extend([f"- Created: `{created_timestamp}`", ""])
+    lines.extend(
+        [
+            "#### Overview",
+            "",
+            "This completed audit records the terminal inline outcomes for this review pass.",
+            "",
+            "Escalated review items requiring combined task-up:",
+            "",
+        ]
+    )
     escalated_ids = audit.get("escalated_finding_ids", [])
     attempts_by_id = {
         attempt.get("finding_id"): attempt
@@ -197,7 +228,12 @@ def render_audit_task(
     return "\n".join(lines)
 
 
-def upsert_audit_task(plan_path: Path, audit: dict[str, Any]) -> dict[str, Any]:
+def upsert_audit_task(
+    plan_path: Path,
+    audit: dict[str, Any],
+    *,
+    created_timestamp: str | None = None,
+) -> dict[str, Any]:
     lines = plan_path.read_text(encoding="utf-8").splitlines()
     tasks = plan_status.parse_plan(plan_path)
     identity = (audit["review_cycle_id"], audit["review_pass_id"])
@@ -212,8 +248,12 @@ def upsert_audit_task(plan_path: Path, audit: dict[str, Any]) -> dict[str, Any]:
     if matches:
         task = matches[0]
         task_number = task["number"]
+        task_created_timestamp = _created_timestamp(_task_block(lines, task))
         rendered = render_audit_task(
-            audit, task_number=task_number, coverage=coverage
+            audit,
+            task_number=task_number,
+            coverage=coverage,
+            created_timestamp=task_created_timestamp,
         ).splitlines()
         start = task["start_line"] - 1
         end = task["end_line"]
@@ -221,8 +261,12 @@ def upsert_audit_task(plan_path: Path, audit: dict[str, Any]) -> dict[str, Any]:
         action = "updated"
     else:
         task_number = max((task["number"] for task in tasks), default=0) + 1
+        task_created_timestamp = created_timestamp or _format_display_timestamp()
         rendered = render_audit_task(
-            audit, task_number=task_number, coverage=coverage
+            audit,
+            task_number=task_number,
+            coverage=coverage,
+            created_timestamp=task_created_timestamp,
         ).splitlines()
         updated_lines = lines + ([""] if lines and lines[-1] else []) + rendered
         action = "created"

@@ -140,6 +140,7 @@ const readJsonIfPresent = async (
 
 export const readActiveFinalReviewCycleStatus = async (
   workingRepositoryPath: string,
+  expectedReviewCycleId?: string | null,
   deps: Partial<ReviewCycleLifecycleDeps> = {},
 ): Promise<ReviewCycleStatus | null> => {
   const resolvedDeps = { ...defaultDeps, ...deps };
@@ -156,6 +157,8 @@ export const readActiveFinalReviewCycleStatus = async (
   if (
     active?.schema_version !== ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION ||
     active.review_mode !== 'final' ||
+    (expectedReviewCycleId &&
+      active.review_cycle_id !== expectedReviewCycleId) ||
     !['in_progress', 'completed', 'incomplete'].includes(String(active.status))
   ) {
     return null;
@@ -335,16 +338,6 @@ export async function initializeReviewCycle(
     };
   }
   const activePath = path.join(flowStateRoot, 'active-review-cycle.json');
-  if (!readiness.eligible) {
-    return {
-      action: 'skipped_incomplete_story' as const,
-      repoRoot,
-      storyId,
-      planPath,
-      readiness,
-      cycle: null,
-    };
-  }
   params.signal?.throwIfAborted();
   const active = await readJsonIfPresent(activePath, resolvedDeps);
 

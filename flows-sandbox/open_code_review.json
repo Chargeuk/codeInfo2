@@ -4,9 +4,10 @@
     {
       "type": "llm",
       "label": "Run OpenCode Workspace Review",
-      "agentType": "review_agent_heavy",
+      "agentType": "review_agent_max",
       "identifier": "ocr_reviewer",
       "continueOnFailure": true,
+      "recordReviewUsage": true,
       "markdownFile": "run_open_code_review_workspace.md"
     }
   ]

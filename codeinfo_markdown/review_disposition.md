@@ -2,6 +2,7 @@
 
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first whenever a review-set manifest exists.
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md` before recording or repairing any durable findings block.
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` whenever this legacy standalone path creates a review-fix, recovery, incomplete-review, or final revalidation task. Preserve an existing matching task's original `Created` value.
 
 Finish the current story review using ONLY the stored review handoff and the artifacts it references, then decide how the canonical plan must respond to the findings.
 
@@ -197,6 +198,7 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 - Confirm the current-plan handoff and review handoff still match the current repository state.
 - Confirm the review handoff or safely inferred context identifies the local-HEAD-vs-resolved-base comparison for every repository in scope.
 - Confirm every affected repository has been reflected correctly in the canonical plan updates with explicit repository ownership.
+- Confirm every task first created by this invocation has exactly one formatter-derived `Created` point immediately above `Overview`, and every existing matching task retained its original value.
 - Confirm cross-repository findings produced explicit sequencing in the canonical plan and final validation.
 - Confirm no allowed support file was reopened for anything other than spelling, grammar, wording, or an explicit secret/artifact-hygiene correction.
 - Confirm the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope.

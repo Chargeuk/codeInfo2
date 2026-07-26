@@ -121,6 +121,157 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Do not invoke `publish_open_code_review.py`", review_text)
         self.assertIn("do not write `current-open-code-review.json`", review_text)
 
+    def test_native_review_commands_wait_for_their_terminal_tool_result(self) -> None:
+        contract = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+        codex = read_text("codeinfo_markdown/run_codex_review_workspace.md")
+        open_code = read_text(
+            "codeinfo_markdown/run_open_code_review_workspace.md"
+        )
+
+        for prompt in (contract, codex, open_code):
+            self.assertIn("running cell or session handle", prompt)
+            self.assertIn("exact handle", prompt)
+            self.assertRegex(prompt, r"(?i)do not relaunch")
+
+        self.assertIn("Only a terminal tool result", codex)
+        self.assertIn("native-response file only after the process exits", codex)
+        self.assertIn("before reading that command's output as complete", open_code)
+        self.assertIn("starting the dependent command", open_code)
+
+    def test_applicable_review_artifact_producers_verify_the_assigned_handoff(
+        self,
+    ) -> None:
+        handoff = read_text(
+            "codeinfo_markdown/shared/review-artifact-handoff.md"
+        )
+        for required in (
+            "deliberately inapplicable requires no placeholder",
+            "never reconstruct, repeatedly retype, or replace",
+            "Do not search a sibling or lookalike batch",
+            "at least one non-empty regular file",
+            "do not require exact headings, fields, filenames, or schemas",
+            "salvage every understandable fact",
+            "degrade normally to an honest partial or unavailable result",
+            "Never invent successful coverage",
+        ):
+            self.assertIn(required, handoff)
+
+        output_owners = (
+            "codeinfo_markdown/run_codex_review_workspace.md",
+            "codeinfo_markdown/run_open_code_review_workspace.md",
+            "codeinfo_markdown/run_cross_repository_review_workspace.md",
+            "codeinfo_markdown/consolidate_deep_review_workspace.md",
+        )
+        for prompt_path in output_owners:
+            with self.subTest(prompt_path=prompt_path):
+                prompt = read_text(prompt_path)
+                self.assertIn("assigned `output/`", prompt)
+                self.assertIn("shared factual handoff contract", prompt)
+                self.assertIn("destination is empty", prompt)
+
+        always_applicable_batch_producers = (
+            "codeinfo_markdown/reconcile_review_batch.md",
+            "codeinfo_markdown/audit_review_batch_reconciliation.md",
+            "codeinfo_markdown/audit_review_batch_scope_filter.md",
+            "codeinfo_markdown/disposition_review_batch.md",
+            "codeinfo_markdown/record_review_batch_outcome.md",
+        )
+        conditional_batch_producers = (
+            "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md",
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md",
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md",
+            "codeinfo_markdown/implement_review_batch_direct_fixes.md",
+            "codeinfo_markdown/implement_review_batch_remaining_fixes.md",
+        )
+        for prompt_path in (
+            *always_applicable_batch_producers,
+            *conditional_batch_producers,
+        ):
+            with self.subTest(prompt_path=prompt_path):
+                self.assertIn(
+                    "shared/review-artifact-handoff.md",
+                    read_text(prompt_path),
+                )
+
+        for prompt_path in conditional_batch_producers:
+            with self.subTest(prompt_path=prompt_path):
+                self.assertIn("applicable only", read_text(prompt_path))
+
+        verifier = read_text("codeinfo_markdown/verify_review_batch_jobs.md")
+        self.assertIn("assigned `output/` and `verification/`", verifier)
+        self.assertIn("non-empty self-describing file", verifier)
+        self.assertIn("link printed in an earlier chat response", verifier)
+
+        job_contract = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+        self.assertIn("when the current step owns", job_contract)
+        self.assertIn("Work-only stages", job_contract)
+
+    def test_review_batch_file_readers_degrade_imperfect_evidence_without_failure(
+        self,
+    ) -> None:
+        handoff = read_text(
+            "codeinfo_markdown/shared/review-artifact-handoff.md"
+        )
+        for required in (
+            "never by itself a reason to deliberately fail the agent turn",
+            "salvage every understandable fact",
+            "Triangulate those fragments",
+            "non-failing best-effort outcome",
+            "Return normally with a concise unavailable-handoff summary",
+            "not fatal semantic gates",
+        ):
+            self.assertIn(required, handoff)
+
+        job_contract = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+        verifier = read_text("codeinfo_markdown/verify_review_batch_jobs.md")
+        for prompt in (job_contract, verifier):
+            self.assertIn("If resolution fails", prompt)
+            self.assertIn("salvage", prompt)
+            self.assertIn("unavailable-handoff", prompt)
+            self.assertIn("parent flow", prompt)
+            self.assertIn("do not deliberately fail the turn", prompt)
+
+        materiality = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md"
+        )
+        outcome = read_text("codeinfo_markdown/record_review_batch_outcome.md")
+        self.assertIn("first salvage every understandable fragment", materiality)
+        self.assertIn("do not fail the turn", materiality)
+        self.assertIn("is recovery work, not a dead end", outcome)
+        self.assertIn("continue normally rather than failing the turn", outcome)
+
+        batch_flow = json.loads(read_text("flows/review_batch.json"))
+        file_reading_breaks = [
+            nested
+            for step in batch_flow["steps"]
+            if step.get("type") == "startLoop"
+            for nested in step["steps"]
+            if nested.get("type") == "break"
+            and str(nested.get("question", "")).startswith("Read ")
+        ]
+        self.assertEqual(len(file_reading_breaks), 6)
+        for step in file_reading_breaks:
+            with self.subTest(label=step["label"]):
+                question = step["question"]
+                self.assertIn(
+                    "Missing, malformed, incomplete, contradictory, or unexpectedly formatted files",
+                    question,
+                )
+                self.assertIn("salvage every understandable fact", question)
+                self.assertIn("never fail or stop because of them", question)
+                self.assertIn(
+                    "answer no when positive confirmation remains impossible",
+                    question,
+                )
+                self.assertTrue(step.get("continueOnFailure"))
+                self.assertTrue(step.get("continueOnInvalidResponse"))
+
     def test_multi_agent_review_stages_share_only_their_scheduler_job(self) -> None:
         contract_text = read_text(
             "codeinfo_markdown/review_job_workspace_contract.md"
@@ -130,6 +281,85 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Internal agent identifiers are stages", contract_text)
         for sibling in ("Codex", "OpenCode", "cross-repository"):
             self.assertIn(sibling, contract_text)
+
+    def test_review_workspace_prompts_use_only_the_canonical_batch_handoff(self) -> None:
+        prompt_paths = (
+            "codeinfo_markdown/verify_review_batch_jobs.md",
+            "codeinfo_markdown/reconcile_review_batch.md",
+            "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md",
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md",
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md",
+            "codeinfo_markdown/audit_review_batch_scope_filter.md",
+        )
+        for prompt_path in prompt_paths:
+            with self.subTest(prompt_path=prompt_path):
+                text = read_text(prompt_path)
+                self.assertIn(
+                    'resolve --batch-handoff "$batch_handoff"',
+                    text,
+                )
+                self.assertIn(
+                    'check --batch-handoff "$batch_handoff"',
+                    text,
+                )
+                self.assertNotIn("--batch-root", text)
+
+        verifier = read_text("codeinfo_markdown/verify_review_batch_jobs.md")
+        for runtime_owned in (
+            "`batch-launch.md`",
+            "shared `inputs/`",
+            "every job directory",
+            "every `job.md`",
+        ):
+            self.assertIn(runtime_owned, verifier)
+        self.assertIn("Do not create, replace, or rewrite them", verifier)
+
+        job_contract = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+        self.assertIn("assign them once to local path variables", job_contract)
+        self.assertIn("confirm it remains inside the assigned job directory", job_contract)
+        self.assertNotIn("--batch-root", job_contract)
+
+    def test_batch_findings_list_every_review_and_optional_token_categories(self) -> None:
+        contract = read_text(
+            "codeinfo_markdown/shared/review-findings-plan-record.md"
+        )
+        for required in (
+            "Reviews attempted",
+            "Input tokens",
+            "Cached input tokens",
+            "Output tokens",
+            "At least <known sum> reported; incomplete",
+            "including jobs that found nothing",
+            "Keep one batch block even when both finding categories are empty",
+        ):
+            self.assertIn(required, contract)
+        self.assertIn(
+            "Cached input is part of the input category and must never be added",
+            contract,
+        )
+
+        for prompt_path in (
+            "codeinfo_markdown/verify_review_batch_jobs.md",
+            "codeinfo_markdown/reconcile_review_batch.md",
+            "codeinfo_markdown/audit_review_batch_reconciliation.md",
+            "codeinfo_markdown/record_review_batch_outcome.md",
+            "codeinfo_markdown/settle_agent_native_review_pass.md",
+            "codeinfo_markdown/apply_agent_native_review_settlement.md",
+            "codeinfo_markdown/audit_agent_native_review_settlement.md",
+        ):
+            with self.subTest(prompt_path=prompt_path):
+                text = read_text(prompt_path)
+                self.assertIn("cached input", text.lower())
+                self.assertIn("usage", text.lower())
+
+        codex_prompt = read_text(
+            "codeinfo_markdown/run_codex_review_workspace.md"
+        )
+        self.assertIn("JSONL stdout", codex_prompt)
+        self.assertIn("work/review-usage/native-codex.md", codex_prompt)
+        self.assertIn("Do not include this wrapper agent's own usage", codex_prompt)
 
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(
@@ -626,6 +856,44 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("reopen the disposition", disposition)
         self.assertIn("without asking follow-up questions", disposition)
 
+    def test_review_batch_short_circuit_preserves_adaptive_finalization(
+        self,
+    ) -> None:
+        scope_audit = read_text(
+            "codeinfo_markdown/audit_review_batch_scope_filter.md"
+        )
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        outcome = read_text("codeinfo_markdown/record_review_batch_outcome.md")
+
+        self.assertIn("Determine gate applicability before auditing decisions", scope_audit)
+        self.assertIn("deliberately not applicable", scope_audit)
+        self.assertIn(
+            "Do not require, reconstruct, or open a placeholder artifact",
+            scope_audit,
+        )
+        self.assertIn(
+            "Missing, partial, unavailable, conflicting, or uncertain",
+            scope_audit,
+        )
+        self.assertIn("every applicable survivor decision", scope_audit)
+
+        self.assertIn("Use the combined filtering audit", disposition)
+        self.assertIn("deliberately not applicable", disposition)
+        self.assertIn("completed empty disposition", disposition)
+        self.assertIn("never promotes a finding", disposition)
+        self.assertIn("every applicable gate artifact", disposition)
+
+        self.assertIn(
+            "A later gate or repair audit may be absent without failure",
+            outcome,
+        )
+        self.assertIn("deliberately skipped", outcome)
+        self.assertIn("Do not require placeholder artifacts", outcome)
+        self.assertIn(
+            "never treat missing, partial, unavailable, conflicting, or uncertain evidence as a clean skip",
+            outcome,
+        )
+
     def test_legacy_scope_filter_flows_keep_the_state_specific_prompt(self) -> None:
         for relative_path in (
             "flows/review_plan.json",
@@ -677,6 +945,36 @@ class ReviewPromptContractTests(unittest.TestCase):
             )
             self.assertIn("why every changed file was necessary", repair_prompt)
             self.assertIn("scope", repair_prompt.lower())
+            self.assertIn(
+                "complete and before creating its repair commit",
+                repair_prompt,
+            )
+            self.assertIn(
+                "supported formatting and lint workflow",
+                repair_prompt,
+            )
+            self.assertIn(
+                "Run the repository-supported formatter or safe auto-fix command once",
+                repair_prompt,
+            )
+            self.assertIn(
+                "non-mutating formatting and lint checks",
+                repair_prompt,
+            )
+            self.assertIn("Prefer a changed-file target", repair_prompt)
+            self.assertIn(
+                "re-run the directly affected focused proof",
+                repair_prompt,
+            )
+            self.assertIn(
+                "Do not invent a command, add a tool or dependency",
+                repair_prompt,
+            )
+            self.assertIn("unrelated baseline failures", repair_prompt)
+            self.assertIn(
+                "formatting and lint commands and results",
+                repair_prompt,
+            )
         self.assertIn("Do not introduce an unapproved policy", normal_fix)
         self.assertIn("Research authority does not authorize new story scope", stronger_fix)
         self.assertIn("genuinely unapproved product or runtime policy", stronger_fix)
@@ -724,11 +1022,24 @@ class ReviewPromptContractTests(unittest.TestCase):
         optional_loop = next(
             step
             for step in batch["steps"]
-            if step.get("label") == "Optional Stronger Review Repair"
+            if step.get("label") == "Optional Review Repair"
         )
         self.assertEqual(optional_loop["type"], "startLoop")
         self.assertEqual(optional_loop["maxIterations"], 1)
-        completion_gate = optional_loop["steps"][0]
+        no_work_gate = optional_loop["steps"][0]
+        self.assertEqual(no_work_gate["agentType"], "loop_control_agent")
+        self.assertEqual(no_work_gate["identifier"], "review_batch_repair_controller")
+        self.assertEqual(no_work_gate["breakOn"], "yes")
+        self.assertTrue(no_work_gate["continueOnFailure"])
+        self.assertTrue(no_work_gate["continueOnInvalidResponse"])
+        direct_step = next(
+            step
+            for step in optional_loop["steps"]
+            if step.get("label") == "Implement Direct Review Fixes"
+        )
+        self.assertEqual(direct_step["agentType"], "coding_agent")
+        self.assertEqual(direct_step["identifier"], "batch_fixer")
+        completion_gate = optional_loop["steps"][4]
         self.assertEqual(completion_gate["agentType"], "coding_agent")
         self.assertEqual(completion_gate["identifier"], "batch_fixer")
         self.assertEqual(completion_gate["breakOn"], "yes")
@@ -1089,6 +1400,120 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("exactly one `__done__` completed-review-fixes task", settlement)
         self.assertIn("never create a task for a no-fix batch", settlement)
         self.assertIn("Match by exact batch ID", settlement)
+
+    def test_batch_outcome_records_fixes_before_complete_pass_settlement(
+        self,
+    ) -> None:
+        batch_flow = json.loads(read_text("flows/review_batch.json"))
+        outcome = read_text("codeinfo_markdown/record_review_batch_outcome.md")
+        completed_contract = read_text(
+            "codeinfo_markdown/shared/completed-review-fix-task.md"
+        )
+        recommendation = read_text(
+            "codeinfo_markdown/settle_agent_native_review_pass.md"
+        )
+        application = read_text(
+            "codeinfo_markdown/apply_agent_native_review_settlement.md"
+        )
+        audit = read_text(
+            "codeinfo_markdown/audit_agent_native_review_settlement.md"
+        )
+
+        self.assertEqual(
+            batch_flow["steps"][-1]["label"],
+            "Record Review Batch Outcome",
+        )
+        self.assertEqual(
+            batch_flow["steps"][-1]["markdownFile"],
+            "record_review_batch_outcome.md",
+        )
+        self.assertIn("create or update exactly one matching `__done__`", outcome)
+        self.assertIn("If the batch has no repair commit", outcome)
+        self.assertIn("Do not create unresolved-finding implementation tasks", outcome)
+        self.assertIn("remain exclusively owned by complete-pass settlement", outcome)
+        self.assertIn("before that batch returns", completed_contract)
+        self.assertIn("should already have written", recommendation)
+        self.assertIn("best-effort fallback", application)
+        self.assertIn("before the batch returned", audit)
+
+    def test_agent_native_settlement_preserves_all_three_outer_loop_routes(
+        self,
+    ) -> None:
+        recommendation = read_text(
+            "codeinfo_markdown/settle_agent_native_review_pass.md"
+        )
+        application = read_text(
+            "codeinfo_markdown/apply_agent_native_review_settlement.md"
+        )
+        audit = read_text(
+            "codeinfo_markdown/audit_agent_native_review_settlement.md"
+        )
+
+        self.assertIn(
+            "produced no fixes and no unresolved actionable review issue",
+            recommendation,
+        )
+        self.assertIn(
+            "Either repair agent committed fixes but no finding remains",
+            recommendation,
+        )
+        self.assertIn(
+            "Findings remain after the normal and stronger repair opportunities",
+            recommendation,
+        )
+        self.assertIn(
+            "genuinely clean, record the no-work closeout without adding an open task",
+            application,
+        )
+        self.assertIn(
+            "committed fixes and nothing remains after both repair opportunities",
+            application,
+        )
+        self.assertIn(
+            "materiality survivors remain after the stronger repair opportunity",
+            application,
+        )
+        self.assertIn(
+            "remaining work is followed by a final testing task",
+            audit,
+        )
+
+    def test_review_created_tasks_use_one_local_creation_timestamp_contract(
+        self,
+    ) -> None:
+        contract = read_text(
+            "codeinfo_markdown/shared/review-created-task-timestamp.md"
+        )
+        self.assertIn(
+            'node "$CODEINFO_ROOT/scripts/format-display-timestamp.mjs"',
+            contract,
+        )
+        self.assertIn("- Created: `<exact formatter stdout>`", contract)
+        self.assertIn("positioned immediately above", contract)
+        self.assertIn("Preserve its exact value", contract)
+        self.assertIn("Do not backfill or rewrite unrelated historical tasks", contract)
+
+        creator_and_audit_prompts = (
+            "codeinfo_markdown/settle_agent_native_review_pass.md",
+            "codeinfo_markdown/apply_agent_native_review_settlement.md",
+            "codeinfo_markdown/audit_agent_native_review_settlement.md",
+            "codeinfo_markdown/ensure_review_findings_became_tasks.md",
+            "codeinfo_markdown/generate_or_update_minor_fix_audit_task.md",
+            "codeinfo_markdown/generate_or_update_minor_fix_revalidation_task.md",
+            "codeinfo_markdown/refresh_minor_fix_audit_task_coverage.md",
+            "codeinfo_markdown/repair_review_created_task_scope.md",
+            "codeinfo_markdown/review_disposition.md",
+            "codeinfo_markdown/review_task_enhancement/01-shared-contract.md",
+            "codeinfo_markdown/review_task_enhancement/04-check-quality.md",
+            "codeinfo_markdown/shared/completed-review-fix-task.md",
+            "codeinfo_markdown/shared/final-task-creation.md",
+        )
+        for relative_path in creator_and_audit_prompts:
+            with self.subTest(relative_path=relative_path):
+                self.assertIn(
+                    "review-created-task-timestamp.md",
+                    read_text(relative_path),
+                )
 
     def test_regression_fixtures_cover_real_runtime_miss_patterns(self) -> None:
         self.assertTrue(FIXTURES_DIR.is_dir())

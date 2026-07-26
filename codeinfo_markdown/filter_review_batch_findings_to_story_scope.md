@@ -20,11 +20,14 @@ Reopen immutable job output and verification evidence only as needed to make an 
 
 - Treat the audited batch reconciliation as the derived actionable working set, not as immutable reviewer evidence.
 - Evaluate only the actionable candidates present when this gate begins. Do not restore or reconsider a finding already rejected or removed before this gate.
+- Separate each candidate's technical observation, demonstrated consequence, and every proposed remedy before applying the rejection policy. A story requirement for an outcome does not automatically put every mechanism for achieving that outcome in scope.
+- Check proposed mechanisms literally against every relevant Out Of Scope statement. Do not describe a new schema field, runtime branch, retry control, timeout, validation failure, fallback, or other excluded mechanism as mere configuration or as policy-free without current-HEAD repository evidence that the claimed existing control actually exists.
 - Do not modify anything under a job's `input/`, `work/`, `output/`, or `verification/` directories.
 - Do not modify implementation, tests, configuration, the canonical plan, review-cycle control state, or provider pointers.
 - Preserve job coverage, unavailable or partial results, contradictions, ownership, and evidence provenance in the reconciliation.
 - Remove a fully out-of-scope finding only from the reconciliation's actionable findings.
 - When a finding combines an in-scope issue with an out-of-scope remedy, narrow the actionable reconciliation entry to the in-scope core and preserve the removed remedy in the filtering record.
+- When the observation is technically useful but every demonstrated remedy is excluded, preserve the observation as non-actionable evidence rather than leaving an implementation candidate with no in-scope repair path.
 - Never remove a story-caused regression or restoration of previously approved or preserved behavior merely because fixing current `HEAD` changes behavior.
 - Never treat the same file, subsystem, nearby code, general hardening value, or a reviewer's preference as sufficient proof of current-story scope.
 
@@ -49,11 +52,12 @@ Before completing:
 
 1. Compare the final reconciliation with the pre-filter actionable set.
 2. Confirm every original actionable finding either remains actionable, was narrowed with its removed portion recorded, or was removed with its full meaning and rejection reason recorded.
-3. Confirm no previously rejected or scope-filtered item remains actionable under another heading or duplicate description, without repeating substantial semantic analysis of coherent removals.
-4. Confirm coverage, partial or unavailable work, contradictions, ownership, and provenance remain visible.
-5. Confirm every job directory and its contents are unchanged.
-6. Confirm `scope-filtered-findings.md` exists and honestly describes the completed, partial, or unavailable result.
-7. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" check --batch-handoff "$batch_handoff"` and repair only this step's derived scope artifacts; report scheduler-owned structural failures without recreating their evidence.
-8. Reopen `scope-filtered-findings.md` and compare every batch identity and path it states character-for-character with the authoritative handoff and `batch-launch.md`; correct every mismatch before returning.
+3. Confirm every surviving remedy names an implementation mechanism that is not excluded by the story, and that any claim that the mechanism already exists is supported by current-HEAD repository evidence.
+4. Confirm no previously rejected or scope-filtered item remains actionable under another heading or duplicate description, without repeating substantial semantic analysis of coherent removals.
+5. Confirm coverage, partial or unavailable work, contradictions, ownership, and provenance remain visible.
+6. Confirm every job directory and its contents are unchanged.
+7. Confirm `scope-filtered-findings.md` exists and honestly describes the completed, partial, or unavailable result.
+8. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" check --batch-handoff "$batch_handoff"` and repair only this step's derived scope artifacts; report scheduler-owned structural failures without recreating their evidence.
+9. Reopen `scope-filtered-findings.md` and compare every batch identity and path it states character-for-character with the authoritative handoff and `batch-launch.md`; correct every mismatch before returning.
 
 Report what remained actionable, what was removed or narrowed, what could not be decided, and the filtering-record path. Return an execution summary, not questions.

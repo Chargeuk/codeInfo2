@@ -175,6 +175,22 @@ test('review batch workspace gives every job immutable private input and pre-cre
       await fs.readFile(result.currentBatchHandoff, 'utf8'),
       /Scheduled job directories/u,
     );
+    const standalone = await prepareReviewBatchWorkspace({
+      snapshot: {
+        ...snapshot,
+        review_cycle_id: undefined,
+        review_wave_id: '0000064-rw-standalone',
+      },
+      jobs,
+    });
+    assert.match(
+      standalone.batchRoot,
+      /0000064-standalone-review-pass[\\/]batches/u,
+    );
+    assert.match(
+      await fs.readFile(standalone.currentBatchHandoff, 'utf8'),
+      /- Review cycle: 0000064-standalone-review-pass/u,
+    );
     await assert.rejects(
       fs.access(
         path.join(

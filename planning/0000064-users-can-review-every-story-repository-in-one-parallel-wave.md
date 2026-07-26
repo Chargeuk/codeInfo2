@@ -6073,8 +6073,8 @@ Perform fresh whole-story automated validation after the completed review repair
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `codeInfo2`, run the supported lint command `npm run lint` and fix story-caused issues.
-2. [ ] In `codeInfo2`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+1. [x] In `codeInfo2`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [x] In `codeInfo2`, run the supported formatting check `npm run format:check` and fix story-caused issues.
 
 #### Testing
 
@@ -6099,3 +6099,5 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 
 - Added the idempotent completed-review-fixes record for the only fix-bearing immutable batch. The no-fix batch remains excluded from task creation, and the materiality-removed `O-1` remains append-only ignored evidence.
 - Added the sole final revalidation owner after the completed repair record. Its `Testing` section contains only runnable automated wrappers and commands; optional browser and screenshot proof is confined to checkbox-free manual guidance.
+- Ran `npm run lint` successfully with no diagnostics; no story-caused lint repair was needed.
+- Ran `npm run format:check` successfully; all matched files use Prettier code style and no formatting repair was needed.

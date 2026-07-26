@@ -490,6 +490,40 @@ test('child lifecycle observation stays coherent across terminal persistence and
   }
 });
 
+test('orphaned flow lifecycle observation remains recoverable', async () => {
+  const conversationId = 'orphaned-lifecycle-observation';
+  const now = new Date();
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Orphaned lifecycle observation',
+    flowName: 'orphaned-lifecycle-observation',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'orphaned-lifecycle-observation-execution',
+        stepPath: [],
+        loopStack: [],
+        runLifecycle: {
+          status: 'running',
+          updatedAt: now.toISOString(),
+        },
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: now,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  } as Conversation);
+
+  const observed = await getFlowRunStatus(conversationId);
+  assert.equal(observed?.status, 'orphaned');
+  assert.equal(observed?.terminal, false);
+});
+
 test('review initialization failures fail the flow instead of silently skipping the review cycle', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-review-initialization-failure-'),

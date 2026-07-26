@@ -8397,7 +8397,7 @@ export async function getFlowRunStatus(
   return {
     conversationId: normalizedConversationId,
     status,
-    terminal: status !== 'running',
+    terminal: status === 'ok' || status === 'stopped' || status === 'failed',
     terminalOutcome: resumeState?.terminalOutcome ?? null,
     reviewCycleStatus,
     executionId: resumeState?.executionId ?? null,

@@ -493,7 +493,7 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("materiality-filtered-findings.md", disposition)
         self.assertIn("Never restore, direct-fix, or task it", disposition)
         self.assertIn("Ignored for This Story", disposition)
-        self.assertIn("materiality survivors", disposition)
+        self.assertIn("survivors from the last applicable audited gate", disposition)
         self.assertIn("Deduplicate by stable identity and meaning", disposition)
 
         self.assertIn("surviving positively authorized finding", materiality)
@@ -626,6 +626,44 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("reopen the disposition", disposition)
         self.assertIn("without asking follow-up questions", disposition)
 
+    def test_review_batch_short_circuit_preserves_adaptive_finalization(
+        self,
+    ) -> None:
+        scope_audit = read_text(
+            "codeinfo_markdown/audit_review_batch_scope_filter.md"
+        )
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        outcome = read_text("codeinfo_markdown/record_review_batch_outcome.md")
+
+        self.assertIn("Determine gate applicability before auditing decisions", scope_audit)
+        self.assertIn("deliberately not applicable", scope_audit)
+        self.assertIn(
+            "Do not require, reconstruct, or open a placeholder artifact",
+            scope_audit,
+        )
+        self.assertIn(
+            "Missing, partial, unavailable, conflicting, or uncertain",
+            scope_audit,
+        )
+        self.assertIn("every applicable survivor decision", scope_audit)
+
+        self.assertIn("Use the combined filtering audit", disposition)
+        self.assertIn("deliberately not applicable", disposition)
+        self.assertIn("completed empty disposition", disposition)
+        self.assertIn("never promotes a finding", disposition)
+        self.assertIn("every applicable gate artifact", disposition)
+
+        self.assertIn(
+            "A later gate or repair audit may be absent without failure",
+            outcome,
+        )
+        self.assertIn("deliberately skipped", outcome)
+        self.assertIn("Do not require placeholder artifacts", outcome)
+        self.assertIn(
+            "never treat missing, partial, unavailable, conflicting, or uncertain evidence as a clean skip",
+            outcome,
+        )
+
     def test_legacy_scope_filter_flows_keep_the_state_specific_prompt(self) -> None:
         for relative_path in (
             "flows/review_plan.json",
@@ -754,11 +792,24 @@ class ReviewPromptContractTests(unittest.TestCase):
         optional_loop = next(
             step
             for step in batch["steps"]
-            if step.get("label") == "Optional Stronger Review Repair"
+            if step.get("label") == "Optional Review Repair"
         )
         self.assertEqual(optional_loop["type"], "startLoop")
         self.assertEqual(optional_loop["maxIterations"], 1)
-        completion_gate = optional_loop["steps"][0]
+        no_work_gate = optional_loop["steps"][0]
+        self.assertEqual(no_work_gate["agentType"], "loop_control_agent")
+        self.assertEqual(no_work_gate["identifier"], "review_batch_repair_controller")
+        self.assertEqual(no_work_gate["breakOn"], "yes")
+        self.assertTrue(no_work_gate["continueOnFailure"])
+        self.assertTrue(no_work_gate["continueOnInvalidResponse"])
+        direct_step = next(
+            step
+            for step in optional_loop["steps"]
+            if step.get("label") == "Implement Direct Review Fixes"
+        )
+        self.assertEqual(direct_step["agentType"], "coding_agent")
+        self.assertEqual(direct_step["identifier"], "batch_fixer")
+        completion_gate = optional_loop["steps"][4]
         self.assertEqual(completion_gate["agentType"], "coding_agent")
         self.assertEqual(completion_gate["identifier"], "batch_fixer")
         self.assertEqual(completion_gate["breakOn"], "yes")

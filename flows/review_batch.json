@@ -52,46 +52,102 @@
       "markdownFile": "audit_review_batch_reconciliation.md"
     },
     {
-      "type": "reset",
-      "label": "Reset Review Batch Scope Filter",
-      "agentType": "planning_agent",
-      "identifier": "batch_scope_filter"
-    },
-    {
-      "type": "llm",
-      "label": "Filter Review Findings To Story Scope",
-      "agentType": "planning_agent",
-      "identifier": "batch_scope_filter",
-      "continueOnFailure": true,
-      "markdownFile": "filter_review_batch_findings_to_story_scope.md"
-    },
-    {
-      "type": "reset",
-      "label": "Reset Review Batch Scope Authorizer",
-      "agentType": "planning_agent",
-      "identifier": "batch_scope_authorizer"
-    },
-    {
-      "type": "llm",
-      "label": "Positively Authorize Review Findings For Story",
-      "agentType": "planning_agent",
-      "identifier": "batch_scope_authorizer",
-      "continueOnFailure": true,
-      "markdownFile": "authorize_review_batch_findings_for_story.md"
-    },
-    {
-      "type": "reset",
-      "label": "Reset Review Batch Materiality Filter",
-      "agentType": "planning_agent",
-      "identifier": "batch_materiality_filter"
-    },
-    {
-      "type": "llm",
-      "label": "Filter Review Findings By Materiality And Realistic Impact",
-      "agentType": "planning_agent",
-      "identifier": "batch_materiality_filter",
-      "continueOnFailure": true,
-      "markdownFile": "filter_review_batch_findings_by_materiality.md"
+      "type": "startLoop",
+      "label": "Optional Review Filtering",
+      "maxIterations": 1,
+      "steps": [
+        {
+          "type": "break",
+          "label": "Skip Filtering When Reconciliation Has No Supported Findings",
+          "agentType": "loop_control_agent",
+          "identifier": "review_batch_filtering_controller",
+          "question": "Read the current immutable batch reconciliation and reconciliation audit from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when current trustworthy evidence positively confirms that reconciliation contains no supported finding or actionable candidate and no partial, unavailable, conflicting, or uncertain coverage could still contain one. Answer no when any finding or candidate remains or the evidence is uncertain. Do not use conversational memory, exact schemas, provider counts, or missing files as proof of an empty batch.",
+          "breakOn": "yes",
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true
+        },
+        {
+          "type": "reset",
+          "label": "Reset Review Batch Scope Filter",
+          "agentType": "planning_agent",
+          "identifier": "batch_scope_filter"
+        },
+        {
+          "type": "llm",
+          "label": "Filter Review Findings To Story Scope",
+          "agentType": "planning_agent",
+          "identifier": "batch_scope_filter",
+          "continueOnFailure": true,
+          "markdownFile": "filter_review_batch_findings_to_story_scope.md"
+        },
+        {
+          "type": "break",
+          "label": "Stop Filtering When No In-Scope Findings Remain",
+          "agentType": "loop_control_agent",
+          "identifier": "review_batch_filtering_controller",
+          "question": "Read the current immutable batch reconciliation, reconciliation audit, and negative story-scope filtering artifact from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy negative gate positively confirms that no actionable in-scope survivor remains. Answer no when any survivor remains or the gate is missing, partial, unavailable, conflicting, or uncertain. Preserve removed findings as evidence and never interpret uncertainty as permission to skip later processing.",
+          "breakOn": "yes",
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true
+        },
+        {
+          "type": "reset",
+          "label": "Reset Review Batch Scope Authorizer",
+          "agentType": "planning_agent",
+          "identifier": "batch_scope_authorizer"
+        },
+        {
+          "type": "llm",
+          "label": "Positively Authorize Review Findings For Story",
+          "agentType": "planning_agent",
+          "identifier": "batch_scope_authorizer",
+          "continueOnFailure": true,
+          "markdownFile": "authorize_review_batch_findings_for_story.md"
+        },
+        {
+          "type": "break",
+          "label": "Stop Filtering When No Authorized Findings Remain",
+          "agentType": "loop_control_agent",
+          "identifier": "review_batch_filtering_controller",
+          "question": "Read the current immutable batch reconciliation, negative story-scope artifact, and positive-authorization artifact from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy authorization gate positively confirms that no survivor is authorized for this story. Answer no when any authorized survivor remains or the gate is missing, partial, unavailable, conflicting, or uncertain. Preserve all earlier removals and never promote or skip work because evidence is absent.",
+          "breakOn": "yes",
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true
+        },
+        {
+          "type": "reset",
+          "label": "Reset Review Batch Materiality Filter",
+          "agentType": "planning_agent",
+          "identifier": "batch_materiality_filter"
+        },
+        {
+          "type": "llm",
+          "label": "Filter Review Findings By Materiality And Realistic Impact",
+          "agentType": "planning_agent",
+          "identifier": "batch_materiality_filter",
+          "continueOnFailure": true,
+          "markdownFile": "filter_review_batch_findings_by_materiality.md"
+        },
+        {
+          "type": "break",
+          "label": "Stop Filtering When No Material Findings Remain",
+          "agentType": "loop_control_agent",
+          "identifier": "review_batch_filtering_controller",
+          "question": "Read the current immutable batch reconciliation and every filtering artifact that was applicable through materiality from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy materiality gate positively confirms that no material actionable survivor remains. Answer no when any material survivor remains or the applicable evidence is missing, partial, unavailable, conflicting, or uncertain. Preserve all removals and never treat uncertainty as a clean exit.",
+          "breakOn": "yes",
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true
+        },
+        {
+          "type": "break",
+          "label": "Exit Optional Review Filtering After One Pass",
+          "agentType": "loop_control_agent",
+          "identifier": "review_batch_filtering_controller",
+          "question": "The optional filtering path has completed its single allowed pass. Return exact JSON only: {\"answer\":\"yes\"}.",
+          "breakOn": "yes",
+          "breakOnFailure": true
+        }
+      ]
     },
     {
       "type": "reset",
@@ -122,29 +178,39 @@
       "markdownFile": "disposition_review_batch.md"
     },
     {
-      "type": "reingest",
-      "label": "Re-embed Plan Scope Before Direct Review Fixes",
-      "target": "plan_scope"
-    },
-    {
-      "type": "reset",
-      "label": "Reset Direct Review Fixer",
-      "agentType": "coding_agent",
-      "identifier": "batch_fixer"
-    },
-    {
-      "type": "llm",
-      "label": "Implement Direct Review Fixes",
-      "agentType": "coding_agent",
-      "identifier": "batch_fixer",
-      "continueOnFailure": true,
-      "markdownFile": "implement_review_batch_direct_fixes.md"
-    },
-    {
       "type": "startLoop",
-      "label": "Optional Stronger Review Repair",
+      "label": "Optional Review Repair",
       "maxIterations": 1,
       "steps": [
+        {
+          "type": "break",
+          "label": "Skip Review Repair When Disposition Accepts No Findings",
+          "agentType": "loop_control_agent",
+          "identifier": "review_batch_repair_controller",
+          "question": "Read the current immutable batch reconciliation, every applicable filtering artifact, combined filtering audit, and disposition from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy disposition positively confirms that no accepted actionable finding remains for repair. Answer no when any accepted finding remains or disposition evidence is missing, partial, unavailable, conflicting, or uncertain. Findings removed by an earlier gate are non-actionable and must not be restored.",
+          "breakOn": "yes",
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true
+        },
+        {
+          "type": "reingest",
+          "label": "Re-embed Plan Scope Before Direct Review Fixes",
+          "target": "plan_scope"
+        },
+        {
+          "type": "reset",
+          "label": "Reset Direct Review Fixer",
+          "agentType": "coding_agent",
+          "identifier": "batch_fixer"
+        },
+        {
+          "type": "llm",
+          "label": "Implement Direct Review Fixes",
+          "agentType": "coding_agent",
+          "identifier": "batch_fixer",
+          "continueOnFailure": true,
+          "markdownFile": "implement_review_batch_direct_fixes.md"
+        },
         {
           "type": "break",
           "label": "Skip Stronger Repair When Normal Fixer Completed All Findings",
@@ -177,10 +243,10 @@
         },
         {
           "type": "break",
-          "label": "Exit Optional Stronger Repair After One Attempt",
+          "label": "Exit Optional Review Repair After One Stronger Attempt",
           "agentType": "loop_control_agent",
           "identifier": "batch_research_loop_controller",
-          "question": "The optional stronger repair attempt for this batch has now had its single allowed invocation. Return exact JSON only: {\"answer\":\"yes\"}.",
+          "question": "The optional review repair path has now completed its single allowed stronger invocation. Return exact JSON only: {\"answer\":\"yes\"}.",
           "breakOn": "yes",
           "breakOnFailure": true
         }

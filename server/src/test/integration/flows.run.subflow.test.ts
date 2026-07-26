@@ -1606,6 +1606,10 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
       3,
     );
     assert.ok(parentRunToken);
+    assert.deepEqual(
+      activeSubflows.map((entry) => entry.input),
+      [{ target: { id: 'a' } }, { target: { id: 'b' } }, undefined],
+    );
 
     registerPendingConversationCancel({
       conversationId: result.conversationId,
@@ -1661,6 +1665,17 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
     )?.flow;
     assert.equal(parentFlow?.subflowWaveProgress?.completed, 3);
     assert.equal(parentFlow?.subflowWaveProgress?.stopped, 0);
+    const resumedLocalInputs = childConversations
+      .filter((conversation) => conversation.flowName === 'wave-resume-local')
+      .map(
+        (conversation) =>
+          (conversation.flags as { flow?: { input?: unknown } }).flow?.input,
+      )
+      .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+    assert.deepEqual(resumedLocalInputs, [
+      { target: { id: 'a' } },
+      { target: { id: 'b' } },
+    ]);
   } finally {
     await removeWritableTree(tmpDir);
   }

@@ -67,7 +67,7 @@ test('Codex review flow uses the generic workspace agent and launcher prompt', (
   for (const required of [
     '$CODEINFO_ROOT/scripts/run-codex-review.sh',
     'do not construct or invoke `codex exec review` directly',
-    'model `gpt-5.6-sol`',
+    'model `gpt-5.6-terra`',
     'reasoning effort `high`',
     '--dangerously-bypass-approvals-and-sandbox',
     "Redirect the launcher's stdout and stderr to separate files",
@@ -100,7 +100,7 @@ test('Codex review launcher fixes Docker-native invocation settings', (t) => {
       '--base',
       '0123456789abcdef',
       '--model',
-      'gpt-5.6-sol',
+      'gpt-5.6-terra',
       '--reasoning-effort',
       'high',
       '--instructions-file',
@@ -133,7 +133,7 @@ test('Codex review launcher fixes Docker-native invocation settings', (t) => {
     '--dangerously-bypass-approvals-and-sandbox',
     '--ephemeral',
     '--model',
-    'gpt-5.6-sol',
+    'gpt-5.6-terra',
     '--base',
     '0123456789abcdef',
     '--config',
@@ -142,6 +142,51 @@ test('Codex review launcher fixes Docker-native invocation settings', (t) => {
     `developer_instructions=${instructions.trimEnd()}`,
     '--output-last-message',
     outputFile,
+  ]);
+});
+
+test('Codex review launcher passes through another non-empty model', (t) => {
+  const tempRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'codex-review-model-pass-through-'),
+  );
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
+
+  const instructionsFile = path.join(tempRoot, 'instructions.md');
+  const outputFile = path.join(tempRoot, 'native-response.md');
+  const argsFile = path.join(tempRoot, 'args.bin');
+  fs.writeFileSync(instructionsFile, 'Review this diff.\n');
+
+  const result = spawnSync(
+    launcherPath,
+    [
+      '--base',
+      'base-commit',
+      '--model',
+      'custom-review-model',
+      '--reasoning-effort',
+      'high',
+      '--instructions-file',
+      instructionsFile,
+      '--output-file',
+      outputFile,
+    ],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CODEINFO_CODEX_BIN: createFakeCodex(tempRoot),
+        FAKE_CODEX_ARGS_FILE: argsFile,
+        FAKE_CODEX_STDIN_FILE: path.join(tempRoot, 'stdin.txt'),
+      },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  const args = fs.readFileSync(argsFile, 'utf8').split('\0').filter(Boolean);
+  assert.deepEqual(args.slice(args.indexOf('--model'), args.indexOf('--model') + 2), [
+    '--model',
+    'custom-review-model',
   ]);
 });
 
@@ -157,7 +202,7 @@ test('Codex review launcher preserves the native process exit status', (t) => {
       '--base',
       'base-commit',
       '--model',
-      'gpt-5.6-sol',
+      'gpt-5.6-terra',
       '--reasoning-effort',
       'high',
       '--instructions-file',
@@ -181,7 +226,7 @@ test('Codex review launcher preserves the native process exit status', (t) => {
   assert.equal(result.status, 17);
 });
 
-test('Codex review launcher rejects mismatched invocation policy before invoking Codex', (t) => {
+test('Codex review launcher rejects missing model or mismatched reasoning before invoking Codex', (t) => {
   const tempRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'codex-review-policy-'),
   );
@@ -191,8 +236,8 @@ test('Codex review launcher rejects mismatched invocation policy before invoking
   fs.writeFileSync(instructionsFile, 'Review this diff.\n');
 
   const mismatches: ReadonlyArray<readonly [string, string, RegExp]> = [
-    ['review-model', 'high', /--model must be gpt-5\.6-sol/u],
-    ['gpt-5.6-sol', 'medium', /--reasoning-effort must be high/u],
+    ['', 'high', /--model is required/u],
+    ['gpt-5.6-terra', 'medium', /--reasoning-effort must be high/u],
   ];
 
   for (const [model, reasoningEffort, expectedError] of mismatches) {
@@ -247,7 +292,7 @@ test('Codex review launcher rejects missing input before invoking Codex', (t) =>
       '--base',
       'base-commit',
       '--model',
-      'gpt-5.6-sol',
+      'gpt-5.6-terra',
       '--reasoning-effort',
       'high',
       '--instructions-file',

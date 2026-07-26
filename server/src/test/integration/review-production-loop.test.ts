@@ -225,6 +225,7 @@ type ProductionReviewProbe = {
   materialityFilterCalls: number;
   scopeAuditCalls: number;
   dispositionCalls: number;
+  implementationPasses: number;
   scopeIdentityVerifiedAtDisposition: boolean;
 };
 
@@ -507,6 +508,126 @@ class ProductionReviewChat extends ChatInterface {
 
     if (
       message.includes(
+        '# Goal\n\nResolve the single current task for this implementation-loop pass',
+      )
+    ) {
+      await execFile(
+        'python3',
+        [path.join(repositoryRoot, 'scripts', 'select_current_task.py')],
+        {
+          cwd: this.probe.repo,
+          env: { ...getScopedProcessEnv(), CODEINFO_ROOT: repositoryRoot },
+        },
+      );
+    }
+
+    if (
+      message.includes(
+        "# Goal\n\nImplement the active task's `Subtasks` section only.",
+      )
+    ) {
+      const planPath = path.join(
+        this.probe.repo,
+        'planning',
+        '0000064-production-review.md',
+      );
+      const plan = await fs.readFile(planPath, 'utf8');
+      await fs.writeFile(
+        planPath,
+        plan.replace(
+          '1. [ ] Revalidate the direct review fix.',
+          '1. [x] Revalidate the direct review fix.',
+        ),
+      );
+      this.probe.implementationPasses += 1;
+    }
+
+    if (
+      message.includes(
+        "# Goal\n\nRun the selected task's automated proof, fix issues that arise, and leave the task in an honest state for audit.",
+      )
+    ) {
+      const planPath = path.join(
+        this.probe.repo,
+        'planning',
+        '0000064-production-review.md',
+      );
+      const plan = await fs.readFile(planPath, 'utf8');
+      await fs.writeFile(
+        planPath,
+        plan
+          .replace('1. [ ] Run final proof.', '1. [x] Run final proof.')
+          .replace(
+            '- Task Status: `__in_progress__`',
+            '- Task Status: `__done__`',
+          ),
+      );
+    }
+
+    const flowControlScript = /scripts\/flow_control\/([a-z0-9_]+\.py)/u.exec(
+      message,
+    )?.[1];
+    if (flowControlScript) {
+      const result = await execFile(
+        'python3',
+        [
+          path.join(
+            repositoryRoot,
+            'scripts',
+            'flow_control',
+            flowControlScript,
+          ),
+        ],
+        {
+          cwd: this.probe.repo,
+          env: { ...getScopedProcessEnv(), CODEINFO_ROOT: repositoryRoot },
+        },
+      );
+      this.emit('final', { type: 'final', content: result.stdout });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
+    if (
+      message.includes(
+        'Read the current immutable batch reconciliation and reconciliation audit from disk.',
+      ) ||
+      message.includes(
+        'Read the current immutable batch reconciliation, reconciliation audit, and negative story-scope filtering artifact from disk.',
+      ) ||
+      message.includes(
+        'Read the current immutable batch reconciliation, negative story-scope artifact, and positive-authorization artifact from disk.',
+      ) ||
+      message.includes(
+        'Read the current immutable batch reconciliation and every filtering artifact that was applicable through materiality from disk.',
+      ) ||
+      message.includes(
+        'Read the current immutable batch reconciliation, every applicable filtering artifact, combined filtering audit, and disposition from disk.',
+      )
+    ) {
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({ answer: 'no' }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
+    if (
+      message.includes(
+        'The optional filtering path has completed its single allowed pass.',
+      )
+    ) {
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({ answer: 'yes' }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
+    if (
+      message.includes(
         'Have all supported, positively authorized materiality survivors been resolved?',
       )
     ) {
@@ -530,7 +651,7 @@ class ProductionReviewChat extends ChatInterface {
 
     if (
       message.includes(
-        'The optional stronger repair attempt for this batch has now had its single allowed invocation.',
+        'The optional review repair path has now completed its single allowed stronger invocation.',
       )
     ) {
       this.probe.optionalExitCalls += 1;
@@ -563,24 +684,27 @@ class ProductionReviewChat extends ChatInterface {
         'planning',
         '0000064-production-review.md',
       );
-      await fs.appendFile(
-        planPath,
-        [
-          '',
-          '### Task 2. Final Review Revalidation',
-          '',
-          '- Task Status: `__in_progress__`',
-          '',
-          '#### Subtasks',
-          '',
-          '1. [ ] Revalidate the direct review fix.',
-          '',
-          '#### Testing',
-          '',
-          '1. [ ] Run final proof.',
-          '',
-        ].join('\n'),
-      );
+      const plan = await fs.readFile(planPath, 'utf8');
+      if (!plan.includes('### Task 2. Final Review Revalidation')) {
+        await fs.appendFile(
+          planPath,
+          [
+            '',
+            '### Task 2. Final Review Revalidation',
+            '',
+            '- Task Status: `__in_progress__`',
+            '',
+            '#### Subtasks',
+            '',
+            '1. [ ] Revalidate the direct review fix.',
+            '',
+            '#### Testing',
+            '',
+            '1. [ ] Run final proof.',
+            '',
+          ].join('\n'),
+        );
+      }
     }
 
     if (message.includes('# Audit the agent-native review settlement')) {
@@ -803,6 +927,10 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       path.join(repositoryRoot, 'flows', 'review_batch.json'),
       path.join(flowDirectory, 'review_batch.json'),
     );
+    await fs.copyFile(
+      path.join(repositoryRoot, 'flows', 'implement_current_plan.json'),
+      path.join(flowDirectory, 'implement_current_plan.json'),
+    );
     await fs.writeFile(
       path.join(flowDirectory, 'integration_repeated_review.json'),
       JSON.stringify({
@@ -896,6 +1024,7 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       materialityFilterCalls: 0,
       scopeAuditCalls: 0,
       dispositionCalls: 0,
+      implementationPasses: 0,
       scopeIdentityVerifiedAtDisposition: true,
     };
     const result = await startFlowRun({
@@ -1019,6 +1148,47 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       },
     );
     assert.match(outerDecision.stdout, /"answer":\s*"no"/u);
+
+    const reentry = await startFlowRun({
+      flowName: 'implement_current_plan',
+      source: 'REST',
+      working_folder: repo,
+      chatFactory: () => new ProductionReviewChat(probe),
+      listIngestedRepositories: async () => ({
+        repos: [
+          reviewRepoEntry(repo),
+          reviewRepoEntry(secondaryRepo, 'production-review-secondary'),
+        ],
+        lockedModelId: null,
+      }),
+    });
+    assert.equal(await waitForTerminalFlowStatus(reentry.conversationId), 'ok');
+    assert.equal(probe.implementationPasses, 1, JSON.stringify(probe));
+
+    const completedPlan = await fs.readFile(path.join(repo, planPath), 'utf8');
+    assert.match(completedPlan, /- Task Status: `__done__`/u);
+    assert.match(
+      completedPlan,
+      /1\. \[x\] Revalidate the direct review fix\./u,
+    );
+    assert.match(completedPlan, /1\. \[x\] Run final proof\./u);
+
+    const terminalDecision = await execFile(
+      'python3',
+      [
+        path.join(
+          repositoryRoot,
+          'scripts',
+          'flow_control',
+          'check_plan_scope_story_complete.py',
+        ),
+      ],
+      {
+        cwd: repo,
+        env: { ...getScopedProcessEnv(), CODEINFO_ROOT: repositoryRoot },
+      },
+    );
+    assert.match(terminalDecision.stdout, /"answer":\s*"yes"/u);
   } finally {
     enterTestEnvOverrides({
       FLOWS_DIR: previousFlowsDirectory,

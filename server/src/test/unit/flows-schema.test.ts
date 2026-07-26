@@ -480,6 +480,7 @@ describe('flow schema (v1)', () => {
       'flows/cross_repository_review.json',
       'flows/diagnostic_review_cycle.json',
       'flows/minor_review_fix_path.json',
+      'flows/open_code_review.json',
       'flows/review_artifacts_main.json',
       'flows/review_batch.json',
       'flows/review_disposition_current_artifacts.json',
@@ -502,6 +503,87 @@ describe('flow schema (v1)', () => {
       });
       assert.equal(parsed.ok, true, relativePath);
     }
+  });
+
+  test('review batch bounds optional filtering and repair while always finalizing', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/review_batch.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const topLevel = parsed.steps ?? [];
+    const labels = topLevel.map((step) => step.label);
+    const filtering = topLevel.find(
+      (step) => step.label === 'Optional Review Filtering',
+    );
+    const repair = topLevel.find(
+      (step) => step.label === 'Optional Review Repair',
+    );
+
+    assert.equal(filtering?.type, 'startLoop');
+    assert.equal(filtering?.maxIterations, 1);
+    assert.deepEqual(
+      filtering?.steps?.map((step) => step.label),
+      [
+        'Skip Filtering When Reconciliation Has No Supported Findings',
+        'Reset Review Batch Scope Filter',
+        'Filter Review Findings To Story Scope',
+        'Stop Filtering When No In-Scope Findings Remain',
+        'Reset Review Batch Scope Authorizer',
+        'Positively Authorize Review Findings For Story',
+        'Stop Filtering When No Authorized Findings Remain',
+        'Reset Review Batch Materiality Filter',
+        'Filter Review Findings By Materiality And Realistic Impact',
+        'Stop Filtering When No Material Findings Remain',
+        'Exit Optional Review Filtering After One Pass',
+      ],
+    );
+    for (const semanticBreak of (filtering?.steps ?? []).filter(
+      (step) => step.type === 'break' && step.breakOnFailure !== true,
+    )) {
+      assert.equal(semanticBreak.continueOnFailure, true, semanticBreak.label);
+      assert.equal(
+        semanticBreak.continueOnInvalidResponse,
+        true,
+        semanticBreak.label,
+      );
+    }
+    assert.equal(filtering?.steps?.at(-1)?.breakOnFailure, true);
+
+    assert.equal(repair?.type, 'startLoop');
+    assert.equal(repair?.maxIterations, 1);
+    assert.deepEqual(
+      repair?.steps?.map((step) => step.label),
+      [
+        'Skip Review Repair When Disposition Accepts No Findings',
+        'Re-embed Plan Scope Before Direct Review Fixes',
+        'Reset Direct Review Fixer',
+        'Implement Direct Review Fixes',
+        'Skip Stronger Repair When Normal Fixer Completed All Findings',
+        'Reset Stronger Review Fixer',
+        'Implement Remaining Review Fixes',
+        'Reset Optional Repair Loop Controller',
+        'Exit Optional Review Repair After One Stronger Attempt',
+      ],
+    );
+    assert.equal(repair?.steps?.[0]?.continueOnFailure, true);
+    assert.equal(repair?.steps?.[0]?.continueOnInvalidResponse, true);
+    assert.equal(repair?.steps?.at(-1)?.breakOnFailure, true);
+
+    const filteringIndex = labels.indexOf('Optional Review Filtering');
+    const auditIndex = labels.indexOf('Audit Review Batch Filtering Gates');
+    const dispositionIndex = labels.indexOf('Disposition Review Batch');
+    const repairIndex = labels.indexOf('Optional Review Repair');
+    const outcomeIndex = labels.indexOf('Record Review Batch Outcome');
+    assert.ok(filteringIndex < auditIndex);
+    assert.ok(auditIndex < dispositionIndex);
+    assert.ok(dispositionIndex < repairIndex);
+    assert.ok(repairIndex < outcomeIndex);
+    assert.equal(
+      labels.includes('Re-embed Plan Scope Before Direct Review Fixes'),
+      false,
+    );
+    assert.equal(labels.includes('Implement Direct Review Fixes'), false);
   });
 
   test('terminal review output steps propagate failure to existing recovery', async () => {
@@ -689,13 +771,16 @@ describe('flow schema (v1)', () => {
     assert.match(serialized, /review_batch/u);
   });
 
-  test('generic review batch verifies, reconciles, applies survivor-only filtering gates, dispositions, applies optional stronger repair, and records in order', async () => {
+  test('generic review batch verifies, short-circuits survivor-only filtering and repair, dispositions, and records in order', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/review_batch.json'),
       'utf8',
     );
     const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-    const labels = (parsed.steps ?? []).map((step) => step.label);
+    const topLevel = parsed.steps ?? [];
+    const flattened = flattenSteps(topLevel);
+    const labels = flattened.map((step) => step.label);
+    const topLevelLabels = topLevel.map((step) => step.label);
     assertOrdered(
       labels,
       'Run Configured Review Batch',
@@ -714,7 +799,7 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Audit Review Batch Reconciliation',
-      'Reset Review Batch Scope Filter',
+      'Optional Review Filtering',
     );
     assertOrdered(
       labels,
@@ -744,6 +829,11 @@ describe('flow schema (v1)', () => {
     assertOrdered(
       labels,
       'Filter Review Findings By Materiality And Realistic Impact',
+      'Exit Optional Review Filtering After One Pass',
+    );
+    assertOrdered(
+      labels,
+      'Exit Optional Review Filtering After One Pass',
       'Reset Review Batch Filtering Auditor',
     );
     assertOrdered(
@@ -763,8 +853,8 @@ describe('flow schema (v1)', () => {
     );
     const directFixIndex = labels.indexOf('Implement Direct Review Fixes');
     assert.ok(directFixIndex > 0);
-    const directReset = (parsed.steps ?? [])[directFixIndex - 1];
-    const directFix = (parsed.steps ?? [])[directFixIndex];
+    const directReset = flattened[directFixIndex - 1];
+    const directFix = flattened[directFixIndex];
     assert.equal(directReset?.label, 'Reset Direct Review Fixer');
     assert.equal(directReset?.type, 'reset');
     assert.equal(directReset?.agentType, 'coding_agent');
@@ -779,19 +869,19 @@ describe('flow schema (v1)', () => {
     );
     assertOrdered(
       labels,
+      'Optional Review Repair',
       'Implement Direct Review Fixes',
-      'Optional Stronger Review Repair',
     );
     assertOrdered(
-      labels,
-      'Optional Stronger Review Repair',
+      topLevelLabels,
+      'Optional Review Repair',
       'Record Review Batch Outcome',
     );
 
-    const scopeReset = (parsed.steps ?? []).find(
+    const scopeReset = flattened.find(
       (step) => step.label === 'Reset Review Batch Scope Filter',
     );
-    const scopeFilter = (parsed.steps ?? []).find(
+    const scopeFilter = flattened.find(
       (step) => step.label === 'Filter Review Findings To Story Scope',
     );
     assert.equal(scopeReset?.type, 'reset');
@@ -806,10 +896,10 @@ describe('flow schema (v1)', () => {
       'filter_review_batch_findings_to_story_scope.md',
     );
 
-    const scopeAuthorizerReset = (parsed.steps ?? []).find(
+    const scopeAuthorizerReset = flattened.find(
       (step) => step.label === 'Reset Review Batch Scope Authorizer',
     );
-    const scopeAuthorizer = (parsed.steps ?? []).find(
+    const scopeAuthorizer = flattened.find(
       (step) => step.label === 'Positively Authorize Review Findings For Story',
     );
     assert.equal(scopeAuthorizerReset?.type, 'reset');
@@ -825,10 +915,10 @@ describe('flow schema (v1)', () => {
     );
     assert.notEqual(scopeAuthorizer?.identifier, scopeFilter?.identifier);
 
-    const materialityReset = (parsed.steps ?? []).find(
+    const materialityReset = flattened.find(
       (step) => step.label === 'Reset Review Batch Materiality Filter',
     );
-    const materialityFilter = (parsed.steps ?? []).find(
+    const materialityFilter = flattened.find(
       (step) =>
         step.label ===
         'Filter Review Findings By Materiality And Realistic Impact',
@@ -846,10 +936,10 @@ describe('flow schema (v1)', () => {
     );
     assert.notEqual(materialityFilter?.identifier, scopeAuthorizer?.identifier);
 
-    const scopeAuditReset = (parsed.steps ?? []).find(
+    const scopeAuditReset = flattened.find(
       (step) => step.label === 'Reset Review Batch Filtering Auditor',
     );
-    const scopeAudit = (parsed.steps ?? []).find(
+    const scopeAudit = flattened.find(
       (step) => step.label === 'Audit Review Batch Filtering Gates',
     );
     assert.equal(scopeAuditReset?.type, 'reset');
@@ -864,10 +954,10 @@ describe('flow schema (v1)', () => {
       'audit_review_batch_scope_filter.md',
     );
 
-    const dispositionIndex = labels.indexOf('Disposition Review Batch');
+    const dispositionIndex = topLevelLabels.indexOf('Disposition Review Batch');
     assert.ok(dispositionIndex > 0);
-    const dispositionReset = (parsed.steps ?? [])[dispositionIndex - 1];
-    const disposition = (parsed.steps ?? [])[dispositionIndex];
+    const dispositionReset = topLevel[dispositionIndex - 1];
+    const disposition = topLevel[dispositionIndex];
     assert.equal(dispositionReset?.label, 'Reset Review Batch Dispositioner');
     assert.equal(dispositionReset?.type, 'reset');
     assert.equal(dispositionReset?.agentType, 'planning_agent');
@@ -878,14 +968,14 @@ describe('flow schema (v1)', () => {
     assert.equal(disposition?.continueOnFailure, true);
     assert.equal(disposition?.markdownFile, 'disposition_review_batch.md');
 
-    const outcome = (parsed.steps ?? []).find(
+    const outcome = topLevel.find(
       (step) => step.label === 'Record Review Batch Outcome',
     );
     assert.equal(outcome?.agentType, 'planning_agent');
     assert.equal(outcome?.identifier, 'batch_dispositioner');
 
-    const optionalRepair = (parsed.steps ?? []).find(
-      (step) => step.label === 'Optional Stronger Review Repair',
+    const optionalRepair = topLevel.find(
+      (step) => step.label === 'Optional Review Repair',
     );
     assert.equal(optionalRepair?.type, 'startLoop');
     assert.equal(optionalRepair?.maxIterations, 1);
@@ -893,14 +983,25 @@ describe('flow schema (v1)', () => {
     assert.deepEqual(
       optionalSteps.map((step) => step.label),
       [
+        'Skip Review Repair When Disposition Accepts No Findings',
+        'Re-embed Plan Scope Before Direct Review Fixes',
+        'Reset Direct Review Fixer',
+        'Implement Direct Review Fixes',
         'Skip Stronger Repair When Normal Fixer Completed All Findings',
         'Reset Stronger Review Fixer',
         'Implement Remaining Review Fixes',
         'Reset Optional Repair Loop Controller',
-        'Exit Optional Stronger Repair After One Attempt',
+        'Exit Optional Review Repair After One Stronger Attempt',
       ],
     );
-    const completionGate = optionalSteps[0];
+    const noWorkGate = optionalSteps[0];
+    assert.equal(noWorkGate?.type, 'break');
+    assert.equal(noWorkGate?.agentType, 'loop_control_agent');
+    assert.equal(noWorkGate?.breakOn, 'yes');
+    assert.equal(noWorkGate?.continueOnFailure, true);
+    assert.equal(noWorkGate?.continueOnInvalidResponse, true);
+    assert.match(noWorkGate?.question ?? '', /no accepted actionable finding/u);
+    const completionGate = optionalSteps[4];
     assert.equal(completionGate?.type, 'break');
     assert.equal(completionGate?.agentType, 'coding_agent');
     assert.equal(completionGate?.identifier, 'batch_fixer');
@@ -911,8 +1012,8 @@ describe('flow schema (v1)', () => {
     assert.match(completionGate?.question ?? '', /positively confirmed/u);
     assert.match(completionGate?.question ?? '', /materiality survivor/u);
     assert.match(completionGate?.question ?? '', /evidence is uncertain/u);
-    const strongerReset = optionalSteps[1];
-    const strongerFix = optionalSteps[2];
+    const strongerReset = optionalSteps[5];
+    const strongerFix = optionalSteps[6];
     assert.equal(
       optionalSteps.indexOf(strongerFix) - optionalSteps.indexOf(strongerReset),
       1,
@@ -928,12 +1029,15 @@ describe('flow schema (v1)', () => {
       strongerFix?.markdownFile,
       'implement_review_batch_remaining_fixes.md',
     );
-    const exitGate = optionalSteps[4];
+    const exitGate = optionalSteps[8];
     assert.equal(exitGate?.type, 'break');
     assert.equal(exitGate?.agentType, 'loop_control_agent');
     assert.equal(exitGate?.breakOn, 'yes');
     assert.equal(exitGate?.breakOnFailure, true);
-    assert.match(exitGate?.question ?? '', /single allowed invocation/u);
+    assert.match(
+      exitGate?.question ?? '',
+      /single allowed stronger invocation/u,
+    );
   });
 
   test('diagnostic review runs only isolated evidence collection', async () => {

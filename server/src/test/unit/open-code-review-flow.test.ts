@@ -21,7 +21,7 @@ test('sandbox OpenCode flow uses the same generic workspace reviewer', () => {
     {
       type: 'llm',
       label: 'Run OpenCode Workspace Review',
-      agentType: 'review_agent_heavy',
+      agentType: 'review_agent_max',
       identifier: 'ocr_reviewer',
       continueOnFailure: true,
       markdownFile: 'run_open_code_review_workspace.md',
@@ -39,7 +39,7 @@ test('production OpenCode flow uses only the scheduler-provided workspace', () =
     {
       type: 'llm',
       label: 'Run OpenCode Workspace Review',
-      agentType: 'review_agent_heavy',
+      agentType: 'review_agent_max',
       identifier: 'ocr_reviewer',
       markdownFile: 'run_open_code_review_workspace.md',
     },

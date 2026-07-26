@@ -122,7 +122,9 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertEqual(json.loads(result.stdout), {"answer": "yes"})
 
-    def test_generic_current_review_handoff_is_not_accepted_as_a_fallback(self) -> None:
+    def test_missing_selector_returns_conservative_no_without_using_generic_fallback(
+        self,
+    ) -> None:
         repo = self.make_repo()
         (repo / "codeInfoTmp/reviews/0000060-current-review.json").write_text(
             json.dumps(
@@ -137,13 +139,14 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
 
         result = self.run_helper(repo)
 
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {"answer": "no"})
         self.assertIn(
             "0000060-github-review-current.json",
             result.stderr,
         )
 
-    def test_rejects_selector_that_points_at_a_foreign_execution_scoped_handoff(
+    def test_foreign_execution_scoped_handoff_returns_conservative_no(
         self,
     ) -> None:
         repo = self.make_repo()
@@ -173,7 +176,8 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
 
         result = self.run_helper(repo)
 
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {"answer": "no"})
         self.assertIn("ownership contract", result.stderr)
 
     def test_persisted_execution_scoped_handoff_env_overrides_foreign_selector_state(
@@ -229,7 +233,7 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertEqual(json.loads(result.stdout), {"answer": "yes"})
 
-    def test_env_provided_foreign_handoff_path_is_rejected_before_any_json_read(
+    def test_env_provided_foreign_handoff_path_returns_no_before_any_json_read(
         self,
     ) -> None:
         repo = self.make_repo()
@@ -248,11 +252,12 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
             },
         )
 
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {"answer": "no"})
         self.assertIn("canonical execution-scoped ownership contract", result.stderr)
         self.assertNotIn("Is a directory", result.stderr)
 
-    def test_env_provided_generic_current_review_fallback_remains_rejected(
+    def test_env_provided_generic_current_review_fallback_returns_no(
         self,
     ) -> None:
         repo = self.make_repo()
@@ -279,10 +284,11 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
             },
         )
 
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {"answer": "no"})
         self.assertIn("canonical execution-scoped ownership contract", result.stderr)
 
-    def test_canonical_malformed_handoff_stays_on_read_only_parse_failure_path(
+    def test_canonical_malformed_handoff_returns_no_on_read_only_parse_path(
         self,
     ) -> None:
         repo = self.make_repo()
@@ -299,7 +305,8 @@ class GitHubReviewFeedbackHelperTests(unittest.TestCase):
             },
         )
 
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), {"answer": "no"})
         self.assertIn("Expecting property name enclosed in double quotes", result.stderr)
         self.assertNotIn("ownership contract", result.stderr)
 

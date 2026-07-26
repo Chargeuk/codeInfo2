@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
 
@@ -84,10 +85,9 @@ def _load_execution_scoped_handoff(
     return handoff
 
 
-def main() -> int:
+def _determine_answer() -> str:
     if os.environ.get("CODEINFO_GITHUB_REVIEW_SKIPPED") == "1":
-        print(json.dumps({"answer": "no"}))
-        return 0
+        return "no"
     repo_root = Path.cwd()
     current_plan_path = repo_root / "codeInfoStatus/flow-state/current-plan.json"
     current_plan = _read_json(current_plan_path)
@@ -143,7 +143,19 @@ def main() -> int:
     review_count = int(handoff.get("filtered_review_count", 0) or 0)
     comment_count = int(handoff.get("filtered_review_comment_count", 0) or 0)
 
-    answer = "yes" if (review_count + comment_count) > 0 else "no"
+    return "yes" if (review_count + comment_count) > 0 else "no"
+
+
+def main() -> int:
+    try:
+        answer = _determine_answer()
+    except Exception as error:
+        print(
+            "GitHub review feedback could not be positively confirmed; "
+            f"continuing conservatively with answer no: {error}",
+            file=sys.stderr,
+        )
+        answer = "no"
     print(json.dumps({"answer": answer}))
     return 0
 

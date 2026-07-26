@@ -445,7 +445,7 @@ test('pending-only cleanup records an honest fallback when no agent outcome arri
   );
 });
 
-test('incomplete final review exits without resetting prior state', async () => {
+test('final review initializes regardless of human-readable task status', async () => {
   const repo = await makeRepo(
     completePlan
       .replace('__done__', '__in_progress__')
@@ -465,9 +465,6 @@ test('incomplete final review exits without resetting prior state', async () => 
     workingRepositoryPath: repo,
     mode: 'final',
   });
-  assert.equal(result.action, 'skipped_incomplete_story');
-  assert.equal(
-    JSON.parse(await fs.readFile(statePath, 'utf8')).review_phase,
-    'slow',
-  );
+  assert.equal(result.action, 'initialized');
+  await assert.rejects(fs.readFile(statePath), /ENOENT/u);
 });

@@ -1,5 +1,7 @@
 # Reconcile the current review batch
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`; reconciliation is always an applicable artifact for a resolved batch.
+
 This is an autonomous flow execution step, not a planning interview. The required outcome and boundaries are already decided. Do not ask the user questions, offer choices, wait for confirmation, or finish with a question. Resolve uncertainty from the immutable batch evidence, make the best safe judgement available, and record uncertainty in the artifact.
 
 Read `codeInfoStatus/flow-state/current-plan.json` only to identify the exact padded story identifier. Set `batch_handoff` to `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`, then set `batch_dir` exactly once by running `batch_dir="$(python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" resolve --batch-handoff "$batch_handoff")"`. Reuse those exact variables throughout this invocation; never retype, reconstruct, or switch to a similar-looking batch path. Inspect every job directory discovered directly below `$batch_dir/jobs/`. Do not use provider names, an expected reviewer count, another pointer file, or a required result schema to decide what exists.

@@ -1,10 +1,14 @@
 # Record the current review batch outcome
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`; the batch outcome is always applicable, while deliberately skipped gate and repair artifacts remain optional for the reasons recorded by trustworthy earlier evidence.
+
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/completed-review-fix-task.md` and `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` so this final batch step can record completed fixes immediately and preserve every fact later settlement needs for reconciliation.
 
 Read the current batch inputs and immutable target snapshot, every direct job's `job.md`, optional `work/review-usage/` evidence, job outputs, verification, every filtering record that exists, the combined filtering audit, filtered reconciliation, disposition, every normal or stronger repair audit that exists, current Git state for every target repository, and the bounded plan. Discover the self-describing evidence instead of depending on an exact audit filename or schema.
 
 Use the combined filtering audit and disposition to understand which filtering stages were applicable. A later gate or repair audit may be absent without failure only when trustworthy earlier evidence positively records why that work was deliberately skipped: no reconciled finding, no survivor after an applicable gate, no accepted disposition finding, or normal repair completion. Preserve that reason in the outcome. Do not require placeholder artifacts for deliberately inapplicable work, and never treat missing, partial, unavailable, conflicting, or uncertain evidence as a clean skip.
+
+An absent, malformed, or incomplete applicable gate or repair artifact is recovery work, not a dead end. Salvage its readable meaning and reconstruct the best supported outcome from the other trustworthy assigned batch evidence; when complete recovery remains impossible, preserve the uncertainty as partial or unavailable coverage and continue normally rather than failing the turn, inventing a clean result, or suppressing useful sibling evidence.
 
 Write a self-describing batch outcome under `reconciliation/` that accounts for every reviewed finding, clearly separating negative-scope, positive-authorization, and materiality removals from actionable work. Inventory every direct review job exactly once with its discovered name, flow, identity, target, and honest outcome, even when it found nothing or was unavailable. Carry optional actual-review input, cached input, and output usage separately; sum each multi-stage category only when complete, label a known incomplete sum honestly, never add cached input to input, and write `Not reported` when absent. Usage never affects findings or routing.
 

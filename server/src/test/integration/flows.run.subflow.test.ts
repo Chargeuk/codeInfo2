@@ -624,7 +624,7 @@ test('review initialization failures fail the flow instead of silently skipping 
   }
 });
 
-test('a final review skipped for incomplete story work does not relabel an older cycle as completed', async () => {
+test('a final review runs despite incomplete Markdown task markers', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-review-skipped-incomplete-story-'),
   );
@@ -665,21 +665,21 @@ test('a final review skipped for incomplete story work does not relabel an older
           outputKey: 'review-cycle',
           mode: 'final',
         },
-        llmStep('reviewer must not run for incomplete story work'),
+        llmStep('reviewer runs despite incomplete Markdown task markers'),
       ],
     });
     await writeFlowFile({
       tmpDir,
-      flowName: 'review-parent-skipped',
+      flowName: 'review-parent-incomplete-markdown',
       steps: [
         { type: 'subflow', flowNames: ['two_phase_review_cycle'] },
-        llmStep('parent continued after skipped review'),
+        llmStep('parent continued after review'),
       ],
     });
 
     const executions: string[] = [];
     const result = await startFlowRun({
-      flowName: 'review-parent-skipped',
+      flowName: 'review-parent-incomplete-markdown',
       source: 'REST',
       working_folder: repoDir,
       chatFactory: () =>
@@ -690,21 +690,18 @@ test('a final review skipped for incomplete story work does not relabel an older
       }),
     });
 
-    await waitFor(() =>
-      executions.includes('parent continued after skipped review'),
-    );
+    await waitFor(() => executions.includes('parent continued after review'));
     await waitForAssistantStatus(result.conversationId, 'ok');
     assert.equal(
-      executions.includes('reviewer must not run for incomplete story work'),
-      false,
-    );
-    assert.equal(
-      executions.includes('parent continued after skipped review'),
+      executions.includes(
+        'reviewer runs despite incomplete Markdown task markers',
+      ),
       true,
     );
-    assert.deepEqual(
-      JSON.parse(await fs.readFile(activePath, 'utf8')),
-      priorCycle,
+    assert.equal(executions.includes('parent continued after review'), true);
+    assert.notEqual(
+      JSON.parse(await fs.readFile(activePath, 'utf8')).review_cycle_id,
+      priorCycle.review_cycle_id,
     );
   } finally {
     await removeWritableTree(tmpDir);
@@ -1510,6 +1507,14 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
     });
     assert.equal(cancelled.ok, true);
 
+    await Promise.all(
+      activeSubflows.map((entry) =>
+        waitForConversationAssistantStatus(
+          String(entry.conversationId),
+          'stopped',
+        ),
+      ),
+    );
     const parentAssistant = await waitForAssistantStatus(
       result.conversationId,
       'stopped',
@@ -1520,14 +1525,6 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
       memoryTurns.get(result.conversationId) ?? []
     ).filter((turn) => turn.role === 'assistant' && turn.status === 'stopped');
     assert.equal(parentStoppedTurns.length, 1);
-    await Promise.all(
-      activeSubflows.map((entry) =>
-        waitForConversationAssistantStatus(
-          String(entry.conversationId),
-          'stopped',
-        ),
-      ),
-    );
     const parentFlow = (
       memoryConversations.get(result.conversationId)?.flags as {
         flow?: {

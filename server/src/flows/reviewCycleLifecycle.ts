@@ -333,16 +333,6 @@ export async function initializeReviewCycle(
     };
   }
   const activePath = path.join(flowStateRoot, 'active-review-cycle.json');
-  if (!readiness.eligible) {
-    return {
-      action: 'skipped_incomplete_story' as const,
-      repoRoot,
-      storyId,
-      planPath,
-      readiness,
-      cycle: null,
-    };
-  }
   params.signal?.throwIfAborted();
   const active = await readJsonIfPresent(activePath, resolvedDeps);
 

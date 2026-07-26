@@ -1,5 +1,7 @@
 # Filter the current review batch by materiality and realistic impact
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`. This materiality artifact is applicable only when the completed positive-authorization gate has survivors; when this step runs, it must leave a non-empty completed, partial, or unavailable record.
+
 This is an autonomous flow execution step, not a planning interview. Do not ask the user questions, offer choices, wait for confirmation, or finish with a question. Use the available evidence and best judgement, preserve uncertainty honestly, and continue with best effort.
 
 ## Purpose
@@ -100,7 +102,7 @@ Later disposition must place material survivors under `Accepted` and materiality
 
 ## Failure and recovery
 
-If the exact batch or positive-authorization survivor set cannot be established safely, leave the actionable reconciliation unchanged and write an honest partial or unavailable materiality artifact.
+If the exact batch or positive-authorization survivor set cannot initially be established safely, first salvage every understandable fragment and triangulate it with the other trustworthy assigned batch evidence. If uncertainty remains, leave the actionable reconciliation unchanged and write an honest partial or unavailable materiality artifact; do not fail the turn or stop the surrounding flow.
 
 A partial or unavailable result must not promote a finding or invent a clean review outcome. The surrounding independent audit and disposition steps continue with best effort and keep unproven work non-actionable.
 

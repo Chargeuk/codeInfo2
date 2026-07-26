@@ -1,5 +1,7 @@
 # Implement direct fixes from the current review batch
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`. This normal-repair audit is applicable only when this repair step actually runs; when it runs, even a no-work or unavailable attempt must leave a non-empty audit.
+
 Read the current immutable batch target snapshot, filtered reconciliation, negative scope record, positive-authorization record, materiality record, combined filtering audit, disposition, underlying evidence, bounded story plan, and repository instructions. Consider only supported, positively authorized findings that survived materiality. Disposition repair difficulty is useful guidance, not a final task boundary. Attempt every survivor that fresh source inspection shows you can honestly complete and test during this invocation. Never restore a negatively filtered, positively unauthorized, below-materiality, rejected, duplicate, disproved, or already-resolved item.
 
 Earlier removals are an append-only audit trail. Read them only enough to identify exclusions, conserve provenance, prevent duplication or resurrection, and resolve a factual contradiction. Do not substantially reconsider them or reopen their immutable evidence during repair.
@@ -33,3 +35,5 @@ After all direct repairs for one changed repository are complete and before crea
 Create separate commits in every changed repository with that repository's required story prefix so a later batch can review each new immutable HEAD; do not push. Never mix unrelated changes into a fix commit. Update the canonical plan only when repository instructions require current-task maintenance for this repair.
 
 Write one self-describing normal-repair audit under the batch reconciliation directory. For every target and finding, preserve identity and provenance, the owning repository, direct cause, inspected and changed files, why every changed file was necessary, initial and final HEADs, exact fix commits, focused tests and results, formatting and lint commands and results, formatter/linter changes, unavailable commands, unrelated baseline limitations, resolution status, unresolved work, uncertainty, and whether another review is useful. Do not require a rigid schema or exact audit filename. Do not create implementation tasks; the optional stronger repair and complete-pass settlement own the remaining work.
+
+Before returning, enumerate the actual reconciliation files written by this invocation, reopen the discovered normal-repair audit, and confirm it is non-empty and inside the exact current batch. Recover it from this invocation's repository, commit, test, formatter, linter, and finding evidence if necessary; do not claim repair completion while the applicable audit is absent.

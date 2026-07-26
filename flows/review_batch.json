@@ -61,7 +61,7 @@
           "label": "Skip Filtering When Reconciliation Has No Supported Findings",
           "agentType": "loop_control_agent",
           "identifier": "review_batch_filtering_controller",
-          "question": "Read the current immutable batch reconciliation and reconciliation audit from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when current trustworthy evidence positively confirms that reconciliation contains no supported finding or actionable candidate and no partial, unavailable, conflicting, or uncertain coverage could still contain one. Answer no when any finding or candidate remains or the evidence is uncertain. Do not use conversational memory, exact schemas, provider counts, or missing files as proof of an empty batch.",
+          "question": "Read the current immutable batch reconciliation and reconciliation audit from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when current trustworthy evidence positively confirms that reconciliation contains no supported finding or actionable candidate and no partial, unavailable, conflicting, or uncertain coverage could still contain one. Answer no when any finding or candidate remains or the evidence is uncertain. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Do not use conversational memory, exact schemas, provider counts, or missing files as proof of an empty batch.",
           "breakOn": "yes",
           "continueOnFailure": true,
           "continueOnInvalidResponse": true
@@ -85,7 +85,7 @@
           "label": "Stop Filtering When No In-Scope Findings Remain",
           "agentType": "loop_control_agent",
           "identifier": "review_batch_filtering_controller",
-          "question": "Read the current immutable batch reconciliation, reconciliation audit, and negative story-scope filtering artifact from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy negative gate positively confirms that no actionable in-scope survivor remains. Answer no when any survivor remains or the gate is missing, partial, unavailable, conflicting, or uncertain. Preserve removed findings as evidence and never interpret uncertainty as permission to skip later processing.",
+          "question": "Read the current immutable batch reconciliation, reconciliation audit, and negative story-scope filtering artifact from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy negative gate positively confirms that no actionable in-scope survivor remains. Answer no when any survivor remains or the gate is missing, partial, unavailable, conflicting, or uncertain. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Preserve removed findings as evidence and never interpret uncertainty as permission to skip later processing.",
           "breakOn": "yes",
           "continueOnFailure": true,
           "continueOnInvalidResponse": true
@@ -109,7 +109,7 @@
           "label": "Stop Filtering When No Authorized Findings Remain",
           "agentType": "loop_control_agent",
           "identifier": "review_batch_filtering_controller",
-          "question": "Read the current immutable batch reconciliation, negative story-scope artifact, and positive-authorization artifact from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy authorization gate positively confirms that no survivor is authorized for this story. Answer no when any authorized survivor remains or the gate is missing, partial, unavailable, conflicting, or uncertain. Preserve all earlier removals and never promote or skip work because evidence is absent.",
+          "question": "Read the current immutable batch reconciliation, negative story-scope artifact, and positive-authorization artifact from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy authorization gate positively confirms that no survivor is authorized for this story. Answer no when any authorized survivor remains or the gate is missing, partial, unavailable, conflicting, or uncertain. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Preserve all earlier removals and never promote or skip work because evidence is absent.",
           "breakOn": "yes",
           "continueOnFailure": true,
           "continueOnInvalidResponse": true
@@ -133,7 +133,7 @@
           "label": "Stop Filtering When No Material Findings Remain",
           "agentType": "loop_control_agent",
           "identifier": "review_batch_filtering_controller",
-          "question": "Read the current immutable batch reconciliation and every filtering artifact that was applicable through materiality from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy materiality gate positively confirms that no material actionable survivor remains. Answer no when any material survivor remains or the applicable evidence is missing, partial, unavailable, conflicting, or uncertain. Preserve all removals and never treat uncertainty as a clean exit.",
+          "question": "Read the current immutable batch reconciliation and every filtering artifact that was applicable through materiality from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy materiality gate positively confirms that no material actionable survivor remains. Answer no when any material survivor remains or the applicable evidence is missing, partial, unavailable, conflicting, or uncertain. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Preserve all removals and never treat uncertainty as a clean exit.",
           "breakOn": "yes",
           "continueOnFailure": true,
           "continueOnInvalidResponse": true
@@ -187,7 +187,7 @@
           "label": "Skip Review Repair When Disposition Accepts No Findings",
           "agentType": "loop_control_agent",
           "identifier": "review_batch_repair_controller",
-          "question": "Read the current immutable batch reconciliation, every applicable filtering artifact, combined filtering audit, and disposition from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy disposition positively confirms that no accepted actionable finding remains for repair. Answer no when any accepted finding remains or disposition evidence is missing, partial, unavailable, conflicting, or uncertain. Findings removed by an earlier gate are non-actionable and must not be restored.",
+          "question": "Read the current immutable batch reconciliation, every applicable filtering artifact, combined filtering audit, and disposition from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy disposition positively confirms that no accepted actionable finding remains for repair. Answer no when any accepted finding remains or disposition evidence is missing, partial, unavailable, conflicting, or uncertain. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Findings removed by an earlier gate are non-actionable and must not be restored.",
           "breakOn": "yes",
           "continueOnFailure": true,
           "continueOnInvalidResponse": true
@@ -216,7 +216,7 @@
           "label": "Skip Stronger Repair When Normal Fixer Completed All Findings",
           "agentType": "coding_agent",
           "identifier": "batch_fixer",
-          "question": "Read the current immutable batch, filtered reconciliation, materiality record, combined filtering audit, disposition, your normal-repair audit, and current Git state for every target repository from disk. Have all supported, positively authorized materiality survivors been resolved? Answer yes only when completion is positively confirmed. Do not restore any finding removed by an earlier gate. Answer no when any material survivor remains or the evidence is uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+          "question": "Read the current immutable batch, filtered reconciliation, materiality record, combined filtering audit, disposition, your normal-repair audit, and current Git state for every target repository from disk. Have all supported, positively authorized materiality survivors been resolved? Answer yes only when completion is positively confirmed. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Do not restore any finding removed by an earlier gate. Answer no when any material survivor remains or the evidence is uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
           "breakOn": "yes",
           "continueOnFailure": true,
           "continueOnInvalidResponse": true

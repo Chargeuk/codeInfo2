@@ -12,6 +12,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - Do not discover review artifacts by timestamp.
 - Use the stored review handoff plus the artifacts it references as the sole source of review outcome.
 - Read `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"` and follow it strictly.
+- Read `"$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md"` and follow its applicability-aware, best-effort evidence rules.
 - Do not edit the canonical plan, review artifacts, code, tests, docs, or configuration in this step.
 - The only file this step may create or update is `codeInfoStatus/flow-state/review-disposition-state.json`.
 - Treat `codeInfoStatus/flow-state/review-disposition-state.json` as generated flow state. Do not commit it unless a later human explicitly asks to persist runtime state.
@@ -29,7 +30,8 @@ This step is a traffic controller only. It must not fix findings, task up findin
   - and not already resolved or stale
   must be routed into `unresolved_minor_batchable_findings`.
 - Stale, already-resolved, out-of-scope, behavior-widening, or otherwise non-actionable findings must be routed into `rejected_or_non_actionable_findings`.
-- If the review outcome cannot be interpreted safely because required artifacts are missing or malformed, write an `incomplete_review_blockers` entry instead of claiming a clean result.
+- If required artifacts are missing, malformed, contradictory, or partially readable, salvage the facts that can be supported, record the evidence limitation in `incomplete_review_blockers`, and complete this step normally instead of claiming a clean result or deliberately failing the agent turn.
+- If the assigned state path cannot be resolved or written safely, do not guess another path. Return a normal unavailable summary that names the limitation.
 - Preserve same-cycle history already stored in:
   - `review_cycle_id`
   - `minor_fixes_made_in_review_loop`
@@ -116,6 +118,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - Confirm no finding was treated as actionable solely because a behavior change would make the product cleaner or easier to prove.
 - Confirm stale or already-resolved findings were not left actionable.
 - Confirm the updated state file is valid JSON after writing.
+- Confirm the applicable output is a non-empty regular file; when that cannot be established safely, report the evidence limitation normally without inventing success.
 - Confirm counts and derived booleans match the state arrays.
 - Confirm this step did not edit the canonical plan, review artifacts, code, tests, docs, or config.
 

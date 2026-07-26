@@ -1339,6 +1339,185 @@ test('an active subflow wave recovers an orphaned child in place', async () => {
   }
 });
 
+test('stopping a subflow wave recovers and stops an orphaned child', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-orphan-stop-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  let releaseChildGate: (() => void) | undefined;
+  const slowChildGate = new Promise<void>((resolve) => {
+    releaseChildGate = resolve;
+  });
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'orphan-stop-wave-child',
+      steps: [llmStep('slow child orphan-stop-wave-child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'orphan-stop-wave-parent',
+      steps: [
+        {
+          type: 'subflowWave',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'orphan-stop',
+              flowName: 'orphan-stop-wave-child',
+            },
+          ],
+        },
+      ],
+    });
+
+    let parentRunToken: string | undefined;
+    const parent = await startFlowRun({
+      flowName: 'orphan-stop-wave-parent',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25, undefined, slowChildGate),
+      onOwnershipReady: ({ runToken }) => {
+        parentRunToken = runToken;
+      },
+    });
+    const [activeChild] = await waitForActiveSubflowCount(
+      parent.conversationId,
+      1,
+    );
+    assert.ok(activeChild?.conversationId);
+    assert.ok(parentRunToken);
+    const ownership = getActiveRunOwnership(String(activeChild.conversationId));
+    assert.ok(ownership);
+    assert.equal(
+      releaseConversationLock(
+        String(activeChild.conversationId),
+        ownership.runToken,
+      ),
+      true,
+    );
+    assert.equal(
+      await getFlowConversationLifecycleStatus({
+        conversationId: String(activeChild.conversationId),
+        runToken: ownership.runToken,
+      }),
+      'orphaned',
+    );
+
+    registerPendingConversationCancel({
+      conversationId: parent.conversationId,
+      runToken: parentRunToken,
+    });
+    assert.equal(
+      abortInflight({
+        conversationId: parent.conversationId,
+        inflightId: parent.inflightId,
+      }).ok,
+      true,
+    );
+
+    await waitForConversationAssistantStatus(
+      String(activeChild.conversationId),
+      'stopped',
+    );
+    await waitForAssistantStatus(parent.conversationId, 'stopped');
+  } finally {
+    releaseChildGate?.();
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('stopping a subflow wave settles a missing child', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-subflow-wave-missing-stop-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+
+  let releaseChildGate: (() => void) | undefined;
+  const slowChildGate = new Promise<void>((resolve) => {
+    releaseChildGate = resolve;
+  });
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'missing-stop-wave-child',
+      steps: [llmStep('slow child missing-stop-wave-child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'missing-stop-wave-parent',
+      steps: [
+        {
+          type: 'subflowWave',
+          groups: [
+            {
+              kind: 'singleton',
+              id: 'missing-stop',
+              flowName: 'missing-stop-wave-child',
+            },
+          ],
+        },
+      ],
+    });
+
+    let parentRunToken: string | undefined;
+    const parent = await startFlowRun({
+      flowName: 'missing-stop-wave-parent',
+      source: 'REST',
+      chatFactory: () => new SubflowChat(25, undefined, slowChildGate),
+      onOwnershipReady: ({ runToken }) => {
+        parentRunToken = runToken;
+      },
+    });
+    const [activeChild] = await waitForActiveSubflowCount(
+      parent.conversationId,
+      1,
+    );
+    assert.ok(activeChild?.conversationId);
+    assert.ok(parentRunToken);
+    const childConversationId = String(activeChild.conversationId);
+    const ownership = getActiveRunOwnership(childConversationId);
+    assert.ok(ownership);
+    assert.equal(
+      releaseConversationLock(childConversationId, ownership.runToken),
+      true,
+    );
+    const childConversation = memoryConversations.get(childConversationId);
+    assert.ok(childConversation);
+    memoryConversations.set(childConversationId, {
+      ...childConversation,
+      flags: {},
+      updatedAt: new Date(),
+    } as Conversation);
+    assert.equal(
+      await getFlowConversationLifecycleStatus({
+        conversationId: childConversationId,
+        runToken: ownership.runToken,
+      }),
+      'missing',
+    );
+
+    registerPendingConversationCancel({
+      conversationId: parent.conversationId,
+      runToken: parentRunToken,
+    });
+    assert.equal(
+      abortInflight({
+        conversationId: parent.conversationId,
+        inflightId: parent.inflightId,
+      }).ok,
+      true,
+    );
+
+    await waitForAssistantStatus(parent.conversationId, 'stopped');
+  } finally {
+    releaseChildGate?.();
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('repeated subflow wave titles show their loop iteration', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-title-'),

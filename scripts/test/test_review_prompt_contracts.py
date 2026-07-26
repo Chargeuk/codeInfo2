@@ -131,14 +131,49 @@ class ReviewPromptContractTests(unittest.TestCase):
         )
 
         for prompt in (contract, codex, open_code):
-            self.assertIn("running cell or session handle", prompt)
-            self.assertIn("exact handle", prompt)
+            self.assertIn("direct `exec_command`", prompt)
+            self.assertIn("`session_id`", prompt)
+            self.assertIn("`write_stdin`", prompt)
             self.assertRegex(prompt, r"(?i)do not relaunch")
 
-        self.assertIn("Only a terminal tool result", codex)
-        self.assertIn("native-response file only after the process exits", codex)
+        self.assertIn("direct terminal process result", codex)
+        self.assertIn(
+            "native-response file only after the process exits", codex
+        )
         self.assertIn("before reading that command's output as complete", open_code)
         self.assertIn("starting the dependent command", open_code)
+
+    def test_native_review_commands_keep_direct_process_sessions(self) -> None:
+        contract = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+        codex = read_text("codeinfo_markdown/run_codex_review_workspace.md")
+        open_code = read_text(
+            "codeinfo_markdown/run_open_code_review_workspace.md"
+        )
+
+        for prompt in (contract, codex, open_code):
+            self.assertIn("direct `exec_command`", prompt)
+            self.assertIn("`session_id`", prompt)
+            self.assertIn("`write_stdin`", prompt)
+            self.assertIn("numeric `exit_code`", prompt)
+            self.assertIn("`functions.exec`", prompt)
+            self.assertIn("nested `tools.exec_command`", prompt)
+
+        self.assertIn(
+            "Completion of a JavaScript orchestration cell is not evidence",
+            codex,
+        )
+        self.assertIn("numeric process exit status", codex)
+        self.assertIn("write `Not reported`", codex)
+        self.assertIn(
+            "before reading that command's output as complete", open_code
+        )
+
+        verifier = read_text("codeinfo_markdown/verify_review_batch_jobs.md")
+        self.assertIn("provider failure from lost process continuation", verifier)
+        self.assertIn("numeric direct-process exit status", verifier)
+        self.assertIn("does not prove that the provider failed", verifier)
 
     def test_applicable_review_artifact_producers_verify_the_assigned_handoff(
         self,

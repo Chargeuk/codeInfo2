@@ -19,7 +19,9 @@ Use only the assigned job directories:
 - put the clearest self-describing account of the review under `output/`;
 - leave `verification/` for the independent verifier.
 
-When any tool reports that a launched script or process is still running and supplies a running cell or session handle, that report is non-terminal. Keep waiting or polling through that exact handle until the tool reports the process's terminal exit. Do not relaunch the command, inspect still-growing artifacts as its final result, or classify the review as completed, failed, partial, or unavailable while the original invocation remains active. If the handle itself later becomes genuinely unavailable, preserve the partial evidence and report that continuation failure honestly.
+Launch every potentially long native review command with the direct `exec_command` tool. Never wrap it in `functions.exec`, JavaScript, or a nested `tools.exec_command` call: a completed orchestration cell proves only that its JavaScript evaluation returned and may discard the nested process's still-running `session_id`.
+
+When direct `exec_command` returns a `session_id`, retain that exact value and poll it with the direct `write_stdin` tool until the direct process result includes a numeric `exit_code`. A yielded direct process session is non-terminal. Do not use an orchestration-cell wait for the native command. Do not relaunch it, inspect still-growing artifacts as final, or classify the review as completed, failed, partial, or unavailable while its direct session remains active. If that direct session itself later becomes genuinely unavailable, preserve the partial evidence and report the lost continuation honestly.
 
 There is no required review-result schema or filename. Make the output easy for another agent to discover and understand. State what was reviewed, the exact commits, findings with evidence, exclusions, incomplete coverage, provider failures, and residual uncertainty. Preserve useful partial work. If nothing trustworthy was produced, explain that honestly instead of inventing a successful review.
 

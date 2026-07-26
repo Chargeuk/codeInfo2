@@ -18,6 +18,8 @@ The existing `<story>-current-review-batch.md` handoff is the sole mutable locat
 
 The parent flow only owns scheduling policy. It currently runs one configurable group repeatedly for early convergence with a five-iteration limit, then one separately configured group once because that group is slower. Reviewers and consumers do not know or care which scheduling group they belong to. Failures and incomplete coverage remain visible and the flow continues with best effort; useful sibling results are never discarded merely because another reviewer failed. Runtime code validates only factual boundaries such as assigned paths, containment, Git commits, directory presence, execution status, cancellation, and resume. Agents own semantic recovery and final settlement, and must never invent a clean result when meaningful evidence could not be produced. A reviewer that launches a native command owns that command until its tool reports a terminal result: a yielded cell or session handle means the same invocation is still running and must be awaited, not that its current files are a completed or failed review. Schema-bearing flow definitions are read from the linked source catalogue as one coherent server-generation snapshot, so a flow cannot consume JSON it changed while still running against an older server schema; the linked files remain the source of truth and the next rebuild or restart activates their new generation. Every attempted review-batch launch also leaves factual, self-describing evidence even when the child cannot start far enough to create a batch workspace. Provider-native commands run inside the existing CodeInfo Docker isolation boundary; the Codex reviewer uses one checked-in launcher that requires and passes through the flow-selected model, fixes high reasoning, non-interactive behavior, and full-access execution, and does not attempt a second operating-system sandbox inside the container. The current Codex flow selects `gpt-5.6-terra` with high reasoning, while the OpenCode workspace reviewer uses `review_agent_max` and therefore `gpt-5.6-sol` with high reasoning. Derived review-artifact steps are autonomous flow workers rather than interactive planning interviews: they resolve uncertainty from the immutable batch, always make a best-effort artifact, and never pause for user choices. After complete review evidence has been reconciled and audited, one freshly reset agent removes findings that fail the detailed negative story-scope policy, a second freshly reset agent positively authorizes each survivor against an exact story requirement or preserved behavior, a third freshly reset agent filters those survivors for materiality, and an independent agent audits all decisions that were applicable before disposition. A bounded single-iteration filtering loop stops later filters once the latest trustworthy stage positively confirms there are no survivors; an expanded single-iteration repair loop skips all repair when disposition accepts nothing, stops after the normal fixer resolves everything, and otherwise invokes the stronger research fixer once. The authorization boundary is the current top-level Description, Acceptance Criteria, and Out Of Scope contract, plus later user-approved expansions incorporated into those sections and comparison-base repository evidence proving restoration of behavior that predated the story. Historical `Code Review Findings`, `Accepted`, `Ignored for This Story`, tasks, implementation notes, and agent-generated review artifacts remain evidence and decision history only; they never authorize implementation, even when an older entry accepted the identical finding. A technically plausible finding remains useful evidence but cannot reach repair merely because it affects story-added code or resembles a broad story phrase; unapproved caps, thresholds, defaults, validation failures, retries, timeouts, concurrency rules, and other policy choices stay non-actionable. Applicable gates preserve immutable job evidence and write flexible self-describing artifacts so the final plan decision trail remains complete without an application parser; later gates deliberately skipped after an empty survivor set are recorded as not applicable rather than failed or implicitly approving work. The durable plan record is deliberately human-readable: every accepted and ignored finding names every generating or corroborating review harness, explains the issue simply, gives a concrete example, and records when the findings were written using the host's local display locale and time zone while machine identities remain UTC. Every new task created by a review loop likewise records its actual creation time immediately above its `Overview` using that host-local formatter; the original value remains unchanged through retries, audits, task improvement, and renumbering. One normal coding-agent invocation then attempts every positively authorized materiality survivor it can honestly resolve, processing all owning repositories sequentially with separate tests and commits. Only findings still unresolved after the one permitted stronger attempt may become implementation tasks during complete-pass settlement. At the end of each batch, the existing outcome step immediately creates or updates one idempotent completed plan task when either repair agent committed fixes, preserving harnesses, findings, repositories, commits, and focused proof even if a later batch never runs. Complete-pass settlement reconciles and repairs those records as a fallback, then retains sole ownership of unresolved implementation tasks and the final revalidation task. The same bounded escalation principle applies during normal task implementation: after the coding agent's deep blocker repair, one freshly reset research agent may repair a directly causal issue outside the current task when necessary, while keeping every edit minimal, targeted, and within persisted story scope so normal implementation and proof can continue. Final revalidation keeps runnable automated commands in `Testing` and optional agent-driven proof in checkbox-free `Manual Testing Guidance`; agents repair understandable section-shape mistakes semantically instead of creating an endless handoff blocker.
 
+A potentially long native review command is launched through the direct process tool rather than through a nested JavaScript orchestration call. The reviewer retains any returned process session ID and polls that same direct session until it reports a numeric exit code; completion of a JavaScript cell proves only that the orchestration call returned, not that a nested native command finished. If the direct continuation is genuinely lost, the reviewer preserves the trustworthy partial evidence as honest partial or unavailable coverage without relaunching the command or failing the parent flow.
+
 After negative scope filtering and positive authorization, one separately reset materiality agent evaluates only the surviving actionable findings. It keeps work actionable only when the reviewed HEAD demonstrates a realistically reachable problem with meaningful practical impact whose value justifies changing completed code. Borderline, speculative, stylistic, already-mitigated, or otherwise low-value observations remain visible as non-actionable evidence instead of triggering repair or another review iteration. Reviewer severity labels, historical review decisions, and invented numeric probability, cost, severity, or risk thresholds are never materiality authority. Each sequential gate reasons only about the survivors it receives; previously removed findings are carried forward as an append-only audit and reporting trail, inspected only enough to conserve identity, prevent resurrection, and repair a factual contradiction.
 
 Review execution uses two explicit quality tiers without changing either fixing agent's repair instructions. `review_agent_heavy` uses `gpt-5.6-terra` with high reasoning for Codex workspace orchestration, cross-repository review, batch verification, and reconciliation audit. `review_agent_max` uses `gpt-5.6-sol` with high reasoning for OpenCode workspace review, deep-review consolidation, combined filtering audit, and complete-pass settlement audit; `max` names the flagship model tier rather than the reasoning-effort value. After either the normal coding agent or stronger research agent finishes all of its repairs in a changed repository, that same agent runs the repository-supported formatter and lint workflow once before committing, re-runs directly affected proof when those tools change files, and records honest results without adding tooling or cleaning unrelated baseline issues.
@@ -51,7 +53,8 @@ Every durable batch findings record also summarizes every direct review job atte
 - Codex, OpenCode, the multi-agent deep review, and the cross-repository review use the same workspace input/output boundary while retaining their own internal review strategy.
 - The Codex reviewer invokes its native CLI only through a checked-in launcher that always uses `--dangerously-bypass-approvals-and-sandbox`, closes stdin, runs ephemerally, and explicitly supplies the selected model, reasoning effort, comparison base, instructions, and native-response destination.
 - The current native Codex review selects `gpt-5.6-terra` with high reasoning; its launcher requires a non-empty model and passes that value through unchanged instead of enforcing a hard-coded model allowlist.
-- When a reviewer command yields a running cell or session handle, the reviewer continues waiting on that exact invocation until the tool reports a terminal exit; it does not relaunch the command, inspect growing artifacts as final, or classify the review early.
+- Every potentially long native reviewer command is launched with the direct process tool, never through a nested JavaScript orchestration call. A returned process session ID is retained and polled through the direct stdin tool until that exact process reports a numeric exit code; completion of an orchestration cell is not native-command completion.
+- A lost or genuinely unavailable direct continuation is preserved as honest partial or unavailable coverage from the evidence already written, without relaunching the native review, inventing terminal success, or failing the parent flow.
 - Adding a reviewer or moving it between scheduling groups requires only its own flow plus parent scheduling configuration; common consumers require no reviewer-specific branch, parser, count, or schema change.
 - The currently repeated review group runs all configured jobs concurrently, exits early when no direct-fix re-review is useful, and proceeds through the same continuation route when it reaches its five-iteration limit.
 - An invalid or unavailable advisory loop decision exits the repeated group through the normal one-shot and settlement route instead of failing or terminating the parent flow.
@@ -154,7 +157,7 @@ Every durable batch findings record also summarizes every direct review job atte
 - Reconsidering or resurrecting findings already removed by an earlier review gate, except for the minimum identity-conservation and factual-audit work needed to prevent loss, duplication, or contradiction.
 - Moving settlement-created tasking after checkpoint persistence, or allowing a checkpoint agent to complete that work, instead of returning it to the normal implementation and review loop.
 - Adding a child-completion timeout, provider-specific lifecycle behavior, artifact-based runtime completion, a new persisted child-status schema, or a broader event-driven parent/child rewrite.
-- Adding a reviewer-command timeout, retry, relaunch policy, new process state file, or runtime parser for native review output; reviewer agents await the tool's existing running handle and interpret terminal evidence.
+- Adding a reviewer-command timeout, retry, relaunch policy, new process state file, process supervisor, generalized command-execution framework, or runtime parser for native review output; reviewer agents use the existing direct process session and interpret its terminal evidence.
 - Moving unresolved-finding implementation tasks or the final testing/revalidation task into an individual batch; those remain complete-pass settlement decisions.
 - Guaranteeing meaningful review or settlement content when every relevant AI/provider is unavailable; the workflow preserves honest incomplete state instead of inventing findings or a clean result.
 - Opening a pull request as part of this story unless separately requested.
@@ -6913,3 +6916,60 @@ parent flow.
   limited to the shared recovery contract, four directly affected prompts, six
   conservative review-batch controller questions, focused tests, and this
   story/task maintenance.
+
+### Task 87. Keep Native Review Process Sessions Direct
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Task Dependencies: Task 86
+- Created: `July 26, 2026 at 8:53:03 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Prevent a JavaScript orchestration cell from discarding the live process
+session of a long native review. Use the existing direct process tools from
+launch through numeric exit, preserve honest partial evidence if that direct
+continuation is genuinely lost, and avoid new runtime state or launcher logic.
+
+#### Subtasks
+
+1. [x] Define the direct native-process session contract for review jobs.
+2. [x] Apply the contract to Codex, OpenCode, and batch verification.
+3. [x] Add focused prompt-contract regression coverage.
+4. [x] Update the story Description, Acceptance Criteria, and Out Of Scope.
+
+#### Testing
+
+1. [x] Run only the focused prompt-contract tests changed for this task.
+2. [x] Run repository linting.
+3. [x] Run Prettier and the repository format check.
+4. [x] Run `git diff --check` and inspect the final scoped diff.
+
+#### Implementation Notes
+
+- Task created after the stopped `A2` flow proved that a nested
+  `tools.exec_command` could yield a live process session while its enclosing
+  JavaScript cell returned and discarded the session ID. The repair changes
+  agent instructions and focused contracts only; the native launcher, model,
+  flags, flow runtime, and artifact formats remain unchanged.
+- Subtask 1 complete: the shared review-job contract now requires direct
+  `exec_command`, retention of its process `session_id`, direct `write_stdin`
+  polling, and a numeric `exit_code` before native completion.
+- Subtask 2 complete: Codex and OpenCode now apply that protocol to every
+  potentially long native command, while verification distinguishes a lost
+  direct continuation from provider failure and preserves partial evidence.
+- Subtask 3 complete: focused prompt-contract coverage forbids nested
+  JavaScript process invocation and locks the direct launch, poll, exit, and
+  verification evidence contract.
+- Subtask 4 complete: Description, Acceptance Criteria, and Out Of Scope now
+  describe the direct-session KISS boundary and explicitly exclude a timeout,
+  state file, supervisor, parser, or generalized command framework.
+- Testing step 1 complete: both focused native-command prompt-contract tests
+  passed. The first run exposed an implicit shared no-relaunch clause; making
+  that instruction explicit allowed the same two focused tests to pass.
+- Testing step 2 complete: `npm run lint` passed with zero ESLint warnings.
+- Testing step 3 complete: `npm run format` formatted all tracked supported
+  files, and `npm run format:check` passed across the repository.
+- Testing step 4 complete: `git diff --check` passed, and the inspected diff is
+  limited to four review prompts, one focused prompt-contract test module, and
+  this story/task maintenance; no launcher, flow runtime, or artifact changed.

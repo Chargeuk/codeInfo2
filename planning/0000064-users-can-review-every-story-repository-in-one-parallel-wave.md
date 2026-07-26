@@ -6080,14 +6080,14 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
-2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
-3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
-4. [ ] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
-5. [ ] In `codeInfo2`, run `npm run test:summary:all:parallel` without targeted filters; preserve its full client, server unit/integration, server Cucumber, and Playwright e2e results.
-6. [ ] In `codeInfo2`, stop only the supported main stack started for this proof with `npm run compose:down`.
-7. [ ] In `codeInfo2`, run `npm run lint`.
-8. [ ] In `codeInfo2`, run `npm run format:check`.
+1. [x] In `codeInfo2`, run `npm run build:summary:server`.
+2. [x] In `codeInfo2`, run `npm run build:summary:client`.
+3. [x] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [x] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
+5. [x] In `codeInfo2`, run `npm run test:summary:all:parallel` without targeted filters; preserve its full client, server unit/integration, server Cucumber, and Playwright e2e results.
+6. [x] In `codeInfo2`, stop only the supported main stack started for this proof with `npm run compose:down`.
+7. [x] In `codeInfo2`, run `npm run lint`.
+8. [x] In `codeInfo2`, run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -6101,3 +6101,11 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 - Added the sole final revalidation owner after the completed repair record. Its `Testing` section contains only runnable automated wrappers and commands; optional browser and screenshot proof is confined to checkbox-free manual guidance.
 - Ran `npm run lint` successfully with no diagnostics; no story-caused lint repair was needed.
 - Ran `npm run format:check` successfully; all matched files use Prettier code style and no formatting repair was needed.
+- Ran `npm run build:summary:server` successfully on HEAD `36f0f4eb`; the wrapper reported a clean server build with zero warnings.
+- Ran `npm run build:summary:client` successfully on HEAD `36f0f4eb`; the wrapper reported one existing large-chunk warning and no build failure.
+- Ran `npm run compose:build:summary` successfully on HEAD `36f0f4eb`; both Compose build items passed and runtime assets were baked into the image.
+- Started the supported main Compose stack with `npm run compose:up`; the preflight passed and all required containers reached started/healthy state.
+- Ran the unfiltered `npm run test:summary:all:parallel` successfully: client 900/900, server unit/integration 2629/2629, server Cucumber 133/133, and Playwright e2e 77/77 passed.
+- Stopped the proof-started main Compose stack with `npm run compose:down`; all containers and the project network were removed cleanly.
+- Ran `npm run lint` successfully after whole-story automated proof; ESLint reported no diagnostics.
+- Ran `npm run format:check` successfully after whole-story automated proof; all matched files use Prettier code style.

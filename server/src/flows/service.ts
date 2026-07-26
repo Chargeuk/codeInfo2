@@ -3206,6 +3206,7 @@ const buildFlowResumeState = (params: {
             ...(activeSubflow.workingFolder
               ? { workingFolder: activeSubflow.workingFolder }
               : {}),
+            ...(activeSubflow.input ? { input: activeSubflow.input } : {}),
             ...(activeSubflow.inputHash
               ? { inputHash: activeSubflow.inputHash }
               : {}),

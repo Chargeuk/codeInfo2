@@ -12,6 +12,7 @@
       "agentType": "review_agent",
       "identifier": "reviewer_evidence",
       "continueOnFailure": true,
+      "recordReviewUsage": true,
       "markdownFile": "run_deep_review_evidence_workspace.md"
     },
     {
@@ -20,6 +21,7 @@
       "agentType": "review_agent",
       "identifier": "reviewer_findings",
       "continueOnFailure": true,
+      "recordReviewUsage": true,
       "markdownFile": "run_deep_review_findings_workspace.md"
     },
     {
@@ -28,6 +30,7 @@
       "agentType": "review_agent_lite",
       "identifier": "reviewer_visual",
       "continueOnFailure": true,
+      "recordReviewUsage": true,
       "markdownFile": "run_deep_review_visual_workspace.md"
     },
     {
@@ -36,6 +39,7 @@
       "agentType": "review_agent_lite",
       "identifier": "reviewer_saturation",
       "continueOnFailure": true,
+      "recordReviewUsage": true,
       "markdownFile": "run_deep_review_saturation_workspace.md"
     },
     {
@@ -44,6 +48,7 @@
       "agentType": "review_agent_lite",
       "identifier": "reviewer_blindspot",
       "continueOnFailure": true,
+      "recordReviewUsage": true,
       "markdownFile": "run_deep_review_blindspot_workspace.md"
     },
     {
@@ -51,6 +56,7 @@
       "label": "Consolidate Multi-Agent Review",
       "agentType": "review_agent_max",
       "identifier": "reviewer_consolidator",
+      "recordReviewUsage": true,
       "markdownFile": "consolidate_deep_review_workspace.md"
     }
   ]

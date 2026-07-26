@@ -13,6 +13,7 @@ The input is agent-readable and may evolve. Understand it rather than expecting 
 Use only the assigned job directories:
 
 - keep provider-native commands, manifests, transcripts, reports, and intermediate reasoning under `work/`;
+- keep optional actual-review token evidence under `work/review-usage/`, preserving input, cached input, and output separately and writing `Not reported` for unavailable values;
 - put the clearest self-describing account of the review under `output/`;
 - leave `verification/` for the independent verifier.
 

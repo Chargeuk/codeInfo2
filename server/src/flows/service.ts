@@ -172,6 +172,7 @@ import {
 } from './reviewCycleLifecycle.js';
 import { prepareReviewTargets } from './reviewTargets.js';
 import type { ReviewTargetSnapshot } from './reviewTargets.js';
+import { writeReviewUsageArtifact } from './reviewUsage.js';
 import {
   expandSubflowWaveJobs,
   resolveFlowValue,
@@ -1194,9 +1195,7 @@ const getFlowChildWaveIdentity = (
   const flowChild = isRecord(flags?.flowChild) ? flags.flowChild : null;
   const executionId = normalizeOptionalString(flowChild?.executionId);
   const instanceId = normalizeOptionalString(flowChild?.instanceId);
-  const waveInvocationId = normalizeOptionalString(
-    flowChild?.waveInvocationId,
-  );
+  const waveInvocationId = normalizeOptionalString(flowChild?.waveInvocationId);
   return executionId && instanceId && waveInvocationId
     ? { executionId, instanceId, waveInvocationId }
     : null;
@@ -4476,6 +4475,14 @@ async function runFlowUnlocked(params: {
     postProcess?: FlowInstructionPostProcess;
     command?: TurnCommandMetadata;
     runtime?: TurnRuntimeMetadata;
+    onAttemptResult?: (
+      result: FlowInstructionResult,
+      metadata: {
+        attempt: number;
+        providerId: ConversationProvider;
+        modelId: string;
+      },
+    ) => Promise<void>;
   }): Promise<FlowInstructionResult> => {
     const agent = agentByName.get(instructionParams.agentType);
     if (!agent) {
@@ -4589,6 +4596,12 @@ async function runFlowUnlocked(params: {
         },
       });
 
+      await instructionParams.onAttemptResult?.(result, {
+        attempt,
+        providerId: runtime.providerId,
+        modelId,
+      });
+
       if (shouldRetry) {
         previousError = result.content;
         const reason = result.content;
@@ -4670,8 +4683,47 @@ async function runFlowUnlocked(params: {
     step: FlowLlmStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
+    const reviewUsageRecorder = (invocation: number) =>
+      step.recordReviewUsage
+        ? async (
+            result: FlowInstructionResult,
+            metadata: {
+              attempt: number;
+              providerId: ConversationProvider;
+              modelId: string;
+            },
+          ) => {
+            const recorded = await writeReviewUsageArtifact({
+              input: params.input,
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              stepLabel: step.label,
+              stepIdentifier: step.identifier,
+              invocation,
+              attempt: metadata.attempt,
+              providerId: metadata.providerId,
+              modelId: metadata.modelId,
+              status: result.status,
+              usage: result.usage,
+            });
+            if (recorded.status === 'skipped') {
+              baseLogger.warn(
+                {
+                  flowName: params.flowName,
+                  stepIndex: command.stepIndex,
+                  identifier: step.identifier,
+                  invocation,
+                  attempt: metadata.attempt,
+                  reason: recorded.reason,
+                },
+                'optional actual-review usage evidence was not written',
+              );
+            }
+          }
+        : undefined;
+
     if ('messages' in step) {
-      for (const message of step.messages) {
+      for (const [messageIndex, message] of step.messages.entries()) {
         const instruction = prependAssignedReviewJobContext(
           joinMessageContent(message.content),
           params.input,
@@ -4683,6 +4735,7 @@ async function runFlowUnlocked(params: {
             identifier: step.identifier,
             instruction,
             command,
+            onAttemptResult: reviewUsageRecorder(messageIndex + 1),
           });
         } catch (error) {
           const agent = agentByName.get(step.agentType);
@@ -4797,6 +4850,7 @@ async function runFlowUnlocked(params: {
       identifier: step.identifier,
       instruction,
       command,
+      onAttemptResult: reviewUsageRecorder(1),
       runtime: {
         ...(params.repositoryContext.workingRepositoryPath
           ? { workingFolder: params.repositoryContext.workingRepositoryPath }
@@ -4993,7 +5047,9 @@ async function runFlowUnlocked(params: {
         providerId: params.providerId,
         source: params.source,
         message,
-        errorCode: isFlowRunError(error) ? error.code : 'FLOW_BREAK_SETUP_FAILED',
+        errorCode: isFlowRunError(error)
+          ? error.code
+          : 'FLOW_BREAK_SETUP_FAILED',
         command,
       });
       return {
@@ -5243,10 +5299,7 @@ async function runFlowUnlocked(params: {
             ? (childConversation.flags as Record<string, unknown>)
             : undefined,
         );
-        if (
-          job.inputHash &&
-          childFlowState?.inputHash !== job.inputHash
-        ) {
+        if (job.inputHash && childFlowState?.inputHash !== job.inputHash) {
           continue;
         }
 
@@ -5595,7 +5648,8 @@ async function runFlowUnlocked(params: {
             recordReviewBatchAttempt({
               job,
               status: 'stopped',
-              reason: 'The parent flow was stopped before this review batch launched.',
+              reason:
+                'The parent flow was stopped before this review batch launched.',
             }),
           ),
         );
@@ -5879,7 +5933,10 @@ async function runFlowUnlocked(params: {
                     : status,
               conversationId: childRun.conversationId,
               ...(status === 'failed'
-                ? { reason: 'The review batch child flow ended with a failed status.' }
+                ? {
+                    reason:
+                      'The review batch child flow ended with a failed status.',
+                  }
                 : {}),
             });
           }
@@ -6008,7 +6065,8 @@ async function runFlowUnlocked(params: {
             recordReviewBatchAttempt({
               job,
               status: 'stopped',
-              reason: 'The parent flow stopped before the review batch reached a terminal result.',
+              reason:
+                'The parent flow stopped before the review batch reached a terminal result.',
             }),
           ),
         );
@@ -6106,7 +6164,8 @@ async function runFlowUnlocked(params: {
             recordReviewBatchAttempt({
               job,
               status: 'failed',
-              reason: 'The parent wave failed before this review batch reached a terminal result.',
+              reason:
+                'The parent wave failed before this review batch reached a terminal result.',
             }),
           ),
         );
@@ -8007,13 +8066,13 @@ export async function startFlowRun(
         flowName: activeSubflow.flowName,
         conversationId: activeSubflow.conversationId,
         runToken: activeSubflow.runToken,
-      ...(activeSubflow.instanceId
-        ? { instanceId: activeSubflow.instanceId }
-        : {}),
-      ...(activeSubflow.waveInvocationId
-        ? { waveInvocationId: activeSubflow.waveInvocationId }
-        : {}),
-      ...(activeSubflow.targetId ? { targetId: activeSubflow.targetId } : {}),
+        ...(activeSubflow.instanceId
+          ? { instanceId: activeSubflow.instanceId }
+          : {}),
+        ...(activeSubflow.waveInvocationId
+          ? { waveInvocationId: activeSubflow.waveInvocationId }
+          : {}),
+        ...(activeSubflow.targetId ? { targetId: activeSubflow.targetId } : {}),
         ...(activeSubflow.workingFolder
           ? { workingFolder: activeSubflow.workingFolder }
           : {}),

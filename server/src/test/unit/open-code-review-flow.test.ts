@@ -24,6 +24,7 @@ test('sandbox OpenCode flow uses the same generic workspace reviewer', () => {
       agentType: 'review_agent_max',
       identifier: 'ocr_reviewer',
       continueOnFailure: true,
+      recordReviewUsage: true,
       markdownFile: 'run_open_code_review_workspace.md',
     },
   ]);
@@ -41,6 +42,7 @@ test('production OpenCode flow uses only the scheduler-provided workspace', () =
       label: 'Run OpenCode Workspace Review',
       agentType: 'review_agent_max',
       identifier: 'ocr_reviewer',
+      recordReviewUsage: true,
       markdownFile: 'run_open_code_review_workspace.md',
     },
   ]);
@@ -129,7 +131,9 @@ test('source heavy and maximum review agents share the review boundary while ret
   const heavyConfig = readRepoFile(
     'codeinfo_agents/review_agent_heavy/config.toml',
   );
-  const maxConfig = readRepoFile('codeinfo_agents/review_agent_max/config.toml');
+  const maxConfig = readRepoFile(
+    'codeinfo_agents/review_agent_max/config.toml',
+  );
   const heavySystemPrompt = readRepoFile(
     'codeinfo_agents/review_agent_heavy/system_prompt.txt',
   );
@@ -162,7 +166,7 @@ test('common batch prompts preserve partial reviewer evidence', () => {
     'codeinfo_markdown/disposition_review_batch.md',
   );
 
-  assert.match(verify, /recover or repair the output directly/u);
+  assert.match(verify, /recover or repair only that job's output directly/u);
   assert.match(verify, /honest unavailable explanation/u);
   assert.match(reconcile, /Preserve useful sibling findings/u);
   assert.match(disposition, /reopen job evidence/u);

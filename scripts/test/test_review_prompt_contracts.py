@@ -170,6 +170,46 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("confirm it remains inside the assigned job directory", job_contract)
         self.assertNotIn("--batch-root", job_contract)
 
+    def test_batch_findings_list_every_review_and_optional_token_categories(self) -> None:
+        contract = read_text(
+            "codeinfo_markdown/shared/review-findings-plan-record.md"
+        )
+        for required in (
+            "Reviews attempted",
+            "Input tokens",
+            "Cached input tokens",
+            "Output tokens",
+            "At least <known sum> reported; incomplete",
+            "including jobs that found nothing",
+            "Keep one batch block even when both finding categories are empty",
+        ):
+            self.assertIn(required, contract)
+        self.assertIn(
+            "Cached input is part of the input category and must never be added",
+            contract,
+        )
+
+        for prompt_path in (
+            "codeinfo_markdown/verify_review_batch_jobs.md",
+            "codeinfo_markdown/reconcile_review_batch.md",
+            "codeinfo_markdown/audit_review_batch_reconciliation.md",
+            "codeinfo_markdown/record_review_batch_outcome.md",
+            "codeinfo_markdown/settle_agent_native_review_pass.md",
+            "codeinfo_markdown/apply_agent_native_review_settlement.md",
+            "codeinfo_markdown/audit_agent_native_review_settlement.md",
+        ):
+            with self.subTest(prompt_path=prompt_path):
+                text = read_text(prompt_path)
+                self.assertIn("cached input", text.lower())
+                self.assertIn("usage", text.lower())
+
+        codex_prompt = read_text(
+            "codeinfo_markdown/run_codex_review_workspace.md"
+        )
+        self.assertIn("JSONL stdout", codex_prompt)
+        self.assertIn("work/review-usage/native-codex.md", codex_prompt)
+        self.assertIn("Do not include this wrapper agent's own usage", codex_prompt)
+
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(
             "codeinfo_markdown/classify_review_disposition.md"

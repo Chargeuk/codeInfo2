@@ -18,6 +18,8 @@ After negative scope filtering and positive authorization, one separately reset 
 
 Review execution uses two explicit quality tiers without changing either fixing agent's repair instructions. `review_agent_heavy` uses `gpt-5.6-terra` with high reasoning for Codex workspace orchestration, cross-repository review, batch verification, and reconciliation audit. `review_agent_max` uses `gpt-5.6-sol` with high reasoning for OpenCode workspace review, deep-review consolidation, combined filtering audit, and complete-pass settlement audit; `max` names the flagship model tier rather than the reasoning-effort value. After either the normal coding agent or stronger research agent finishes all of its repairs in a changed repository, that same agent runs the repository-supported formatter and lint workflow once before committing, re-runs directly affected proof when those tools change files, and records honest results without adding tooling or cleaning unrelated baseline issues.
 
+Every durable batch findings record also summarizes every direct review job attempted in that immutable batch, including jobs that found nothing or became unavailable. Human-readable names and identities come from the existing job evidence rather than a configured reviewer list. When the actual reviewing model reports usage, job-local evidence keeps input, cached input, and output tokens separate; cached input is never added to input as though it were an additional category. Only model work explicitly designated as the review is counted, while orchestration, verification, filtering, fixing, testing, and settlement are excluded. Missing or partial usage is recorded as `Not reported` and never changes review success, finding disposition, repair, tasking, or loop control.
+
 ## Acceptance Criteria
 
 - A generic `subflowWave` flow step supports matrix and singleton child-flow groups without hard-coding review semantics.
@@ -49,6 +51,10 @@ Review execution uses two explicit quality tiers without changing either fixing 
 - The story-scope gate removes fully out-of-scope items only from the actionable reconciliation, narrows mixed findings to their in-scope core, leaves reviewer outputs and verification evidence unchanged, and records every removal or narrowing in a self-describing batch artifact.
 - Review disposition sees only the filtered actionable reconciliation and records scope-filtered items together with its own rejected findings under the current review block's `Ignored for This Story` section without rewriting historical blocks.
 - Every new `## Code Review Findings` block records a human-readable creation time using the host-derived display locale and IANA time zone, while durable machine timestamps, review IDs, ordering, and comparison identities remain UTC-based.
+- Every batch's `## Code Review Findings` block lists every direct review job attempted, including no-findings and unavailable jobs, with its discovered human-readable name, flow, job identity, target when relevant, and honest outcome.
+- Actual-review usage is optional factual evidence: when reported, input tokens, cached input tokens, and output tokens remain separate per review job, multiple designated slow-review steps aggregate each category independently, and cached input is never added to input as a separate amount.
+- Only explicitly designated reviewing-model invocations contribute review usage. Native Codex usage comes from its native review command, while wrapper, orchestration, re-ingestion, verification, reconciliation, filtering, disposition, repair, testing, settlement, and plan-writing usage is excluded.
+- Missing, partial, conflicting, or provider-unavailable token usage is shown honestly as `Not reported`, remains non-blocking, and never changes review findings, validity, scope, materiality, repair, tasking, or flow continuation.
 - Every accepted and ignored finding lists every discovered generating or corroborating review harness and source job, gives a short plain-language description, provides a concrete evidence-grounded example, and explains its final acceptance or rejection without requiring provider-specific parsing or a rigid reviewer count.
 - Reconciliation and disposition agents execute autonomously without asking the user questions, always write an honest completed, partial, or unavailable derived artifact, and reopen that artifact before returning; the existing reconciliation auditor recovers a missing or question-only reconciliation.
 - A freshly reset independent scope-filter auditor runs before disposition, conserves every pre-filter finding and coverage statement, copies batch identities and paths exactly from authoritative handoffs, repairs inaccurate derived scope evidence, and never parses or changes immutable reviewer output.
@@ -129,6 +135,7 @@ Review execution uses two explicit quality tiers without changing either fixing 
 - Replacing stable UTC machine timestamps, review IDs, or ordering fields with localized text; local locale and time zone apply only to human-readable plan timestamps.
 - Requiring immutable reviewer output, reconciliation, repair audits, or completed-review-fix records to match one rigid schema; agents discover and preserve their meaning with best effort.
 - Adding another review-batch state file, pointer, ownership marker, or provider-specific locator; the existing current-batch handoff remains the sole mutable batch locator.
+- Adding billing, cost estimation, quotas, usage enforcement, whole-subflow token accounting, or a requirement that providers expose usage; review-token reporting remains optional evidence for the actual review work only.
 - Treating any historical review decision, `Accepted` section, task, implementation note, review artifact, commit, test, or agent statement as a user-approved story expansion or as proof of preserved behavior.
 - Automatically implementing technically plausible hardening or introducing a new limit, threshold, timeout, retry, default, validation failure, concurrency rule, or other policy that the story did not explicitly request or approve.
 - Using reviewer severity labels, historical review decisions, or invented numeric probability, cost, severity, risk, or effort thresholds as a materiality decision.
@@ -6483,3 +6490,51 @@ Prevent agents from mistaking a lookalike sibling directory for the current immu
 - Testing step 1 complete: `python3 -m unittest scripts.test.test_check_review_workspace` passed all 11 focused checker tests, including story and review-cycle identity drift.
 - Testing step 2 complete: the single new canonical-handoff prompt-contract test passed.
 - Testing step 3 complete: Python compilation checks passed for the checker and both focused test modules, and `git diff --check` reported no errors.
+
+### Task 82. Record Review Names And Actual-Review Token Usage
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Task Dependencies: Task 81
+- Created: `July 26, 2026 at 2:52:36 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+List every direct review attempted in each durable batch findings block and preserve optional token usage for only the model invocations that perform the review. Keep input, cached input, and output categories separate, exclude workflow administration, and make missing usage completely non-blocking.
+
+#### Task Exit Criteria
+
+- Every batch findings block names every attempted direct review job, including no-findings and unavailable jobs.
+- Optional job-local usage evidence covers only explicitly designated review work and introduces no new workflow state or pointer.
+- Input, cached input, and output token counts remain separate; cached input is never double-counted.
+- Native Codex usage covers only `codex exec review`, not its wrapper agent.
+- Missing or imperfect usage is displayed honestly and cannot fail or redirect the flow.
+
+#### Subtasks
+
+1. [x] Extend the LLM flow-step contract with optional actual-review usage recording and a non-blocking job-local evidence writer.
+2. [x] Mark the OpenCode, cross-repository, and multi-agent reviewing steps while excluding all administrative and repair steps.
+3. [x] Emit native Codex JSONL usage without counting its wrapper agent.
+4. [x] Carry discovered review names, outcomes, and separate optional token categories through verification, reconciliation, outcome, settlement, and plan recording.
+5. [x] Add focused runtime, launcher, flow-configuration, and prompt-contract regression tests.
+
+#### Testing
+
+1. [x] Run only the focused server tests added or changed for actual-review usage.
+2. [x] Run only the focused Codex launcher and review prompt-contract tests.
+3. [x] Run the relevant repository formatter and lint checks, repairing only issues caused by this change.
+4. [x] Run TypeScript, JSON, shell, Python, and diff validation relevant to the changed files.
+
+#### Implementation Notes
+
+- Added the top-level Description, Acceptance Criteria, and Out Of Scope contract before implementation: batch findings list every attempted review, actual-review token categories remain separate and optional, cached input is not double-counted, and no usage limitation can affect flow behavior.
+- Subtask 1 complete: LLM steps now accept opt-in `recordReviewUsage`; each attempt writes an isolated, containment-checked Markdown artifact under the assigned job's existing `work/review-usage/` directory, preserves input/cached/output separately, and converts every path or provider-usage problem into a non-blocking skip.
+- Subtask 2 complete: production and sandbox OpenCode, cross-repository review, and all six multi-agent review reasoning stages opt into actual-review usage, while native Codex orchestration and every batch administration, gate, repair, testing, and settlement step remain unmarked.
+- Subtask 3 complete: the checked-in Codex launcher now emits official JSONL while retaining its separate final-response file, and the workspace agent records only terminal native-review input/cached/output/reasoning usage with unavailable categories marked `Not reported`; the unmarked wrapper agent is excluded.
+- Subtask 4 complete: verification, reconciliation and its audit, batch outcome, complete-pass settlement, plan application, and independent settlement audit now inventory every direct job and preserve separate optional categories; the durable findings contract keeps a batch block for no-findings reviews and labels partial sums without treating usage as control evidence.
+- Subtask 5 complete: focused unit and integration tests cover schema opt-in, category separation, missing usage, containment, marked flow allocation, runtime exclusion of unmarked LLM work, Codex JSONL invocation, and the durable batch inventory prompt contract.
+- Testing step 3 complete: targeted Prettier formatting completed for every changed supported file; targeted ESLint initially found one import-order warning in `service.ts`, the import was moved, and the same zero-warning lint command then passed.
+- Testing step 1 complete: 22 focused unit tests passed across usage evidence, Codex/OpenCode flow contracts, and plan-record requirements; the single focused runtime integration test also passed after waiting for both LLM turns before inspecting the first step's awaited usage artifact.
+- Testing step 2 complete: the focused Codex launcher cases passed with `--json`, full-access, closed-stdin, model pass-through, and exit propagation intact; both focused Python prompt-contract tests passed.
+- Testing step 4 complete: repeated server builds passed through the focused wrapper; all changed flow JSON parsed, shell and Python syntax checks passed, targeted Prettier and ESLint checks remained clean, and `git diff --check` reported no errors.
+- Final requested code-quality validation complete: the repository-wide `npm run lint` and `npm run format:check` commands both passed with zero warnings or formatting differences.

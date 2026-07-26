@@ -1,5 +1,7 @@
 # Record the current review batch outcome
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`; the batch outcome is always applicable, while deliberately skipped gate and repair artifacts remain optional for the reasons recorded by trustworthy earlier evidence.
+
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/completed-review-fix-task.md` and `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` so this final batch step can record completed fixes immediately and preserve every fact later settlement needs for reconciliation.
 
 Read the current batch inputs and immutable target snapshot, every direct job's `job.md`, optional `work/review-usage/` evidence, job outputs, verification, every filtering record that exists, the combined filtering audit, filtered reconciliation, disposition, every normal or stronger repair audit that exists, current Git state for every target repository, and the bounded plan. Discover the self-describing evidence instead of depending on an exact audit filename or schema.

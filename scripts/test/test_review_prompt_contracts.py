@@ -140,6 +140,75 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("before reading that command's output as complete", open_code)
         self.assertIn("starting the dependent command", open_code)
 
+    def test_applicable_review_artifact_producers_verify_the_assigned_handoff(
+        self,
+    ) -> None:
+        handoff = read_text(
+            "codeinfo_markdown/shared/review-artifact-handoff.md"
+        )
+        for required in (
+            "deliberately inapplicable requires no placeholder",
+            "never reconstruct, repeatedly retype, or replace",
+            "Do not search a sibling or lookalike batch",
+            "at least one non-empty regular file",
+            "do not require exact headings, fields, filenames, or schemas",
+            "trustworthy evidence this invocation already produced",
+            "Never invent successful coverage",
+        ):
+            self.assertIn(required, handoff)
+
+        output_owners = (
+            "codeinfo_markdown/run_codex_review_workspace.md",
+            "codeinfo_markdown/run_open_code_review_workspace.md",
+            "codeinfo_markdown/run_cross_repository_review_workspace.md",
+            "codeinfo_markdown/consolidate_deep_review_workspace.md",
+        )
+        for prompt_path in output_owners:
+            with self.subTest(prompt_path=prompt_path):
+                prompt = read_text(prompt_path)
+                self.assertIn("assigned `output/`", prompt)
+                self.assertIn("shared factual handoff contract", prompt)
+                self.assertIn("destination is empty", prompt)
+
+        always_applicable_batch_producers = (
+            "codeinfo_markdown/reconcile_review_batch.md",
+            "codeinfo_markdown/audit_review_batch_reconciliation.md",
+            "codeinfo_markdown/audit_review_batch_scope_filter.md",
+            "codeinfo_markdown/disposition_review_batch.md",
+            "codeinfo_markdown/record_review_batch_outcome.md",
+        )
+        conditional_batch_producers = (
+            "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md",
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md",
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md",
+            "codeinfo_markdown/implement_review_batch_direct_fixes.md",
+            "codeinfo_markdown/implement_review_batch_remaining_fixes.md",
+        )
+        for prompt_path in (
+            *always_applicable_batch_producers,
+            *conditional_batch_producers,
+        ):
+            with self.subTest(prompt_path=prompt_path):
+                self.assertIn(
+                    "shared/review-artifact-handoff.md",
+                    read_text(prompt_path),
+                )
+
+        for prompt_path in conditional_batch_producers:
+            with self.subTest(prompt_path=prompt_path):
+                self.assertIn("applicable only", read_text(prompt_path))
+
+        verifier = read_text("codeinfo_markdown/verify_review_batch_jobs.md")
+        self.assertIn("assigned `output/` and `verification/`", verifier)
+        self.assertIn("non-empty self-describing file", verifier)
+        self.assertIn("link printed in an earlier chat response", verifier)
+
+        job_contract = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+        self.assertIn("when the current step owns", job_contract)
+        self.assertIn("Work-only stages", job_contract)
+
     def test_multi_agent_review_stages_share_only_their_scheduler_job(self) -> None:
         contract_text = read_text(
             "codeinfo_markdown/review_job_workspace_contract.md"

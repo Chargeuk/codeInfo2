@@ -1,5 +1,7 @@
 # Disposition the current review batch
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`; disposition is always applicable after the filtering audit, including an honest empty disposition when no finding survived.
+
 This is an autonomous flow execution step, not a planning interview. The required outcome and boundaries are already decided. Do not ask the user questions, offer choices, wait for confirmation, or finish with a question. Resolve uncertainty from disk with best judgement and record it honestly.
 
 Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md` and use it as the authoritative contract for the plan block.

@@ -1,5 +1,7 @@
 # Audit the current batch negative, positive, and materiality gates
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`; the combined filtering audit is always applicable, but it must not create placeholders for deliberately inapplicable gates.
+
 This is an autonomous independent audit and recovery step, not a planning interview. Do not ask the user questions, offer choices, wait for confirmation, or finish with a question. Use immutable evidence and best judgement, preserving uncertainty explicitly.
 
 Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving the padded story identifier from the plan filename. Set `batch_handoff` to `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`, then set `batch_dir` exactly once by running `batch_dir="$(python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" resolve --batch-handoff "$batch_handoff")"`. Reuse those exact variables throughout this invocation; never discover, retype, reconstruct, or switch to a similar-looking batch path. Read `batch-launch.md`, assigned inputs, every job directory, the reconciliation and its audit, `reconciliation/scope-filtered-findings.md`, `reconciliation/scope-authorized-findings.md`, and `reconciliation/materiality-filtered-findings.md` when present.

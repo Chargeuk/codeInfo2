@@ -1,5 +1,7 @@
 # Filter the current review batch by materiality and realistic impact
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`. This materiality artifact is applicable only when the completed positive-authorization gate has survivors; when this step runs, it must leave a non-empty completed, partial, or unavailable record.
+
 This is an autonomous flow execution step, not a planning interview. Do not ask the user questions, offer choices, wait for confirmation, or finish with a question. Use the available evidence and best judgement, preserve uncertainty honestly, and continue with best effort.
 
 ## Purpose

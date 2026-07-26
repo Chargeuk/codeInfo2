@@ -1,5 +1,7 @@
 # Filter the current review batch to story scope
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`. This negative-scope artifact is applicable only when audited reconciliation has supported findings; when this step runs, it must leave a non-empty completed, partial, or unavailable record.
+
 This is an autonomous flow execution step, not a planning interview. Do not ask the user questions, offer choices, wait for confirmation, or finish with a question. Resolve ambiguity through the authoritative policy and immutable evidence, preserve any remaining uncertainty, and continue with best effort.
 
 This step is the explicit negative scope gate. It removes findings that can already be shown to conflict with story scope; it does not positively authorize survivors merely because no rejection was proven. A separately reset positive-authorization agent evaluates every survivor, then a separately reset materiality agent evaluates only the positively authorized survivors before the independent combined audit and disposition.

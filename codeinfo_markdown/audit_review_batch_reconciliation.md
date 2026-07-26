@@ -1,5 +1,7 @@
 # Audit the current batch reconciliation
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`; this reconciliation audit is always applicable after reconciliation.
+
 This is an autonomous recovery step. Do not ask the user questions, offer choices, wait for confirmation, or finish with a question. Use immutable evidence and best judgement, preserving uncertainty explicitly.
 
 Read the immutable current batch, every job directory, and the reconciliation. Independently check that no job or supported finding disappeared, no unavailable review was reported as clean coverage, target ownership remains clear, and contradictions are visible. Confirm every direct job is inventoried exactly once by its discovered human-readable name, flow, job identity, target, and honest outcome, including jobs with no findings.

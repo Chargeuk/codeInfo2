@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCb } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -519,6 +520,40 @@ test('child lifecycle observation stays coherent across terminal persistence and
   } finally {
     releaseConversationLock(conversationId, ownership.runToken);
   }
+});
+
+test('orphaned flow lifecycle observation remains recoverable', async () => {
+  const conversationId = `orphaned-lifecycle-observation-${randomUUID()}`;
+  const now = new Date();
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    title: 'Orphaned lifecycle observation',
+    flowName: 'orphaned-lifecycle-observation',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'orphaned-lifecycle-observation-execution',
+        stepPath: [],
+        loopStack: [],
+        runLifecycle: {
+          status: 'running',
+          updatedAt: now.toISOString(),
+        },
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: now,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  } as Conversation);
+
+  const observed = await getFlowRunStatus(conversationId);
+  assert.equal(observed?.status, 'orphaned');
+  assert.equal(observed?.terminal, false);
 });
 
 test('review initialization failures fail the flow instead of silently skipping the review cycle', async () => {

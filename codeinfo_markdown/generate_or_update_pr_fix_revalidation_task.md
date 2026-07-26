@@ -6,6 +6,7 @@ This is a post-review-loop step. It runs only after the PR-review loop has finis
 
 <critical_rules>
 
+- Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` whenever this step creates a new final revalidation task; preserve an existing matching task's original `Created` value on reuse or reopen.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
@@ -34,9 +35,11 @@ This is a post-review-loop step. It runs only after the PR-review loop has finis
 - The task title must be `Re-Validate Story <story-number> After PR Review Fixes`.
 - The task status must be `__to_do__`.
 - The task must include exactly one `Repository Name` field.
+- The task must include an `Overview`, with its formatter-derived `Created` point immediately above that heading when the task is first created.
 - The task section order must be:
   - `Repository Name`
   - `Affected Repositories`
+  - `Overview`
   - `Addresses Findings`
   - `Subtasks`
   - `Testing`
@@ -96,6 +99,7 @@ When no task is needed and no unresolved work remains:
 - Confirm no unresolved actionable PR findings or incomplete-review blockers remained before generating the task.
 - Confirm the task is a normal numbered task with `Task Status: __to_do__`.
 - Confirm the selected or created task carries the same `review_cycle_id` as `review-disposition-state.json`.
+- Confirm that a task created by this invocation has exactly one formatter-derived `Created` point immediately above `Overview`, while a reused or reopened task retains its exact original value.
 - Confirm the task has an `Affected Repositories` section that covers every repository represented in `resolved_minor_findings`.
 - Confirm runnable commands live only in `Testing`.
 - Confirm no manual-testing work was added to `Subtasks` or `Testing`.

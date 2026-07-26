@@ -4,6 +4,7 @@ Refresh every completed minor-fix pass audit after combined review task-up so es
 
 <critical_rules>
 
+- Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md`; the helper must preserve every existing audit task's original `Created` value while refreshing coverage.
 - Read `codeInfoStatus/flow-state/current-plan.json` and `codeInfoStatus/flow-state/review-disposition-state.json` from disk.
 - Run `python3 "$CODEINFO_ROOT/scripts/write_minor_fix_audit_task.py" --all-passes` from the canonical plan repository root.
 - Treat the helper as the sole writer. Do not split grouped task-up work, invent task coverage, or hand-edit audit tasks.

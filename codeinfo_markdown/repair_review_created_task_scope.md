@@ -8,6 +8,7 @@ This step runs only after a separate loop preflight has already decided the task
 
 <critical_rules>
 
+- Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md`. Preserve valid creation values exactly and repair only a current-cycle task that was newly created without its required point or placement.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use only the stored `plan_path` and `additional_repositories` as the active scope for this step.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`, when it exists and is valid enough to supply current review-cycle context.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md` and run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-tasking` immediately before making any decision.

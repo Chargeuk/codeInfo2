@@ -6,6 +6,7 @@ This is a post-review-loop step. It runs only after the review loop has finished
 
 <critical_rules>
 
+- Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` whenever this step creates a new recovery or final revalidation task; preserve an existing matching task's original `Created` value on reuse or reopen.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/review-disposition-state.json`.
 - Read `codeInfoStatus/flow-state/active-review-cycle.json` and, when present, `codeInfoStatus/flow-state/review-initialization-failure.json` immediately afterward. Review-cycle status is authoritative and is never inferred from the parent flow's successful best-effort status.
@@ -141,6 +142,7 @@ When no task is needed and no unresolved work remains:
 - Confirm the task is a normal numbered task with `Task Status: __to_do__`.
 - Confirm this step did not imply the review cycle was complete merely because the final revalidation task was created.
 - Confirm the selected or created task carries the same `review_cycle_id` as `review-disposition-state.json`.
+- Confirm that a task created by this invocation has exactly one formatter-derived `Created` point immediately above `Overview`, while a reused or reopened task retains its exact original value.
 - Confirm the task has an `Affected Repositories` and `Affected Applications Or Components` inventory covering the whole story and every repository represented in `resolved_minor_findings`.
 - Confirm the task includes durable coverage for every resolved minor finding.
 - Confirm `Subtasks` and `Testing` each begin with the required non-checkbox repair-scope note, and that the initially generated `Subtasks` checklist contains each repository's supported lint bullet followed by its supported formatting bullet, with either unsupported command omitted independently, grouped by repository, and no other initial subtask types.

@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
+import { memoryConversations, memoryTurns } from '../../chat/memoryPersistence.js';
 import {
   finalizeActiveReviewCycle,
   finalizeActiveReviewCycleIfPending,
@@ -14,6 +16,7 @@ import {
   readActiveFinalReviewCycleStatus,
   recordReviewInvocationAttempt,
 } from '../../flows/reviewCycleLifecycle.js';
+import { getFlowRunStatus } from '../../flows/service.js';
 
 const exec = promisify(execFile);
 
@@ -217,6 +220,76 @@ test('final review status is readable for terminal wrapper reporting', async () 
     { now: () => new Date('2026-07-18T12:05:00.000Z') },
   );
   assert.equal(await readActiveFinalReviewCycleStatus(repo), 'incomplete');
+});
+
+test('flow status ignores an active review cycle owned by a different conversation', async () => {
+  const repo = await makeRepo();
+  const first = await initializeReviewCycle(
+    { workingRepositoryPath: repo, mode: 'final' },
+    {
+      now: () => new Date('2026-07-18T12:00:00.000Z'),
+      randomHex: () => '11111111',
+    },
+  );
+  await initializeReviewCycle(
+    { workingRepositoryPath: repo, mode: 'final' },
+    {
+      now: () => new Date('2026-07-18T12:05:00.000Z'),
+      randomHex: () => '22222222',
+    },
+  );
+  const conversationId =
+    `review-cycle-status-first-conversation-${randomUUID()}`;
+  const now = new Date();
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.6-sol',
+    title: 'First review cycle',
+    flowName: 'two_phase_review_cycle',
+    source: 'REST',
+    flags: {
+      flow: {
+        executionId: 'first-review-execution',
+        stepPath: [],
+        loopStack: [],
+        workingFolder: repo,
+        values: {
+          review_cycle: {
+            action: 'initialized',
+            review_mode: 'final',
+            review_cycle_id: first.cycle?.review_cycle_id,
+          },
+        },
+        agentConversations: {},
+        agentThreads: {},
+      },
+    },
+    lastMessageAt: now,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  try {
+    assert.equal((await getFlowRunStatus(conversationId))?.reviewCycleStatus, null);
+    const conversation = memoryConversations.get(conversationId);
+    assert.ok(conversation);
+    memoryConversations.set(conversationId, {
+      ...conversation,
+      flags: {
+        ...conversation.flags,
+        flow: {
+          ...((conversation.flags.flow ?? {}) as Record<string, unknown>),
+          values: {},
+        },
+      },
+    });
+    assert.equal((await getFlowRunStatus(conversationId))?.reviewCycleStatus, null);
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(repo, { recursive: true, force: true });
+  }
 });
 
 test('review invocation evidence survives a failed launch without a batch workspace', async () => {

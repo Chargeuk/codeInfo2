@@ -12652,7 +12652,6 @@ export async function startFlowRun(
       const releaseConversationLockFn =
         params.releaseConversationLockFn ?? releaseConversationLock;
       let released = false;
-      let retryCompletionDurable = true;
       if (retryOwnershipId && !resumeStepPath && completedSuccessfully) {
         const completedResult = {
           flowName,
@@ -12662,7 +12661,6 @@ export async function startFlowRun(
           modelId,
           ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
         };
-        retryCompletionDurable = false;
         for (let attempt = 1; attempt <= 2; attempt += 1) {
           try {
             await persistFreshRunRetryOwnershipCompletion({
@@ -12671,7 +12669,6 @@ export async function startFlowRun(
               launch: retryOwnershipLaunch,
               result: completedResult,
             });
-            retryCompletionDurable = true;
             break;
           } catch (error) {
             baseLogger.error(
@@ -12701,10 +12698,8 @@ export async function startFlowRun(
           );
         }
       }
-      if (retryCompletionDurable) {
-        released = releaseConversationLockFn(conversationId, runToken);
-      }
-      if (retryOwnershipId && !resumeStepPath && retryCompletionDurable) {
+      released = releaseConversationLockFn(conversationId, runToken);
+      if (retryOwnershipId && !resumeStepPath) {
         clearFreshRunRetryOwnership({
           flowName,
           sourceId,
@@ -12894,16 +12889,32 @@ export async function getFlowRunStatus(
               : latestAssistant?.status === 'warning'
                 ? ('ok' as const)
                 : (latestAssistant?.status ?? 'orphaned');
+  const finalReviewCycle = Object.values(resumeState?.values ?? {}).find(
+    (value) =>
+      Boolean(value) &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      (value as FlowJsonObject).action === 'initialized' &&
+      (value as FlowJsonObject).review_mode === 'final' &&
+      typeof (value as FlowJsonObject).review_cycle_id === 'string',
+  ) as FlowJsonObject | undefined;
+  const expectedReviewCycleId = finalReviewCycle?.review_cycle_id as
+    | string
+    | undefined;
   const reviewCycleStatus =
     conversation.flowName === 'two_phase_review_cycle' &&
-    resumeState?.workingFolder
-      ? await readActiveFinalReviewCycleStatus(resumeState.workingFolder)
+    resumeState?.workingFolder &&
+    expectedReviewCycleId
+      ? await readActiveFinalReviewCycleStatus(
+          resumeState.workingFolder,
+          expectedReviewCycleId,
+        )
       : null;
 
   return {
     conversationId: normalizedConversationId,
     status,
-    terminal: status !== 'running',
+    terminal: status === 'ok' || status === 'stopped' || status === 'failed',
     terminalOutcome: resumeState?.terminalOutcome ?? null,
     reviewCycleStatus,
     executionId: resumeState?.executionId ?? null,

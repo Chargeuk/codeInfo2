@@ -4,6 +4,7 @@ Create or refresh exactly one completed plan audit task for every non-empty mino
 
 <critical_rules>
 
+- Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md`; the helper is responsible for adding `Created` only when it first creates a minor-fix audit task and preserving that value on refresh.
 - Read `codeInfoStatus/flow-state/current-plan.json` first and use its exact `plan_path`.
 - Read `codeInfoStatus/flow-state/review-disposition-state.json` second.
 - Do not reconstruct audit evidence from `## Minor Review Fixes`, review artifacts, git diffs, logs, or conversational memory.

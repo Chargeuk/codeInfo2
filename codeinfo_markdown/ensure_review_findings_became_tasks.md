@@ -2,6 +2,8 @@
 
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and require target-owned tasks plus cross-target proof where the finding spans repositories.
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` for every new unresolved implementation, recovery, or final revalidation task created by this review task-up path.
+
 Repair the canonical plan so the stored review outcome is definitely encoded into executable plan state before downstream review-task enhancement continues.
 
 <critical_rules>
@@ -79,6 +81,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - the plan contains at least one newly added review-created `Task Status: __to_do__` task after that section;
    - the plan contains a fresh final re-test or revalidation task after those new review-fix tasks;
    - each newly added review-created repair task names exactly one repository and follows the existing task structure;
+   - each newly added review-created repair task and the fresh final revalidation task contain the formatter-derived `Created` point required by `shared/review-created-task-timestamp.md`;
    - each new review-created task records durable finding coverage in the plan itself, such as an `Addresses Findings` section or equivalent inline wording;
    - the fresh final revalidation task explicitly states that it revalidates the whole story plus the current review-created findings block for this `review_pass_id`, also covers any `resolved_minor_findings` already recorded for this same active review cycle, starts with only each worked-on repository's supported lint and formatting item types with unsupported commands omitted, and ensures each such repository has its discovered supported full build when available, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting, in that order, with unsupported or unavailable items omitted;
    - no newly added substantive review-created task hides runnable build, test, compose, browser, or wrapper commands inside `Subtasks`, unless that substantive task is specifically creating, repairing, or proving a harness or wrapper; the dedicated final task's per-repository lint and formatting checklist is the explicit exception;
@@ -169,6 +172,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm the stored review handoff and referenced artifacts were interpreted semantically, including local-HEAD-vs-resolved-base comparison context and any remote/fallback uncertainty that affects confidence.
 - Confirm that an unresolved task-required findings-present handoff or disposition state did not leave the plan without new review-created `__to_do__` tasks and a final revalidation task.
 - Confirm that those new review-created tasks still carry durable finding coverage in the plan itself.
+- Confirm that every task first created by this invocation has exactly one formatter-derived `Created` point immediately above `Overview`, and that an existing matching task retained its original value.
 - Confirm the current `review_pass_id` appears in exactly one structured `## Code Review Findings` block and that task-up did not append the retired terse summary format.
 - Confirm that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`, also covers any inline-resolved minor fixes from the same review cycle, ensures each worked-on repository has its discovered supported full build when available, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting, in that order, with unsupported or unavailable items omitted, and was not forced into bogus single-repository proof scope.
 - Confirm that every review-created task kept one `Repository Name` implementation owner while still allowing cross-repository `Testing` when the finding needs compatibility proof.

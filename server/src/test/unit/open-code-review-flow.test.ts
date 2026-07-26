@@ -100,33 +100,59 @@ test('server image builds the exact Codex-enabled OCR fork and gates its command
   assert.doesNotMatch(globalPackages, /@alibaba-group\/open-code-review/u);
 });
 
-test('main proof catalog supplies the heavy review-only Codex agent without checked-in auth', () => {
-  const agentRoot = 'manual_testing/codeinfo_agents/review_agent_heavy';
-  const config = readRepoFile(`${agentRoot}/config.toml`);
-  const systemPrompt = readRepoFile(`${agentRoot}/system_prompt.txt`);
+test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex agents without checked-in auth', () => {
+  const heavyRoot = 'manual_testing/codeinfo_agents/review_agent_heavy';
+  const maxRoot = 'manual_testing/codeinfo_agents/review_agent_max';
+  const heavyConfig = readRepoFile(`${heavyRoot}/config.toml`);
+  const maxConfig = readRepoFile(`${maxRoot}/config.toml`);
+  const heavySystemPrompt = readRepoFile(`${heavyRoot}/system_prompt.txt`);
+  const maxSystemPrompt = readRepoFile(`${maxRoot}/system_prompt.txt`);
   const manualTestingIgnore = readRepoFile('manual_testing/.gitignore');
 
-  assert.match(config, /codeinfo_provider = "codex"/u);
-  assert.match(config, /model = "gpt-5\.6-sol"/u);
-  assert.match(config, /model_reasoning_effort = "high"/u);
-  assert.match(config, /approval_policy = "never"/u);
-  assert.match(config, /sandbox_mode = "danger-full-access"/u);
-  assert.match(systemPrompt, /Do not edit source, commit, push/u);
-  assert.match(systemPrompt, /do not call `code_info`/u);
-  assert.match(systemPrompt, /continue with the usable pinned evidence/u);
+  assert.match(heavyConfig, /codeinfo_provider = "codex"/u);
+  assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
+  assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
+  assert.match(heavyConfig, /approval_policy = "never"/u);
+  assert.match(heavyConfig, /sandbox_mode = "danger-full-access"/u);
+  assert.match(maxConfig, /model = "gpt-5\.6-sol"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /approval_policy = "never"/u);
+  assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
+  assert.equal(maxSystemPrompt, heavySystemPrompt);
+  assert.match(heavySystemPrompt, /Do not edit source, commit, push/u);
+  assert.match(heavySystemPrompt, /do not call `code_info`/u);
+  assert.match(heavySystemPrompt, /continue with the usable pinned evidence/u);
   assert.match(manualTestingIgnore, /^\*\*\/auth\.json$/mu);
 });
 
-test('source heavy review agent yields to pinned OCR evidence', () => {
-  const config = readRepoFile('codeinfo_agents/review_agent_heavy/config.toml');
-  const systemPrompt = readRepoFile(
+test('source heavy and maximum review agents share the review boundary while retaining distinct model tiers', () => {
+  const heavyConfig = readRepoFile(
+    'codeinfo_agents/review_agent_heavy/config.toml',
+  );
+  const maxConfig = readRepoFile('codeinfo_agents/review_agent_max/config.toml');
+  const heavySystemPrompt = readRepoFile(
     'codeinfo_agents/review_agent_heavy/system_prompt.txt',
   );
+  const maxSystemPrompt = readRepoFile(
+    'codeinfo_agents/review_agent_max/system_prompt.txt',
+  );
+  const heavyCommand = readRepoFile(
+    'codeinfo_agents/review_agent_heavy/commands/code_review_findings.json',
+  );
+  const maxCommand = readRepoFile(
+    'codeinfo_agents/review_agent_max/commands/code_review_findings.json',
+  );
 
-  assert.match(config, /sandbox_mode = "danger-full-access"/u);
-  assert.match(systemPrompt, /pinned review evidence/u);
-  assert.match(systemPrompt, /do not call `code_info`/u);
-  assert.match(systemPrompt, /continue with the usable evidence/u);
+  assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
+  assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /model = "gpt-5\.6-sol"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
+  assert.equal(maxSystemPrompt, heavySystemPrompt);
+  assert.equal(maxCommand, heavyCommand);
+  assert.match(heavySystemPrompt, /pinned review evidence/u);
+  assert.match(heavySystemPrompt, /do not call `code_info`/u);
+  assert.match(heavySystemPrompt, /continue with the usable evidence/u);
 });
 
 test('common batch prompts preserve partial reviewer evidence', () => {

@@ -1,0 +1,1 @@
+Maximum-tier review agent using the flagship GPT-5.6 model for the highest-consequence review synthesis and independent semantic audits without drifting into planning or implementation. The maximum label describes the model tier; reasoning effort remains high.

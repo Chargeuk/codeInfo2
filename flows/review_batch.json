@@ -96,13 +96,13 @@
     {
       "type": "reset",
       "label": "Reset Review Batch Filtering Auditor",
-      "agentType": "review_agent_heavy",
+      "agentType": "review_agent_max",
       "identifier": "batch_scope_auditor"
     },
     {
       "type": "llm",
       "label": "Audit Review Batch Filtering Gates",
-      "agentType": "review_agent_heavy",
+      "agentType": "review_agent_max",
       "identifier": "batch_scope_auditor",
       "continueOnFailure": true,
       "markdownFile": "audit_review_batch_scope_filter.md"

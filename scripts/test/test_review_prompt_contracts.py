@@ -677,6 +677,36 @@ class ReviewPromptContractTests(unittest.TestCase):
             )
             self.assertIn("why every changed file was necessary", repair_prompt)
             self.assertIn("scope", repair_prompt.lower())
+            self.assertIn(
+                "complete and before creating its repair commit",
+                repair_prompt,
+            )
+            self.assertIn(
+                "supported formatting and lint workflow",
+                repair_prompt,
+            )
+            self.assertIn(
+                "Run the repository-supported formatter or safe auto-fix command once",
+                repair_prompt,
+            )
+            self.assertIn(
+                "non-mutating formatting and lint checks",
+                repair_prompt,
+            )
+            self.assertIn("Prefer a changed-file target", repair_prompt)
+            self.assertIn(
+                "re-run the directly affected focused proof",
+                repair_prompt,
+            )
+            self.assertIn(
+                "Do not invent a command, add a tool or dependency",
+                repair_prompt,
+            )
+            self.assertIn("unrelated baseline failures", repair_prompt)
+            self.assertIn(
+                "formatting and lint commands and results",
+                repair_prompt,
+            )
         self.assertIn("Do not introduce an unapproved policy", normal_fix)
         self.assertIn("Research authority does not authorize new story scope", stronger_fix)
         self.assertIn("genuinely unapproved product or runtime policy", stronger_fix)
@@ -1089,6 +1119,86 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("exactly one `__done__` completed-review-fixes task", settlement)
         self.assertIn("never create a task for a no-fix batch", settlement)
         self.assertIn("Match by exact batch ID", settlement)
+
+    def test_agent_native_settlement_preserves_all_three_outer_loop_routes(
+        self,
+    ) -> None:
+        recommendation = read_text(
+            "codeinfo_markdown/settle_agent_native_review_pass.md"
+        )
+        application = read_text(
+            "codeinfo_markdown/apply_agent_native_review_settlement.md"
+        )
+        audit = read_text(
+            "codeinfo_markdown/audit_agent_native_review_settlement.md"
+        )
+
+        self.assertIn(
+            "produced no fixes and no unresolved actionable review issue",
+            recommendation,
+        )
+        self.assertIn(
+            "Either repair agent committed fixes but no finding remains",
+            recommendation,
+        )
+        self.assertIn(
+            "Findings remain after the normal and stronger repair opportunities",
+            recommendation,
+        )
+        self.assertIn(
+            "genuinely clean, record the no-work closeout without adding an open task",
+            application,
+        )
+        self.assertIn(
+            "committed fixes and nothing remains after both repair opportunities",
+            application,
+        )
+        self.assertIn(
+            "materiality survivors remain after the stronger repair opportunity",
+            application,
+        )
+        self.assertIn(
+            "remaining work is followed by a final testing task",
+            audit,
+        )
+
+    def test_review_created_tasks_use_one_local_creation_timestamp_contract(
+        self,
+    ) -> None:
+        contract = read_text(
+            "codeinfo_markdown/shared/review-created-task-timestamp.md"
+        )
+        self.assertIn(
+            'node "$CODEINFO_ROOT/scripts/format-display-timestamp.mjs"',
+            contract,
+        )
+        self.assertIn("- Created: `<exact formatter stdout>`", contract)
+        self.assertIn("positioned immediately above", contract)
+        self.assertIn("Preserve its exact value", contract)
+        self.assertIn("Do not backfill or rewrite unrelated historical tasks", contract)
+
+        creator_and_audit_prompts = (
+            "codeinfo_markdown/settle_agent_native_review_pass.md",
+            "codeinfo_markdown/apply_agent_native_review_settlement.md",
+            "codeinfo_markdown/audit_agent_native_review_settlement.md",
+            "codeinfo_markdown/ensure_review_findings_became_tasks.md",
+            "codeinfo_markdown/generate_or_update_minor_fix_audit_task.md",
+            "codeinfo_markdown/generate_or_update_minor_fix_revalidation_task.md",
+            "codeinfo_markdown/generate_or_update_pr_fix_revalidation_task.md",
+            "codeinfo_markdown/refresh_minor_fix_audit_task_coverage.md",
+            "codeinfo_markdown/repair_review_created_task_scope.md",
+            "codeinfo_markdown/review_disposition.md",
+            "codeinfo_markdown/review_task_enhancement/01-shared-contract.md",
+            "codeinfo_markdown/review_task_enhancement/04-check-quality.md",
+            "codeinfo_markdown/shared/completed-review-fix-task.md",
+            "codeinfo_markdown/shared/final-task-creation.md",
+        )
+        for relative_path in creator_and_audit_prompts:
+            with self.subTest(relative_path=relative_path):
+                self.assertIn(
+                    "review-created-task-timestamp.md",
+                    read_text(relative_path),
+                )
 
     def test_regression_fixtures_cover_real_runtime_miss_patterns(self) -> None:
         self.assertTrue(FIXTURES_DIR.is_dir())

@@ -24,6 +24,7 @@ describe('flow schema (v1)', () => {
     maxIterations?: number;
     question?: string;
     breakOn?: string;
+    decisionScript?: string;
     breakOnFailure?: boolean;
     continueOnFailure?: boolean;
     continueOnInvalidResponse?: boolean;
@@ -524,9 +525,125 @@ describe('flow schema (v1)', () => {
       crossRepositoryReviewer?.label,
       'Review Cross-Repository Contracts',
     );
+    assert.equal(crossRepositoryReviewer?.agentType, 'review_agent_heavy');
     assert.equal(crossRepositoryReviewer?.continueOnFailure, undefined);
     assert.equal(consolidator?.label, 'Consolidate Multi-Agent Review');
+    assert.equal(consolidator?.agentType, 'review_agent_max');
     assert.equal(consolidator?.continueOnFailure, undefined);
+  });
+
+  test('review capability tiers reserve Sol maximum review for high-consequence synthesis and audits without changing fixers', async () => {
+    const batch = JSON.parse(
+      await fs.readFile(path.join(repoRoot, 'flows/review_batch.json'), 'utf8'),
+    ) as { steps?: FlowStep[] };
+    const cycle = JSON.parse(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+        'utf8',
+      ),
+    ) as { steps?: FlowStep[] };
+    const artifacts = JSON.parse(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/review_artifacts_main.json'),
+        'utf8',
+      ),
+    ) as { steps?: FlowStep[] };
+
+    const batchSteps = flattenSteps(batch.steps ?? []);
+    const cycleSteps = flattenSteps(cycle.steps ?? []);
+    const artifactSteps = flattenSteps(artifacts.steps ?? []);
+    const expectAgent = (
+      steps: FlowStep[],
+      label: string,
+      agentType: string,
+      identifier?: string,
+    ) => {
+      const step = steps.find((candidate) => candidate.label === label);
+      assert.equal(step?.agentType, agentType, label);
+      if (identifier !== undefined) {
+        assert.equal(step?.identifier, identifier, label);
+      }
+    };
+
+    expectAgent(
+      batchSteps,
+      'Reset Review Batch Verifier',
+      'review_agent_heavy',
+      'batch_verifier',
+    );
+    expectAgent(
+      batchSteps,
+      'Verify And Recover Review Batch Jobs',
+      'review_agent_heavy',
+      'batch_verifier',
+    );
+    expectAgent(
+      batchSteps,
+      'Audit Review Batch Reconciliation',
+      'review_agent_heavy',
+      'batch_verifier',
+    );
+    expectAgent(
+      batchSteps,
+      'Reset Review Batch Filtering Auditor',
+      'review_agent_max',
+      'batch_scope_auditor',
+    );
+    expectAgent(
+      batchSteps,
+      'Audit Review Batch Filtering Gates',
+      'review_agent_max',
+      'batch_scope_auditor',
+    );
+    expectAgent(
+      artifactSteps,
+      'Consolidate Multi-Agent Review',
+      'review_agent_max',
+      'reviewer_consolidator',
+    );
+    expectAgent(
+      cycleSteps,
+      'Reset Complete-Pass Settlement Auditor',
+      'review_agent_max',
+      'settlement_auditor',
+    );
+    expectAgent(
+      cycleSteps,
+      'Audit Complete Review Settlement',
+      'review_agent_max',
+      'settlement_auditor',
+    );
+
+    expectAgent(
+      batchSteps,
+      'Reset Direct Review Fixer',
+      'coding_agent',
+      'batch_fixer',
+    );
+    expectAgent(
+      batchSteps,
+      'Implement Direct Review Fixes',
+      'coding_agent',
+      'batch_fixer',
+    );
+    expectAgent(
+      batchSteps,
+      'Skip Stronger Repair When Normal Fixer Completed All Findings',
+      'coding_agent',
+      'batch_fixer',
+    );
+    expectAgent(
+      batchSteps,
+      'Reset Stronger Review Fixer',
+      'research_agent',
+      'batch_research_fixer',
+    );
+    expectAgent(
+      batchSteps,
+      'Implement Remaining Review Fixes',
+      'research_agent',
+      'batch_research_fixer',
+    );
   });
 
   test('review policy uses generic repeated and one-shot batches without leaking scheduling classes', async () => {
@@ -736,7 +853,7 @@ describe('flow schema (v1)', () => {
       (step) => step.label === 'Audit Review Batch Filtering Gates',
     );
     assert.equal(scopeAuditReset?.type, 'reset');
-    assert.equal(scopeAuditReset?.agentType, 'review_agent_heavy');
+    assert.equal(scopeAuditReset?.agentType, 'review_agent_max');
     assert.equal(scopeAuditReset?.identifier, 'batch_scope_auditor');
     assert.equal(scopeAudit?.type, 'llm');
     assert.equal(scopeAudit?.agentType, scopeAuditReset?.agentType);
@@ -1267,6 +1384,57 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('main implementation flows use the direct outer story completion decision', async () => {
+    for (const relativePath of [
+      'flows/implement_current_plan.json',
+      'flows/implement_next_plan.json',
+      'flows/implement_next_plan_github_review.json',
+      'flows/task_and_implement_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ]) {
+      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
+      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+      const storyLoop = (parsed.steps ?? []).find(
+        (step) => step.label === 'Story Execution And Review Loop',
+      );
+      assert.ok(storyLoop?.steps, `${relativePath} should define the story loop`);
+
+      const labels = storyLoop.steps.map((step) => step.label);
+      assertOrdered(
+        labels,
+        'Run Two-Phase Review Cycle',
+        'Refresh Plan Handoff After Review Settlement',
+      );
+      assertOrdered(
+        labels,
+        'Refresh Plan Handoff After Review Settlement',
+        'Repair Story State After Review Settlement',
+      );
+      assertOrdered(
+        labels,
+        'Repair Story State After Review Settlement',
+        'Checkpoint Push Before Story Completion Check',
+      );
+      assertOrdered(
+        labels,
+        'Checkpoint Push Before Story Completion Check',
+        'Exit Story Loop When Plan And Review Are Complete',
+      );
+
+      const completionGates = storyLoop.steps.filter(
+        (step) =>
+          step.label === 'Exit Story Loop When Plan And Review Are Complete',
+      );
+      assert.equal(completionGates.length, 1, relativePath);
+      assert.equal(
+        completionGates[0]?.decisionScript,
+        'scripts/flow_control/check_plan_scope_story_complete.py',
+        relativePath,
+      );
+      assert.equal(completionGates[0]?.breakOn, 'yes', relativePath);
+    }
+  });
+
   test('two-phase review helpers reset review agents at review-owned boundaries', async () => {
     const helperFiles = [
       'flows/review_disposition_current_artifacts.json',
@@ -1705,7 +1873,7 @@ describe('flow schema (v1)', () => {
         (step, index) =>
           index > checkpointIndex &&
           step.type === 'break' &&
-          step.label === 'Check for completion',
+          step.label === 'Exit Story Loop When Plan And Review Are Complete',
       );
 
       assert.ok(

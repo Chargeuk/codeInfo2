@@ -10,7 +10,7 @@ This gate reduces low-value review churn without suppressing credible defects. I
 
 ## Authoritative inputs
 
-Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving its padded story identifier. Resolve the exact current immutable batch through `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`.
+Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving its padded story identifier. Set `batch_handoff` to `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`, then set `batch_dir` exactly once by running `batch_dir="$(python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" resolve --batch-handoff "$batch_handoff")"`. Reuse those exact variables throughout this invocation; never discover, retype, reconstruct, or switch to a similar-looking batch path.
 
 Copy batch identities, repository identities, reviewed commits, finding identities, and paths directly from the authoritative handoff, `batch-launch.md`, and assigned inputs. Do not reconstruct, normalize, abbreviate, or type them from memory.
 
@@ -113,8 +113,8 @@ Before returning:
 3. Confirm no previously removed finding was reconsidered or restored.
 4. Confirm every survivor received exactly one materiality decision.
 5. Confirm every removal or narrowing remains visible for later `Ignored for This Story` recording.
-6. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" --batch-root <batch-directory>`.
-7. Repair only factual derived-workspace issues owned by this step.
+6. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" check --batch-handoff "$batch_handoff"`.
+7. Repair only this step's derived materiality artifacts; report scheduler-owned structural failures without recreating their evidence.
 8. Reopen `materiality-filtered-findings.md`, compare every stated identity and path character-for-character with the authoritative handoff, and correct allowed mismatches.
 
 Return a concise execution summary and the materiality artifact path, not questions.

@@ -4,7 +4,7 @@ This is an autonomous flow execution step, not a planning interview. Do not ask 
 
 This step is the explicit negative scope gate. It removes findings that can already be shown to conflict with story scope; it does not positively authorize survivors merely because no rejection was proven. A separately reset positive-authorization agent evaluates every survivor, then a separately reset materiality agent evaluates only the positively authorized survivors before the independent combined audit and disposition.
 
-Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving the padded story identifier from the plan filename. Resolve the current immutable batch through `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`; if necessary, discover only the `*-current-review-batch.md` navigation files and confirm the story inside.
+Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving the padded story identifier from the plan filename. Set `batch_handoff` to `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`, then set `batch_dir` exactly once by running `batch_dir="$(python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" resolve --batch-handoff "$batch_handoff")"`. Reuse those exact variables throughout this invocation; never discover, retype, reconstruct, or switch to a similar-looking batch path.
 
 Copy the exact batch ID, batch directory, review-cycle ID, repository identities, and reviewed commits directly from the current-batch handoff, `batch-launch.md`, and assigned inputs. Do not type them from memory, normalize them, remove punctuation, or reconstruct them from timestamps or nearby paths.
 
@@ -51,7 +51,7 @@ Before completing:
 4. Confirm coverage, partial or unavailable work, contradictions, ownership, and provenance remain visible.
 5. Confirm every job directory and its contents are unchanged.
 6. Confirm `scope-filtered-findings.md` exists and honestly describes the completed, partial, or unavailable result.
-7. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" --batch-root <batch-directory>` and repair only factual workspace problems this step is allowed to own.
+7. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" check --batch-handoff "$batch_handoff"` and repair only this step's derived scope artifacts; report scheduler-owned structural failures without recreating their evidence.
 8. Reopen `scope-filtered-findings.md` and compare every batch identity and path it states character-for-character with the authoritative handoff and `batch-launch.md`; correct every mismatch before returning.
 
 Report what remained actionable, what was removed or narrowed, what could not be decided, and the filtering-record path. Return an execution summary, not questions.

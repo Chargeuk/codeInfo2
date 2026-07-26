@@ -131,6 +131,45 @@ class ReviewPromptContractTests(unittest.TestCase):
         for sibling in ("Codex", "OpenCode", "cross-repository"):
             self.assertIn(sibling, contract_text)
 
+    def test_review_workspace_prompts_use_only_the_canonical_batch_handoff(self) -> None:
+        prompt_paths = (
+            "codeinfo_markdown/verify_review_batch_jobs.md",
+            "codeinfo_markdown/reconcile_review_batch.md",
+            "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md",
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md",
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md",
+            "codeinfo_markdown/audit_review_batch_scope_filter.md",
+        )
+        for prompt_path in prompt_paths:
+            with self.subTest(prompt_path=prompt_path):
+                text = read_text(prompt_path)
+                self.assertIn(
+                    'resolve --batch-handoff "$batch_handoff"',
+                    text,
+                )
+                self.assertIn(
+                    'check --batch-handoff "$batch_handoff"',
+                    text,
+                )
+                self.assertNotIn("--batch-root", text)
+
+        verifier = read_text("codeinfo_markdown/verify_review_batch_jobs.md")
+        for runtime_owned in (
+            "`batch-launch.md`",
+            "shared `inputs/`",
+            "every job directory",
+            "every `job.md`",
+        ):
+            self.assertIn(runtime_owned, verifier)
+        self.assertIn("Do not create, replace, or rewrite them", verifier)
+
+        job_contract = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+        self.assertIn("assign them once to local path variables", job_contract)
+        self.assertIn("confirm it remains inside the assigned job directory", job_contract)
+        self.assertNotIn("--batch-root", job_contract)
+
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(
             "codeinfo_markdown/classify_review_disposition.md"

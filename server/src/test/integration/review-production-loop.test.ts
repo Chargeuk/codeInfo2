@@ -584,6 +584,44 @@ class ProductionReviewChat extends ChatInterface {
 
     if (
       message.includes(
+        'Read the current immutable batch reconciliation and reconciliation audit from disk.',
+      ) ||
+      message.includes(
+        'Read the current immutable batch reconciliation, reconciliation audit, and negative story-scope filtering artifact from disk.',
+      ) ||
+      message.includes(
+        'Read the current immutable batch reconciliation, negative story-scope artifact, and positive-authorization artifact from disk.',
+      ) ||
+      message.includes(
+        'Read the current immutable batch reconciliation and every filtering artifact that was applicable through materiality from disk.',
+      ) ||
+      message.includes(
+        'Read the current immutable batch reconciliation, every applicable filtering artifact, combined filtering audit, and disposition from disk.',
+      )
+    ) {
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({ answer: 'no' }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
+    if (
+      message.includes(
+        'The optional filtering path has completed its single allowed pass.',
+      )
+    ) {
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({ answer: 'yes' }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
+    if (
+      message.includes(
         'Have all supported, positively authorized materiality survivors been resolved?',
       )
     ) {
@@ -607,7 +645,7 @@ class ProductionReviewChat extends ChatInterface {
 
     if (
       message.includes(
-        'The optional stronger repair attempt for this batch has now had its single allowed invocation.',
+        'The optional review repair path has now completed its single allowed stronger invocation.',
       )
     ) {
       this.probe.optionalExitCalls += 1;

@@ -59,7 +59,6 @@ done
 [ -n "${comparison_base}" ] || fail '--base is required'
 [ -n "${review_model}" ] || fail '--model is required'
 [ -n "${reasoning_effort}" ] || fail '--reasoning-effort is required'
-[ "${review_model}" = 'gpt-5.6-sol' ] || fail '--model must be gpt-5.6-sol'
 [ "${reasoning_effort}" = 'high' ] || fail '--reasoning-effort must be high'
 [ -n "${instructions_file}" ] || fail '--instructions-file is required'
 [ -n "${output_file}" ] || fail '--output-file is required'

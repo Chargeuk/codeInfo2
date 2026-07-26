@@ -102,7 +102,7 @@ Later disposition must place material survivors under `Accepted` and materiality
 
 ## Failure and recovery
 
-If the exact batch or positive-authorization survivor set cannot be established safely, leave the actionable reconciliation unchanged and write an honest partial or unavailable materiality artifact.
+If the exact batch or positive-authorization survivor set cannot initially be established safely, first salvage every understandable fragment and triangulate it with the other trustworthy assigned batch evidence. If uncertainty remains, leave the actionable reconciliation unchanged and write an honest partial or unavailable materiality artifact; do not fail the turn or stop the surrounding flow.
 
 A partial or unavailable result must not promote a finding or invent a clean review outcome. The surrounding independent audit and disposition steps continue with best effort and keep unproven work non-actionable.
 

@@ -152,7 +152,8 @@ class ReviewPromptContractTests(unittest.TestCase):
             "Do not search a sibling or lookalike batch",
             "at least one non-empty regular file",
             "do not require exact headings, fields, filenames, or schemas",
-            "trustworthy evidence this invocation already produced",
+            "salvage every understandable fact",
+            "degrade normally to an honest partial or unavailable result",
             "Never invent successful coverage",
         ):
             self.assertIn(required, handoff)
@@ -208,6 +209,68 @@ class ReviewPromptContractTests(unittest.TestCase):
         )
         self.assertIn("when the current step owns", job_contract)
         self.assertIn("Work-only stages", job_contract)
+
+    def test_review_batch_file_readers_degrade_imperfect_evidence_without_failure(
+        self,
+    ) -> None:
+        handoff = read_text(
+            "codeinfo_markdown/shared/review-artifact-handoff.md"
+        )
+        for required in (
+            "never by itself a reason to deliberately fail the agent turn",
+            "salvage every understandable fact",
+            "Triangulate those fragments",
+            "non-failing best-effort outcome",
+            "Return normally with a concise unavailable-handoff summary",
+            "not fatal semantic gates",
+        ):
+            self.assertIn(required, handoff)
+
+        job_contract = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+        verifier = read_text("codeinfo_markdown/verify_review_batch_jobs.md")
+        for prompt in (job_contract, verifier):
+            self.assertIn("If resolution fails", prompt)
+            self.assertIn("salvage", prompt)
+            self.assertIn("unavailable-handoff", prompt)
+            self.assertIn("parent flow", prompt)
+            self.assertIn("do not deliberately fail the turn", prompt)
+
+        materiality = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md"
+        )
+        outcome = read_text("codeinfo_markdown/record_review_batch_outcome.md")
+        self.assertIn("first salvage every understandable fragment", materiality)
+        self.assertIn("do not fail the turn", materiality)
+        self.assertIn("is recovery work, not a dead end", outcome)
+        self.assertIn("continue normally rather than failing the turn", outcome)
+
+        batch_flow = json.loads(read_text("flows/review_batch.json"))
+        file_reading_breaks = [
+            nested
+            for step in batch_flow["steps"]
+            if step.get("type") == "startLoop"
+            for nested in step["steps"]
+            if nested.get("type") == "break"
+            and str(nested.get("question", "")).startswith("Read ")
+        ]
+        self.assertEqual(len(file_reading_breaks), 6)
+        for step in file_reading_breaks:
+            with self.subTest(label=step["label"]):
+                question = step["question"]
+                self.assertIn(
+                    "Missing, malformed, incomplete, contradictory, or unexpectedly formatted files",
+                    question,
+                )
+                self.assertIn("salvage every understandable fact", question)
+                self.assertIn("never fail or stop because of them", question)
+                self.assertIn(
+                    "answer no when positive confirmation remains impossible",
+                    question,
+                )
+                self.assertTrue(step.get("continueOnFailure"))
+                self.assertTrue(step.get("continueOnInvalidResponse"))
 
     def test_multi_agent_review_stages_share_only_their_scheduler_job(self) -> None:
         contract_text = read_text(

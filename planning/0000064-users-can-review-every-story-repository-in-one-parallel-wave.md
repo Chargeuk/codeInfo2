@@ -12,6 +12,8 @@ Use a KISS, agent-native review boundary instead. Every scheduled review receive
 
 Every applicable artifact-producing review step owns its handoff until it has reopened the actual assigned directory and confirmed that a non-empty self-describing artifact exists there. If its intended artifact is missing, the same agent recovers or reconstructs it from trustworthy evidence already produced during that invocation, or records an honest partial or unavailable result when recovery is impossible. This is a factual destination check rather than a content schema: filenames, headings, and prose remain flexible, deliberately skipped gates and repair stages require no placeholders, and an agent never searches a lookalike batch or deletes a misplaced file merely to make the expected directory appear correct.
 
+Malformed, missing, incomplete, contradictory, or unexpectedly formatted review data is always an evidence limitation rather than a reason for an agent turn or parent flow to fail. Every file-reading review agent salvages understandable meaning, triangulates it with other trustworthy evidence inside the assigned job or batch, produces the best safe result possible, and then degrades honestly to partial or unavailable coverage when uncertainty remains. An unavailable handoff must never be presented as successful, but it is still a normal best-effort outcome that leaves downstream recovery able to continue.
+
 The existing `<story>-current-review-batch.md` handoff is the sole mutable locator for the current immutable batch. Factual workspace consumers resolve the canonical batch root from that existing runtime-owned handoff and reuse it without manually reconstructing or repeatedly typing long paths; no additional state file, ownership marker, or provider pointer is introduced. Strict parsing and containment apply only to this runtime-owned path boundary, while reviewer work, output, verification, reconciliation, filtering, repair, and outcome contents remain flexible and agent-interpreted.
 
 The parent flow only owns scheduling policy. It currently runs one configurable group repeatedly for early convergence with a five-iteration limit, then one separately configured group once because that group is slower. Reviewers and consumers do not know or care which scheduling group they belong to. Failures and incomplete coverage remain visible and the flow continues with best effort; useful sibling results are never discarded merely because another reviewer failed. Runtime code validates only factual boundaries such as assigned paths, containment, Git commits, directory presence, execution status, cancellation, and resume. Agents own semantic recovery and final settlement, and must never invent a clean result when meaningful evidence could not be produced. A reviewer that launches a native command owns that command until its tool reports a terminal result: a yielded cell or session handle means the same invocation is still running and must be awaited, not that its current files are a completed or failed review. Schema-bearing flow definitions are read from the linked source catalogue as one coherent server-generation snapshot, so a flow cannot consume JSON it changed while still running against an older server schema; the linked files remain the source of truth and the next rebuild or restart activates their new generation. Every attempted review-batch launch also leaves factual, self-describing evidence even when the child cannot start far enough to create a batch workspace. Provider-native commands run inside the existing CodeInfo Docker isolation boundary; the Codex reviewer uses one checked-in launcher that requires and passes through the flow-selected model, fixes high reasoning, non-interactive behavior, and full-access execution, and does not attempt a second operating-system sandbox inside the container. The current Codex flow selects `gpt-5.6-terra` with high reasoning, while the OpenCode workspace reviewer uses `review_agent_max` and therefore `gpt-5.6-sol` with high reasoning. Derived review-artifact steps are autonomous flow workers rather than interactive planning interviews: they resolve uncertainty from the immutable batch, always make a best-effort artifact, and never pause for user choices. After complete review evidence has been reconciled and audited, one freshly reset agent removes findings that fail the detailed negative story-scope policy, a second freshly reset agent positively authorizes each survivor against an exact story requirement or preserved behavior, a third freshly reset agent filters those survivors for materiality, and an independent agent audits all decisions that were applicable before disposition. A bounded single-iteration filtering loop stops later filters once the latest trustworthy stage positively confirms there are no survivors; an expanded single-iteration repair loop skips all repair when disposition accepts nothing, stops after the normal fixer resolves everything, and otherwise invokes the stronger research fixer once. The authorization boundary is the current top-level Description, Acceptance Criteria, and Out Of Scope contract, plus later user-approved expansions incorporated into those sections and comparison-base repository evidence proving restoration of behavior that predated the story. Historical `Code Review Findings`, `Accepted`, `Ignored for This Story`, tasks, implementation notes, and agent-generated review artifacts remain evidence and decision history only; they never authorize implementation, even when an older entry accepted the identical finding. A technically plausible finding remains useful evidence but cannot reach repair merely because it affects story-added code or resembles a broad story phrase; unapproved caps, thresholds, defaults, validation failures, retries, timeouts, concurrency rules, and other policy choices stay non-actionable. Applicable gates preserve immutable job evidence and write flexible self-describing artifacts so the final plan decision trail remains complete without an application parser; later gates deliberately skipped after an empty survivor set are recorded as not applicable rather than failed or implicitly approving work. The durable plan record is deliberately human-readable: every accepted and ignored finding names every generating or corroborating review harness, explains the issue simply, gives a concrete example, and records when the findings were written using the host's local display locale and time zone while machine identities remain UTC. Every new task created by a review loop likewise records its actual creation time immediately above its `Overview` using that host-local formatter; the original value remains unchanged through retries, audits, task improvement, and renumbering. One normal coding-agent invocation then attempts every positively authorized materiality survivor it can honestly resolve, processing all owning repositories sequentially with separate tests and commits. Only findings still unresolved after the one permitted stronger attempt may become implementation tasks during complete-pass settlement. At the end of each batch, the existing outcome step immediately creates or updates one idempotent completed plan task when either repair agent committed fixes, preserving harnesses, findings, repositories, commits, and focused proof even if a later batch never runs. Complete-pass settlement reconciles and repairs those records as a fallback, then retains sole ownership of unresolved implementation tasks and the final revalidation task. The same bounded escalation principle applies during normal task implementation: after the coding agent's deep blocker repair, one freshly reset research agent may repair a directly causal issue outside the current task when necessary, while keeping every edit minimal, targeted, and within persisted story scope so normal implementation and proof can continue. Final revalidation keeps runnable automated commands in `Testing` and optional agent-driven proof in checkbox-free `Manual Testing Guidance`; agents repair understandable section-shape mistakes semantically instead of creating an endless handoff blocker.
@@ -39,6 +41,8 @@ Every durable batch findings record also summarizes every direct review job atte
 - Missing or misleading output is recovered from useful native work where possible; otherwise the job records an honest unavailable or partial result without suppressing trustworthy sibling findings.
 - Before returning, every applicable review-job, verification, reconciliation, filtering, disposition, repair-audit, and batch-outcome producer enumerates or reopens its actual scheduler-assigned destination, confirms at least one non-empty self-describing artifact exists there, and repairs a missing handoff from trustworthy evidence already produced during that invocation.
 - A producer never reports successful handoff while its applicable assigned destination is empty; if trustworthy recovery is impossible it writes an honest partial or unavailable artifact there, while deliberately inapplicable gates and repair stages remain artifact-free with their skip reason preserved by later batch evidence.
+- No review-batch agent deliberately fails or stops its turn merely because an assigned file is missing, malformed, incomplete, contradictory, unexpectedly formatted, or rejected by a factual checker; it salvages usable meaning, consults other bounded trustworthy evidence, and returns the best completed, partial, unavailable, no-work, or conservative loop decision it can.
+- When the assigned destination itself cannot be safely resolved or written, the agent reports a normal non-failing unavailable handoff with every usable fact it can preserve; it does not invent a destination, search a lookalike batch, claim successful publication, or prevent the parent flow and later recovery agents from continuing.
 - Every attempted generic review-batch invocation leaves factual self-describing launch evidence, including failure reason and child conversation identity when available, even when the child cannot create a batch workspace.
 - Complete-pass settlement discovers both batch workspaces and launch-attempt evidence, treats a failed launch without a batch as unavailable coverage rather than a clean omission, and interprets imperfect evidence without exact schemas, filenames, reviewer counts, or scheduling identities.
 - Runtime validation remains factual and format-agnostic: it may check assigned paths, containment, required directories, Git HEADs, non-empty output presence, execution outcomes, cancellation, and resume, but does not decide the semantic meaning of review text.
@@ -141,6 +145,7 @@ Every durable batch findings record also summarizes every direct review job atte
 - Replacing stable UTC machine timestamps, review IDs, or ordering fields with localized text; local locale and time zone apply only to human-readable plan timestamps.
 - Requiring immutable reviewer output, reconciliation, repair audits, or completed-review-fix records to match one rigid schema; agents discover and preserve their meaning with best effort.
 - Adding fixed artifact filenames, heading parsers, placeholder files for deliberately skipped stages, cross-batch searches, or automatic deletion of misplaced files to enforce review handoffs; the checks are limited to factual containment and non-empty presence in the assigned applicable destination.
+- Treating best effort as permission to invent missing evidence, promote an unproven finding, write outside an established assigned boundary, or describe an unavailable handoff as successful.
 - Adding another review-batch state file, pointer, ownership marker, or provider-specific locator; the existing current-batch handoff remains the sole mutable batch locator.
 - Adding billing, cost estimation, quotas, usage enforcement, whole-subflow token accounting, or a requirement that providers expose usage; review-token reporting remains optional evidence for the actual review work only.
 - Treating any historical review decision, `Accepted` section, task, implementation note, review artifact, commit, test, or agent statement as a user-approved story expansion or as proof of preserved behavior.
@@ -6843,3 +6848,68 @@ deliberately skipped stages artifact-free.
   contains only the stopped review loop's Task 84 evidence, this task's story
   maintenance, shared handoff contract, prompt integrations, and focused
   regression test.
+
+### Task 86. Make Imperfect Review Data Explicitly Non-Failing
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Task Dependencies: Task 85
+- Created: `July 26, 2026 at 7:45:45 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Clarify that missing, malformed, incomplete, contradictory, or unexpectedly
+formatted review data must trigger bounded evidence recovery and honest
+degradation rather than a failed agent turn. Preserve factual containment and
+conservative decisions without confusing an unavailable handoff with a failed
+parent flow.
+
+#### Subtasks
+
+1. [x] Strengthen the shared artifact-handoff contract with an explicit
+       salvage, triangulation, degradation, and non-failing continuation order.
+2. [x] Clarify unresolved-path, filtering, settlement, and review-batch
+       controller behavior when evidence is imperfect.
+3. [x] Add focused prompt and flow regression coverage for the non-failing
+       best-effort contract.
+4. [x] Update the story Description, Acceptance Criteria, and Out Of Scope with
+       the clarified behavior.
+
+#### Testing
+
+1. [x] Run only the new focused prompt and flow contract tests.
+2. [x] Run repository linting.
+3. [x] Run Prettier on changed supported files and the repository format check.
+4. [x] Run `git diff --check` and inspect the final scoped diff.
+
+#### Implementation Notes
+
+- Task created from the follow-up audit of Task 85. The existing implementation
+  already preferred recovery and honest partial or unavailable artifacts, but
+  it did not state clearly enough that unavailable handoff is a normal
+  non-failing outcome rather than a failed agent turn.
+- Subtask 4 complete: story scope now requires every review-batch file reader
+  to salvage usable meaning and continue normally while forbidding invented
+  evidence, unsafe destinations, or false successful publication.
+- Subtask 1 complete: the shared contract now treats every form of imperfect
+  data as an evidence limitation, orders salvage and bounded triangulation
+  before honest degradation, makes checker problems diagnostic rather than
+  fatal, and separates unavailable handoff from agent or parent-flow failure.
+- Subtask 2 complete: unresolved reviewer and verifier paths now return normal
+  unavailable handoffs, materiality and outcome recover before degrading, and
+  every file-reading batch controller salvages readable evidence and returns a
+  conservative `no` instead of failing or skipping on uncertainty.
+- Subtask 3 complete: focused regression coverage now locks the shared
+  non-failing recovery order, unavailable-path continuation, materiality and
+  outcome recovery, and all six file-reading review-batch controller decisions.
+- Testing step 1 complete: both focused prompt and flow contract tests passed.
+  The first run exposed inconsistent `never` versus `do not` wording in the
+  verifier; the prompt was normalized to the clearer non-failing instruction
+  and the same two tests then passed.
+- Testing step 2 complete: `npm run lint` passed with zero ESLint warnings.
+- Testing step 3 complete: Prettier formatted every changed supported file, and
+  `npm run format:check` passed across all tracked supported repository files.
+- Testing step 4 complete: `git diff --check` passed, and the final diff is
+  limited to the shared recovery contract, four directly affected prompts, six
+  conservative review-batch controller questions, focused tests, and this
+  story/task maintenance.

@@ -111,6 +111,27 @@ test('agent-native settlement records exactly one completed task per fix-bearing
   const apply = await read(
     'codeinfo_markdown/apply_agent_native_review_settlement.md',
   );
+  const outcome = await read(
+    'codeinfo_markdown/record_review_batch_outcome.md',
+  );
+  const recommendation = await read(
+    'codeinfo_markdown/settle_agent_native_review_pass.md',
+  );
+  const audit = await read(
+    'codeinfo_markdown/audit_agent_native_review_settlement.md',
+  );
+  assert.match(
+    outcome,
+    /create or update exactly one matching `__done__` completed-review-fixes task now/u,
+  );
+  assert.match(outcome, /If the batch has no repair commit/u);
+  assert.match(
+    outcome,
+    /remain exclusively owned by complete-pass settlement/u,
+  );
+  assert.match(recommendation, /should already have written/u);
+  assert.match(apply, /best-effort fallback/u);
+  assert.match(audit, /before the batch returned/u);
   assert.match(apply, /exactly one `__done__` completed-review-fixes task/u);
   assert.match(apply, /never create a task for a no-fix batch/u);
   assert.match(apply, /Match by exact batch ID/u);

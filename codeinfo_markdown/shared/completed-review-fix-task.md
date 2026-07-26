@@ -2,13 +2,15 @@
 
 Read and follow `review-created-task-timestamp.md` for every newly created completed-review-fix task.
 
-Use this contract during complete-pass settlement whenever either review repair agent committed one or more fixes in an immutable review batch.
+Use this contract at the end of each immutable review batch whenever either review repair agent committed one or more fixes. Complete-pass settlement consumes the same contract to reconcile, repair, or recover the record.
 
 ## Purpose
 
 Create one durable completed plan task that records the changes already implemented for that batch. This is historical implementation evidence, not new work and not a substitute for the final whole-story revalidation task.
 
 Create no completed-review-fix task for a batch with no repair commit.
+
+Create or update the record in the final batch-outcome step, after the outcome evidence is written and before that batch returns. Complete-pass settlement is the idempotent recovery boundary when an earlier outcome step was unavailable or left an understandable omission; it is not the first expected writer.
 
 ## Identity And Ordering
 

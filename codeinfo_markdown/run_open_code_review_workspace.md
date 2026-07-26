@@ -14,4 +14,6 @@ ocr agent report --repo <repo-root> --bundle <manifest> --comments <comments> --
 
 Review every reviewable bundle with Codex-owned reasoning. Continue past an invalid or unavailable bundle and preserve useful sibling work. A changed excluded path may legitimately remain in the manifest as a non-reviewable entry with no patch; confirm the exclusion was honored instead of rejecting the review merely because the path is listed.
 
+Each `ocr` invocation may outlive one tool-call yield. If the tool returns a running cell or session handle, continue waiting on that exact handle until it reports a terminal process exit before reading that command's output as complete or starting the dependent command. Do not relaunch the same `ocr` command, classify a bundle from still-growing files, or treat a yielded handle as a timeout. If a continuation handle itself later becomes unavailable, preserve the partial artifacts, record the failure honestly, and continue with independent bundles when possible.
+
 After all possible bundles have been attempted, inspect the complete manifest, comments, validation, reports, exclusions, warnings, and failures. Write a self-describing review under `output/` with supported findings, coverage, partial work, and residual uncertainty. Do not invoke `publish_open_code_review.py` and do not write `current-open-code-review.json`.

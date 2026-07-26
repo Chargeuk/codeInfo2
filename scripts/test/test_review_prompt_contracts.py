@@ -121,6 +121,25 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Do not invoke `publish_open_code_review.py`", review_text)
         self.assertIn("do not write `current-open-code-review.json`", review_text)
 
+    def test_native_review_commands_wait_for_their_terminal_tool_result(self) -> None:
+        contract = read_text(
+            "codeinfo_markdown/review_job_workspace_contract.md"
+        )
+        codex = read_text("codeinfo_markdown/run_codex_review_workspace.md")
+        open_code = read_text(
+            "codeinfo_markdown/run_open_code_review_workspace.md"
+        )
+
+        for prompt in (contract, codex, open_code):
+            self.assertIn("running cell or session handle", prompt)
+            self.assertIn("exact handle", prompt)
+            self.assertRegex(prompt, r"(?i)do not relaunch")
+
+        self.assertIn("Only a terminal tool result", codex)
+        self.assertIn("native-response file only after the process exits", codex)
+        self.assertIn("before reading that command's output as complete", open_code)
+        self.assertIn("starting the dependent command", open_code)
+
     def test_multi_agent_review_stages_share_only_their_scheduler_job(self) -> None:
         contract_text = read_text(
             "codeinfo_markdown/review_job_workspace_contract.md"
@@ -1249,6 +1268,41 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("exactly one `__done__` completed-review-fixes task", settlement)
         self.assertIn("never create a task for a no-fix batch", settlement)
         self.assertIn("Match by exact batch ID", settlement)
+
+    def test_batch_outcome_records_fixes_before_complete_pass_settlement(
+        self,
+    ) -> None:
+        batch_flow = json.loads(read_text("flows/review_batch.json"))
+        outcome = read_text("codeinfo_markdown/record_review_batch_outcome.md")
+        completed_contract = read_text(
+            "codeinfo_markdown/shared/completed-review-fix-task.md"
+        )
+        recommendation = read_text(
+            "codeinfo_markdown/settle_agent_native_review_pass.md"
+        )
+        application = read_text(
+            "codeinfo_markdown/apply_agent_native_review_settlement.md"
+        )
+        audit = read_text(
+            "codeinfo_markdown/audit_agent_native_review_settlement.md"
+        )
+
+        self.assertEqual(
+            batch_flow["steps"][-1]["label"],
+            "Record Review Batch Outcome",
+        )
+        self.assertEqual(
+            batch_flow["steps"][-1]["markdownFile"],
+            "record_review_batch_outcome.md",
+        )
+        self.assertIn("create or update exactly one matching `__done__`", outcome)
+        self.assertIn("If the batch has no repair commit", outcome)
+        self.assertIn("Do not create unresolved-finding implementation tasks", outcome)
+        self.assertIn("remain exclusively owned by complete-pass settlement", outcome)
+        self.assertIn("before that batch returns", completed_contract)
+        self.assertIn("should already have written", recommendation)
+        self.assertIn("best-effort fallback", application)
+        self.assertIn("before the batch returned", audit)
 
     def test_agent_native_settlement_preserves_all_three_outer_loop_routes(
         self,

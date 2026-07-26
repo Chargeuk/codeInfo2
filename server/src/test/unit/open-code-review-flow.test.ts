@@ -61,6 +61,9 @@ test('OpenCode workspace prompt locks the agent-owned output contract', () => {
     'ocr agent report',
     'review_job_workspace_contract.md',
     'output/',
+    'running cell or session handle',
+    'continue waiting on that exact handle',
+    "before reading that command's output as complete",
     'Do not invoke `publish_open_code_review.py`',
     'do not write `current-open-code-review.json`',
   ]) {

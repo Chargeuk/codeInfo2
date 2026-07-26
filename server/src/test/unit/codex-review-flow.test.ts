@@ -74,6 +74,10 @@ test('Codex review flow uses the generic workspace agent and launcher prompt', (
     'work/review-usage/native-codex.md',
     "Do not include this wrapper agent's own usage",
     'actual process exit status',
+    'running cell or session handle',
+    'continue waiting on that exact handle',
+    'Only a terminal tool result',
+    'native-response file only after the process exits',
   ]) {
     assert.match(
       prompt,

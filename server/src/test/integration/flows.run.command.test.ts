@@ -4362,6 +4362,82 @@ test('command-load failures are retried and then fail deterministically', async 
   );
 });
 
+test('recordReviewUsage writes only opted-in LLM usage categories', async () => {
+  await withFlowServer(
+    async ({ wsUrl, tmpDir }) => {
+      const conversationId = 'flow-actual-review-usage';
+      const flowName = 'actual-review-usage';
+      const jobDir = path.join(tmpDir, 'review-job');
+      const workDir = path.join(jobDir, 'work');
+      await fs.mkdir(workDir, { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, `${flowName}.json`),
+        JSON.stringify({
+          description: 'actual review usage',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'actual-reviewer',
+              recordReviewUsage: true,
+              messages: [{ role: 'user', content: ['Review the repository.'] }],
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'administrative-step',
+              messages: [
+                { role: 'user', content: ['Summarize the workflow.'] },
+              ],
+            },
+          ],
+        }),
+      );
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await startFlowRun({
+        flowName,
+        conversationId,
+        source: 'REST',
+        input: {
+          review_job: {
+            job_dir: jobDir,
+            work_dir: workDir,
+          },
+        },
+        chatFactory: () => new CompleteThenPauseChat({ pauseMs: 0 }),
+      });
+      await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'ok',
+        timeoutMs: 5000,
+      });
+      await waitForTurns(
+        conversationId,
+        (turns) =>
+          turns.filter((turn) => turn.role === 'assistant').length >= 2,
+        5000,
+      );
+
+      const usageDir = path.join(workDir, 'review-usage');
+      const artifacts = await fs.readdir(usageDir);
+      assert.equal(artifacts.length, 1);
+      assert.match(artifacts[0] ?? '', /actual-reviewer/u);
+      const content = await fs.readFile(
+        path.join(usageDir, artifacts[0] ?? ''),
+        'utf8',
+      );
+      assert.match(content, /Input tokens: 12/u);
+      assert.match(content, /Cached input tokens: 6/u);
+      assert.match(content, /Output tokens: 5/u);
+    },
+    {
+      chatFactory: () => new CompleteThenPauseChat({ pauseMs: 0 }),
+    },
+  );
+});
+
 test('flow run rejects path traversal attempts', async () => {
   await withFlowServer(async ({ baseUrl }) => {
     await supertest(baseUrl)

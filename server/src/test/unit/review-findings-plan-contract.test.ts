@@ -23,6 +23,12 @@ test('human findings contract requires local display time and understandable pro
     'CODEINFO_DISPLAY_LOCALE',
     'CODEINFO_DISPLAY_TIME_ZONE',
     'Review harnesses',
+    'Reviews attempted',
+    'Input tokens',
+    'Cached input tokens',
+    'Output tokens',
+    'At least <number> reported; incomplete',
+    'no-findings',
     'Simple description',
     'Example',
     'generating or corroborating',
@@ -45,6 +51,8 @@ test('generic, legacy, external, and closeout paths consume the shared findings 
     'codeinfo_markdown/review_disposition.md',
     'codeinfo_markdown/external_review_disposition.md',
     'codeinfo_markdown/write_review_no_findings_closeout.md',
+    'codeinfo_markdown/settle_agent_native_review_pass.md',
+    'codeinfo_markdown/apply_agent_native_review_settlement.md',
     'codeinfo_markdown/audit_agent_native_review_settlement.md',
   ]) {
     const content = await read(relativePath);

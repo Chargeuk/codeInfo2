@@ -1,8 +1,10 @@
 # Apply the agent-native review settlement
 
-Read `$CODEINFO_ROOT/codeinfo_markdown/shared/completed-review-fix-task.md` and `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` before changing the plan.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md`, `$CODEINFO_ROOT/codeinfo_markdown/shared/completed-review-fix-task.md`, and `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` before changing the plan.
 
-Read the complete-pass settlement recommendation, every referenced batch, factual record under the active pass's `attempts/` directory, every supported finding and its negative-scope, positive-authorization, and materiality decisions, current Git state, and the bounded plan. Interpret self-describing evidence by meaning and tolerate understandable imperfections; do not require exact filenames, schemas, reviewer counts, or scheduling-group identities. A failed launch without a batch remains honest unavailable coverage and must not disappear from closeout.
+Read the complete-pass settlement recommendation, every referenced batch, every direct job and optional `work/review-usage/` artifact, factual record under the active pass's `attempts/` directory, every supported finding and its negative-scope, positive-authorization, and materiality decisions, current Git state, and the bounded plan. Interpret self-describing evidence by meaning and tolerate understandable imperfections; do not require exact filenames, schemas, reviewer counts, or scheduling-group identities. A failed launch without a batch remains honest unavailable coverage and must not disappear from closeout.
+
+Before tasking, create or update exactly one `## Code Review Findings` block per immutable batch under `shared/review-findings-plan-record.md`, including batches with no accepted or ignored finding. List every direct review job exactly once with its discovered name, flow, identity, target, and outcome. Preserve optional actual-review input, cached input, and output separately, aggregate each complete multi-stage category independently, label partial known sums and absent values honestly, and never use usage to change a finding or routing decision.
 
 Only materiality survivors may become actionable plan work. Treat earlier removals as an append-only audit trail, preserve them for ignored reporting, and do not substantially reconsider, restore, implement, task, or use them to continue the review loop.
 

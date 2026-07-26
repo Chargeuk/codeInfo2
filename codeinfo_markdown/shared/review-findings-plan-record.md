@@ -18,6 +18,11 @@ Existing plan helpers depend on that exact heading. Put these human-readable met
 - Findings recorded: `<local display timestamp>`
 - Review batch: `<immutable batch id>`
 - Review cycle: `<immutable cycle id>`
+- Reviews attempted:
+  - <human-readable review name> (`<flow name>`, job `<job instance id>`, target `<target when applicable>`) — <completed, partial, or unavailable>
+    - Input tokens: <number, `At least <number> reported; incomplete`, or `Not reported`>
+    - Cached input tokens: <number, `At least <number> reported; incomplete`, or `Not reported`>
+    - Output tokens: <number, `At least <number> reported; incomplete`, or `Not reported`>
 ```
 
 Generate the display timestamp at the time the plan block is written by running:
@@ -29,6 +34,16 @@ node "$CODEINFO_ROOT/scripts/format-display-timestamp.mjs"
 Use its complete output, including locale and IANA time-zone identity. `CODEINFO_DISPLAY_LOCALE` and `CODEINFO_DISPLAY_TIME_ZONE` are the preferred display settings. If they are unavailable, the helper uses the runtime's resolved locale and time zone and labels both values. Never claim an unlabeled value is host-local.
 
 The localized plan timestamp is presentation only. Preserve UTC machine timestamps, review IDs, batch IDs, cycle IDs, comparison identities, and ordering fields exactly as recorded.
+
+## Batch Review Inventory And Optional Usage
+
+For an immutable generic batch, discover every direct review job from the batch handoff, direct `jobs/` children, `job.md`, verification, and outcome evidence. List every attempted job exactly once, including jobs that found nothing, failed, or became unavailable. Copy the human-readable name, flow, job identity, target, and honest outcome from that evidence. Do not hard-code a reviewer list, count, scheduling group, or provider.
+
+Inspect optional actual-review evidence under each job's `work/review-usage/` directory. Record input tokens, cached input tokens, and output tokens separately. Cached input is part of the input category and must never be added to input as an additional amount. Do not substitute whole-flow, wrapper, verification, reconciliation, filtering, fixing, testing, settlement, or plan-writing usage.
+
+For a multi-stage review job, sum each token category independently across only the explicitly designated reviewing-model artifacts. Write an exact category total only when every applicable artifact reports that category. If some but not all artifacts report it, write `At least <known sum> reported; incomplete`. If none reports it, write `Not reported`. Preserve conflicts or questionable provenance in a concise note instead of guessing.
+
+Usage is optional factual context only. Missing, partial, malformed, contradictory, or provider-unavailable usage never changes job outcome, finding validity, scope, materiality, repair, tasking, review-loop continuation, or closeout. Keep one batch block even when both finding categories are empty so the attempted-review inventory remains durable.
 
 ## Finding Shape
 
@@ -101,6 +116,8 @@ Before completing:
 
 - reopen the plan block;
 - verify the timestamp is present and labelled with locale and time zone;
+- verify every direct batch job appears exactly once in `Reviews attempted`, including no-findings and unavailable jobs;
+- verify input, cached input, and output remain separate and every unavailable or incomplete category is labelled honestly;
 - account for every accepted and ignored finding;
 - confirm every finding has at least one honest harness entry;
 - confirm every finding has a simple description and a concrete or explicitly evidence-limited example;

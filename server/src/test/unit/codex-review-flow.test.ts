@@ -70,7 +70,9 @@ test('Codex review flow uses the generic workspace agent and launcher prompt', (
     'model `gpt-5.6-terra`',
     'reasoning effort `high`',
     '--dangerously-bypass-approvals-and-sandbox',
-    "Redirect the launcher's stdout and stderr to separate files",
+    "Redirect the launcher's JSONL stdout and diagnostic stderr",
+    'work/review-usage/native-codex.md',
+    "Do not include this wrapper agent's own usage",
     'actual process exit status',
   ]) {
     assert.match(
@@ -130,6 +132,7 @@ test('Codex review launcher fixes Docker-native invocation settings', (t) => {
   assert.deepEqual(args, [
     'exec',
     'review',
+    '--json',
     '--dangerously-bypass-approvals-and-sandbox',
     '--ephemeral',
     '--model',
@@ -184,10 +187,10 @@ test('Codex review launcher passes through another non-empty model', (t) => {
 
   assert.equal(result.status, 0, result.stderr);
   const args = fs.readFileSync(argsFile, 'utf8').split('\0').filter(Boolean);
-  assert.deepEqual(args.slice(args.indexOf('--model'), args.indexOf('--model') + 2), [
-    '--model',
-    'custom-review-model',
-  ]);
+  assert.deepEqual(
+    args.slice(args.indexOf('--model'), args.indexOf('--model') + 2),
+    ['--model', 'custom-review-model'],
+  );
 });
 
 test('Codex review launcher preserves the native process exit status', (t) => {

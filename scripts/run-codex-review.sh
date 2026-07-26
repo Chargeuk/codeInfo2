@@ -78,6 +78,7 @@ fi
 review_instructions="$(<"${instructions_file}")"
 
 exec "${codex_bin}" exec review \
+  --json \
   --dangerously-bypass-approvals-and-sandbox \
   --ephemeral \
   --model "${review_model}" \

@@ -261,6 +261,7 @@ import {
 } from './reviewCycleLifecycle.js';
 import { prepareReviewTargets } from './reviewTargets.js';
 import type { ReviewTargetSnapshot } from './reviewTargets.js';
+import { writeReviewUsageArtifact } from './reviewUsage.js';
 import {
   expandSubflowWaveJobs,
   resolveFlowValue,
@@ -6788,6 +6789,14 @@ async function runFlowUnlocked(params: {
     postProcess?: FlowInstructionPostProcess;
     command?: TurnCommandMetadata;
     runtime?: TurnRuntimeMetadata;
+    onAttemptResult?: (
+      result: FlowInstructionResult,
+      metadata: {
+        attempt: number;
+        providerId: ConversationProvider;
+        modelId: string;
+      },
+    ) => Promise<void>;
   }): Promise<FlowInstructionResult> => {
     const effectiveInstruction = appendGitHubReviewExecutionAuthority(
       instructionParams.instruction,
@@ -7022,6 +7031,12 @@ async function runFlowUnlocked(params: {
         },
       );
 
+      await instructionParams.onAttemptResult?.(result, {
+        attempt,
+        providerId: runtime.providerId,
+        modelId,
+      });
+
       if (shouldRetry) {
         previousError = result.content;
         const reason = result.content;
@@ -7103,6 +7118,45 @@ async function runFlowUnlocked(params: {
     step: FlowLlmStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
+    const reviewUsageRecorder = (invocation: number) =>
+      step.recordReviewUsage
+        ? async (
+            result: FlowInstructionResult,
+            metadata: {
+              attempt: number;
+              providerId: ConversationProvider;
+              modelId: string;
+            },
+          ) => {
+            const recorded = await writeReviewUsageArtifact({
+              input: params.input,
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              stepLabel: step.label,
+              stepIdentifier: step.identifier,
+              invocation,
+              attempt: metadata.attempt,
+              providerId: metadata.providerId,
+              modelId: metadata.modelId,
+              status: result.status,
+              usage: result.usage,
+            });
+            if (recorded.status === 'skipped') {
+              baseLogger.warn(
+                {
+                  flowName: params.flowName,
+                  stepIndex: command.stepIndex,
+                  identifier: step.identifier,
+                  invocation,
+                  attempt: metadata.attempt,
+                  reason: recorded.reason,
+                },
+                'optional actual-review usage evidence was not written',
+              );
+            }
+          }
+        : undefined;
+
     if ('messages' in step) {
       appendFlowRuntimeDiagnostic('flows.test.llm_step_messages_begin', {
         conversationId: params.conversationId,
@@ -7113,7 +7167,7 @@ async function runFlowUnlocked(params: {
         identifier: step.identifier,
         messageCount: step.messages.length,
       });
-      for (const message of step.messages) {
+      for (const [messageIndex, message] of step.messages.entries()) {
         const instruction = prependAssignedReviewJobContext(
           joinMessageContent(message.content),
           params.input,
@@ -7125,6 +7179,7 @@ async function runFlowUnlocked(params: {
             identifier: step.identifier,
             instruction,
             command,
+            onAttemptResult: reviewUsageRecorder(messageIndex + 1),
           });
         } catch (error) {
           const agent = agentByName.get(step.agentType);
@@ -7280,6 +7335,7 @@ async function runFlowUnlocked(params: {
       identifier: step.identifier,
       instruction,
       command,
+      onAttemptResult: reviewUsageRecorder(1),
       runtime: {
         ...(params.repositoryContext.workingRepositoryPath
           ? { workingFolder: params.repositoryContext.workingRepositoryPath }

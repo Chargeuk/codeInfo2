@@ -6166,3 +6166,50 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 - Simple description: The candidate claimed that a completed plan triggers an early `break` which exits the story loop before checkpointing, review, settlement, and closeout. The reviewed flow actually places that `break` inside the nested task-execution loop, so the claimed skipped-review behavior is not present.
 - Example: When the completion check returns `yes`, the pinned flow reaches `Early exit check for completion` at nested path `steps[0].steps[6].steps[2]`. The pinned runtime consumes that `break` in the immediately owning loop, returns `ok`, and the enclosing sequence continues to `Checkpoint Push Before Review Loop` at `steps[0].steps[7]` and `Run Two-Phase Review Cycle` at `steps[0].steps[8]`; therefore the alleged harmful skipped-review outcome cannot be reproduced from the reviewed code.
 - Why ignored: The independent negative, positive, and materiality gate audit fully removed this candidate under negative rejection gate 10 because exact reviewed-commit evidence contradicts the reported control flow. This is a complete factual rejection, not a narrowed remedy. The positive-authorization gate received zero survivors, and the materiality gate received zero authorized inputs, so neither gate can promote the candidate. It must not be restored, directly fixed, tasked, or used to continue the review loop from this batch. The batch's missing coverage remains partial or unavailable evidence and does not change that decision.
+
+## Code Review Findings
+
+- Findings recorded: `July 26, 2026 at 5:44:54 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260726T035830Z-ddbfa31e`
+- Review cycle: `0000064-rc-20260726T035830Z-6a550c3f`
+- Reviewed primary HEAD: `6cbe9c7914fce412534fab653317cfc9f4256c8c`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` / `codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260726T035830Z-6a550c3f/batches/0000064-rw-20260726T035830Z-ddbfa31e--head-6cbe9c7914fc/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, `materiality-filtered-findings.md`, and `scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: completed with partial review coverage; the actionable set is empty, so no finding is accepted or routed to repair.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+- None. The current batch and all three filtering gates report no supported finding, removal, narrowing, duplicate, already-resolved item, or rejected candidate to record. The incomplete Codex native response is preserved as review-coverage uncertainty in the disposition and is not treated as a finding.
+
+## Code Review Findings
+
+- Findings recorded: `July 26, 2026 at 7:24:05 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260726T051011Z-d0c5d0ec`
+- Review cycle: `0000064-rc-20260726T035830Z-6a550c3f`
+- Reviewed primary HEAD: `6cbe9c7914fce412534fab653317cfc9f4256c8c`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` / `codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260726T035830Z-6a550c3f/batches/0000064-rw-20260726T051011Z-d0c5d0ec--head-6cbe9c7914fc/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, `materiality-filtered-findings.md`, and `scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: completed with residual uncertainty; one technically supported candidate was fully removed by negative story scope, no finding survived positive authorization or materiality, and no finding is accepted or routed to repair.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+#### 1. Missing private-input recovery can intermittently expose raw `ENOENT`
+
+- Finding ID or Review reference: No stable finding ID was supplied; conserved identity is the candidate described in `work/findings/review-findings.md`, targeting `server/src/flows/reviewBatchWorkspace.ts:73-99` with related assertion `server/src/test/unit/review-batch-workspace.test.ts:361-373` at reviewed HEAD `6cbe9c7914fce412534fab653317cfc9f4256c8c`
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, exact instance `target_reviews:current_repository:review_artifacts_main`, job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`; generated and corroborated the candidate through its findings, output, and verification evidence)
+- Simple description: When an existing review job has no private `input/` directory, concurrent directory and child-path checks can allow `realpath()` to return raw `ENOENT` before the workspace-specific missing-directory validation. Recovery can therefore expose an unstable low-level diagnostic instead of the intended workspace-specific error.
+- Example: During recovery of an existing job whose private `input/` directory is absent, the directory check and a child containment check run together; if the child `realpath()` observes the missing directory first, the caller receives raw `ENOENT`, making the interrupted or corrupted batch's diagnostic vary between runs.
+- Why ignored: The independent combined filtering audit and negative scope record fully removed this technically plausible candidate under rejection gate 8. The current story authorizes private job boundaries and factual directory/containment validation but does not authorize a particular diagnostic message or rejection ordering; stabilizing this low-level race would add unapproved validation-failure hardening. No narrower in-scope core remains. Because the candidate was removed before positive authorization, no positive-authorization decision promotes it, and because that survivor set was empty, materiality did not evaluate it; this is not a materiality removal. The findings and verifier evidence also preserve one observed focused-test failure alongside passing focused reruns, so recurrence and cross-filesystem behavior remain uncertain rather than disproven. The complete finding is non-actionable for this story and must not be restored, directly fixed, tasked, or used to continue the review loop.

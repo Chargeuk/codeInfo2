@@ -6112,3 +6112,57 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 - Audited the implementation-plus-automated-proof pass: the two pass commits changed only this plan, persisted logs corroborate the clean builds, supported main-stack lifecycle, full client/server/Cucumber/Playwright proof, lint, and formatting, and no story-caused behavior drift was found. All subtasks and Testing items are complete with no live blocker, so Task 77 is complete and ready for manual-testing handoff.
 - Completed full-story manual proof for Task 77 after starting a fresh supported main stack (no reusable main runtime was running): `http://localhost:5010/health` returned `ok` with Mongo connected and `http://localhost:5001` returned 200; `npm run compose:down` then removed the proof-started stack cleanly. The Flows UI displayed a completed `codex_review` run with its target badge, review report and native-transcript links, and readable desktop plus 390px-mobile layouts; no Design Contract section exists for this story, so those task-guidance seams match. Console capture has zero errors; the final selected conversation and flows requests returned 200, while one superseded conversation fetch was aborted during automatic selection and did not affect the completed view.
 - Saved latest Flow proof as `codeInfoTmp/manual-testing/0000064/77/proof-01-flows-review-complete.png` and `proof-02-flows-mobile-review-complete.png`, with `support-console.txt` and `support-network.json`; these supersede earlier Flow screenshots for the re-covered state. Playwright wrote flat staging filenames under its current `/home/node` output, and `$CODEINFO_ROOT/playwright-output-local` was unavailable in this harness, so artifacts were copied from the recorded `codeinfo2-playwright-mcp-local` runtime into the task scratch folder; no additional subtasks were needed.
+
+## Code Review Findings
+
+- Findings recorded: `July 26, 2026 at 3:07:44 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260726T011343Z-ebebebac`
+- Review cycle: `0000064-rc-20260726T011343Z-c00883cb`
+- Reviewed primary HEAD: `519263f90f1326bd39934ed878d60864366b6b55`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` / `codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260726T011343Z-c00883cb/batches/0000064-rw-20260726T011343Z-ebebebac--head-519263f90f13/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, `materiality-filtered-findings.md`, and `scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: completed with partial review coverage; the only pre-filter finding was fully removed by negative scope, so no materiality survivor remains actionable and no finding is accepted.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+#### 1. F-1 — Diagnostic wrapper cannot launch when the final review flow is unavailable
+
+- Finding ID or Review reference: `F-1` (`P2`), target `current_repository:scripts/review-cycle-summary.mjs:169` at reviewed HEAD `519263f90f1326bd39934ed878d60864366b6b55`
+- Review harnesses:
+  - Codex review [current_repository] (`codex_review`, exact instance `target_reviews:current_repository:codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`; generated F-1)
+- Simple description: When the diagnostic review flow is enabled but the final review flow is unavailable, the diagnostic wrapper still resolves its source as `two_phase_review_cycle` before selecting the diagnostic flow. A diagnostic invocation without `--source-id` therefore fails source discovery instead of launching the enabled diagnostic flow.
+- Example: With `diagnostic_review_cycle` enabled and `two_phase_review_cycle` unavailable, running the diagnostic wrapper without `--source-id` produces `Could not uniquely resolve the repository-backed two_phase_review_cycle sourceId.` even though the requested diagnostic flow is available.
+- Why ignored: The independent combined filtering audit fully removed F-1 under negative story-scope rejection gate 7. Making `--diagnostic` available when only `diagnostic_review_cycle` is enabled changes an operator-visible action-availability and fallback contract that the current top-level Description, Acceptance Criteria, and Out Of Scope sections do not explicitly request. The comparison base does not contain `scripts/review-cycle-summary.mjs`, so no preserved pre-story repository behavior authorizes restoration. This is a complete removal, not a narrowed remedy; it remains non-actionable and must not be restored, directly fixed, tasked, or used to continue the review loop. Positive authorization and materiality were not applied to F-1 because the survivor set was empty, and no materiality removal is being claimed.
+
+## Code Review Findings
+
+- Findings recorded: `July 26, 2026 at 4:20:41 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260726T022036Z-c7da0089`
+- Review cycle: `0000064-rc-20260726T011343Z-c00883cb`
+- Reviewed primary HEAD: `519263f90f1326bd39934ed878d60864366b6b55`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` / `codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260726T011343Z-c00883cb/batches/0000064-rw-20260726T022036Z-c7da0089--head-519263f90f13/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, `materiality-filtered-findings.md`, and `scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: completed with partial review coverage; the sole candidate was fully rejected because exact reviewed-HEAD evidence contradicts its control-flow premise, so no materiality survivor remains actionable and no finding is accepted.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+#### 1. `implement_current_plan` skips the required review when the persisted plan is already complete
+
+- Finding ID or Review reference: No stable finding ID was supplied; source reference is `flows/implement_current_plan.json:409-415` and `flows/implement_current_plan.json:498-507` at reviewed HEAD `519263f90f1326bd39934ed878d60864366b6b55`
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, exact instance `target_reviews:current_repository:review_artifacts_main`, job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`; generated and repeated the candidate across its same-job evidence)
+- Simple description: The candidate claimed that a completed plan triggers an early `break` which exits the story loop before checkpointing, review, settlement, and closeout. The reviewed flow actually places that `break` inside the nested task-execution loop, so the claimed skipped-review behavior is not present.
+- Example: When the completion check returns `yes`, the pinned flow reaches `Early exit check for completion` at nested path `steps[0].steps[6].steps[2]`. The pinned runtime consumes that `break` in the immediately owning loop, returns `ok`, and the enclosing sequence continues to `Checkpoint Push Before Review Loop` at `steps[0].steps[7]` and `Run Two-Phase Review Cycle` at `steps[0].steps[8]`; therefore the alleged harmful skipped-review outcome cannot be reproduced from the reviewed code.
+- Why ignored: The independent negative, positive, and materiality gate audit fully removed this candidate under negative rejection gate 10 because exact reviewed-commit evidence contradicts the reported control flow. This is a complete factual rejection, not a narrowed remedy. The positive-authorization gate received zero survivors, and the materiality gate received zero authorized inputs, so neither gate can promote the candidate. It must not be restored, directly fixed, tasked, or used to continue the review loop from this batch. The batch's missing coverage remains partial or unavailable evidence and does not change that decision.

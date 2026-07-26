@@ -5956,3 +5956,146 @@ Perform the final focused audit for the review-tier split and formatter/linter f
 - Story workflow status selected Task 75 as the sole in-progress task, reported no earlier todo task or live blocker, and preserved the stopped review cycle as incomplete without attempting state repair.
 - The focused blocker helper reported no live blocker for Task 75 or any other task.
 - Final `git diff --check` passed after all story closeout notes were recorded.
+
+## Code Review Findings
+
+- Findings recorded: `July 25, 2026 at 10:58:52 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260725T210753Z-23e1e022`
+- Review cycle: `0000064-rc-20260725T210753Z-269e3305`
+- Reviewed primary HEAD: `d666d0a0e6f3f33957fec56d228061eee18e3a8d`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260725T210753Z-269e3305/batches/0000064-rw-20260725T210753Z-23e1e022--head-d666d0a0e6f3/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, `materiality-filtered-findings.md`, and `scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: completed with partial review coverage; no materiality survivor remains actionable, so no finding is accepted and no repair or task routing is decided.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+#### 1. O-1 — Wave child launch is serialized
+
+- Finding ID or Review reference: `O-1 — Medium: wave child launch is serialized`
+- Review harnesses:
+  - OpenCode review result (`open_code_review`, job `target_reviews:current_repository:open_code_review`; source job `codeInfoTmp/reviews/0000064-rc-20260725T210753Z-269e3305/batches/0000064-rw-20260725T210753Z-23e1e022--head-d666d0a0e6f3/jobs/1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: The `subflowWave` launch loop waits for each `startFlowRun` setup to return before attempting the next child job. A slow first setup can therefore create launch skew for later viable jobs even though child executions can overlap after they start.
+- Example: A supported wave has five child jobs and the first child's repository or conversation setup takes longer than the others. The loop does not attempt the second job until the first setup returns; the evidence shows this ordering, but the retained focused proof also shows five slow child executions overlapping once started.
+- Why ignored: O-1 is technically supported and positively authorized: the current Acceptance Criteria explicitly require all viable jobs to execute concurrently, and the finding concerns the in-scope `subflowWave` startup loop rather than an excluded arbitrary step or a new product policy. It was nevertheless removed by the materiality gate. Current-HEAD evidence establishes realistic launch skew, but does not establish substantial startup delay, lost or suppressed jobs, hidden evidence, failure, false success, a stuck flow, or repeated intervention; it also does not show that changing the shared repository, agent-discovery, ownership, validation, conversation, and persistence setup would provide value proportionate to the concurrency and regression risk. This is a complete materiality removal, not a narrowed remedy. The finding must remain non-actionable and must not be restored, directly fixed, tasked, or used to continue the review loop.
+
+## Code Review Findings
+
+- Findings recorded: `July 26, 2026 at 12:35:28 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260725T221734Z-d36be8ee`
+- Review cycle: `0000064-rc-20260725T210753Z-269e3305`
+- Reviewed primary HEAD: `d666d0a0e6f3f33957fec56d228061eee18e3a8d`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260725T210753Z-269e3305/batches/0000064-rw-20260725T221734Z-d36be8ee--head-d666d0a0e6f3/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `batch-reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, `materiality-filtered-findings.md`, and `scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: completed with partial review coverage; one materiality survivor is accepted and no current-batch finding was removed or narrowed.
+
+### Accepted
+
+#### 1. F-1 — Terminal retry completion can strand the conversation lock
+
+- Finding ID: `F-1`
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`; source job `codeInfoTmp/reviews/0000064-rc-20260725T210753Z-269e3305/batches/0000064-rw-20260725T221734Z-d36be8ee--head-d666d0a0e6f3/jobs/add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`; internally corroborated by the exact-range blind-spot result misplaced at `work/blind-spots/review-result.md`)
+- Simple description: After a successful fresh-run retry, the service tries twice to persist the retry completion. If both writes fail, it remembers completion in memory but skips releasing the conversation lock and clearing fresh-run retry ownership, so later supported work for that conversation can remain blocked after completion was reported.
+- Example: A supported fresh-run retry completes while both terminal completion writes are rejected. At `server/src/flows/service.ts:8175-8210`, the current HEAD remembers completion but skips `releaseConversationLockFn(...)` and `clearFreshRunRetryOwnership(...)`; a later run for the same conversation can receive `RUN_IN_PROGRESS` until separate recovery clears the retained state.
+- Why accepted: The current batch's scope gate and independent combined audit retain `F-1` unchanged. The current Acceptance Criterion requiring existing `subflow` runtime behavior to remain backward-compatible, together with comparison-base code showing unconditional terminal lock release and non-resumed ownership cleanup before this story change, positively authorizes restoration of the preserved behavior. Current-HEAD evidence confirms the two-failure condition, the intended fresh-run retry path makes it realistically reachable, and the resulting retained lock plus reported completion is a meaningful lifecycle failure. Restoring the established cleanup semantics is proportionate to changing completed code and does not introduce an unapproved cap, threshold, timeout, retry policy, fallback, validation failure, concurrency rule, or other product policy. Upstream review coverage is partial, but the direct survivor decision is complete.
+
+### Ignored for This Story
+
+- None. The current batch's negative scope, positive authorization, and materiality records report no removals or narrowed remedies. Historical `O-1` is not a current-batch finding and remains non-actionable evidence only; it was not restored or promoted.
+
+### Task 76. Record Review Fixes From Batch 0000064-rw-20260725T221734Z-d36be8ee
+
+- Task Status: `__done__`
+- Review Task Role: `completed_review_fixes`
+- Review cycle: `0000064-rc-20260725T210753Z-269e3305`
+- Review batch: `0000064-rw-20260725T221734Z-d36be8ee`
+- Display Timestamp: `July 26, 2026 at 1:08:20 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Repository Name: `codeInfo2`
+- Affected Repositories: `current_repository` / `codeInfo2` only
+- Reviewed HEAD: `d666d0a0e6f3f33957fec56d228061eee18e3a8d`
+- Final repair HEAD: `6f8b28c5135e5163642968287ab3f51030b6a89c`
+
+#### Review Harnesses
+
+- `review_artifacts_main [current_repository]`, instance `target_reviews:current_repository:review_artifacts_main`, source job `codeInfoTmp/reviews/0000064-rc-20260725T210753Z-269e3305/batches/0000064-rw-20260725T221734Z-d36be8ee--head-d666d0a0e6f3/jobs/add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`. This sole discovered scheduler harness generated and corroborated `F-1` through its findings, evidence, saturation, visual, output, and verification artifacts. Its configured internal blind-spot stage also produced the exact-range corroboration at repository-root `work/blind-spots/review-result.md` during the job, but wrote it outside the assigned immutable job workspace; the file is preserved as evidence from this same job, not as a separate harness or source job.
+
+#### Addresses Findings
+
+- `F-1` — terminal retry completion can strand the conversation lock — owned by `current_repository` / `codeInfo2`. When both fresh-run retry-completion persistence writes fail, the reviewed code records in-memory completion but conditionally skips conversation-lock release and fresh-run retry-ownership cleanup, allowing later supported work to be rejected as `RUN_IN_PROGRESS`.
+
+#### Subtasks
+
+1. [x] In `server/src/flows/service.ts`, restore unconditional terminal `releaseConversationLockFn(...)` and non-resumed `clearFreshRunRetryOwnership(...)` cleanup without changing the existing two persistence attempts, logging, or completion recording.
+2. [x] In `server/src/test/integration/flows.run.errors.test.ts`, add the regression proof for two failed completion-persistence writes, lock reacquisition, completion-barrier clearing, and reuse of the same retry ownership ID.
+
+#### Testing
+
+1. [x] Run `git diff --check -- server/src/flows/service.ts server/src/test/integration/flows.run.errors.test.ts` before focused proof.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name 'terminal retry completion write failures'`; it passed twice, before and after formatting, with 1 passed and 0 failed each time.
+3. [x] Run `npm run format:check`; it passed.
+4. [x] Run `npm run lint`; it passed under the repository's zero-warning policy.
+5. [x] Run the final `git diff --check` before committing.
+
+#### Implementation Notes
+
+The normal repair agent committed `6f8b28c5135e5163642968287ab3f51030b6a89c` (`DEV-64 - release retry cleanup after terminal persist failure`). The commit changed only `server/src/flows/service.ts` and `server/src/test/integration/flows.run.errors.test.ts`, restoring comparison-base terminal cleanup and adding the missing double-failure regression proof. `npm run format` also ran during repair finalization and left tracked files unchanged; it is recorded here as completed repair activity rather than as automated proof in `Testing`. The stronger repair opportunity was skipped after the normal repair audit established that no authorized/material survivor remained; no stronger commit or stronger test exists. The configured blind-spot stage produced corroborating evidence but misplaced it at repository-root `work/blind-spots/review-result.md` instead of under the immutable job workspace. Review coverage remains partial because that containment/provenance limitation and the unrun full client/server/Cucumber/e2e suite, broad builds, Compose lifecycle, provider-native workflows, and manual browser proof remain; those limitations belong to final revalidation and are not unresolved findings.
+
+### Task 77. Re-Validate Story 64 After Complete Agent-Native Review Repair
+
+- Task Status: `__in_progress__`
+- Review Task Role: `final_revalidation`
+- Repository Name: `codeInfo2`
+- Affected Repositories: `current_repository` / `codeInfo2` only
+- Proof-scope inventory: `codeInfo2` server and client workspaces, flow JSON and review lifecycle/runtime code, flow-control scripts, Compose runtime, server unit/integration tests, server Cucumber suite, client suite, and Playwright e2e suite.
+- Prerequisite: Tasks 1–76 remain complete; validate settlement-time HEAD `6f8b28c5135e5163642968287ab3f51030b6a89c` or the latest Story 64 HEAD after any practical same-task repair. Preserve the repair commit and its changed files in the final proof record.
+
+#### Overview
+
+Perform fresh whole-story automated validation after the completed review repair. Revalidate the approved Story 64 behavior and every story-owned surface affected by the review lifecycle, agent-tier, flow, script, server, client, and Compose changes. Distinguish fresh automated results from retained partial review-provider coverage, and do not recreate `O-1` or any other removed finding.
+
+#### Task Exit Criteria
+
+- The supported server, client, and Compose build wrappers pass on the latest Story 64 HEAD.
+- The supported main Compose stack starts and shuts down cleanly through repository wrappers.
+- The unfiltered client, server unit/integration, server Cucumber, and Playwright e2e suites pass through the canonical all-tests wrapper.
+- Supported lint and formatting pass after any practical same-task repair.
+- Final notes record the actual HEAD, the completed repair commit, all changed target repositories, fresh automated proof, and the remaining partial review-coverage limitations.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] In `codeInfo2`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [ ] In `codeInfo2`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+1. [ ] In `codeInfo2`, run `npm run build:summary:server`.
+2. [ ] In `codeInfo2`, run `npm run build:summary:client`.
+3. [ ] In `codeInfo2`, run `npm run compose:build:summary`.
+4. [ ] In `codeInfo2`, start the supported main stack with `npm run compose:up`.
+5. [ ] In `codeInfo2`, run `npm run test:summary:all:parallel` without targeted filters; preserve its full client, server unit/integration, server Cucumber, and Playwright e2e results.
+6. [ ] In `codeInfo2`, stop only the supported main stack started for this proof with `npm run compose:down`.
+7. [ ] In `codeInfo2`, run `npm run lint`.
+8. [ ] In `codeInfo2`, run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+Manual proof is optional, checkbox-free, and non-blocking. If exercised, use the supported main stack at `http://localhost:5001` and `http://localhost:5010` with the repository wrapper-managed environment. Do not stop or modify the protected `codeinfo:local` stack. Where authentication requires human-controlled two-factor authentication, follow repository guidance and skip that affected surface without autonomous re-authentication. Optional browser proof may cover the Flows UI, review-tier behavior, target/run identity, failure/unavailable evidence, cancellation/resume, and final diagnostic visibility where credentials and catalog state permit.
+
+If screenshots or logs are captured, stage them first in the Playwright output directory; for the local harness, artifacts under `/tmp/playwright-output/<relative-path>` normally appear on the host under `$CODEINFO_ROOT/playwright-output-local/<relative-path>`. Transfer optional task proof to `codeInfoTmp/manual-testing/0000064/77/`; do not commit those artifacts. Record transfer or provider limitations honestly. A later closeout may promote a curated bundle to `codeInfoStatus/manual-proof/0000064/`.
+
+#### Implementation Notes
+
+- Added the idempotent completed-review-fixes record for the only fix-bearing immutable batch. The no-fix batch remains excluded from task creation, and the materiality-removed `O-1` remains append-only ignored evidence.
+- Added the sole final revalidation owner after the completed repair record. Its `Testing` section contains only runnable automated wrappers and commands; optional browser and screenshot proof is confined to checkbox-free manual guidance.

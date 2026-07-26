@@ -6213,3 +6213,49 @@ If screenshots or logs are captured, stage them first in the Playwright output d
 - Simple description: When an existing review job has no private `input/` directory, concurrent directory and child-path checks can allow `realpath()` to return raw `ENOENT` before the workspace-specific missing-directory validation. Recovery can therefore expose an unstable low-level diagnostic instead of the intended workspace-specific error.
 - Example: During recovery of an existing job whose private `input/` directory is absent, the directory check and a child containment check run together; if the child `realpath()` observes the missing directory first, the caller receives raw `ENOENT`, making the interrupted or corrupted batch's diagnostic vary between runs.
 - Why ignored: The independent combined filtering audit and negative scope record fully removed this technically plausible candidate under rejection gate 8. The current story authorizes private job boundaries and factual directory/containment validation but does not authorize a particular diagnostic message or rejection ordering; stabilizing this low-level race would add unapproved validation-failure hardening. No narrower in-scope core remains. Because the candidate was removed before positive authorization, no positive-authorization decision promotes it, and because that survivor set was empty, materiality did not evaluate it; this is not a materiality removal. The findings and verifier evidence also preserve one observed focused-test failure alongside passing focused reruns, so recurrence and cross-filesystem behavior remain uncertain rather than disproven. The complete finding is non-actionable for this story and must not be restored, directly fixed, tasked, or used to continue the review loop.
+
+## Code Review Findings
+
+- Findings recorded: `July 26, 2026 at 9:09:01 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260726T065845Z-c7c8c7ee`
+- Review cycle: `0000064-rc-20260726T065845Z-e36f4850`
+- Reviewed primary HEAD: `ac9717991965bc914e5557b0ae1832048ccca262`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository` / `codeInfo2`
+- Disposition: `codeInfoTmp/reviews/0000064-rc-20260726T065845Z-e36f4850/batches/0000064-rw-20260726T065845Z-c7c8c7ee--head-ac9717991965/reconciliation/disposition.md`
+- Scope evidence: `batch-reconciliation.md`, `reconciliation-audit.md`, `scope-filtered-findings.md`, `scope-authorized-findings.md`, `materiality-filtered-findings.md`, and `scope-filter-audit.md` under the same exact reconciliation directory.
+- Disposition result: completed; Finding A is the sole materiality survivor and is accepted as actionable. Findings B and C are technically supported and positively authorized but ignored as materiality removals because realistic supported reachability and proportionate practical value were not demonstrated. No scope removal or narrowed remedy exists, and no final repair-task decision is made here.
+- Coverage note: OpenCode reviewed 107 of 250 reviewable changed files; Codex output was recovered from native work without native build or test proof; the cross-repository job was not applicable to the single-target inventory. These are preserved coverage limitations, not clean-review or authorization decisions.
+
+### Accepted
+
+#### 1. Orphaned flow runs are incorrectly marked terminal
+
+- Finding ID: `Finding A` — orphaned flow runs are incorrectly marked terminal (`server/src/flows/service.ts:8400`)
+- Review harnesses:
+  - OpenCode review: current_repository (`open_code_review`, exact instance `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: The flow-status response marks an `orphaned` run as terminal, even though an orphaned run is recoverable and should not be represented as settled.
+- Example: After a supported interruption or restart leaves persisted lifecycle state as `orphaned`, `getFlowRunStatus` returns `status: orphaned` and `terminal: true`; `scripts/review-cycle-summary.mjs` can then stop polling and report terminal settlement before recovery completes.
+- Why accepted: The current top-level Acceptance Criteria require persisted lifecycle status to be authoritative, require `running` to wait and terminal states to settle, and require `orphaned` to follow recovery. Current-HEAD source confirms the false terminal value, and the supported review-cycle wrapper consumes it. This creates premature settlement in a realistic supported scenario with meaningful practical impact. The smallest correction restores the stated lifecycle contract without adding a timeout, retry, fallback, or other unapproved policy. It is apparently suitable for the normal bounded repair attempt as advisory routing only; no task decision is made in this disposition.
+
+### Ignored for This Story
+
+#### 2. Persisted resume input integrity is not rechecked
+
+- Finding ID or Review reference: `Finding B` — persisted resume input integrity is not rechecked (`server/src/flows/service.ts:7831-7855`)
+- Review harnesses:
+  - Codex review: current_repository (`codex_review`, exact instance `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: When resume supplies no new input or hash, the flow reuses persisted input without recomputing its stored hash.
+- Example: Supported persistence stores the effective input and hash together, and no supported producer was identified that changes only the input while retaining the old hash. The mismatch scenario therefore requires external or manual alteration or otherwise unproven corruption.
+- Why ignored: The observation is technically supported and positively authorized by the immutable-input contract, but the materiality gate found no realistically reachable supported scenario. Its conditional impact and value from changing completed code were not sufficiently demonstrated for this story. The complete finding was removed by materiality; no narrower actionable core remains.
+
+#### 3. Partial review-batch recovery can bypass realpath containment
+
+- Finding ID or Review reference: `Finding C` — partial review-batch recovery can bypass realpath containment (`server/src/flows/reviewBatchWorkspace.ts:260-286`)
+- Review harnesses:
+  - Codex review: current_repository (`codex_review`, exact instance `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: A pre-existing partial batch without `batch-launch.md` uses a creation path that lacks the completed-reuse branch's realpath containment checks.
+- Example: An interrupted preparation can leave the launch record absent, but no supported workspace workflow was shown to create the additional symlink needed to redirect a batch or its private job paths. The escaping-write scenario therefore requires unsupported external or manual filesystem modification or an unproven race.
+- Why ignored: The observation is technically supported and positively authorized by the private-workspace contract, but the materiality gate found no demonstrated supported route to the combined escaping-write state. The possible consequence would be meaningful if forced, yet realistic reachability and proportionate practical value from changing completed recovery behavior were not sufficiently demonstrated. The complete finding was removed by materiality; no narrower actionable core remains.
+
+- Scope removals, narrowed remedies, and disposition rejections: None. The negative scope artifact records zero removals and zero narrowed remedies; positive authorization records no removals; disposition rejected no additional finding. The cross-repository result is not-applicable coverage, not a finding.

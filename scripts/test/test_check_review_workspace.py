@@ -73,12 +73,29 @@ class ReviewWorkspaceCheckTests(unittest.TestCase):
             self.assertTrue(empty["facts"]["jobs"][0]["output_empty"])
 
             output = batch / "jobs" / "reviewer-a" / "output"
-            (output / "notes written however the reviewer chose.md").write_text(
+            (output / "empty artifact.md").touch()
+            (output / "empty artifact directory").mkdir()
+            still_empty = check_workspace(batch)
+            self.assertEqual(still_empty["status"], "passed")
+            self.assertTrue(still_empty["facts"]["jobs"][0]["output_empty"])
+
+            nested = output / "however the reviewer organized it"
+            nested.mkdir()
+            (nested / "notes written however the reviewer chose.md").write_text(
                 "finding", encoding="utf-8"
             )
             flexible = check_workspace(batch)
             self.assertEqual(flexible["status"], "passed")
             self.assertFalse(flexible["facts"]["jobs"][0]["output_empty"])
+            self.assertEqual(
+                flexible["facts"]["jobs"][0]["output_entries"],
+                [
+                    str(
+                        Path("however the reviewer organized it")
+                        / "notes written however the reviewer chose.md"
+                    )
+                ],
+            )
 
     def test_reports_missing_workspace_structure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

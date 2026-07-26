@@ -44,6 +44,8 @@ This step is an explicit scope gate only. It must not fix findings, task up find
 - A finding must survive every rejection gate to remain actionable.
 - If a finding fails any rejection gate, remove it from actionable buckets and place it into `rejected_or_non_actionable_findings`.
 - If a finding mixes an in-scope issue with an out-of-scope proposed fix, keep only the in-scope core issue, rewrite it narrowly, and record that narrowing in the finding rationale.
+- Separate the technical observation, demonstrated consequence, and every proposed remedy before deciding scope. Authorization of an outcome does not authorize every implementation mechanism.
+- Verify any claim that a proposed control already exists from current-HEAD repository evidence. Do not call a new schema field, runtime branch, retry control, timeout, validation failure, fallback, or other excluded mechanism mere configuration or policy-free.
 - Do not create new findings in this step.
 - Do not create new implementation tasks in this step.
 
@@ -74,6 +76,7 @@ Reject a finding if any of the following are true.
     - story-regressive;
     - explicitly required by the story;
     - or a restoration of previously approved or preserved behavior.
+11. The observation may be technically supported, but every demonstrated repair requires a mechanism excluded by Out Of Scope and no current-HEAD evidence proves an existing in-scope repair seam.
 
 </rejection_gates>
 
@@ -100,6 +103,7 @@ Reject a finding if any of the following are true.
 
 - If scope is ambiguous, prefer rejection over scope expansion.
 - Do not keep a finding actionable by giving it the benefit of the doubt.
+- When a broad desired outcome and a narrower Out Of Scope restriction conflict, the narrower restriction controls unless the user explicitly incorporated an exception into the current top-level story contract.
 - If evidence is incomplete because optional review artifacts are unavailable, do not newly reject on that basis alone. Keep the finding unchanged unless a safe rejection or narrowing decision can still be made from the canonical plan and current review disposition state alone.
 - If evidence is incomplete even though the core routing inputs are present and usable, and the remaining authoritative evidence still does not prove in-scope status, move the finding to `rejected_or_non_actionable_findings` and explain that in-scope status was not proven.
 

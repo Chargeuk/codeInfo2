@@ -9,6 +9,7 @@ import {
   __resetGitHubReviewDepsForTests,
   __setGitHubReviewDepsForTests,
   buildGitHubChildProcessEnv,
+  buildGitHubExternalReviewInputMarkdown,
   createPullRequest,
   fetchPullRequestReviews,
   filterGitHubReviewFeedback,
@@ -156,6 +157,32 @@ test('repo-local token reader keeps missing opt-in cases on skip and surfaces ma
     await tempRepo.cleanup();
   }
 });
+
+test('repo-local token reader rejects an .env.local symlink that resolves outside the worked repository', async () => {
+  const tempRepo = await createTempRepo();
+  const outsideDirectory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-review-token-outside-'),
+  );
+  try {
+    const outsideEnvLocal = path.join(outsideDirectory, '.env.local');
+    await fs.writeFile(outsideEnvLocal, 'CODEINFO_PR_TOKEN=outside-token\n');
+    await fs.symlink(
+      outsideEnvLocal,
+      path.join(tempRepo.repoRoot, '.env.local'),
+    );
+
+    const result = await readWorkedRepositoryGitHubToken({
+      workingRepositoryRoot: tempRepo.repoRoot,
+    });
+
+    assert.equal(result.kind, 'error');
+    assert.equal(result.reason, 'ENV_LOCAL_READ_FAILED');
+    assert.doesNotMatch(result.message, /outside-token/u);
+  } finally {
+    await tempRepo.cleanup();
+    await fs.rm(outsideDirectory, { recursive: true, force: true });
+  }
+});
 test('GitHub child-process env is scoped and does not mutate the base environment', () => {
   const baseEnv = {
     CODEINFO_PR_TOKEN: 'server-token',
@@ -212,6 +239,47 @@ test('repository-state resolution reads current branch, upstream remote, and sto
     assert.equal(resolved.value.currentBranch, 'feature/0000060-demo');
     assert.equal(resolved.value.baseBranch, 'main');
     assert.equal(resolved.value.upstreamRemote, 'origin');
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('repository-state resolution accepts an SSH-over-443 GitHub upstream', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        if (joined === 'branch --show-current') {
+          return { exitCode: 0, stdout: 'feature/0000060-demo\n', stderr: '' };
+        }
+        if (joined === 'rev-parse HEAD') {
+          return { exitCode: 0, stdout: 'deadbeef\n', stderr: '' };
+        }
+        if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+          return {
+            exitCode: 0,
+            stdout: 'origin/feature/0000060-demo\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'remote get-url origin') {
+          return {
+            exitCode: 0,
+            stdout: 'ssh://git@ssh.github.com:443/example/repo.git\n',
+            stderr: '',
+          };
+        }
+        throw new Error(`Unexpected command: ${joined}`);
+      },
+    });
+
+    const resolved = await resolveGitHubRepositoryState({
+      workingRepositoryRoot: tempRepo.repoRoot,
+    });
+    assert.equal(resolved.kind, 'ok');
+    assert.equal(resolved.value.repositoryFullName, 'example/repo');
+    assert.equal(resolved.value.repositoryHost, 'github.com');
   } finally {
     await tempRepo.cleanup();
   }
@@ -936,6 +1004,65 @@ test('review feedback filtering requires a canonical PR author before accepting 
   });
 
   assert.deepEqual(feedback, []);
+});
+
+test('review feedback and external-review input preserve commit provenance', () => {
+  const artifact = {
+    repository: { owner: 'example', name: 'repo' },
+    pullRequest: {
+      number: 45,
+      url: 'https://github.com/example/repo/pull/45',
+      headRefName: 'feature/0000060-demo',
+      baseRefName: 'main',
+      authorLogin: 'pull-request-author',
+    },
+    fetchedAt: '2026-07-14T19:45:00.000Z',
+    reviews: [
+      {
+        id: 2,
+        user: { login: 'external-reviewer' },
+        body: 'External review',
+        state: 'COMMENTED',
+        commit_id: 'review-commit',
+      },
+    ],
+    reviewComments: [
+      {
+        id: 3,
+        user: { login: 'external-reviewer' },
+        body: 'Inline review',
+        path: 'server/src/flows/githubReview.ts',
+        commit_id: 'inline-commit',
+      },
+    ],
+  };
+  const feedback = filterGitHubReviewFeedback({ artifact });
+
+  assert.deepEqual(feedback, [
+    {
+      kind: 'review',
+      reviewer: 'external-reviewer',
+      body: 'External review',
+      state: 'COMMENTED',
+      commitId: 'review-commit',
+    },
+    {
+      kind: 'inline_comment',
+      reviewer: 'external-reviewer',
+      body: 'Inline review',
+      path: 'server/src/flows/githubReview.ts',
+      commitId: 'inline-commit',
+    },
+  ]);
+
+  const markdown = buildGitHubExternalReviewInputMarkdown({
+    artifact,
+    feedback,
+    headSha: 'current-head',
+  });
+  assert.match(markdown, /Head SHA: current-head/u);
+  assert.match(markdown, /Commit ID: review-commit/u);
+  assert.match(markdown, /Commit ID: inline-commit/u);
 });
 
 test('review fetch keeps one bounded producer corpus while paginated materialization stays page-local', async () => {

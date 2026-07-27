@@ -75,6 +75,7 @@ export const runFlowDecisionScript = async (params: {
   codeInfoRoot: string;
   workingFolder: string;
   decisionScript: string;
+  env?: NodeJS.ProcessEnv;
   execFile?: ExecFile;
 }) => {
   const scriptPath = resolveFlowDecisionScriptPath(
@@ -83,7 +84,7 @@ export const runFlowDecisionScript = async (params: {
   );
   const result = await (params.execFile ?? execFile)('python3', [scriptPath], {
     cwd: params.workingFolder,
-    env: process.env,
+    env: params.env ?? process.env,
     encoding: 'utf8',
     maxBuffer: 1024 * 1024,
   });

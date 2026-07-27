@@ -54,7 +54,7 @@ test('flow decision scripts are restricted to the flow_control helper directory'
   }
 });
 
-test('flow decision scripts execute with the repository working folder and return trimmed stdout', async () => {
+test('bundled flow decision scripts execute without Git metadata and return trimmed stdout', async () => {
   const codeInfoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'flow-control-'));
   const flowControlRoot = path.join(codeInfoRoot, 'scripts', 'flow_control');
   fs.mkdirSync(flowControlRoot, { recursive: true });

@@ -138,6 +138,7 @@ export type GitHubReviewFeedbackEntry =
       reviewer: string;
       body: string;
       state: string;
+      commitId?: string;
       url?: string;
       submittedAt?: string;
     }
@@ -147,6 +148,7 @@ export type GitHubReviewFeedbackEntry =
       body: string;
       path: string;
       line?: number;
+      commitId?: string;
       url?: string;
       createdAt?: string;
     };
@@ -562,7 +564,7 @@ const parseRepoFromRemoteUrl = (
   };
   const trimmed = remoteUrl.trim();
   const sshMatch = trimmed.match(
-    /^(?:ssh:\/\/)?git@([^:/]+)[:/]([^/]+)\/([^/]+?)(?:\.git)?$/u,
+    /^(?:ssh:\/\/)?git@([^:/]+)(?::\d+)?[:/]([^/]+)\/([^/]+?)(?:\.git)?$/u,
   );
   if (sshMatch) {
     const host = normalizeGitHubHost(sshMatch[1]);
@@ -760,9 +762,51 @@ export const readWorkedRepositoryGitHubToken = async (params: {
   workingRepositoryRoot: string;
 }): Promise<GitHubStepOutcome<GitHubRepoToken>> => {
   const envLocalPath = path.join(params.workingRepositoryRoot, '.env.local');
+  let resolvedWorkingRepositoryRoot: string;
+  let resolvedEnvLocalPath: string;
+  try {
+    resolvedWorkingRepositoryRoot = await githubReviewDeps.realpath(
+      params.workingRepositoryRoot,
+    );
+    resolvedEnvLocalPath = await githubReviewDeps.realpath(envLocalPath);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    if (code === 'ENOENT') {
+      return {
+        kind: 'skip',
+        reason: 'MISSING_ENV_LOCAL',
+        message:
+          'The repository-local GitHub token file `.env.local` is missing.',
+      };
+    }
+    return {
+      kind: 'error',
+      reason: 'ENV_LOCAL_READ_FAILED',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Unable to resolve the worked repository .env.local file.',
+    };
+  }
+  const relativeEnvLocalPath = path.relative(
+    resolvedWorkingRepositoryRoot,
+    resolvedEnvLocalPath,
+  );
+  if (
+    relativeEnvLocalPath === '..' ||
+    relativeEnvLocalPath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativeEnvLocalPath)
+  ) {
+    return {
+      kind: 'error',
+      reason: 'ENV_LOCAL_READ_FAILED',
+      message:
+        'The repository-local GitHub token file `.env.local` resolves outside the worked repository.',
+    };
+  }
   let raw: string;
   try {
-    raw = await githubReviewDeps.readFile(envLocalPath, 'utf8');
+    raw = await githubReviewDeps.readFile(resolvedEnvLocalPath, 'utf8');
   } catch (error) {
     const code = (error as NodeJS.ErrnoException | undefined)?.code;
     if (code === 'ENOENT') {
@@ -2089,6 +2133,7 @@ export const filterGitHubReviewFeedback = (params: {
       reviewer: review.user.login,
       body: review.body.trim(),
       state: review.state,
+      ...(review.commit_id ? { commitId: review.commit_id } : {}),
       ...(review.html_url ? { url: review.html_url } : {}),
       ...(review.submitted_at ? { submittedAt: review.submitted_at } : {}),
     }));
@@ -2106,6 +2151,7 @@ export const filterGitHubReviewFeedback = (params: {
         body: comment.body.trim(),
         path: comment.path,
         ...(comment.line !== undefined ? { line: comment.line } : {}),
+        ...(comment.commit_id ? { commitId: comment.commit_id } : {}),
         ...(comment.html_url ? { url: comment.html_url } : {}),
         ...(comment.created_at ? { createdAt: comment.created_at } : {}),
       }));
@@ -2116,6 +2162,7 @@ export const filterGitHubReviewFeedback = (params: {
 export const buildGitHubExternalReviewInputMarkdown = (params: {
   artifact: GitHubReviewArtifact;
   feedback: GitHubReviewFeedbackEntry[];
+  headSha?: string;
 }): string => {
   const lines = [
     '# GitHub External Review Input',
@@ -2123,6 +2170,7 @@ export const buildGitHubExternalReviewInputMarkdown = (params: {
     `Repository: ${params.artifact.repository.owner}/${params.artifact.repository.name}`,
     `Pull Request: #${String(params.artifact.pullRequest.number)} ${params.artifact.pullRequest.url}`,
     `Branch: ${params.artifact.pullRequest.headRefName}`,
+    ...(params.headSha ? [`Head SHA: ${params.headSha}`] : []),
     `Fetched At: ${params.artifact.fetchedAt}`,
     '',
     '## Reviewer Feedback',
@@ -2141,6 +2189,7 @@ export const buildGitHubExternalReviewInputMarkdown = (params: {
     if (entry.kind === 'review') {
       lines.push(`### Review Submission - ${entry.reviewer}`);
       lines.push(`- State: ${entry.state}`);
+      if (entry.commitId) lines.push(`- Commit ID: ${entry.commitId}`);
       if (entry.submittedAt) lines.push(`- Submitted At: ${entry.submittedAt}`);
       if (entry.url) lines.push(`- URL: ${entry.url}`);
       lines.push('- Body:');
@@ -2150,6 +2199,7 @@ export const buildGitHubExternalReviewInputMarkdown = (params: {
     lines.push(`### Inline Comment - ${entry.reviewer}`);
     lines.push(`- File: ${entry.path}`);
     if (entry.line !== undefined) lines.push(`- Line: ${String(entry.line)}`);
+    if (entry.commitId) lines.push(`- Commit ID: ${entry.commitId}`);
     if (entry.createdAt) lines.push(`- Created At: ${entry.createdAt}`);
     if (entry.url) lines.push(`- URL: ${entry.url}`);
     lines.push('- Body:');
@@ -2192,6 +2242,7 @@ export const materializeGitHubExternalReviewInput = async (params: {
       value: buildGitHubExternalReviewInputMarkdown({
         artifact: artifactResult.value,
         feedback,
+        headSha: params.handoff.head_sha,
       }),
     });
   } catch (error) {

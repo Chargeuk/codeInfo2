@@ -32,14 +32,16 @@ async function withTempCodexHome(chatToml: string): Promise<{
 class MockThread {
     id: string;
     private readonly events: ThreadEvent[];
-    constructor(id: string, events: ThreadEvent[]) {
+    private readonly onRun?: (input: string) => void;
+    constructor(id: string, events: ThreadEvent[], onRun?: (input: string) => void) {
         this.id = id;
         this.events = events;
+        this.onRun = onRun;
     }
     async runStreamed(input: string, opts?: CodexTurnOptions): Promise<{
         events: AsyncGenerator<ThreadEvent>;
     }> {
-        void input;
+        this.onRun?.(input);
         void opts;
         const events = this.events;
         async function* generator(): AsyncGenerator<ThreadEvent> {
@@ -52,6 +54,7 @@ class MockThread {
 }
 class MockCodex {
     lastStartOptions: CodexThreadOptions | undefined;
+    lastInput: string | undefined;
     startThread(opts?: CodexThreadOptions) {
         this.lastStartOptions = opts;
         const events: ThreadEvent[] = [
@@ -110,7 +113,9 @@ class MockCodex {
                 type: 'turn.completed',
             } as unknown as ThreadEvent,
         ];
-        return new MockThread('thread-wrapper', events);
+        return new MockThread('thread-wrapper', events, (input) => {
+            this.lastInput = input;
+        });
     }
     resumeThread(threadId: string, opts?: CodexThreadOptions) {
         void threadId;
@@ -264,7 +269,7 @@ test('MCP responder payload reports the chat-config-aware default model when no 
         await tempHome.cleanup();
     }
 });
-test('MCP codebase_question uses shared resolver defaults for thread options', async () => {
+test('MCP codebase_question uses bounded research with shared reasoning defaults', async () => {
     const prev = getCodexDetection();
     setCodexDetection({
         available: true,
@@ -286,6 +291,7 @@ test('MCP codebase_question uses shared resolver defaults for thread options', a
         assert.equal(mockCodex.lastStartOptions?.webSearchEnabled, capabilities.defaults.webSearchEnabled);
         assert.equal(mockCodex.lastStartOptions?.approvalPolicy, capabilities.defaults.approvalPolicy);
         assert.equal(mockCodex.lastStartOptions?.modelReasoningEffort, capabilities.defaults.modelReasoningEffort);
+        assert.match(mockCodex.lastInput ?? '', /Answer this repository question using bounded research/u);
     }
     finally {
         setCodexDetection(prev);

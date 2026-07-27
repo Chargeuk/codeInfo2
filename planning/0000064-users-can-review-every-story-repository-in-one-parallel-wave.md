@@ -7700,8 +7700,8 @@ Perform the single final whole-story validation after the three repair commits r
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `codeInfo2`, run the supported lint command `npm run lint` and fix story-caused issues.
-2. [ ] In `codeInfo2`, run the supported formatting command `npm run format:check` and fix story-caused issues.
+1. [x] In `codeInfo2`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [x] In `codeInfo2`, run the supported formatting command `npm run format:check` and fix story-caused issues.
 
 #### Testing
 
@@ -7723,3 +7723,6 @@ Optional, checkbox-free guidance only: after automated proof, use the supported 
 #### Implementation Notes
 
 Record the final validated HEAD, every full wrapper result, any same-task repair and rerun, the three preserved repair commits, and honest limitations. Targeted repair tests in Tasks 90–92 are historical focused proof; this task owns whole-story revalidation after the latest repaired HEAD.
+
+- Completed the lint subtask: `npm run lint` passed with exit code 0 and no story-caused issues required repair.
+- Completed the formatting subtask: `npm run format:check` passed with exit code 0; all matched files used Prettier style and no repair was needed.

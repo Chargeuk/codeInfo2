@@ -677,6 +677,63 @@ test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
   }
 });
 
+test('POST /flows/:flowName/run normalizes blank optional identifiers to omission', async () => {
+  const starts: Array<Parameters<typeof startFlowRun>[0]> = [];
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (async (params) => {
+        starts.push(params);
+        return {
+          flowName: params.flowName,
+          conversationId: 'flow-run-admission',
+          inflightId: 'flow-run-admission-inflight',
+          providerId: 'codex',
+          modelId: 'test-model',
+        };
+      }) as typeof startFlowRun,
+    }),
+  );
+
+  const omitted = await supertest(app)
+    .post('/flows/llm-basic/run')
+    .send({})
+    .expect(202);
+  assert.equal(omitted.body.status, 'started');
+  assert.deepEqual(starts, [
+    {
+      flowName: 'llm-basic',
+      conversationId: undefined,
+      retryOwnershipId: undefined,
+      codexReviewModelId: undefined,
+      sourceId: undefined,
+      working_folder: undefined,
+      resumeStepPath: undefined,
+      customTitle: undefined,
+      source: 'REST',
+    },
+  ]);
+
+  const identifierFields = [
+    'conversationId',
+    'retryOwnershipId',
+    'codexReviewModelId',
+    'sourceId',
+    'working_folder',
+  ] as const;
+  for (const field of identifierFields) {
+    for (const value of ['', '   ']) {
+      const response = await supertest(app)
+        .post('/flows/llm-basic/run')
+        .send({ [field]: value })
+        .expect(202);
+      assert.equal(response.body.status, 'started');
+      assert.equal(starts.at(-1)?.[field], undefined);
+    }
+  }
+  assert.equal(starts.length, 1 + identifierFields.length * 2);
+});
+
 test('fresh flow start creates a new parent conversation when an older conversationId is supplied', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
@@ -1268,10 +1325,7 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
     assert.deepEqual(replayResult, firstResult);
     await waitForTurnCountToStay(firstResult.conversationId, 2);
   } finally {
-    cleanupMemory(
-      'flow-retry-ownership-a',
-      'flow-retry-ownership-b',
-    );
+    cleanupMemory('flow-retry-ownership-a', 'flow-retry-ownership-b');
     __resetFreshRunRetryOwnershipCompletionForTests();
     await closeWs(ws);
     await wsHandle.close();
@@ -1415,7 +1469,7 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
     await withMockedMongoConversationPersistence({
       seedConversations: [],
       run: async ({ conversations, turns }) => {
-        ConversationModel.prototype.save = (async function save(this: unknown) {
+        ConversationModel.prototype.save = async function save(this: unknown) {
           const doc = this as { _id?: unknown; toObject?: () => unknown };
           const saved = {
             ...structuredClone(doc.toObject?.() ?? doc),
@@ -1423,15 +1477,13 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
           } as Conversation;
           conversations.set(String(saved._id), saved);
           return saved;
-        }) as typeof ConversationModel.prototype.save;
-        ConversationModel.findOneAndUpdate = ((
-          () => ({
-            exec: async () => {
-              updateAttempts += 1;
-              return null;
-            },
-          })
-        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        } as typeof ConversationModel.prototype.save;
+        ConversationModel.findOneAndUpdate = (() => ({
+          exec: async () => {
+            updateAttempts += 1;
+            return null;
+          },
+        })) as unknown as typeof ConversationModel.findOneAndUpdate;
 
         const result = await startFlowRun({
           flowName: 'llm-basic',
@@ -1445,10 +1497,7 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
         });
 
         assert.equal(result.conversationId, conversationId);
-        await waitFor(
-          () => updateAttempts > 0,
-          20000,
-        );
+        await waitFor(() => updateAttempts > 0, 20000);
         await waitForConversationUnlocked(conversationId, 20000);
 
         assert.ok(updateAttempts > 0);
@@ -1460,7 +1509,10 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
   } finally {
     ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
     ConversationModel.prototype.save = originalSave;
-    cleanupMemory(conversationId, ...collectAgentConversationIds(conversationId));
+    cleanupMemory(
+      conversationId,
+      ...collectAgentConversationIds(conversationId),
+    );
     __resetFreshRunRetryOwnershipCompletionForTests();
     if (prevNodeEnv === undefined) {
       delete process.env.NODE_ENV;
@@ -1746,7 +1798,7 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
     await withMockedMongoConversationPersistence({
       seedConversations: [],
       run: async ({ conversations, turns }) => {
-        ConversationModel.prototype.save = (async function save(this: unknown) {
+        ConversationModel.prototype.save = async function save(this: unknown) {
           const doc = this as { _id?: unknown; toObject?: () => unknown };
           const saved = {
             ...structuredClone(doc.toObject?.() ?? doc),
@@ -1754,16 +1806,14 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
           } as Conversation;
           conversations.set(String(saved._id), saved);
           return saved;
-        }) as typeof ConversationModel.prototype.save;
-        ConversationModel.findOneAndUpdate = ((
-          () => ({
-            exec: async () => {
-              updateAttempts += 1;
-              conversations.delete(conversationId);
-              return null;
-            },
-          })
-        ) as unknown) as typeof ConversationModel.findOneAndUpdate;
+        } as typeof ConversationModel.prototype.save;
+        ConversationModel.findOneAndUpdate = (() => ({
+          exec: async () => {
+            updateAttempts += 1;
+            conversations.delete(conversationId);
+            return null;
+          },
+        })) as unknown as typeof ConversationModel.findOneAndUpdate;
 
         const app = express();
         app.use(

@@ -5,6 +5,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 <critical_rules>
 
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before inspecting, reusing, starting, stopping, or classifying a Docker or Compose stack.
 - Use fresh disk reads and current git state, not conversational memory.
 - Read `codeInfoStatus/flow-state/current-plan.json` from disk first, for example with `cat codeInfoStatus/flow-state/current-plan.json`, and use the stored `plan_path` and `additional_repositories` as the primary story context for this flow.
 - For manual proof only, you may inspect and run additional supporting repositories when they are reasonably needed to perform honest proof for the active story or bound task.
@@ -65,6 +66,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
   - a repository-supported marker or command that proves the running stack was started from the current relevant repository state;
   - or other current repository evidence that honestly ties the running runtime to the latest relevant code changes.
 - If freshness cannot be proved honestly, stop the running stack and restart it using the documented workflow before manual proof.
+- When the stale or freshness-unknown runtime is proven to be a repository-owned test stack needed for this proof, reclaim it under `shared/test-stack-lifecycle.md` even when another agent or flow step started it. Do not require a per-agent runtime handoff.
 - Record in the implementation notes whether manual proof reused a verified-fresh stack or restarted because the prior running stack was stale or of unknown provenance.
 
 </runtime_freshness_rules>
@@ -207,7 +209,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - If the system was already running, reuse it only when freshness was explicitly verified for this task.
 - If the system was already running but freshness was stale or unknown, stop it and restart it from the documented workflow before manual proof.
 - If a verified-fresh system was already running, you may leave it running afterwards after proving it remained healthy.
-- If you started it for this manual test, return it to its prior stopped state when you are done.
+- If you started or reclaimed it for this manual test, stop it with the documented repository workflow when you are done unless the bound task explicitly requires that exact runtime to remain running.
+- Never leave a newly started or reclaimed stack running merely for a later agent to discover. Record the final runtime state in the implementation notes.
 - Only start the runnable systems or services that the relevant proof actually needs.
 - Use the repository's normal launcher, wrapper, startup path, or selector flow when one exists rather than a narrow one-off route.
 - Choose manual checks according to the task's actual surface area:

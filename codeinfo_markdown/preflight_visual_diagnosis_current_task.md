@@ -5,6 +5,7 @@ Before implementation starts on the current task, inspect the live supported UI 
 <critical_rules>
 
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before inspecting, starting, stopping, or classifying a Docker or Compose stack.
 - Use fresh disk reads and current git state, not conversational memory.
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
 - If the immediately preceding step just ran `python3 "$CODEINFO_ROOT/scripts/select_current_task.py"`, treat that selector's stdout JSON as the primary just-written task result before reading the file back from disk.
@@ -76,7 +77,8 @@ Before implementation starts on the current task, inspect the live supported UI 
   - `http://localhost:5010/health`
   - `http://localhost:5001`
 - If the stack was already running, treat it as stale unless freshness is explicitly proven from current repository evidence.
-- If you started the stack in this step, leave it running unless repository guidance says otherwise.
+- If a stale or freshness-unknown stack is proven to be the repository-owned test stack needed by this diagnosis, reclaim it through the documented shutdown wrapper even when another agent or flow step started it.
+- If you started or reclaimed the stack in this step, stop it with the documented repository workflow when diagnosis is complete unless the bound task explicitly requires that exact runtime to remain running.
 - If the task's visible surface lives in a declared additional repository, you may inspect that repository too.
 - Do not treat a supporting repository outside `additional_repositories` as a blocker by itself when honest diagnosis needs it.
 

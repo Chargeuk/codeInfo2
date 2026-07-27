@@ -1,5 +1,9 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and require target-owned tasks plus cross-target proof where the finding spans repositories.
+
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` for every new unresolved implementation, recovery, or final revalidation task created by this review task-up path.
+
 Repair the canonical plan so the stored review outcome is definitely encoded into executable plan state before downstream review-task enhancement continues.
 
 <critical_rules>
@@ -39,6 +43,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - A review-created task's single `Repository Name` controls where code and owner-scoped subtasks belong, but does not by itself limit `Testing` or optional `Manual Testing Guidance` when compatibility proof needs another repository.
 - Treat this step as the serious-issue task-up path. If it adds numbered review-fix tasks, the review loop should stop and return to the main implementation loop rather than continuing minor reruns in the same review pass.
 - Treat `resolved_minor_findings` as already handled inline. Do not create numbered tasks for those finding IDs, even if the original findings artifact still lists them as `must_fix` or `should_fix`.
+- Treat completed tasks marked `Review Task Role: minor_fix_loop_audit` as immutable historical evidence. They do not satisfy task-up for `unresolved_task_required_findings`, must not be reopened or merged into substantive review-created work, and must not be counted as the fresh final revalidation task.
 - Treat `unresolved_minor_batchable_findings` as owned by the minor-fix path, not this task-up path. Do not create numbered tasks for them unless they have been reclassified into `unresolved_task_required_findings`.
 - Do not create a numbered review-fix task solely because a finding required a small local automated test update or one or two new focused tests in the owning repository.
 - If this step creates or updates the cycle's fresh final revalidation task, it becomes the one final review task for the whole current review cycle. Record that ownership in `review-disposition-state.json` so the inline-minor final-task path does not create a second final task later.
@@ -76,6 +81,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
    - the plan contains at least one newly added review-created `Task Status: __to_do__` task after that section;
    - the plan contains a fresh final re-test or revalidation task after those new review-fix tasks;
    - each newly added review-created repair task names exactly one repository and follows the existing task structure;
+   - each newly added review-created repair task and the fresh final revalidation task contain the formatter-derived `Created` point required by `shared/review-created-task-timestamp.md`;
    - each new review-created task records durable finding coverage in the plan itself, such as an `Addresses Findings` section or equivalent inline wording;
    - the fresh final revalidation task explicitly states that it revalidates the whole story plus the current review-created findings block for this `review_pass_id`, also covers any `resolved_minor_findings` already recorded for this same active review cycle, starts with only each worked-on repository's supported lint and formatting item types with unsupported commands omitted, and ensures each such repository has its discovered supported full build when available, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting, in that order, with unsupported or unavailable items omitted;
    - no newly added substantive review-created task hides runnable build, test, compose, browser, or wrapper commands inside `Subtasks`, unless that substantive task is specifically creating, repairing, or proving a harness or wrapper; the dedicated final task's per-repository lint and formatting checklist is the explicit exception;
@@ -93,6 +99,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 <repair_rules>
 
 1. When findings are present and the plan is missing review-fix tasks, locate the existing structured `Code Review Findings` block for the exact current `review_pass_id` and add the tasks in the repository's existing review-task format. Do not append another findings section.
+1a. Preserve every completed `minor_fix_loop_audit` task in place. New grouped repair tasks may follow those audit tasks; their `Addresses Findings` sections are the authoritative mapping used by the later audit-coverage refresh.
 2. Add one or more review-fix tasks that respond to the unresolved task-required findings from the chosen source of truth, with explicit repository ownership, compact subtasks, proof homes, and wrapper-first testing.
 3. When a routed finding reason says the external reviewer's suggested remedy is out-of-scope, make the new review-created task explicitly preserve that constraint. Task wording must target the underlying defect and must not silently convert the external reviewer's broader behavior change into current-story scope.
 4. Add a fresh dedicated final re-test or revalidation task after the new review-fix tasks, so the story cannot close without re-running proof. Give it one administrative `Repository Name`, name every worked-on repository and affected component from the whole story plus the current review cycle, add the shared contract's repair-scope note first in both `Subtasks` and `Testing`, generate only each repository's independently discovered supported lint and formatting items in `Subtasks`, and, for each worked-on repository, list its discovered supported full build when available, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting, in that order, with unsupported or unavailable items omitted from `Testing` and no targeted filters or invented commands.
@@ -165,6 +172,7 @@ Repair the canonical plan so the stored review outcome is definitely encoded int
 - Confirm the stored review handoff and referenced artifacts were interpreted semantically, including local-HEAD-vs-resolved-base comparison context and any remote/fallback uncertainty that affects confidence.
 - Confirm that an unresolved task-required findings-present handoff or disposition state did not leave the plan without new review-created `__to_do__` tasks and a final revalidation task.
 - Confirm that those new review-created tasks still carry durable finding coverage in the plan itself.
+- Confirm that every task first created by this invocation has exactly one formatter-derived `Created` point immediately above `Overview`, and that an existing matching task retained its original value.
 - Confirm the current `review_pass_id` appears in exactly one structured `## Code Review Findings` block and that task-up did not append the retired terse summary format.
 - Confirm that the fresh final revalidation task explicitly covers the current review-created findings block for this `review_pass_id`, also covers any inline-resolved minor fixes from the same review cycle, ensures each worked-on repository has its discovered supported full build when available, applicable startup, every relevant repository-supported full automated suite including supported end-to-end suites, matching shutdown, supported lint, and supported formatting, in that order, with unsupported or unavailable items omitted, and was not forced into bogus single-repository proof scope.
 - Confirm that every review-created task kept one `Repository Name` implementation owner while still allowing cross-repository `Testing` when the finding needs compatibility proof.

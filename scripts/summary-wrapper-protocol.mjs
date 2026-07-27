@@ -112,6 +112,7 @@ export const createSummaryWrapperProtocol = ({
 }) => {
   let phase = initialPhase;
   let heartbeatTimer;
+  let heartbeatExtraFields = {};
 
   const emitStatus = ({
     status,
@@ -142,7 +143,11 @@ export const createSummaryWrapperProtocol = ({
   };
 
   const emitHeartbeat = () => {
-    emitStatus({ status: 'running', reason: 'running' });
+    emitStatus({
+      status: 'running',
+      reason: 'running',
+      extraFields: heartbeatExtraFields,
+    });
   };
 
   return {
@@ -151,6 +156,9 @@ export const createSummaryWrapperProtocol = ({
     },
     getPhase() {
       return phase;
+    },
+    setHeartbeatFields(fields = {}) {
+      heartbeatExtraFields = { ...fields };
     },
     startHeartbeat() {
       if (heartbeatTimer) return;

@@ -62,6 +62,7 @@ export type PreparedReviewContextReference = {
   review_context_sha256: string;
   review_context_source_plan_sha256: string;
   review_excluded_paths: string[];
+  plan_host_root?: string;
 };
 
 const defaultDeps: ReviewContextDeps = {
@@ -164,11 +165,12 @@ export async function loadPreparedReviewContext(params: {
   const context = parsePreparedReviewContext(
     JSON.parse(await readFile(expectedPath, 'utf8')),
   );
+  const planHostRoot = params.preparedBase.plan_host_root ?? params.repoRoot;
   const resolvedPlanPath = path.resolve(
-    params.repoRoot,
+    planHostRoot,
     params.preparedBase.plan_path,
   );
-  const planRelative = path.relative(params.repoRoot, resolvedPlanPath);
+  const planRelative = path.relative(planHostRoot, resolvedPlanPath);
   if (
     planRelative === '..' ||
     planRelative.startsWith(`..${path.sep}`) ||

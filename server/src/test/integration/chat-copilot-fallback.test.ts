@@ -283,11 +283,15 @@ test('explicit Copilot chat requests tolerate endpoint discovery failures during
       message: 'Continue even if endpoint discovery throws',
     });
 
-    assert.equal(response.status, 202);
-    assert.equal(response.body.provider, 'copilot');
+    assert.equal(response.status, 503);
+    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+    assert.match(
+      String(response.body.message),
+      /failed to discover external models/i,
+    );
     assert.equal(
-      memoryConversations.get('copilot-discovery-failure-tolerated')?.provider,
-      'copilot',
+      memoryConversations.get('copilot-discovery-failure-tolerated'),
+      undefined,
     );
   } finally {
     await server?.stop();

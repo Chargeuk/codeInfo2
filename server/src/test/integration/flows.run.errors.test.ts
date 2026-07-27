@@ -28,10 +28,11 @@ import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
-import { startFlowRun } from '../../flows/service.js';
 import {
+  __resetFreshRunRetryOwnershipCompletionForTests,
   __resetFlowServiceDepsForTests,
   __setFlowServiceDepsForTests,
+  startFlowRun,
 } from '../../flows/service.js';
 import type {
   ReingestError,
@@ -938,6 +939,76 @@ test('continueOnFailure lets a later llm step run after a terminal llm failure',
           entry.message === 'flows.run.llm_failure_continued' &&
           entry.context.flowName === flowName &&
           entry.context.identifier === 'missing',
+      ),
+      true,
+    );
+  });
+});
+
+test('continueOnFailure lets a later step run after break setup fails', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
+    const conversationId = 'flow-break-setup-failure-continues';
+    const flowName = 'break-setup-failure-continues';
+
+    await writeFlowFile({
+      tmpDir,
+      flowName,
+      steps: [
+        makeLlmStep(),
+        {
+          type: 'break',
+          agentType: 'missing_agent',
+          identifier: 'missing',
+          question: 'Continue after setup failure?',
+          breakOn: 'yes',
+          continueOnFailure: true,
+        },
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          messages: [{ role: 'user', content: ['after break setup failure'] }],
+        },
+      ],
+    });
+
+    subscribeConversation(ws, conversationId);
+    await supertest(baseUrl)
+      .post(`/flows/${flowName}/run`)
+      .send({ conversationId })
+      .expect(202);
+
+    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
+    const turns = await waitForTurns(
+      conversationId,
+      (items) =>
+        items.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'failed' &&
+            turn.content.includes('Agent missing_agent not found'),
+        ) &&
+        items.some(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('after break setup failure'),
+        ),
+    );
+
+    assert.equal(
+      turns.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'failed' &&
+          turn.content.includes('Agent missing_agent not found'),
+      ),
+      true,
+    );
+    assert.equal(
+      turns.some(
+        (turn) =>
+          turn.role === 'user' &&
+          turn.content.includes('after break setup failure'),
       ),
       true,
     );
@@ -2321,6 +2392,122 @@ test('same-process completed retryOwnershipId replay reuses the earlier fresh-ru
     assert.deepEqual(replayResult, firstResult);
     await delay(150);
     assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
+  });
+});
+
+test('post-success retry completion write failure is retried before ownership release and survives local barrier loss', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'retry-completion-persist-retry',
+      steps: [makeLlmStep()],
+    });
+    const originalSet = memoryConversations.set;
+    let injectedFailure = false;
+    memoryConversations.set = ((key: string, value: Conversation) => {
+      const flow = value.flags?.flow as
+        | { retryOwnershipCompletion?: unknown }
+        | undefined;
+      if (!injectedFailure && flow?.retryOwnershipCompletion) {
+        injectedFailure = true;
+        throw new Error('post-success completion write failed once');
+      }
+      return originalSet.call(memoryConversations, key, value);
+    }) as typeof memoryConversations.set;
+
+    try {
+      const firstResult = await startFlowRun({
+        flowName: 'retry-completion-persist-retry',
+        source: 'REST',
+        retryOwnershipId: 'fresh-run-retry-persisted',
+        chatFactory: () => new MinimalChat(),
+      });
+      subscribeConversation(ws, firstResult.conversationId);
+      await waitForFlowFinal({
+        ws,
+        conversationId: firstResult.conversationId,
+        status: 'ok',
+      });
+      await waitForConversationUnlocked(firstResult.conversationId);
+      assert.equal(injectedFailure, true);
+      assert.ok(
+        memoryConversations.get(firstResult.conversationId)?.flags?.flow
+          ?.retryOwnershipCompletion,
+      );
+
+      __resetFreshRunRetryOwnershipCompletionForTests();
+      const replayResult = await startFlowRun({
+        flowName: 'retry-completion-persist-retry',
+        source: 'REST',
+        retryOwnershipId: 'fresh-run-retry-persisted',
+        chatFactory: () => new MinimalChat(),
+      });
+      assert.deepEqual(replayResult, firstResult);
+      await delay(150);
+      assert.equal(
+        (memoryTurns.get(firstResult.conversationId) ?? []).length,
+        2,
+      );
+    } finally {
+      memoryConversations.set = originalSet;
+    }
+  });
+});
+
+test('terminal retry completion write failures still release the lock and active ownership', async () => {
+  await withFlowHarness(async ({ tmpDir, ws }) => {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'retry-completion-persist-terminal-failure',
+      steps: [makeLlmStep()],
+    });
+    const originalSet = memoryConversations.set;
+    let injectedFailureCount = 0;
+    memoryConversations.set = ((key: string, value: Conversation) => {
+      const flow = value.flags?.flow as
+        | { retryOwnershipCompletion?: unknown }
+        | undefined;
+      if (injectedFailureCount < 2 && flow?.retryOwnershipCompletion) {
+        injectedFailureCount += 1;
+        throw new Error('post-success completion write failed');
+      }
+      return originalSet.call(memoryConversations, key, value);
+    }) as typeof memoryConversations.set;
+
+    try {
+      const firstResult = await startFlowRun({
+        flowName: 'retry-completion-persist-terminal-failure',
+        source: 'REST',
+        retryOwnershipId: 'fresh-run-retry-terminal-failure',
+        chatFactory: () => new MinimalChat(),
+      });
+      subscribeConversation(ws, firstResult.conversationId);
+      await waitForFlowFinal({
+        ws,
+        conversationId: firstResult.conversationId,
+        status: 'ok',
+      });
+      await waitForConversationUnlocked(firstResult.conversationId);
+      assert.equal(injectedFailureCount, 2);
+
+      __resetFreshRunRetryOwnershipCompletionForTests();
+      memoryConversations.set = originalSet;
+      const retryResult = await startFlowRun({
+        flowName: 'retry-completion-persist-terminal-failure',
+        source: 'REST',
+        retryOwnershipId: 'fresh-run-retry-terminal-failure',
+        chatFactory: () => new MinimalChat(),
+      });
+      assert.notEqual(retryResult.conversationId, firstResult.conversationId);
+      subscribeConversation(ws, retryResult.conversationId);
+      await waitForFlowFinal({
+        ws,
+        conversationId: retryResult.conversationId,
+        status: 'ok',
+      });
+    } finally {
+      memoryConversations.set = originalSet;
+    }
   });
 });
 

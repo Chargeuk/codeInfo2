@@ -419,6 +419,37 @@ describe('Flows page run/resume controls', () => {
     ).toBeTruthy();
   });
 
+  it('renders persisted subflow-wave counts in the parent transcript', async () => {
+    setupFlowsRunHarness({
+      turns: {
+        items: [
+          {
+            turnId: 'wave-turn-1',
+            conversationId: 'flow-1',
+            role: 'assistant',
+            content:
+              'Completed subflow wave: expected 7, running 0, completed 6, failed 0, stopped 0, not applicable 1',
+            provider: 'codex',
+            model: 'gpt-5',
+            status: 'ok',
+            createdAt: '2025-01-01T00:00:01.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await selectFirstConversation();
+    expect(
+      await screen.findByText(
+        'Completed subflow wave: expected 7, running 0, completed 6, failed 0, stopped 0, not applicable 1',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('disables the custom title input during resume and inflight states', async () => {
     const now = new Date().toISOString();
     mockFetch.mockImplementation(

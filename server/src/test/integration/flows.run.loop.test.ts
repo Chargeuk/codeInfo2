@@ -24,7 +24,7 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { startFlowRun } from '../../flows/service.js';
+import { getFlowRunStatus, startFlowRun } from '../../flows/service.js';
 import type { Turn } from '../../mongo/turn.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
@@ -153,6 +153,9 @@ class ScriptedChat extends ChatInterface {
     }
     this.emit('thread', { type: 'thread', threadId: conversationId });
     const rawResponse = this.responder(message);
+    if (rawResponse === '__throw') {
+      throw new Error('scripted chat failure');
+    }
     const delayedMatch = rawResponse.match(/^__delay:(\d+)::([\s\S]*)$/);
     if (delayedMatch) {
       try {
@@ -476,6 +479,344 @@ test('flow loops until break answer matches breakOn', async () => {
       await cleanupConversationRuntime(conversationId, agentConversationId);
     },
   );
+});
+
+test('haltFlow break stops the complete flow instead of advancing outer steps', async () => {
+  await withFlowServer(
+    (message) =>
+      message.includes('Halt complete flow?')
+        ? JSON.stringify({ answer: 'yes' })
+        : 'unexpected',
+    async ({ baseUrl }) => {
+      const conversationId = 'flow-halt-break';
+      await supertest(baseUrl)
+        .post('/flows/halt-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'assistant' && turn.content.includes('"yes"'),
+          ),
+        15000,
+      );
+      await waitForRuntimeCleanup(conversationId);
+
+      const status = await getFlowRunStatus(conversationId);
+      assert.equal(status?.status, 'stopped');
+      assert.equal(status?.terminal, true);
+
+      assert.equal(
+        turns.some((turn) =>
+          turn.content.includes('This step must not execute'),
+        ),
+        false,
+      );
+      assert.equal(
+        turns.some((turn) =>
+          turn.content.includes('This top-level step must not execute'),
+        ),
+        false,
+      );
+      await cleanupConversationRuntime(conversationId);
+    },
+  );
+});
+
+test('exitFlow break exits the complete flow as a successful best-effort result', async () => {
+  await withFlowServer(
+    (message) =>
+      message.includes('Exit complete flow successfully?')
+        ? JSON.stringify({ answer: 'yes' })
+        : 'unexpected',
+    async ({ baseUrl }) => {
+      const conversationId = 'flow-exit-break';
+      await supertest(baseUrl)
+        .post('/flows/exit-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'assistant' && turn.content.includes('"yes"'),
+          ),
+        15000,
+      );
+      await waitForRuntimeCleanup(conversationId);
+
+      const status = await getFlowRunStatus(conversationId);
+      assert.equal(status?.status, 'ok');
+      assert.equal(status?.terminal, true);
+      assert.equal(status?.terminalOutcome, 'not_applicable');
+      assert.equal(
+        turns.some((turn) =>
+          turn.content.includes(
+            'This step must not execute after a best-effort exit',
+          ),
+        ),
+        false,
+      );
+      assert.equal(
+        turns.some((turn) =>
+          turn.content.includes(
+            'This top-level step must not execute after a best-effort exit',
+          ),
+        ),
+        false,
+      );
+      await cleanupConversationRuntime(conversationId);
+    },
+  );
+});
+
+test('startLoop maxIterations exits normally and advances to the next step', async () => {
+  await withFlowServer(
+    () => 'ok',
+    async ({ baseUrl }) => {
+      const conversationId = 'flow-loop-max-iterations';
+      await supertest(baseUrl)
+        .post('/flows/loop-max-iterations/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('After bounded loop.'),
+          ),
+        15000,
+      );
+      await waitForRuntimeCleanup(conversationId);
+
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Bounded loop iteration.'),
+        ).length,
+        2,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('After bounded loop.'),
+        ).length,
+        1,
+      );
+      const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+        | {
+            lastLoopExit?: {
+              loopStepPath?: number[];
+              iteration?: number;
+              reason?: string;
+            };
+          }
+        | undefined;
+      assert.deepEqual(flowState?.lastLoopExit, {
+        loopStepPath: [0],
+        iteration: 2,
+        reason: 'max_iterations',
+      });
+      await cleanupConversationRuntime(conversationId);
+    },
+  );
+});
+
+test('bounded implementation blocker escalation skips, repairs, and continues after stronger failure', async () => {
+  const scenarios = [
+    {
+      name: 'normal repair cleared blocker',
+      normalGate: 'yes',
+      exitGate: 'yes',
+      blockerRemains: 'no',
+      normalResponse: 'ok',
+      researchResponse: 'ok',
+      expectedResearchCalls: 0,
+      expectedNormalContinuation: 1,
+    },
+    {
+      name: 'normal repair left blocker for stronger repair',
+      normalGate: 'no',
+      exitGate: 'yes',
+      blockerRemains: 'no',
+      normalResponse: 'ok',
+      researchResponse: 'ok',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 1,
+    },
+    {
+      name: 'normal repair failure still reaches stronger repair and blocker gate',
+      normalGate: 'no',
+      exitGate: 'yes',
+      blockerRemains: 'no',
+      normalResponse: '__throw',
+      researchResponse: 'ok',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 1,
+    },
+    {
+      name: 'invalid normal completion still reaches stronger repair and blocker gate',
+      normalGate: 'invalid',
+      exitGate: 'yes',
+      blockerRemains: 'no',
+      normalResponse: 'ok',
+      researchResponse: 'ok',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 1,
+    },
+    {
+      name: 'stronger repair failure preserves authoritative blocker routing',
+      normalGate: 'no',
+      exitGate: 'yes',
+      blockerRemains: 'yes',
+      normalResponse: 'ok',
+      researchResponse: '__throw',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 0,
+    },
+    {
+      name: 'post-research control failure preserves authoritative blocker routing',
+      normalGate: 'no',
+      exitGate: 'invalid',
+      blockerRemains: 'yes',
+      normalResponse: 'ok',
+      researchResponse: 'ok',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 0,
+    },
+    {
+      name: 'post-research provider failure preserves authoritative blocker routing',
+      normalGate: 'no',
+      exitGate: '__throw',
+      blockerRemains: 'yes',
+      normalResponse: 'ok',
+      researchResponse: 'ok',
+      expectedResearchCalls: 1,
+      expectedNormalContinuation: 0,
+    },
+  ] as const;
+
+  for (const [index, scenario] of scenarios.entries()) {
+    let researchCalls = 0;
+    await withFlowServer(
+      (message) => {
+        if (
+          message.includes(
+            'Did normal repair clear the implementation blocker?',
+          )
+        ) {
+          if (scenario.normalGate === 'invalid') {
+            return 'normal completion evidence was malformed';
+          }
+          return JSON.stringify({ answer: scenario.normalGate });
+        }
+        if (message.includes('Normal deep blocker repair.')) {
+          return scenario.normalResponse;
+        }
+        if (message.includes('Stronger implementation blocker repair.')) {
+          researchCalls += 1;
+          return scenario.researchResponse;
+        }
+        if (
+          message.includes('Exit the bounded stronger implementation repair?')
+        ) {
+          if (scenario.exitGate === 'invalid') {
+            return 'post-research control evidence was malformed';
+          }
+          if (scenario.exitGate === '__throw') return '__throw';
+          return JSON.stringify({ answer: scenario.exitGate });
+        }
+        if (
+          message.includes(
+            'Does the authoritative implementation blocker remain?',
+          )
+        ) {
+          return JSON.stringify({ answer: scenario.blockerRemains });
+        }
+        return 'ok';
+      },
+      async ({ baseUrl }) => {
+        const conversationId = `flow-implementation-blocker-escalation-${index}`;
+        await supertest(baseUrl)
+          .post('/flows/implementation-blocker-escalation/run')
+          .send({ conversationId })
+          .expect(202);
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('After blocker routing.'),
+            ),
+          15000,
+        );
+        await waitForRuntimeCleanup(conversationId);
+
+        if (scenario.expectedResearchCalls === 0) {
+          assert.equal(researchCalls, 0, scenario.name);
+        } else {
+          assert.ok(researchCalls >= 1, scenario.name);
+        }
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Stronger implementation blocker repair.'),
+          ).length,
+          scenario.expectedResearchCalls,
+          scenario.name,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Normal implementation continued.'),
+          ).length,
+          scenario.expectedNormalContinuation,
+          scenario.name,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Does the authoritative implementation blocker remain?',
+              ),
+          ).length,
+          1,
+          scenario.name,
+        );
+        assert.equal(
+          (await getFlowRunStatus(conversationId))?.status,
+          'ok',
+          scenario.name,
+        );
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, [
+            'coding_agent:coder',
+            'research_agent:implementation_blocker_researcher',
+            'loop_control_agent:implementation_research_loop_controller',
+            'loop_control_agent:loop_controller',
+            'coding_agent_lite:lite_coder',
+            'planning_agent:planner',
+          ]),
+        );
+      },
+    );
+  }
 });
 
 test('continue step skips remaining iteration steps and starts the next iteration', async () => {
@@ -948,7 +1289,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
             (turn) =>
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 1,
-        5000,
+        15000,
       );
 
       assert.equal(
@@ -1402,6 +1743,86 @@ test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no vali
       assert.equal(
         final.error?.message,
         'Break response must include answer "yes" or "no".',
+      );
+      await cleanupConversationRuntime(conversationId);
+    },
+  );
+});
+
+test('break step does not continue after an invalid response', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Exit best-effort loop?')) {
+        return 'I cannot produce the requested decision format.';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl }) => {
+      const conversationId = 'flow-loop-conv-break-on-failure';
+
+      await supertest(baseUrl)
+        .post('/flows/loop-break-on-failure/run')
+        .send({ conversationId })
+        .expect(202);
+
+      await waitForRuntimeCleanup(conversationId, 15000);
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.status === 'failed' &&
+              turn.content.includes('Break response must be'),
+          ),
+        10000,
+      );
+      const status = await getFlowRunStatus(conversationId);
+
+      assert.equal(status?.status, 'failed');
+      assert.equal(status?.terminal, true);
+      assert.equal(
+        turns.some((turn) =>
+          turn.content.includes('Continue after loop.'),
+        ),
+        false,
+      );
+      await cleanupConversationRuntime(conversationId);
+    },
+  );
+});
+
+test('break step continues after provider execution failure', async () => {
+  await withFlowServer(
+    (message) =>
+      message.includes('Exit best-effort loop?') ? '__throw' : 'ok',
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-conv-break-execution-failure';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await supertest(baseUrl)
+        .post('/flows/loop-break-on-failure/run')
+        .send({ conversationId })
+        .expect(202);
+
+      await waitForRuntimeCleanup(conversationId, 15000);
+      const status = await getFlowRunStatus(conversationId);
+      const turns = memoryTurns.get(conversationId) ?? [];
+      assert.equal(
+        status?.status,
+        'ok',
+        JSON.stringify(
+          turns.map((turn) => ({
+            role: turn.role,
+            status: turn.status,
+            content: turn.content,
+            label: (turn.command as { label?: string } | null)?.label,
+          })),
+        ),
+      );
+      assert.equal(
+        turns.some((turn) => turn.content.includes('Continue after loop.')),
+        true,
       );
       await cleanupConversationRuntime(conversationId);
     },

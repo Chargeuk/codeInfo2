@@ -33,6 +33,55 @@ function getServiceBlock(content: string, serviceName: string): string {
   return block.join('\n');
 }
 
+function countOccurrences(content: string, value: string): number {
+  return content.split(value).length - 1;
+}
+
+function collectProductionFlowAgentTypes(
+  flowName: string,
+  seen = new Set<string>(),
+  agentTypes = new Set<string>(),
+): Set<string> {
+  if (seen.has(flowName)) return agentTypes;
+  seen.add(flowName);
+  const parsed = JSON.parse(readRepoFile(`flows/${flowName}.json`)) as {
+    steps?: Array<Record<string, unknown>>;
+  };
+  const visit = (steps: Array<Record<string, unknown>>) => {
+    for (const step of steps) {
+      if (typeof step.agentType === 'string') agentTypes.add(step.agentType);
+      if (Array.isArray(step.steps)) {
+        visit(step.steps as Array<Record<string, unknown>>);
+      }
+      if (step.type === 'subflow' && Array.isArray(step.flowNames)) {
+        for (const childFlowName of step.flowNames) {
+          if (typeof childFlowName === 'string') {
+            collectProductionFlowAgentTypes(childFlowName, seen, agentTypes);
+          }
+        }
+      }
+      if (step.type === 'subflowWave' && Array.isArray(step.groups)) {
+        for (const group of step.groups as Array<Record<string, unknown>>) {
+          const childFlowNames = [
+            ...(typeof group.flowName === 'string' ? [group.flowName] : []),
+            ...(Array.isArray(group.flowNames)
+              ? group.flowNames.filter(
+                  (flowName): flowName is string =>
+                    typeof flowName === 'string',
+                )
+              : []),
+          ];
+          for (const childFlowName of childFlowNames) {
+            collectProductionFlowAgentTypes(childFlowName, seen, agentTypes);
+          }
+        }
+      }
+    }
+  };
+  visit(parsed.steps ?? []);
+  return agentTypes;
+}
+
 test('root compose inventory for Task 11 remains scoped to the checked-in files', () => {
   const rootComposeFiles = fs
     .readdirSync(repoRoot)
@@ -46,7 +95,7 @@ test('root compose inventory for Task 11 remains scoped to the checked-in files'
   ]);
 });
 
-test('main stays image-baked while local host-network compose exposes the live dev overlay mounts', () => {
+test('compose stacks expose harness instructions while local uses live workflow overlays', () => {
   const dockerfile = readRepoFile('server/Dockerfile');
   const mainCompose = readRepoFile('docker-compose.yml');
   const localCompose = readRepoFile('docker-compose.local.yml');
@@ -117,14 +166,21 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
   assert.match(mainServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
   assert.match(mainServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=5/u);
-  assert.match(mainServer, /CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012,5013/u);
+  assert.match(
+    mainServer,
+    /CODEINFO_RUNTIME_SERVER_PORTS=5010,5011,5012,5013/u,
+  );
   assert.match(
     mainServer,
     /\$\{CODEINFO_HOST_CODEX_HOME:-\$HOME\/\.codex\}:\/host\/codex:ro/u,
   );
   assert.match(mainServer, /codex-data:\/app\/codex/u);
   assert.doesNotMatch(mainServer, /codex-data:\/host\/codex:ro/u);
-  assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u);
+  assert.match(mainServer, /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:rw/u);
+  assert.doesNotMatch(
+    mainServer,
+    /\$\{CODEINFO_HOST_INGEST_DIR:-\/tmp\}:\/data:ro/u,
+  );
   assert.match(
     entrypoint,
     /export HOME="\$runtime_home"\nexport CODEX_HOME="\$\{CODEX_HOME:-\$\{CODEINFO_CODEX_HOME:-\$runtime_home\}\}"/u,
@@ -172,6 +228,28 @@ test('main stays image-baked while local host-network compose exposes the live d
   );
   assert.match(localServer, /\.\/flows:\/app\/flows/u);
   assert.match(localServer, /\.\/flows-sandbox:\/app\/flows-sandbox/u);
+  assert.equal(countOccurrences(localServer, './scripts:/app/scripts:ro'), 1);
+  assert.equal(
+    countOccurrences(
+      localServer,
+      './codeinfo_markdown:/app/codeinfo_markdown:ro',
+    ),
+    1,
+  );
+  assert.equal(countOccurrences(localServer, './flows:/app/flows'), 1);
+  assert.equal(
+    countOccurrences(localServer, './flows-sandbox:/app/flows-sandbox'),
+    1,
+  );
+  assert.equal(
+    fs.existsSync(
+      path.join(
+        repoRoot,
+        'codeinfo_markdown/shared/review-wave-consumer-contract.md',
+      ),
+    ),
+    true,
+  );
   assert.match(localServer, /CODEINFO_SERVER_PORT=5510/u);
   assert.match(localServer, /CODEINFO_WEB_MCP_PORT=5513/u);
   assert.match(localServer, /CODEINFO_LMSTUDIO_HOME=\/app\/lmstudio/u);
@@ -194,7 +272,10 @@ test('main stays image-baked while local host-network compose exposes the live d
     /\$\{CODEINFO_DOCKER_SOCKET_PATH:-\/var\/run\/docker\.sock\}:\/var\/run\/docker\.sock/u,
   );
   assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=6/u);
-  assert.match(localServer, /CODEINFO_RUNTIME_SERVER_PORTS=5510,5511,5512,5513/u);
+  assert.match(
+    localServer,
+    /CODEINFO_RUNTIME_SERVER_PORTS=5510,5511,5512,5513/u,
+  );
 
   const localPlaywright = getServiceBlock(localCompose, 'playwright-mcp');
   assert.match(localPlaywright, /network_mode: host/u);
@@ -206,6 +287,37 @@ test('main stays image-baked while local host-network compose exposes the live d
     localPlaywright,
     /\.\/playwright-output-local:\/tmp\/playwright-output/u,
   );
+});
+
+test('main-stack manual agent catalog covers every reachable production flow agent', () => {
+  const agentTypes = new Set<string>();
+  for (const flowName of [
+    'implement_current_plan',
+    'implement_next_plan',
+    'improve_task_implement_plan',
+    'task_and_implement_plan',
+  ]) {
+    collectProductionFlowAgentTypes(flowName, new Set<string>(), agentTypes);
+  }
+
+  for (const agentType of agentTypes) {
+    const agentRoot = path.join(
+      repoRoot,
+      'manual_testing/codeinfo_agents',
+      agentType,
+    );
+    for (const requiredFile of [
+      'config.toml',
+      'description.md',
+      'system_prompt.txt',
+    ]) {
+      assert.equal(
+        fs.existsSync(path.join(agentRoot, requiredFile)),
+        true,
+        `main-stack manual catalog must provide ${agentType}/${requiredFile}`,
+      );
+    }
+  }
 });
 
 test('e2e server host-network contract removes checked-in runtime-tree mounts', () => {

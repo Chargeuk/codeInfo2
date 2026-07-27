@@ -114,34 +114,39 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   };
 };
 
-import {
-  clearCodexReviewPointerFile,
-  resolveCodexReviewModel,
-  resolveCodexReviewReasoningEffort,
-  runCodexReviewStep,
-  type CodexReviewReasoningEffort,
-} from './codexReview.js';
 import { discoverFlows, type FlowSummary } from './discovery.js';
+import { runFlowDecisionScript } from './flowDecisionScript.js';
 import {
-  parseFlowFile,
+  __resetFlowDefinitionCatalogForTests,
+  getFlowDefinitionCatalogEntry,
+  resolveConfiguredFlowsRoot,
+} from './flowDefinitionCatalog.js';
+import {
+  hashFlowInput,
+  normalizeFlowInput,
+  prependAssignedReviewJobContext,
+  tryNormalizeFlowInput,
+} from './flowInput.js';
+import {
   type FlowFile,
   type FlowBreakStep,
   type FlowContinueStep,
   type FlowCommandStep,
-  type FlowCodexReviewStep,
   type FlowLlmStep,
-  type FlowPrepareReviewBaseStep,
+  type FlowPrepareReviewTargetsStep,
   type FlowReingestStep,
   type FlowResetStep,
+  type FlowInitializeReviewCycleStep,
   type FlowStartLoopStep,
   type FlowSubflowStep,
-  type FlowValidateReviewArtifactsStep,
+  type FlowSubflowWaveStep,
   type FlowStep,
 } from './flowSchema.js';
 import type {
   FlowActiveSubflow,
   FlowPendingLoopControl,
   FlowResumeState,
+  FlowSubflowWaveProgress,
   FreshRunRetryOwnershipCompletion,
 } from './flowState.js';
 import {
@@ -157,12 +162,27 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from './repositoryCandidateOrder.js';
-import { validateReviewArtifacts } from './reviewArtifacts.js';
-import { prepareReviewBase } from './reviewBase.js';
+import { prepareReviewBatchWorkspace } from './reviewBatchWorkspace.js';
+import {
+  finalizeActiveReviewCycleIfPending,
+  initializeReviewCycle,
+  readActiveFinalReviewCycleStatus,
+  recordReviewInvocationAttempt,
+  type ReviewInvocationAttemptStatus,
+} from './reviewCycleLifecycle.js';
+import { prepareReviewTargets } from './reviewTargets.js';
+import type { ReviewTargetSnapshot } from './reviewTargets.js';
+import { writeReviewUsageArtifact } from './reviewUsage.js';
+import {
+  expandSubflowWaveJobs,
+  resolveFlowValue,
+  type SubflowWaveJob,
+} from './subflowWave.js';
 import type {
   FlowAgentState,
   FlowChatFactory,
   FlowExecutionRuntimeState,
+  FlowJsonObject,
   FlowRunError,
   FlowRunErrorCode,
   FlowRunStartParams,
@@ -256,6 +276,7 @@ type FreshRunRetryOwnershipLaunch = {
   codexReviewModelId?: string;
   workingFolder?: string;
   customTitle?: string;
+  inputHash?: string;
 };
 
 const freshRunRetryOwnershipByKey = new Map<
@@ -282,6 +303,7 @@ const normalizeFreshRunRetryOwnershipLaunch = (params: {
   codexReviewModelId?: string;
   working_folder?: string;
   customTitle?: string;
+  inputHash?: string;
 }): FreshRunRetryOwnershipLaunch => ({
   flowName: params.flowName.trim(),
   source: params.source,
@@ -289,6 +311,7 @@ const normalizeFreshRunRetryOwnershipLaunch = (params: {
   codexReviewModelId: params.codexReviewModelId?.trim() || undefined,
   workingFolder: params.working_folder?.trim() || undefined,
   customTitle: params.customTitle?.trim() || undefined,
+  inputHash: params.inputHash?.trim() || undefined,
 });
 
 const makeFreshRunRetryOwnershipLaunchSignature = (
@@ -685,6 +708,7 @@ export function __resetFlowServiceDepsForTests() {
   Object.assign(flowServiceDeps, defaultFlowServiceDeps);
   freshRunRetryOwnershipByKey.clear();
   freshRunRetryOwnershipCompletedByKey.clear();
+  __resetFlowDefinitionCatalogForTests();
 }
 
 export function __resetFreshRunRetryOwnershipCompletionForTests() {
@@ -758,6 +782,7 @@ const buildSubflowConversationTitle = (params: {
   stepLabel?: string;
   childFlowName: string;
   multipleChildren?: boolean;
+  waveLabel?: string;
 }) => {
   const parentTitle =
     params.parentPersistedTitle?.trim() ||
@@ -768,7 +793,9 @@ const buildSubflowConversationTitle = (params: {
     params.multipleChildren && trimmedStepLabel
       ? `${trimmedStepLabel}-${params.childFlowName}`
       : trimmedStepLabel || params.childFlowName;
-  return `${parentTitle}-${stepTitle}`;
+  return `${parentTitle}-${stepTitle}${
+    params.waveLabel ? ` (${params.waveLabel})` : ''
+  }`;
 };
 
 const buildFlowPathEntry = (params: { flowName: string; sourceId?: string }) =>
@@ -802,14 +829,101 @@ const normalizeActiveSubflow = (value: unknown): FlowActiveSubflow | null => {
   const conversationId = normalizeOptionalString(value.conversationId);
   const runToken = normalizeOptionalString(value.runToken);
   if (!flowName || !conversationId || !runToken) return null;
+  const input = tryNormalizeFlowInput(value.input);
+  const hasPersistedInput = Object.prototype.hasOwnProperty.call(
+    value,
+    'input',
+  );
+  if (hasPersistedInput && value.input !== undefined && !input) return null;
   return {
     stepPath: normalizeNumberArray(value.stepPath),
     flowName,
     conversationId,
     runToken,
+    ...(normalizeOptionalString(value.instanceId)
+      ? { instanceId: normalizeOptionalString(value.instanceId) }
+      : {}),
+    ...(normalizeOptionalString(value.waveInvocationId)
+      ? { waveInvocationId: normalizeOptionalString(value.waveInvocationId) }
+      : {}),
+    ...(normalizeOptionalString(value.targetId)
+      ? { targetId: normalizeOptionalString(value.targetId) }
+      : {}),
+    ...(normalizeOptionalString(value.workingFolder)
+      ? { workingFolder: normalizeOptionalString(value.workingFolder) }
+      : {}),
+    ...(input ? { input } : {}),
+    ...(normalizeOptionalString(value.inputHash)
+      ? { inputHash: normalizeOptionalString(value.inputHash) }
+      : {}),
     ...(normalizeOptionalString(value.title)
       ? { title: normalizeOptionalString(value.title) }
       : {}),
+  };
+};
+
+const normalizeSubflowWaveProgress = (
+  value: unknown,
+): FlowSubflowWaveProgress | undefined => {
+  if (!isRecord(value) || !Array.isArray(value.jobs)) return undefined;
+  const statuses = new Set([
+    'pending',
+    'running',
+    'completed',
+    'failed',
+    'stopped',
+    'not_applicable',
+  ]);
+  const jobs: FlowSubflowWaveProgress['jobs'] = [];
+  for (const job of value.jobs) {
+    if (!isRecord(job)) return undefined;
+    const instanceId = normalizeOptionalString(job.instanceId);
+    const flowName = normalizeOptionalString(job.flowName);
+    const title = normalizeOptionalString(job.title);
+    const status = normalizeOptionalString(job.status);
+    if (
+      !instanceId ||
+      !flowName ||
+      !title ||
+      !status ||
+      !statuses.has(status)
+    ) {
+      return undefined;
+    }
+    jobs.push({
+      instanceId,
+      flowName,
+      ...(normalizeOptionalString(job.targetId)
+        ? { targetId: normalizeOptionalString(job.targetId) }
+        : {}),
+      ...(normalizeOptionalString(job.conversationId)
+        ? { conversationId: normalizeOptionalString(job.conversationId) }
+        : {}),
+      ...(normalizeOptionalString(job.reason)
+        ? { reason: normalizeOptionalString(job.reason) }
+        : {}),
+      title,
+      status: status as FlowSubflowWaveProgress['jobs'][number]['status'],
+    });
+  }
+  const count = (key: string) =>
+    typeof value[key] === 'number' && Number.isInteger(value[key])
+      ? Math.max(0, value[key] as number)
+      : 0;
+  return {
+    stepPath: normalizeNumberArray(value.stepPath),
+    ...(normalizeOptionalString(value.label)
+      ? { label: normalizeOptionalString(value.label) }
+      : {}),
+    expected: count('expected'),
+    running: count('running'),
+    completed: count('completed'),
+    failed: count('failed'),
+    stopped: count('stopped'),
+    notApplicable: count('notApplicable'),
+    jobs,
+    updatedAt:
+      normalizeOptionalString(value.updatedAt) ?? new Date(0).toISOString(),
   };
 };
 
@@ -834,6 +948,12 @@ const parseFlowResumeState = (
   const executionId =
     typeof flow.executionId === 'string' && flow.executionId.trim().length > 0
       ? flow.executionId.trim()
+      : undefined;
+  const waveInvocationGeneration =
+    typeof flow.waveInvocationGeneration === 'number' &&
+    Number.isInteger(flow.waveInvocationGeneration) &&
+    flow.waveInvocationGeneration > 0
+      ? flow.waveInvocationGeneration
       : undefined;
 
   const stepPath = normalizeNumberArray(flow.stepPath);
@@ -869,8 +989,21 @@ const parseFlowResumeState = (
   const retryOwnershipCompletion = parseFreshRunRetryOwnershipCompletion(
     flow.retryOwnershipCompletion,
   );
-  const activeSubflows = Array.isArray(flow.activeSubflows)
+  const persistedActiveSubflows = Array.isArray(flow.activeSubflows)
     ? flow.activeSubflows
+    : [(flow as { activeSubflow?: unknown }).activeSubflow].filter(
+        (item) => item !== undefined,
+      );
+  const hasMalformedPersistedChildInput = persistedActiveSubflows.some(
+    (item) =>
+      isRecord(item) &&
+      Object.prototype.hasOwnProperty.call(item, 'input') &&
+      item.input !== undefined &&
+      !tryNormalizeFlowInput(item.input),
+  );
+  if (hasMalformedPersistedChildInput) return null;
+  const activeSubflows = Array.isArray(flow.activeSubflows)
+    ? persistedActiveSubflows
         .map((item) => normalizeActiveSubflow(item))
         .filter((item): item is FlowActiveSubflow => Boolean(item))
     : (() => {
@@ -879,6 +1012,29 @@ const parseFlowResumeState = (
         );
         return legacyActiveSubflow ? [legacyActiveSubflow] : [];
       })();
+  const hasPersistedInput = Object.prototype.hasOwnProperty.call(flow, 'input');
+  const input = tryNormalizeFlowInput(flow.input);
+  if (hasPersistedInput && flow.input !== undefined && !input) return null;
+  const hasPersistedValues = Object.prototype.hasOwnProperty.call(
+    flow,
+    'values',
+  );
+  const values = tryNormalizeFlowInput(flow.values);
+  if (hasPersistedValues && flow.values !== undefined && !values) return null;
+  const hasPersistedSubflowWaveProgress = Object.prototype.hasOwnProperty.call(
+    flow,
+    'subflowWaveProgress',
+  );
+  const subflowWaveProgress = normalizeSubflowWaveProgress(
+    flow.subflowWaveProgress,
+  );
+  if (
+    hasPersistedSubflowWaveProgress &&
+    flow.subflowWaveProgress !== undefined &&
+    !subflowWaveProgress
+  ) {
+    return null;
+  }
   const pendingLoopControl = isRecord(flow.pendingLoopControl)
     ? flow.pendingLoopControl.kind === 'continue'
       ? {
@@ -889,17 +1045,97 @@ const parseFlowResumeState = (
         }
       : null
     : null;
+  const lastLoopExit = isRecord(flow.lastLoopExit)
+    ? (() => {
+        const reason = normalizeOptionalString(flow.lastLoopExit.reason);
+        const iteration = flow.lastLoopExit.iteration;
+        if (
+          (reason !== 'break' && reason !== 'max_iterations') ||
+          typeof iteration !== 'number' ||
+          !Number.isInteger(iteration) ||
+          iteration < 1
+        ) {
+          return null;
+        }
+        return {
+          loopStepPath: normalizeNumberArray(flow.lastLoopExit.loopStepPath),
+          iteration,
+          reason,
+        } as const;
+      })()
+    : null;
+  const restartReconciliation = isRecord(flow.restartReconciliation)
+    ? (() => {
+        const reconciledAt = normalizeOptionalString(
+          flow.restartReconciliation.reconciledAt,
+        );
+        const interruptedSubflowCount =
+          flow.restartReconciliation.interruptedSubflowCount;
+        const interruptedWaveRunningCount =
+          flow.restartReconciliation.interruptedWaveRunningCount;
+        if (
+          flow.restartReconciliation.status !== 'interrupted' ||
+          !reconciledAt ||
+          typeof interruptedSubflowCount !== 'number' ||
+          !Number.isInteger(interruptedSubflowCount) ||
+          interruptedSubflowCount < 0 ||
+          typeof interruptedWaveRunningCount !== 'number' ||
+          !Number.isInteger(interruptedWaveRunningCount) ||
+          interruptedWaveRunningCount < 0
+        ) {
+          return null;
+        }
+        return {
+          status: 'interrupted' as const,
+          reconciledAt,
+          resumeStepPath: normalizeNumberArray(
+            flow.restartReconciliation.resumeStepPath,
+          ),
+          interruptedSubflowCount,
+          interruptedWaveRunningCount,
+        };
+      })()
+    : null;
+  const runLifecycle = isRecord(flow.runLifecycle)
+    ? (() => {
+        const status = flow.runLifecycle.status;
+        const updatedAt = normalizeOptionalString(flow.runLifecycle.updatedAt);
+        return ['running', 'ok', 'stopped', 'failed', 'orphaned'].includes(
+          String(status),
+        ) && updatedAt
+          ? {
+              status: status as NonNullable<
+                FlowResumeState['runLifecycle']
+              >['status'],
+              updatedAt,
+            }
+          : null;
+      })()
+    : null;
 
   return {
     executionId: executionId ?? crypto.randomUUID(),
+    ...(waveInvocationGeneration ? { waveInvocationGeneration } : {}),
     stepPath,
     loopStack,
+    ...(lastLoopExit ? { lastLoopExit } : {}),
+    ...(restartReconciliation ? { restartReconciliation } : {}),
     ...(pendingLoopControl
       ? {
           pendingLoopControl,
         }
       : {}),
     ...(activeSubflows.length > 0 ? { activeSubflows } : {}),
+    ...(subflowWaveProgress ? { subflowWaveProgress } : {}),
+    ...(flow.terminalOutcome === 'not_applicable'
+      ? { terminalOutcome: 'not_applicable' as const }
+      : {}),
+    ...(runLifecycle ? { runLifecycle } : {}),
+    ...(input ? { input } : {}),
+    ...(normalizeOptionalString(flow.inputHash)
+      ? { inputHash: normalizeOptionalString(flow.inputHash) }
+      : {}),
+    ...(values ? { values } : {}),
     ...(typeof flow.codexReviewModelId === 'string' &&
     flow.codexReviewModelId.trim()
       ? { codexReviewModelId: flow.codexReviewModelId.trim() }
@@ -946,6 +1182,52 @@ const getFlowChildExecutionId = (
     return flags.flowChild.executionId.trim();
   }
   return null;
+};
+
+const getFlowChildWaveIdentity = (
+  conversation: Conversation | null | undefined,
+): {
+  executionId: string;
+  instanceId: string;
+  waveInvocationId: string;
+} | null => {
+  const flags = conversation?.flags;
+  const flowChild = isRecord(flags?.flowChild) ? flags.flowChild : null;
+  const executionId = normalizeOptionalString(flowChild?.executionId);
+  const instanceId = normalizeOptionalString(flowChild?.instanceId);
+  const waveInvocationId = normalizeOptionalString(flowChild?.waveInvocationId);
+  return executionId && instanceId && waveInvocationId
+    ? { executionId, instanceId, waveInvocationId }
+    : null;
+};
+
+const findFlowWaveChildren = async (params: {
+  executionId: string;
+  waveInvocationId: string;
+  instanceIds: string[];
+}): Promise<Conversation[]> => {
+  const instanceIds = new Set(params.instanceIds);
+  const matchesParentWave = (conversation: Conversation) => {
+    const identity = getFlowChildWaveIdentity(conversation);
+    return (
+      identity?.executionId === params.executionId &&
+      identity.waveInvocationId === params.waveInvocationId &&
+      instanceIds.has(identity.instanceId)
+    );
+  };
+
+  if (shouldUseMemoryPersistence()) {
+    return Array.from(memoryConversations.values()).filter(matchesParentWave);
+  }
+
+  const conversations = (await ConversationModel.find({
+    'flags.flowChild.executionId': params.executionId,
+    'flags.flowChild.waveInvocationId': params.waveInvocationId,
+    'flags.flowChild.instanceId': { $in: params.instanceIds },
+  })
+    .lean()
+    .exec()) as Conversation[];
+  return conversations.filter(matchesParentWave);
 };
 
 const getSavedRequestedProviderId = (
@@ -1129,6 +1411,7 @@ const ensureFlowConversation = async (params: {
   customTitle?: string;
   source: 'REST' | 'MCP';
   workingFolder?: string;
+  parentWave?: FlowRunStartParams['parentWave'];
 }): Promise<void> => {
   const now = new Date();
   const title = buildFlowConversationTitle({
@@ -1142,6 +1425,10 @@ const ensureFlowConversation = async (params: {
         provider: params.providerId,
         model: params.modelId,
         flowName: existing.flowName ?? params.flowName,
+        flags: {
+          ...(existing.flags ?? {}),
+          ...(params.parentWave ? { flowChild: params.parentWave } : {}),
+        },
         lastMessageAt: now,
       });
       return;
@@ -1153,9 +1440,12 @@ const ensureFlowConversation = async (params: {
       title,
       flowName: params.flowName,
       source: params.source,
-      flags: params.workingFolder
-        ? { workingFolder: params.workingFolder }
-        : {},
+      flags: {
+        ...(params.workingFolder
+          ? { workingFolder: params.workingFolder }
+          : {}),
+        ...(params.parentWave ? { flowChild: params.parentWave } : {}),
+      },
       lastMessageAt: now,
       archivedAt: null,
       createdAt: now,
@@ -1187,7 +1477,10 @@ const ensureFlowConversation = async (params: {
     title,
     flowName: params.flowName,
     source: params.source,
-    flags: params.workingFolder ? { workingFolder: params.workingFolder } : {},
+    flags: {
+      ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
+      ...(params.parentWave ? { flowChild: params.parentWave } : {}),
+    },
     lastMessageAt: now,
   });
   if (params.customTitle) {
@@ -1362,12 +1655,7 @@ const ensureFlowAgentConversation = async (params: {
   }
 };
 
-const flowsDirForRun = () => {
-  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
-  const { codeInfoRoot } = resolveAgentHomeEnv();
-  if (codeInfoRoot) return path.join(codeInfoRoot, 'flows');
-  return path.resolve('flows');
-};
+const flowsDirForRun = resolveConfiguredFlowsRoot;
 
 const codeInfo2RootForRun = () => resolveAgentHomeEnv().codeInfoRoot;
 
@@ -1401,22 +1689,16 @@ const loadFlowFile = async (params: {
       flowPath: filePath,
     },
   });
-  const jsonText = await fs.readFile(filePath, 'utf8').catch((error) => {
-    if ((error as { code?: string }).code === 'ENOENT') {
-      throw toFlowRunError('FLOW_NOT_FOUND');
-    }
-    throw error;
-  });
-
-  const parsed = parseFlowFile(jsonText, {
+  const entry = await getFlowDefinitionCatalogEntry({
+    flowsRoot: params.flowsRoot,
     flowName: params.flowName,
-    emitSchemaParseLogs: true,
   });
-  if (!parsed.ok) {
+  if (!entry) throw toFlowRunError('FLOW_NOT_FOUND');
+  if (!entry.parsed?.ok) {
     throw toFlowRunError('FLOW_INVALID');
   }
 
-  return parsed.flow;
+  return structuredClone(entry.parsed.flow);
 };
 
 const getAgentKey = (agentType: string, identifier: string) =>
@@ -1635,90 +1917,6 @@ const resolveFlowAgentRuntimeExecution = async (params: {
   }
 };
 
-const CODEX_REVIEW_REASONING_EFFORTS = new Set<CodexReviewReasoningEffort>([
-  'minimal',
-  'low',
-  'medium',
-  'high',
-  'xhigh',
-]);
-
-const resolveCodexReviewAgentProfile = async (params: {
-  step: FlowCodexReviewStep;
-  agentByName: Map<string, { configPath: string }>;
-  workingFolder?: string;
-  defaultRepositoryRoot?: string;
-  source: 'REST' | 'MCP';
-}): Promise<{
-  agentType?: string;
-  modelId?: string;
-  reasoningEffort?: CodexReviewReasoningEffort;
-  warnings: string[];
-}> => {
-  if (params.step.modelSource !== 'flow_request_or_step_or_agent') {
-    return { warnings: [] };
-  }
-
-  const agentType = params.step.agentType;
-  if (!agentType) {
-    throw toFlowRunError(
-      'INVALID_REQUEST',
-      'codexReview requires agentType when modelSource is flow_request_or_step_or_agent.',
-    );
-  }
-
-  const validatedAgentType = validateRepositoryBackedAgentType(agentType);
-  if (!validatedAgentType.ok) {
-    throw toFlowRunError(
-      'INVALID_REQUEST',
-      `Flow agent "${agentType}" ${validatedAgentType.message}.`,
-    );
-  }
-
-  const agent = params.agentByName.get(agentType);
-  if (!agent) {
-    throw toFlowRunError('AGENT_NOT_FOUND', `Agent ${agentType} not found`);
-  }
-
-  const prepared = await resolveFlowAgentRuntimeExecution({
-    agentName: agentType,
-    configPath: agent.configPath,
-    workingFolder: params.workingFolder,
-    defaultRepositoryRoot: params.defaultRepositoryRoot,
-    source: params.source,
-    allowFallback: false,
-  });
-  if (prepared.providerId !== 'codex') {
-    throw toFlowRunError(
-      'INVALID_REQUEST',
-      `codexReview agent ${agentType} must resolve to the codex provider.`,
-    );
-  }
-
-  const configuredReasoningEffort =
-    prepared.runtimeConfig?.model_reasoning_effort;
-  if (
-    configuredReasoningEffort !== undefined &&
-    !CODEX_REVIEW_REASONING_EFFORTS.has(
-      configuredReasoningEffort as CodexReviewReasoningEffort,
-    )
-  ) {
-    throw toFlowRunError(
-      'INVALID_REQUEST',
-      `codexReview agent ${agentType} has unsupported model_reasoning_effort "${configuredReasoningEffort}".`,
-    );
-  }
-
-  return {
-    agentType,
-    modelId: prepared.modelId,
-    reasoningEffort: configuredReasoningEffort as
-      | CodexReviewReasoningEffort
-      | undefined,
-    warnings: prepared.warnings ?? [],
-  };
-};
-
 const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
   const runtimeState: FlowExecutionRuntimeState = new Map();
   if (!resumeState) return runtimeState;
@@ -1785,10 +1983,10 @@ const buildFlowCommandMetadata = (params: {
     | FlowContinueStep
     | FlowCommandStep
     | FlowResetStep
-    | FlowPrepareReviewBaseStep
-    | FlowCodexReviewStep
-    | FlowValidateReviewArtifactsStep
+    | FlowInitializeReviewCycleStep
+    | FlowPrepareReviewTargetsStep
     | FlowSubflowStep
+    | FlowSubflowWaveStep
     | FlowReingestStep;
   stepIndex: number;
   totalSteps: number;
@@ -1815,6 +2013,7 @@ type FlowInstructionResult = {
   status: TurnStatus;
   content: string;
   toolCalls: Record<string, unknown> | null;
+  failureKind?: 'execution' | 'invalid_response';
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
 };
@@ -1822,6 +2021,7 @@ type FlowInstructionResult = {
 type FlowInstructionPostProcess = (result: FlowInstructionResult) => {
   status?: TurnStatus;
   content?: string;
+  failureKind?: 'execution' | 'invalid_response';
   finalOverride?: {
     status: TurnStatus;
     error?: { code?: string; message?: string };
@@ -2276,6 +2476,9 @@ const runFlowInstruction = async (params: {
   const postProcessed = params.postProcess?.(result);
   if (postProcessed?.status) result.status = postProcessed.status;
   if (postProcessed?.content) result.content = postProcessed.content;
+  if (postProcessed?.failureKind) {
+    result.failureKind = postProcessed.failureKind;
+  }
 
   const resultDecision = params.onResult?.(result, {
     attempt: params.attempt ?? 1,
@@ -2471,20 +2674,45 @@ const createNoopChat = () =>
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const getFlowConversationTerminalStatus = async (params: {
+export type FlowChildLifecycleStatus =
+  | NonNullable<FlowResumeState['runLifecycle']>['status']
+  | 'missing';
+
+const isTerminalFlowChildLifecycleStatus = (
+  status: FlowChildLifecycleStatus,
+): status is TurnStatus =>
+  status === 'ok' || status === 'failed' || status === 'stopped';
+
+export const getFlowConversationLifecycleStatus = async (params: {
   conversationId: string;
   runToken: string;
-}): Promise<TurnStatus | null> => {
+}): Promise<FlowChildLifecycleStatus> => {
   const activeOwnership = getActiveRunOwnership(params.conversationId);
-  if (activeOwnership?.runToken === params.runToken) {
-    return null;
-  }
-
   if (activeOwnership && activeOwnership.runToken !== params.runToken) {
     throw toFlowRunError(
       'INVALID_REQUEST',
       `Subflow conversation ${params.conversationId} is now owned by a different run.`,
     );
+  }
+
+  const conversation = await getConversation(params.conversationId);
+  const resumeState = parseFlowResumeState(
+    isRecord(conversation?.flags)
+      ? (conversation.flags as Record<string, unknown>)
+      : undefined,
+  );
+  if (resumeState?.restartReconciliation?.status === 'interrupted') {
+    return 'orphaned';
+  }
+  if (resumeState?.runLifecycle) {
+    if (resumeState.runLifecycle.status === 'running' && !activeOwnership) {
+      return 'orphaned';
+    }
+    return resumeState.runLifecycle.status;
+  }
+
+  if (activeOwnership?.runToken === params.runToken) {
+    return 'running';
   }
 
   if (shouldUseMemoryPersistence()) {
@@ -2495,7 +2723,7 @@ const getFlowConversationTerminalStatus = async (params: {
         return turn.status;
       }
     }
-    return null;
+    return 'missing';
   }
 
   const persistedTurns = await listTurns({
@@ -2505,7 +2733,19 @@ const getFlowConversationTerminalStatus = async (params: {
   const assistantTurn = persistedTurns.items.find(
     (turn) => turn.role === 'assistant',
   );
-  return assistantTurn?.status ?? null;
+  return assistantTurn?.status ?? 'missing';
+};
+
+const getFlowConversationTerminalOutcome = async (
+  conversationId: string,
+): Promise<FlowResumeState['terminalOutcome']> => {
+  const conversation = await getConversation(conversationId);
+  const flow = isRecord(conversation?.flags?.flow)
+    ? conversation.flags.flow
+    : undefined;
+  return flow?.terminalOutcome === 'not_applicable'
+    ? 'not_applicable'
+    : undefined;
 };
 
 const persistUnexpectedFlowFailureIfNeeded = async (params: {
@@ -2851,22 +3091,44 @@ const emitCompletedFlowStep = async (params: {
   });
 };
 
-type FlowStepOutcome = TurnStatus | 'break' | 'continue';
+type FlowStepOutcome = TurnStatus | 'break' | 'continue' | 'exit';
 
 type LoopFrame = {
   loopStepPath: number[];
   iteration: number;
 };
 
+const getWaveInvocationId = (
+  stepPath: number[],
+  loopStack: LoopFrame[],
+  generation: number,
+): string =>
+  JSON.stringify({
+    stepPath,
+    ...(generation > 0 ? { generation } : {}),
+    loopStack: loopStack.map((frame) => ({
+      loopStepPath: frame.loopStepPath,
+      iteration: frame.iteration,
+    })),
+  });
+
 const buildFlowResumeState = (params: {
   executionId: string;
+  waveInvocationGeneration?: number;
   runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
+  lastLoopExit?: FlowResumeState['lastLoopExit'];
   pendingLoopControl?: FlowPendingLoopControl | null;
   activeSubflows?: FlowResumeState['activeSubflows'];
+  subflowWaveProgress?: FlowSubflowWaveProgress;
+  terminalOutcome?: FlowResumeState['terminalOutcome'];
+  runLifecycle?: FlowResumeState['runLifecycle'];
   codexReviewModelId?: string;
   workingFolder?: string;
+  input?: FlowJsonObject;
+  inputHash?: string;
+  values?: FlowJsonObject;
 }): FlowResumeState => {
   const agentConversations: Record<string, string> = {};
   const agentWorkingFolders: Record<string, string> = {};
@@ -2899,11 +3161,23 @@ const buildFlowResumeState = (params: {
 
   return {
     executionId: params.executionId,
+    ...(params.waveInvocationGeneration
+      ? { waveInvocationGeneration: params.waveInvocationGeneration }
+      : {}),
     stepPath: [...params.stepPath],
     loopStack: params.loopStack.map((frame) => ({
       loopStepPath: [...frame.loopStepPath],
       iteration: frame.iteration,
     })),
+    ...(params.lastLoopExit
+      ? {
+          lastLoopExit: {
+            loopStepPath: [...params.lastLoopExit.loopStepPath],
+            iteration: params.lastLoopExit.iteration,
+            reason: params.lastLoopExit.reason,
+          },
+        }
+      : {}),
     ...(params.pendingLoopControl
       ? {
           pendingLoopControl: {
@@ -2919,14 +3193,40 @@ const buildFlowResumeState = (params: {
             flowName: activeSubflow.flowName,
             conversationId: activeSubflow.conversationId,
             runToken: activeSubflow.runToken,
+            ...(activeSubflow.instanceId
+              ? { instanceId: activeSubflow.instanceId }
+              : {}),
+            ...(activeSubflow.waveInvocationId
+              ? { waveInvocationId: activeSubflow.waveInvocationId }
+              : {}),
+            ...(activeSubflow.targetId
+              ? { targetId: activeSubflow.targetId }
+              : {}),
+            ...(activeSubflow.workingFolder
+              ? { workingFolder: activeSubflow.workingFolder }
+              : {}),
+            ...(activeSubflow.input ? { input: activeSubflow.input } : {}),
+            ...(activeSubflow.inputHash
+              ? { inputHash: activeSubflow.inputHash }
+              : {}),
             ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
           })),
         }
       : {}),
+    ...(params.subflowWaveProgress
+      ? { subflowWaveProgress: params.subflowWaveProgress }
+      : {}),
+    ...(params.terminalOutcome
+      ? { terminalOutcome: params.terminalOutcome }
+      : {}),
+    ...(params.runLifecycle ? { runLifecycle: params.runLifecycle } : {}),
     ...(params.codexReviewModelId
       ? { codexReviewModelId: params.codexReviewModelId }
       : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
+    ...(params.input ? { input: params.input } : {}),
+    ...(params.inputHash ? { inputHash: params.inputHash } : {}),
+    ...(params.values ? { values: params.values } : {}),
     agentConversations,
     ...(Object.keys(agentWorkingFolders).length > 0
       ? { agentWorkingFolders }
@@ -2944,28 +3244,44 @@ const buildFlowResumeState = (params: {
 const persistFlowResumeState = async (params: {
   conversationId: string;
   executionId: string;
+  waveInvocationGeneration?: number;
   runtimeState: FlowExecutionRuntimeState;
   stepPath: number[];
   loopStack: LoopFrame[];
+  lastLoopExit?: FlowResumeState['lastLoopExit'];
   pendingLoopControl?: FlowPendingLoopControl | null;
   activeSubflows?: FlowResumeState['activeSubflows'];
+  subflowWaveProgress?: FlowSubflowWaveProgress;
+  terminalOutcome?: FlowResumeState['terminalOutcome'];
+  runLifecycle?: FlowResumeState['runLifecycle'];
   codexReviewModelId?: string;
   workingFolder?: string;
+  input?: FlowJsonObject;
+  inputHash?: string;
+  values?: FlowJsonObject;
 }) => {
   const flowState = buildFlowResumeState({
     executionId: params.executionId,
+    waveInvocationGeneration: params.waveInvocationGeneration,
     runtimeState: params.runtimeState,
     stepPath: params.stepPath,
     loopStack: params.loopStack,
+    lastLoopExit: params.lastLoopExit,
     pendingLoopControl: params.pendingLoopControl,
     activeSubflows: params.activeSubflows,
+    subflowWaveProgress: params.subflowWaveProgress,
+    terminalOutcome: params.terminalOutcome,
+    runLifecycle: params.runLifecycle,
     codexReviewModelId: params.codexReviewModelId,
     workingFolder: params.workingFolder,
+    input: params.input,
+    inputHash: params.inputHash,
+    values: params.values,
   });
   const existingConversation = await getConversation(params.conversationId);
   const existingFlowState = parseFlowResumeState(
-    isRecord(existingConversation?.flags?.flow)
-      ? (existingConversation.flags.flow as Record<string, unknown>)
+    isRecord(existingConversation?.flags)
+      ? (existingConversation.flags as Record<string, unknown>)
       : undefined,
   );
   if (existingFlowState?.retryOwnershipCompletion) {
@@ -3000,6 +3316,33 @@ const persistFlowResumeState = async (params: {
       stepPath: params.stepPath,
     },
   });
+};
+
+const persistFlowRunLifecycleStatus = async (
+  conversationId: string,
+  status: NonNullable<FlowResumeState['runLifecycle']>['status'],
+) => {
+  const conversation = await getConversation(conversationId);
+  const flowState = parseFlowResumeState(
+    isRecord(conversation?.flags)
+      ? (conversation.flags as Record<string, unknown>)
+      : undefined,
+  );
+  if (!flowState) return;
+  const updated = {
+    ...flowState,
+    runLifecycle: { status, updatedAt: new Date().toISOString() },
+  } satisfies FlowResumeState;
+  if (shouldUseMemoryPersistence()) {
+    const existing = memoryConversations.get(conversationId);
+    if (existing) {
+      updateMemoryConversationMeta(conversationId, {
+        flags: { ...(existing.flags ?? {}), flow: updated },
+      });
+    }
+    return;
+  }
+  await updateConversationFlowState({ conversationId, flow: updated });
 };
 
 type BreakParseStrategy = 'strict' | 'fenced_json' | 'balanced_object';
@@ -3255,23 +3598,11 @@ const findFirstAgentStep = (
     ) {
       return step;
     }
+    if (step.type === 'subflowWave') {
+      return undefined;
+    }
     if (step.type === 'startLoop') {
       const nested = findFirstAgentStep(step.steps);
-      if (nested) return nested;
-    }
-  }
-  return undefined;
-};
-
-const findFirstCodexReviewStep = (
-  steps: FlowStep[],
-): FlowCodexReviewStep | undefined => {
-  for (const step of steps) {
-    if (step.type === 'codexReview') {
-      return step;
-    }
-    if (step.type === 'startLoop') {
-      const nested = findFirstCodexReviewStep(step.steps);
       if (nested) return nested;
     }
   }
@@ -3329,58 +3660,11 @@ const findRuntimeIdentityStep = (
     ) {
       return step;
     }
+    if (step.type === 'subflowWave') {
+      return undefined;
+    }
     if (step.type === 'startLoop') {
       const nested = findRuntimeIdentityStep(step.steps, null);
-      if (nested) return nested;
-    }
-  }
-
-  return undefined;
-};
-
-const findRuntimeCodexReviewStep = (
-  steps: FlowStep[],
-  resumeStepPath?: number[] | null,
-): FlowCodexReviewStep | undefined => {
-  let resumePathRemaining =
-    resumeStepPath && resumeStepPath.length > 0 ? [...resumeStepPath] : null;
-  let resumeIndex = resumePathRemaining?.[0];
-
-  for (const [index, step] of steps.entries()) {
-    if (
-      resumePathRemaining &&
-      resumeIndex !== undefined &&
-      index < resumeIndex
-    ) {
-      continue;
-    }
-
-    if (resumePathRemaining && resumeIndex === index) {
-      if (resumePathRemaining.length === 1) {
-        resumePathRemaining = null;
-        resumeIndex = undefined;
-        continue;
-      }
-      if (step.type !== 'startLoop') {
-        return undefined;
-      }
-      const nested = findRuntimeCodexReviewStep(
-        step.steps,
-        resumePathRemaining.slice(1),
-      );
-      if (nested) {
-        return nested;
-      }
-      resumePathRemaining = null;
-      resumeIndex = undefined;
-      continue;
-    }
-
-    if (step.type === 'codexReview') {
-      return step;
-    }
-    if (step.type === 'startLoop') {
-      const nested = findRuntimeCodexReviewStep(step.steps, null);
       if (nested) return nested;
     }
   }
@@ -3487,78 +3771,6 @@ const validateCommandSteps = async (params: {
   }
 };
 
-const validateCodexReviewSteps = async (params: {
-  flowName: string;
-  steps: FlowStep[];
-  flowsRoot: string;
-  sourceId?: string;
-  codexReviewModelId?: string;
-  resumeStepPath?: number[] | null;
-  visited?: Set<string>;
-}): Promise<void> => {
-  const visited = params.visited ?? new Set<string>();
-  visited.add(params.flowName);
-  let resumePathRemaining =
-    params.resumeStepPath && params.resumeStepPath.length > 0
-      ? [...params.resumeStepPath]
-      : null;
-  let resumeIndex = resumePathRemaining?.[0];
-
-  for (const [index, step] of params.steps.entries()) {
-    if (
-      resumePathRemaining &&
-      resumeIndex !== undefined &&
-      index < resumeIndex
-    ) {
-      continue;
-    }
-
-    if (resumePathRemaining && resumeIndex === index) {
-      if (resumePathRemaining.length === 1) {
-        resumePathRemaining = null;
-        resumeIndex = undefined;
-        continue;
-      }
-      if (step.type !== 'startLoop') {
-        throw toFlowRunError(
-          'INVALID_REQUEST',
-          'resumeStepPath must reference loop steps for nested indices',
-        );
-      }
-      await validateCodexReviewSteps({
-        flowName: params.flowName,
-        steps: step.steps,
-        flowsRoot: params.flowsRoot,
-        sourceId: params.sourceId,
-        codexReviewModelId: params.codexReviewModelId,
-        resumeStepPath: resumePathRemaining.slice(1),
-        visited,
-      });
-      resumePathRemaining = null;
-      resumeIndex = undefined;
-      continue;
-    }
-
-    if (step.type === 'startLoop') {
-      await validateCodexReviewSteps({
-        flowName: params.flowName,
-        steps: step.steps,
-        flowsRoot: params.flowsRoot,
-        sourceId: params.sourceId,
-        codexReviewModelId: params.codexReviewModelId,
-        visited,
-      });
-      continue;
-    }
-    if (step.type === 'subflow') {
-      continue;
-    }
-    if (step.type !== 'codexReview') {
-      continue;
-    }
-  }
-};
-
 const validateResumeStepPath = (
   steps: FlowStep[],
   resumeStepPath: number[],
@@ -3588,6 +3800,18 @@ const validateResumeStepPath = (
       currentSteps = step.steps;
     }
   }
+};
+
+const resumesFromEarlierStep = (
+  resumeStepPath: number[],
+  savedStepPath: number[],
+): boolean => {
+  const sharedLength = Math.min(resumeStepPath.length, savedStepPath.length);
+  for (let index = 0; index < sharedLength; index += 1) {
+    if (resumeStepPath[index] === savedStepPath[index]) continue;
+    return (resumeStepPath[index] ?? 0) < (savedStepPath[index] ?? 0);
+  }
+  return resumeStepPath.length < savedStepPath.length;
 };
 
 const validateResumeAgentConversations = async (
@@ -3943,6 +4167,8 @@ async function runFlowUnlocked(params: {
   resumeStepPath?: number[];
   customTitle?: string;
   runToken: string;
+  input?: FlowJsonObject;
+  inputHash?: string;
   onStopUnwindCheckpoint?: (params: {
     checkpoint: string;
     conversationId: string;
@@ -3968,17 +4194,57 @@ async function runFlowUnlocked(params: {
         loopStepPath: [...params.resumeState.pendingLoopControl.loopStepPath],
       }
     : null;
+  const flowValues: FlowJsonObject = {
+    ...(params.resumeState?.values ?? {}),
+  };
+  let initializedFinalReviewCycle = Object.values(flowValues).some(
+    (value) =>
+      Boolean(value) &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      (value as FlowJsonObject).action === 'initialized' &&
+      (value as FlowJsonObject).review_mode === 'final' &&
+      typeof (value as FlowJsonObject).review_cycle_id === 'string',
+  );
   let activeSubflows = params.resumeState?.activeSubflows?.map(
     (activeSubflow) => ({
       stepPath: [...activeSubflow.stepPath],
       flowName: activeSubflow.flowName,
       conversationId: activeSubflow.conversationId,
       runToken: activeSubflow.runToken,
+      ...(activeSubflow.instanceId
+        ? { instanceId: activeSubflow.instanceId }
+        : {}),
+      ...(activeSubflow.waveInvocationId
+        ? { waveInvocationId: activeSubflow.waveInvocationId }
+        : {}),
+      ...(activeSubflow.targetId ? { targetId: activeSubflow.targetId } : {}),
+      ...(activeSubflow.workingFolder
+        ? { workingFolder: activeSubflow.workingFolder }
+        : {}),
+      ...(activeSubflow.input ? { input: activeSubflow.input } : {}),
+      ...(activeSubflow.inputHash
+        ? { inputHash: activeSubflow.inputHash }
+        : {}),
       ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
     }),
   );
+  let subflowWaveProgress = params.resumeState?.subflowWaveProgress;
+  const waveInvocationGeneration =
+    params.resumeState?.waveInvocationGeneration ?? 0;
+  let terminalOutcome = params.resumeState?.terminalOutcome;
+  const runLifecycle: NonNullable<FlowResumeState['runLifecycle']> = {
+    status: 'running',
+    updatedAt: new Date().toISOString(),
+  };
+  let lastLoopExit = params.resumeState?.lastLoopExit;
   let continueBoundaryLoopKey: string | null = null;
   const resumeLoopIterations = new Map<string, number>();
+  const interruptedWaveStepPathKey =
+    params.resumeState?.restartReconciliation?.status === 'interrupted' &&
+    params.resumeState.subflowWaveProgress
+      ? getStepPathKey(params.resumeState.subflowWaveProgress.stepPath)
+      : null;
   if (params.resumeState) {
     params.resumeState.loopStack.forEach((frame) => {
       resumeLoopIterations.set(
@@ -3997,13 +4263,21 @@ async function runFlowUnlocked(params: {
     persistFlowResumeState({
       conversationId: params.conversationId,
       executionId: params.executionId,
+      waveInvocationGeneration,
       runtimeState,
       stepPath,
       loopStack,
+      lastLoopExit,
       pendingLoopControl,
       activeSubflows,
+      subflowWaveProgress,
+      terminalOutcome,
+      runLifecycle,
       codexReviewModelId: params.codexReviewModelId,
       workingFolder: params.repositoryContext.workingRepositoryPath,
+      input: params.input,
+      inputHash: params.inputHash,
+      values: flowValues,
     });
   const clearContinueBoundaryForActiveLoop = () => {
     if (!continueBoundaryLoopKey) return;
@@ -4201,6 +4475,14 @@ async function runFlowUnlocked(params: {
     postProcess?: FlowInstructionPostProcess;
     command?: TurnCommandMetadata;
     runtime?: TurnRuntimeMetadata;
+    onAttemptResult?: (
+      result: FlowInstructionResult,
+      metadata: {
+        attempt: number;
+        providerId: ConversationProvider;
+        modelId: string;
+      },
+    ) => Promise<void>;
   }): Promise<FlowInstructionResult> => {
     const agent = agentByName.get(instructionParams.agentType);
     if (!agent) {
@@ -4314,6 +4596,12 @@ async function runFlowUnlocked(params: {
         },
       });
 
+      await instructionParams.onAttemptResult?.(result, {
+        attempt,
+        providerId: runtime.providerId,
+        modelId,
+      });
+
       if (shouldRetry) {
         previousError = result.content;
         const reason = result.content;
@@ -4395,9 +4683,51 @@ async function runFlowUnlocked(params: {
     step: FlowLlmStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
+    const reviewUsageRecorder = (invocation: number) =>
+      step.recordReviewUsage
+        ? async (
+            result: FlowInstructionResult,
+            metadata: {
+              attempt: number;
+              providerId: ConversationProvider;
+              modelId: string;
+            },
+          ) => {
+            const recorded = await writeReviewUsageArtifact({
+              input: params.input,
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              stepLabel: step.label,
+              stepIdentifier: step.identifier,
+              invocation,
+              attempt: metadata.attempt,
+              providerId: metadata.providerId,
+              modelId: metadata.modelId,
+              status: result.status,
+              usage: result.usage,
+            });
+            if (recorded.status === 'skipped') {
+              baseLogger.warn(
+                {
+                  flowName: params.flowName,
+                  stepIndex: command.stepIndex,
+                  identifier: step.identifier,
+                  invocation,
+                  attempt: metadata.attempt,
+                  reason: recorded.reason,
+                },
+                'optional actual-review usage evidence was not written',
+              );
+            }
+          }
+        : undefined;
+
     if ('messages' in step) {
-      for (const message of step.messages) {
-        const instruction = joinMessageContent(message.content);
+      for (const [messageIndex, message] of step.messages.entries()) {
+        const instruction = prependAssignedReviewJobContext(
+          joinMessageContent(message.content),
+          params.input,
+        );
         let result: FlowInstructionResult;
         try {
           result = await runInstruction({
@@ -4405,6 +4735,7 @@ async function runFlowUnlocked(params: {
             identifier: step.identifier,
             instruction,
             command,
+            onAttemptResult: reviewUsageRecorder(messageIndex + 1),
           });
         } catch (error) {
           const agent = agentByName.get(step.agentType);
@@ -4495,6 +4826,11 @@ async function runFlowUnlocked(params: {
       return 'ok';
     }
 
+    const instruction = prependAssignedReviewJobContext(
+      preparedMarkdownInstruction.instruction,
+      params.input,
+    );
+
     append({
       level: 'info',
       message: 'DEV-0000045:T5:flow_llm_markdown_loaded',
@@ -4505,15 +4841,16 @@ async function runFlowUnlocked(params: {
         stepIndex: command.stepIndex,
         markdownFile: step.markdownFile,
         resolvedSourceId: preparedMarkdownInstruction.resolvedSourceId,
-        instructionLength: preparedMarkdownInstruction.instruction.length,
+        instructionLength: instruction.length,
       },
     });
 
     const result = await runInstruction({
       agentType: step.agentType,
       identifier: step.identifier,
-      instruction: preparedMarkdownInstruction.instruction,
+      instruction,
       command,
+      onAttemptResult: reviewUsageRecorder(1),
       runtime: {
         ...(params.repositoryContext.workingRepositoryPath
           ? { workingFolder: params.repositoryContext.workingRepositoryPath }
@@ -4530,6 +4867,7 @@ async function runFlowUnlocked(params: {
   ): Promise<{
     status: TurnStatus;
     shouldBreak: boolean;
+    failureKind?: 'execution' | 'invalid_response';
   }> => {
     let breakAnswer: 'yes' | 'no' | undefined;
     const instruction = [
@@ -4537,57 +4875,189 @@ async function runFlowUnlocked(params: {
       `Question: ${step.question}`,
     ].join('\n');
 
-    const result = await runInstruction({
-      agentType: step.agentType,
-      identifier: step.identifier,
-      instruction,
-      deferFinal: true,
-      command,
-      postProcess: (candidate) => {
-        const parsed = parseBreakAnswer(candidate.content);
-        parsed.attempts.forEach((attempt) => {
+    if (step.decisionScript) {
+      const codeInfoRoot = codeInfo2RootForRun();
+      const workingFolder = params.repositoryContext.workingRepositoryPath;
+      if (!codeInfoRoot || !workingFolder) {
+        const message =
+          'Flow decision script requires CODEINFO_ROOT and a repository working folder.';
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          message,
+          errorCode: 'FLOW_DECISION_SCRIPT_CONTEXT_MISSING',
+          command,
+        });
+        return {
+          status: 'failed',
+          shouldBreak: false,
+          failureKind: 'execution',
+        };
+      }
+
+      try {
+        const content = await runFlowDecisionScript({
+          codeInfoRoot,
+          workingFolder,
+          decisionScript: step.decisionScript,
+        });
+        const parsed = parseBreakAnswer(content);
+        if (!parsed.ok) {
+          await emitFailedFlowStep({
+            flowConversationId: params.conversationId,
+            inflightId: stepInflightId,
+            instruction,
+            modelId: params.modelId,
+            providerId: params.providerId,
+            source: params.source,
+            message: parsed.message,
+            errorCode: 'INVALID_BREAK_RESPONSE',
+            command,
+          });
+          return {
+            status: 'failed',
+            shouldBreak: false,
+            failureKind: 'invalid_response',
+          };
+        }
+        breakAnswer = parsed.answer;
+        await emitCompletedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          response: parsed.normalizedContent,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          message,
+          errorCode: 'FLOW_DECISION_SCRIPT_FAILED',
+          command,
+        });
+        return {
+          status: 'failed',
+          shouldBreak: false,
+          failureKind: 'execution',
+        };
+      }
+
+      append({
+        level: 'info',
+        message: 'flows.run.break_decision_script',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          decisionScript: step.decisionScript,
+          answer: breakAnswer,
+          breakOn: step.breakOn,
+          loopDepth: loopStack.length,
+        },
+      });
+      return {
+        status: 'ok',
+        shouldBreak: breakAnswer === step.breakOn,
+      };
+    }
+
+    let result: FlowInstructionResult;
+    try {
+      result = await runInstruction({
+        agentType: step.agentType,
+        identifier: step.identifier,
+        instruction,
+        deferFinal: true,
+        command,
+        postProcess: (candidate) => {
+          if (candidate.status !== 'ok') {
+            return {
+              failureKind: 'execution',
+            };
+          }
+          const parsed = parseBreakAnswer(candidate.content);
+          parsed.attempts.forEach((attempt) => {
+            append({
+              level: 'info',
+              message: 'DEV-0000036:T4:break_parse_strategy_attempted',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              context: {
+                strategy: attempt.strategy,
+                candidateCount: attempt.candidateCount,
+              },
+            });
+          });
           append({
-            level: 'info',
-            message: 'DEV-0000036:T4:break_parse_strategy_attempted',
+            level: parsed.ok ? 'info' : 'warn',
+            message: 'DEV-0000036:T4:break_parse_result',
             timestamp: new Date().toISOString(),
             source: 'server',
             context: {
-              strategy: attempt.strategy,
-              candidateCount: attempt.candidateCount,
+              accepted: parsed.ok,
+              reasonCode: parsed.reasonCode,
             },
           });
-        });
-        append({
-          level: parsed.ok ? 'info' : 'warn',
-          message: 'DEV-0000036:T4:break_parse_result',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            accepted: parsed.ok,
-            reasonCode: parsed.reasonCode,
-          },
-        });
 
-        if (!parsed.ok) {
-          return {
-            status: 'failed',
-            content: parsed.message,
-            finalOverride: {
+          if (!parsed.ok) {
+            return {
               status: 'failed',
-              error: {
-                code: 'INVALID_BREAK_RESPONSE',
-                message: parsed.message,
+              content: parsed.message,
+              finalOverride: {
+                status: 'failed',
+                error: {
+                  code: 'INVALID_BREAK_RESPONSE',
+                  message: parsed.message,
+                },
               },
-            },
-          };
-        }
+              failureKind: 'invalid_response',
+            };
+          }
 
-        breakAnswer = parsed.answer;
-        return {
-          content: parsed.normalizedContent,
-        };
-      },
-    });
+          breakAnswer = parsed.answer;
+          return {
+            content: parsed.normalizedContent,
+          };
+        },
+      });
+    } catch (error) {
+      const message = isFlowRunError(error)
+        ? (error.reason ?? error.code)
+        : error instanceof Error
+          ? error.message
+          : 'Failed to prepare flow break step';
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message,
+        errorCode: isFlowRunError(error)
+          ? error.code
+          : 'FLOW_BREAK_SETUP_FAILED',
+        command,
+      });
+      return {
+        status: 'failed',
+        shouldBreak: false,
+        failureKind: 'execution',
+      };
+    }
 
     if (shouldStopAfter(result.status)) {
       params.onStopUnwindCheckpoint?.({
@@ -4595,11 +5065,21 @@ async function runFlowUnlocked(params: {
         conversationId: params.conversationId,
         detail: `status=${result.status} step=${command.stepIndex}`,
       });
-      return { status: result.status, shouldBreak: false };
+      return {
+        status: result.status,
+        shouldBreak: false,
+        ...(result.status === 'failed'
+          ? { failureKind: result.failureKind ?? 'execution' }
+          : {}),
+      };
     }
 
     if (!breakAnswer) {
-      return { status: 'failed', shouldBreak: false };
+      return {
+        status: 'failed',
+        shouldBreak: false,
+        failureKind: 'invalid_response',
+      };
     }
 
     append({
@@ -4748,79 +5228,348 @@ async function runFlowUnlocked(params: {
     return aborted.ok || aborted.reason === 'INFLIGHT_NOT_FOUND';
   };
 
-  const runSubflowStep = async (
-    step: FlowSubflowStep,
+  const runSubflowJobs = async (
+    jobs: SubflowWaveJob[],
+    stepLabel: string | undefined,
     command: TurnCommandMetadata,
     nextPath: number[],
+    isWave = false,
+    isReviewBatch = false,
+    reviewAttemptIdentity?: {
+      reviewCycleId?: string;
+      reviewBatchId?: string;
+    },
   ): Promise<TurnStatus> => {
-    const childFlowNames = [...step.flowNames];
-    const launchesMultipleChildren = childFlowNames.length > 1;
+    if (jobs.length === 0) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Subflow wave must expand to at least one child job.',
+      );
+    }
+    const childFlowNames = jobs.map((job) => job.flowName);
+    const launchesMultipleChildren = jobs.length > 1;
     const instruction = launchesMultipleChildren
       ? `Run subflows ${childFlowNames.join(', ')}`
       : `Run subflow ${childFlowNames[0]}`;
     const parentTurnCreatedAtIso = new Date().toISOString();
     const parentTurnCreatedAt = new Date(parentTurnCreatedAtIso);
     const parentConversation = await getConversation(params.conversationId);
-    const rememberedSubflowsByName = new Map(
+    const waveInvocationId = isWave
+      ? getWaveInvocationId(nextPath, loopStack, waveInvocationGeneration)
+      : undefined;
+    const activeInstanceId = (activeSubflow: FlowActiveSubflow) =>
+      activeSubflow.instanceId ?? activeSubflow.flowName;
+    const jobByInstanceId = new Map(jobs.map((job) => [job.instanceId, job]));
+    const rememberedSubflowsByInstance = new Map(
       getActiveSubflowsForStep(nextPath)
-        .filter((activeSubflow) =>
-          childFlowNames.includes(activeSubflow.flowName),
-        )
-        .map((activeSubflow) => [activeSubflow.flowName, activeSubflow]),
+        .filter((activeSubflow) => {
+          const job = jobByInstanceId.get(activeInstanceId(activeSubflow));
+          if (!job) return false;
+          return (
+            (!waveInvocationId ||
+              !activeSubflow.waveInvocationId ||
+              activeSubflow.waveInvocationId === waveInvocationId) &&
+            (!job.inputHash || activeSubflow.inputHash === job.inputHash)
+          );
+        })
+        .map((activeSubflow) => [
+          activeInstanceId(activeSubflow),
+          activeSubflow,
+        ]),
     );
-    const childRuns = childFlowNames
-      .map((flowName) => rememberedSubflowsByName.get(flowName))
+    if (isWave && params.resumeState) {
+      const persistedChildren = await findFlowWaveChildren({
+        executionId: params.executionId,
+        waveInvocationId: waveInvocationId!,
+        instanceIds: jobs.map((job) => job.instanceId),
+      });
+      for (const childConversation of persistedChildren) {
+        const identity = getFlowChildWaveIdentity(childConversation);
+        if (
+          !identity ||
+          identity.waveInvocationId !== waveInvocationId ||
+          rememberedSubflowsByInstance.has(identity.instanceId)
+        ) {
+          continue;
+        }
+        const job = jobByInstanceId.get(identity.instanceId);
+        if (!job || childConversation.flowName !== job.flowName) continue;
+        const childFlowState = parseFlowResumeState(
+          isRecord(childConversation.flags)
+            ? (childConversation.flags as Record<string, unknown>)
+            : undefined,
+        );
+        if (job.inputHash && childFlowState?.inputHash !== job.inputHash) {
+          continue;
+        }
+
+        rememberedSubflowsByInstance.set(identity.instanceId, {
+          stepPath: [...nextPath],
+          flowName: job.flowName,
+          conversationId: childConversation._id,
+          runToken:
+            getActiveRunOwnership(childConversation._id)?.runToken ??
+            `recovered-wave-child:${childConversation._id}`,
+          instanceId: job.instanceId,
+          waveInvocationId,
+          ...(job.targetId ? { targetId: job.targetId } : {}),
+          ...(job.workingFolder ? { workingFolder: job.workingFolder } : {}),
+          ...(job.input ? { input: job.input } : {}),
+          ...(job.inputHash ? { inputHash: job.inputHash } : {}),
+          title: childConversation.title,
+        });
+      }
+    }
+    const childRuns = jobs
+      .map((job) => rememberedSubflowsByInstance.get(job.instanceId))
       .filter((activeSubflow): activeSubflow is FlowActiveSubflow =>
         Boolean(activeSubflow),
       );
-    const buildTrackedSubflowTitle = (flowName: string) =>
-      rememberedSubflowsByName.get(flowName)?.title ??
+    const stopActiveSubflowsAndWaitForTerminalStatus = async (): Promise<
+      Array<{ childRun: FlowActiveSubflow; status: TurnStatus }>
+    > =>
+      Promise.all(
+        childRuns.map(async (childRun) => {
+          let activeChildRun = childRun;
+          requestActiveSubflowStop({
+            conversationId: activeChildRun.conversationId,
+            runToken: activeChildRun.runToken,
+          });
+          while (true) {
+            const status = await getFlowConversationLifecycleStatus({
+              conversationId: activeChildRun.conversationId,
+              runToken: activeChildRun.runToken,
+            });
+            if (isTerminalFlowChildLifecycleStatus(status)) {
+              return { childRun: activeChildRun, status };
+            }
+            if (status === 'orphaned') {
+              const resumedChildRun = await resumeWaveChild(activeChildRun);
+              if (resumedChildRun) {
+                activeChildRun = resumedChildRun;
+                requestActiveSubflowStop({
+                  conversationId: activeChildRun.conversationId,
+                  runToken: activeChildRun.runToken,
+                });
+                continue;
+              }
+              await persistFlowRunLifecycleStatus(
+                activeChildRun.conversationId,
+                'failed',
+              );
+              return { childRun: activeChildRun, status: 'failed' };
+            }
+            if (status === 'missing') {
+              return { childRun: activeChildRun, status: 'failed' };
+            }
+            await sleep(25);
+          }
+        }),
+      );
+    const resumeWaveChild = async (
+      childRun: FlowActiveSubflow,
+    ): Promise<FlowActiveSubflow | null> => {
+      const childConversation = await getConversation(childRun.conversationId);
+      if (childConversation?.flowName !== childRun.flowName) return null;
+      const childResumeState = parseFlowResumeState(
+        isRecord(childConversation.flags)
+          ? (childConversation.flags as Record<string, unknown>)
+          : undefined,
+      );
+      if (!childResumeState) return null;
+
+      const resumesInterruptedChild =
+        params.resumeState?.restartReconciliation?.status === 'interrupted';
+      const resumesStoppedChild =
+        Boolean(params.resumeState) &&
+        childResumeState.runLifecycle?.status === 'stopped';
+      const resumesOrphanedChild =
+        childResumeState.runLifecycle?.status === 'running' &&
+        !getActiveRunOwnership(childRun.conversationId);
+      if (
+        !resumesInterruptedChild &&
+        !resumesStoppedChild &&
+        !resumesOrphanedChild
+      ) {
+        return null;
+      }
+
+      let resumedRunToken: string | undefined;
+      await startFlowRun({
+        flowName: childRun.flowName,
+        sourceId: params.repositoryContext.flowSourceId,
+        flowPath: params.flowPath,
+        codexReviewModelId: params.codexReviewModelId,
+        working_folder:
+          childRun.workingFolder ??
+          params.repositoryContext.workingRepositoryPath,
+        input: childRun.input,
+        customTitle: childRun.title,
+        parentWave: {
+          executionId: params.executionId,
+          instanceId: activeInstanceId(childRun),
+          waveInvocationId: childRun.waveInvocationId ?? waveInvocationId!,
+          ...(childRun.targetId ? { targetId: childRun.targetId } : {}),
+          displayName: childRun.title ?? childRun.flowName,
+        },
+        conversationId: childRun.conversationId,
+        resumeStepPath:
+          childResumeState.restartReconciliation?.resumeStepPath ??
+          childResumeState.stepPath,
+        source: params.source,
+        chatFactory: params.chatFactory,
+        listIngestedRepositories:
+          params.repositoryContext.listIngestedRepositories,
+        onOwnershipReady: ({ runToken }) => {
+          resumedRunToken = runToken;
+        },
+      });
+      if (!resumedRunToken) return null;
+      return { ...childRun, runToken: resumedRunToken };
+    };
+    const buildTrackedSubflowTitle = (job: SubflowWaveJob) =>
+      rememberedSubflowsByInstance.get(job.instanceId)?.title ??
       buildSubflowConversationTitle({
         parentFlowName: params.flowName,
         parentPersistedTitle: parentConversation?.title,
         parentCustomTitle: params.customTitle,
-        stepLabel: step.label,
-        childFlowName: flowName,
+        stepLabel,
+        childFlowName: job.displayName,
         multipleChildren: launchesMultipleChildren,
+        waveLabel:
+          isWave && loopStack.length > 0
+            ? `wave ${loopStack.map((frame) => frame.iteration).join('.')}`
+            : undefined,
       });
     const buildSubflowSummaryText = (prefix: string) =>
       launchesMultipleChildren
-        ? `${prefix} ${childFlowNames
-            .map((flowName) => buildTrackedSubflowTitle(flowName))
+        ? `${prefix} ${jobs
+            .map((job) => buildTrackedSubflowTitle(job))
             .join(', ')}`
-        : `${prefix} ${buildTrackedSubflowTitle(childFlowNames[0] ?? '')}`;
-    const runningText = buildSubflowSummaryText(
-      launchesMultipleChildren ? 'Running subflows' : 'Running subflow',
-    );
+        : `${prefix} ${buildTrackedSubflowTitle(jobs[0]!)}`;
     const childOutcomes = new Map<
       string,
       {
         title: string;
-        status: 'ok' | 'failed' | 'stopped';
+        status: 'ok' | 'failed' | 'stopped' | 'not_applicable';
         reason?: string;
+        conversationId?: string;
       }
     >();
     const recordChildOutcome = (params: {
-      flowName: string;
-      status: 'ok' | 'failed' | 'stopped';
+      instanceId: string;
+      status: 'ok' | 'failed' | 'stopped' | 'not_applicable';
       reason?: string;
+      conversationId?: string;
     }) => {
-      childOutcomes.set(params.flowName, {
-        title: buildTrackedSubflowTitle(params.flowName),
+      const job = jobByInstanceId.get(params.instanceId);
+      childOutcomes.set(params.instanceId, {
+        title: job ? buildTrackedSubflowTitle(job) : params.instanceId,
         status: params.status,
         ...(params.reason ? { reason: params.reason } : {}),
+        ...(params.conversationId
+          ? { conversationId: params.conversationId }
+          : {}),
       });
     };
+    const refreshWaveProgress = () => {
+      if (!isWave) return undefined;
+      const runningInstances = new Set(
+        childRuns.map((childRun) => activeInstanceId(childRun)),
+      );
+      const progressJobs: FlowSubflowWaveProgress['jobs'] = jobs.map((job) => {
+        const childOutcome = childOutcomes.get(job.instanceId);
+        const outcome = childOutcome?.status;
+        const childConversationId =
+          childOutcome?.conversationId ??
+          rememberedSubflowsByInstance.get(job.instanceId)?.conversationId;
+        const status = outcome
+          ? outcome === 'ok'
+            ? ('completed' as const)
+            : outcome
+          : runningInstances.has(job.instanceId)
+            ? ('running' as const)
+            : ('pending' as const);
+        return {
+          instanceId: job.instanceId,
+          flowName: job.flowName,
+          ...(job.targetId ? { targetId: job.targetId } : {}),
+          ...(childConversationId
+            ? { conversationId: childConversationId }
+            : {}),
+          ...(childOutcome?.reason ? { reason: childOutcome.reason } : {}),
+          title: buildTrackedSubflowTitle(job),
+          status,
+        };
+      });
+      const count = (
+        status: FlowSubflowWaveProgress['jobs'][number]['status'],
+      ) => progressJobs.filter((job) => job.status === status).length;
+      subflowWaveProgress = {
+        stepPath: [...nextPath],
+        ...(stepLabel ? { label: stepLabel } : {}),
+        expected: jobs.length,
+        running: count('running'),
+        completed: count('completed'),
+        failed: count('failed'),
+        stopped: count('stopped'),
+        notApplicable: count('not_applicable'),
+        jobs: progressJobs,
+        updatedAt: new Date().toISOString(),
+      };
+      append({
+        level:
+          subflowWaveProgress.failed > 0 || subflowWaveProgress.stopped > 0
+            ? 'warn'
+            : 'info',
+        message: 'flows.run.subflow_wave_progress',
+        timestamp: subflowWaveProgress.updatedAt,
+        source: 'server',
+        context: {
+          flowName: params.flowName,
+          stepPath: nextPath,
+          expected: subflowWaveProgress.expected,
+          running: subflowWaveProgress.running,
+          completed: subflowWaveProgress.completed,
+          failed: subflowWaveProgress.failed,
+          stopped: subflowWaveProgress.stopped,
+          notApplicable: subflowWaveProgress.notApplicable,
+        },
+      });
+      return subflowWaveProgress;
+    };
+    const formatWaveCounts = (progress: FlowSubflowWaveProgress) =>
+      `expected ${progress.expected}, running ${progress.running}, completed ${progress.completed}, failed ${progress.failed}, stopped ${progress.stopped}, not applicable ${progress.notApplicable}`;
+    const initialWaveProgress = refreshWaveProgress();
+    const runningText = initialWaveProgress
+      ? `Running subflow wave: ${formatWaveCounts(initialWaveProgress)}`
+      : buildSubflowSummaryText(
+          launchesMultipleChildren ? 'Running subflows' : 'Running subflow',
+        );
+    const publishCurrentWaveProgress = () => {
+      const progress = refreshWaveProgress();
+      if (!progress || !getInflight(params.conversationId)) return progress;
+      setAssistantText({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        text: `Running subflow wave: ${formatWaveCounts(progress)}`,
+      });
+      publishInflightSnapshot(params.conversationId);
+      return progress;
+    };
     const buildBestEffortSummary = () => {
-      const outcomes = childFlowNames.map(
-        (flowName) =>
-          childOutcomes.get(flowName) ?? {
-            title: buildTrackedSubflowTitle(flowName),
+      const outcomes = jobs.map(
+        (job) =>
+          childOutcomes.get(job.instanceId) ?? {
+            title: buildTrackedSubflowTitle(job),
             status: 'failed' as const,
           },
       );
       const successCount = outcomes.filter(
         (entry) => entry.status === 'ok',
+      ).length;
+      const notApplicableCount = outcomes.filter(
+        (entry) => entry.status === 'not_applicable',
       ).length;
       const failedCount = outcomes.filter(
         (entry) => entry.status === 'failed',
@@ -4835,9 +5584,77 @@ async function runFlowUnlocked(params: {
       if (stoppedCount > 0) {
         parts.push(`${stoppedCount} stopped`);
       }
+      if (notApplicableCount > 0) {
+        parts.push(`${notApplicableCount} not applicable`);
+      }
       return `${buildSubflowSummaryText(
         launchesMultipleChildren ? 'Completed subflows' : 'Completed subflow',
       )} (best effort: ${parts.join(', ')})`;
+    };
+    const recordReviewCycleOutcome = async (paramsForOutcome: {
+      flowName: string;
+      status: TurnStatus;
+      terminalOutcome?: FlowResumeState['terminalOutcome'];
+      reason?: string;
+    }) => {
+      if (
+        paramsForOutcome.flowName !== 'two_phase_review_cycle' ||
+        paramsForOutcome.terminalOutcome === 'not_applicable'
+      )
+        return;
+      const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+        params.repositoryContext,
+      );
+      if (!reviewRepositoryPath) return;
+      await finalizeActiveReviewCycleIfPending({
+        workingRepositoryPath: reviewRepositoryPath,
+        fallbackStatus: 'incomplete',
+        fallbackReason:
+          paramsForOutcome.status === 'ok'
+            ? 'Two-phase review subflow ended without an explicit settlement outcome.'
+            : (paramsForOutcome.reason ??
+              `Two-phase review subflow ended with status ${paramsForOutcome.status}.`),
+      });
+    };
+    const recordReviewBatchAttempt = async (paramsForAttempt: {
+      job: SubflowWaveJob;
+      status: ReviewInvocationAttemptStatus;
+      conversationId?: string;
+      reason?: string;
+    }) => {
+      if (!isReviewBatch || !waveInvocationId) {
+        return;
+      }
+      const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+        params.repositoryContext,
+      );
+      if (!reviewRepositoryPath) return;
+      try {
+        await recordReviewInvocationAttempt({
+          workingRepositoryPath: reviewRepositoryPath,
+          invocationId: `${waveInvocationId}--${paramsForAttempt.job.instanceId}`,
+          flowName: paramsForAttempt.job.flowName,
+          displayName: paramsForAttempt.job.displayName,
+          status: paramsForAttempt.status,
+          conversationId: paramsForAttempt.conversationId,
+          reason: paramsForAttempt.reason,
+          reviewCycleId: reviewAttemptIdentity?.reviewCycleId,
+          reviewBatchId: reviewAttemptIdentity?.reviewBatchId,
+        });
+      } catch (error) {
+        append({
+          level: 'warn',
+          message: 'flows.run.review_invocation_evidence_unavailable',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            reviewFlowName: paramsForAttempt.job.flowName,
+            instanceId: paramsForAttempt.job.instanceId,
+            reason: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
     };
 
     const stopSubflowBeforeLaunch = async (): Promise<boolean> => {
@@ -4847,11 +5664,11 @@ async function runFlowUnlocked(params: {
       }
 
       for (const childRun of childRuns) {
-        const childStatus = await getFlowConversationTerminalStatus({
+        const childStatus = await getFlowConversationLifecycleStatus({
           conversationId: childRun.conversationId,
           runToken: childRun.runToken,
         });
-        if (!childStatus) return false;
+        if (!isTerminalFlowChildLifecycleStatus(childStatus)) return false;
       }
 
       const consumedPendingCancel = consumePendingConversationCancel({
@@ -4860,7 +5677,27 @@ async function runFlowUnlocked(params: {
       });
       if (!consumedPendingCancel) return false;
 
+      if (isWave) {
+        jobs.forEach((job) =>
+          recordChildOutcome({
+            instanceId: job.instanceId,
+            status: 'stopped',
+          }),
+        );
+        await Promise.all(
+          jobs.map((job) =>
+            recordReviewBatchAttempt({
+              job,
+              status: 'stopped',
+              reason:
+                'The parent flow was stopped before this review batch launched.',
+            }),
+          ),
+        );
+      }
       setActiveSubflowsForStep(nextPath, []);
+      refreshWaveProgress();
+      await persistRuntimeResumeState(lastCompletedStepPath);
       await emitStoppedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -4908,18 +5745,34 @@ async function runFlowUnlocked(params: {
     });
 
     try {
+      await persistRuntimeResumeState(lastCompletedStepPath);
       const resumableChildRuns: FlowActiveSubflow[] = [];
       for (const childRun of childRuns) {
-        const status = await getFlowConversationTerminalStatus({
+        const status = await getFlowConversationLifecycleStatus({
           conversationId: childRun.conversationId,
           runToken: childRun.runToken,
         });
-        if (status || getActiveRunOwnership(childRun.conversationId)) {
+        if (status === 'stopped') {
+          const resumedChildRun = await resumeWaveChild(childRun);
+          if (resumedChildRun) {
+            resumableChildRuns.push(resumedChildRun);
+            continue;
+          }
+        }
+        if (
+          status === 'running' ||
+          isTerminalFlowChildLifecycleStatus(status)
+        ) {
           resumableChildRuns.push(childRun);
           continue;
         }
+        const resumedChildRun = await resumeWaveChild(childRun);
+        if (resumedChildRun) {
+          resumableChildRuns.push(resumedChildRun);
+          continue;
+        }
         recordChildOutcome({
-          flowName: childRun.flowName,
+          instanceId: activeInstanceId(childRun),
           status: 'failed',
           reason: `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
         });
@@ -4927,11 +5780,13 @@ async function runFlowUnlocked(params: {
       childRuns.length = 0;
       childRuns.push(...resumableChildRuns);
       setActiveSubflowsForStep(nextPath, childRuns);
+      publishCurrentWaveProgress();
+      await persistRuntimeResumeState(lastCompletedStepPath);
 
-      for (const flowName of childFlowNames) {
+      for (const job of jobs) {
         if (
-          rememberedSubflowsByName.has(flowName) ||
-          childOutcomes.has(flowName)
+          rememberedSubflowsByInstance.has(job.instanceId) ||
+          childOutcomes.has(job.instanceId)
         ) {
           continue;
         }
@@ -4945,13 +5800,31 @@ async function runFlowUnlocked(params: {
         let childConversationId: string | undefined;
         let childRunToken: string | undefined;
         try {
+          await recordReviewBatchAttempt({
+            job,
+            status: 'scheduled',
+          });
           const started = await startFlowRun({
-            flowName,
+            flowName: job.flowName,
             sourceId: params.repositoryContext.flowSourceId,
             flowPath: params.flowPath,
             codexReviewModelId: params.codexReviewModelId,
-            working_folder: params.repositoryContext.workingRepositoryPath,
-            customTitle: buildTrackedSubflowTitle(flowName),
+            working_folder:
+              job.workingFolder ??
+              params.repositoryContext.workingRepositoryPath,
+            input: job.input,
+            customTitle: buildTrackedSubflowTitle(job),
+            ...(isWave
+              ? {
+                  parentWave: {
+                    executionId: params.executionId,
+                    instanceId: job.instanceId,
+                    waveInvocationId: waveInvocationId!,
+                    ...(job.targetId ? { targetId: job.targetId } : {}),
+                    displayName: job.displayName,
+                  },
+                }
+              : {}),
             source: params.source,
             chatFactory: params.chatFactory,
             listIngestedRepositories:
@@ -4964,35 +5837,77 @@ async function runFlowUnlocked(params: {
           childConversationId = started.conversationId;
 
           if (!childConversationId || !childRunToken) {
+            const reason = `Subflow ${job.displayName} did not start correctly.`;
             recordChildOutcome({
-              flowName,
+              instanceId: job.instanceId,
               status: 'failed',
-              reason: `Subflow ${flowName} did not start correctly.`,
+              reason,
+              conversationId: childConversationId,
             });
+            await recordReviewBatchAttempt({
+              job,
+              status: 'failed',
+              conversationId: childConversationId,
+              reason,
+            });
+            await recordReviewCycleOutcome({
+              flowName: job.flowName,
+              status: 'failed',
+              reason,
+            });
+            publishCurrentWaveProgress();
+            await persistRuntimeResumeState(lastCompletedStepPath);
             continue;
           }
 
           const trackedSubflow = {
             stepPath: [...nextPath],
-            flowName,
+            flowName: job.flowName,
             conversationId: childConversationId,
             runToken: childRunToken,
-            title: buildTrackedSubflowTitle(flowName),
+            instanceId: job.instanceId,
+            ...(waveInvocationId ? { waveInvocationId } : {}),
+            ...(job.targetId ? { targetId: job.targetId } : {}),
+            ...(job.workingFolder ? { workingFolder: job.workingFolder } : {}),
+            ...(job.input ? { input: job.input } : {}),
+            ...(job.inputHash ? { inputHash: job.inputHash } : {}),
+            title: buildTrackedSubflowTitle(job),
           };
-          rememberedSubflowsByName.set(flowName, trackedSubflow);
+          rememberedSubflowsByInstance.set(job.instanceId, trackedSubflow);
           childRuns.push(trackedSubflow);
+          await recordReviewBatchAttempt({
+            job,
+            status: 'running',
+            conversationId: childConversationId,
+          });
           setActiveSubflowsForStep(nextPath, childRuns);
+          publishCurrentWaveProgress();
           await persistRuntimeResumeState(lastCompletedStepPath);
         } catch (error) {
+          const reason = isFlowRunError(error)
+            ? (error.reason ?? error.code)
+            : error instanceof Error
+              ? error.message
+              : `Subflow ${job.displayName} failed to start.`;
           recordChildOutcome({
-            flowName,
+            instanceId: job.instanceId,
             status: 'failed',
-            reason: isFlowRunError(error)
-              ? (error.reason ?? error.code)
-              : error instanceof Error
-                ? error.message
-                : `Subflow ${flowName} failed to start.`,
+            reason,
+            conversationId: childConversationId,
           });
+          await recordReviewBatchAttempt({
+            job,
+            status: 'failed',
+            conversationId: childConversationId,
+            reason,
+          });
+          await recordReviewCycleOutcome({
+            flowName: job.flowName,
+            status: 'failed',
+            reason,
+          });
+          publishCurrentWaveProgress();
+          await persistRuntimeResumeState(lastCompletedStepPath);
         }
       }
 
@@ -5006,46 +5921,138 @@ async function runFlowUnlocked(params: {
         });
         if (parentPendingCancel) {
           parentStopRequested = true;
-          childRuns.forEach((childRun) => {
-            void requestActiveSubflowStop({
-              conversationId: childRun.conversationId,
-              runToken: childRun.runToken,
-            });
-          });
+          await stopActiveSubflowsAndWaitForTerminalStatus();
         }
 
         const childStatuses = await Promise.all(
           childRuns.map(async (childRun) => {
-            const status = await getFlowConversationTerminalStatus({
+            const lifecycleStatus = await getFlowConversationLifecycleStatus({
               conversationId: childRun.conversationId,
               runToken: childRun.runToken,
             });
+            const status = isTerminalFlowChildLifecycleStatus(lifecycleStatus)
+              ? lifecycleStatus
+              : null;
             return {
               childRun,
+              lifecycleStatus,
               status,
+              terminalOutcome: status
+                ? await getFlowConversationTerminalOutcome(
+                    childRun.conversationId,
+                  )
+                : undefined,
             };
           }),
         );
+        let progressChanged = false;
+        for (const { childRun, status, terminalOutcome } of childStatuses) {
+          const instanceId = activeInstanceId(childRun);
+          if (!status || childOutcomes.has(instanceId)) continue;
+          recordChildOutcome({
+            instanceId,
+            status:
+              status === 'ok' && terminalOutcome === 'not_applicable'
+                ? 'not_applicable'
+                : status,
+            conversationId: childRun.conversationId,
+          });
+          const childJob = jobByInstanceId.get(instanceId);
+          if (childJob) {
+            await recordReviewBatchAttempt({
+              job: childJob,
+              status:
+                status === 'ok' && terminalOutcome === 'not_applicable'
+                  ? 'not_applicable'
+                  : status === 'ok'
+                    ? 'completed'
+                    : status,
+              conversationId: childRun.conversationId,
+              ...(status === 'failed'
+                ? {
+                    reason:
+                      'The review batch child flow ended with a failed status.',
+                  }
+                : {}),
+            });
+          }
+          await recordReviewCycleOutcome({
+            flowName: childRun.flowName,
+            status,
+            terminalOutcome,
+          });
+          progressChanged = true;
+        }
+        if (progressChanged) {
+          publishCurrentWaveProgress();
+          await persistRuntimeResumeState(lastCompletedStepPath);
+        }
+        const orphanedChildren = childStatuses.filter(
+          ({ lifecycleStatus }) => lifecycleStatus === 'orphaned',
+        );
+        if (orphanedChildren.length > 0) {
+          const resumedChildren = await Promise.all(
+            orphanedChildren.map(async ({ childRun }) => {
+              const resumedChildRun = await resumeWaveChild(childRun);
+              return resumedChildRun
+                ? { instanceId: activeInstanceId(childRun), resumedChildRun }
+                : null;
+            }),
+          );
+          const resumedByInstanceId = new Map<string, FlowActiveSubflow>(
+            resumedChildren.flatMap((entry) =>
+              entry ? [[entry.instanceId, entry.resumedChildRun]] : [],
+            ),
+          );
+          if (resumedByInstanceId.size > 0) {
+            childRuns.forEach((childRun, index) => {
+              const instanceId = activeInstanceId(childRun);
+              const resumedChildRun = resumedByInstanceId.get(instanceId);
+              if (!resumedChildRun) return;
+              childRuns[index] = resumedChildRun;
+              rememberedSubflowsByInstance.set(instanceId, resumedChildRun);
+            });
+            setActiveSubflowsForStep(nextPath, childRuns);
+            publishCurrentWaveProgress();
+            await persistRuntimeResumeState(lastCompletedStepPath);
+            allChildrenOkObservedAt = null;
+            continue;
+          }
+        }
         const staleChildren = childStatuses.filter(
-          ({ childRun, status }) =>
-            !status && !getActiveRunOwnership(childRun.conversationId),
+          ({ lifecycleStatus }) => lifecycleStatus === 'missing',
         );
         if (staleChildren.length > 0) {
           const staleConversationIds = new Set<string>();
           staleChildren.forEach(({ childRun }) => {
             staleConversationIds.add(childRun.conversationId);
             recordChildOutcome({
-              flowName: childRun.flowName,
+              instanceId: activeInstanceId(childRun),
               status: 'failed',
               reason: `Subflow ${childRun.flowName} could not be resumed because child conversation ${childRun.conversationId} has no active run and no terminal result.`,
+              conversationId: childRun.conversationId,
             });
           });
+          await Promise.all(
+            staleChildren.map(({ childRun }) => {
+              const childJob = jobByInstanceId.get(activeInstanceId(childRun));
+              return childJob
+                ? recordReviewBatchAttempt({
+                    job: childJob,
+                    status: 'failed',
+                    conversationId: childRun.conversationId,
+                    reason: `The child conversation has no active run and no terminal result.`,
+                  })
+                : Promise.resolve();
+            }),
+          );
           const remainingChildRuns = childRuns.filter(
             (childRun) => !staleConversationIds.has(childRun.conversationId),
           );
           childRuns.length = 0;
           childRuns.push(...remainingChildRuns);
           setActiveSubflowsForStep(nextPath, childRuns);
+          publishCurrentWaveProgress();
           await persistRuntimeResumeState(lastCompletedStepPath);
           allChildrenOkObservedAt = null;
           continue;
@@ -5070,15 +6077,6 @@ async function runFlowUnlocked(params: {
               continue;
             }
           }
-          childStatuses.forEach(({ childRun, status }) => {
-            if (!status) {
-              return;
-            }
-            recordChildOutcome({
-              flowName: childRun.flowName,
-              status,
-            });
-          });
           terminalStatus = parentStopRequested ? 'stopped' : 'ok';
           break;
         }
@@ -5087,13 +6085,37 @@ async function runFlowUnlocked(params: {
         await sleep(25);
       }
 
+      if (parentStopRequested) {
+        const newlyStoppedJobs: SubflowWaveJob[] = [];
+        jobs.forEach((job) => {
+          if (!childOutcomes.has(job.instanceId)) {
+            recordChildOutcome({
+              instanceId: job.instanceId,
+              status: 'stopped',
+            });
+            newlyStoppedJobs.push(job);
+          }
+        });
+        await Promise.all(
+          newlyStoppedJobs.map((job) =>
+            recordReviewBatchAttempt({
+              job,
+              status: 'stopped',
+              reason:
+                'The parent flow stopped before the review batch reached a terminal result.',
+            }),
+          ),
+        );
+      }
       setActiveSubflowsForStep(nextPath, []);
+      const finalWaveProgress = refreshWaveProgress();
 
       const nonOkChildCount = [...childOutcomes.values()].filter(
-        (entry) => entry.status !== 'ok',
+        (entry) => entry.status === 'failed' || entry.status === 'stopped',
       ).length;
-      const finalMessage =
-        terminalStatus === 'stopped'
+      const finalMessage = finalWaveProgress
+        ? `${terminalStatus === 'stopped' ? 'Stopped' : 'Completed'} subflow wave: ${formatWaveCounts(finalWaveProgress)}`
+        : terminalStatus === 'stopped'
           ? buildSubflowSummaryText(
               launchesMultipleChildren ? 'Stopped subflows' : 'Stopped subflow',
             )
@@ -5156,20 +6178,76 @@ async function runFlowUnlocked(params: {
       });
       return terminalStatus;
     } catch (error) {
-      childRuns.forEach((childRun) => {
-        void requestActiveSubflowStop({
-          conversationId: childRun.conversationId,
-          runToken: childRun.runToken,
+      const terminalChildren =
+        await stopActiveSubflowsAndWaitForTerminalStatus();
+      if (isWave) {
+        for (const { childRun, status } of terminalChildren) {
+          const instanceId = activeInstanceId(childRun);
+          if (childOutcomes.has(instanceId)) continue;
+          const terminalOutcome = await getFlowConversationTerminalOutcome(
+            childRun.conversationId,
+          );
+          recordChildOutcome({
+            instanceId,
+            status:
+              status === 'ok' && terminalOutcome === 'not_applicable'
+                ? 'not_applicable'
+                : status,
+            conversationId: childRun.conversationId,
+          });
+          const childJob = jobByInstanceId.get(instanceId);
+          if (childJob) {
+            await recordReviewBatchAttempt({
+              job: childJob,
+              status:
+                status === 'ok' && terminalOutcome === 'not_applicable'
+                  ? 'not_applicable'
+                  : status === 'ok'
+                    ? 'completed'
+                    : status,
+              conversationId: childRun.conversationId,
+            });
+          }
+          await recordReviewCycleOutcome({
+            flowName: childRun.flowName,
+            status,
+            terminalOutcome,
+          });
+        }
+        const newlyFailedJobs: SubflowWaveJob[] = [];
+        jobs.forEach((job) => {
+          if (!childOutcomes.has(job.instanceId)) {
+            recordChildOutcome({
+              instanceId: job.instanceId,
+              status: 'failed',
+            });
+            newlyFailedJobs.push(job);
+          }
         });
-      });
+        await Promise.all(
+          newlyFailedJobs.map((job) =>
+            recordReviewBatchAttempt({
+              job,
+              status: 'failed',
+              reason:
+                'The parent wave failed before this review batch reached a terminal result.',
+            }),
+          ),
+        );
+      }
       setActiveSubflowsForStep(nextPath, []);
-      const message = isFlowRunError(error)
+      const failedWaveProgress = refreshWaveProgress();
+      await persistRuntimeResumeState(lastCompletedStepPath);
+      const failureReason = isFlowRunError(error)
         ? (error.reason ?? error.code)
         : error instanceof Error
           ? error.message
           : launchesMultipleChildren
             ? `Failed to run subflows ${childFlowNames.join(', ')}`
             : `Failed to run subflow ${childFlowNames[0]}`;
+      const message = failedWaveProgress
+        ? `Failed subflow wave: ${formatWaveCounts(failedWaveProgress)}. ${failureReason}`
+        : failureReason;
       setAssistantText({
         conversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5230,6 +6308,131 @@ async function runFlowUnlocked(params: {
         inflightId: stepInflightId,
       });
     }
+  };
+
+  const runSubflowStep = (
+    step: FlowSubflowStep,
+    command: TurnCommandMetadata,
+    nextPath: number[],
+  ) =>
+    runSubflowJobs(
+      step.flowNames.map((flowName) => ({
+        instanceId: flowName,
+        flowName,
+        displayName: flowName,
+      })),
+      step.label,
+      command,
+      nextPath,
+    );
+
+  const runSubflowWaveStep = async (
+    step: FlowSubflowWaveStep,
+    command: TurnCommandMetadata,
+    nextPath: number[],
+  ) => {
+    const root = { ...(params.input ?? {}), ...flowValues };
+    let jobs = expandSubflowWaveJobs({ step, input: root });
+    let reviewAttemptIdentity:
+      | { reviewCycleId?: string; reviewBatchId?: string }
+      | undefined;
+    if (step.reviewWorkspace) {
+      const snapshot = resolveFlowValue(
+        root,
+        step.reviewWorkspace.snapshotFrom,
+      );
+      if (
+        !snapshot ||
+        typeof snapshot !== 'object' ||
+        Array.isArray(snapshot)
+      ) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          `Review workspace snapshot binding "${step.reviewWorkspace.snapshotFrom}" did not resolve.`,
+        );
+      }
+      const reviewSnapshot = snapshot as ReviewTargetSnapshot;
+      reviewAttemptIdentity = {
+        reviewCycleId: reviewSnapshot.review_cycle_id,
+        reviewBatchId: reviewSnapshot.review_wave_id,
+      };
+      try {
+        const workspace = await prepareReviewBatchWorkspace({
+          snapshot: reviewSnapshot,
+          jobs,
+          signal: getInflight(params.conversationId)?.abortController.signal,
+        });
+        jobs = workspace.jobs;
+        append({
+          level: 'info',
+          message: 'flows.run.review_batch_workspace_prepared',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            batchId: workspace.batchId,
+            batchRoot: workspace.batchRoot,
+            jobCount: workspace.jobs.length,
+          },
+        });
+      } catch (error) {
+        const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+          params.repositoryContext,
+        );
+        const waveInvocationId = getWaveInvocationId(
+          nextPath,
+          loopStack,
+          waveInvocationGeneration,
+        );
+        const reason =
+          error instanceof Error
+            ? error.message
+            : 'Review workspace preparation failed.';
+        if (reviewRepositoryPath) {
+          try {
+            await Promise.all(
+              jobs.map((job) =>
+                recordReviewInvocationAttempt({
+                  workingRepositoryPath: reviewRepositoryPath,
+                  invocationId: `${waveInvocationId}--${job.instanceId}`,
+                  flowName: job.flowName,
+                  displayName: job.displayName,
+                  status: 'failed',
+                  reason,
+                  reviewCycleId: reviewAttemptIdentity?.reviewCycleId,
+                  reviewBatchId: reviewAttemptIdentity?.reviewBatchId,
+                }),
+              ),
+            );
+          } catch (attemptError) {
+            append({
+              level: 'warn',
+              message: 'flows.run.review_invocation_evidence_unavailable',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              context: {
+                flowName: params.flowName,
+                reason:
+                  attemptError instanceof Error
+                    ? attemptError.message
+                    : String(attemptError),
+              },
+            });
+          }
+        }
+        throw error;
+      }
+    }
+    return runSubflowJobs(
+      jobs,
+      step.label,
+      command,
+      nextPath,
+      true,
+      Boolean(step.reviewWorkspace) ||
+        jobs.some((job) => job.flowName === 'review_batch'),
+      reviewAttemptIdentity,
+    );
   };
 
   const runCommandStep = async (
@@ -5541,29 +6744,28 @@ async function runFlowUnlocked(params: {
     return 'failed';
   };
 
-  const runPrepareReviewBaseStep = async (
-    step: FlowPrepareReviewBaseStep,
+  const runInitializeReviewCycleStep = async (
+    step: FlowInitializeReviewCycleStep,
     command: TurnCommandMetadata,
-  ): Promise<TurnStatus> => {
+  ): Promise<{ status: TurnStatus; exitFlow: boolean }> => {
     const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
       params.repositoryContext,
     );
+    const instruction = `Initialize ${step.mode} review cycle`;
     if (!reviewRepositoryPath) {
-      await emitFailedFlowStep({
+      await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
-        instruction: `Prepare review base: ${step.outputKey}`,
+        instruction,
         modelId: params.modelId,
+        providerId: params.providerId,
         source: params.source,
-        message:
-          'prepareReviewBase requires a resolved working repository path.',
-        errorCode: 'INVALID_REQUEST',
+        response:
+          'Skipped review initialization because no working repository path was resolved.',
         command,
       });
-      return 'failed';
+      return { status: 'ok', exitFlow: true };
     }
-
-    const instruction = `Prepare review base: ${step.outputKey}`;
     const inflightState = createInflight({
       conversationId: params.conversationId,
       inflightId: stepInflightId,
@@ -5572,84 +6774,40 @@ async function runFlowUnlocked(params: {
       source: params.source,
       command,
     });
-    const inflightSignal = inflightState.abortController.signal;
-    const consumePendingPrepareStop = () => {
-      if (!params.runToken) return false;
-      const boundPending = bindPendingConversationCancelToInflight({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      if (!boundPending.ok) {
-        return false;
-      }
-
-      const aborted = abortInflight({
-        conversationId: params.conversationId,
-        inflightId: stepInflightId,
-      });
-      if (!aborted.ok) return false;
-
-      cleanupPendingConversationCancel({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      return true;
-    };
-    if (consumePendingPrepareStop()) {
-      await emitStoppedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        command,
-      });
-      return 'stopped';
-    }
     try {
-      const result = await prepareReviewBase({
+      const result = await initializeReviewCycle({
         workingRepositoryPath: reviewRepositoryPath,
-        outputKey: step.outputKey,
-        basePolicy: step.basePolicy,
-        parentExecutionId: params.executionId,
-        initializeReviewPointers: step.initializeReviewPointers,
-        signal: inflightSignal,
+        mode: step.mode,
+        signal: inflightState.abortController.signal,
       });
-      if (inflightSignal.aborted) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: params.modelId,
-          providerId: params.providerId,
-          source: params.source,
-          command,
-        });
-        return 'stopped';
+      flowValues[step.outputKey] = normalizeFlowInput({
+        action: result.action,
+        review_mode: step.mode,
+        story_id: result.storyId,
+        plan_path: result.planPath,
+        readiness: result.readiness,
+        ...(result.cycle ?? {}),
+      });
+      if (step.mode === 'final' && result.action === 'initialized') {
+        initializedFinalReviewCycle = true;
       }
+      const exitFlow = false;
       await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
         instruction,
-        response: [
-          'Prepared shared review base.',
-          `Artifact: ${path.relative(reviewRepositoryPath, result.artifactPath)}`,
-          `Comparison base: ${result.artifact.comparison_base_ref}`,
-        ].join('\n'),
+        response:
+          result.action === 'diagnostic'
+            ? 'Initialized isolated diagnostic review without final-review disposition ownership.'
+            : `Initialized review cycle ${result.cycle?.review_cycle_id}.`,
         modelId: params.modelId,
         providerId: params.providerId,
         source: params.source,
         command,
       });
-      return 'ok';
+      return { status: 'ok', exitFlow };
     } catch (error) {
-      if (
-        inflightSignal.aborted ||
-        (error instanceof Error && error.name === 'AbortError')
-      ) {
+      if (inflightState.abortController.signal.aborted) {
         await emitStoppedFlowStep({
           flowConversationId: params.conversationId,
           inflightId: stepInflightId,
@@ -5659,254 +6817,33 @@ async function runFlowUnlocked(params: {
           source: params.source,
           command,
         });
-        return 'stopped';
+        return { status: 'stopped', exitFlow: false };
       }
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'prepareReviewBase failed unexpectedly',
-        errorCode: 'INVALID_REQUEST',
-        command,
-      });
-      return 'failed';
-    }
-  };
-
-  const runCodexReviewFlowStep = async (
-    step: FlowCodexReviewStep,
-    command: TurnCommandMetadata,
-  ): Promise<TurnStatus> => {
-    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
-      params.repositoryContext,
-    );
-    const agentProfile = await resolveCodexReviewAgentProfile({
-      step,
-      agentByName,
-      workingFolder: reviewRepositoryPath,
-      defaultRepositoryRoot: params.repositoryContext.defaultRepositoryRoot,
-      source: params.source,
-    });
-    const resolvedModelId = resolveCodexReviewModel({
-      requestedModelId: params.codexReviewModelId,
-      stepModelId: step.model,
-      agentModelId: agentProfile.modelId,
-    });
-    const resolvedReasoningEffort = resolveCodexReviewReasoningEffort({
-      stepReasoningEffort: step.reasoningEffort,
-      agentReasoningEffort: agentProfile.reasoningEffort,
-    });
-    const codexBootstrapStatus = getProviderBootstrapStatus('codex');
-    const codexStepModelId = resolvedModelId ?? step.model ?? FALLBACK_MODEL_ID;
-    const clearStaleCodexReviewPointer = async () => {
       if (reviewRepositoryPath) {
-        try {
-          await clearCodexReviewPointerFile({
-            workingRepositoryPath: reviewRepositoryPath,
-            outputKey: step.outputKey,
-          });
-        } catch (error) {
-          await emitFailedFlowStep({
-            flowConversationId: params.conversationId,
-            inflightId: stepInflightId,
-            instruction: `Codex review: ${step.outputKey}`,
-            modelId: codexStepModelId,
-            providerId: 'codex',
-            source: params.source,
-            message: [
-              'codexReview could not clear the stale stable review pointer before starting.',
-              `Cleanup error: ${
-                error instanceof Error
-                  ? error.message
-                  : 'codexReview pointer cleanup failed unexpectedly'
-              }`,
-            ].join('\n'),
-            errorCode: 'INVALID_REQUEST',
-            command,
-          });
-          return 'failed' as const;
-        }
+        const failurePath = path.join(
+          reviewRepositoryPath,
+          'codeInfoStatus',
+          'flow-state',
+          'review-initialization-failure.json',
+        );
+        const temporaryPath = `${failurePath}.tmp-${process.pid}-${Date.now()}`;
+        await fs.mkdir(path.dirname(failurePath), { recursive: true });
+        await fs.writeFile(
+          temporaryPath,
+          `${JSON.stringify(
+            {
+              schema_version: 'codeinfo-review-initialization-failure/v1',
+              status: 'failed',
+              reason: error instanceof Error ? error.message : String(error),
+              completed_at: new Date().toISOString(),
+            },
+            null,
+            2,
+          )}\n`,
+          'utf8',
+        );
+        await fs.rename(temporaryPath, failurePath);
       }
-      return 'ok' as const;
-    };
-    const emitSkippedCodexReviewStep = async (message: string) => {
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction: `Codex review: ${step.outputKey}`,
-        response: `Codex review skipped.\nReason: ${message}`,
-        modelId: codexStepModelId,
-        providerId: 'codex',
-        source: params.source,
-        command,
-      });
-      return 'ok' as const;
-    };
-    const clearedStalePointer = await clearStaleCodexReviewPointer();
-    if (clearedStalePointer !== 'ok') {
-      return clearedStalePointer;
-    }
-    if (!resolvedModelId) {
-      return emitSkippedCodexReviewStep(
-        'codexReview requires codexReviewModelId, a model on the flow step, or a model from its configured agent.',
-      );
-    }
-
-    if (!codexBootstrapStatus.healthy) {
-      return emitSkippedCodexReviewStep(
-        codexBootstrapStatus.reason ?? 'codex unavailable',
-      );
-    }
-
-    if (!reviewRepositoryPath) {
-      return emitSkippedCodexReviewStep(
-        'codexReview requires a resolved working repository path.',
-      );
-    }
-
-    const instruction = `Codex review: ${step.outputKey}`;
-    const inflightState = createInflight({
-      conversationId: params.conversationId,
-      inflightId: stepInflightId,
-      provider: 'codex',
-      model: resolvedModelId,
-      source: params.source,
-      command,
-    });
-    const inflightSignal = inflightState.abortController.signal;
-    const consumePendingCodexStop = () => {
-      if (!params.runToken) return false;
-      const boundPending = bindPendingConversationCancelToInflight({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      if (!boundPending.ok) {
-        return false;
-      }
-
-      const aborted = abortInflight({
-        conversationId: params.conversationId,
-        inflightId: stepInflightId,
-      });
-      if (!aborted.ok) return false;
-
-      cleanupPendingConversationCancel({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      return true;
-    };
-    if (consumePendingCodexStop()) {
-      await emitStoppedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: resolvedModelId,
-        providerId: 'codex',
-        source: params.source,
-        command,
-      });
-      return 'stopped';
-    }
-
-    try {
-      const result = await runCodexReviewStep({
-        workingRepositoryPath: reviewRepositoryPath,
-        outputKey: step.outputKey,
-        modelId: resolvedModelId,
-        reasoningEffort: resolvedReasoningEffort,
-        agentType: agentProfile.agentType,
-        basePolicy: step.basePolicy,
-        signal: inflightSignal,
-      });
-      if (inflightSignal.aborted) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: resolvedModelId,
-          providerId: 'codex',
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        response: [
-          'Codex review completed.',
-          `Model: ${result.modelId}`,
-          ...(agentProfile.agentType
-            ? [`Agent type: ${agentProfile.agentType}`]
-            : []),
-          ...(result.reasoningEffort
-            ? [`Reasoning effort: ${result.reasoningEffort}`]
-            : []),
-          `Pointer: ${path.relative(reviewRepositoryPath, result.pointerPath)}`,
-        ].join('\n'),
-        modelId: resolvedModelId,
-        providerId: 'codex',
-        source: params.source,
-        command,
-      });
-      return 'ok';
-    } catch (error) {
-      await clearCodexReviewPointerFile({
-        workingRepositoryPath: reviewRepositoryPath,
-        outputKey: step.outputKey,
-      }).catch(() => undefined);
-      if (
-        inflightSignal.aborted ||
-        (error instanceof Error && error.name === 'AbortError')
-      ) {
-        await emitStoppedFlowStep({
-          flowConversationId: params.conversationId,
-          inflightId: stepInflightId,
-          instruction,
-          modelId: resolvedModelId,
-          providerId: 'codex',
-          source: params.source,
-          command,
-        });
-        return 'stopped';
-      }
-      await emitCompletedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        response: `Codex review skipped.\nReason: ${
-          error instanceof Error
-            ? error.message
-            : 'codexReview failed unexpectedly'
-        }`,
-        modelId: resolvedModelId,
-        providerId: 'codex',
-        source: params.source,
-        command,
-      });
-      return 'ok';
-    }
-  };
-
-  const runValidateReviewArtifactsStep = async (
-    step: FlowValidateReviewArtifactsStep,
-    command: TurnCommandMetadata,
-  ): Promise<TurnStatus> => {
-    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
-      params.repositoryContext,
-    );
-    const instruction = 'Validate joined review artifacts';
-    if (!reviewRepositoryPath) {
       await emitFailedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
@@ -5914,13 +6851,38 @@ async function runFlowUnlocked(params: {
         modelId: params.modelId,
         providerId: params.providerId,
         source: params.source,
+        message: `Review initialization failed: ${error instanceof Error ? error.message : String(error)}`,
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return { status: 'failed', exitFlow: false };
+    }
+  };
+
+  const runPrepareReviewTargetsStep = async (
+    step: FlowPrepareReviewTargetsStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
+    const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+      params.repositoryContext,
+    );
+    if (!reviewRepositoryPath) {
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `Prepare review targets: ${step.outputKey}`,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
         message:
-          'validateReviewArtifacts requires a resolved working repository path.',
+          'prepareReviewTargets requires a resolved working repository path.',
         errorCode: 'INVALID_REQUEST',
         command,
       });
       return 'failed';
     }
+
+    const instruction = `Prepare review targets: ${step.outputKey}`;
     const inflightState = createInflight({
       conversationId: params.conversationId,
       inflightId: stepInflightId,
@@ -5930,49 +6892,18 @@ async function runFlowUnlocked(params: {
       command,
     });
     const inflightSignal = inflightState.abortController.signal;
-    const consumePendingValidationStop = () => {
-      if (!params.runToken) return false;
-      const boundPending = bindPendingConversationCancelToInflight({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      if (!boundPending.ok) {
-        return false;
-      }
-
-      const aborted = abortInflight({
-        conversationId: params.conversationId,
-        inflightId: stepInflightId,
-      });
-      if (!aborted.ok) return false;
-
-      cleanupPendingConversationCancel({
-        conversationId: params.conversationId,
-        runToken: params.runToken,
-        inflightId: stepInflightId,
-      });
-      return true;
-    };
-    if (consumePendingValidationStop()) {
-      await emitStoppedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        modelId: params.modelId,
-        providerId: params.providerId,
-        source: params.source,
-        command,
-      });
-      return 'stopped';
-    }
     try {
-      const result = await validateReviewArtifacts({
-        workingRepositoryPath: reviewRepositoryPath,
-        pointerKeys: step.pointerKeys,
-        ensureCanonicalFallback: step.ensureCanonicalFallback,
-        signal: inflightSignal,
-      });
+      const result = await prepareReviewTargets(
+        {
+          workingRepositoryPath: reviewRepositoryPath,
+          reviewMode: step.reviewMode,
+          signal: inflightSignal,
+        },
+        {
+          listIngestedRepositories:
+            params.repositoryContext.listIngestedRepositories,
+        },
+      );
       if (inflightSignal.aborted) {
         await emitStoppedFlowStep({
           flowConversationId: params.conversationId,
@@ -5985,22 +6916,15 @@ async function runFlowUnlocked(params: {
         });
         return 'stopped';
       }
+      flowValues[step.outputKey] = normalizeFlowInput(result.snapshot);
       await emitCompletedFlowStep({
         flowConversationId: params.conversationId,
         inflightId: stepInflightId,
         instruction,
         response: [
-          result.status === 'passed'
-            ? 'Validated all joined review artifacts.'
-            : result.status === 'partial'
-              ? 'Joined review validation completed with status partial; continuing with usable review evidence.'
-              : 'Joined review validation completed with status blocked; continuing without usable review evidence.',
-          `Review session: ${result.review_session_id}`,
-          `Pointers: ${result.pointer_files.join(', ')}`,
-          ...result.pointer_results.map(
-            (pointer) =>
-              `${pointer.pointer_key}: ${pointer.status}${pointer.errors.length > 0 ? ` (${pointer.errors.join(' | ')})` : ''}`,
-          ),
+          `Prepared ${result.snapshot.targets.length} immutable review target(s).`,
+          `Review wave: ${result.snapshot.review_wave_id}`,
+          `Artifact: ${path.relative(reviewRepositoryPath, result.versionedPath)}`,
         ].join('\n'),
         modelId: params.modelId,
         providerId: params.providerId,
@@ -6034,7 +6958,7 @@ async function runFlowUnlocked(params: {
         message:
           error instanceof Error
             ? error.message
-            : 'validateReviewArtifacts failed unexpectedly.',
+            : 'prepareReviewTargets failed unexpectedly',
         errorCode: 'INVALID_REQUEST',
         command,
       });
@@ -6197,6 +7121,31 @@ async function runFlowUnlocked(params: {
       continueBoundaryLoopKey = getStepPathKey(nextPath);
     }
     while (true) {
+      if (
+        step.maxIterations !== undefined &&
+        loopFrame.iteration >= step.maxIterations
+      ) {
+        lastLoopExit = {
+          loopStepPath: [...nextPath],
+          iteration: loopFrame.iteration,
+          reason: 'max_iterations',
+        };
+        append({
+          level: 'warn',
+          message: 'flows.run.loop_max_iterations_reached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            conversationId: params.conversationId,
+            loopStepPath: nextPath,
+            iteration: loopFrame.iteration,
+            maxIterations: step.maxIterations,
+          },
+        });
+        loopStack.pop();
+        break;
+      }
       const pendingCancelBeforeIteration = consumePendingConversationCancel({
         conversationId: params.conversationId,
         runToken: params.runToken,
@@ -6218,6 +7167,11 @@ async function runFlowUnlocked(params: {
         continue;
       }
       if (outcome === 'break') {
+        lastLoopExit = {
+          loopStepPath: [...nextPath],
+          iteration: loopFrame.iteration,
+          reason: 'break',
+        };
         loopStack.pop();
         break;
       }
@@ -6227,7 +7181,6 @@ async function runFlowUnlocked(params: {
           conversationId: params.conversationId,
           detail: `outcome=${outcome} loopDepth=${loopStack.length}`,
         });
-        loopStack.pop();
         return outcome;
       }
       await params.onStopUnwindCheckpoint?.({
@@ -6277,25 +7230,29 @@ async function runFlowUnlocked(params: {
 
       if (resumePathRemaining && resumeIndex === index) {
         if (resumePathRemaining.length === 1) {
+          const reenterInterruptedWave =
+            interruptedWaveStepPathKey === getStepPathKey(nextPath);
           resumePathRemaining = null;
           resumeIndex = undefined;
-          continue;
-        }
-        if (step.type !== 'startLoop') {
+          if (!reenterInterruptedWave) {
+            continue;
+          }
+        } else if (step.type !== 'startLoop') {
           throw toFlowRunError(
             'INVALID_REQUEST',
             'resumeStepPath must reference loop steps for nested indices',
           );
+        } else {
+          const outcome = await runStartLoopStep(
+            step,
+            nextPath,
+            resumePathRemaining.slice(1),
+          );
+          resumePathRemaining = null;
+          resumeIndex = undefined;
+          if (outcome !== 'ok') return outcome;
+          continue;
         }
-        const outcome = await runStartLoopStep(
-          step,
-          nextPath,
-          resumePathRemaining.slice(1),
-        );
-        resumePathRemaining = null;
-        resumeIndex = undefined;
-        if (outcome !== 'ok') return outcome;
-        continue;
       }
 
       if (step.type === 'llm') {
@@ -6379,8 +7336,55 @@ async function runFlowUnlocked(params: {
             agentType: command.agentType,
           },
         });
-        const { status, shouldBreak } = await runBreakStep(step, command);
+        const { status, shouldBreak, failureKind } = await runBreakStep(
+          step,
+          command,
+        );
+        const shouldBreakAfterFailure =
+          status === 'failed' && step.breakOnFailure === true;
+        if (shouldBreakAfterFailure) {
+          append({
+            level: 'warn',
+            message: 'flows.run.break_failure_broke_loop',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              label: step.label ?? null,
+              agentType: step.agentType,
+              identifier: step.identifier,
+            },
+          });
+          baseLogger.warn(
+            {
+              flowName: params.flowName,
+              stepIndex: command.stepIndex,
+              label: step.label ?? null,
+              agentType: step.agentType,
+              identifier: step.identifier,
+            },
+            'flows.run.break_failure_broke_loop',
+          );
+          lastCompletedStepPath = nextPath;
+          clearContinueBoundaryForActiveLoop();
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          stepInflightId = crypto.randomUUID();
+          return 'break';
+        }
         if (shouldStopAfter(status)) {
+          if (
+            status === 'failed' &&
+            ((step.continueOnFailure && failureKind === 'execution') ||
+              (step.continueOnInvalidResponse &&
+                failureKind === 'invalid_response'))
+          ) {
+            lastCompletedStepPath = nextPath;
+            clearContinueBoundaryForActiveLoop();
+            await persistRuntimeResumeState(lastCompletedStepPath);
+            stepInflightId = crypto.randomUUID();
+            continue;
+          }
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.break',
             conversationId: params.conversationId,
@@ -6391,7 +7395,10 @@ async function runFlowUnlocked(params: {
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
+        if (shouldBreak && step.exitFlow) terminalOutcome = 'not_applicable';
         await persistRuntimeResumeState(lastCompletedStepPath);
+        if (shouldBreak && step.exitFlow) return 'exit';
+        if (shouldBreak && step.haltFlow) return 'stopped';
         if (shouldBreak) return 'break';
         continue;
       }
@@ -6531,41 +7538,28 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
-      if (step.type === 'prepareReviewBase') {
+      if (step.type === 'initializeReviewCycle') {
         const command = buildFlowCommandMetadata({
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
           loopDepth: loopStack.length,
         });
-        append({
-          level: 'info',
-          message: 'flows.turn.metadata_attached',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            stepIndex: command.stepIndex,
-            reviewBaseOutputKey: step.outputKey,
-          },
-        });
-        const status = await runPrepareReviewBaseStep(step, command);
-        if (shouldStopAfter(status)) {
-          params.onStopUnwindCheckpoint?.({
-            checkpoint: 'runSteps.return.stop.prepareReviewBase',
-            conversationId: params.conversationId,
-            detail: `status=${status} step=${command.stepIndex}`,
-          });
+        const result = await runInitializeReviewCycleStep(step, command);
+        if (shouldStopAfter(result.status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
+          return result.status;
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();
+        if (result.exitFlow) terminalOutcome = 'not_applicable';
         await persistRuntimeResumeState(lastCompletedStepPath);
+        if (result.exitFlow) return 'ok';
         stepInflightId = crypto.randomUUID();
         continue;
       }
 
-      if (step.type === 'codexReview') {
+      if (step.type === 'prepareReviewTargets') {
         const command = buildFlowCommandMetadata({
           step,
           stepIndex: index + 1,
@@ -6579,47 +7573,13 @@ async function runFlowUnlocked(params: {
           source: 'server',
           context: {
             stepIndex: command.stepIndex,
-            codexReviewOutputKey: step.outputKey,
+            reviewTargetsOutputKey: step.outputKey,
           },
         });
-        const status = await runCodexReviewFlowStep(step, command);
+        const status = await runPrepareReviewTargetsStep(step, command);
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
-            checkpoint: 'runSteps.return.stop.codexReview',
-            conversationId: params.conversationId,
-            detail: `status=${status} step=${command.stepIndex}`,
-          });
-          await persistRuntimeResumeState(lastCompletedStepPath);
-          return status;
-        }
-        lastCompletedStepPath = nextPath;
-        clearContinueBoundaryForActiveLoop();
-        await persistRuntimeResumeState(lastCompletedStepPath);
-        stepInflightId = crypto.randomUUID();
-        continue;
-      }
-
-      if (step.type === 'validateReviewArtifacts') {
-        const command = buildFlowCommandMetadata({
-          step,
-          stepIndex: index + 1,
-          totalSteps: steps.length,
-          loopDepth: loopStack.length,
-        });
-        append({
-          level: 'info',
-          message: 'flows.turn.metadata_attached',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            stepIndex: command.stepIndex,
-            reviewPointerKeys: [...step.pointerKeys],
-          },
-        });
-        const status = await runValidateReviewArtifactsStep(step, command);
-        if (shouldStopAfter(status)) {
-          params.onStopUnwindCheckpoint?.({
-            checkpoint: 'runSteps.return.stop.validateReviewArtifacts',
+            checkpoint: 'runSteps.return.stop.prepareReviewTargets',
             conversationId: params.conversationId,
             detail: `status=${status} step=${command.stepIndex}`,
           });
@@ -6654,6 +7614,42 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.subflow',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
+      if (step.type === 'subflowWave') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            subflowWaveGroupIds: step.groups?.map((group) => group.id) ?? [
+              step.groupsFrom ?? 'dynamic',
+            ],
+          },
+        });
+        const status = await runSubflowWaveStep(step, command, nextPath);
+        if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.subflowWave',
             conversationId: params.conversationId,
             detail: `status=${status} step=${command.stepIndex}`,
           });
@@ -6709,20 +7705,58 @@ async function runFlowUnlocked(params: {
     return 'ok';
   };
 
+  const persistTerminalOutcomeBeforeCleanup = async (
+    outcome: FlowStepOutcome,
+  ): Promise<TurnStatus> => {
+    const normalizedOutcome: TurnStatus =
+      outcome === 'stopped'
+        ? 'stopped'
+        : outcome === 'failed'
+          ? 'failed'
+          : 'ok';
+    runLifecycle.status = normalizedOutcome;
+    runLifecycle.updatedAt = new Date().toISOString();
+    await persistRuntimeResumeState(lastCompletedStepPath);
+    if (initializedFinalReviewCycle && terminalOutcome !== 'not_applicable') {
+      const reviewRepositoryPath = resolveFlowGitBackedRepositoryPath(
+        params.repositoryContext,
+      );
+      if (reviewRepositoryPath) {
+        await finalizeActiveReviewCycleIfPending({
+          workingRepositoryPath: reviewRepositoryPath,
+          fallbackStatus: 'incomplete',
+          fallbackReason:
+            normalizedOutcome === 'ok'
+              ? `Review flow ${params.flowName} ended without an explicit settlement outcome.`
+              : `Review flow ${params.flowName} ended with status ${normalizedOutcome}.`,
+        });
+      }
+    }
+    return normalizedOutcome;
+  };
+
   try {
     const outcome = await runSteps(params.flow.steps, [], resumeStepPath);
+    if (outcome === 'exit') {
+      params.onStopUnwindCheckpoint?.({
+        checkpoint: 'runFlowUnlocked.return.exit',
+        conversationId: params.conversationId,
+      });
+      return await persistTerminalOutcomeBeforeCleanup(outcome);
+    }
     if (outcome !== 'ok') {
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'runFlowUnlocked.return.non_ok',
         conversationId: params.conversationId,
         detail: `outcome=${outcome}`,
       });
-      return;
+      return await persistTerminalOutcomeBeforeCleanup(outcome);
     }
     params.onStopUnwindCheckpoint?.({
       checkpoint: 'runFlowUnlocked.return.ok',
       conversationId: params.conversationId,
     });
+    return await persistTerminalOutcomeBeforeCleanup(outcome);
   } finally {
     finalizeFlowRuntime();
   }
@@ -6732,6 +7766,20 @@ export async function startFlowRun(
   params: FlowRunStartParams,
 ): Promise<FlowRunStartResult> {
   const flowName = params.flowName.trim();
+  let requestedInput: FlowJsonObject | undefined;
+  try {
+    requestedInput = params.input
+      ? normalizeFlowInput(params.input)
+      : undefined;
+  } catch (error) {
+    throw toFlowRunError(
+      'INVALID_REQUEST',
+      error instanceof Error ? error.message : 'Flow input is invalid.',
+    );
+  }
+  const requestedInputHash = requestedInput
+    ? hashFlowInput(requestedInput)
+    : undefined;
   const sourceId = params.sourceId?.trim() || undefined;
   const flowPathEntry = buildFlowPathEntry({ flowName, sourceId });
   if (params.flowPath?.includes(flowPathEntry)) {
@@ -6753,6 +7801,7 @@ export async function startFlowRun(
     codexReviewModelId: params.codexReviewModelId,
     working_folder: params.working_folder,
     customTitle: params.customTitle,
+    inputHash: requestedInputHash,
   });
   if (resumeStepPath && !requestedConversationId) {
     throw toFlowRunError(
@@ -6802,6 +7851,8 @@ export async function startFlowRun(
   let startupWarnings: string[] = [];
   let childExecutionBackfills: string[] = [];
   let completedSuccessfully = false;
+  let effectiveFlowInput = requestedInput;
+  let effectiveFlowInputHash = requestedInputHash;
 
   try {
     await params.onOwnershipReady?.({ conversationId, runToken });
@@ -6884,23 +7935,55 @@ export async function startFlowRun(
       validateResumeStepPath(flow.steps, resumeStepPath);
       childExecutionBackfills =
         await validateResumeAgentConversations(resumeState);
-    }
-    executionId = resumeState?.executionId ?? executionId;
-    const effectiveCodexReviewModelId =
-      params.codexReviewModelId ?? resumeState?.codexReviewModelId;
 
+      // An explicit rewind must launch a new wave instead of accepting
+      // terminal children that belonged to the later saved step. Retaining
+      // those entries makes validation appear to pass while its artifacts
+      // still describe the earlier run.
+      if (resumesFromEarlierStep(resumeStepPath, resumeState.stepPath)) {
+        resumeState = {
+          ...resumeState,
+          waveInvocationGeneration:
+            (resumeState.waveInvocationGeneration ?? 0) + 1,
+          activeSubflows: undefined,
+          subflowWaveProgress: undefined,
+          terminalOutcome: undefined,
+          restartReconciliation: undefined,
+        };
+      }
+    }
+    if (
+      resumeState?.inputHash &&
+      requestedInputHash &&
+      resumeState.inputHash !== requestedInputHash
+    ) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'Resumed flow input does not match the persisted immutable input.',
+      );
+    }
+    if (resumeState?.input && !resumeState.inputHash) {
+      if (
+        !requestedInput ||
+        JSON.stringify(resumeState.input) !== JSON.stringify(requestedInput)
+      ) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'Persisted resume input lacks a trusted input hash and cannot be reused.',
+        );
+      }
+    }
+    effectiveFlowInput = resumeState?.input ?? requestedInput;
+    effectiveFlowInputHash =
+      resumeState?.inputHash ??
+      (effectiveFlowInput ? hashFlowInput(effectiveFlowInput) : undefined);
+    executionId = resumeState?.executionId ?? executionId;
     const runtimeIdentityStep = findRuntimeIdentityStep(
       flow.steps,
       resumeStepPath,
     );
     const firstAgentStep =
       runtimeIdentityStep ?? findFirstAgentStep(flow.steps);
-    const runtimeCodexReviewStep = !firstAgentStep
-      ? findRuntimeCodexReviewStep(flow.steps, resumeStepPath)
-      : undefined;
-    const firstCodexReviewStep =
-      runtimeCodexReviewStep ??
-      (!firstAgentStep ? findFirstCodexReviewStep(flow.steps) : undefined);
     const flowDefaultRepositoryRoot = sourceRepo?.containerPath
       ? path.resolve(sourceRepo.containerPath)
       : sourceId
@@ -6938,32 +8021,6 @@ export async function startFlowRun(
       modelId = prepared.modelId;
       providerId = prepared.providerId;
       startupWarnings = prepared.warnings ?? [];
-    } else if (firstCodexReviewStep) {
-      const agentProfile = await resolveCodexReviewAgentProfile({
-        step: firstCodexReviewStep,
-        agentByName,
-        workingFolder: effectiveWorkingFolder,
-        defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
-        source: params.source,
-      });
-      const resolvedModelId = resolveCodexReviewModel({
-        requestedModelId: effectiveCodexReviewModelId,
-        stepModelId: firstCodexReviewStep.model,
-        agentModelId: agentProfile.modelId,
-      });
-      const codexBootstrapStatus = getProviderBootstrapStatus('codex');
-      if (!codexBootstrapStatus.healthy) {
-        throw toFlowRunError(
-          'PROVIDER_UNAVAILABLE',
-          codexBootstrapStatus.reason ?? 'codex unavailable',
-        );
-      }
-      modelId = resolvedModelId ?? FALLBACK_MODEL_ID;
-      providerId = 'codex';
-      startupWarnings = [
-        ...agentProfile.warnings,
-        ...codexBootstrapStatus.warnings,
-      ];
     }
 
     const codeInfo2Root = codeInfo2RootForRun();
@@ -7004,15 +8061,6 @@ export async function startFlowRun(
       repositoryContext,
       resumeStepPath,
     });
-    await validateCodexReviewSteps({
-      flowName,
-      steps: flow.steps,
-      flowsRoot,
-      sourceId,
-      codexReviewModelId: effectiveCodexReviewModelId,
-      resumeStepPath,
-    });
-
     await ensureFlowConversation({
       conversationId,
       flowName,
@@ -7021,6 +8069,7 @@ export async function startFlowRun(
       customTitle: params.customTitle,
       source: params.source,
       workingFolder: effectiveWorkingFolder,
+      parentWave: params.parentWave,
     });
     if (!existingConversation && effectiveWorkingFolder) {
       appendWorkingFolderDecisionLog({
@@ -7069,6 +8118,7 @@ export async function startFlowRun(
         loopStepPath: [...frame.loopStepPath],
         iteration: frame.iteration,
       })),
+      lastLoopExit: resumeState?.lastLoopExit,
       pendingLoopControl: resumeState?.pendingLoopControl
         ? {
             kind: resumeState.pendingLoopControl.kind,
@@ -7080,11 +8130,34 @@ export async function startFlowRun(
         flowName: activeSubflow.flowName,
         conversationId: activeSubflow.conversationId,
         runToken: activeSubflow.runToken,
+        ...(activeSubflow.instanceId
+          ? { instanceId: activeSubflow.instanceId }
+          : {}),
+        ...(activeSubflow.waveInvocationId
+          ? { waveInvocationId: activeSubflow.waveInvocationId }
+          : {}),
+        ...(activeSubflow.targetId ? { targetId: activeSubflow.targetId } : {}),
+        ...(activeSubflow.workingFolder
+          ? { workingFolder: activeSubflow.workingFolder }
+          : {}),
+        ...(activeSubflow.input ? { input: activeSubflow.input } : {}),
+        ...(activeSubflow.inputHash
+          ? { inputHash: activeSubflow.inputHash }
+          : {}),
         ...(activeSubflow.title ? { title: activeSubflow.title } : {}),
       })),
+      subflowWaveProgress: resumeState?.subflowWaveProgress,
+      terminalOutcome: resumeState?.terminalOutcome,
+      runLifecycle: {
+        status: 'running',
+        updatedAt: new Date().toISOString(),
+      },
       codexReviewModelId:
-        effectiveCodexReviewModelId ?? resumeState?.codexReviewModelId,
+        params.codexReviewModelId ?? resumeState?.codexReviewModelId,
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
+      input: effectiveFlowInput,
+      inputHash: effectiveFlowInputHash,
+      values: resumeState?.values as FlowJsonObject | undefined,
     });
     if (retryOwnershipId && !resumeStepPath) {
       rememberFreshRunRetryOwnership({
@@ -7134,7 +8207,7 @@ export async function startFlowRun(
           defaultRepositoryRoot: repositoryContext.defaultRepositoryRoot,
         })
       ).workingDirectoryOverride;
-      await runFlowUnlocked({
+      const runOutcome = await runFlowUnlocked({
         flowName,
         flow,
         flowPath,
@@ -7153,16 +8226,21 @@ export async function startFlowRun(
         resumeStepPath,
         customTitle: params.customTitle,
         runToken,
+        input: effectiveFlowInput,
+        inputHash: effectiveFlowInputHash,
         onStopUnwindCheckpoint: params.onStopUnwindCheckpoint,
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
-      completedSuccessfully = true;
+      completedSuccessfully = runOutcome === 'ok';
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.afterRunFlowUnlocked',
         conversationId,
       });
     } catch (err) {
+      await persistFlowRunLifecycleStatus(conversationId, 'failed').catch(
+        () => undefined,
+      );
       const failureMessage = isFlowRunError(err)
         ? (err.reason ?? err.code)
         : err instanceof Error
@@ -7207,7 +8285,7 @@ export async function startFlowRun(
       cleanupPendingConversationCancel({ conversationId, runToken });
       const releaseConversationLockFn =
         params.releaseConversationLockFn ?? releaseConversationLock;
-      const released = releaseConversationLockFn(conversationId, runToken);
+      let released = false;
       if (retryOwnershipId && !resumeStepPath && completedSuccessfully) {
         const completedResult = {
           flowName,
@@ -7217,18 +8295,21 @@ export async function startFlowRun(
           modelId,
           ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
         };
-        try {
-          await persistFreshRunRetryOwnershipCompletion({
-            conversationId,
-            retryOwnershipId,
-            launch: retryOwnershipLaunch,
-            result: completedResult,
-          });
-        } catch (error) {
-          baseLogger.error(
-            { flowName, conversationId, inflightId, error },
-            'fresh run retry completion persistence failed',
-          );
+        for (let attempt = 1; attempt <= 2; attempt += 1) {
+          try {
+            await persistFreshRunRetryOwnershipCompletion({
+              conversationId,
+              retryOwnershipId,
+              launch: retryOwnershipLaunch,
+              result: completedResult,
+            });
+            break;
+          } catch (error) {
+            baseLogger.error(
+              { flowName, conversationId, inflightId, attempt, error },
+              'fresh run retry completion persistence failed',
+            );
+          }
         }
         rememberFreshRunRetryOwnershipCompletion({
           flowName,
@@ -7238,6 +8319,7 @@ export async function startFlowRun(
           result: completedResult,
         });
       }
+      released = releaseConversationLockFn(conversationId, runToken);
       if (retryOwnershipId && !resumeStepPath) {
         clearFreshRunRetryOwnership({
           flowName,
@@ -7270,4 +8352,200 @@ export async function startFlowRun(
     modelId,
     ...(startupWarnings.length > 0 ? { warnings: startupWarnings } : {}),
   };
+}
+
+export type FlowRunObservedStatus = {
+  conversationId: string;
+  status: 'running' | 'ok' | 'stopped' | 'failed' | 'orphaned';
+  terminal: boolean;
+  terminalOutcome: FlowResumeState['terminalOutcome'] | null;
+  reviewCycleStatus?: 'in_progress' | 'completed' | 'incomplete' | null;
+  executionId: string | null;
+  activeSince: string | null;
+  latestAssistantAt: string | null;
+  subflowWaveProgress: FlowSubflowWaveProgress | null;
+  resumeStepPath: number[] | null;
+};
+
+export const reconcileInterruptedFlowResumeStateForStartup = (
+  resumeState: FlowResumeState,
+  reconciledAt = new Date().toISOString(),
+): FlowResumeState | null => {
+  const interruptedSubflowCount = resumeState.activeSubflows?.length ?? 0;
+  const interruptedWaveRunningCount = resumeState.subflowWaveProgress
+    ? resumeState.subflowWaveProgress.running +
+      resumeState.subflowWaveProgress.jobs.filter(
+        (job) => job.status === 'pending',
+      ).length
+    : 0;
+  if (interruptedSubflowCount === 0 && interruptedWaveRunningCount === 0) {
+    return null;
+  }
+  return {
+    ...resumeState,
+    runLifecycle: { status: 'orphaned', updatedAt: reconciledAt },
+    restartReconciliation: {
+      status: 'interrupted',
+      reconciledAt,
+      resumeStepPath: [
+        ...(resumeState.subflowWaveProgress?.stepPath ?? resumeState.stepPath),
+      ],
+      interruptedSubflowCount,
+      interruptedWaveRunningCount,
+    },
+  };
+};
+
+export async function reconcileInterruptedFlowRunsForStartup(): Promise<number> {
+  if (shouldUseMemoryPersistence()) return 0;
+  const conversations = (await ConversationModel.find({
+    $or: [
+      { 'flags.flow.activeSubflows.0': { $exists: true } },
+      { 'flags.flow.subflowWaveProgress.running': { $gt: 0 } },
+      {
+        'flags.flow.subflowWaveProgress.jobs': {
+          $elemMatch: { status: 'pending' },
+        },
+      },
+    ],
+  })
+    .lean()
+    .exec()) as Conversation[];
+  let reconciledCount = 0;
+  const reconciledAt = new Date().toISOString();
+  for (const conversation of conversations) {
+    const resumeState = parseFlowResumeState(
+      isRecord(conversation.flags)
+        ? (conversation.flags as Record<string, unknown>)
+        : undefined,
+    );
+    if (!resumeState) continue;
+    const reconciled = reconcileInterruptedFlowResumeStateForStartup(
+      resumeState,
+      reconciledAt,
+    );
+    if (!reconciled) continue;
+    await updateConversationFlowState({
+      conversationId: conversation._id,
+      flow: reconciled,
+    });
+    reconciledCount += 1;
+    append({
+      level: 'warn',
+      message: 'flows.run.reconciled_after_restart',
+      timestamp: reconciledAt,
+      source: 'server',
+      context: {
+        conversationId: conversation._id,
+        flowName: conversation.flowName,
+        resumeStepPath: reconciled.restartReconciliation?.resumeStepPath,
+        interruptedSubflowCount:
+          reconciled.restartReconciliation?.interruptedSubflowCount,
+        interruptedWaveRunningCount:
+          reconciled.restartReconciliation?.interruptedWaveRunningCount,
+      },
+    });
+  }
+  return reconciledCount;
+}
+
+export async function getFlowRunStatus(
+  conversationId: string,
+): Promise<FlowRunObservedStatus | null> {
+  const normalizedConversationId = conversationId.trim();
+  if (!normalizedConversationId) return null;
+  const conversation = await getConversation(normalizedConversationId);
+  if (!conversation) return null;
+
+  const ownership = getActiveRunOwnership(normalizedConversationId);
+  const resumeState = parseFlowResumeState(
+    isRecord(conversation.flags)
+      ? (conversation.flags as Record<string, unknown>)
+      : undefined,
+  );
+  const latestAssistant = shouldUseMemoryPersistence()
+    ? (() => {
+        const turns = memoryTurns.get(normalizedConversationId) ?? [];
+        for (let index = turns.length - 1; index >= 0; index -= 1) {
+          const turn = turns[index];
+          if (turn?.role === 'assistant') return turn;
+        }
+        return null;
+      })()
+    : ((
+        await listTurns({
+          conversationId: normalizedConversationId,
+          limit: 10,
+        })
+      ).items.find((turn) => turn.role === 'assistant') ?? null);
+
+  const persistedChildrenStillRunning = Boolean(
+    resumeState?.activeSubflows?.length ||
+      (resumeState?.subflowWaveProgress?.running ?? 0) > 0,
+  );
+  const persistedLifecycle = resumeState?.runLifecycle?.status;
+  const status =
+    persistedLifecycle && persistedLifecycle !== 'running'
+      ? persistedLifecycle
+      : ownership
+        ? ('running' as const)
+        : resumeState?.restartReconciliation?.status === 'interrupted'
+          ? ('orphaned' as const)
+          : persistedChildrenStillRunning
+            ? ('orphaned' as const)
+            : persistedLifecycle === 'running'
+              ? ('orphaned' as const)
+              : (latestAssistant?.status ?? 'orphaned');
+  const finalReviewCycle = Object.values(resumeState?.values ?? {}).find(
+    (value) =>
+      Boolean(value) &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      (value as FlowJsonObject).action === 'initialized' &&
+      (value as FlowJsonObject).review_mode === 'final' &&
+      typeof (value as FlowJsonObject).review_cycle_id === 'string',
+  ) as FlowJsonObject | undefined;
+  const expectedReviewCycleId = finalReviewCycle?.review_cycle_id as
+    | string
+    | undefined;
+  const reviewCycleStatus =
+    conversation.flowName === 'two_phase_review_cycle' &&
+    resumeState?.workingFolder &&
+    expectedReviewCycleId
+      ? await readActiveFinalReviewCycleStatus(
+          resumeState.workingFolder,
+          expectedReviewCycleId,
+        )
+      : null;
+
+  return {
+    conversationId: normalizedConversationId,
+    status,
+    terminal: status === 'ok' || status === 'stopped' || status === 'failed',
+    terminalOutcome: resumeState?.terminalOutcome ?? null,
+    reviewCycleStatus,
+    executionId: resumeState?.executionId ?? null,
+    activeSince: ownership?.startedAt ?? null,
+    latestAssistantAt: latestAssistant?.createdAt?.toISOString?.() ?? null,
+    subflowWaveProgress: resumeState?.subflowWaveProgress ?? null,
+    resumeStepPath:
+      resumeState?.restartReconciliation?.resumeStepPath ??
+      resumeState?.stepPath ??
+      null,
+  };
+}
+
+export async function stopFlowRun(conversationId: string): Promise<boolean> {
+  const normalizedConversationId = conversationId.trim();
+  if (!normalizedConversationId) return false;
+  const conversation = await getConversation(normalizedConversationId);
+  if (!conversation?.flowName?.trim()) return false;
+  const ownership = getActiveRunOwnership(normalizedConversationId);
+  if (!ownership) return false;
+  registerPendingConversationCancel({
+    conversationId: normalizedConversationId,
+    runToken: ownership.runToken,
+  });
+  abortInflightByConversation(normalizedConversationId);
+  return true;
 }

@@ -1,12 +1,18 @@
 import { Router, json } from 'express';
 
-import { startFlowRun } from '../flows/service.js';
+import {
+  getFlowRunStatus,
+  startFlowRun,
+  stopFlowRun,
+} from '../flows/service.js';
 import type { FlowRunError } from '../flows/types.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { getWorkingFolderClientMessage } from '../workingFolders/state.js';
 
 type Deps = {
   startFlowRun: typeof startFlowRun;
+  getFlowRunStatus: typeof getFlowRunStatus;
+  stopFlowRun: typeof stopFlowRun;
 };
 
 type FlowRunBody = {
@@ -17,6 +23,21 @@ type FlowRunBody = {
   working_folder?: unknown;
   resumeStepPath?: unknown;
   customTitle?: unknown;
+};
+
+const optionalNonBlankString = (
+  value: unknown,
+  name: string,
+  options: { trim?: boolean } = {},
+): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string') {
+    throw new Error(`${name} must be a string`);
+  }
+  if (value.trim().length === 0) {
+    return undefined;
+  }
+  return options.trim === false ? value : value.trim();
 };
 
 const isFlowRunError = (err: unknown): err is FlowRunError =>
@@ -37,64 +58,24 @@ const validateBody = (
 } => {
   const candidate = (body ?? {}) as FlowRunBody;
 
-  const rawConversationId = candidate.conversationId;
-  if (rawConversationId !== undefined && rawConversationId !== null) {
-    if (typeof rawConversationId !== 'string') {
-      throw new Error('conversationId must be a string');
-    }
-  }
-  const conversationId =
-    typeof rawConversationId === 'string' && rawConversationId.trim().length > 0
-      ? rawConversationId
-      : undefined;
-
-  const rawSourceId = candidate.sourceId;
-  if (rawSourceId !== undefined && rawSourceId !== null) {
-    if (typeof rawSourceId !== 'string') {
-      throw new Error('sourceId must be a string');
-    }
-  }
-  const sourceId =
-    typeof rawSourceId === 'string' && rawSourceId.trim().length > 0
-      ? rawSourceId.trim()
-      : undefined;
-
-  const rawRetryOwnershipId = candidate.retryOwnershipId;
-  if (rawRetryOwnershipId !== undefined && rawRetryOwnershipId !== null) {
-    if (typeof rawRetryOwnershipId !== 'string') {
-      throw new Error('retryOwnershipId must be a string');
-    }
-  }
-  const retryOwnershipId =
-    typeof rawRetryOwnershipId === 'string' &&
-    rawRetryOwnershipId.trim().length > 0
-      ? rawRetryOwnershipId.trim()
-      : undefined;
-
-  const rawCodexReviewModelId = candidate.codexReviewModelId;
-  if (
-    rawCodexReviewModelId !== undefined &&
-    rawCodexReviewModelId !== null &&
-    typeof rawCodexReviewModelId !== 'string'
-  ) {
-    throw new Error('codexReviewModelId must be a string');
-  }
-  const codexReviewModelId =
-    typeof rawCodexReviewModelId === 'string' &&
-    rawCodexReviewModelId.trim().length > 0
-      ? rawCodexReviewModelId.trim()
-      : undefined;
-
-  const rawWorkingFolder = candidate.working_folder;
-  if (rawWorkingFolder !== undefined && rawWorkingFolder !== null) {
-    if (typeof rawWorkingFolder !== 'string') {
-      throw new Error('working_folder must be a string');
-    }
-  }
-  const working_folder =
-    typeof rawWorkingFolder === 'string' && rawWorkingFolder.trim().length > 0
-      ? rawWorkingFolder.trim()
-      : undefined;
+  const conversationId = optionalNonBlankString(
+    candidate.conversationId,
+    'conversationId',
+    { trim: false },
+  );
+  const sourceId = optionalNonBlankString(candidate.sourceId, 'sourceId');
+  const retryOwnershipId = optionalNonBlankString(
+    candidate.retryOwnershipId,
+    'retryOwnershipId',
+  );
+  const codexReviewModelId = optionalNonBlankString(
+    candidate.codexReviewModelId,
+    'codexReviewModelId',
+  );
+  const working_folder = optionalNonBlankString(
+    candidate.working_folder,
+    'working_folder',
+  );
 
   const rawResumeStepPath = candidate.resumeStepPath;
   if (rawResumeStepPath !== undefined && rawResumeStepPath !== null) {
@@ -139,14 +120,59 @@ const validateBody = (
   };
 };
 
-export function createFlowsRunRouter(
-  deps: Deps = {
+export function createFlowsRunRouter(overrides: Partial<Deps> = {}) {
+  const deps: Deps = {
     startFlowRun,
-  },
-) {
+    getFlowRunStatus,
+    stopFlowRun,
+    ...overrides,
+  };
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
   router.use(json({ limit: `${maxClientBytes}b`, strict: false }));
+
+  router.get('/flows/runs/:conversationId', async (req, res) => {
+    const conversationId = String(req.params.conversationId ?? '').trim();
+    if (!conversationId) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+    try {
+      const result = await deps.getFlowRunStatus(conversationId);
+      if (!result) return res.status(404).json({ error: 'not_found' });
+      return res.json(result);
+    } catch (err) {
+      return res.status(500).json({
+        error: 'server_error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
+  router.post('/flows/runs/:conversationId/stop', async (req, res) => {
+    const conversationId = String(req.params.conversationId ?? '').trim();
+    if (!conversationId) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+    try {
+      const accepted = await deps.stopFlowRun(conversationId);
+      if (!accepted) {
+        return res.status(409).json({
+          error: 'conflict',
+          code: 'FLOW_NOT_RUNNING',
+          message: 'The flow conversation has no active run.',
+        });
+      }
+      return res.status(202).json({
+        status: 'stopping',
+        conversationId,
+      });
+    } catch (err) {
+      return res.status(500).json({
+        error: 'server_error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
 
   router.post('/flows/:flowName/run', async (req, res) => {
     const requestId =

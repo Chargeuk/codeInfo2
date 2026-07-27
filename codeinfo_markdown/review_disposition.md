@@ -1,9 +1,15 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first whenever a review-set manifest exists.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md` before recording or repairing any durable findings block.
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` whenever this legacy standalone path creates a review-fix, recovery, incomplete-review, or final revalidation task. Preserve an existing matching task's original `Created` value.
+
 Finish the current story review using ONLY the stored review handoff and the artifacts it references, then decide how the canonical plan must respond to the findings.
 
 <critical_rules>
 
+- When `codeInfoTmp/reviews/<story-number>-current-review-set.json` exists, read it and the matching `current-review-wave-validation.json` before disposition. Require exact wave identity and use only `job_results` marked completed or partial plus `aggregated_findings`; keep every target owner and severity conflict visible.
+- Never close a review as clean when the review set has `closeout_allowed: false`. For a multi-target story, missing, stale, failed, or invalid cross-repository coverage is mandatory incomplete-review coverage even when all target-local reviewers reported no findings.
 - Require the server-owned current-review validation artifact to match the exact story/session/pass/HEAD/base identity used by the disposition state. Accept `passed` or `partial` and use findings only from reviewer entries marked usable. When at least one trustworthy reviewer and the canonical findings basis remain usable, retain failed sibling-review coverage as a visible non-blocking coverage note rather than creating plan work. Use an incomplete-review follow-up only when no reviewer is usable or the surviving artifacts cannot provide a trustworthy review basis. Never mix findings from stale or unvalidated reviewer entries.
 
 - Do NOT rediscover review artifacts by timestamp.
@@ -29,6 +35,7 @@ Finish the current story review using ONLY the stored review handoff and the art
 - Do not reopen the story or create review-fix tasks solely from a finding whose exact `Scope Impact` is `cleanup_preference`, unless the review artifacts show a reproduced current-head failure, the active story explicitly asked for the cleanup, or the user explicitly approved that scope expansion.
 - If `Scope Impact` is missing, malformed, or unrecognized, treat it as `unknown_scope_impact`, continue disposition normally, and do not suppress the finding on that basis alone.
 - In orchestrated review loops, `record_review_issue_decisions_in_plan.md` owns the pre-implementation `## Code Review Findings` decision block, and task-up owns any numbered review-created tasks that follow it. When this legacy standalone disposition prompt is invoked directly, it must apply that same recorder contract rather than create the retired terse findings summary.
+- On the legacy standalone path, preserve an existing artifact source reference in an honest unknown `Review harnesses` entry when no canonical wave `review_sources` exist. Never infer a server-owned review name from an artifact filename, presentation title, or conversational context.
 - This step is not complete until you re-open the canonical plan from disk after your edits and verify that the plan state now matches the stored review outcome for the current review pass.
 
 </critical_rules>
@@ -191,6 +198,7 @@ If the review handoff cannot provide the minimum usable review outcome even afte
 - Confirm the current-plan handoff and review handoff still match the current repository state.
 - Confirm the review handoff or safely inferred context identifies the local-HEAD-vs-resolved-base comparison for every repository in scope.
 - Confirm every affected repository has been reflected correctly in the canonical plan updates with explicit repository ownership.
+- Confirm every task first created by this invocation has exactly one formatter-derived `Created` point immediately above `Overview`, and every existing matching task retained its original value.
 - Confirm cross-repository findings produced explicit sequencing in the canonical plan and final validation.
 - Confirm no allowed support file was reopened for anything other than spelling, grammar, wording, or an explicit secret/artifact-hygiene correction.
 - Confirm the no-findings path, if used, explicitly recorded acceptance proof and residual risk across all repositories in scope.

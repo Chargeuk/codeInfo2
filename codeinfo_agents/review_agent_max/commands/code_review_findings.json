@@ -1,0 +1,85 @@
+{
+  "Description": "Perform the internal findings pass for the active story using a sequential review-agent prompt stack.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/01-core.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/02-plan-and-cross-repo-review.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/01-validation-and-deferred-execution.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/02-default-paths-and-lifecycle.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/03-config-compatibility-and-contracts.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/04-errors-diagnostics-and-precedence.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/05-scale-proof-and-test-boundaries.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/06-consistency-and-portability.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/generic_adversarial/07-routing-selection-and-early-failure.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/04-untrusted-input-boundaries.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/05-idempotency-and-replay-safety.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/06-event-driven-vs-time-based-coordination.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/07-changed-test-review.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/08-ui-affordance-parity.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/09-field-role-stability.md"
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "code_review_findings/10-bulk-side-effect-cardinality.md"
+    }
+  ]
+}

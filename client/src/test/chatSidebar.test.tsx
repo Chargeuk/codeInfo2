@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -183,6 +189,117 @@ describe('ConversationList control gating', () => {
         'conversation-run-chip',
       ),
     ).toBeNull();
+  });
+
+  it('distinguishes a wave parent and repeated target-scoped child flows', () => {
+    const onSelect = jest.fn();
+    render(
+      <ConversationList
+        {...createBaseProps({
+          onSelect,
+          conversations: [
+            {
+              conversationId: 'wave-parent',
+              title: 'Flow: story review',
+              provider: 'codex',
+              model: 'gpt-5',
+              lastMessageAt: '2025-01-03T00:00:00Z',
+              archived: false,
+              flowName: 'story-review',
+              flags: {
+                flow: {
+                  executionId: 'waveparent-12345678',
+                  input: { target: { target_id: 'root-repo' } },
+                  subflowWaveProgress: {
+                    expected: 7,
+                    running: 0,
+                    completed: 4,
+                    failed: 1,
+                    stopped: 1,
+                    notApplicable: 1,
+                  },
+                },
+              },
+            },
+            {
+              conversationId: 'wave-child-repo-one',
+              title: 'Story Review-Artifact Review [repo-one]',
+              provider: 'codex',
+              model: 'gpt-5',
+              lastMessageAt: '2025-01-02T00:00:00Z',
+              archived: false,
+              flowName: 'artifact-review',
+              flags: {
+                flow: { executionId: 'childexec-12345678' },
+                flowChild: {
+                  executionId: 'waveparent-12345678',
+                  instanceId: 'target-reviews:0:artifact-review',
+                  targetId: 'repo-one',
+                  displayName: 'artifact-review [repo-one]',
+                },
+              },
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Wave 7/7')).toBeInTheDocument();
+    expect(screen.getAllByText('Run waveparent')).toHaveLength(2);
+    expect(screen.getByText('root-repo')).toBeInTheDocument();
+    expect(screen.getByText('repo-one')).toBeInTheDocument();
+
+    fireEvent.click(rowByTitle('Story Review-Artifact Review [repo-one]'));
+    expect(onSelect).toHaveBeenCalledWith('wave-child-repo-one');
+  });
+
+  it('keeps long target chips visibly distinct by retaining their final segment', () => {
+    render(
+      <ConversationList
+        {...createBaseProps({
+          conversations: [
+            {
+              conversationId: 'long-root',
+              title: 'Long root review',
+              provider: 'codex',
+              model: 'gpt-5',
+              lastMessageAt: '2025-01-03T00:00:00Z',
+              archived: false,
+              flags: {
+                flow: {
+                  executionId: 'long-root-run',
+                  input: {
+                    target: {
+                      target_id:
+                        'data-codeinfo2-codeInfoTmp-story64-main-proof-three-additional-1',
+                    },
+                  },
+                },
+              },
+            },
+            {
+              conversationId: 'long-child',
+              title: 'Long child review',
+              provider: 'codex',
+              model: 'gpt-5',
+              lastMessageAt: '2025-01-02T00:00:00Z',
+              archived: false,
+              flags: {
+                flowChild: {
+                  executionId: 'long-child-run',
+                  instanceId: 'target-reviews:1:review',
+                  targetId:
+                    'data-codeinfo2-codeInfoTmp-story64-main-proof-three-additional-2',
+                },
+              },
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('…additional-1')).toBeInTheDocument();
+    expect(screen.getByText('…additional-2')).toBeInTheDocument();
   });
 
   it('renders filters and refresh for agents when handlers are provided', () => {

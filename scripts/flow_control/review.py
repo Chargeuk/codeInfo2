@@ -8,12 +8,14 @@ from pathlib import Path
 from typing import Any
 
 from flow_control.decision import DecisionOutcome, no, yes
+from flow_control.minor_fix_audit import validate_minor_fix_audits
 from flow_state_utils import ScopeResolutionError, load_json_file, resolve_path
 
 
 DEFAULT_REVIEW_STATE = "codeInfoStatus/flow-state/review-disposition-state.json"
 DEFAULT_MINOR_FIX_RESULT = "codeInfoStatus/flow-state/minor-review-fix-result.json"
 DEFAULT_CURRENT_PLAN = "codeInfoStatus/flow-state/current-plan.json"
+DEFAULT_ACTIVE_REVIEW_CYCLE = "codeInfoStatus/flow-state/active-review-cycle.json"
 
 
 def _load_review_state(
@@ -24,6 +26,9 @@ def _load_review_state(
         payload = load_json_file(review_state_path)
     except ScopeResolutionError as exc:
         return None, review_state_path, str(exc)
+    audit_valid, audit_reason = validate_minor_fix_audits(payload)
+    if not audit_valid:
+        return None, review_state_path, audit_reason
     return payload, review_state_path, None
 
 
@@ -51,6 +56,30 @@ def _review_context(payload: dict[str, Any] | None) -> dict[str, Any]:
         "fast_review_pass_count": payload.get("fast_review_pass_count"),
         "fast_current_pass_minor_count_before_fix": payload.get(
             "fast_current_pass_minor_count_before_fix"
+        ),
+        "fast_current_pass_expected_job_count": payload.get(
+            "fast_current_pass_expected_job_count"
+        ),
+        "fast_current_pass_completed_job_count": payload.get(
+            "fast_current_pass_completed_job_count"
+        ),
+        "fast_current_pass_partial_job_count": payload.get(
+            "fast_current_pass_partial_job_count"
+        ),
+        "fast_current_pass_failed_job_count": payload.get(
+            "fast_current_pass_failed_job_count"
+        ),
+        "fast_current_pass_missing_job_count": payload.get(
+            "fast_current_pass_missing_job_count"
+        ),
+        "fast_current_pass_coverage_complete": payload.get(
+            "fast_current_pass_coverage_complete"
+        ),
+        "fast_current_pass_coverage_trusted": payload.get(
+            "fast_current_pass_coverage_trusted"
+        ),
+        "fast_review_coverage_exhausted": payload.get(
+            "fast_review_coverage_exhausted"
         ),
         "fast_current_pass_expected_reviewer_count": payload.get(
             "fast_current_pass_expected_reviewer_count"
@@ -172,12 +201,7 @@ def _structured_review_block_status(
             else "- Finding ID or Review reference:"
         )
         reason_prefix = "- Why accepted:" if accepted else "- Why ignored:"
-        required_prefixes = [
-            id_prefix,
-            "- Description:",
-            "- Example:",
-            reason_prefix,
-        ]
+        required_prefixes = [id_prefix, "- Example:", reason_prefix]
         for position, heading_index in enumerate(heading_indexes):
             match = heading_pattern.match(content[heading_index])
             if match is None:
@@ -201,6 +225,45 @@ def _structured_review_block_status(
                 if not value or value.startswith("<"):
                     return False, "issue_detail_missing", [], []
                 values[prefix] = value
+            legacy_provenance = [
+                "- Found by:",
+                "- Description:",
+            ]
+            current_provenance = [
+                "- Review harnesses:",
+                "- Simple description:",
+            ]
+            has_legacy_provenance = all(
+                sum(line.startswith(prefix) for line in item_lines) == 1
+                and any(
+                    line.startswith(prefix)
+                    and line[len(prefix) :].strip().strip("`").strip()
+                    for line in item_lines
+                )
+                for prefix in legacy_provenance
+            )
+            harness_indexes = [
+                index
+                for index, line in enumerate(item_lines)
+                if line.startswith(current_provenance[0])
+            ]
+            simple_descriptions = [
+                line[len(current_provenance[1]) :].strip().strip("`").strip()
+                for line in item_lines
+                if line.startswith(current_provenance[1])
+            ]
+            has_current_provenance = (
+                len(harness_indexes) == 1
+                and item_lines[harness_indexes[0]] == current_provenance[0]
+                and harness_indexes[0] + 1 < len(item_lines)
+                and item_lines[harness_indexes[0] + 1].startswith("- ")
+                and bool(item_lines[harness_indexes[0] + 1][2:].strip())
+                and len(simple_descriptions) == 1
+                and bool(simple_descriptions[0])
+                and not simple_descriptions[0].startswith("<")
+            )
+            if not has_legacy_provenance and not has_current_provenance:
+                return False, "issue_detail_missing", [], []
             finding_ids.append(values[id_prefix])
         return True, "category_valid", numbers, finding_ids
 
@@ -464,14 +527,107 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
     if payload.get("review_phase") != "fast":
         return no("fast_review_phase_not_active", **_review_context(payload))
 
+    active_cycle = _load_optional_json(DEFAULT_ACTIVE_REVIEW_CYCLE)
+    strict_cycle = isinstance(active_cycle, dict)
+    payload_story = payload.get("story_number")
+    canonical_payload_story = (
+        str(payload_story).zfill(7)
+        if isinstance(payload_story, (str, int)) and not isinstance(payload_story, bool)
+        else None
+    )
+    if strict_cycle and (
+        active_cycle.get("review_mode") != "final"
+        or active_cycle.get("review_cycle_id") != payload.get("review_cycle_id")
+        or active_cycle.get("story_id") != canonical_payload_story
+        or active_cycle.get("plan_path") != payload.get("plan_path")
+    ):
+        return no("fast_review_active_cycle_mismatch", **_review_context(payload))
+
     pass_count = payload.get("fast_review_pass_count")
     entry_minor_count = payload.get("fast_current_pass_minor_count_before_fix")
     reviewed_pass_ids = payload.get("fast_reviewed_pass_ids")
-    expected_reviewer_count = payload.get(
-        "fast_current_pass_expected_reviewer_count"
+    review_pass_id = payload.get("review_pass_id")
+    decision_recording = payload.get("review_decision_recording")
+    deferred_candidates = payload.get("deferred_review_candidates", [])
+    generic_coverage_fields = (
+        "fast_current_pass_expected_job_count",
+        "fast_current_pass_completed_job_count",
+        "fast_current_pass_partial_job_count",
+        "fast_current_pass_failed_job_count",
+        "fast_current_pass_missing_job_count",
+        "fast_current_pass_coverage_complete",
+        "fast_current_pass_coverage_trusted",
     )
-    passed_reviewer_count = payload.get("fast_current_pass_passed_reviewer_count")
-    reviewers_complete = payload.get("fast_current_pass_reviewers_complete")
+    has_generic_coverage = any(field in payload for field in generic_coverage_fields)
+    coverage_complete = False
+    coverage_valid = True
+    if has_generic_coverage:
+        expected_job_count = payload.get("fast_current_pass_expected_job_count")
+        completed_job_count = payload.get("fast_current_pass_completed_job_count")
+        partial_job_count = payload.get("fast_current_pass_partial_job_count")
+        failed_job_count = payload.get("fast_current_pass_failed_job_count")
+        missing_job_count = payload.get("fast_current_pass_missing_job_count")
+        coverage_complete = payload.get("fast_current_pass_coverage_complete")
+        coverage_trusted = payload.get("fast_current_pass_coverage_trusted")
+        coverage_exhausted = payload.get("fast_review_coverage_exhausted", False)
+        count_values = (
+            expected_job_count,
+            completed_job_count,
+            partial_job_count,
+            failed_job_count,
+            missing_job_count,
+        )
+        coverage_valid = (
+            all(
+                isinstance(value, int)
+                and not isinstance(value, bool)
+                and value >= 0
+                for value in count_values
+            )
+            and isinstance(coverage_complete, bool)
+            and isinstance(coverage_trusted, bool)
+            and isinstance(coverage_exhausted, bool)
+        )
+        if coverage_valid and coverage_trusted:
+            coverage_valid = (
+                expected_job_count >= 1
+                and completed_job_count
+                + partial_job_count
+                + failed_job_count
+                + missing_job_count
+                == expected_job_count
+                and coverage_complete
+                == (
+                    completed_job_count == expected_job_count
+                    and partial_job_count == 0
+                    and failed_job_count == 0
+                    and missing_job_count == 0
+                )
+            )
+        elif coverage_valid:
+            coverage_valid = coverage_complete is False
+        # Coverage exhaustion is durable disposition evidence, not a loop
+        # counter invariant. A degraded provider may be terminal before pass 5
+        # when usable sibling evidence has converged.
+    else:
+        expected_reviewer_count = payload.get(
+            "fast_current_pass_expected_reviewer_count"
+        )
+        passed_reviewer_count = payload.get(
+            "fast_current_pass_passed_reviewer_count"
+        )
+        reviewers_complete = payload.get("fast_current_pass_reviewers_complete")
+        coverage_valid = (
+            expected_reviewer_count == 2
+            and isinstance(passed_reviewer_count, int)
+            and not isinstance(passed_reviewer_count, bool)
+            and passed_reviewer_count >= 0
+            and passed_reviewer_count <= expected_reviewer_count
+            and isinstance(reviewers_complete, bool)
+            and reviewers_complete
+            == (passed_reviewer_count == expected_reviewer_count)
+        )
+        coverage_complete = reviewers_complete is True
     if (
         not isinstance(pass_count, int)
         or isinstance(pass_count, bool)
@@ -487,37 +643,43 @@ def check_fast_review_phase_complete() -> DecisionOutcome:
             for review_pass_id in reviewed_pass_ids
         )
         or len(set(reviewed_pass_ids)) != len(reviewed_pass_ids)
-        or expected_reviewer_count != 2
-        or not isinstance(passed_reviewer_count, int)
-        or isinstance(passed_reviewer_count, bool)
-        or passed_reviewer_count < 0
-        or passed_reviewer_count > expected_reviewer_count
-        or not isinstance(reviewers_complete, bool)
-        or reviewers_complete != (passed_reviewer_count == expected_reviewer_count)
+        or (
+            strict_cycle
+            and (
+                not isinstance(review_pass_id, str)
+                or not review_pass_id.strip()
+                or reviewed_pass_ids[-1] != review_pass_id
+                or not isinstance(decision_recording, dict)
+                or decision_recording.get("review_pass_id") != review_pass_id
+                or decision_recording.get("outcome")
+                not in {"recorded", "no_decisions"}
+            )
+        )
+        or not isinstance(deferred_candidates, list)
+        or not coverage_valid
     ):
         return no("fast_review_counter_state_invalid", **_review_context(payload))
 
     if payload.get("needs_minor_fix_path") is True:
         return no("fast_review_minor_findings_not_drained", **_review_context(payload))
 
-    if not reviewers_complete:
-        if pass_count >= 5:
-            return yes(
-                "fast_review_fifth_pass_coverage_exhausted",
-                **_review_context(payload),
-            )
-        return no(
-            "fast_review_requires_complete_reviewer_coverage",
-            **_review_context(payload),
-        )
+    if deferred_candidates:
+        return no("fast_review_candidates_deferred", **_review_context(payload))
 
     if entry_minor_count == 0:
         return yes(
-            "fast_review_converged_without_minor_findings",
+            "fast_review_converged_without_minor_findings"
+            if coverage_complete
+            else "fast_review_converged_with_degraded_provider_coverage",
             **_review_context(payload),
         )
 
     if pass_count >= 5:
-        return yes("fast_review_fifth_pass_drained", **_review_context(payload))
+        return yes(
+            "fast_review_fifth_pass_drained"
+            if coverage_complete
+            else "fast_review_fifth_pass_degraded_coverage_drained",
+            **_review_context(payload),
+        )
 
     return no("fast_review_requires_another_pass", **_review_context(payload))

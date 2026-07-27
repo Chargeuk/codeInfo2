@@ -2081,6 +2081,26 @@ test('MCP codebase_question keeps Copilot provider parity after startup re-norma
 
 test('saved Copilot and LM Studio conversations keep the stored provider and repair omitted-model follow-up calls on the streamed websocket path', async () => {
   resetStore();
+  const originalCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+  const originalLmStudioHome = process.env.CODEINFO_LMSTUDIO_HOME;
+  const tempCopilotHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'mcp-ws-copilot-home-'),
+  );
+  const tempLmStudioHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'mcp-ws-lmstudio-home-'),
+  );
+  await fs.mkdir(path.join(tempCopilotHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCopilotHome, 'chat', 'config.toml'),
+    'model = "copilot-gpt-5"\n',
+  );
+  await fs.mkdir(path.join(tempLmStudioHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempLmStudioHome, 'chat', 'config.toml'),
+    'model = "m"\n',
+  );
+  process.env.CODEINFO_COPILOT_HOME = tempCopilotHome;
+  process.env.CODEINFO_LMSTUDIO_HOME = tempLmStudioHome;
   const advertisedHostPath =
     '/home/d_a_s/code/story55-manual-proof/queued-repo';
   const copilotRuntimePreferredModel =
@@ -2117,8 +2137,10 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
   ];
   const originalCodeWorkdir = process.env.CODEX_WORKDIR;
   const originalCodeInfoCodeWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
+  const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
   process.env.CODEX_WORKDIR = '/data';
   process.env.CODEINFO_CODEX_WORKDIR = '/data';
+  process.env.CODEINFO_CHAT_DEFAULT_MODEL = 'm';
 
   const wsApp = express();
   const wsHttp = http.createServer(wsApp);
@@ -2268,6 +2290,23 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
     } else {
       process.env.CODEINFO_CODEX_WORKDIR = originalCodeInfoCodeWorkdir;
     }
+    if (originalDefaultModel === undefined) {
+      delete process.env.CODEINFO_CHAT_DEFAULT_MODEL;
+    } else {
+      process.env.CODEINFO_CHAT_DEFAULT_MODEL = originalDefaultModel;
+    }
+    if (originalLmStudioHome === undefined) {
+      delete process.env.CODEINFO_LMSTUDIO_HOME;
+    } else {
+      process.env.CODEINFO_LMSTUDIO_HOME = originalLmStudioHome;
+    }
+    if (originalCopilotHome === undefined) {
+      delete process.env.CODEINFO_COPILOT_HOME;
+    } else {
+      process.env.CODEINFO_COPILOT_HOME = originalCopilotHome;
+    }
+    await fs.rm(tempCopilotHome, { recursive: true, force: true });
+    await fs.rm(tempLmStudioHome, { recursive: true, force: true });
     await wsHandle.close();
     await new Promise<void>((resolve) => wsHttp.close(() => resolve()));
     await new Promise<void>((resolve) => mcpServer.close(() => resolve()));

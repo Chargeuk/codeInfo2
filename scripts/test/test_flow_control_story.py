@@ -76,12 +76,14 @@ class FlowControlPromptContractTests(unittest.TestCase):
     STDOUT_TEXT = "Return its current stdout exactly and nothing else."
 
     FLOW_FILES = [
+        REPO_ROOT / "flows" / "implement_current_plan.json",
         REPO_ROOT / "flows" / "implement_next_plan.json",
         REPO_ROOT / "flows" / "task_and_implement_plan.json",
         REPO_ROOT / "flows" / "improve_task_implement_plan.json",
         REPO_ROOT / "flows" / "review_plan.json",
         REPO_ROOT / "flows" / "ingest_external_review_plan.json",
         REPO_ROOT / "flows" / "two_phase_review_cycle.json",
+        REPO_ROOT / "flows" / "review_batch.json",
         REPO_ROOT / "flows" / "review_disposition_current_artifacts.json",
         REPO_ROOT / "flows" / "minor_review_fix_path.json",
         REPO_ROOT / "flows" / "review_task_up_path.json",

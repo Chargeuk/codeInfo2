@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and apply it to this context load.
+
 Load compact review context for this freshly reset agent thread.
 
 <only_allowed_action>

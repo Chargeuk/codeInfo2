@@ -88,6 +88,31 @@ describe('final task contract', () => {
     assert.doesNotMatch(contract, /exactly two checklist items for each repository/);
   });
 
+  test('preserves the local creation time for review-created final tasks', async () => {
+    const contract = await read(
+      'codeinfo_markdown/shared/final-task-creation.md',
+    );
+    const timestampContract = await read(
+      'codeinfo_markdown/shared/review-created-task-timestamp.md',
+    );
+
+    assert.match(contract, /review-created-task-timestamp\.md/);
+    assert.match(
+      contract,
+      /Preserve an existing final task's original `Created` value/,
+    );
+    assert.match(
+      timestampContract,
+      /node "\$CODEINFO_ROOT\/scripts\/format-display-timestamp\.mjs"/,
+    );
+    assert.match(timestampContract, /- Created: `<exact formatter stdout>`/);
+    assert.match(timestampContract, /positioned immediately above/);
+    assert.match(
+      timestampContract,
+      /Do not backfill or rewrite unrelated historical tasks/,
+    );
+  });
+
   test('loads the shared contract before initial task generation and in every review task-up command', async () => {
     const initial = JSON.parse(
       await read('codeinfo_agents/tasking_agent/commands/task_up2.json'),
@@ -431,6 +456,34 @@ describe('final task contract', () => {
         testingPrompt,
       );
       assert.match(testingContract, /unsupported commands/, testingPrompt);
+    }
+  });
+
+  test('keeps settlement and proof agents tolerant of imperfect evidence and manual task-shape errors', async () => {
+    for (const promptPath of [
+      'codeinfo_markdown/settle_agent_native_review_pass.md',
+      'codeinfo_markdown/apply_agent_native_review_settlement.md',
+      'codeinfo_markdown/audit_agent_native_review_settlement.md',
+    ]) {
+      const prompt = await read(promptPath);
+      assert.match(prompt, /attempts\//u, promptPath);
+      assert.match(prompt, /imperfect|imperfections/u, promptPath);
+      assert.match(prompt, /schemas|schema/u, promptPath);
+      assert.match(prompt, /Manual Testing Guidance/u, promptPath);
+      assert.match(prompt, /manual.*(?:blocker|blocking)/isu, promptPath);
+    }
+
+    for (const promptPath of [
+      'codeinfo_markdown/normalize_inconsistent_active_task.md',
+      'codeinfo_markdown/run_automated_proof_and_fix_issues.md',
+      'codeinfo_markdown/audit_after_automated_proof.md',
+      'codeinfo_markdown/research_blocker_impact_on_plan.md',
+    ]) {
+      const prompt = await read(promptPath);
+      assert.match(prompt, /by meaning|semantically/u, promptPath);
+      assert.match(prompt, /Manual Testing Guidance/u, promptPath);
+      assert.match(prompt, /remove only the misplaced checklist item/u, promptPath);
+      assert.match(prompt, /retire.*blocker/isu, promptPath);
     }
   });
 });

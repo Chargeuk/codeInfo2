@@ -8,7 +8,16 @@ import express from 'express';
 import supertest from 'supertest';
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
-import { startFlowRun } from '../../flows/service.js';
+import {
+  __resetFlowDefinitionCatalogForTests,
+  getFlowDefinitionCatalogEntry,
+  initializeConfiguredFlowDefinitionCatalog,
+  initializeFlowDefinitionCatalogs,
+} from '../../flows/flowDefinitionCatalog.js';
+import {
+  __resetFlowServiceDepsForTests,
+  startFlowRun,
+} from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import {
@@ -74,6 +83,15 @@ const waitFor = async (
   throw new Error('Timed out waiting for condition');
 };
 
+const getFirstLlmMessageContent = (
+  entry: Awaited<ReturnType<typeof getFlowDefinitionCatalogEntry>>,
+) => {
+  const firstStep = entry?.parsed?.ok ? entry.parsed.flow.steps[0] : undefined;
+  return firstStep?.type === 'llm' && 'messages' in firstStep
+    ? firstStep.messages[0]?.content[0]
+    : undefined;
+};
+
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
 });
@@ -82,7 +100,7 @@ afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
 });
 
-test('Flow run reloads flow file between runs', async () => {
+test('Flow run pins flow definitions until the next server generation', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
@@ -95,6 +113,26 @@ test('Flow run reloads flow file between runs', async () => {
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
   process.env.FLOWS_DIR = tmpDir;
+  await initializeConfiguredFlowDefinitionCatalog();
+  await fs.writeFile(
+    path.join(tmpDir, 'hot-reload.json'),
+    JSON.stringify(
+      {
+        description: 'Hot reload flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'reload',
+            messages: [{ role: 'user', content: ['Changed before first run'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
 
   const observedMessages: string[] = [];
   let nextMessageResolver: (() => void) | null = null;
@@ -151,7 +189,17 @@ test('Flow run reloads flow file between runs', async () => {
     await supertest(app).post('/flows/hot-reload/run').send({});
     await secondMessagePromise;
     await waitFor(() => observedMessages.length >= 2);
-    assert.equal(observedMessages[1], 'Updated run');
+    assert.equal(observedMessages[1], 'First run');
+
+    __resetFlowServiceDepsForTests();
+    nextMessageResolver = null;
+    const thirdMessagePromise = new Promise<void>((resolve) => {
+      nextMessageResolver = resolve;
+    });
+    await supertest(app).post('/flows/hot-reload/run').send({});
+    await thirdMessagePromise;
+    await waitFor(() => observedMessages.length >= 3);
+    assert.equal(observedMessages[2], 'Updated run');
   } finally {
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
     if (prevFlowsDir) {
@@ -160,6 +208,71 @@ test('Flow run reloads flow file between runs', async () => {
       delete process.env.FLOWS_DIR;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('Repository-backed flow definitions are pinned when the generation starts', async () => {
+  const tmpRepoRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-repository-reload-'),
+  );
+  const flowsRoot = path.join(tmpRepoRoot, 'flows');
+  await fs.mkdir(flowsRoot, { recursive: true });
+  const flowPath = path.join(flowsRoot, 'repository-hot-reload.json');
+  await fs.writeFile(
+    flowPath,
+    JSON.stringify({
+      description: 'Repository hot reload flow',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'reload',
+          messages: [{ role: 'user', content: ['Pinned repository flow'] }],
+        },
+      ],
+    }),
+    'utf8',
+  );
+
+  try {
+    await initializeFlowDefinitionCatalogs([flowsRoot]);
+    await fs.writeFile(
+      flowPath,
+      JSON.stringify({
+        description: 'Repository hot reload flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'reload',
+            messages: [{ role: 'user', content: ['Changed repository flow'] }],
+          },
+        ],
+      }),
+      'utf8',
+    );
+
+    const pinnedEntry = await getFlowDefinitionCatalogEntry({
+      flowsRoot,
+      flowName: 'repository-hot-reload',
+    });
+    assert.equal(
+      getFirstLlmMessageContent(pinnedEntry),
+      'Pinned repository flow',
+    );
+
+    __resetFlowDefinitionCatalogForTests();
+    const freshEntry = await getFlowDefinitionCatalogEntry({
+      flowsRoot,
+      flowName: 'repository-hot-reload',
+    });
+    assert.equal(
+      getFirstLlmMessageContent(freshEntry),
+      'Changed repository flow',
+    );
+  } finally {
+    __resetFlowDefinitionCatalogForTests();
+    await fs.rm(tmpRepoRoot, { recursive: true, force: true });
   }
 });
 

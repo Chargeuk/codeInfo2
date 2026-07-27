@@ -1,5 +1,7 @@
 # Goal
 
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and make changes only in the finding's owning target repository.
+
 Fix exactly one unresolved review finding that the current review disposition state routed or promoted into the inline-fix queue.
 
 This step performs the code/config/docs/test edit for one routed inline-fix finding only. It does not task up findings, generate final revalidation tasks, or document the fix in the plan.
@@ -14,6 +16,7 @@ This step performs the code/config/docs/test edit for one routed inline-fix find
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - If `needs_minor_fix_path` is not true, do not change repository files. Write a skipped result and stop.
+- For every terminal outcome, copy `review_pass_id` exactly from the active `review-disposition-state.json`; never substitute `review_cycle_id`, a session ID, or an earlier result's identity. Overwrite any stale result only after deriving the new result from the freshly read active state, and verify the written value still equals the active pass before stopping.
 - Select exactly one finding from `unresolved_minor_batchable_findings`, preferably the first listed item unless the state names a selected finding.
 - Treat this queue as the review loop's inline-fix queue, not merely as tiny-cleanup work. Re-inspect the selected finding and the relevant source files, create the required internal one-shot resolution plan, and make every safe concrete attempt allowed by the rules below before deciding that task-up is required.
 - Do not perform manual browser, Playwright MCP, or agent-driven validation.

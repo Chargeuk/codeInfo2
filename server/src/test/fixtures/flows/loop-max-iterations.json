@@ -1,0 +1,36 @@
+{
+  "description": "Loop exits normally after its maximum iterations",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Bounded loop",
+      "maxIterations": 2,
+      "steps": [
+        {
+          "type": "llm",
+          "label": "Bounded loop message",
+          "agentType": "coding_agent",
+          "identifier": "bounded",
+          "messages": [
+            {
+              "role": "user",
+              "content": ["Bounded loop iteration."]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "After bounded loop",
+      "agentType": "coding_agent",
+      "identifier": "after-bounded",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["After bounded loop."]
+        }
+      ]
+    }
+  ]
+}

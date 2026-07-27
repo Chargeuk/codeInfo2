@@ -121,6 +121,86 @@ class StoryWorkflowStatusTests(unittest.TestCase):
         self.assertTrue(status["story_complete"])
         self.assertEqual(status["final_task_status"], "__done__")
         self.assertEqual(status["current_repository"]["branch"], "feature/0000123-sample-story")
+        self.assertEqual(status["active_review_cycle_status"], "unrecorded")
+        self.assertFalse(status["review_settlement_complete"])
+        self.assertEqual(status["status_kind"], "story_incomplete")
+
+    def test_completed_active_review_cycle_settles_the_story(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__done__`
+
+            #### Subtasks
+
+            1. [x] Done
+
+            #### Testing
+
+            1. [x] Done
+            """
+        )
+        active_path = repo / "codeInfoStatus" / "flow-state" / "active-review-cycle.json"
+        active_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "codeinfo-active-review-cycle/v2",
+                    "review_cycle_id": "0000123-rc-20260721T120000Z-aabbccdd",
+                    "review_mode": "final",
+                    "story_id": "0000123",
+                    "plan_path": "planning/0000123-sample-story.md",
+                    "status": "completed",
+                    "created_at": "2026-07-21T12:00:00Z",
+                    "completed_at": "2026-07-21T12:05:00Z",
+                }
+            )
+        )
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["active_review_cycle_valid"])
+        self.assertEqual(status["active_review_cycle_status"], "completed")
+        self.assertTrue(status["review_settlement_complete"])
+        self.assertEqual(status["status_kind"], "story_complete")
+
+    def test_incomplete_active_review_cycle_requires_another_outer_iteration(self) -> None:
+        repo, handoff = self.make_repo(
+            plan_content="""
+            ### Task 1. First
+
+            - Task Status: `__done__`
+            """
+        )
+        active_path = repo / "codeInfoStatus" / "flow-state" / "active-review-cycle.json"
+        active_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "codeinfo-active-review-cycle/v2",
+                    "review_cycle_id": "0000123-rc-20260721T120000Z-aabbccdd",
+                    "review_mode": "final",
+                    "story_id": "0000123",
+                    "plan_path": "planning/0000123-sample-story.md",
+                    "status": "incomplete",
+                    "created_at": "2026-07-21T12:00:00Z",
+                    "completed_at": "2026-07-21T12:05:00Z",
+                    "incomplete_reason": "Settlement agent unavailable.",
+                }
+            )
+        )
+
+        status = story_workflow_status.get_story_workflow_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["story_complete"])
+        self.assertEqual(status["active_review_cycle_status"], "incomplete")
+        self.assertFalse(status["review_settlement_complete"])
+        self.assertEqual(status["status_kind"], "story_incomplete")
 
     def test_reports_branch_mismatch_as_scope_invalid(self) -> None:
         repo, handoff = self.make_repo(

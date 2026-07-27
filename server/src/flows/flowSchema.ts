@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { append } from '../logStore.js';
+import type { FlowJsonValue } from './types.js';
 
 append({
   level: 'info',
@@ -23,6 +24,7 @@ export type FlowMessage = {
 export type FlowStartLoopStep = {
   type: 'startLoop';
   label?: string;
+  maxIterations?: number;
   steps: FlowStep[];
 };
 
@@ -32,6 +34,7 @@ export type FlowLlmStep = {
   agentType: string;
   identifier: string;
   continueOnFailure?: boolean;
+  recordReviewUsage?: boolean;
 } & ({ messages: FlowMessage[] } | { markdownFile: string });
 
 export type FlowBreakStep = {
@@ -41,6 +44,12 @@ export type FlowBreakStep = {
   identifier: string;
   question: string;
   breakOn: 'yes' | 'no';
+  continueOnFailure?: boolean;
+  continueOnInvalidResponse?: boolean;
+  breakOnFailure?: boolean;
+  haltFlow?: boolean;
+  exitFlow?: boolean;
+  decisionScript?: string;
 };
 
 export type FlowContinueStep = {
@@ -67,36 +76,57 @@ export type FlowResetStep = {
   identifier: string;
 };
 
-export type FlowPrepareReviewBaseStep = {
-  type: 'prepareReviewBase';
+export type FlowInitializeReviewCycleStep = {
+  type: 'initializeReviewCycle';
   label?: string;
+  mode: 'final' | 'diagnostic';
   outputKey: string;
-  basePolicy?: 'branched_from_or_default_if_merged';
-  initializeReviewPointers?: boolean;
 };
 
-export type FlowCodexReviewStep = {
-  type: 'codexReview';
+export type FlowPrepareReviewTargetsStep = {
+  type: 'prepareReviewTargets';
   label?: string;
+  reviewMode?: 'final' | 'diagnostic';
   outputKey: string;
-  basePolicy?: 'branched_from_or_default_if_merged';
-  modelSource?: 'flow_request_or_step' | 'flow_request_or_step_or_agent';
-  agentType?: string;
-  model?: string;
-  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
-};
-
-export type FlowValidateReviewArtifactsStep = {
-  type: 'validateReviewArtifacts';
-  label?: string;
-  pointerKeys: string[];
-  ensureCanonicalFallback?: boolean;
 };
 
 export type FlowSubflowStep = {
   type: 'subflow';
   label?: string;
   flowNames: string[];
+};
+
+export type FlowSubflowWaveBindings = {
+  workingFolderFrom?: string;
+  input?: Record<string, string>;
+  inputValues?: Record<string, FlowJsonValue>;
+};
+
+export type FlowSubflowWaveMatrixGroup = {
+  kind: 'matrix';
+  id: string;
+  itemsFrom: string;
+  itemName: string;
+  flowNames: string[];
+  bindings?: FlowSubflowWaveBindings;
+};
+
+export type FlowSubflowWaveSingletonGroup = {
+  kind: 'singleton';
+  id: string;
+  flowName: string;
+  bindings?: FlowSubflowWaveBindings;
+};
+
+export type FlowSubflowWaveStep = {
+  type: 'subflowWave';
+  label?: string;
+  groups?: Array<FlowSubflowWaveMatrixGroup | FlowSubflowWaveSingletonGroup>;
+  groupsFrom?: string;
+  failureMode?: 'best_effort';
+  reviewWorkspace?: {
+    snapshotFrom: string;
+  };
 };
 
 export type FlowReingestStep = {
@@ -111,10 +141,10 @@ export type FlowStep =
   | FlowContinueStep
   | FlowCommandStep
   | FlowResetStep
-  | FlowPrepareReviewBaseStep
-  | FlowCodexReviewStep
-  | FlowValidateReviewArtifactsStep
+  | FlowInitializeReviewCycleStep
+  | FlowPrepareReviewTargetsStep
   | FlowSubflowStep
+  | FlowSubflowWaveStep
   | FlowReingestStep;
 
 export type FlowFile = {
@@ -135,6 +165,7 @@ const FlowStartLoopStepSchema = z
   .object({
     type: z.literal('startLoop'),
     label: trimmedNonEmptyString.optional(),
+    maxIterations: z.number().int().positive().optional(),
     steps: z.array(z.lazy(() => FlowStepSchema)).min(1),
   })
   .strict();
@@ -146,6 +177,7 @@ const FlowLlmStepSchema = z
     agentType: trimmedNonEmptyString,
     identifier: trimmedNonEmptyString,
     continueOnFailure: z.boolean().optional(),
+    recordReviewUsage: z.boolean().optional(),
     messages: z.array(FlowMessageSchema).min(1).optional(),
     markdownFile: trimmedNonEmptyString.optional(),
   })
@@ -159,8 +191,23 @@ const FlowBreakStepSchema = z
     identifier: trimmedNonEmptyString,
     question: trimmedNonEmptyString,
     breakOn: z.union([z.literal('yes'), z.literal('no')]),
+    continueOnFailure: z.boolean().optional(),
+    continueOnInvalidResponse: z.boolean().optional(),
+    breakOnFailure: z.boolean().optional(),
+    haltFlow: z.boolean().optional(),
+    exitFlow: z.boolean().optional(),
+    decisionScript: trimmedNonEmptyString.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.haltFlow && value.exitFlow) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['exitFlow'],
+        message: 'break steps cannot set both haltFlow and exitFlow.',
+      });
+    }
+  });
 
 const FlowContinueStepSchema = z
   .object({
@@ -192,78 +239,23 @@ const FlowResetStepSchema = z
   })
   .strict();
 
-const FlowPrepareReviewBaseStepSchema = z
+const FlowInitializeReviewCycleStepSchema = z
   .object({
-    type: z.literal('prepareReviewBase'),
+    type: z.literal('initializeReviewCycle'),
     label: trimmedNonEmptyString.optional(),
+    mode: z.enum(['final', 'diagnostic']),
     outputKey: trimmedNonEmptyString,
-    basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
-    initializeReviewPointers: z.boolean().optional(),
   })
   .strict();
 
-const FlowCodexReviewStepSchema = z
+const FlowPrepareReviewTargetsStepSchema = z
   .object({
-    type: z.literal('codexReview'),
+    type: z.literal('prepareReviewTargets'),
     label: trimmedNonEmptyString.optional(),
+    reviewMode: z.enum(['final', 'diagnostic']).optional(),
     outputKey: trimmedNonEmptyString,
-    basePolicy: z.literal('branched_from_or_default_if_merged').optional(),
-    modelSource: z
-      .enum(['flow_request_or_step', 'flow_request_or_step_or_agent'])
-      .optional(),
-    agentType: trimmedNonEmptyString.optional(),
-    model: trimmedNonEmptyString.optional(),
-    reasoningEffort: z
-      .enum(['minimal', 'low', 'medium', 'high', 'xhigh'])
-      .optional(),
   })
-  .strict()
-  .superRefine((value, ctx) => {
-    if (
-      value.modelSource === 'flow_request_or_step_or_agent' &&
-      !value.agentType
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['agentType'],
-        message:
-          'agentType is required when modelSource is flow_request_or_step_or_agent',
-      });
-    }
-    if (
-      value.agentType &&
-      value.modelSource !== 'flow_request_or_step_or_agent'
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['modelSource'],
-        message:
-          'modelSource must be flow_request_or_step_or_agent when agentType is set',
-      });
-    }
-  });
-
-const FlowValidateReviewArtifactsStepSchema = z
-  .object({
-    type: z.literal('validateReviewArtifacts'),
-    label: trimmedNonEmptyString.optional(),
-    pointerKeys: z.array(trimmedNonEmptyString).min(1),
-    ensureCanonicalFallback: z.boolean().optional(),
-  })
-  .strict()
-  .superRefine((value, ctx) => {
-    const seen = new Set<string>();
-    value.pointerKeys.forEach((pointerKey, index) => {
-      if (seen.has(pointerKey)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['pointerKeys', index],
-          message: `Duplicate review pointer key "${pointerKey}" is not allowed.`,
-        });
-      }
-      seen.add(pointerKey);
-    });
-  });
+  .strict();
 
 const FlowSubflowStepSchema = z
   .object({
@@ -284,6 +276,113 @@ const FlowSubflowStepSchema = z
         path: ['flowNames', index],
         message: `Duplicate subflow name "${flowName}" is not allowed.`,
       });
+    });
+  });
+
+const flowWaveIdentifier = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z_][A-Za-z0-9_-]*$/u);
+const flowWaveBindingPath = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/u);
+
+const FlowJsonValueSchema: z.ZodType<FlowJsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(FlowJsonValueSchema),
+    z.record(z.string(), FlowJsonValueSchema),
+  ]),
+);
+
+const FlowSubflowWaveBindingsSchema = z
+  .object({
+    workingFolderFrom: flowWaveBindingPath.optional(),
+    input: z.record(flowWaveIdentifier, flowWaveBindingPath).optional(),
+    inputValues: z.record(flowWaveIdentifier, FlowJsonValueSchema).optional(),
+  })
+  .strict();
+
+const FlowSubflowWaveMatrixGroupSchema = z
+  .object({
+    kind: z.literal('matrix'),
+    id: flowWaveIdentifier,
+    itemsFrom: flowWaveBindingPath,
+    itemName: flowWaveIdentifier,
+    flowNames: z.array(trimmedNonEmptyString).min(1),
+    bindings: FlowSubflowWaveBindingsSchema.optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+    value.flowNames.forEach((flowName, index) => {
+      if (seen.has(flowName)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['flowNames', index],
+          message: `Duplicate wave subflow name "${flowName}" is not allowed.`,
+        });
+      }
+      seen.add(flowName);
+    });
+  });
+
+const FlowSubflowWaveSingletonGroupSchema = z
+  .object({
+    kind: z.literal('singleton'),
+    id: flowWaveIdentifier,
+    flowName: trimmedNonEmptyString,
+    bindings: FlowSubflowWaveBindingsSchema.optional(),
+  })
+  .strict();
+
+const FlowSubflowWaveGroupsSchema = z
+  .array(
+    z.union([
+      FlowSubflowWaveMatrixGroupSchema,
+      FlowSubflowWaveSingletonGroupSchema,
+    ]),
+  )
+  .min(1);
+
+export const parseFlowSubflowWaveGroups = (value: unknown) =>
+  FlowSubflowWaveGroupsSchema.parse(value);
+
+const FlowSubflowWaveStepSchema = z
+  .object({
+    type: z.literal('subflowWave'),
+    label: trimmedNonEmptyString.optional(),
+    groups: FlowSubflowWaveGroupsSchema.optional(),
+    groupsFrom: flowWaveBindingPath.optional(),
+    failureMode: z.literal('best_effort').optional(),
+    reviewWorkspace: z
+      .object({ snapshotFrom: trimmedNonEmptyString })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (Boolean(value.groups) === Boolean(value.groupsFrom)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['groups'],
+        message: 'subflowWave requires exactly one of groups or groupsFrom.',
+      });
+    }
+    const seen = new Set<string>();
+    (value.groups ?? []).forEach((group, index) => {
+      if (seen.has(group.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['groups', index, 'id'],
+          message: `Duplicate wave group id "${group.id}" is not allowed.`,
+        });
+      }
+      seen.add(group.id);
     });
   });
 
@@ -319,10 +418,10 @@ function flowStepUnionSchema() {
     FlowContinueStepSchema,
     FlowCommandStepSchema,
     FlowResetStepSchema,
-    FlowPrepareReviewBaseStepSchema,
-    FlowCodexReviewStepSchema,
-    FlowValidateReviewArtifactsStepSchema,
+    FlowInitializeReviewCycleStepSchema,
+    FlowPrepareReviewTargetsStepSchema,
     FlowSubflowStepSchema,
+    FlowSubflowWaveStepSchema,
     FlowReingestSourceIdStepSchema,
     FlowReingestWorkingTargetStepSchema,
     FlowReingestPlanScopeTargetStepSchema,

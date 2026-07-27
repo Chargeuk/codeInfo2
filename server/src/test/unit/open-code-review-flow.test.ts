@@ -11,7 +11,7 @@ function readRepoFile(relativePath: string): string {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('standalone Open Code Review flow uses the Codex-backed review agent', () => {
+test('sandbox OpenCode flow uses the same generic workspace reviewer', () => {
   const raw = readRepoFile('flows-sandbox/open_code_review.json');
   const parsed = parseFlowFile(raw, { flowName: 'open_code_review' });
   assert.equal(parsed.ok, true);
@@ -19,22 +19,18 @@ test('standalone Open Code Review flow uses the Codex-backed review agent', () =
 
   assert.deepEqual(parsed.flow.steps, [
     {
-      type: 'prepareReviewBase',
-      label: 'Prepare Shared Review Base And Context',
-      outputKey: 'current-review-base',
-      basePolicy: 'branched_from_or_default_if_merged',
-    },
-    {
       type: 'llm',
-      label: 'Run Standalone Open Code Review',
-      agentType: 'review_agent_heavy',
+      label: 'Run OpenCode Workspace Review',
+      agentType: 'review_agent_max',
       identifier: 'ocr_reviewer',
-      markdownFile: 'run_open_code_review.md',
+      continueOnFailure: true,
+      recordReviewUsage: true,
+      markdownFile: 'run_open_code_review_workspace.md',
     },
   ]);
 });
 
-test('production Open Code Review flow reuses the parent-prepared session', () => {
+test('production OpenCode flow uses only the scheduler-provided workspace', () => {
   const raw = readRepoFile('flows/open_code_review.json');
   const parsed = parseFlowFile(raw, { flowName: 'open_code_review' });
   assert.equal(parsed.ok, true);
@@ -43,37 +39,33 @@ test('production Open Code Review flow reuses the parent-prepared session', () =
   assert.deepEqual(parsed.flow.steps, [
     {
       type: 'llm',
-      label: 'Run Session-Bound Open Code Review',
-      agentType: 'review_agent_heavy',
+      label: 'Run OpenCode Workspace Review',
+      agentType: 'review_agent_max',
       identifier: 'ocr_reviewer',
-      markdownFile: 'run_open_code_review.md',
+      recordReviewUsage: true,
+      markdownFile: 'run_open_code_review_workspace.md',
     },
   ]);
 });
 
-test('standalone Open Code Review prompt locks the host-agent safety contract', () => {
-  const prompt = readRepoFile('codeinfo_markdown/run_open_code_review.md');
+test('OpenCode workspace prompt locks the agent-owned output contract', () => {
+  const prompt = readRepoFile(
+    'codeinfo_markdown/run_open_code_review_workspace.md',
+  );
 
   for (const required of [
     'ocr agent prepare',
     "--exclude 'planning/**'",
     '--split',
-    'codex-review-manifest/v1',
-    'ocr agent context',
-    'codex-review-comments/v1',
-    'second-pass reflection',
     'ocr agent validate-comments',
     'ocr agent report',
-    'codeinfo-open-code-review/v1',
-    'codeinfo-review-context/v1',
-    'current-review-base.json',
-    'review_session_id',
-    'canonical_review_pass_id',
-    'current-open-code-review.json',
-    'context hash',
-    '/app/logs/open-code-review',
-    'Publishing a partial pointer is required',
-    'Do not merge findings into canonical review state.',
+    'review_job_workspace_contract.md',
+    'output/',
+    'running cell or session handle',
+    'continue waiting on that exact handle',
+    "before reading that command's output as complete",
+    'Do not invoke `publish_open_code_review.py`',
+    'do not write `current-open-code-review.json`',
   ]) {
     assert.match(
       prompt,
@@ -81,24 +73,8 @@ test('standalone Open Code Review prompt locks the host-agent safety contract', 
     );
   }
 
-  assert.match(prompt, /Do not run legacy `ocr review` or `ocr scan`\./u);
-  assert.match(prompt, /Do not edit source files/u);
-  assert.match(prompt, /Do not commit, push, create branches/u);
-  assert.match(prompt, /Do not request or use `OCR_LLM_URL`/u);
-  assert.match(prompt, /helper atomically writes both .*current-open-code-review\.json/isu);
-  assert.match(prompt, /comments-<four-digit-index>\.json/u);
-  assert.match(prompt, /validation-<four-digit-index>\.json/u);
-  assert.match(prompt, /report-<four-digit-index>\.md/u);
-  assert.match(prompt, /publish_open_code_review\.py/u);
-  assert.match(prompt, /--validate-only/u);
-  assert.match(prompt, /at most three preflight attempts/u);
-  assert.match(prompt, /Do not write either OpenCode pointer JSON yourself\./u);
-  assert.match(prompt, /canonical `bundles` entries/u);
-  assert.match(prompt, /"coverage":\s*\{\s*"total_files"/u);
-  assert.match(
-    prompt,
-    /Do not publish these six coverage fields at the top level\./u,
-  );
+  assert.match(prompt, /Continue past an invalid or unavailable bundle/u);
+  assert.match(prompt, /self-describing review/u);
 });
 
 test('server image builds the exact Codex-enabled OCR fork and gates its commands', () => {
@@ -129,50 +105,72 @@ test('server image builds the exact Codex-enabled OCR fork and gates its command
   assert.doesNotMatch(globalPackages, /@alibaba-group\/open-code-review/u);
 });
 
-test('main proof catalog supplies the heavy review-only Codex agent without checked-in auth', () => {
-  const agentRoot = 'manual_testing/codeinfo_agents/review_agent_heavy';
-  const config = readRepoFile(`${agentRoot}/config.toml`);
-  const systemPrompt = readRepoFile(`${agentRoot}/system_prompt.txt`);
+test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex agents without checked-in auth', () => {
+  const heavyRoot = 'manual_testing/codeinfo_agents/review_agent_heavy';
+  const maxRoot = 'manual_testing/codeinfo_agents/review_agent_max';
+  const heavyConfig = readRepoFile(`${heavyRoot}/config.toml`);
+  const maxConfig = readRepoFile(`${maxRoot}/config.toml`);
+  const heavySystemPrompt = readRepoFile(`${heavyRoot}/system_prompt.txt`);
+  const maxSystemPrompt = readRepoFile(`${maxRoot}/system_prompt.txt`);
   const manualTestingIgnore = readRepoFile('manual_testing/.gitignore');
 
-  assert.match(config, /codeinfo_provider = "codex"/u);
-  assert.match(config, /model = "gpt-5\.6-sol"/u);
-  assert.match(config, /model_reasoning_effort = "high"/u);
-  assert.match(config, /approval_policy = "never"/u);
-  assert.match(config, /sandbox_mode = "danger-full-access"/u);
-  assert.match(systemPrompt, /Do not edit source, commit, push/u);
-  assert.match(systemPrompt, /do not call `code_info`/u);
-  assert.match(systemPrompt, /continue with the usable pinned evidence/u);
+  assert.match(heavyConfig, /codeinfo_provider = "codex"/u);
+  assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
+  assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
+  assert.match(heavyConfig, /approval_policy = "never"/u);
+  assert.match(heavyConfig, /sandbox_mode = "danger-full-access"/u);
+  assert.match(maxConfig, /model = "gpt-5\.6-sol"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /approval_policy = "never"/u);
+  assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
+  assert.equal(maxSystemPrompt, heavySystemPrompt);
+  assert.match(heavySystemPrompt, /Do not edit source, commit, push/u);
+  assert.match(heavySystemPrompt, /do not call `code_info`/u);
+  assert.match(heavySystemPrompt, /continue with the usable pinned evidence/u);
   assert.match(manualTestingIgnore, /^\*\*\/auth\.json$/mu);
 });
 
-test('source heavy review agent yields to pinned OCR evidence', () => {
-  const config = readRepoFile('codeinfo_agents/review_agent_heavy/config.toml');
-  const systemPrompt = readRepoFile(
+test('source heavy and maximum review agents share the review boundary while retaining distinct model tiers', () => {
+  const heavyConfig = readRepoFile(
+    'codeinfo_agents/review_agent_heavy/config.toml',
+  );
+  const maxConfig = readRepoFile(
+    'codeinfo_agents/review_agent_max/config.toml',
+  );
+  const heavySystemPrompt = readRepoFile(
     'codeinfo_agents/review_agent_heavy/system_prompt.txt',
   );
+  const maxSystemPrompt = readRepoFile(
+    'codeinfo_agents/review_agent_max/system_prompt.txt',
+  );
+  const heavyCommand = readRepoFile(
+    'codeinfo_agents/review_agent_heavy/commands/code_review_findings.json',
+  );
+  const maxCommand = readRepoFile(
+    'codeinfo_agents/review_agent_max/commands/code_review_findings.json',
+  );
 
-  assert.match(config, /sandbox_mode = "danger-full-access"/u);
-  assert.match(systemPrompt, /pinned review evidence/u);
-  assert.match(systemPrompt, /do not call `code_info`/u);
-  assert.match(systemPrompt, /continue with the usable evidence/u);
+  assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
+  assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /model = "gpt-5\.6-sol"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
+  assert.equal(maxSystemPrompt, heavySystemPrompt);
+  assert.equal(maxCommand, heavyCommand);
+  assert.match(heavySystemPrompt, /pinned review evidence/u);
+  assert.match(heavySystemPrompt, /do not call `code_info`/u);
+  assert.match(heavySystemPrompt, /continue with the usable evidence/u);
 });
 
-test('review merge and disposition prompts keep partial review evidence moving', () => {
-  const codexMerge = readRepoFile(
-    'codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md',
-  );
-  const ocrMerge = readRepoFile(
-    'codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md',
-  );
-  const classify = readRepoFile(
-    'codeinfo_markdown/classify_review_disposition.md',
+test('common batch prompts preserve partial reviewer evidence', () => {
+  const verify = readRepoFile('codeinfo_markdown/verify_review_batch_jobs.md');
+  const reconcile = readRepoFile('codeinfo_markdown/reconcile_review_batch.md');
+  const disposition = readRepoFile(
+    'codeinfo_markdown/disposition_review_batch.md',
   );
 
-  assert.match(codexMerge, /overall validation may be `partial`/u);
-  assert.match(codexMerge, /server-owned fallback findings file/u);
-  assert.match(ocrMerge, /Accept `passed` or `partial` OCR validation/u);
-  assert.match(ocrMerge, /use only the bundle IDs listed as usable/u);
-  assert.match(classify, /continue classifying trustworthy findings/u);
-  assert.match(classify, /do not claim there were no findings/u);
+  assert.match(verify, /recover or repair only that job's output directly/u);
+  assert.match(verify, /honest unavailable explanation/u);
+  assert.match(reconcile, /Preserve useful sibling findings/u);
+  assert.match(disposition, /reopen job evidence/u);
 });

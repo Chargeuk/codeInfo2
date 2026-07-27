@@ -8535,8 +8535,11 @@ export async function getFlowRunStatus(
   };
 }
 
-export function stopFlowRun(conversationId: string): boolean {
+export async function stopFlowRun(conversationId: string): Promise<boolean> {
   const normalizedConversationId = conversationId.trim();
+  if (!normalizedConversationId) return false;
+  const conversation = await getConversation(normalizedConversationId);
+  if (!conversation?.flowName?.trim()) return false;
   const ownership = getActiveRunOwnership(normalizedConversationId);
   if (!ownership) return false;
   registerPendingConversationCancel({

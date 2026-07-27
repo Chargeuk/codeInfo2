@@ -153,18 +153,25 @@ export function createFlowsRunRouter(overrides: Partial<Deps> = {}) {
     if (!conversationId) {
       return res.status(400).json({ error: 'invalid_request' });
     }
-    const accepted = deps.stopFlowRun(conversationId);
-    if (!accepted) {
-      return res.status(409).json({
-        error: 'conflict',
-        code: 'FLOW_NOT_RUNNING',
-        message: 'The flow conversation has no active run.',
+    try {
+      const accepted = await deps.stopFlowRun(conversationId);
+      if (!accepted) {
+        return res.status(409).json({
+          error: 'conflict',
+          code: 'FLOW_NOT_RUNNING',
+          message: 'The flow conversation has no active run.',
+        });
+      }
+      return res.status(202).json({
+        status: 'stopping',
+        conversationId,
+      });
+    } catch (err) {
+      return res.status(500).json({
+        error: 'server_error',
+        message: err instanceof Error ? err.message : String(err),
       });
     }
-    return res.status(202).json({
-      status: 'stopping',
-      conversationId,
-    });
   });
 
   router.post('/flows/:flowName/run', async (req, res) => {

@@ -22,6 +22,8 @@ A potentially long native review command is launched through the direct process 
 
 Every scope decision separates the technical observation, demonstrated consequence, and concrete proposed remedy. A requirement for an outcome does not implicitly authorize every mechanism for achieving it. Before a finding can remain actionable, the gates name the exact existing file, configuration field, API, or runtime seam that can express the smallest repair, verify that seam from current-HEAD repository evidence, and compare it literally with every relevant Out Of Scope restriction. When the repository cannot express the proposed mechanism without adding an excluded capability, the observation remains useful non-actionable evidence unless another concrete authorized repair is proven; a later materiality decision cannot restore it.
 
+The flow-run stop endpoint enforces the flow identity already expressed by its route before using the shared active-run ownership and cancellation infrastructure. An active Chat or Agent conversation identifier is not a flow identifier and must remain untouched when supplied to that endpoint.
+
 After negative scope filtering and positive authorization, one separately reset materiality agent evaluates only the surviving actionable findings. It keeps work actionable only when the reviewed HEAD demonstrates a realistically reachable problem with meaningful practical impact whose value justifies changing completed code. Borderline, speculative, stylistic, already-mitigated, or otherwise low-value observations remain visible as non-actionable evidence instead of triggering repair or another review iteration. Reviewer severity labels, historical review decisions, and invented numeric probability, cost, severity, or risk thresholds are never materiality authority. Each sequential gate reasons only about the survivors it receives; previously removed findings are carried forward as an append-only audit and reporting trail, inspected only enough to conserve identity, prevent resurrection, and repair a factual contradiction.
 
 Review execution uses two explicit quality tiers without changing either fixing agent's repair instructions. `review_agent_heavy` uses `gpt-5.6-terra` with high reasoning for Codex workspace orchestration, cross-repository review, batch verification, and reconciliation audit. `review_agent_max` uses `gpt-5.6-sol` with high reasoning for OpenCode workspace review, deep-review consolidation, combined filtering audit, and complete-pass settlement audit; `max` names the flagship model tier rather than the reasoning-effort value. After either the normal coding agent or stronger research agent finishes all of its repairs in a changed repository, that same agent runs the repository-supported formatter and lint workflow once before committing, re-runs directly affected proof when those tools change files, and records honest results without adding tooling or cleaning unrelated baseline issues.
@@ -123,6 +125,7 @@ Every durable batch findings record also summarizes every direct review job atte
 - All viable jobs execute concurrently, subject only to provider scheduling, and the parent waits for every terminal outcome.
 - Target-local artifacts cannot overwrite or validate against another target's identity.
 - Parent cancellation reaches every active wave child, and resume reattaches without duplicate launches.
+- The flow-run stop endpoint confirms that the addressed conversation has a non-empty `flowName` before consulting shared active-run ownership or registering cancellation; active Chat and Agent conversations are rejected without changing their lock, pending-cancellation state, or in-flight execution.
 - Flow progress and child titles distinguish repeated child flow names by target alias and show wave counts.
 - Changes merged or rebased from `main` are reviewed and, where they overlap this story, adapted and validated so the branch preserves these contracts.
 - Targeted server, client, cucumber, and e2e proof passes, followed by the full parallel automated suite.
@@ -164,6 +167,7 @@ Every durable batch findings record also summarizes every direct review job atte
 - Reconsidering or resurrecting findings already removed by an earlier review gate, except for the minimum identity-conservation and factual-audit work needed to prevent loss, duplication, or contradiction.
 - Moving settlement-created tasking after checkpoint persistence, or allowing a checkpoint agent to complete that work, instead of returning it to the normal implementation and review loop.
 - Adding a child-completion timeout, provider-specific lifecycle behavior, artifact-based runtime completion, a new persisted child-status schema, or a broader event-driven parent/child rewrite.
+- Adding a new conversation-kind field, separate ownership registry, generalized run-type framework, or changes to Chat and Agent cancellation behavior; the flow stop boundary uses the existing persisted `flowName`.
 - Adding a reviewer-command timeout, retry, relaunch policy, new process state file, process supervisor, generalized command-execution framework, or runtime parser for native review output; reviewer agents use the existing direct process session and interpret its terminal evidence.
 - Moving unresolved-finding implementation tasks or the final testing/revalidation task into an individual batch; those remain complete-pass settlement decisions.
 - Guaranteeing meaningful review or settlement content when every relevant AI/provider is unavailable; the workflow preserves honest incomplete state instead of inventing findings or a clean result.
@@ -7787,6 +7791,41 @@ Record the final validated HEAD, every full wrapper result, any same-task repair
 - Audit complete at HEAD `32f92ae7`: all two subtasks and eight automated-proof items are supported by the current wrapper artifacts and committed proof record, with no live blocker. The same-task repair changed only the Copilot test assertion to match the existing fail-closed `503` behavior and clarified the approved OpenCode process-continuation contract; no unapproved user-facing behavior drift was identified. Task 93 is honestly complete and ready for optional manual testing guidance.
 - Manual testing completed as final-task full-story proof: a freshly built main stack passed `http://localhost:5010/health` and `http://localhost:5001`, exposed 20 flows including the review-wave and review-disposition contracts, and rendered the Flows workspace cleanly on desktop and mobile with no browser console warnings or errors. The stack was not previously running and was stopped with `npm run compose:down` after proof. Latest Flows screenshots were staged as `manual-testing/0000064/93/proof-01-flows-desktop.png` and `manual-testing/0000064/93/proof-02-flows-mobile.png`, then retained as `codeInfoTmp/manual-testing/0000064/93/proof-01-flows-desktop.png` and `codeInfoTmp/manual-testing/0000064/93/proof-02-flows-mobile.png`; they supersede earlier scratch captures for this re-covered surface. Provider-backed review execution was not started because the task's optional guidance required only reachable proof; no additional subtasks were needed.
 
+### Task 94. Restrict Flow Stop Requests To Flow Conversations
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Affected Repositories: `current_repository` / `codeInfo2` only
+- Task Dependencies: Task 93.
+- Created: `July 27, 2026 at 11:28:18 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Prevent the flow-run stop endpoint from cancelling unrelated Chat or Agent work when it receives one of their active conversation identifiers. Use the existing persisted `flowName` as the factual boundary before touching shared active-run ownership or cancellation state, without adding another conversation type, ownership registry, or cancellation framework.
+
+#### Subtasks
+
+1. [x] Record the explicitly approved flow-stop identity boundary in the top-level story contract.
+2. [x] Make the flow stop service verify the existing conversation is a flow before cancellation, update its route to await that check, and add focused regression coverage for Flow, Chat, and Agent conversations.
+
+#### Testing
+
+1. [x] Run the focused server tests covering the flow-run stop route and service identity boundary.
+2. [x] Run `npm run build:summary:server`.
+3. [x] Run `npm run lint`.
+4. [x] Run `npm run format:check`.
+
+#### Implementation Notes
+
+- Task created from the explicitly approved PR review repair; the implementation is limited to the existing `flowName`, shared ownership lock, and flow stop endpoint.
+- Subtask 1 complete: the Description and Acceptance Criteria now require the flow stop route to reject active Chat and Agent identifiers without changing their execution state, while Out Of Scope excludes a new type or ownership framework.
+- Subtask 2 complete: `stopFlowRun` now loads the existing conversation and requires a non-empty `flowName` before consulting ownership or cancellation state; the route awaits the asynchronous check, and focused tests cover active Flow, Chat, Agent, missing, and inactive cases.
+- Testing step 1 complete: `npm run test:summary:server:unit -- --file server/src/test/unit/flows-run-route.test.ts` passed 5/5 focused tests with no failures.
+- Testing step 2 complete: `npm run build:summary:server` passed with no warnings.
+- Testing step 3 complete: `npm run lint` passed with no warnings.
+- Testing step 4 complete: `npm run format:check` passed; all matched files use Prettier style.
+- Task complete: the existing flow identity now protects active Chat and Agent conversations from the flow stop endpoint, while valid active flow cancellation and the existing inactive response remain unchanged.
+
 ## Code Review Findings
 
 - Findings recorded: `July 27, 2026 at 9:40:25 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
@@ -7840,7 +7879,7 @@ Record the final validated HEAD, every full wrapper result, any same-task repair
 
 ## Final Summary
 
-1. Story 0000064 is complete on disk: the review-wave and closeout path is fully settled, task 93 is done, and the plan now carries the final accepted and ignored review state instead of open implementation work.
+1. Story 0000064 is complete on disk: the review-wave and closeout path is fully settled, task 94 is done, and the plan now carries the final accepted and ignored review state instead of open implementation work.
 2. The work changed the story from in-progress review repair into a closed, reviewable flow so the canonical plan can preserve the exact repository scope, settle review evidence, and keep future runs aligned with the same story branch.
 3. The only complex part was keeping the review-state trail, manual-proof bundle, and closeout evidence consistent without adding new branching rules; the flow stays additive and reuses the existing handoff and artifact boundaries.
-4. Reviewers should focus on the final Code Review Findings trail, the ignored closeout items, and the curated `codeInfoStatus/manual-proof/0000064/` bundle, especially the proof for tasks 18, 77, and 93, to confirm the closeout evidence matches the current plan state.
+4. Reviewers should focus on the final Code Review Findings trail, the ignored closeout items, the focused Task 94 flow-stop identity proof, and the curated `codeInfoStatus/manual-proof/0000064/` bundle, especially the proof for tasks 18, 77, and 93, to confirm the closeout evidence matches the current plan state.

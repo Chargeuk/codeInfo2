@@ -3947,3 +3947,954 @@ The normal and stronger repair agents completed the four authorized, material su
 - The stronger proof included the passing revised server build, 177 focused restored-runtime tests, 3 focused integration tests, 7 publisher tests, and the final 2,829-test server suite. The repair evidence does not claim Compose, client, Cucumber, e2e, live GitHub, full-project lint, or full-project format coverage; it also preserves the lost Native Codex launcher exit status limitation.
 - At final HEAD `728ef202feb9f646545ad6985cd2968b9d4d5373`, only the pre-existing uncommitted Story 60 plan maintenance change remains in the worktree. Neither repair was pushed. A new review is useful against the changed final HEAD, but this task records completed fixes only and does not create final revalidation or unresolved implementation work.
 - Evidence used: the immutable batch handoff and launch record, all three direct job records and retained outputs, normal and stronger repair audits, filtering reconciliation and audit artifacts, disposition, and current Git state.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 3:17:32 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T131556Z-894b762d`
+- Review cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Reviews attempted:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed with two supported findings; verifier coverage was partial because two changed paths were omitted from its manifest.
+    - Input tokens: `9891566`
+    - Cached input tokens: `9618688`
+    - Output tokens: `21200`
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native review with four supported findings; the retained native usage event reported zero categories and no provider total.
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed as not applicable with no findings because only `current_repository` was assigned.
+    - Input tokens: `166999`
+    - Cached input tokens: `143616`
+    - Output tokens: `2403`
+
+The negative-scope, positive-authorization, and materiality gates were all applicable and completed. Six findings survived the last applicable audited gate. No complete finding was removed, duplicated, or already resolved; three broader remedy meanings were narrowed away and are preserved under `Ignored for This Story`. F1 appears likely to need the stronger repair opportunity; F2 through F6 appear suitable for the normal repair opportunity. This disposition does not decide final implementation-task creation or review-loop continuation.
+
+### Accepted
+
+#### 1. Decision-script timeout can remain unresolved
+
+- Finding ID: `F1; Codex review; server/src/flows/flowDecisionScript.ts:191-194,217-224`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: The timeout kills the direct Python child, but completion is settled from that child's `close` event. A descendant retaining inherited stdio can leave the supported decision step unresolved after its timeout.
+- Example: A checked-in decision script launches a descendant that keeps stdio open; the timeout kills the parent, but the flow never records the required hard timeout failure.
+- Why accepted: The acceptance criteria authorize strict timeout behavior and hard failure. Current HEAD exposes the existing timeout callback, `finish` settlement seam, and owned stream/listener lifecycle, so the smallest repair is expressible without a new process-management policy. The scenario is supported and a stuck flow is materially harmful; the stronger repair opportunity appears appropriate.
+
+#### 2. A failed `gh pr create` can enter the wait/fetch cycle
+
+- Finding ID: `F2; Codex review; server/src/flows/githubReview.ts:1241-1258`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: A selected nonzero pull-request creation failure can be reconciled to an existing open PR and returned as success. The flow can then wait and fetch comments even though this cycle did not create the PR.
+- Example: `gh pr create` fails during a rerun while an older open PR is visible; the failed cycle adopts that PR and classifies feedback from the wrong lifecycle.
+- Why accepted: The acceptance criteria require failed creation to complete with warning and skip waiting or ingestion. Current HEAD exposes the non-`ok` create result and existing warning/skip caller seam. The duplicate-create or transport-failure scenario is realistic and materially compromises cycle truth; the normal repair opportunity appears suitable.
+
+#### 3. Successful creation can proceed without canonical PR metadata
+
+- Finding ID: `F3; Codex review; server/src/flows/githubReview.ts:1288-1294`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: After `gh pr create` prints a URL, a failed canonical latest-open lookup falls back to URL-derived or locally inferred identity. The review cycle can continue without the server-authoritative PR metadata required by the story.
+- Example: Creation prints a valid URL, but the immediate canonical lookup fails transiently; the flow records an `ok` identity and proceeds to wait despite the failed trust check.
+- Why accepted: The acceptance criteria authorize the URL only as a success indicator and require the explicit canonical follow-up lookup. Current HEAD exposes the fallback and existing error result needed for the smallest repair. The transient lookup failure is realistic and false successful cycle state is materially valuable to prevent; the normal repair opportunity appears suitable.
+
+#### 4. Resume reconciliation accepts a manually closed PR
+
+- Finding ID: `F4; Codex review; server/src/flows/githubReview.ts:2498-2507,2531-2562`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: The number-based resume lookup normalizes a pull-request response without rejecting a closed state. A resumed execution can continue against a PR that is no longer open.
+- Example: A review waits, a human closes its PR, and recovery loses the scratch handoff; the number lookup accepts the closed PR and later wait/fetch logic treats it as active.
+- Why accepted: The story requires open PRs and explicitly says closed PRs are ignored while excluding reopening or reusing them. Current HEAD exposes the response state and existing lookup error outcome for the smallest repair. The persisted pause/close/resume scenario is realistic and stale lifecycle state is materially harmful; the normal repair opportunity appears suitable.
+
+#### 5. Implicit harness decision scripts can resolve from the wrong root
+
+- Finding ID: `F5; OpenCode review; server/src/flows/service.ts:7408-7413`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: The shared decision runner chooses the harness root only for an explicit `decisionScript` field. Implicit scripts supplied through `condition` or `question` can therefore be resolved from the wrong repository root.
+- Example: An opt-in flow uses `scripts/flow_control/...` through an implicit condition while its worked repository differs from the CodeInfo2 harness root; the intended script is missing or a same-path file is selected.
+- Why accepted: The acceptance criteria authorize implicit script decisions with strict path and working-directory rules. Current HEAD already computes the implicit script and exposes `scriptRepositoryRoot`, so using the computed value is the smallest authorized repair. The supported multi-root scenario is realistic and can directly fail the review loop; the normal repair opportunity appears suitable.
+
+#### 6. Unreadable review handoff is treated as clean
+
+- Finding ID: `F6; OpenCode review; scripts/flow_control/check_github_review_has_reviewer_feedback.py:149-160`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: The feedback-check script converts missing, malformed, or unreadable handoff state into a successful `answer: no`. The flow can therefore treat lost review evidence as a clean closeout.
+- Example: After restart or recovery, the execution-scoped handoff is unreadable and no explicit supported-skip marker is present; the script exits successfully with `no`, so feedback disposition is skipped.
+- Why accepted: The acceptance criteria require missing or malformed direct-decision inputs and nonzero script failures to be hard failures, while only the explicit supported skip may produce a clean `no`. Current HEAD exposes the integer `main`/`SystemExit` and existing exit-code handling seam. The recovery scenario is supported and false clean completion can lose required review evidence; the normal repair opportunity appears suitable.
+
+### Ignored for This Story
+
+#### 7. General process-group or descendant-management remedy for F1 was narrowed away
+
+- Finding ID or Review reference: `F1 narrowed-away remedy; Codex review; server/src/flows/flowDecisionScript.ts:175-224`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: The broader remedy would introduce general process-group or descendant-management behavior for every decision-script timeout. The surviving finding only requires deterministic settlement through the existing timeout seam.
+- Example: A process-group policy would change unrelated Python decision-process lifecycle behavior even though the current callback and `finish` closure can settle this story's failure directly.
+- Why ignored: The negative-scope gate narrowed F1 to the existing settlement seam because the broader execution-management policy is not required, independently authorized, or the smallest repair. This removed remedy meaning is non-actionable and cannot be restored downstream.
+
+#### 8. Alternate/latest-open PR reselection remedy for F4 was narrowed away
+
+- Finding ID or Review reference: `F4 narrowed-away remedy; Codex review; server/src/flows/githubReview.ts:2498-2507`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: The broader remedy would reselect another latest-open PR when resumed number lookup finds a closed PR. The surviving finding only requires rejecting the closed state.
+- Example: A human closes the resumed PR, and automatic reselection could choose another actor's PR and mix review lifecycles.
+- Why ignored: The negative-scope gate narrowed F4 to checking the existing response's `open` state because alternate selection adds stale, duplicate, or multi-actor policy excluded by the story. The reselection mechanism is not authorized or proven necessary and is non-actionable.
+
+#### 9. New script-origin metadata for F5 was narrowed away
+
+- Finding ID or Review reference: `F5 narrowed-away remedy; OpenCode review; server/src/flows/service.ts:7379-7416`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: The broader remedy would add new script-origin metadata to distinguish implicit harness scripts from worked-repository scripts. The current runtime already computes the selected script and exposes the repository-root seam.
+- Example: A new schema field would carry origin information for an implicit `condition` even though the runner already has the resolved script and can apply the existing harness-root selection.
+- Why ignored: The negative-scope gate narrowed F5 to using the existing computed `decisionScript` and `scriptRepositoryRoot`; a new metadata field is unnecessary, unproven as the smallest repair, and not authorized as a new mechanism. This removed remedy meaning is non-actionable.
+
+Disposition artifact: `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T131556Z-894b762d--head-fdd7ac20d2b7/reconciliation/disposition.md`.
+
+### Task 41. Record Review Fixes From Batch 0000060-rw-20260727T131556Z-894b762d
+
+- Repository Name: `Current Repository`
+- Review Task Role: `completed_review_fixes`
+- Task Dependencies: `Task 40`
+- Task Status: `__done__`
+- Review Batch: `0000060-rw-20260727T131556Z-894b762d`
+- Review Cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Git Commits: `61952544053c0a84efd5be06d9909d0445f3ffec`
+- Created: `July 27, 2026 at 3:40:35 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+The normal repair agent resolved all six accepted, positively authorized, material findings from review batch `0000060-rw-20260727T131556Z-894b762d` in `current_repository`. The stronger repair opportunity was deliberately not applicable because the completed normal repair audit established that no actionable survivor remained. The batch outcome records the exact repair commit, changed files, focused proof, limitations, and preserved unrelated worktree entries.
+
+#### Task Exit Criteria
+
+- All six accepted material findings from batch `0000060-rw-20260727T131556Z-894b762d` are resolved by the normal repair commit.
+- The batch outcome records the normal repair, deliberate stronger-repair skip, exact final HEAD, changed files, focused proof, and unavailable coverage.
+- No unresolved-finding implementation task or final testing/revalidation task is created by this batch outcome.
+
+#### Documentation Locations
+
+- Batch outcome: `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T131556Z-894b762d--head-fdd7ac20d2b7/reconciliation/outcome.md`
+- Normal repair audit: `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T131556Z-894b762d--head-fdd7ac20d2b7/reconciliation/normal-repair-audit.md`
+- Filtering audit: `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T131556Z-894b762d--head-fdd7ac20d2b7/reconciliation/scope-filter-audit.md`
+- Disposition: `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T131556Z-894b762d--head-fdd7ac20d2b7/reconciliation/disposition.md`
+- Immutable batch handoff and launch record: `codeInfoTmp/reviews/0000060-current-review-batch.md` and `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T131556Z-894b762d--head-fdd7ac20d2b7/batch-launch.md`
+
+#### Affected Repositories
+
+- `current_repository`: initial reviewed HEAD `fdd7ac20d2b7daa0da710587771a5d0165fc0075`; final repair HEAD `61952544053c0a84efd5be06d9909d0445f3ffec`.
+
+#### Review Harnesses
+
+- Codex review: `codex_review`, instance `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`; generated F1 through F4.
+- OpenCode review: `open_code_review`, instance `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`; generated F5 and F6.
+
+#### Addresses Findings
+
+- F1, `Decision-script timeout can remain unresolved`, owned by `current_repository`: `flowDecisionScript.ts` now settles timeout independently of descendant-held stdio, with focused unit coverage.
+- F2, `A failed gh pr create can enter the wait/fetch cycle`, owned by `current_repository`: `githubReview.ts` preserves every create failure and prevents reconciliation into an active review cycle, with adapter and integration coverage.
+- F3, `Successful creation can proceed without canonical PR metadata`, owned by `current_repository`: canonical lookup failure now remains an error instead of falling back to URL identity, with coupled adapter and integration coverage.
+- F4, `Resume reconciliation accepts a manually closed PR`, owned by `current_repository`: number lookup rejects non-open PR state without alternate selection, with adapter coverage.
+- F5, `Implicit harness decision scripts can resolve from the wrong root`, owned by `current_repository`: the normalized implicit script now selects the existing harness root, with integration coverage.
+- F6, `Unreadable review handoff is treated as clean`, owned by `current_repository`: handoff reader errors now exit nonzero while the explicit skip marker remains successful, with focused Python coverage.
+
+#### Subtasks
+
+1. [x] Settle timed-out direct decision scripts through the existing timeout and stream-ownership seam.
+2. [x] Preserve failed GitHub PR creation and canonical metadata lookup errors instead of promoting them to active review state.
+3. [x] Reject closed pull requests during resumed number-based reconciliation without adding alternate PR selection.
+4. [x] Resolve implicit harness decision scripts from the existing CodeInfo2 harness root while preserving the worked repository as the execution cwd.
+5. [x] Fail closed on unreadable GitHub review handoffs while preserving the explicit supported skip path.
+6. [x] Add focused unit, integration, and Python regression coverage for all repaired seams.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --file server/src/test/unit/flows.github-adapter.test.ts --file server/src/test/integration/flows.run.basic.test.ts --file server/src/test/integration/flows.run.errors.test.ts`; 107 tests passed.
+2. [x] `python3 -m unittest scripts.test.test_check_github_review_has_reviewer_feedback`; 8 tests passed.
+3. [x] `npm run format`; passed once with no unrelated worktree changes.
+4. [x] `npm run lint`; passed with zero warnings.
+5. [x] `npm run format:check`; passed.
+
+#### Implementation Notes
+
+- Normal repair commit `61952544053c0a84efd5be06d9909d0445f3ffec` (`DEV-0000060 - Repair review batch flow findings`) resolved F1 through F6. It changed `scripts/flow_control/check_github_review_has_reviewer_feedback.py`, `scripts/test/test_check_github_review_has_reviewer_feedback.py`, `server/src/flows/flowDecisionScript.ts`, `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/unit/flow-decision-script.test.ts`, and `server/src/test/unit/flows.github-adapter.test.ts`.
+- The stronger repair attempt was deliberately skipped because the normal repair audit positively established that all six material survivors were resolved. No stronger commit, unresolved finding task, or final revalidation task was created here.
+- Focused proof passed: 107 server unit/integration tests, 8 Python handoff tests, repository format, format-check, and lint with zero warnings. No full-suite, Docker, or live GitHub transport proof ran; those remain limitations for later final review.
+- The normal repair preserved the pre-existing modified canonical plan and untracked `work/core-flow-contract.diff` outside the repair commit. The final HEAD is new relative to the reviewed HEAD, so a new review is useful.
+- Evidence used: the immutable batch handoff and target snapshot, all three direct job records and outputs, verification and usage records, filtering artifacts, disposition, normal repair audit, current Git state, and the batch outcome.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 4:50:47 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T144239Z-66836771`
+- Review cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Reviews attempted:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed with two findings and explicit incomplete-manifest coverage.
+    - Input tokens: `5986090`
+    - Cached input tokens: `5790464`
+    - Output tokens: `17148`
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native review with four findings and limited targeted validation; the named runtime integration test failed deterministically.
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed and not applicable because only `current_repository` was assigned; no finding was generated.
+    - Input tokens: `141759`
+    - Cached input tokens: `118016`
+    - Output tokens: `2287`
+
+The combined filtering audit was completed with coverage limitations. All three gates were applicable: six reconciled findings entered negative scope filtering, five were positively authorized, and four survived materiality. The current HEAD was independently checked at the cited runtime and test seams. No finding was duplicate or already resolved; the four accepted items are actionable, while the two ignored items are non-actionable and preserved for provenance. No later gate was deliberately skipped.
+
+### Accepted
+
+#### 1. Bind post-create lookup to the PR actually created
+
+- Finding ID: `Bind post-create lookup to the PR actually created`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the finding.
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — corroborated the URL-discard/latest-open behavior.
+- Simple description: After successful `gh pr create`, the flow discards the printed URL and resolves the latest open pull request for the branch, so review work can bind to a different PR.
+- Example: An older PR is already open, or the new PR is briefly invisible to lookup; the flow fetches reviews from or closes the older PR while the created PR remains untracked.
+- Why accepted: The story requires the create URL to precede canonical metadata resolution and explicit repository/head filtering. Current HEAD exposes exact-number canonical lookup, so a narrow normal repair is expressible. The supported scenario has meaningful correctness impact; alternate remotes, reopening, reuse, and broader duplicate-PR policy remain Out Of Scope.
+
+#### 2. Remove hidden retry waits from review-fetch failures
+
+- Finding ID: `Remove hidden retry waits from review-fetch failures`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and verified the finding.
+- Simple description: A failed review-fetch step enters runtime-owned recovery that persists a retry wait and can apply a retry-exhaustion skip, adding policy that the flow did not author.
+- Example: A supported GitHub fetch warning causes the runtime to wait 30 seconds and retry instead of returning the status for the authored flow to handle.
+- Why accepted: The story requires retrieval-only fetching and workflow-authored waits. The existing fetch status and recovery dispatch seams support a narrow normal repair. The reachable hidden delay and skip policy materially change completion semantics; new retry, timeout, fallback, or skip policy is Out Of Scope.
+
+#### 3. Publish the active selector only after a successful fetch
+
+- Finding ID: `Publish the active selector only after a successful fetch`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and verified the finding.
+- Simple description: The open step publishes the new execution-scoped selector before review data is fetched or written, so failed or restarted work can leave readers pointed at an unusable handoff.
+- Example: PR opening succeeds, fetch then fails, and the shared selector still points to a handoff with no fresh review artifact.
+- Why accepted: The story requires fresh fetched state to become active only after successful fetch and requires execution-scoped resume context. Current HEAD exposes path preparation, active context, and locked publication in the scratch writer. The supported failure/restart scenario is materially harmful; the cross-seam state change is likely to need the stronger repair attempt. New concurrency policy, state store, schema field, retry, timeout, fallback, UI, or default-flow change is Out Of Scope.
+
+#### 4. Align the runtime review test with PR-create failure behavior
+
+- Finding ID: `Align the runtime review test with PR-create failure behavior`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and verified the deterministic failure.
+- Simple description: The test fixture makes `gh pr create` exit nonzero while the same scenario expects no warning, an authored wait, and resumed review scratch.
+- Example: The fixture returns exit code `1`, production correctly takes warning/skip, and the test fails when it expects a successful wait/resume cycle.
+- Why accepted: The story requires automated proof and documents failed creation as warning/skip without wait or ingestion. The existing test fixture/assertion seam supports a narrow normal test repair without changing production policy.
+
+### Ignored for This Story
+
+#### 5. Validate the URL printed by successful PR creation — materiality removal
+
+- Finding ID or Review reference: `Validate the URL printed by successful PR creation`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the distinct malformed/empty-output claim.
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — corroborated the broader URL-discard observation, not a distinct malformed-success-output scenario.
+- Simple description: Successful create output is not validated before lookup, so empty or malformed stdout could be treated as success.
+- Example: A zero-exit create command prints empty output; current code still attempts latest-open lookup. The jobs and current tests do not demonstrate this distinct event.
+- Why ignored: The observation is technically supported and positively authorized, but materiality was not established because realistic reachability of the distinct malformed-success-output scenario was not demonstrated. Its exact URL parsing and lookup repair is already contained in accepted Finding 1, so this item adds no separate repair value.
+
+#### 6. Do not expose the complete server environment to decision scripts — negative-scope removal
+
+- Finding ID or Review reference: `Do not expose the complete server environment to decision scripts`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated and verified the finding.
+- Simple description: Script-backed decisions inherit the long-lived server environment, potentially exposing unrelated provider keys, database credentials, and infrastructure settings to repository-authored Python.
+- Example: A checked-in decision script reads an unrelated secret present in the server process environment while evaluating a decision.
+- Why ignored: The observation is technically supported, but the proposed environment allowlist is a new secret-isolation/security policy not authorized by the story's path, working-directory, timeout, exit-code, or stdout contract. Gates 4, 8, and 11 removed the complete finding; it is non-actionable security-hardening follow-up only.
+
+Disposition artifact: `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T144239Z-66836771--head-61952544053c/reconciliation/disposition.md`.
+
+### Task 42. Record Review Fixes From Batch 0000060-rw-20260727T144239Z-66836771
+
+- Repository Name: `Current Repository`
+- Review Task Role: `completed_review_fixes`
+- Task Dependencies: `Task 41`
+- Task Status: `__done__`
+- Review Batch: `0000060-rw-20260727T144239Z-66836771`
+- Review Cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Git Commits: `1ab7a95721854febcb19551ebcc3643dd4e5bdbc`
+- Created: `July 27, 2026 at 5:19:32 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+The normal repair agent resolved all four accepted, positively authorized, material findings from review batch `0000060-rw-20260727T144239Z-66836771` in `current_repository`. The stronger repair opportunity was deliberately not applicable because the completed normal repair audit established that no actionable survivor remained. The batch outcome records the exact repair commit, changed files, focused proof, unavailable broad coverage, preserved removals, and the fact that the final committed HEAD is new relative to the reviewed HEAD.
+
+#### Task Exit Criteria
+
+- All four accepted material findings from batch `0000060-rw-20260727T144239Z-66836771` are resolved by the normal repair commit.
+- The batch outcome records the direct-job inventory, filtering removals, normal repair, deliberate stronger-repair skip, exact final HEAD, changed files, focused proof, and limitations.
+- No unresolved-finding implementation task or final testing/revalidation task is created by this batch outcome.
+
+#### Documentation Locations
+
+- Batch outcome: `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T144239Z-66836771--head-61952544053c/reconciliation/outcome.md`
+- Normal repair audit: `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T144239Z-66836771--head-61952544053c/reconciliation/normal-repair-audit.md`
+- Filtering audit: `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T144239Z-66836771--head-61952544053c/reconciliation/scope-filter-audit.md`
+- Disposition: `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T144239Z-66836771--head-61952544053c/reconciliation/disposition.md`
+- Immutable batch handoff and launch record: `codeInfoTmp/reviews/0000060-current-review-batch.md` and `codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T144239Z-66836771--head-61952544053c/batch-launch.md`
+
+#### Affected Repositories
+
+- `current_repository`: reviewed and initial-repair HEAD `61952544053c0a84efd5be06d9909d0445f3ffec`; final repair HEAD `1ab7a95721854febcb19551ebcc3643dd4e5bdbc`.
+
+#### Review Harnesses
+
+- OpenCode review: `open_code_review`, instance `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`; generated the PR-identity finding and corroborated no other addressed finding.
+- Native Codex review: `codex_review`, instance `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`; generated the fetch-recovery, selector-publication, and test-contract findings and corroborated the PR-identity finding.
+
+#### Addresses Findings
+
+- `Bind post-create lookup to the PR actually created` — `current_repository`; successful PR creation now parses and validates the returned URL, canonicalizes the exact PR number, and verifies repository/head/base identity instead of selecting a separate latest-open PR.
+- `Remove hidden retry waits from review-fetch failures` — `current_repository`; review-fetch failures now return terminal status without runtime-owned `review_retry` waits or exhaustion policy, while open/close recovery remains unchanged.
+- `Publish the active selector only after a successful fetch` — `current_repository`; scratch path preparation and active-selector publication are separated, with internal pending-publication state preserved across authored waits and publication occurring only after usable fetched scratch exists.
+- `Align the runtime review test with PR-create failure behavior` — `current_repository`; the wait/resume fixture now supplies a valid created PR URL and open canonical metadata while production failed-create warning/skip behavior remains unchanged.
+
+#### Subtasks
+
+1. [x] Bind successful PR creation to the exact URL returned by `gh` and canonicalize that PR identity.
+2. [x] Keep GitHub review-fetch failures terminal so only flow-authored waits can retry them.
+3. [x] Delay active selector publication until successful review materialization while preserving resume ownership.
+4. [x] Align the review-loop wait/resume fixture with the documented PR-create success and failure contracts.
+5. [x] Add or update focused adapter, scratch, runtime, and resume-backfill proof for the repaired seams.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file src/test/unit/flows.github-adapter.test.ts`; 15 passed.
+2. [x] Run `npm run test:summary:server:unit -- --file src/test/unit/flows.github-scratch.test.ts`; 18 passed.
+3. [x] Run `npm run test:summary:server:unit -- --file src/test/integration/flows.run.loop.test.ts --test-name "github review"`; 10 passed.
+4. [x] Run `npm run test:summary:server:unit -- --file src/test/integration/flows.run.resume.backfill.test.ts --test-name "different failed GitHub close step"`; 1 passed.
+5. [x] Run `npm run format`; it reported no repair-file changes.
+6. [x] Run `npm run format:check`; passed.
+7. [x] Run `npm run lint`; passed with zero warnings.
+
+#### Implementation Notes
+
+- Normal repair commit `1ab7a95721854febcb19551ebcc3643dd4e5bdbc` (`DEV-0000060 - Repair GitHub review flow findings`) changed `server/src/flows/flowState.ts`, `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, `server/src/test/integration/flows.run.loop.test.ts`, `server/src/test/integration/flows.run.resume.backfill.test.ts`, `server/src/test/unit/flows.github-adapter.test.ts`, and `server/src/test/unit/flows.github-scratch.test.ts`.
+- The stronger repair attempt was deliberately skipped because the normal repair audit positively established that all four material survivors were resolved and no actionable finding remained. No stronger commit, unresolved finding task, or final testing/revalidation task was created.
+- Focused proof passed: 15 adapter tests, 18 scratch tests, 10 GitHub review loop tests, 1 close-step resume-backfill test, format, format-check, and lint with zero warnings. A broader resume-backfill command ended without a final wrapper summary and is recorded as unavailable rather than passed.
+- No full server/client/e2e suite, Docker proof, or live GitHub transport ran. OpenCode manifest coverage omitted two paths and Codex validation was limited; these remain honest limitations for later review.
+- The final HEAD `1ab7a95721854febcb19551ebcc3643dd4e5bdbc` is new relative to reviewed HEAD `61952544053c0a84efd5be06d9909d0445f3ffec`, so another review is useful. This task records completed fixes only and does not create final revalidation work.
+- Evidence used: the immutable batch handoff and target snapshot, all three direct job records and outputs, verification and usage records, all filtering artifacts, disposition, normal repair audit, current Git state, and the batch outcome.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 6:26:49 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T162213Z-0a2eefd1`
+- Review cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Reviews attempted:
+  - OpenCode Workspace Review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed bounded static review; runtime and excluded-path coverage remain partial.
+    - Input tokens: `4248593`
+    - Cached input tokens: `4083968`
+    - Output tokens: `17413`
+  - native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native static review with three findings; no build, full automated suite, Compose run, or live GitHub interaction was run.
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - Review Cross-Repository Contracts (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed and not applicable because only `current_repository` was assigned.
+    - Input tokens: `156014`
+    - Cached input tokens: `132864`
+    - Output tokens: `2078`
+
+The combined filtering audit is completed. All three gates were applicable: six candidates entered negative scope, R1/R4/R5 survived scope, R1/R4 survived positive authorization, and R1 survived materiality. R1 is the only accepted actionable survivor; R2/R3/R6 were removed by negative scope, R5 by missing positive authorization for a new concurrency policy, and R4 by insufficiently demonstrated materiality. No later gate was deliberately skipped.
+
+### Accepted
+
+#### 1. Remove the inherited server token from GitHub child environments
+
+- Finding ID: `R1 — Remove the inherited server token from GitHub child environments`
+- Source and target: native Codex review, `server/src/flows/githubReview.ts:791-794`, target `current_repository` at `/home/d_a_s/code/codeInfo2`.
+- Review harnesses:
+  - native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+- Simple description: The GitHub child-process environment copies the long-lived server environment before setting the repository-local `GH_TOKEN`, so a server-startup `CODEINFO_PR_TOKEN` can reach the child alongside the worked-repository token.
+- Example: The server has `CODEINFO_PR_TOKEN=server-token`, the worked repository's `.env.local` has `repo-token`, and a normal `gh` PR operation receives both the inherited server token and `GH_TOKEN=repo-token`.
+- Why accepted: Current HEAD confirms the direct inheritance at `server/src/flows/githubReview.ts:791-794` and the production call without `baseEnv`. The story explicitly requires repository-local, step-scoped token use; the existing child-environment helper and focused unit test provide the smallest authorized seam. The supported scenario has meaningful credential-boundary impact and is proportionate to a normal repair attempt. It is not duplicate or already resolved; final task and stronger-repair routing remain outside this disposition.
+
+### Ignored for This Story
+
+#### 2. Reconcile ambiguous or failed PR creation with the branch-scoped lookup
+
+- Finding ID or Review reference: `R2 — Reconcile ambiguous or failed PR creation with the branch-scoped lookup`
+- Source and target: native Codex review, `server/src/flows/githubReview.ts:1134-1138`, target `current_repository` at `/home/d_a_s/code/codeInfo2`.
+- Review harnesses:
+  - native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+- Simple description: A non-OK or ambiguous `gh pr create` result stops the cycle without reconciling whether GitHub created a pull request; the proposed recovery adds a broader lookup and fallback path.
+- Example: `gh pr create` creates a pull request but returns a nonzero result, so the flow records its supported warning/skip outcome while a proposed latest-open reconciliation would choose which PR to review.
+- Why ignored: Entirely removed by negative scope at gates 4, 8, and 11. The story allows failed creation to finish with warning and skip, while broader stale/duplicate-PR reconciliation and new failure policy are Out Of Scope. No narrower actionable meaning remains.
+
+#### 3. Recover the PR when post-create lookup fails
+
+- Finding ID or Review reference: `R3 — Recover the PR when post-create lookup fails`
+- Source and target: OpenCode Workspace Review, `server/src/flows/githubReview.ts:1181-1185`, target `current_repository` at `/home/d_a_s/code/codeInfo2`.
+- Review harnesses:
+  - OpenCode Workspace Review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the finding.
+- Simple description: An exact-number metadata lookup can fail after successful PR creation without retrying or recovering the created identity, leaving a later cycle to attempt another creation.
+- Example: `gh pr create` returns a valid URL, the exact-number lookup has a transient failure, and the flow stops instead of choosing a retry or alternate reconciliation.
+- Why ignored: Entirely removed by negative scope at gates 4, 8, and 11. Retry count, delay, and fallback recovery are new policy, and broader duplicate-PR resilience is Out Of Scope. No narrower actionable meaning remains.
+
+#### 4. Resolve scratch files before trusting canonical paths
+
+- Finding ID or Review reference: `R4 — Resolve scratch files before trusting canonical paths`
+- Source and target: native Codex review, `server/src/flows/githubReview.ts:2561-2563`, target `current_repository` at `/home/d_a_s/code/codeInfo2`.
+- Review harnesses:
+  - native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+- Simple description: The scratch reader follows selector or handoff paths before checking physical identity, so a shape-valid symlink target could impersonate execution-scoped review state.
+- Example: After publication, a selector is replaced with a symlink to another valid JSON file; resume follows it and accepts foreign context despite the expected lexical filename.
+- Why ignored: Technically supported and positively authorized, but removed by materiality because atomic runtime writes create regular files and no supported flow or job evidence demonstrates post-write symlink replacement. The consequence depends on unsupported filesystem tampering, so realistic reachability and proportionate value were not sufficiently shown. The complete finding is preserved as non-actionable evidence.
+
+#### 5. Do not let a resumed run overwrite foreign selector ownership
+
+- Finding ID or Review reference: `R5 — Do not let a resumed run overwrite foreign selector ownership`
+- Source and target: OpenCode Workspace Review, `server/src/flows/githubReview.ts:2373-2380`, target `current_repository` at `/home/d_a_s/code/codeInfo2`.
+- Review harnesses:
+  - OpenCode Workspace Review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the finding.
+- Simple description: A resumed execution can publish an older selector after another execution has published fresh review state, while current state lacks the predecessor identity needed to decide which publication may replace it.
+- Example: Execution A pauses, execution B publishes a fresh selector, then A resumes; always preserving leaves stale state active and always replacing overwrites B's newer state.
+- Why ignored: Removed by positive authorization. Current HEAD has only a pending-publication boolean and no generation or predecessor identity; adding one and choosing publication precedence would introduce a new concurrency policy not authorized by the story. The complete finding did not reach materiality and is non-actionable.
+
+#### 6. Verify persisted PRs are still open when resuming
+
+- Finding ID or Review reference: `R6 — Verify persisted PRs are still open when resuming`
+- Source and target: OpenCode Workspace Review, `server/src/flows/githubReview.ts:2549-2554`, target `current_repository` at `/home/d_a_s/code/codeInfo2`.
+- Review harnesses:
+  - OpenCode Workspace Review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the finding.
+- Simple description: Resume trusts a persisted pull-request identity without a live open-state lookup, so a previously closed PR could remain the review target.
+- Example: A flow pauses with PR 42, a human closes PR 42, and resume continues using the persisted number before a later fetch or close operation.
+- Why ignored: Entirely removed by negative scope at gates 1, 2, 4, and 8. Live stale/closed-PR reconciliation changes the resumed-state policy and is explicitly outside the story. No narrower actionable meaning remains.
+
+### Task 43. Record Review Fixes From Batch 0000060-rw-20260727T162213Z-0a2eefd1
+
+- Repository Name: `Current Repository`
+- Review Task Role: `completed_review_fixes`
+- Task Dependencies: `Task 42`
+- Task Status: `__done__`
+- Review Batch: `0000060-rw-20260727T162213Z-0a2eefd1`
+- Review Cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Git Commits: `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Created: `July 27, 2026 at 6:44:42 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+The normal repair agent resolved the only material, positively authorized survivor from review batch `0000060-rw-20260727T162213Z-0a2eefd1`: R1, the inherited server `CODEINFO_PR_TOKEN` leaking into GitHub child environments. The stronger repair opportunity was deliberately skipped because the completed normal-repair audit established that no actionable survivor remained. R2, R3, R4, R5, and R6 remain preserved as non-actionable filtering removals, and this task records completed fixes rather than new implementation or final revalidation work.
+
+#### Review Cycle Coverage
+
+- The immutable batch reviewed `current_repository` at `1ab7a95721854febcb19551ebcc3643dd4e5bdbc` against comparison base `8b7907f91922111b59a1779fd422177df2818248`.
+- Negative scope, positive authorization, and materiality were all applicable and completed. The final material survivor set was R1 only.
+- The batch was fix-bearing. Final repair HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3` is new relative to the reviewed HEAD, so another immutable-HEAD review is useful; no revalidation task is created here.
+
+#### Affected Repositories
+
+- `current_repository`
+
+#### Review Harnesses
+
+- native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated addressed finding R1.
+
+#### Addresses Findings
+
+- `R1 — Remove the inherited server token from GitHub child environments` — `current_repository`; `server/src/flows/githubReview.ts:791-794` copied `process.env` into the `gh` child. Commit `299de63b6a3b0de870ce3d4d223d100faa202ed3` removes inherited `CODEINFO_PR_TOKEN` from the child-only copy before assigning `GH_TOKEN`, with a conflicting-token regression assertion.
+
+#### Subtasks
+
+1. [x] Remove inherited `CODEINFO_PR_TOKEN` from the GitHub child environment without mutating the supplied base environment.
+2. [x] Add focused regression coverage for a conflicting server token and preserve the existing `GH_TOKEN` behavior.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts`; 15 tests run, 15 passed, 0 failed before and after formatting.
+2. [x] Run `npm exec prettier -- --write server/src/flows/githubReview.ts server/src/test/unit/flows.github-adapter.test.ts`; completed, with unrelated pre-existing mechanical changes restored.
+3. [x] Run `npm run format:check`; passed.
+4. [x] Run `npm run lint`; passed.
+5. [x] Run `git diff --check`; passed before staging and committing.
+
+#### Implementation Notes
+
+- Normal repair commit `299de63b6a3b0de870ce3d4d223d100faa202ed3` (`DEV-0000060 - Repair GitHub child token boundary`) changed only `server/src/flows/githubReview.ts` and `server/src/test/unit/flows.github-adapter.test.ts`.
+- The normal repair re-confirmed R1's authorization and materiality from the current batch's filtering records before editing. The helper now clones the selected base environment, deletes inherited `CODEINFO_PR_TOKEN`, and assigns `GH_TOKEN`; the focused test proves the base remains unchanged while the child omits the server token.
+- The stronger repair opportunity was deliberately skipped because the normal-repair audit established that R1 was resolved and R2-R6 remained non-actionable. No stronger commit, unresolved-finding task, or final testing/revalidation task was created.
+- Focused proof passed as listed above. No full server/client/e2e suite, Compose proof, or live GitHub transport ran; OpenCode process evidence and prepared-manifest/raw-name-status coverage limitations remain preserved in the batch outcome.
+- Evidence used: the canonical handoff and launch record, immutable target/input snapshot, all three direct jobs with outputs, verification and usage records, reconciliation and all applicable filtering artifacts, disposition, normal-repair audit, current Git state, and the batch outcome.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 7:49:05 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T174611Z-bdcfcce2`
+- Review cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Batch workspace: `/home/d_a_s/code/codeInfo2/codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T174611Z-bdcfcce2--head-299de63b6a3b`
+- Reviews attempted:
+  - Codex native review (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed with supported findings `F1` and `F2`; no build, full automated suite, Compose run, or live GitHub interaction was run.
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed with supported findings `F3`–`F5`; retained historical per-command status evidence is partial, and coverage remains limited to the reviewable manifest paths.
+    - Input tokens: `9773585`
+    - Cached input tokens: `9415680`
+    - Output tokens: `29886`
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed as not applicable/no-work because only `current_repository` was assigned; it generated no finding.
+    - Input tokens: `217942`
+    - Cached input tokens: `184064`
+    - Output tokens: `2601`
+
+The combined filtering audit completed all applicable gates. The audited reconciliation contained exactly `F1`–`F5`; all five survived negative scope, positive authorization, and materiality. No later gate was deliberately skipped. Three remedy portions were narrowed away and are preserved under `Ignored for This Story`; no complete finding was removed.
+
+### Accepted
+
+#### 1. Make every supported GitHub CLI invocation explicitly target github.com
+
+- Finding ID: `F1`
+- Source and target: `server/src/flows/githubReview.ts:788-849`; `current_repository` at `/home/d_a_s/code/codeInfo2`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`.
+- Review harnesses:
+  - Codex native review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the finding.
+- Simple description: The GitHub child environment inherits `GH_HOST`, so a server configured for another GitHub installation can change the host used by the supported github.com review flow.
+- Example: A server has `GH_HOST=github.example`, then a Story 60 flow invokes `gh` with the worked-repository token; the command can fail or target that inherited host instead of github.com.
+- Why accepted: Current HEAD proves the behavior at `server/src/flows/githubReview.ts:788-849`; the story contract requires a github.com child invocation using the worked-repository token; and the existing `buildGitHubChildProcessEnv` seam can set `GH_HOST=github.com` without a new schema or policy. The host/credential failure is materially harmful and proportionate to a normal repair attempt. General environment allowlisting and `GH_CONFIG_DIR` hardening were not authorized and remain ignored.
+
+#### 2. Preserve wait and GitHub-cycle ownership until resumed execution is durable
+
+- Finding ID: `F2`
+- Source and target: `server/src/flows/service.ts:12523-12563`; `current_repository` at `/home/d_a_s/code/codeInfo2`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`.
+- Review harnesses:
+  - Codex native review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the finding.
+- Simple description: Resume-start persistence clears the saved wait and omits active GitHub review context before the resumed runtime reaches its next durable checkpoint.
+- Example: A persisted review wait fires, resume is accepted, and the server restarts before the next checkpoint; the flow has neither the wait to re-arm nor the selected PR/cycle context to continue.
+- Why accepted: Current HEAD proves the persistence gap at `server/src/flows/service.ts:12523-12563`; restart-safe waits and the same execution/PR context are explicit acceptance criteria; and the existing wait/context persistence parameters express the smallest repair without new schema or timing policy. The stranded supported execution is materially harmful and proportionate to a normal repair attempt.
+
+#### 3. Preserve the complete paginated actionable reviewer corpus
+
+- Finding ID: `F3`
+- Source and target: `server/src/flows/githubReview.ts:314-317,504-551,1317-1343`; `current_repository` at `/home/d_a_s/code/codeInfo2`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`.
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated the finding.
+- Simple description: The fetch path keeps only 200 normalized entries per endpoint before filtering PR-author and empty-body entries, so newer non-actionable entries can evict an older actionable review.
+- Example: A long-lived PR has more than 200 entries, recent entries are from the PR author or empty, and an older reviewer comment is discarded before classification; the review can appear clean.
+- Why accepted: Current HEAD proves the hard-coded truncation before the existing filter at `server/src/flows/githubReview.ts:314-317,504-551,1317-1343`; the story requires complete pagination and truthful reviewer classification; and removing the truncation uses the existing fetch seam. The false-clean outcome is realistic, material, and proportionate to a normal repair attempt. No cap, quota, threshold, or configuration control is authorized.
+
+#### 4. Keep the repository token read physically inside the worked repository
+
+- Finding ID: `F4`
+- Source and target: `server/src/flows/githubReview.ts:759-785`; `current_repository` at `/home/d_a_s/code/codeInfo2`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`.
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated the finding.
+- Simple description: The token reader opens the lexical worked-repository `.env.local` path without resolving it, so a symlink can make the GitHub step read another repository's token.
+- Example: The worked repository's `.env.local` resolves through a symlink to a sibling repository's secret file, and the external PR operation uses the sibling token.
+- Why accepted: Current HEAD proves the lexical read at `server/src/flows/githubReview.ts:759-785` and provides existing `realpath` and containment seams. The story requires the worked repository's local token source; resolving and containing that path is the smallest normal repair. Cross-repository credential use is materially harmful and proportionate. A new regular-file rule or filesystem API is not authorized and remains ignored.
+
+#### 5. Accept canonical owner and repository casing in a successful PR URL
+
+- Finding ID: `F5`
+- Source and target: `server/src/flows/githubReview.ts:1143-1217`; `current_repository` at `/home/d_a_s/code/codeInfo2`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`.
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated the finding.
+- Simple description: PR-create URL validation compares owner and repository segments case-sensitively before the existing exact-number lookup, so GitHub's canonical casing can make a successful creation look invalid.
+- Example: The configured remote uses `ExampleOrg/CodeInfo`, GitHub returns `exampleorg/CodeInfo`, and the flow rejects the URL before persisting the created PR identity.
+- Why accepted: Current HEAD proves the comparison at `server/src/flows/githubReview.ts:1143-1217`; the story requires the printed URL to precede canonical metadata resolution; and case-insensitive comparison of only owner/name segments reuses the existing lookup while retaining all other identity checks. Orphaning a created PR is realistic, material, and proportionate to a normal repair attempt.
+
+### Ignored for This Story
+
+#### 6. Broad GitHub child-environment allowlisting beyond explicit host selection
+
+- Finding ID or Review reference: `F1 narrowed-away remedy meaning`
+- Source and target: `server/src/flows/githubReview.ts:788-849`; `current_repository` at `/home/d_a_s/code/codeInfo2`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`.
+- Review harnesses:
+  - Codex native review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the broader environment-isolation claim.
+- Simple description: The broader proposed remedy would allowlist the entire GitHub child environment or clear `GH_CONFIG_DIR` and every GitHub-related variable instead of fixing the demonstrated host-selection seam.
+- Example: The evidence demonstrates inherited `GH_HOST` can select another host, but does not demonstrate that every inherited GitHub variable causes the reported failure.
+- Why ignored: Negative scope narrowed F1 to explicit `github.com` host selection. A complete environment redesign is not authorized, and the broader causal claim is unproven. Only this remedy portion is removed; F1 remains accepted.
+
+#### 7. Retaining, moving, or configuring a numeric review-entry cap
+
+- Finding ID or Review reference: `F3 narrowed-away remedy meaning`
+- Source and target: `server/src/flows/githubReview.ts:314-317,504-551,1317-1343`; `current_repository` at `/home/d_a_s/code/codeInfo2`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`.
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated the cap-ordering finding.
+- Simple description: The rejected remedy would preserve, move, increase, disclose, or configure a 200-entry limit rather than remove the unauthorized truncation.
+- Example: The strict `github_fetch_reviews` schema exposes no cap field, override, or quota control that can express such a policy.
+- Why ignored: Negative scope narrowed F3 to delivering the complete paginated actionable corpus. The story authorizes pagination and classification but no cap policy, quota, threshold, notice, or configuration control. Only this remedy portion is removed; F3 remains accepted.
+
+#### 8. Additional regular-file validation for the token source
+
+- Finding ID or Review reference: `F4 narrowed-away remedy meaning`
+- Source and target: `server/src/flows/githubReview.ts:759-785`; `current_repository` at `/home/d_a_s/code/codeInfo2`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`.
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, immutable job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated the token-containment finding.
+- Simple description: The rejected remedy would add an independent regular-file requirement through `isFile`, `lstat`, or another new filesystem validation rule in addition to physical containment.
+- Example: The current dependency seam exposes directory inspection but not regular-file identity, and the demonstrated problem is an escaping path rather than a proven non-regular in-root file.
+- Why ignored: Negative scope narrowed F4 to existing realpath containment. The story requires the correct repository-local source but does not authorize a broader filesystem-object policy or new dependency API. Only this remedy portion is removed; F4 remains accepted.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 8:49:58 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T185708Z-07ab9df6`
+- Review cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Batch workspace: `/home/d_a_s/code/codeInfo2/codeInfoTmp/reviews/0000060-rc-20260727T131555Z-a8e020a4/batches/0000060-rw-20260727T185708Z-07ab9df6--head-299de63b6a3b`
+- Reviews attempted:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native review with four findings; no tests run.
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed supported review with three findings; targeted validation reproduced the post-create reconciliation failure; full automated suite not run.
+    - Input tokens: `8458719`
+    - Cached input tokens: `8108288`
+    - Output tokens: `22849`
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed trustworthy no-work/not-applicable result because only `current_repository` was assigned; no finding was generated.
+    - Input tokens: `183141`
+    - Cached input tokens: `151296`
+    - Output tokens: `2153`
+
+The combined filtering audit completed all applicable negative-scope, positive-authorization, and materiality gates. Five findings survived all three gates; R-005 and R-007 were fully removed, and four remedy portions were narrowed away. No later gate was deliberately skipped.
+
+### Accepted
+
+#### 1. Bundled flow-control decisions fail without Git metadata
+
+- Finding ID: `R-001`
+- Source and target: `server/src/flows/flowDecisionScript.ts:156-167`; bundled selection at `server/src/flows/service.ts:7382-7424`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+- Simple description: Bundled flow-control scripts are checked with `git ls-files`, but the supported server image contains the scripts without `.git` metadata. The direct decision fails before returning its authored answer.
+- Example: A flow selects `scripts/flow_control/continue.py` in the main Compose server; the script is present under `/app`, but `git -C /app ls-files` exits `128`, so the flow cannot take its `yes` or `no` branch.
+- Why accepted: Current HEAD proves the failure at `server/src/flows/flowDecisionScript.ts:156-167` and the bundled selection at `server/src/flows/service.ts:7382-7424`. Comparison-base behavior authorized restoring the existing `runFlowDecisionScript` seam, and the deterministic supported-runtime failure is materially worth a normal repair. The new manifest/equivalent trust mechanism was not authorized.
+
+#### 2. Wait recovery can strand an execution-scoped review cycle
+
+- Finding ID: `R-002`
+- Source and target: `server/src/flows/service.ts:12523-12563`; persisted state at `server/src/flows/flowState.ts:95-106,135`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+- Simple description: Resume-start persistence clears the saved wait and GitHub review context before the resumed runtime reaches its next durable checkpoint. A process loss in that interval leaves startup recovery without the state needed to continue the same cycle.
+- Example: A persisted review wait wakes, resume is accepted, and the server restarts before `runFlowUnlocked` persists its next checkpoint; the flow has neither the wait to re-arm nor the saved PR/scratch context.
+- Why accepted: Restart survival, automatic resume, and preservation of the same execution and review state are explicit acceptance criteria. Current HEAD exposes the existing wait/context persistence seam at `server/src/flows/service.ts:12523-12563` and `server/src/flows/flowState.ts:95-106`. The stranded supported execution is materially worth a normal repair; exact timing was source-supported rather than dynamically reproduced. A new transitional record or retry policy was not authorized.
+
+#### 3. A `.env.local` symlink can source a token outside the worked repository
+
+- Finding ID: `R-003`
+- Source and target: `server/src/flows/githubReview.ts:759-785`; dependency seam at `server/src/flows/githubReview.ts:250-255,295-306`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+- Simple description: The token reader opens the lexical worked-repository `.env.local` path without resolving it. A symlink can make the GitHub step read a token from outside the worked repository.
+- Example: The worked repository has `.env.local` linked to a sibling repository's environment file, and the supported PR operation supplies that sibling token to `gh`.
+- Why accepted: The story requires the token only from the worked repository's `.env.local` and excludes shared cross-repository credentials. Current HEAD proves the read at `server/src/flows/githubReview.ts:759-785` and exposes the existing `realpath` seam for a contained normal repair. The credential-isolation impact is material; broader regular-file validation and new token sources were not authorized.
+
+#### 4. SSH-over-443 GitHub remotes are rejected
+
+- Finding ID: `R-004`
+- Source and target: `server/src/flows/githubReview.ts:553-580`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+- Simple description: The SSH remote parser recognizes `ssh.github.com` but does not accept its standard numeric port form. Repository resolution fails before the GitHub PR operation can use the configured upstream.
+- Example: The existing upstream is `ssh://git@ssh.github.com:443/OWNER/REPO.git`; the flow returns an invalid-remote error instead of looking up or creating the PR.
+- Why accepted: The story requires use of the existing upstream, and current HEAD explicitly recognizes `ssh.github.com` at `server/src/flows/githubReview.ts:553-580`. Adding an optional numeric port to that private parser is a material, proportionate normal repair without alternate-remote or transport policy.
+
+#### 5. Commit identity is lost before stale-feedback classification
+
+- Finding ID: `R-006`
+- Source and target: `server/src/flows/githubReview.ts:1243-1245,1293-1295,2082-2159`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the finding.
+- Simple description: Raw review records retain `commit_id`, but feedback mapping and generated review Markdown discard it along with the current handoff `head_sha`. The classifier cannot distinguish feedback for an older patch from feedback for the current head.
+- Example: A reviewer comments on commit A, the branch advances to commit B in the same open PR, and a later cycle receives the comment without either identity; obsolete feedback can be routed as current work.
+- Why accepted: Stale review feedback is explicitly part of the story's clean/non-actionable classification. Current HEAD proves the loss at `server/src/flows/githubReview.ts:1243-1245,1293-1295,2082-2159` and exposes existing feedback, handoff, and Markdown seams for a material normal repair that only preserves already-fetched provenance. New fetches, thresholds, dismissal rules, and multi-actor policy were not authorized.
+
+### Ignored for This Story
+
+#### 6. R-001 narrowed-away manifest or equivalent trust mechanism
+
+- Finding ID or Review reference: `R-001 narrowed-away remedy`
+- Source and target: `server/src/flows/flowDecisionScript.ts:156-167`; bundled selection at `server/src/flows/service.ts:7382-7424`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the broader remedy claim.
+- Simple description: The broader proposed remedy would add a trusted manifest or equivalent control for bundled scripts instead of restoring the existing bundled execution path.
+- Example: Current HEAD has no manifest field, configuration option, or trust-policy API; the evidence establishes only that Git metadata is absent while the bundled script is present.
+- Why ignored: The negative gate narrowed R-001 to the existing API seam. The proposed control is unproven and would invent policy beyond the authorized outcome; only this remedy portion is removed and R-001 remains accepted.
+
+#### 7. R-002 narrowed-away transitional record
+
+- Finding ID or Review reference: `R-002 narrowed-away remedy`
+- Source and target: `server/src/flows/service.ts:12523-12563`; `server/src/flows/flowState.ts:95-106,135`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the broader remedy claim.
+- Simple description: The broader proposed remedy would introduce a new transitional persistence record between resumed-start writes and the next checkpoint.
+- Example: The evidence shows an existing wait record is cleared before detached execution, but no transition record or schema field exists for the proposed mechanism.
+- Why ignored: Existing wait/context persistence can express the authorized repair, while the new state model is not an existing seam and adds policy. Only this remedy portion is removed and R-002 remains accepted.
+
+#### 8. R-003 narrowed-away broader filesystem-object policy
+
+- Finding ID or Review reference: `R-003 narrowed-away remedy`
+- Source and target: `server/src/flows/githubReview.ts:759-785`; dependency seam at `server/src/flows/githubReview.ts:250-255,295-306`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the broader token-validation claim.
+- Simple description: The rejected remedy would add regular-file or other broad filesystem validation beyond resolving `.env.local` and checking repository containment.
+- Example: The evidence demonstrates an escaping symlink, but not an in-root non-regular file causing the reported credential-source problem or an existing `isFile`/`lstat` policy.
+- Why ignored: The negative gate authorized only the existing realpath containment seam. A new filesystem-object policy is not authorized; only this remedy portion is removed and R-003 remains accepted.
+
+#### 9. R-005 bounded retry and ambiguous-create fallback
+
+- Finding ID or Review reference: `R-005`
+- Source and target: `server/src/flows/githubReview.ts:1183`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the finding.
+- Simple description: After `gh pr create` returns a URL, current HEAD performs one canonical lookup by PR number and fails when that lookup is unavailable or disagrees. The proposed finding asks for retries and an ambiguous-create fallback.
+- Example: Targeted review validation reproduced an empty wait schedule where the finding expected retries, but the current contract provides no retry count, delay schedule, or fallback control.
+- Why ignored: The technical observation is retained, but the negative gate rejected the retry/fallback remedies at gates 8 and 11 because no authorization or existing configuration/schema seam supports them. This complete finding is non-actionable and cannot route to repair, task creation, or review-loop continuation.
+
+#### 10. R-006 narrowed-away new stale-feedback policy
+
+- Finding ID or Review reference: `R-006 narrowed-away remedy`
+- Source and target: `server/src/flows/githubReview.ts:1243-1245,1293-1295,2082-2159`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the broader stale-feedback claim.
+- Simple description: The rejected broader remedy would add a staleness threshold, automatic dismissal rule, extra GitHub fetch, or multi-actor policy instead of preserving already-fetched commit identities.
+- Example: Current HEAD drops `commit_id` before classification, but no authorized threshold or dismissal control exists to decide how old feedback should be handled.
+- Why ignored: The negative gate narrowed R-006 to carrying existing provenance through existing mappings and Markdown. New classification policy is not authorized; only this remedy portion is removed and R-006 remains accepted.
+
+#### 11. R-007 warning-continuation policy
+
+- Finding ID or Review reference: `R-007`
+- Source and target: `server/src/flows/service.ts:4904`; `current_repository`, reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the finding.
+- Simple description: A warning is terminal, so an authored wait after that warning can have its scheduler entry cleared without resuming. The proposed fix would change warning terminal policy or add continuation state.
+- Example: The source guard sees latest status `warning` with no continuation marker, clears the scheduled wake, and returns; the evidence does not show a supported contract requiring that warning-plus-wait combination to resume.
+- Why ignored: The technical observation is retained, but the negative gate rejected the terminal-policy/state changes at gates 7, 10, and 11. The current contract authorizes completed-with-warning GitHub skips, not a new global warning-continuation policy. This complete finding is non-actionable and cannot route to repair, task creation, or review-loop continuation.
+
+### Task 44. Record Review Fixes From Batch 0000060-rw-20260727T185708Z-07ab9df6
+
+- Repository Name: `Current Repository`
+- Review Task Role: `completed_review_fixes`
+- Task Dependencies: `Task 43`
+- Task Status: `__done__`
+- Review Batch: `0000060-rw-20260727T185708Z-07ab9df6`
+- Review Cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Git Commits: `869016a47f0a710b950217139ffa0864a398665b`
+- Created: `July 27, 2026 at 9:12:08 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+The normal repair agent resolved all five material, positively authorized survivors from review batch `0000060-rw-20260727T185708Z-07ab9df6`: R-001, R-002, R-003, R-004, and R-006. The stronger repair opportunity was deliberately skipped because the completed normal-repair audit established that no actionable survivor remained. R-005 and R-007, together with the narrowed-away remedy portions, remain preserved as non-actionable filtering evidence. This task records completed fixes, not new implementation or final revalidation work.
+
+#### Review Cycle Coverage
+
+- The immutable batch reviewed `current_repository` at `299de63b6a3b0de870ce3d4d223d100faa202ed3` against comparison base `8b7907f91922111b59a1779fd422177df2818248`.
+- Negative scope, positive authorization, and materiality were all applicable and completed. The final material survivor set was R-001, R-002, R-003, R-004, and R-006.
+- The batch was fix-bearing. Normal repair commit `869016a47f0a710b950217139ffa0864a398665b` produced final HEAD `869016a47f0a710b950217139ffa0864a398665b`; another immutable-HEAD review is useful. No stronger repair, unresolved-finding task, or final testing/revalidation task is created here.
+
+#### Affected Repositories
+
+- `current_repository` — reviewed HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`, initial repair HEAD `299de63b6a3b0de870ce3d4d223d100faa202ed3`, final HEAD `869016a47f0a710b950217139ffa0864a398665b`.
+
+#### Review Harnesses
+
+- Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated addressed findings R-001 through R-004.
+- OpenCode Review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated addressed finding R-006 and non-actionable R-005 and R-007.
+
+#### Addresses Findings
+
+- `R-001 — Bundled flow-control decisions require unavailable Git metadata`, owned by `current_repository`: bundled flow-control decisions now use the existing non-Git bundled execution seam while worked-repository scripts retain tracked validation. Fixed by `869016a47f0a710b950217139ffa0864a398665b`.
+- `R-002 — Wait recovery can strand an execution-scoped review cycle`, owned by `current_repository`: existing persisted wait and GitHub-review context remain durable through resumed-start until the next checkpoint. Fixed by `869016a47f0a710b950217139ffa0864a398665b`.
+- `R-003 — A .env.local symlink can source a token outside the worked repository`, owned by `current_repository`: resolved token paths are required to remain inside the worked repository root. Fixed by `869016a47f0a710b950217139ffa0864a398665b`.
+- `R-004 — SSH-over-443 GitHub remotes are rejected`, owned by `current_repository`: the existing SSH parser accepts an optional numeric port. Fixed by `869016a47f0a710b950217139ffa0864a398665b`.
+- `R-006 — Preserve commit identity for stale-feedback classification`, owned by `current_repository`: fetched commit identity and current handoff head are carried through feedback and Markdown materialization. Fixed by `869016a47f0a710b950217139ffa0864a398665b`.
+
+#### Subtasks
+
+1. [x] Repair bundled flow-control execution, persisted wait recovery, repository token containment, SSH-over-443 parsing, and review commit/head provenance.
+2. [x] Add or retain focused regression coverage for all five addressed findings.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts`; passed, 18 tests.
+2. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`; passed, 4 tests.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.identity.test.ts --test-name 'paused wait resumes the same execution after the authored delay using an explicit wake boundary'`; passed, 1 test.
+4. [x] Run `npm run format`; passed.
+5. [x] Run `npm run format:check`; passed.
+6. [x] Run `npm run lint -- --quiet`; passed with zero warnings/errors.
+7. [x] Run `git diff --check`; passed before commit.
+
+#### Implementation Notes
+
+- Normal repair commit `869016a47f0a710b950217139ffa0864a398665b` (`DEV-0000060 - Repair final review batch flow findings`) changed `server/src/flows/flowDecisionScript.ts`, `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, `server/src/test/unit/flow-decision-script.test.ts`, and `server/src/test/unit/flows.github-adapter.test.ts`.
+- R-001 restored bundled execution without adding a manifest or trust policy. R-002 retained the existing wait/context record until the next durable checkpoint. R-003 added resolved-path containment at the existing token-reader seam. R-004 added only optional SSH port syntax. R-006 preserved already-fetched commit and current-head provenance without adding stale-feedback policy.
+- The first adapter run exposed a repair-introduced TypeScript reason-union error; retaining the existing `ENV_LOCAL_READ_FAILED` reason corrected it, and the rerun passed. The normal audit records all focused proof and hygiene results above.
+- The stronger repair opportunity was deliberately skipped because normal repair resolved every accepted material survivor. No stronger commit, unresolved-finding task, or final testing/revalidation task was created.
+- Full server/client/Cucumber/Compose/e2e suites and live GitHub transport were not run. Codex and OpenCode review coverage remains limited as recorded in the batch outcome; R-002 and R-007 were source-checked rather than dynamically reproduced during review; cross-repository compatibility was not applicable with one target.
+- Evidence used: the authoritative handoff and batch launch, immutable inputs and target snapshot, all direct jobs with job/output/verification/usage records, reconciliation and all applicable filtering records, disposition, normal-repair audit, current Git state, and `reconciliation/outcome.md`.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 10:21:00 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T201328Z-ca75a27d`
+- Review cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Reviews attempted:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — completed review with one supported pre-filter finding and one rejected saturation candidate; visual review explicitly not applicable for this flow/runtime story.
+    - Input tokens: `9,734,317`
+    - Cached input tokens: `9,205,248`
+    - Output tokens: `64,666`
+
+The independent combined filtering audit completed the negative story-scope gate with zero survivors. Positive authorization and materiality were therefore deliberately not applicable; the pre-existing authorization and materiality files are superseded derived history and do not promote work. This is a completed empty disposition for the current batch.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+#### 1. `github_fetch_reviews` bypasses bounded GitHub-review recovery
+
+- Finding ID or Review reference: `Finding 1 — github_fetch_reviews bypasses bounded GitHub-review recovery`
+- Source and target: `server/src/flows/service.ts:11434-11443` at reviewed/current HEAD `869016a47f0a710b950217139ffa0864a398665b`; `current_repository`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) — generated the finding and corroborated it through the evidence, saturation, blind-spot, consolidation, and verification stages.
+- Simple description: The `github_fetch_reviews` dispatcher returns a stop-worthy fetch status without invoking the existing GitHub-review recovery helper. A supported fetch failure or skip can leave the persisted review context at its prior phase without retry/resume or exhaustion handling.
+- Example: In the opt-in review flow, a fetch-stage warning or failure reaches `server/src/flows/service.ts:11434-11443`; the retained focused test records `phase: 'opened'`, `retryAttempt: 3`, and no later continuation turn. Current runtime evidence also permits warning normalization to completed `ok`, so the stronger claim that every run cannot complete is not established.
+- Why ignored: The completed negative scope gate fully removed this technically supported finding under gates 4, 7, 8, 10, and 11. The proposed repair would activate the existing hard-coded retry count, backoff, persisted retry waits, and exhaustion fallback, but the current story contract, flow schema, flow definition, and comparison base do not authorize that fetch-retry policy or mandatory post-warning continuation. The complete finding and remedy are non-actionable for this story and cannot route to repair, task creation, or review-loop continuation.
+
+#### 2. Open/close setup errors are both downgraded to warnings
+
+- Finding ID or Review reference: `saturation candidate 002-github-open-pr-masks-setup-errors`
+- Source and target: `server/src/flows/service.ts:8628-8637` and the open setup path; `current_repository`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) — generated the saturation candidate; the blind-spot challenge, consolidation, and verification corroborated its rejection.
+- Simple description: The saturation candidate claimed that both GitHub open and close setup failures become warning skips. The reconciled source evidence does not support that combined claim.
+- Example: The close branch returns `failed` for a non-`ok` setup context, while the optional open/token-missing path may warn and skip; the story explicitly permits an optional GitHub-review skip to complete with warning. The example does not establish the claimed common downgrade or material harm.
+- Why ignored: This candidate was rejected before the negative-gate survivor set and was not restored. Direct source evidence contradicts its close-path claim, and the open warning behavior is authorized by the completed-with-warning contract. It remains audit-only and cannot route to accepted work, repair, task creation, or review-loop continuation.
+
+### Task 45. Resolve Remaining GitHub Review Host, Pagination, and PR URL Contract Findings
+
+- Repository Name: `Current Repository`
+- Review Task Role: `review_actionable_findings`
+- Task Dependencies: `Task 44`
+- Task Status: `__in_progress__`
+- Review Batch: `0000060-rw-20260727T174611Z-bdcfcce2`
+- Review Cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Affected Repositories: `current_repository`
+- Review Target HEAD: `299de63b6a3b0de870ce3d4d223d100faa202ed3`
+- Source Jobs: Codex `target_reviews:current_repository:codex_review` (`2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) generated F1; OpenCode `target_reviews:current_repository:open_code_review` (`1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) generated F3 and F5; Cross-Repository `story_review:cross_repository_review` (`e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`) was completed as not applicable for the single target and generated no finding.
+- Created: `July 27, 2026 at 10:38:59 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Resolve only the three deduplicated materiality survivors from batch `0000060-rw-20260727T174611Z-bdcfcce2`: explicit GitHub host targeting, complete paginated reviewer retrieval, and case-insensitive owner/repository matching in successful PR URL validation. Batch-4 F2 and F4 are already resolved by later batch-5 commit `869016a47f0a710b950217139ffa0864a398665b` and must not be re-tasked. Earlier negative-scope, positive-authorization, and materiality removals, including batch 6's rejected fetch-recovery finding, remain ignored evidence.
+
+#### Task Exit Criteria
+
+- [ ] Supported GitHub CLI child invocations explicitly target `github.com` through the intended `GH_HOST=github.com` boundary without adding a broad environment allowlist or `GH_CONFIG_DIR` policy.
+- [ ] GitHub review and reviewer retrieval preserves the complete paginated actionable corpus instead of truncating at the hard-coded 200-entry limit, without introducing an unauthorized cap or quota policy.
+- [ ] Successful PR URL validation compares only the owner and repository path segments case-insensitively while preserving host, path shape, PR number, canonical repository, head, and base checks.
+- [ ] Focused automated proof covers all three contracts, including more than 200 entries and canonical owner/repository casing.
+
+#### Review Cycle Coverage
+
+- The batch reviewed `current_repository` at `299de63b6a3b0de870ce3d4d223d100faa202ed3`.
+- Negative scope, positive authorization, and materiality left five survivors. F2 and F4 are resolved on the later target HEAD by Task 44's commit; F1, F3, and F5 are the only remaining actionable findings.
+- The normal and stronger repair opportunities for this batch were unavailable, so the missing repair coverage remains an honest limitation and is the reason this task is created. This task does not rerun review.
+
+#### Affected Repositories
+
+- `current_repository`: `server/src/flows/githubReview.ts` and its repository-owned focused tests.
+
+#### Review Harnesses
+
+- Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) generated F1.
+- OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) generated F3 and F5.
+
+#### Addresses Findings
+
+- F1, `Supported GitHub CLI calls do not explicitly target github.com`, owned by `current_repository`: set `GH_HOST=github.com` in the supported GitHub child-process environment seam.
+- F3, `GitHub review retrieval truncates the reviewer corpus at 200`, owned by `current_repository`: remove the hard-coded 200-entry truncation so pagination, ordering, and reviewer/author/body classification receive the complete fetched corpus.
+- F5, `Successful PR URL owner and repository casing is compared too strictly`, owned by `current_repository`: compare only owner and repository URL segments case-insensitively while retaining host, path, number, canonical repository, head, and base validation.
+
+#### Subtasks
+
+1. [ ] Update `server/src/flows/githubReview.ts` so every supported `gh` child invocation receives `GH_HOST=github.com` at the existing child-environment seam, without broad environment or configuration-policy expansion.
+2. [ ] Remove the hard-coded 200-entry review/reviewer limit and update repository-owned fixtures or helpers so complete pagination and existing classification/order behavior remain explicit.
+3. [ ] Make owner/repository URL comparison case-insensitive only for those two path segments, preserving all other canonical PR identity checks.
+4. [ ] Add or update focused regression coverage in `server/src/test/unit/flows.github-adapter.test.ts` for host targeting, a corpus larger than 200, and canonical owner/repository casing.
+
+#### Testing
+
+1. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts`
+2. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "github review"`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run lint`
+5. [ ] `npm run format:check`
+
+#### Manual Testing Guidance
+
+Optional, non-blocking proof may use the supported main stack at `http://localhost:5001` and `http://localhost:5010` with a dedicated sandbox repository and the repository-owned manual-testing catalog to exercise GitHub host targeting, mixed-case canonical PR identity, and a review corpus larger than 200 entries. Keep any logs under `codeInfoTmp/manual-testing/0000060/45/`; task-level artifacts must not be committed, and manual proof must not become an unchecked gate. If provider login requires human-controlled two-factor authentication, use the repository-allowed skip and record the limitation without attempting re-authentication.
+
+#### Implementation Notes
+
+Settlement provenance: F1, F3, and F5 are the only positively authorized, material, unresolved survivors from batch `0000060-rw-20260727T174611Z-bdcfcce2`. F2 and F4 were fixed on the later target HEAD by `869016a47f0a710b950217139ffa0864a398665b`; no earlier removal or batch-6 negative-scope finding is included. The batch's OpenCode and Codex review coverage was partial, and both repair opportunities were unavailable; final full-story validation is deferred to the task that follows this implementation work.
+
+Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, and the single-target cross-repository job generated no finding. This provenance correction does not change the accepted survivor set or implementation scope.
+
+### Task 46. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
+
+- Repository Name: `Current Repository`
+- Review Task Role: `final_revalidation`
+- Task Dependencies: `Task 45`
+- Task Status: `__to_do__`
+- Review Cycle: `0000060-rc-20260727T131555Z-a8e020a4`
+- Affected Repositories: `current_repository`
+- Review Scope: complete story validation after all completed review fixes and Task 45 implementation work
+- Created: `July 27, 2026 at 10:40:38 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Perform the single final closeout validation after Task 45 has completed. Cover the complete story, every changed file in `current_repository`, commits `61952544053c0a84efd5be06d9909d0445f3ffec`, `1ab7a95721854febcb19551ebcc3643dd4e5bdbc`, `299de63b6a3b0de870ce3d4d223d100faa202ed3`, and `869016a47f0a710b950217139ffa0864a398665b`, and the three batch-4 findings addressed by Task 45. This task is the final revalidation owner; it must remain last in the plan and must not reopen ignored findings or start another review cycle.
+
+#### Task Exit Criteria
+
+- [ ] All story-caused implementation and test changes are validated on the final target HEAD.
+- [ ] Full automated client, server, Compose, and e2e proof completes through the repository wrappers, with failures diagnosed from their saved logs.
+- [ ] The supported Compose stack is shut down after proof, and final lint and format checks pass.
+- [ ] Review-cycle closeout records the immutable batch evidence, completed fix tasks, Task 45 proof, final validation results, and honest limitations.
+
+#### Review Cycle Coverage
+
+- This owner follows every fix-bearing completed-review-fixes task and the only open survivor task from review cycle `0000060-rc-20260727T131555Z-a8e020a4`.
+- It must revalidate the three formerly unresolved material survivors: explicit `GH_HOST=github.com`, complete paginated review retrieval, and case-insensitive owner/repository URL matching.
+- Earlier gate removals, batch-4 F2/F4, and batch-6's negative-scope finding remain audit-only and are not reopened by final proof.
+
+#### Affected Repositories
+
+- `current_repository`: complete story implementation, tests, flow definitions, scripts, and repository-owned proof surfaces.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] Run `npm run lint` and fix story-caused issues.
+2. [ ] Run `npm run format:check` and, when needed, fix with `npm run format`.
+
+The remaining implementation and full proof work is defined in `Testing`; these initial subtasks intentionally contain only supported lint and formatting work.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+Run these automated commands without target filters, preserving wrapper heartbeat/log guidance and continuing to `npm run compose:down` after the proof attempt:
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run build:summary:server`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:all:parallel`
+6. [ ] `npm run compose:down`
+7. [ ] `npm run lint`
+8. [ ] `npm run format:check`
+
+#### Manual Testing Guidance
+
+Optional, non-blocking human proof may use the supported main stack at `http://localhost:5001` and `http://localhost:5010` with a dedicated sandbox repository and the repository-owned manual-testing catalog to exercise the final GitHub host, mixed-case PR identity, complete-pagination, clean, finding, and warning paths. Keep task-level logs under `codeInfoTmp/manual-testing/0000060/46/` and do not commit them; later closeout may curate durable proof into `codeInfoStatus/manual-proof/0000060/`. If provider login requires human-controlled two-factor authentication, use the repository-allowed skip and record the limitation without attempting re-authentication. Manual proof is not an automated gate or blocker.
+
+#### Implementation Notes
+
+This is the one final validation owner for the complete review settlement. It must consume the immutable batch findings blocks and the exact completed-review-fix records for batches 1, 2, 3, and 5, then the Task 45 implementation proof. No additional implementation work, disposition prediction, gate removal, or review launch belongs in this task.

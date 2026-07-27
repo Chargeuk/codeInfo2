@@ -14,11 +14,11 @@ export const mockModels: ChatModelInfo[] = [
 
 export const mockCodexModels: ChatModelInfo[] = [
   {
-    key: 'gpt-5.6-sol',
-    displayName: 'gpt-5.6-sol',
+    key: 'gpt-5.4-mini',
+    displayName: 'gpt-5.4-mini',
     type: 'codex',
     supportedReasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
-    defaultReasoningEffort: 'high',
+    defaultReasoningEffort: 'medium',
     flagOverrides: [
       {
         key: 'modelReasoningEffort',
@@ -29,7 +29,7 @@ export const mockCodexModels: ChatModelInfo[] = [
           { value: 'high', label: 'High' },
           { value: 'xhigh', label: 'Extra High' },
         ],
-        resolvedDefault: 'high',
+        resolvedDefault: 'medium',
       },
     ],
   },
@@ -105,7 +105,7 @@ export const mockModelsResponse: ChatModelsResponse = {
       available: false,
       toolsAvailable: false,
       reason: 'not detected',
-      defaultModel: 'gpt-5.3-codex-spark',
+      defaultModel: 'gpt-5.4-mini',
       defaultModelSource: 'config',
       warnings: [],
       agentFlags: [],
@@ -176,7 +176,7 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
     label: 'OpenAI Codex',
     available: true,
     toolsAvailable: true,
-    defaultModel: 'gpt-5.6-sol',
+    defaultModel: 'gpt-5.4-mini',
     defaultModelSource: 'config',
     warnings: [],
     agentFlags: [
@@ -185,8 +185,8 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
         label: 'Reasoning Effort',
         controlType: 'select',
         editable: true,
-        seedDefault: 'high',
-        resolvedDefault: 'high',
+        seedDefault: 'medium',
+        resolvedDefault: 'medium',
         supportedValues: [
           { value: 'minimal', label: 'Minimal' },
           { value: 'low', label: 'Low' },
@@ -203,7 +203,7 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
       label: 'OpenAI Codex',
       available: true,
       toolsAvailable: true,
-      defaultModel: 'gpt-5.6-sol',
+      defaultModel: 'gpt-5.4-mini',
       defaultModelSource: 'config',
       warnings: [],
       agentFlags: [
@@ -212,8 +212,8 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
           label: 'Reasoning Effort',
           controlType: 'select',
           editable: true,
-          seedDefault: 'high',
-          resolvedDefault: 'high',
+          seedDefault: 'medium',
+          resolvedDefault: 'medium',
           supportedValues: [
             { value: 'minimal', label: 'Minimal' },
             { value: 'low', label: 'Low' },
@@ -227,7 +227,7 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
         codexDefaults: {
           sandboxMode: 'danger-full-access',
           approvalPolicy: 'on-request',
-          modelReasoningEffort: 'high',
+          modelReasoningEffort: 'medium',
           networkAccessEnabled: true,
           webSearchEnabled: true,
           webSearchMode: 'live',
@@ -242,8 +242,8 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
       label: 'Reasoning Effort',
       controlType: 'select',
       editable: true,
-      seedDefault: 'high',
-      resolvedDefault: 'high',
+      seedDefault: 'medium',
+      resolvedDefault: 'medium',
       supportedValues: [
         { value: 'minimal', label: 'Minimal' },
         { value: 'low', label: 'Low' },
@@ -253,13 +253,13 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
       ],
     },
   ],
-  defaultModel: 'gpt-5.6-sol',
+  defaultModel: 'gpt-5.4-mini',
   defaultModelSource: 'config',
   warnings: [],
   codexDefaults: {
     sandboxMode: 'danger-full-access',
     approvalPolicy: 'on-request',
-    modelReasoningEffort: 'high',
+    modelReasoningEffort: 'medium',
     networkAccessEnabled: true,
     webSearchEnabled: true,
     webSearchMode: 'live',
@@ -269,7 +269,7 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
     codexDefaults: {
       sandboxMode: 'danger-full-access',
       approvalPolicy: 'on-request',
-      modelReasoningEffort: 'high',
+      modelReasoningEffort: 'medium',
       networkAccessEnabled: true,
       webSearchEnabled: true,
       webSearchMode: 'live',

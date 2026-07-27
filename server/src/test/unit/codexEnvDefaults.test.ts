@@ -76,7 +76,7 @@ test('parser falls back cleanly when Codex_* env values are absent', () => {
   assert.deepEqual(defaults, {
     sandboxMode: 'danger-full-access',
     approvalPolicy: 'on-request',
-    modelReasoningEffort: 'high',
+    modelReasoningEffort: 'medium',
     networkAccessEnabled: true,
     webSearchEnabled: true,
   });
@@ -95,7 +95,7 @@ test('invalid enum values and empty strings warn + fall back', () => {
 
   assert.equal(defaults.sandboxMode, 'danger-full-access');
   assert.equal(defaults.approvalPolicy, 'on-request');
-  assert.equal(defaults.modelReasoningEffort, 'high');
+  assert.equal(defaults.modelReasoningEffort, 'medium');
   assert.ok(
     warnings.some((warning) =>
       warning.includes('Codex_sandbox_mode must be one of'),

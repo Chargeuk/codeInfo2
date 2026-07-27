@@ -661,10 +661,10 @@ test('codex model list CSV trims, drops empties, and de-duplicates', async () =>
       (model: { key: string }) => model.key,
     );
     assert.deepEqual(modelKeys, [
-      'gpt-5.6-sol',
       'gpt-5.1-codex-max',
       'gpt-5.1',
       'gpt-5.2',
+      'gpt-5.4-mini',
     ]);
   } finally {
     await stopServer(server);

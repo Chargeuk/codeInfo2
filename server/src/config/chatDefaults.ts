@@ -132,13 +132,13 @@ export type DefaultsAppliedMarkerPayload = {
 export const ORDERED_CHAT_PROVIDERS = ORDERED_CHAT_PROVIDER_IDS;
 
 const FALLBACK_PROVIDER: ChatDefaultProvider = DEFAULT_CHAT_PROVIDER_ID;
-const FALLBACK_MODEL = 'gpt-5.6-sol';
+const FALLBACK_MODEL = 'gpt-5.4-mini';
 export const STORY_47_TASK_1_LOG_MARKER =
   'DEV_0000047_T01_CODEX_DEFAULTS_APPLIED';
 const VALID_PROVIDERS: readonly ChatDefaultProvider[] = ORDERED_CHAT_PROVIDERS;
 const FALLBACK_CODEX_SANDBOX_MODE = 'danger-full-access' as const;
 const FALLBACK_CODEX_APPROVAL_POLICY = 'on-request' as const;
-const FALLBACK_CODEX_REASONING = 'high' as const;
+const FALLBACK_CODEX_REASONING = 'medium' as const;
 const FALLBACK_CODEX_MODEL = FALLBACK_MODEL;
 const FALLBACK_CODEX_WEB_SEARCH = 'live' as const;
 const SANDBOX_MODES = new Set([

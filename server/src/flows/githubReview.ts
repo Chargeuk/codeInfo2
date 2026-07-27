@@ -788,10 +788,12 @@ export const readWorkedRepositoryGitHubToken = async (params: {
 export const buildGitHubChildProcessEnv = (params: {
   token: string;
   baseEnv?: NodeJS.ProcessEnv;
-}): NodeJS.ProcessEnv => ({
-  ...(params.baseEnv ?? process.env),
-  GH_TOKEN: params.token,
-});
+}): NodeJS.ProcessEnv => {
+  const childEnv = { ...(params.baseEnv ?? process.env) };
+  delete childEnv.CODEINFO_PR_TOKEN;
+  childEnv.GH_TOKEN = params.token;
+  return childEnv;
+};
 
 const runGitCommand = async (params: {
   workingRepositoryRoot: string;

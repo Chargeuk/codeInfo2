@@ -157,14 +157,19 @@ test('repo-local token reader keeps missing opt-in cases on skip and surfaces ma
   }
 });
 test('GitHub child-process env is scoped and does not mutate the base environment', () => {
-  const baseEnv = { EXISTING: '1' } as NodeJS.ProcessEnv;
+  const baseEnv = {
+    CODEINFO_PR_TOKEN: 'server-token',
+    EXISTING: '1',
+  } as NodeJS.ProcessEnv;
   const childEnv = buildGitHubChildProcessEnv({
     token: 'secret-token',
     baseEnv,
   });
 
   assert.equal(baseEnv.GH_TOKEN, undefined);
+  assert.equal(baseEnv.CODEINFO_PR_TOKEN, 'server-token');
   assert.equal(childEnv.EXISTING, '1');
+  assert.equal(childEnv.CODEINFO_PR_TOKEN, undefined);
   assert.equal(childEnv.GH_TOKEN, 'secret-token');
   assert.notEqual(childEnv, baseEnv);
 });

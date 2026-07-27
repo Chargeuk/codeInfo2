@@ -7837,3 +7837,10 @@ Record the final validated HEAD, every full wrapper result, any same-task repair
 - Simple description: The changed conversation list contains filters, bulk actions, confirmation, toast, loading/error, and load-more paths, but the cited desktop and mobile screenshots show only static list and chip states. The available screenshots therefore do not demonstrate those interaction states.
 - Example: Reopening the saved desktop and mobile captures shows the list with run and target chips but no bulk selection, archive/restore/delete confirmation, toast/error/empty/loading, or load-more state. The review did not establish that any implementation path is broken.
 - Why ignored: Gate 4 fully removed this finding from actionable scope and Gate 6 reinforced that decision. The story contract requires review-wave runtime and specified automated/main-stack behavior proof, not new `ConversationList` screenshots or the proposed additional manual scenarios. This is useful non-actionable evidence only; no part of its screenshot/manual-proof remedy survives.
+
+## Final Summary
+
+1. Story 0000064 is complete on disk: the review-wave and closeout path is fully settled, task 93 is done, and the plan now carries the final accepted and ignored review state instead of open implementation work.
+2. The work changed the story from in-progress review repair into a closed, reviewable flow so the canonical plan can preserve the exact repository scope, settle review evidence, and keep future runs aligned with the same story branch.
+3. The only complex part was keeping the review-state trail, manual-proof bundle, and closeout evidence consistent without adding new branching rules; the flow stays additive and reuses the existing handoff and artifact boundaries.
+4. Reviewers should focus on the final Code Review Findings trail, the ignored closeout items, and the curated `codeInfoStatus/manual-proof/0000064/` bundle, especially the proof for tasks 18, 77, and 93, to confirm the closeout evidence matches the current plan state.

@@ -22,6 +22,7 @@ import {
   createInflight,
   getCompletedInflightByReplayId,
   getInflight,
+  setInflightResponseMetadata,
   type CompletedInflightState,
 } from '../../chat/inflightRegistry.js';
 import type {
@@ -66,6 +67,7 @@ import {
 } from '../../lmstudio/toolService.js';
 import { append } from '../../logStore.js';
 import { appendSummaryBackedTransitiveConsumerLogs } from '../../logging/transitiveConsumerMarkers.js';
+import { resolveRepositorySelector } from '../../mcpCommon/repositorySelector.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
@@ -74,7 +76,11 @@ import {
   updateConversationMeta,
   updateConversationWorkingFolder,
 } from '../../mongo/repo.js';
-import type { TurnRuntimeMetadata } from '../../mongo/turn.js';
+import type {
+  TurnRuntimeMetadata,
+  TurnTimingMetadata,
+  TurnUsageMetadata,
+} from '../../mongo/turn.js';
 import {
   getCodexDetection,
   setCodexDetection,
@@ -100,6 +106,14 @@ const GENERIC_CODEX_EXEC_STARTUP_BANNER =
   'Codex Exec exited with code 1: Reading prompt from stdin...';
 const TASK8_LOG_MARKER = 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED';
 const REPLAY_ID_REGEX = /^[A-Za-z0-9._:-]{1,128}$/u;
+export const FAST_CODEBASE_QUESTION_SYSTEM_PROMPT = `Fast repository-research mode is active.
+- Work only inside the selected repository and scope every indexed query to it.
+- Use two focused VectorSearch queries, then at most four additional evidence actions.
+- Prefer exact symbol queries and bounded file ranges. Never dump whole files, request more than 50 AST symbols, or run broad recursive searches that can return large output.
+- Keep every shell result below 10,000 characters and every file read below 200 lines.
+- Stop researching as soon as the answer is supported. Do not investigate inactive providers or unrelated implementations.
+- Do not narrate progress in the final answer. Return only the concise, evidence-backed answer, no longer than 8,000 characters.
+- External documentation is only required when the question actually depends on external API or version-specific behavior.`;
 const paramsSchema = z
   .object({
     question: z.string().min(1),
@@ -107,6 +121,8 @@ const paramsSchema = z
     replayId: z.string().min(1).max(128).regex(REPLAY_ID_REGEX).optional(),
     provider: z.enum(['codex', 'copilot', 'lmstudio']).optional(),
     model: z.string().min(1).optional(),
+    repository: z.string().trim().min(1).optional(),
+    deep: z.boolean().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -145,6 +161,14 @@ export type CodebaseQuestionResult = {
   conversationId: string | null;
   modelId: string;
   segments: Segment[];
+  usage?: TurnUsageMetadata;
+  timing?: TurnTimingMetadata;
+  toolStats?: {
+    totalCalls: number;
+    mcpCalls: number;
+    shellCalls: number;
+    resultChars: number;
+  };
   replay?:
     | {
         replayId: string;
@@ -182,6 +206,7 @@ function buildReplayResult(params: {
           },
         }
       : {}),
+    ...(params.completedReplay.responseMetadata ?? {}),
   };
 
   return {
@@ -1019,6 +1044,15 @@ async function executeCodebaseQuestion(
   let mutableConversation = existingConversation;
   let knownRepositoryPathsState: KnownRepositoryPathsState | undefined =
     undefined;
+  let listedRepositoriesPromise:
+    | ReturnType<typeof listIngestedRepositories>
+    | undefined;
+  const getListedRepositories = () => {
+    listedRepositoriesPromise ??= (
+      deps.listIngestedRepositoriesFn ?? listIngestedRepositories
+    )();
+    return listedRepositoriesPromise;
+  };
   const persistWorkingFolder = async (
     workingFolder?: string | null,
     expectedWorkingFolder?: string | null,
@@ -1058,11 +1092,26 @@ async function executeCodebaseQuestion(
     return updated?.flags?.workingFolder?.trim();
   };
 
+  if (parsed.repository) {
+    const selectedRepository = await resolveRepositorySelector(
+      parsed.repository,
+      {
+        listIngestedRepositories: getListedRepositories,
+      },
+    );
+    if (!selectedRepository) {
+      throw new InvalidParamsError('Unknown repository selector', {
+        repository: parsed.repository,
+      });
+    }
+    effectiveWorkingFolder =
+      selectedRepository.hostPath || selectedRepository.containerPath;
+    await persistWorkingFolder(effectiveWorkingFolder);
+  }
+
   try {
     try {
-      const repos = await (
-        deps.listIngestedRepositoriesFn ?? listIngestedRepositories
-      )();
+      const repos = await getListedRepositories();
       knownRepositoryPathsState = knownRepositoryPathsAvailable(
         repos.repos.flatMap((repo) =>
           getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
@@ -1070,11 +1119,20 @@ async function executeCodebaseQuestion(
           ),
         ),
       );
+      if (
+        !parsed.repository &&
+        !mutableConversation &&
+        repos.repos.length === 1
+      ) {
+        const onlyRepository = repos.repos[0];
+        effectiveWorkingFolder =
+          onlyRepository?.hostPath || onlyRepository?.containerPath;
+      }
     } catch {
       // ignore and fall back to later retry logic when appropriate
     }
 
-    if (mutableConversation) {
+    if (mutableConversation && !effectiveWorkingFolder) {
       effectiveWorkingFolder = await restoreSavedWorkingFolder({
         conversation: mutableConversation,
         surface: 'mcp_codebase_question',
@@ -1126,11 +1184,7 @@ async function executeCodebaseQuestion(
     ) {
       knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
         async () =>
-          (
-            await (
-              deps.listIngestedRepositoriesFn ?? listIngestedRepositories
-            )()
-          ).repos.flatMap((repo) =>
+          (await getListedRepositories()).repos.flatMap((repo) =>
             getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
               path.resolve(entry),
             ),
@@ -1401,8 +1455,9 @@ async function executeCodebaseQuestion(
     networkAccessEnabled: codexDefaults.networkAccessEnabled,
     webSearchEnabled: codexDefaults.webSearchEnabled,
     approvalPolicy: codexDefaults.approvalPolicy,
-    modelReasoningEffort:
-      codexDefaults.modelReasoningEffort as unknown as ThreadOptions['modelReasoningEffort'],
+    modelReasoningEffort: parsed.deep
+      ? (codexDefaults.modelReasoningEffort as unknown as ThreadOptions['modelReasoningEffort'])
+      : 'low',
   } as ThreadOptions;
 
   const lateCompletedReplay = await getReplayResult({
@@ -1505,6 +1560,8 @@ async function executeCodebaseQuestion(
           },
         }
       : executionContext.runtime;
+  const executionStartedAtMs = Date.now();
+  let executionTotalTimeSec: number | undefined;
 
   try {
     try {
@@ -1519,6 +1576,11 @@ async function executeCodebaseQuestion(
                 : undefined,
               runtimeConfig: chatRuntimeConfig,
               codexFlags: threadOpts,
+              systemPrompt: parsed.deep
+                ? undefined
+                : FAST_CODEBASE_QUESTION_SYSTEM_PROMPT,
+              finalAnswerOnly: true,
+              deferInflightCleanup: true,
               inflightId,
               workingDirectoryOverride:
                 executionContext.workingDirectoryOverride,
@@ -1545,6 +1607,10 @@ async function executeCodebaseQuestion(
             runtime: runtimeMetadata,
             signal: getInflight(resolvedConversationId)?.abortController.signal,
             envOverrides,
+            deferInflightCleanup: true,
+            ...(!parsed.deep
+              ? { systemPrompt: FAST_CODEBASE_QUESTION_SYSTEM_PROMPT }
+              : {}),
             ...(executionProvider === 'copilot'
               ? {
                   copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
@@ -1577,6 +1643,22 @@ async function executeCodebaseQuestion(
         options?.onReplayClaimVisible?.();
       }
       await runChatPromise;
+      executionTotalTimeSec = (Date.now() - executionStartedAtMs) / 1000;
+      const providerTiming = responder.getTiming();
+      setInflightResponseMetadata({
+        conversationId: resolvedConversationId,
+        inflightId,
+        responseMetadata: {
+          ...(responder.getUsage() ? { usage: responder.getUsage() } : {}),
+          timing: providerTiming?.totalTimeSec
+            ? providerTiming
+            : {
+                ...(providerTiming ?? {}),
+                totalTimeSec: executionTotalTimeSec,
+              },
+          toolStats: responder.getToolStats(),
+        },
+      });
     } catch (error) {
       options?.onReplayClaimVisible?.();
       if (error instanceof ToolExecutionError) throw error;
@@ -1642,6 +1724,8 @@ async function executeCodebaseQuestion(
   try {
     payload = responder.toResult(executionModel, resolvedConversationId, {
       preferFallbackConversationId: true,
+      totalTimeSec:
+        executionTotalTimeSec ?? (Date.now() - executionStartedAtMs) / 1000,
     });
   } catch (error) {
     if (error instanceof ToolExecutionError) throw error;
@@ -1713,7 +1797,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. After retrieval, inspect the relevant source files directly and do your own reasoning before deciding what to change. Returns a final answer segment plus conversationId and modelId for follow-ups.',
+      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Defaults to bounded fast research with concise final-only output; pass repository when the current checkout is known and deep=true only for intentionally open-ended investigation. After retrieval, inspect relevant source files directly and do your own reasoning when the task needs stronger evidence. Returns a final answer plus conversationId, modelId, usage, timing, and tool statistics.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -1742,6 +1826,16 @@ export function codebaseQuestionDefinition() {
           type: 'string',
           description:
             'Optional explicit model override. Omit this unless the user specifically asked for a model-specific run. When omitted, model resolution follows the normal shared server default-resolution contract for the selected or resolved provider.',
+        },
+        repository: {
+          type: 'string',
+          description:
+            'Optional repository selector. Supports repository id (case-insensitive), mounted container path, or host path. When supplied, the nested agent starts in that repository and all default retrieval is scoped to it.',
+        },
+        deep: {
+          type: 'boolean',
+          description:
+            'Optional deep-research mode. Defaults to false, which uses bounded fast research, low reasoning effort, and concise final-only output.',
         },
       },
     },

@@ -206,7 +206,9 @@ class EmitsSpecificErrorThenThrowsBannerChat extends ChatInterface {
       message:
         'stream disconnected before completion: stream closed before response.completed',
     });
-    throw new Error('Codex Exec exited with code 1: Reading prompt from stdin...');
+    throw new Error(
+      'Codex Exec exited with code 1: Reading prompt from stdin...',
+    );
   }
 }
 
@@ -665,7 +667,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     assert.equal(
       (mockCodex.lastStartOptions as { modelReasoningEffort?: string })
         .modelReasoningEffort,
-      'minimal',
+      'low',
     );
     assert.equal(
       (mockCodex.lastStartOptions as { webSearchEnabled?: boolean })

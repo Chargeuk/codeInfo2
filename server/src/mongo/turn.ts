@@ -25,6 +25,7 @@ export type TurnCommandMetadata =
 export interface TurnUsageMetadata {
   inputTokens?: number;
   outputTokens?: number;
+  reasoningOutputTokens?: number;
   totalTokens?: number;
   cachedInputTokens?: number;
 }
@@ -87,6 +88,7 @@ const turnUsageSchema = new Schema<TurnUsageMetadata>(
   {
     inputTokens: { type: Number, required: false },
     outputTokens: { type: Number, required: false },
+    reasoningOutputTokens: { type: Number, required: false },
     totalTokens: { type: Number, required: false },
     cachedInputTokens: { type: Number, required: false },
   },

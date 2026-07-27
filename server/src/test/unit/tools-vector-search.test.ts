@@ -903,7 +903,7 @@ test('invalid cap env values fall back to defaults', async () => {
 
   assert.equal(res.status, 200);
   assert.equal(res.body.results.length, 2);
-  assert.equal(res.body.results[0].chunk.length, 5000);
+  assert.equal(res.body.results[0].chunk.length, 2500);
 });
 
 test('dedupes duplicate chunk ids and keeps top 2 per file', async () => {

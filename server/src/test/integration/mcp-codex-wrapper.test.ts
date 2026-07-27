@@ -13,10 +13,9 @@ import type {
 } from '@openai/codex-sdk';
 
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
-import {
-  applyCodexOpenAiCompatEndpointToRuntimeConfig,
-} from '../../config/codexConfig.js';
+import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../../config/codexConfig.js';
 import { RuntimeConfigResolutionError } from '../../config/runtimeConfig.js';
+import type { ListReposResult } from '../../lmstudio/toolService.js';
 import { handleRpc } from '../../mcp2/router.js';
 import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
@@ -51,17 +50,23 @@ async function withTempCodexHome(chatToml: string): Promise<{
 class MockThread {
   id: string;
   private readonly events: ThreadEvent[];
+  private readonly onRun?: (input: string) => void;
 
-  constructor(id: string, events: ThreadEvent[]) {
+  constructor(
+    id: string,
+    events: ThreadEvent[],
+    onRun?: (input: string) => void,
+  ) {
     this.id = id;
     this.events = events;
+    this.onRun = onRun;
   }
 
   async runStreamed(
     input: string,
     opts?: CodexTurnOptions,
   ): Promise<{ events: AsyncGenerator<ThreadEvent> }> {
-    void input;
+    this.onRun?.(input);
     void opts;
     const events = this.events;
     async function* generator(): AsyncGenerator<ThreadEvent> {
@@ -75,6 +80,7 @@ class MockThread {
 
 class MockCodex {
   lastStartOptions: CodexThreadOptions | undefined;
+  lastInput: string | undefined;
 
   startThread(opts?: CodexThreadOptions) {
     this.lastStartOptions = opts;
@@ -132,10 +138,18 @@ class MockCodex {
       } as unknown as ThreadEvent,
       {
         type: 'turn.completed',
+        usage: {
+          input_tokens: 120,
+          cached_input_tokens: 100,
+          output_tokens: 20,
+          reasoning_output_tokens: 8,
+        },
       } as unknown as ThreadEvent,
     ];
 
-    return new MockThread('thread-wrapper', events);
+    return new MockThread('thread-wrapper', events, (input) => {
+      this.lastInput = input;
+    });
   }
 
   resumeThread(threadId: string, opts?: CodexThreadOptions) {
@@ -225,6 +239,18 @@ test('MCP responder returns answer-only segments', async () => {
       ['answer'],
     );
     assert.equal(payload.segments[0].text, 'Here you go');
+    assert.deepEqual(payload.usage, {
+      inputTokens: 120,
+      cachedInputTokens: 100,
+      outputTokens: 20,
+      reasoningOutputTokens: 8,
+      totalTokens: 140,
+    });
+    assert.equal(payload.timing.totalTimeSec >= 0, true);
+    assert.equal(payload.toolStats.totalCalls, 1);
+    assert.equal(payload.toolStats.mcpCalls, 1);
+    assert.equal(payload.toolStats.shellCalls, 0);
+    assert.equal(payload.toolStats.resultChars > 0, true);
   } finally {
     if (originalDefaultProvider === undefined) {
       delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
@@ -308,7 +334,7 @@ test('MCP responder payload reports the chat-config-aware default model when no 
   }
 });
 
-test('MCP codebase_question uses shared resolver defaults for thread options', async () => {
+test('MCP codebase_question uses shared resolver defaults with low reasoning in fast mode', async () => {
   const prev = getCodexDetection();
   setCodexDetection({
     available: true,
@@ -346,12 +372,97 @@ test('MCP codebase_question uses shared resolver defaults for thread options', a
       mockCodex.lastStartOptions?.approvalPolicy,
       capabilities.defaults.approvalPolicy,
     );
+    assert.equal(mockCodex.lastStartOptions?.modelReasoningEffort, 'low');
+    assert.match(
+      mockCodex.lastInput ?? '',
+      /Fast repository-research mode is active/u,
+    );
+  } finally {
+    setCodexDetection(prev);
+  }
+});
+
+test('MCP codebase_question preserves configured reasoning effort in deep mode', async () => {
+  const prev = getCodexDetection();
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+  const mockCodex = new MockCodex();
+
+  try {
+    await runCodebaseQuestion(
+      { question: 'Research this deeply', deep: true },
+      {
+        codexFactory: () => mockCodex,
+        clientFactory: makeLmStudioClientFactory(),
+      },
+    );
+    const capabilities = await resolveCodexCapabilities({
+      consumer: 'chat_validation',
+      codexHome: process.env.CODEX_HOME,
+    });
     assert.equal(
       mockCodex.lastStartOptions?.modelReasoningEffort,
       capabilities.defaults.modelReasoningEffort,
     );
+    assert.doesNotMatch(
+      mockCodex.lastInput ?? '',
+      /Fast repository-research mode is active/u,
+    );
   } finally {
     setCodexDetection(prev);
+  }
+});
+
+test('MCP codebase_question starts Codex in an explicitly selected repository', async () => {
+  const prev = getCodexDetection();
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo2-selected-repo-'),
+  );
+  const mockCodex = new MockCodex();
+  const repositories: ListReposResult = {
+    repos: [
+      {
+        id: repoRoot,
+        name: 'selected-repo',
+        description: null,
+        containerPath: repoRoot,
+        hostPath: repoRoot,
+        lastIngestAt: new Date().toISOString(),
+        embeddingProvider: 'lmstudio',
+        embeddingModel: 'embedding-model',
+        embeddingDimensions: 1024,
+        modelId: 'embedding-model',
+        counts: { files: 1, chunks: 1, embedded: 1 },
+        lastError: null,
+      },
+    ],
+    lockedModelId: 'embedding-model',
+  };
+
+  try {
+    await runCodebaseQuestion(
+      {
+        question: 'Inspect the selected repository',
+        repository: repoRoot,
+      },
+      {
+        codexFactory: () => mockCodex,
+        clientFactory: makeLmStudioClientFactory(),
+        listIngestedRepositoriesFn: async () => repositories,
+      },
+    );
+    assert.equal(mockCodex.lastStartOptions?.workingDirectory, repoRoot);
+  } finally {
+    setCodexDetection(prev);
+    await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
 

@@ -1,6 +1,10 @@
 import { isTransientReconnect } from '../../agents/transientReconnect.js';
 import { append } from '../../logStore.js';
 import { appendSummaryBackedTransitiveConsumerLogs } from '../../logging/transitiveConsumerMarkers.js';
+import type {
+  TurnTimingMetadata,
+  TurnUsageMetadata,
+} from '../../mongo/turn.js';
 
 import type {
   ChatAnalysisEvent,
@@ -32,6 +36,13 @@ export type VectorSummaryFile = {
   hostPathWarning?: string;
 };
 
+export type CodebaseQuestionToolStats = {
+  totalCalls: number;
+  mcpCalls: number;
+  shellCalls: number;
+  resultChars: number;
+};
+
 const GENERIC_CODEX_EXEC_STARTUP_BANNER =
   'Codex Exec exited with code 1: Reading prompt from stdin...';
 
@@ -50,7 +61,9 @@ const choosePreferredErrorMessage = (
   if (currentIsGeneric && !nextIsGeneric) return nextMessage;
   if (!currentIsGeneric && nextIsGeneric) return currentMessage;
 
-  return nextMessage.length > currentMessage.length ? nextMessage : currentMessage;
+  return nextMessage.length > currentMessage.length
+    ? nextMessage
+    : currentMessage;
 };
 
 export class McpResponder {
@@ -63,6 +76,14 @@ export class McpResponder {
   private errorMessage: string | null = null;
   private transientReconnectCount = 0;
   private transientReconnectLastMessage: string | null = null;
+  private usage: TurnUsageMetadata | undefined;
+  private timing: TurnTimingMetadata | undefined;
+  private toolStats: CodebaseQuestionToolStats = {
+    totalCalls: 0,
+    mcpCalls: 0,
+    shellCalls: 0,
+    resultChars: 0,
+  };
 
   handle(event: ChatEvent) {
     switch (event.type) {
@@ -92,7 +113,10 @@ export class McpResponder {
   toResult(
     modelId: string,
     fallbackConversationId: string | null,
-    options?: { preferFallbackConversationId?: boolean },
+    options?: {
+      preferFallbackConversationId?: boolean;
+      totalTimeSec?: number;
+    },
   ) {
     const answerSegmentPresent = this.segments.some((s) => s.type === 'answer');
     if (!answerSegmentPresent) {
@@ -112,6 +136,18 @@ export class McpResponder {
       conversationId,
       modelId,
       segments: this.segments,
+      ...(this.usage ? { usage: this.usage } : {}),
+      ...(this.timing || options?.totalTimeSec
+        ? {
+            timing: {
+              ...(this.timing ?? {}),
+              ...(!this.timing?.totalTimeSec && options?.totalTimeSec
+                ? { totalTimeSec: options.totalTimeSec }
+                : {}),
+            },
+          }
+        : {}),
+      toolStats: this.toolStats,
     };
   }
 
@@ -121,6 +157,18 @@ export class McpResponder {
 
   getToolResults() {
     return this.toolResults;
+  }
+
+  getUsage() {
+    return this.usage;
+  }
+
+  getTiming() {
+    return this.timing;
+  }
+
+  getToolStats() {
+    return this.toolStats;
   }
 
   getTransientReconnectCount() {
@@ -148,6 +196,22 @@ export class McpResponder {
 
   private handleToolResult(event: ChatToolResultEvent) {
     this.toolResults.push(event);
+    const resultChars =
+      event.name === 'exec_command' &&
+      event.result &&
+      typeof event.result === 'object' &&
+      typeof (event.result as { outputChars?: unknown }).outputChars ===
+        'number'
+        ? Number((event.result as { outputChars: number }).outputChars)
+        : JSON.stringify(event.result ?? null).length;
+    this.toolStats = {
+      totalCalls: this.toolStats.totalCalls + 1,
+      mcpCalls:
+        this.toolStats.mcpCalls + (event.name === 'exec_command' ? 0 : 1),
+      shellCalls:
+        this.toolStats.shellCalls + (event.name === 'exec_command' ? 1 : 0),
+      resultChars: this.toolStats.resultChars + resultChars,
+    };
     const summary = buildVectorSummary(event.result);
     if (summary) {
       this.segments.push(summary);
@@ -163,6 +227,12 @@ export class McpResponder {
   private handleComplete(event: ChatCompleteEvent) {
     if (event.threadId) {
       this.providerThreadId = event.threadId;
+    }
+    if (event.usage) {
+      this.usage = event.usage;
+    }
+    if (event.timing) {
+      this.timing = event.timing;
     }
   }
 

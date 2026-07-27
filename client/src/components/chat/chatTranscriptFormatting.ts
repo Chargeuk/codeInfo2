@@ -28,6 +28,9 @@ export const buildUsageLine = (usage: ChatMessage['usage']) => {
   if (isNonNegativeFiniteNumber(usage.outputTokens)) {
     parts.push(`out ${usage.outputTokens}`);
   }
+  if (isNonNegativeFiniteNumber(usage.reasoningOutputTokens)) {
+    parts.push(`reasoning ${usage.reasoningOutputTokens}`);
+  }
   if (isNonNegativeFiniteNumber(usage.totalTokens)) {
     parts.push(`total ${usage.totalTokens}`);
   }

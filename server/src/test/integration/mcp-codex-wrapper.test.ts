@@ -317,7 +317,7 @@ test('MCP responder payload reports the chat-config-aware default model when no 
   }
 });
 
-test('MCP codebase_question uses bounded research with low reasoning', async () => {
+test('MCP codebase_question uses bounded research with shared reasoning defaults', async () => {
   const prev = getCodexDetection();
   setCodexDetection({
     available: true,
@@ -355,7 +355,10 @@ test('MCP codebase_question uses bounded research with low reasoning', async () 
       mockCodex.lastStartOptions?.approvalPolicy,
       capabilities.defaults.approvalPolicy,
     );
-    assert.equal(mockCodex.lastStartOptions?.modelReasoningEffort, 'low');
+    assert.equal(
+      mockCodex.lastStartOptions?.modelReasoningEffort,
+      capabilities.defaults.modelReasoningEffort,
+    );
     assert.match(
       mockCodex.lastInput ?? '',
       /Answer this repository question using bounded research/u,

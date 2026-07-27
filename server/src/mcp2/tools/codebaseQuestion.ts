@@ -1407,7 +1407,8 @@ async function executeCodebaseQuestion(
     networkAccessEnabled: codexDefaults.networkAccessEnabled,
     webSearchEnabled: codexDefaults.webSearchEnabled,
     approvalPolicy: codexDefaults.approvalPolicy,
-    modelReasoningEffort: 'low',
+    modelReasoningEffort:
+      codexDefaults.modelReasoningEffort as unknown as ThreadOptions['modelReasoningEffort'],
   } as ThreadOptions;
 
   const lateCompletedReplay = await getReplayResult({
@@ -1719,7 +1720,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Uses bounded repository research and low Codex reasoning effort to reduce latency and token usage. After retrieval, inspect relevant source files directly and do your own reasoning when the task needs stronger evidence. Returns a final answer segment plus conversationId and modelId for follow-ups.',
+      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Uses bounded repository research to reduce latency and token usage. After retrieval, inspect relevant source files directly and do your own reasoning when the task needs stronger evidence. Returns a final answer segment plus conversationId and modelId for follow-ups.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,

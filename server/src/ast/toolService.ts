@@ -380,7 +380,7 @@ function validateLimit(value: unknown, errors: string[]) {
     errors.push('limit must be at least 1');
     return 50;
   }
-  return Math.min(value, 50);
+  return Math.min(value, 200);
 }
 
 function validateName(value: unknown, errors: string[]) {

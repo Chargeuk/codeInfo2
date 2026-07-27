@@ -577,7 +577,7 @@ const astToolDefinitions = [
             'Repository selector. Supports repository id (case-insensitive), mounted container path, or host path.',
         },
         kinds: { type: 'array', items: { type: 'string' } },
-        limit: { type: 'integer', minimum: 1, maximum: 50 },
+        limit: { type: 'integer', minimum: 1, maximum: 200 },
       },
     },
     outputSchema: {

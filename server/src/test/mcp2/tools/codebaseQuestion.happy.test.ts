@@ -665,7 +665,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     assert.equal(
       (mockCodex.lastStartOptions as { modelReasoningEffort?: string })
         .modelReasoningEffort,
-      'low',
+      'minimal',
     );
     assert.equal(
       (mockCodex.lastStartOptions as { webSearchEnabled?: boolean })

@@ -1171,13 +1171,13 @@ function resolveRetrievalConfig() {
 }
 
 function resolvePayloadCaps() {
-  const rawTotal = parseNumber(process.env.CODEINFO_TOOL_MAX_CHARS, 40_000);
+  const rawTotal = parseNumber(process.env.CODEINFO_TOOL_MAX_CHARS, 15_000);
   const rawChunk = parseNumber(
     process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS,
-    5_000,
+    2_500,
   );
-  const totalCap = rawTotal > 0 ? Math.floor(rawTotal) : 40_000;
-  const chunkCap = rawChunk > 0 ? Math.floor(rawChunk) : 5_000;
+  const totalCap = rawTotal > 0 ? Math.floor(rawTotal) : 15_000;
+  const chunkCap = rawChunk > 0 ? Math.floor(rawChunk) : 2_500;
 
   return { totalCap, chunkCap };
 }

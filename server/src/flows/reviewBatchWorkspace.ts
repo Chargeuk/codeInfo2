@@ -607,7 +607,7 @@ export async function prepareReviewBatchWorkspace(params: {
     'This handoff points agents to the immutable batch workspace. Review content inside that workspace is intentionally self-describing.',
     '',
     `- Story: ${params.snapshot.story_id}`,
-    `- Review cycle: ${params.snapshot.review_cycle_id ?? 'standalone or diagnostic review'}`,
+    `- Review cycle: ${passId}`,
     `- Batch: ${params.snapshot.review_wave_id}`,
     `- Reviewed primary HEAD: ${primary.head_commit}`,
     `- Batch directory: ${batchRoot}`,

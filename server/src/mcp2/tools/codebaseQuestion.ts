@@ -100,6 +100,12 @@ const GENERIC_CODEX_EXEC_STARTUP_BANNER =
   'Codex Exec exited with code 1: Reading prompt from stdin...';
 const TASK8_LOG_MARKER = 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED';
 const REPLAY_ID_REGEX = /^[A-Za-z0-9._:-]{1,128}$/u;
+const CODEBASE_QUESTION_SYSTEM_PROMPT = `Answer this repository question using bounded research.
+- Use at most two focused VectorSearch queries and four additional evidence actions.
+- Prefer exact symbols and bounded ranges; do not dump files or run broad recursive searches.
+- Limit AST requests to 50 symbols, shell output to 10,000 characters, file reads to 200 lines, and the final answer to 8,000 characters.
+- Stop as soon as the evidence supports a concise answer. Return only that answer without progress narration.
+- Use external documentation only for API- or version-specific questions.`;
 const paramsSchema = z
   .object({
     question: z.string().min(1),
@@ -1519,6 +1525,7 @@ async function executeCodebaseQuestion(
                 : undefined,
               runtimeConfig: chatRuntimeConfig,
               codexFlags: threadOpts,
+              systemPrompt: CODEBASE_QUESTION_SYSTEM_PROMPT,
               inflightId,
               workingDirectoryOverride:
                 executionContext.workingDirectoryOverride,
@@ -1713,7 +1720,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. After retrieval, inspect the relevant source files directly and do your own reasoning before deciding what to change. Returns a final answer segment plus conversationId and modelId for follow-ups.',
+      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Uses bounded repository research to reduce latency and token usage. After retrieval, inspect relevant source files directly and do your own reasoning when the task needs stronger evidence. Returns a final answer segment plus conversationId and modelId for follow-ups.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,

@@ -10,6 +10,8 @@ Decide whether each remaining positively authorized finding is sufficiently real
 
 This gate reduces low-value review churn without suppressing credible defects. It does not decide repair difficulty, invent product policy, or reinterpret earlier scope decisions.
 
+Materiality can never restore, legitimize, or broaden an observation or remedy removed by negative scope or positive authorization. Evaluate only the exact narrowed, positively authorized issue and concrete repair seam passed to this gate. A realistic or severe consequence does not cure missing authorization.
+
 ## Authoritative inputs
 
 Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving its padded story identifier. Set `batch_handoff` to `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`, then set `batch_dir` exactly once by running `batch_dir="$(python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" resolve --batch-handoff "$batch_handoff")"`. Reuse those exact variables throughout this invocation; never discover, retype, reconstruct, or switch to a similar-looking batch path.

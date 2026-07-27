@@ -195,17 +195,25 @@ def check_workspace(
             output = job_root / "output"
             output_entries: list[str] = []
             if output.is_dir():
-                for entry in sorted(output.iterdir()):
+                for entry in sorted(output.rglob("*")):
                     if not _contained(output, entry):
                         errors.append(
                             f"job {job_root.name} output entry escapes its output directory: {entry.name}"
                         )
                         continue
-                    output_entries.append(entry.name)
+                    if (
+                        entry.is_symlink()
+                        or not entry.is_file()
+                        or entry.stat().st_size == 0
+                    ):
+                        continue
+                    output_entries.append(str(entry.relative_to(output)))
             job["output_entries"] = output_entries
             job["output_empty"] = not output_entries
             if not output_entries:
-                warnings.append(f"job {job_root.name} currently has no output")
+                warnings.append(
+                    f"job {job_root.name} currently has no non-empty regular-file output"
+                )
             jobs.append(job)
     facts["jobs"] = jobs
 

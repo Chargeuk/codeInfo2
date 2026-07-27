@@ -73,10 +73,9 @@ test('Codex review flow uses the generic workspace agent and launcher prompt', (
     "Redirect the launcher's JSONL stdout and diagnostic stderr",
     'work/review-usage/native-codex.md',
     "Do not include this wrapper agent's own usage",
-    'actual process exit status',
-    'running cell or session handle',
-    'continue waiting on that exact handle',
-    'Only a terminal tool result',
+    'Invoke it with the direct `exec_command` tool',
+    'poll it with direct `write_stdin` until the same process result includes a numeric `exit_code`',
+    'Only that direct terminal process result supplies the actual exit status',
     'native-response file only after the process exits',
   ]) {
     assert.match(

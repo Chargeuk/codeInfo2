@@ -113,6 +113,17 @@ test('prepareReviewTargets snapshots one and three canonical repository targets'
           JSON.parse(await fs.readFile(result.versionedPath, 'utf8')),
           result.snapshot,
         );
+        await assert.rejects(
+          fs.access(
+            path.join(
+              fixture.primary,
+              'codeInfoTmp',
+              'reviews',
+              '0000064-current-review-targets.json',
+            ),
+          ),
+          { code: 'ENOENT' },
+        );
       } finally {
         await fs.rm(fixture.tempRoot, { recursive: true, force: true });
       }

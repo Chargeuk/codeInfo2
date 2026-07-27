@@ -771,6 +771,73 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Do not modify implementation code", materiality)
         self.assertIn("completed, partial, or unavailable", materiality)
 
+    def test_review_acceptance_requires_a_proven_in_scope_repair_seam(
+        self,
+    ) -> None:
+        detailed_negative = read_text(
+            "codeinfo_markdown/filter_review_findings_to_story_scope.md"
+        )
+        batch_negative = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_to_story_scope.md"
+        )
+        authorization = read_text(
+            "codeinfo_markdown/authorize_review_batch_findings_for_story.md"
+        )
+        materiality = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md"
+        )
+        audit = read_text(
+            "codeinfo_markdown/audit_review_batch_scope_filter.md"
+        )
+        disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+
+        for prompt in (detailed_negative, batch_negative, authorization, audit):
+            self.assertIn(
+                "technical observation", prompt
+            )
+            self.assertIn("demonstrated consequence", prompt)
+            self.assertIn("proposed remedy", prompt)
+
+        self.assertIn(
+            "Authorization of an outcome does not authorize every implementation mechanism",
+            detailed_negative,
+        )
+        self.assertIn("current-HEAD repository evidence", detailed_negative)
+        self.assertIn(
+            "every demonstrated repair requires a mechanism excluded by Out Of Scope",
+            detailed_negative,
+        )
+
+        for prompt in (authorization, audit, disposition):
+            self.assertIn("exact existing file, configuration field, API, or runtime seam", prompt)
+            self.assertIn("current-HEAD", prompt)
+            self.assertIn("Out Of Scope", prompt)
+
+        self.assertIn(
+            "the current flow schema, configuration, API, or runtime cannot express",
+            authorization,
+        )
+        self.assertIn(
+            "the narrower Out Of Scope restriction controls", authorization
+        )
+        self.assertIn(
+            "Do not keep it actionable in the hope that a later repair agent",
+            authorization,
+        )
+
+        self.assertIn("Audit adversarially", audit)
+        self.assertIn("A statement such as", audit)
+        self.assertIn("is not evidence", audit)
+        self.assertIn("fail closed", disposition)
+        self.assertIn("Ignored for This Story", disposition)
+        self.assertIn(
+            "Materiality can never restore, legitimize, or broaden", materiality
+        )
+        self.assertIn(
+            "A realistic or severe consequence does not cure missing authorization",
+            materiality,
+        )
+
     def test_historical_review_decisions_never_authorize_current_work(self) -> None:
         behavior_lock = read_text(
             "codeinfo_markdown/shared/story_behavior_lock.md"

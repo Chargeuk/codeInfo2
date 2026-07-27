@@ -7673,6 +7673,55 @@ outside the repair hunks; those unrelated changes were not committed.
 - Example: A proposal to add a timer, timeout, retry, relaunch, supervisor, or native-output parser would change how the wrapper handles an orphaned run even though the current story does not authorize a new process or timeout policy.
 - Why ignored: This remedy portion was removed by the completed negative gate and is non-actionable. The gate narrowed the candidate to the specific existing-status polling behavior; it did not authorize any new timer, process, retry, relaunch, fallback, or runtime parsing mechanism. The removed remedy must not be restored during later repair or settlement.
 
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 8:15:57 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260727T063520Z-06d55365`
+- Review cycle: `0000064-rc-20260727T063519Z-c5ed7d42`
+- Reviewed primary HEAD: `714ffbd0019104066b113642adc794b6dfe90e26`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository / current_repository`
+- Reviews attempted:
+  - OpenCode workspace review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`, target `current_repository`) — completed after verification recovery; no validated findings remain
+    - Input tokens: `9208030`
+    - Cached input tokens: `8919808`
+    - Output tokens: `24434`
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) — completed with no validated in-scope findings
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`, target `cross-repository story scope`) — completed and not applicable because only `current_repository` was assigned
+    - Input tokens: `254357`
+    - Cached input tokens: `218880`
+    - Output tokens: `3048`
+- Disposition: completed with an empty actionable set. The audited reconciliation established no supported actionable finding, so negative scope, positive authorization, and materiality were deliberately not applicable. Two rejected observations remain under `Ignored for This Story`; no finding is accepted, and no repair, task creation, or review-loop continuation is authorized by this disposition.
+- Disposition artifact: `codeInfoTmp/reviews/0000064-rc-20260727T063519Z-c5ed7d42/batches/0000064-rw-20260727T063520Z-06d55365--head-714ffbd00191/reconciliation/disposition.md`
+- Filtering evidence: `reconciliation/review-batch-reconciliation.md`, `reconciliation/review-batch-reconciliation-audit.md`, and `reconciliation/scope-filter-audit.md` under the same immutable batch directory. `scope-filtered-findings.md`, `scope-authorized-findings.md`, and `materiality-filtered-findings.md` are deliberately absent because the audited reconciliation had no actionable survivors.
+
+### Accepted
+
+- None. The last applicable audited gate established zero actionable survivors.
+
+### Ignored for This Story
+
+#### 1. Wave jobs are executed serially
+
+- Finding ID or Review reference: `HIGH — Wave jobs are executed serially`
+- Review harnesses:
+  - OpenCode workspace review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`, target `current_repository`) — generated the candidate; verification rejected it.
+- Simple description: The candidate claimed that the wave starts review jobs serially, preventing the configured review wave from running concurrently.
+- Example: If `startFlowRun` waited for one child to finish before returning, later matrix and singleton children would not become active together. Current-HEAD verification instead found detached asynchronous `runFlowUnlocked` execution, and the pinned-head integration proof observed all five wave children active concurrently.
+- Why ignored: Verification rejected the complete candidate as factually false at reviewed HEAD. It was removed before filtering, so no later gate applied; it is non-actionable and must not be restored, repaired, or tasked from original review evidence.
+
+#### 2. REST flow runs drop input
+
+- Finding ID or Review reference: `P2 — Forward flow input through REST runs`
+- Review harnesses:
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) — generated the observation; native output and verification preserved it as non-actionable.
+- Simple description: The REST flow-run route does not accept or forward a root `input` object, although the internal flow-start path can use input for immutable wave bindings.
+- Example: A caller posting a root flow run with an `input` object would have that field ignored by `server/src/routes/flowsRun.ts`; the reviewed client API exposes no root-flow input parameter, and the story requires immutable inputs for wave children rather than a new REST root-input capability.
+- Why ignored: The technical observation is preserved, but the reviewed public contract and current story do not establish it as an unmet story requirement or regression. It was rejected before filtering as unauthorized capability expansion; no gate survivor exists to promote, repair, task, or continue the review loop.
+
 ### Task 93. Re-Validate Story 64 After Complete Agent-Native Review Repair
 
 - Task Status: `__done__`
@@ -7737,3 +7786,54 @@ Record the final validated HEAD, every full wrapper result, any same-task repair
 - Completed testing step 8: `npm run format:check` passed with exit code 0; all matched files used Prettier style.
 - Audit complete at HEAD `32f92ae7`: all two subtasks and eight automated-proof items are supported by the current wrapper artifacts and committed proof record, with no live blocker. The same-task repair changed only the Copilot test assertion to match the existing fail-closed `503` behavior and clarified the approved OpenCode process-continuation contract; no unapproved user-facing behavior drift was identified. Task 93 is honestly complete and ready for optional manual testing guidance.
 - Manual testing completed as final-task full-story proof: a freshly built main stack passed `http://localhost:5010/health` and `http://localhost:5001`, exposed 20 flows including the review-wave and review-disposition contracts, and rendered the Flows workspace cleanly on desktop and mobile with no browser console warnings or errors. The stack was not previously running and was stopped with `npm run compose:down` after proof. Latest Flows screenshots were staged as `manual-testing/0000064/93/proof-01-flows-desktop.png` and `manual-testing/0000064/93/proof-02-flows-mobile.png`, then retained as `codeInfoTmp/manual-testing/0000064/93/proof-01-flows-desktop.png` and `codeInfoTmp/manual-testing/0000064/93/proof-02-flows-mobile.png`; they supersede earlier scratch captures for this re-covered surface. Provider-backed review execution was not started because the task's optional guidance required only reachable proof; no additional subtasks were needed.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 9:40:25 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000064-rw-20260727T072116Z-d3732b8f`
+- Review cycle: `0000064-rc-20260727T063519Z-c5ed7d42`
+- Reviewed primary HEAD: `714ffbd0019104066b113642adc794b6dfe90e26`
+- Comparison base: `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Target: `current_repository / current_repository`
+- Reviews attempted:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, source job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`, target `current_repository`) — completed and verified with partial review coverage; it generated and corroborated the two supported observations through its evidence, saturation, blind-spot, consolidation, and verification stages
+    - Input tokens: `8014482`
+    - Cached input tokens: `7393024`
+    - Output tokens: `68032`
+- Usage evidence note: the totals above sum all six job-local artifacts explicitly designated as actual reviewing-model work (`reviewer_evidence`, `reviewer_findings`, `reviewer_visual`, `reviewer_saturation`, `reviewer_blindspot`, and `reviewer_consolidator`). The saturation prose says three reviewer invocations succeeded, which conflicts with those six detailed records; the conflict is preserved as an evidence limitation and does not change review coverage, finding validity, or disposition.
+- Disposition: completed with an empty actionable set. Negative scope fully removed the `ConversationList` visual-proof observation and narrowed the private-input issue to a test-only seam. Positive authorization authorized only that existing assertion seam and rejected runtime validation reordering. Materiality then removed the authorized survivor because the evidence showed only intermittent test-proof instability without meaningful production impact. No finding is accepted, and no repair, task creation, or review-loop continuation is authorized by this disposition.
+- Disposition artifact: `codeInfoTmp/reviews/0000064-rc-20260727T063519Z-c5ed7d42/batches/0000064-rw-20260727T072116Z-d3732b8f--head-714ffbd00191/reconciliation/disposition.md`
+- Filtering evidence: `reconciliation/batch-reconciliation.md`, `reconciliation/reconciliation-audit.md`, `reconciliation/scope-filtered-findings.md`, `reconciliation/scope-authorized-findings.md`, `reconciliation/materiality-filtered-findings.md`, and `reconciliation/scope-filter-audit.md` under the same immutable batch directory. All three gates were applicable and completed; no later gate was deliberately skipped.
+
+### Accepted
+
+- None. The last applicable audited gate established zero actionable material survivors.
+
+### Ignored for This Story
+
+#### 1. Private-input validation and test diagnostic contract — below materiality
+
+- Finding ID or Review reference: `P2 — Private-input validation and its test have a concurrency-sensitive failure contract`
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, source job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`, target `current_repository`) — generated the finding; blind-spot, saturation, consolidation, and verification stages corroborated it.
+- Simple description: The private-input validator starts directory and child-file checks concurrently, while the test accepts only the directory-missing diagnostic. The same missing private workspace can therefore produce an existing child-file diagnostic that the test rejects.
+- Example: During a combined server-unit run, removing the private input directory produced `Existing review batch lacks private input review-target.md`; the run recorded 26 passing and 1 failing test, while the isolated workspace test passed 3/3. A later equivalent targeted run passed 27/27, so the failure was intermittent rather than deterministic.
+- Why ignored: The finding was technically supported and positively authorized only for broadening the existing test assertion, but materiality removed it because the demonstrated consequence was limited to intermittent proof failure and rerun/triage. No production operation, review result, recovery path, security boundary, or data-integrity property was shown to fail, and the demonstrated value was insufficient to change completed code for this story.
+
+#### 2. Runtime-ordering remedy for private-input validation — narrowed away
+
+- Finding ID or Review reference: `Narrowed-away remedy portion of P2 — Private-input validation and its test have a concurrency-sensitive failure contract`
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, source job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`, target `current_repository`) — recorded the alternative runtime-ordering proposal in the consolidated and filtering evidence.
+- Simple description: One proposed response was to serialize directory validation before the child-file checks so the directory diagnostic would always win. That remedy would change existing runtime concurrency behavior rather than only make the story-owned test accept diagnostics already emitted.
+- Example: If the private input directory is removed, a sequential validator would force the directory error before checking `review-target.md`; the audited authorization allowed only broadening the existing assertion and did not authorize this runtime change.
+- Why ignored: This remedy portion was removed by negative scope and positive authorization. It is not an additional finding, and it must not be restored or routed to repair because no unapproved concurrency-policy/runtime-behavior change is authorized by the story.
+
+#### 3. Saved visual proof does not cover changed `ConversationList` interaction states — outside story scope
+
+- Finding ID or Review reference: `P2 — Saved visual proof does not cover the changed ConversationList interaction states`
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, source job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`, target `current_repository`) — generated the visual-proof observation; saturation, consolidation, and verification stages corroborated it.
+- Simple description: The changed conversation list contains filters, bulk actions, confirmation, toast, loading/error, and load-more paths, but the cited desktop and mobile screenshots show only static list and chip states. The available screenshots therefore do not demonstrate those interaction states.
+- Example: Reopening the saved desktop and mobile captures shows the list with run and target chips but no bulk selection, archive/restore/delete confirmation, toast/error/empty/loading, or load-more state. The review did not establish that any implementation path is broken.
+- Why ignored: Gate 4 fully removed this finding from actionable scope and Gate 6 reinforced that decision. The story contract requires review-wave runtime and specified automated/main-stack behavior proof, not new `ConversationList` screenshots or the proposed additional manual scenarios. This is useful non-actionable evidence only; no part of its screenshot/manual-proof remedy survives.

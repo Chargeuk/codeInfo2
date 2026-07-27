@@ -1185,35 +1185,6 @@ const lookupLatestOpenPullRequestWithRetry = async (params: {
   };
 };
 
-const shouldReconcileFailedPullRequestCreate = (
-  failure: GitHubStepOutcome<CommandResult>,
-) => {
-  if (failure.kind !== 'error' || failure.reason !== 'GITHUB_CLI_FAILED') {
-    return false;
-  }
-  const detail = `${failure.message}\n${failure.stderr ?? ''}`.toLowerCase();
-  return /already exists|timed? out|timeout|network|connection|unexpected eof|temporar|\b50[234]\b/u.test(
-    detail,
-  );
-};
-
-const parseCreatedPullRequestIdentity = (params: {
-  stdout: string;
-  repository: GitHubRepositoryState;
-}): GitHubPullRequestIdentity | null => {
-  const urls = params.stdout.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/gu);
-  const url = urls?.at(-1)?.replace(/[),.;]+$/u, '');
-  if (!url) return null;
-  const number = Number(url.match(/\/pull\/(\d+)$/u)?.[1]);
-  if (!Number.isInteger(number) || number <= 0) return null;
-  return {
-    number,
-    url,
-    headRefName: params.repository.upstreamBranch,
-    baseRefName: params.repository.baseBranch,
-  };
-};
-
 export const createPullRequest = async (params: {
   repository: GitHubRepositoryState;
   token: string;
@@ -1239,60 +1210,16 @@ export const createPullRequest = async (params: {
     ],
   });
   if (createResult.kind !== 'ok') {
-    if (shouldReconcileFailedPullRequestCreate(createResult)) {
-      const reconciled = await lookupLatestOpenPullRequestWithRetry({
-        repository: params.repository,
-        token: params.token,
-      });
-      if (reconciled.kind === 'ok') {
-        return {
-          kind: 'ok',
-          value: reconciled.value,
-          lookupDiagnostics: reconciled.diagnostics,
-          createFailure: {
-            reason: createResult.reason,
-            message: createResult.message,
-            stderr: createResult.stderr,
-            exitCode: createResult.exitCode,
-          },
-        };
-      }
-      return {
-        kind: 'error',
-        reason: reconciled.failure.reason,
-        message: reconciled.failure.message,
-        stderr: reconciled.failure.stderr,
-        exitCode: reconciled.failure.exitCode,
-        lookupDiagnostics: reconciled.diagnostics,
-        createFailure: {
-          reason: createResult.reason,
-          message: createResult.message,
-          stderr: createResult.stderr,
-          exitCode: createResult.exitCode,
-        },
-      };
-    }
     return {
       ...createResult,
       lookupDiagnostics: [],
     };
   }
-  const createdPullRequest = parseCreatedPullRequestIdentity({
-    stdout: createResult.value.stdout,
-    repository: params.repository,
-  });
   const lookedUp = await lookupLatestOpenPullRequestWithRetry({
     repository: params.repository,
     token: params.token,
   });
   if (lookedUp.kind !== 'ok') {
-    if (createdPullRequest) {
-      return {
-        kind: 'ok',
-        value: createdPullRequest,
-        lookupDiagnostics: lookedUp.diagnostics,
-      };
-    }
     return {
       kind: 'error',
       reason: lookedUp.failure.reason,
@@ -2494,6 +2421,18 @@ export const lookupPullRequestByNumber = async (params: {
   );
   if (parsed.kind !== 'ok') {
     return parsed as GitHubStepOutcome<GitHubPullRequestIdentity>;
+  }
+  const state =
+    parsed.value && typeof parsed.value === 'object'
+      ? normalizeTrimmedString((parsed.value as Record<string, unknown>).state)
+      : undefined;
+  if (state !== 'open') {
+    return {
+      kind: 'error',
+      reason: 'INVALID_GITHUB_RESPONSE',
+      message:
+        'GitHub pull request lookup did not return an open pull request.',
+    };
   }
   const pullRequest = normalizePullRequestIdentity(parsed.value);
   if (!pullRequest) {

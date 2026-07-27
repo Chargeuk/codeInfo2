@@ -126,3 +126,55 @@ test('tracked harness decision scripts execute in the worked repository', async 
     fs.rmSync(workingFolder, { recursive: true, force: true });
   }
 });
+
+test('timed-out decision scripts settle even when a descendant retains stdout', async () => {
+  const scriptRepositoryRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'flow-script-repository-'),
+  );
+  const workingFolder = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'flow-working-repository-'),
+  );
+  try {
+    const flowControlRoot = path.join(
+      scriptRepositoryRoot,
+      'scripts',
+      'flow_control',
+    );
+    fs.mkdirSync(flowControlRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(flowControlRoot, 'retain-stdio.py'),
+      [
+        'import subprocess',
+        'import sys',
+        'import time',
+        'subprocess.Popen([sys.executable, "-c", "import time; time.sleep(0.5)"])',
+        'time.sleep(5)',
+        '',
+      ].join('\n'),
+    );
+    execFileSync('git', ['init'], { cwd: scriptRepositoryRoot });
+    execFileSync(
+      'git',
+      ['add', 'scripts/flow_control/retain-stdio.py'],
+      { cwd: scriptRepositoryRoot },
+    );
+
+    const startedAt = Date.now();
+    const result = await executeTrackedFlowDecisionScript({
+      workingFolder,
+      scriptRepositoryRoot,
+      decisionScript: 'scripts/flow_control/retain-stdio.py',
+      timeoutMs: 25,
+    });
+
+    assert.deepEqual(result, {
+      ok: false,
+      reason:
+        'Script timed out after 25ms: scripts/flow_control/retain-stdio.py',
+    });
+    assert.ok(Date.now() - startedAt < 250);
+  } finally {
+    fs.rmSync(scriptRepositoryRoot, { recursive: true, force: true });
+    fs.rmSync(workingFolder, { recursive: true, force: true });
+  }
+});

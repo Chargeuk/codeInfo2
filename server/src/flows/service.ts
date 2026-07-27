@@ -7405,7 +7405,7 @@ async function runFlowUnlocked(params: {
       normalizeActiveGitHubReviewScratchAuthority();
       const execution = await executeTrackedFlowDecisionScript({
         workingFolder: workingRepositoryRoot,
-        ...(paramsForDecision.decisionScript?.startsWith(
+        ...(decisionScript.startsWith(
           'scripts/flow_control/',
         )
           ? {

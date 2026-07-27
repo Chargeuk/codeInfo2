@@ -2284,7 +2284,7 @@ test('github review skip publishes a warning, records a durable plan note, and p
   }
 });
 
-test('github review open PR keeps the created identity when post-create reconciliation exhausts all lookup attempts', async () => {
+test('github review open PR skips the cycle when canonical post-create reconciliation exhausts all lookup attempts', async () => {
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-open-pr-flow-'),
   );
@@ -2393,7 +2393,7 @@ test('github review open PR keeps the created identity when post-create reconcil
     const warningTurns = assistantTurns.filter(
       (turn) => turn.status === 'warning',
     );
-    assert.equal(warningTurns.length, 0);
+    assert.equal(warningTurns.length, 1);
     const retryLogs = query({
       text: 'flows.github.open_pr.lookup_retry_failed',
     }).filter(
@@ -2401,7 +2401,7 @@ test('github review open PR keeps the created identity when post-create reconcil
     );
     assert.deepEqual(
       retryLogs.map((entry) => entry.context?.waitMs),
-      [0, 1000, 2000, 5000, 10000],
+      [0, 1000, 2000, 5000],
     );
 
     assert.equal(
@@ -2416,8 +2416,7 @@ test('github review open PR keeps the created identity when post-create reconcil
           };
         }
       | undefined;
-    assert.equal(flowState?.githubReviewContext?.prNumber, 206);
-    assert.equal(flowState?.githubReviewContext?.phase, 'opened');
+    assert.equal(flowState?.githubReviewContext?.prNumber, undefined);
 
     const planRaw = await fs.readFile(
       path.join(
@@ -2426,10 +2425,10 @@ test('github review open PR keeps the created identity when post-create reconcil
       ),
       'utf8',
     );
-    assert.doesNotMatch(planRaw, /GitHub review stage failed during PR open\./);
+    assert.match(planRaw, /GitHub review stage failed during PR open\./);
     assert.match(
       planRaw,
-      /GitHub review stage warning during PR open lookup retry 5 after waiting 10s:/,
+      /GitHub review stage warning during PR open lookup retry 4 after waiting 5s:/,
     );
     assert.match(planRaw, /stderr: lookup attempt 5 failed/i);
   } finally {
@@ -2438,7 +2437,7 @@ test('github review open PR keeps the created identity when post-create reconcil
   }
 });
 
-test('github review open PR records recovered gh pr create ambiguity without a terminal warning turn', async () => {
+test('github review open PR skips the cycle when gh pr create fails', async () => {
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-open-pr-ambiguous-flow-'),
   );
@@ -2555,8 +2554,8 @@ test('github review open PR records recovered gh pr create ambiguity without a t
       (turn) => turn.role === 'assistant',
     );
     assert.equal(
-      assistantTurns.some((turn) => turn.status === 'warning'),
-      false,
+      assistantTurns.filter((turn) => turn.status === 'warning').length,
+      1,
     );
     assert.equal(
       assistantTurns.some((turn) => turn.status === 'failed'),
@@ -2570,10 +2569,7 @@ test('github review open PR records recovered gh pr create ambiguity without a t
       ),
       'utf8',
     );
-    assert.match(
-      planRaw,
-      /GitHub review stage warning during PR open: gh pr create reported a failure before reconciliation, but latest-open PR lookup resolved pull request #45\./,
-    );
+    assert.match(planRaw, /GitHub review stage failed during PR open\./);
     assert.match(planRaw, /stderr: connection dropped after create/i);
   } finally {
     await fs.rm(tempFlowsDir, { recursive: true, force: true });

@@ -453,7 +453,7 @@ test('GitHub PR creation uses the remote upstream branch when its local name dif
   }
 });
 
-test('latest-open PR lookup uses explicit repository-plus-branch filtering, retries post-create reconciliation, and preserves ambiguous create failures when a PR is eventually resolved', async () => {
+test('latest-open PR lookup uses explicit repository-plus-branch filtering and retries canonical post-create reconciliation', async () => {
   const tempRepo = await createTempRepo();
   try {
     const pullPages = [
@@ -593,10 +593,10 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
     );
     assert.deepEqual(retrySleepCalls, [1000, 2000]);
 
-    const ambiguousSleepCalls: number[] = [];
+    const failedCreateSleepCalls: number[] = [];
     __setGitHubReviewDepsForTests({
       sleep: async (ms) => {
-        ambiguousSleepCalls.push(ms);
+        failedCreateSleepCalls.push(ms);
       },
       runCommand: async (params) => {
         if (params.args[0] === 'pr' && params.args[1] === 'create') {
@@ -619,21 +619,17 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering, retr
       },
     });
 
-    const createFailureRecovered = await createPullRequest({
+    const failedCreate = await createPullRequest({
       repository: baseRepositoryState(tempRepo.repoRoot),
       token: 'secret',
       title: 'Story review',
       body: 'body',
     });
-    assert.equal(createFailureRecovered.kind, 'ok');
-    assert.equal(createFailureRecovered.value.number, 145);
-    assert.equal(createFailureRecovered.createFailure?.reason, 'GITHUB_CLI_FAILED');
-    assert.equal(
-      createFailureRecovered.createFailure?.stderr,
-      'connection dropped after create',
-    );
-    assert.deepEqual(createFailureRecovered.lookupDiagnostics, []);
-    assert.deepEqual(ambiguousSleepCalls, []);
+    assert.equal(failedCreate.kind, 'error');
+    assert.equal(failedCreate.reason, 'GITHUB_CLI_FAILED');
+    assert.equal(failedCreate.stderr, 'connection dropped after create');
+    assert.deepEqual(failedCreate.lookupDiagnostics, []);
+    assert.deepEqual(failedCreateSleepCalls, []);
   } finally {
     await tempRepo.cleanup();
   }
@@ -708,6 +704,7 @@ test('resumed GitHub review reconciliation warns only when an expected materiali
         exitCode: 0,
         stdout: JSON.stringify({
           number: 44,
+          state: 'open',
           html_url: 'https://github.com/example/repo/pull/44',
           head: {
             ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
@@ -753,6 +750,43 @@ test('resumed GitHub review reconciliation warns only when an expected materiali
       reconciled.warnings[0] ?? '',
       /lost its execution-scoped handoff/i,
     );
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('resumed GitHub review reconciliation rejects a manually closed pull request', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    __setGitHubReviewDepsForTests({
+      runCommand: async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          number: 44,
+          state: 'closed',
+          html_url: 'https://github.com/example/repo/pull/44',
+          head: {
+            ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          },
+          base: { ref: 'main' },
+        }),
+        stderr: '',
+      }),
+    });
+
+    const reconciled = await reconcileResumedGitHubReviewPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      executionId: 'missing',
+      handoffPath: path.join(
+        tempRepo.repoRoot,
+        'codeInfoTmp/reviews/0000060-github-review-missing-current.json',
+      ),
+      resumedPullRequestNumber: 44,
+    });
+    assert.equal(reconciled.kind, 'error');
+    assert.equal(reconciled.reason, 'INVALID_GITHUB_RESPONSE');
+    assert.match(reconciled.message, /open pull request/i);
   } finally {
     await tempRepo.cleanup();
   }

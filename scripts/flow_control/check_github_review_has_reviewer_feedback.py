@@ -151,11 +151,11 @@ def main() -> int:
         answer = _determine_answer()
     except Exception as error:
         print(
-            "GitHub review feedback could not be positively confirmed; "
-            f"continuing conservatively with answer no: {error}",
+            "GitHub review feedback could not be positively confirmed: "
+            f"{error}",
             file=sys.stderr,
         )
-        answer = "no"
+        return 1
     print(json.dumps({"answer": answer}))
     return 0
 

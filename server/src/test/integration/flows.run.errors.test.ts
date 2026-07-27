@@ -3387,6 +3387,43 @@ test('explicit decisionScript fails hard for timeout script output', async () =>
   );
 });
 
+test('implicit harness decision scripts resolve from the harness root for worked repositories', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'implicit-harness-decision-script',
+        steps: [
+          {
+            type: 'if',
+            condition:
+              'scripts/flow_control/check_github_review_cycle_active.py',
+            then: [makeLlmStep()],
+          },
+        ],
+      });
+
+      const result = await supertest(baseUrl)
+        .post('/flows/implicit-harness-decision-script/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'ok',
+      });
+      assert.equal(final.status, 'ok');
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
 test('shared decision seam fails hard when script output exceeds its limit', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {

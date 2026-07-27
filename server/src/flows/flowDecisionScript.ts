@@ -191,6 +191,12 @@ export const executeTrackedFlowDecisionScript = async (params: {
     const timeoutHandle = setTimeout(() => {
       timedOut = true;
       child.kill('SIGKILL');
+      child.stdout.destroy();
+      child.stderr.destroy();
+      finish({
+        ok: false,
+        reason: `Script timed out after ${params.timeoutMs}ms: ${params.decisionScript}`,
+      });
     }, params.timeoutMs);
 
     child.stdout.on('data', (data: Buffer) => {

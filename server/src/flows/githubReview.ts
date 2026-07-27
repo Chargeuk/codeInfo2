@@ -213,6 +213,7 @@ type CommandResult = {
 
 type CurrentPlanContext = {
   planPath: string;
+  planFullPath: string;
   storyNumber: string;
   branchedFrom?: string;
 };
@@ -222,6 +223,7 @@ type GitHubReviewDeps = {
     targetPath: string,
     options?: { recursive?: boolean },
   ) => Promise<void>;
+  realpath: (targetPath: string) => Promise<string>;
   readFile: (filePath: string, encoding: BufferEncoding) => Promise<string>;
   rename: (fromPath: string, toPath: string) => Promise<void>;
   rm: (
@@ -248,6 +250,7 @@ const defaultGitHubReviewDeps: GitHubReviewDeps = {
   mkdir: async (targetPath, options) => {
     await fs.mkdir(targetPath, options);
   },
+  realpath: async (targetPath) => await fs.realpath(targetPath),
   readFile: async (filePath, encoding) => await fs.readFile(filePath, encoding),
   rename: async (fromPath, toPath) => {
     await fs.rename(fromPath, toPath);
@@ -558,7 +561,6 @@ const parseRepoFromRemoteUrl = (
     if (normalized === 'github.com' || normalized === 'ssh.github.com') {
       return 'github.com';
     }
-    if (normalized === 'ghe.com') return normalized;
     return null;
   };
   const trimmed = remoteUrl.trim();
@@ -588,9 +590,39 @@ const readCurrentPlanContext = async (
     workingRepositoryRoot,
     'codeInfoStatus/flow-state/current-plan.json',
   );
+  let resolvedWorkingRepositoryRoot: string;
+  let resolvedCurrentPlanPath: string;
+  try {
+    resolvedWorkingRepositoryRoot = await githubReviewDeps.realpath(
+      workingRepositoryRoot,
+    );
+    resolvedCurrentPlanPath = await githubReviewDeps.realpath(currentPlanPath);
+  } catch (error) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Unable to resolve the current-plan handoff in the worked repository.',
+    };
+  }
+  if (
+    !isPathContainedWithinRoot(
+      resolvedWorkingRepositoryRoot,
+      resolvedCurrentPlanPath,
+    )
+  ) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'current-plan handoff must remain physically contained within the worked repository before filesystem access.',
+    };
+  }
   let raw: string;
   try {
-    raw = await githubReviewDeps.readFile(currentPlanPath, 'utf8');
+    raw = await githubReviewDeps.readFile(resolvedCurrentPlanPath, 'utf8');
   } catch (error) {
     return {
       kind: 'error',
@@ -625,7 +657,7 @@ const readCurrentPlanContext = async (
       message: 'current-plan handoff does not include a usable plan_path.',
     };
   }
-  if (!isContainedRelativePath(workingRepositoryRoot, planPath)) {
+  if (!isContainedRelativePath(resolvedWorkingRepositoryRoot, planPath)) {
     return {
       kind: 'error',
       reason: 'SCRATCH_INVALID',
@@ -641,6 +673,31 @@ const readCurrentPlanContext = async (
       message: 'current-plan handoff plan_path does not expose a story number.',
     };
   }
+  const planCandidatePath = path.resolve(
+    resolvedWorkingRepositoryRoot,
+    planPath,
+  );
+  let planFullPath: string;
+  try {
+    planFullPath = await githubReviewDeps.realpath(planCandidatePath);
+  } catch (error) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Unable to resolve the selected plan in the worked repository.',
+    };
+  }
+  if (!isPathContainedWithinRoot(resolvedWorkingRepositoryRoot, planFullPath)) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        'current-plan handoff plan_path must remain physically contained within the worked repository before filesystem access.',
+    };
+  }
   const branchedFrom =
     parsed && typeof parsed === 'object'
       ? normalizeTrimmedString(
@@ -649,7 +706,7 @@ const readCurrentPlanContext = async (
       : undefined;
   return {
     kind: 'ok',
-    value: { planPath, storyNumber: match[1], branchedFrom },
+    value: { planPath, planFullPath, storyNumber: match[1], branchedFrom },
   };
 };
 
@@ -1958,9 +2015,9 @@ const appendUniqueImplementationNoteToTaskBlock = (params: {
   return `${blockPrefix}${normalizedSuffix}${bullet}\n`;
 };
 
-const readCurrentTaskNumber = async (
+const readCurrentTaskContext = async (
   workingRepositoryRoot: string,
-): Promise<string | undefined> => {
+): Promise<{ taskNumber?: string; storyComplete: boolean }> => {
   const currentTaskPath = path.join(
     workingRepositoryRoot,
     'codeInfoStatus/flow-state/current-task.json',
@@ -1969,22 +2026,25 @@ const readCurrentTaskNumber = async (
   try {
     raw = await githubReviewDeps.readFile(currentTaskPath, 'utf8');
   } catch {
-    return undefined;
+    return { storyComplete: false };
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return undefined;
+    return { storyComplete: false };
   }
-  if (!parsed || typeof parsed !== 'object') return undefined;
+  if (!parsed || typeof parsed !== 'object') return { storyComplete: false };
+  const storyComplete =
+    (parsed as { selection_status?: unknown }).selection_status ===
+    'story_complete';
   const direct =
     typeof (parsed as { task_number?: unknown }).task_number === 'number'
       ? String((parsed as { task_number: number }).task_number)
       : normalizeTrimmedString(
           (parsed as { task_number?: unknown }).task_number,
         );
-  if (direct) return direct;
+  if (direct) return { taskNumber: direct, storyComplete };
   const selectedTask = (parsed as { selected_task?: { number?: unknown } })
     .selected_task;
   if (
@@ -1996,9 +2056,42 @@ const readCurrentTaskNumber = async (
       typeof selectedTask.number === 'number'
         ? String(selectedTask.number)
         : normalizeTrimmedString(selectedTask.number);
-    if (number) return number;
+    if (number) return { taskNumber: number, storyComplete };
   }
-  return undefined;
+  return { storyComplete };
+};
+
+const appendUniqueStoryLevelGitHubReviewNote = (params: {
+  planRaw: string;
+  note: string;
+}): string => {
+  const heading = '## GitHub Review Notes';
+  const bullet = `- ${params.note}`;
+  const headingIndex = params.planRaw.indexOf(heading);
+  if (headingIndex === -1) {
+    const separator = params.planRaw.endsWith('\n') ? '\n' : '\n\n';
+    return `${params.planRaw}${separator}${heading}\n\n${bullet}\n`;
+  }
+  const sectionEnd = params.planRaw.indexOf(
+    '\n## ',
+    headingIndex + heading.length,
+  );
+  const section = params.planRaw.slice(
+    headingIndex,
+    sectionEnd === -1 ? undefined : sectionEnd,
+  );
+  if (
+    section
+      .split('\n')
+      .map((line) => line.trimEnd())
+      .includes(bullet)
+  ) {
+    return params.planRaw;
+  }
+  const insertAt = sectionEnd === -1 ? params.planRaw.length : sectionEnd;
+  const prefix = params.planRaw.slice(0, insertAt);
+  const suffix = params.planRaw.slice(insertAt);
+  return `${prefix}${prefix.endsWith('\n') ? '' : '\n'}${bullet}\n${suffix}`;
 };
 
 const appendImplementationNoteToPlan = async (params: {
@@ -2009,40 +2102,48 @@ const appendImplementationNoteToPlan = async (params: {
     params.workingRepositoryRoot,
   );
   if (planContext.kind !== 'ok') return planContext as GitHubStepOutcome<null>;
-  const planFullPath = path.join(
+  const taskContext = await readCurrentTaskContext(
     params.workingRepositoryRoot,
-    planContext.value.planPath,
   );
-  const taskNumber = await readCurrentTaskNumber(params.workingRepositoryRoot);
   try {
     await withExclusiveFileLock({
-      targetPath: planFullPath,
+      targetPath: planContext.value.planFullPath,
       action: async () => {
-        const planRaw = await githubReviewDeps.readFile(planFullPath, 'utf8');
-        const taskHeading = taskNumber
+        const planRaw = await githubReviewDeps.readFile(
+          planContext.value.planFullPath,
+          'utf8',
+        );
+        const taskHeading = taskContext.taskNumber
           ? new RegExp(
-              String.raw`((?:^|\n)### Task ${taskNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\.[\s\S]*?)(?=\n### Task \d+\.|$)`,
+              String.raw`((?:^|\n)### Task ${taskContext.taskNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\.[\s\S]*?)(?=\n### Task \d+\.|$)`,
             )
           : null;
         const taskMatch = taskHeading ? planRaw.match(taskHeading) : null;
         const matchedBlock = taskMatch?.[1];
         const targetBlock = matchedBlock?.replace(/^\n/, '');
-        if (!targetBlock) {
+        if (!targetBlock && !taskContext.storyComplete) {
           throw new Error(
             'The active plan task could not be resolved for GitHub review note append.',
           );
         }
-        const nextBlock = appendUniqueImplementationNoteToTaskBlock({
-          targetBlock,
-          note: params.note,
-        });
-        const taskMatchIndex = taskMatch?.index ?? 0;
-        const leadingMatchOffset =
-          (matchedBlock?.length ?? 0) - targetBlock.length;
-        const targetStart = taskMatchIndex + leadingMatchOffset;
-        const nextPlan = `${planRaw.slice(0, targetStart)}${nextBlock}${planRaw.slice(targetStart + targetBlock.length)}`;
+        const nextPlan = targetBlock
+          ? (() => {
+              const nextBlock = appendUniqueImplementationNoteToTaskBlock({
+                targetBlock,
+                note: params.note,
+              });
+              const taskMatchIndex = taskMatch?.index ?? 0;
+              const leadingMatchOffset =
+                (matchedBlock?.length ?? 0) - targetBlock.length;
+              const targetStart = taskMatchIndex + leadingMatchOffset;
+              return `${planRaw.slice(0, targetStart)}${nextBlock}${planRaw.slice(targetStart + targetBlock.length)}`;
+            })()
+          : appendUniqueStoryLevelGitHubReviewNote({
+              planRaw,
+              note: params.note,
+            });
         await writeTextAtomically({
-          targetPath: planFullPath,
+          targetPath: planContext.value.planFullPath,
           value: nextPlan,
         });
       },

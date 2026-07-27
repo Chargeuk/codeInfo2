@@ -36,6 +36,15 @@ const createTempRepo = async () => {
   await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
     recursive: true,
   });
+  await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
+  await fs.writeFile(
+    path.join(
+      repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    '# Story 0000060 - GitHub review fixture\n',
+    'utf8',
+  );
   await fs.writeFile(
     path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
     JSON.stringify(
@@ -295,7 +304,7 @@ test('repository-state resolution rejects non-GitHub upstream hosts', async () =
         if (joined === 'remote get-url origin') {
           return {
             exitCode: 0,
-            stdout: 'git@gitlab.com:example/repo.git\n',
+            stdout: 'https://ghe.com/example/repo.git\n',
             stderr: '',
           };
         }

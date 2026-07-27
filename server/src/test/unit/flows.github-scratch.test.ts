@@ -368,6 +368,139 @@ test('GitHub review plan-note append rejects current-plan handoffs that escape t
   }
 });
 
+test('GitHub review plan-note append rejects in-repository symlinks that escape the worked repository root', async (t) => {
+  const tempRepo = await createTempRepo({
+    currentTaskJson: {
+      selection_status: 'story_complete',
+      selected_task: null,
+    },
+  });
+  const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'github-plan-'));
+  try {
+    const outsidePlanPath = path.join(outsideRoot, '0000060-outside-plan.md');
+    await fs.writeFile(outsidePlanPath, '# Outside plan\n', 'utf8');
+    const planPath = path.join(
+      tempRepo.repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    );
+    await fs.rm(planPath);
+    try {
+      await fs.symlink(outsidePlanPath, planPath);
+    } catch (error) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        ['EPERM', 'EACCES', 'ENOTSUP'].includes(
+          String((error as NodeJS.ErrnoException).code),
+        )
+      ) {
+        t.skip('symlink creation is not permitted in this environment');
+      }
+      throw error;
+    }
+
+    const result = await appendGitHubReviewPlanNote({
+      workingRepositoryRoot: tempRepo.repoRoot,
+      note: 'Should not be appended.',
+    });
+    assert.equal(result.kind, 'error');
+    assert.equal(result.reason, 'SCRATCH_INVALID');
+    assert.match(result.message, /physically contained/i);
+    assert.equal(
+      await fs.readFile(outsidePlanPath, 'utf8'),
+      '# Outside plan\n',
+    );
+  } finally {
+    await fs.rm(outsideRoot, { recursive: true, force: true });
+    await tempRepo.cleanup();
+  }
+});
+
+test('GitHub review plan-note append rejects a current-plan handoff symlink that escapes the worked repository root', async (t) => {
+  const tempRepo = await createTempRepo();
+  const outsideRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-handoff-'),
+  );
+  try {
+    const outsideHandoffPath = path.join(outsideRoot, 'current-plan.json');
+    await fs.writeFile(outsideHandoffPath, '{}\n', 'utf8');
+    const handoffPath = path.join(
+      tempRepo.repoRoot,
+      'codeInfoStatus/flow-state/current-plan.json',
+    );
+    await fs.rm(handoffPath);
+    try {
+      await fs.symlink(outsideHandoffPath, handoffPath);
+    } catch (error) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        ['EPERM', 'EACCES', 'ENOTSUP'].includes(
+          String((error as NodeJS.ErrnoException).code),
+        )
+      ) {
+        t.skip('symlink creation is not permitted in this environment');
+      }
+      throw error;
+    }
+
+    const result = await appendGitHubReviewPlanNote({
+      workingRepositoryRoot: tempRepo.repoRoot,
+      note: 'Should not be appended.',
+    });
+    assert.equal(result.kind, 'error');
+    assert.equal(result.reason, 'SCRATCH_INVALID');
+    assert.match(
+      result.message,
+      /current-plan handoff must remain physically contained/i,
+    );
+  } finally {
+    await fs.rm(outsideRoot, { recursive: true, force: true });
+    await tempRepo.cleanup();
+  }
+});
+
+test('GitHub review plan-note append records a story-level note after story completion', async () => {
+  const tempRepo = await createTempRepo({
+    currentTaskJson: {
+      selection_status: 'story_complete',
+      selected_task: null,
+    },
+  });
+  try {
+    const note =
+      'GitHub review was skipped because the repository token is missing.';
+    const [first, second] = await Promise.all([
+      appendGitHubReviewPlanNote({
+        workingRepositoryRoot: tempRepo.repoRoot,
+        note,
+      }),
+      appendGitHubReviewPlanNote({
+        workingRepositoryRoot: tempRepo.repoRoot,
+        note,
+      }),
+    ]);
+    assert.equal(first.kind, 'ok');
+    assert.equal(second.kind, 'ok');
+
+    const plan = await readTempPlan(tempRepo.repoRoot);
+    assert.match(
+      plan,
+      /## GitHub Review Notes\n\n- GitHub review was skipped/u,
+    );
+    assert.equal(
+      plan.match(
+        /GitHub review was skipped because the repository token is missing\./g,
+      )?.length ?? 0,
+      1,
+    );
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
 test('contradictory overlapping GitHub review plan-note appends preserve sibling notes under the selected task block', async () => {
   const tempRepo = await createTempRepo();
   try {

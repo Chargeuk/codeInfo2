@@ -159,13 +159,13 @@ test('expandSubflowWaveJobs applies static binding validation to dynamic groups'
   );
 });
 
-test('production review policy configures repeated and one-shot batches without review phase metadata', async () => {
+test('opt-in agent-native review policy configures repeated and one-shot batches without review phase metadata', async () => {
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
   );
   const raw = await fs.readFile(
-    path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+    path.join(repoRoot, 'flows/two_phase_review_cycle_agent_native.json'),
     'utf8',
   );
   const parsed = JSON.parse(raw) as {

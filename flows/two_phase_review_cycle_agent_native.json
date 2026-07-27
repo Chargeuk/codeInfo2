@@ -1,0 +1,138 @@
+{
+  "description": "Run configurable generic review batches, currently one repeated group followed by one one-shot group, then settle the complete agent-native review pass.",
+  "steps": [
+    {
+      "type": "initializeReviewCycle",
+      "label": "Initialize Fresh Review Pass",
+      "mode": "final",
+      "outputKey": "review_cycle"
+    },
+    {
+      "type": "startLoop",
+      "label": "Repeated Review Group",
+      "maxIterations": 5,
+      "steps": [
+        {
+          "type": "subflowWave",
+          "label": "Run Repeated Generic Review Batch",
+          "failureMode": "best_effort",
+          "groups": [
+            {
+              "kind": "singleton",
+              "id": "repeated_review_batch",
+              "flowName": "review_batch",
+              "bindings": {
+                "inputValues": {
+                  "review_groups": [
+                    {
+                      "kind": "matrix",
+                      "id": "target_reviews",
+                      "itemsFrom": "review_batch_targets.targets",
+                      "itemName": "target",
+                      "flowNames": ["codex_review", "open_code_review"],
+                      "bindings": {
+                        "workingFolderFrom": "target.repo_root",
+                        "input": {
+                          "target": "target",
+                          "review_wave": "review_batch_targets"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "singleton",
+                      "id": "story_review",
+                      "flowName": "cross_repository_review",
+                      "bindings": {
+                        "workingFolderFrom": "review_batch_targets.plan_host_root",
+                        "input": {
+                          "review_wave": "review_batch_targets"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "break",
+          "label": "Exit Repeated Group When Current Batch Needs No Repair Re-review",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Read `codeInfoStatus/flow-state/current-plan.json`, then read `codeInfoTmp/reviews/<story-number>-current-review-batch.md` and inspect that immutable batch's target snapshot, reconciliation, disposition, normal and stronger repair audits, outcome, and current Git HEAD for every target repository. Do not use provider pointers, reviewer counts, exact audit filenames, or conversational memory. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes when neither repair agent committed a fix in any target that needs review on a new HEAD and no supported finding remains suitable for another in-batch repair attempt. Findings explicitly left after the stronger attempt for complete-pass settlement do not keep this repeated group running. Answer no when any target has a committed repair that needs review or the batch evidence says another review is useful.",
+          "breakOn": "yes",
+          "breakOnFailure": true
+        }
+      ]
+    },
+    {
+      "type": "subflowWave",
+      "label": "Run One-Shot Generic Review Batch",
+      "failureMode": "best_effort",
+      "groups": [
+        {
+          "kind": "singleton",
+          "id": "one_shot_review_batch",
+          "flowName": "review_batch",
+          "bindings": {
+            "inputValues": {
+              "review_groups": [
+                {
+                  "kind": "matrix",
+                  "id": "target_reviews",
+                  "itemsFrom": "review_batch_targets.targets",
+                  "itemName": "target",
+                  "flowNames": ["review_artifacts_main"],
+                  "bindings": {
+                    "workingFolderFrom": "target.repo_root",
+                    "input": {
+                      "target": "target",
+                      "review_wave": "review_batch_targets"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "reset",
+      "label": "Reset Complete-Pass Settlement Tasker",
+      "agentType": "tasking_agent",
+      "identifier": "review_settler"
+    },
+    {
+      "type": "llm",
+      "label": "Settle Complete Agent-Native Review Pass",
+      "agentType": "tasking_agent",
+      "identifier": "review_settler",
+      "continueOnFailure": true,
+      "markdownFile": "settle_agent_native_review_pass.md"
+    },
+    {
+      "type": "llm",
+      "label": "Apply Review Settlement To Plan",
+      "agentType": "tasking_agent",
+      "identifier": "review_settler",
+      "continueOnFailure": true,
+      "markdownFile": "apply_agent_native_review_settlement.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Complete-Pass Settlement Auditor",
+      "agentType": "review_agent_max",
+      "identifier": "settlement_auditor"
+    },
+    {
+      "type": "llm",
+      "label": "Audit Complete Review Settlement",
+      "agentType": "review_agent_max",
+      "identifier": "settlement_auditor",
+      "continueOnFailure": true,
+      "markdownFile": "audit_agent_native_review_settlement.md"
+    }
+  ]
+}

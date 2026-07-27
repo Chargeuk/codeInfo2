@@ -289,7 +289,7 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
-  test('retired codexReview publisher step is rejected', () => {
+  test('legacy codexReview publisher step remains available to the protected default review flow', () => {
     const json = JSON.stringify({
       description: 'Codex review flow',
       steps: [
@@ -305,7 +305,7 @@ describe('flow schema (v1)', () => {
     });
 
     const parsed = parseFlowFile(json);
-    assert.equal(parsed.ok, false);
+    assert.equal(parsed.ok, true);
   });
 
   test('agent-backed codexReview requires an agentType', () => {
@@ -341,7 +341,7 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
-  test('retired pointer-oriented prepareReviewBase step is rejected', () => {
+  test('legacy pointer-oriented prepareReviewBase step remains available to the protected default review flow', () => {
     const json = JSON.stringify({
       description: 'Prepare shared review base',
       steps: [
@@ -355,7 +355,7 @@ describe('flow schema (v1)', () => {
     });
 
     const parsed = parseFlowFile(json);
-    assert.equal(parsed.ok, false);
+    assert.equal(parsed.ok, true);
   });
 
   test('valid prepareReviewTargets step parses as ok: true', () => {
@@ -390,7 +390,7 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, true);
   });
 
-  test('retired pointer-oriented artifact validator step is rejected', () => {
+  test('legacy pointer-oriented artifact validator remains available to the protected default review flow', () => {
     const parsed = parseFlowFile(
       JSON.stringify({
         steps: [
@@ -403,7 +403,7 @@ describe('flow schema (v1)', () => {
       }),
     );
 
-    assert.equal(parsed.ok, false);
+    assert.equal(parsed.ok, true);
   });
 
   test('validateReviewArtifacts still requires at least one pointer', () => {
@@ -477,18 +477,23 @@ describe('flow schema (v1)', () => {
   test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
       'flows/codex_review.json',
+      'flows/codex_review_legacy.json',
       'flows/cross_repository_review.json',
       'flows/diagnostic_review_cycle.json',
       'flows/minor_review_fix_path.json',
       'flows/open_code_review.json',
+      'flows/open_code_review_legacy.json',
       'flows/review_artifacts_main.json',
+      'flows/review_artifacts_main_legacy.json',
       'flows/review_batch.json',
       'flows/review_disposition_current_artifacts.json',
       'flows/review_plan.json',
       'flows/review_task_up_path.json',
       'flows/two_phase_review_cycle.json',
+      'flows/two_phase_review_cycle_agent_native.json',
       'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
+      'flows/implement_next_plan_github_review.json',
       'flows/ingest_external_review_plan.json',
       'flows/improve_task_implement_plan.json',
       'flows/task_and_implement_plan.json',
@@ -620,7 +625,7 @@ describe('flow schema (v1)', () => {
     ) as { steps?: FlowStep[] };
     const cycle = JSON.parse(
       await fs.readFile(
-        path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+        path.join(repoRoot, 'flows/two_phase_review_cycle_agent_native.json'),
         'utf8',
       ),
     ) as { steps?: FlowStep[] };
@@ -730,7 +735,7 @@ describe('flow schema (v1)', () => {
 
   test('review policy uses generic repeated and one-shot batches without leaking scheduling classes', async () => {
     const raw = await fs.readFile(
-      path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+      path.join(repoRoot, 'flows/two_phase_review_cycle_agent_native.json'),
       'utf8',
     );
     const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
@@ -769,6 +774,76 @@ describe('flow schema (v1)', () => {
     assert.match(serialized, /review_artifacts_main/u);
     assert.doesNotMatch(serialized, /reviewPhase|"fast"|"slow"/u);
     assert.match(serialized, /review_batch/u);
+  });
+
+  test('default implementation entrypoints preserve the pointer-oriented review cycle while the GitHub variant opts into agent-native batches', async () => {
+    const protectedDefault = JSON.parse(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
+        'utf8',
+      ),
+    ) as { steps?: FlowStep[] };
+    const agentNative = JSON.parse(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/two_phase_review_cycle_agent_native.json'),
+        'utf8',
+      ),
+    ) as { steps?: FlowStep[] };
+    const protectedMarkers = flattenSteps(protectedDefault.steps ?? []).map(
+      (step) => {
+        if (step.type === 'subflow') return step.flowNames?.join(',');
+        return step.type;
+      },
+    );
+
+    assert.match(JSON.stringify(protectedMarkers), /prepareReviewBase/u);
+    assert.match(JSON.stringify(protectedMarkers), /validateReviewArtifacts/u);
+    assert.match(JSON.stringify(protectedMarkers), /codex_review_legacy/u);
+    assert.match(JSON.stringify(protectedMarkers), /open_code_review_legacy/u);
+    assert.doesNotMatch(JSON.stringify(protectedDefault), /subflowWave/u);
+    assert.doesNotMatch(JSON.stringify(protectedDefault), /review_batch/u);
+    assert.match(JSON.stringify(agentNative), /subflowWave/u);
+    assert.match(JSON.stringify(agentNative), /review_batch/u);
+
+    const defaultEntrypoints = [
+      'flows/implement_next_plan.json',
+      'flows/task_and_implement_plan.json',
+      'flows/implement_current_plan.json',
+      'flows/improve_task_implement_plan.json',
+    ] as const;
+    for (const flowFile of defaultEntrypoints) {
+      const parsed = JSON.parse(
+        await fs.readFile(path.join(repoRoot, flowFile), 'utf8'),
+      ) as { steps?: FlowStep[] };
+      const references = flattenSteps(parsed.steps ?? []).flatMap((step) =>
+        step.type === 'subflow' ? (step.flowNames ?? []) : [],
+      );
+      assert.equal(
+        references.includes('two_phase_review_cycle'),
+        true,
+        flowFile,
+      );
+      assert.equal(
+        references.includes('two_phase_review_cycle_agent_native'),
+        false,
+        flowFile,
+      );
+    }
+
+    const githubVariant = JSON.parse(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/implement_next_plan_github_review.json'),
+        'utf8',
+      ),
+    ) as { steps?: FlowStep[] };
+    const githubReferences = flattenSteps(githubVariant.steps ?? []).flatMap(
+      (step) => (step.type === 'subflow' ? (step.flowNames ?? []) : []),
+    );
+    assert.equal(
+      githubReferences.includes('two_phase_review_cycle_agent_native'),
+      true,
+    );
+    assert.equal(githubReferences.includes('two_phase_review_cycle'), false);
   });
 
   test('generic review batch verifies, short-circuits survivor-only filtering and repair, dispositions, and records in order', async () => {
@@ -1809,12 +1884,9 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('review flows initialize state before agent-native disposition and settlement tasking', async () => {
+  test('the opt-in GitHub review flow initializes state before agent-native disposition and settlement tasking', async () => {
     const finalReviewFlowFiles = [
-      'flows/implement_current_plan.json',
       'flows/implement_next_plan_github_review.json',
-      'flows/task_and_implement_plan.json',
-      'flows/improve_task_implement_plan.json',
     ] as const;
 
     for (const flowFile of finalReviewFlowFiles) {
@@ -1895,23 +1967,15 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('review-enabled implementation flows include story repair and review settlement audit', async () => {
-    const flowFiles = [
-      'flows/implement_current_plan.json',
-      'flows/implement_next_plan_github_review.json',
-      'flows/task_and_implement_plan.json',
-      'flows/improve_task_implement_plan.json',
-    ] as const;
+  test('the opt-in GitHub review flow includes story repair and review settlement audit', async () => {
+    const flowFiles = ['flows/implement_next_plan_github_review.json'] as const;
 
     for (const flowFile of flowFiles) {
       const markers = (await loadExpandedFlowSteps(flowFile))
         .map((step) => step.markdownFile)
         .filter((marker): marker is string => typeof marker === 'string');
 
-      const repairMarker =
-        flowFile === 'flows/implement_current_plan.json'
-          ? 'repair_current_plan_workflow_state.md'
-          : 'repair_story_workflow_state.md';
+      const repairMarker = 'repair_story_workflow_state.md';
       assert.ok(
         markers.includes(repairMarker),
         `${flowFile} should include story-scope repair`,
@@ -1923,13 +1987,8 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('review-enabled implementation flows apply and audit agent-native review settlement', async () => {
-    const flowFiles = [
-      'flows/implement_current_plan.json',
-      'flows/implement_next_plan_github_review.json',
-      'flows/task_and_implement_plan.json',
-      'flows/improve_task_implement_plan.json',
-    ] as const;
+  test('the opt-in GitHub review flow applies and audits agent-native review settlement', async () => {
+    const flowFiles = ['flows/implement_next_plan_github_review.json'] as const;
 
     for (const flowFile of flowFiles) {
       const markers = (await loadExpandedFlowSteps(flowFile)).map((step) => {
@@ -1956,13 +2015,8 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('review-enabled implementation flows keep mid-loop pushes persistence-only and force settlement before completion', async () => {
-    const flowFiles = [
-      'flows/implement_current_plan.json',
-      'flows/implement_next_plan_github_review.json',
-      'flows/task_and_implement_plan.json',
-      'flows/improve_task_implement_plan.json',
-    ] as const;
+  test('the opt-in GitHub review flow keeps mid-loop pushes persistence-only and forces settlement before completion', async () => {
+    const flowFiles = ['flows/implement_next_plan_github_review.json'] as const;
     const checkpointPrompt = await fs.readFile(
       path.join(repoRoot, 'codeinfo_markdown/checkpoint_push.md'),
       'utf8',
@@ -2028,13 +2082,8 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('main implementation flows reconcile before disposition and settlement', async () => {
-    const flowFiles = [
-      'flows/implement_current_plan.json',
-      'flows/implement_next_plan.json',
-      'flows/task_and_implement_plan.json',
-      'flows/improve_task_implement_plan.json',
-    ] as const;
+  test('the opt-in GitHub review flow reconciles before disposition and settlement', async () => {
+    const flowFiles = ['flows/implement_next_plan_github_review.json'] as const;
 
     for (const flowFile of flowFiles) {
       const markers = (await loadExpandedFlowSteps(flowFile)).map((step) => {
@@ -2083,9 +2132,11 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('implement_next_plan uses agent-native review preparation, discovery, reconciliation, fixing, and settlement', async () => {
+  test('the opt-in GitHub review flow uses agent-native review preparation, discovery, reconciliation, fixing, and settlement', async () => {
     const markers = (
-      await loadExpandedFlowSteps('flows/implement_next_plan.json')
+      await loadExpandedFlowSteps(
+        'flows/implement_next_plan_github_review.json',
+      )
     ).map((step) => {
       if (step.type === 'llm') {
         return step.markdownFile;

@@ -780,7 +780,7 @@ const reviewRepoEntry = (
   lastError: null,
 });
 
-test('production two-phase path reviews a direct-fix commit on a new HEAD before one-shot settlement and outer re-entry', async () => {
+test('opt-in agent-native two-phase path reviews a direct-fix commit on a new HEAD before one-shot settlement and outer re-entry', async () => {
   const temporary = await fs.mkdtemp(
     path.join(os.tmpdir(), 'production-review-reentry-'),
   );
@@ -882,7 +882,11 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
 
     const productionCycle = JSON.parse(
       await fs.readFile(
-        path.join(repositoryRoot, 'flows', 'two_phase_review_cycle.json'),
+        path.join(
+          repositoryRoot,
+          'flows',
+          'two_phase_review_cycle_agent_native.json',
+        ),
         'utf8',
       ),
     ) as { description: string; steps: Array<Record<string, unknown>> };
@@ -920,16 +924,37 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       },
     ];
     await fs.writeFile(
-      path.join(flowDirectory, 'two_phase_review_cycle.json'),
+      path.join(flowDirectory, 'two_phase_review_cycle_agent_native.json'),
       JSON.stringify(productionCycle, null, 2),
     );
     await fs.copyFile(
       path.join(repositoryRoot, 'flows', 'review_batch.json'),
       path.join(flowDirectory, 'review_batch.json'),
     );
-    await fs.copyFile(
+    const implementationFlow = await fs.readFile(
       path.join(repositoryRoot, 'flows', 'implement_current_plan.json'),
+      'utf8',
+    );
+    await fs.writeFile(
       path.join(flowDirectory, 'implement_current_plan.json'),
+      implementationFlow
+        .replace(
+          '"two_phase_review_cycle"',
+          '"two_phase_review_cycle_agent_native"',
+        )
+        .replace(
+          '$CODEINFO_ROOT/scripts/flow_control/check_plan_scope_story_complete.py',
+          path.join(
+            repositoryRoot,
+            'scripts',
+            'flow_control',
+            'check_plan_scope_story_complete.py',
+          ),
+        )
+        .replace(
+          ',\n          "decisionScript": "scripts/flow_control/check_plan_scope_story_complete.py"',
+          '',
+        ),
     );
     await fs.writeFile(
       path.join(flowDirectory, 'integration_repeated_review.json'),
@@ -1028,7 +1053,7 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       scopeIdentityVerifiedAtDisposition: true,
     };
     const result = await startFlowRun({
-      flowName: 'two_phase_review_cycle',
+      flowName: 'two_phase_review_cycle_agent_native',
       source: 'REST',
       working_folder: repo,
       chatFactory: () => new ProductionReviewChat(probe),

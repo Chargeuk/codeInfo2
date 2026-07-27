@@ -278,9 +278,7 @@ function AssistantTranscriptSlice({
   const usageRows = [
     ...infoRows
       .filter((entry) =>
-        ['Tokens in', 'Tokens out', 'Reasoning', 'Cached', 'Total'].includes(
-          entry.label,
-        ),
+        ['Tokens in', 'Tokens out', 'Cached', 'Total'].includes(entry.label),
       )
       .map((entry) => ({
         key: entry.label,

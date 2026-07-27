@@ -173,7 +173,6 @@ type TurnCommandMetadata = {
 type TurnUsageMetadata = {
   inputTokens?: number;
   outputTokens?: number;
-  reasoningOutputTokens?: number;
   totalTokens?: number;
   cachedInputTokens?: number;
 };

@@ -272,18 +272,25 @@ test('codebase_question validation accepts a conversation-scoped replayId for on
   );
 });
 
-test('codebase_question validation accepts repository selection and deep mode', () => {
+test('codebase_question validation accepts repository selection', () => {
   assert.deepEqual(
     validateParams({
       question: 'inspect this repository',
       repository: '/workspace/repo',
-      deep: true,
     }),
     {
       question: 'inspect this repository',
       repository: '/workspace/repo',
-      deep: true,
     },
+  );
+
+  assert.throws(
+    () =>
+      validateParams({
+        question: 'inspect this repository',
+        deep: true,
+      }),
+    /Invalid params/u,
   );
 });
 

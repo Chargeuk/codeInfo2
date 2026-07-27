@@ -227,8 +227,8 @@ const RESERVED_PROVIDER_CHAT_MCP_BLOCKS: Record<
 };
 const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
   codex: [
-    'model = "gpt-5.4-mini"',
-    'model_reasoning_effort = "medium"',
+    'model = "gpt-5.6-sol"',
+    'model_reasoning_effort = "high"',
     'approval_policy = "on-request"',
     'sandbox_mode = "danger-full-access"',
     'network_access_enabled = true',
@@ -257,23 +257,6 @@ const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
     CODE_INFO_MCP_SERVER_BLOCK.trimEnd(),
     '',
   ].join('\n'),
-};
-const LEGACY_CHAT_CONFIG_TEMPLATES: Partial<
-  Record<ChatProviderId, readonly string[]>
-> = {
-  codex: [
-    [
-      'model = "gpt-5.6-sol"',
-      'model_reasoning_effort = "high"',
-      'approval_policy = "on-request"',
-      'sandbox_mode = "danger-full-access"',
-      'network_access_enabled = true',
-      'web_search = "live"',
-      '',
-      CODE_INFO_MCP_SERVER_BLOCK.trimEnd(),
-      '',
-    ].join('\n'),
-  ],
 };
 
 const providerChatConfigDirRoot = path.resolve(
@@ -1580,6 +1563,22 @@ async function maybeAugmentExistingProviderChatConfig(params: {
       return { outcome: 'noop' };
     }
 
+    let templateConfig: RuntimeTomlConfig;
+    try {
+      templateConfig = parseTomlOrThrow(
+        CHAT_CONFIG_TEMPLATES[params.provider],
+        `CHAT_CONFIG_TEMPLATES.${params.provider}`,
+      );
+    } catch (error) {
+      return {
+        outcome: 'failed',
+        warning:
+          error instanceof Error
+            ? error.message
+            : 'Failed to parse provider chat config template',
+      };
+    }
+
     const currentMcpServers = isRecord(currentConfig.mcp_servers)
       ? currentConfig.mcp_servers
       : undefined;
@@ -1594,38 +1593,16 @@ async function maybeAugmentExistingProviderChatConfig(params: {
       currentConfig,
       params.provider,
     );
-    const templateCandidates = [
-      CHAT_CONFIG_TEMPLATES[params.provider],
-      ...(LEGACY_CHAT_CONFIG_TEMPLATES[params.provider] ?? []),
-    ];
-    let matchesGeneratedTemplate = false;
-    try {
-      matchesGeneratedTemplate = templateCandidates.some((template, index) => {
-        const parsedTemplate = parseTomlOrThrow(
-          template,
-          index === 0
-            ? `CHAT_CONFIG_TEMPLATES.${params.provider}`
-            : `LEGACY_CHAT_CONFIG_TEMPLATES.${params.provider}.${index - 1}`,
-        );
-        const templateWithoutReserved = stripReservedProviderChatMcpServers(
-          parsedTemplate,
-          params.provider,
-        );
-        return isDeepStrictEqual(
-          normalizeRuntimeConfig(currentWithoutReserved),
-          normalizeRuntimeConfig(templateWithoutReserved),
-        );
-      });
-    } catch (error) {
-      return {
-        outcome: 'failed',
-        warning:
-          error instanceof Error
-            ? error.message
-            : 'Failed to parse provider chat config template',
-      };
-    }
-    if (!matchesGeneratedTemplate) {
+    const templateWithoutReserved = stripReservedProviderChatMcpServers(
+      templateConfig,
+      params.provider,
+    );
+    if (
+      !isDeepStrictEqual(
+        normalizeRuntimeConfig(currentWithoutReserved),
+        normalizeRuntimeConfig(templateWithoutReserved),
+      )
+    ) {
       return { outcome: 'noop' };
     }
 

@@ -111,10 +111,6 @@ export const buildTranscriptInfoRows = (
     value: formatTranscriptTokenValue(message.usage?.outputTokens),
   },
   {
-    label: 'Reasoning',
-    value: formatTranscriptTokenValue(message.usage?.reasoningOutputTokens),
-  },
-  {
     label: 'Cached',
     value: formatTranscriptTokenValue(message.usage?.cachedInputTokens),
   },

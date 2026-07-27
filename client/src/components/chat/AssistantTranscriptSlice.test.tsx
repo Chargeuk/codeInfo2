@@ -49,7 +49,6 @@ describe('AssistantTranscriptSlice', () => {
           usage: {
             inputTokens: 11,
             outputTokens: 7,
-            reasoningOutputTokens: 3,
             cachedInputTokens: 2,
             totalTokens: 18,
           },
@@ -129,9 +128,6 @@ describe('AssistantTranscriptSlice', () => {
     expect(
       within(popover).getByTestId('bubble-info-tokens-out'),
     ).toHaveTextContent('Tokens out: 7');
-    expect(
-      within(popover).getByTestId('bubble-info-reasoning'),
-    ).toHaveTextContent('Reasoning: 3');
     expect(within(popover).getByTestId('bubble-info-cached')).toHaveTextContent(
       'Cached: 2',
     );

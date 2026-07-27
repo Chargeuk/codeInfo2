@@ -182,9 +182,7 @@ class MockCodex {
 
 class ThrowingBannerOnlyThread {
   async runStreamed(): Promise<{ events: AsyncGenerator<unknown> }> {
-    throw new Error(
-      'Codex Exec exited with code 1: Reading prompt from stdin...',
-    );
+    throw new Error('Codex Exec exited with code 1: Reading prompt from stdin...');
   }
 }
 

@@ -55,12 +55,6 @@ const normalizeUsage = (
   if (isFiniteNumber(usage.outputTokens) && usage.outputTokens >= 0) {
     cleaned.outputTokens = usage.outputTokens;
   }
-  if (
-    isFiniteNumber(usage.reasoningOutputTokens) &&
-    usage.reasoningOutputTokens >= 0
-  ) {
-    cleaned.reasoningOutputTokens = usage.reasoningOutputTokens;
-  }
   if (isFiniteNumber(usage.totalTokens) && usage.totalTokens >= 0) {
     cleaned.totalTokens = usage.totalTokens;
   }

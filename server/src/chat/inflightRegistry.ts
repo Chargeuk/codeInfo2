@@ -1,21 +1,6 @@
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
-import type {
-  TurnCommandMetadata,
-  TurnTimingMetadata,
-  TurnUsageMetadata,
-} from '../mongo/turn.js';
-
-export type InflightResponseMetadata = {
-  usage?: TurnUsageMetadata;
-  timing?: TurnTimingMetadata;
-  toolStats?: {
-    totalCalls: number;
-    mcpCalls: number;
-    shellCalls: number;
-    resultChars: number;
-  };
-};
+import type { TurnCommandMetadata } from '../mongo/turn.js';
 
 export type ToolEvent =
   | {
@@ -51,7 +36,6 @@ export type InflightState = {
   assistantText: string;
   assistantThink: string;
   toolEvents: ToolEvent[];
-  responseMetadata?: InflightResponseMetadata;
   startedAt: string;
   abortController: AbortController;
   externalAbortSignal?: AbortSignal;
@@ -78,7 +62,6 @@ export type CompletedInflightState = {
   assistantText: string;
   assistantThink: string;
   toolEvents: ToolEvent[];
-  responseMetadata?: InflightResponseMetadata;
   startedAt: string;
   completedAt?: string;
 };
@@ -112,20 +95,6 @@ function cloneCompletedInflightState(
       ? { ...state.persistedTurnIds }
       : undefined,
     toolEvents: [...state.toolEvents],
-    responseMetadata: state.responseMetadata
-      ? {
-          ...state.responseMetadata,
-          usage: state.responseMetadata.usage
-            ? { ...state.responseMetadata.usage }
-            : undefined,
-          timing: state.responseMetadata.timing
-            ? { ...state.responseMetadata.timing }
-            : undefined,
-          toolStats: state.responseMetadata.toolStats
-            ? { ...state.responseMetadata.toolStats }
-            : undefined,
-        }
-      : undefined,
   };
 }
 
@@ -155,20 +124,6 @@ function rememberCompletedInflight(params: {
     assistantText: params.state.assistantText,
     assistantThink: params.state.assistantThink,
     toolEvents: [...params.state.toolEvents],
-    responseMetadata: params.state.responseMetadata
-      ? {
-          ...params.state.responseMetadata,
-          usage: params.state.responseMetadata.usage
-            ? { ...params.state.responseMetadata.usage }
-            : undefined,
-          timing: params.state.responseMetadata.timing
-            ? { ...params.state.responseMetadata.timing }
-            : undefined,
-          toolStats: params.state.responseMetadata.toolStats
-            ? { ...params.state.responseMetadata.toolStats }
-            : undefined,
-        }
-      : undefined,
     startedAt: params.state.startedAt,
     completedAt: params.completedAt,
   };
@@ -208,28 +163,6 @@ export function hasInflight(conversationId: string): boolean {
 
 export function getInflight(conversationId: string): InflightState | undefined {
   return inflightByConversationId.get(conversationId);
-}
-
-export function setInflightResponseMetadata(params: {
-  conversationId: string;
-  inflightId: string;
-  responseMetadata: InflightResponseMetadata;
-}): boolean {
-  const state = inflightByConversationId.get(params.conversationId);
-  if (!state || state.inflightId !== params.inflightId) return false;
-  state.responseMetadata = {
-    ...params.responseMetadata,
-    usage: params.responseMetadata.usage
-      ? { ...params.responseMetadata.usage }
-      : undefined,
-    timing: params.responseMetadata.timing
-      ? { ...params.responseMetadata.timing }
-      : undefined,
-    toolStats: params.responseMetadata.toolStats
-      ? { ...params.responseMetadata.toolStats }
-      : undefined,
-  };
-  return true;
 }
 
 export function getCompletedInflight(params: {

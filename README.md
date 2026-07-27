@@ -225,7 +225,7 @@ Corporate certificate directory requirements:
   - Copilot: reasoning effort plus a simple `toolAccess` `On`/`Off` control
   - LM Studio: provider-native generation/tool options such as temperature, max tokens, context overflow policy, and tool access
 - MCP `codebase_question` now shares the same provider-selection and defaults contract as the normal chat path, including Copilot parity on provider selection and model/default resolution. `provider` and `model` remain optional explicit overrides rather than fields callers should populate routinely, and Agent Flags stay out of the MCP request shape itself.
-- `codebase_question` defaults to bounded fast research: low Codex reasoning effort, concise final-only output, smaller vector payloads, and complete usage/timing/tool statistics. Callers can pass a repository id/path to start the nested agent in the intended checkout, or set `deep: true` when open-ended investigation is genuinely required.
+- `codebase_question` uses bounded fast research with low Codex reasoning effort, concise final-only output, and smaller vector payloads. Callers can pass a repository id/path to start the nested agent in the intended checkout.
 
 ## Story 47 Verification Markers
 

@@ -531,8 +531,8 @@ test('resolver falls back deterministically and warns when codex chat config TOM
 
   assert.equal(result.values.sandboxMode, 'danger-full-access');
   assert.equal(result.values.approvalPolicy, 'on-request');
-  assert.equal(result.values.modelReasoningEffort, 'medium');
-  assert.equal(result.values.model, 'gpt-5.4-mini');
+  assert.equal(result.values.modelReasoningEffort, 'high');
+  assert.equal(result.values.model, 'gpt-5.6-sol');
   assert.equal(result.values.webSearch, 'live');
   assert.ok(
     result.warnings.some(
@@ -561,7 +561,7 @@ web_search = "broken"
   assert.equal(result.values.sandboxMode, 'workspace-write');
   assert.equal(result.values.approvalPolicy, 'never');
   assert.equal(result.values.modelReasoningEffort, 'medium');
-  assert.equal(result.values.model, 'gpt-5.4-mini');
+  assert.equal(result.values.model, 'gpt-5.6-sol');
   assert.equal(result.values.webSearch, 'disabled');
   assert.ok(
     result.warnings.some((warning) =>
@@ -691,7 +691,7 @@ test('model_reasoning_effort precedence is override > config > env > hardcoded',
   const withHardcoded = await resolveCodexChatDefaults({
     codexHome: noConfigHome,
   });
-  assert.equal(withHardcoded.values.modelReasoningEffort, 'medium');
+  assert.equal(withHardcoded.values.modelReasoningEffort, 'high');
   assert.equal(withHardcoded.sources.modelReasoningEffort, 'hardcoded');
 });
 
@@ -713,7 +713,7 @@ test('model precedence is override > config > hardcoded', async () => {
   const withHardcoded = await resolveCodexChatDefaults({
     codexHome: noConfigHome,
   });
-  assert.equal(withHardcoded.values.model, 'gpt-5.4-mini');
+  assert.equal(withHardcoded.values.model, 'gpt-5.6-sol');
   assert.equal(withHardcoded.sources.model, 'hardcoded');
 });
 
@@ -723,7 +723,7 @@ test('missing codex chat config falls back without creating the file', async () 
 
   const result = await resolveCodexChatDefaults({ codexHome });
 
-  assert.equal(result.values.model, 'gpt-5.4-mini');
+  assert.equal(result.values.model, 'gpt-5.6-sol');
   await assert.rejects(fs.access(chatConfigPath));
 });
 
@@ -736,7 +736,7 @@ test('unreadable codex chat config warns and falls back without repair', async (
 
   const result = await resolveCodexChatDefaults({ codexHome });
 
-  assert.equal(result.values.model, 'gpt-5.4-mini');
+  assert.equal(result.values.model, 'gpt-5.6-sol');
   assert.ok(
     result.warnings.some((warning) => warning.includes('could not be read')),
   );
@@ -756,7 +756,7 @@ test('bootstrap leaves invalid existing chat config untouched while defaults sti
 
   assert.equal(bootstrapResult.branch, 'existing_noop');
   assert.equal(chatContents, '[broken');
-  assert.equal(result.values.model, 'gpt-5.4-mini');
+  assert.equal(result.values.model, 'gpt-5.6-sol');
   assert.ok(
     result.warnings.some(
       (warning) =>

@@ -261,70 +261,6 @@ describe('ChatInterfaceCodex', () => {
     assert.deepEqual(finals, ['The concise final answer.']);
   });
 
-  it('surfaces command execution with bounded result metadata', async () => {
-    resetMemory();
-    setCodexDetection({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    });
-    const emitted: ChatEvent[] = [];
-    const events = async function* () {
-      yield { type: 'thread.started', thread_id: 'tid-command' };
-      yield {
-        type: 'item.started',
-        item: {
-          type: 'command_execution',
-          id: 'command-1',
-          command: 'sed -n 1,20p file.ts',
-          aggregated_output: '',
-          status: 'in_progress',
-        },
-      };
-      yield {
-        type: 'item.completed',
-        item: {
-          type: 'command_execution',
-          id: 'command-1',
-          command: 'sed -n 1,20p file.ts',
-          aggregated_output: 'x'.repeat(20_000),
-          exit_code: 0,
-          status: 'completed',
-        },
-      };
-      yield {
-        type: 'item.completed',
-        item: { type: 'agent_message', id: 'answer', text: 'Done' },
-      };
-      yield { type: 'turn.completed' };
-    };
-    const thread = {
-      id: 'tid-command',
-      runStreamed: async () => ({ events: events() }),
-    };
-    const chat = new TestChatInterfaceCodex(() => ({
-      startThread: () => thread,
-      resumeThread: () => thread,
-    }));
-    chat.on('tool-request', (event) => emitted.push(event));
-    chat.on('tool-result', (event) => emitted.push(event));
-
-    await chat.run('Hello', { threadId: null }, 'conv-command', 'gpt-5');
-
-    assert.deepEqual(
-      emitted.map((event) => event.type),
-      ['tool-request', 'tool-result'],
-    );
-    const result = emitted[1] as ChatToolResultEvent;
-    assert.equal(result.name, 'exec_command');
-    assert.deepEqual(result.result, {
-      outputChars: 20_000,
-      status: 'completed',
-      exitCode: 0,
-    });
-    assert.equal(JSON.stringify(result.result).includes('xxxxx'), false);
-  });
-
   it('keeps interleaved assistant item updates isolated by item id', async () => {
     resetMemory();
     setCodexDetection({
@@ -452,12 +388,7 @@ describe('ChatInterfaceCodex', () => {
       };
       yield {
         type: 'turn.completed',
-        usage: {
-          input_tokens: 10,
-          cached_input_tokens: 2,
-          output_tokens: 6,
-          reasoning_output_tokens: 4,
-        },
+        usage: { input_tokens: 10, cached_input_tokens: 2, output_tokens: 6 },
       };
     };
 
@@ -479,7 +410,6 @@ describe('ChatInterfaceCodex', () => {
     assert.deepEqual(assistant.usage, {
       inputTokens: 10,
       outputTokens: 6,
-      reasoningOutputTokens: 4,
       cachedInputTokens: 2,
       totalTokens: 16,
     });

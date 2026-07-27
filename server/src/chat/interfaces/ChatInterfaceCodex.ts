@@ -71,20 +71,10 @@ type CodexAssistantMessageItem = {
   text?: string;
 };
 
-type CodexCommandExecutionItem = {
-  type?: string;
-  id?: string;
-  command?: string;
-  aggregated_output?: string;
-  exit_code?: number;
-  status?: string;
-};
-
 type CodexUsagePayload = {
   input_tokens?: number;
   cached_input_tokens?: number;
   output_tokens?: number;
-  reasoning_output_tokens?: number;
   total_tokens?: number;
 };
 
@@ -132,12 +122,6 @@ const mapCodexUsage = (usage: unknown): TurnUsageMetadata | undefined => {
   }
   if (isFiniteNumber(payload.output_tokens) && payload.output_tokens >= 0) {
     cleaned.outputTokens = payload.output_tokens;
-  }
-  if (
-    isFiniteNumber(payload.reasoning_output_tokens) &&
-    payload.reasoning_output_tokens >= 0
-  ) {
-    cleaned.reasoningOutputTokens = payload.reasoning_output_tokens;
   }
   if (
     isFiniteNumber(payload.cached_input_tokens) &&
@@ -578,40 +562,6 @@ export class ChatInterfaceCodex extends ChatInterface {
       this.emitEvent(resultEvent);
     };
 
-    const emitCodexCommandRequest = (item: CodexCommandExecutionItem) => {
-      const callId = item.id ?? `codex-command-${Date.now()}`;
-      this.emitEvent({
-        type: 'tool-request',
-        callId,
-        name: 'exec_command',
-        params: { command: item.command ?? '' },
-        stage: 'started',
-      });
-    };
-
-    const emitCodexCommandResult = (item: CodexCommandExecutionItem) => {
-      const callId = item.id ?? `codex-command-${Date.now()}`;
-      const output = item.aggregated_output ?? '';
-      this.emitEvent({
-        type: 'tool-result',
-        callId,
-        name: 'exec_command',
-        params: { command: item.command ?? '' },
-        result: {
-          outputChars: output.length,
-          status: item.status ?? 'completed',
-          ...(typeof item.exit_code === 'number'
-            ? { exitCode: item.exit_code }
-            : {}),
-        },
-        stage:
-          item.status === 'failed' ||
-          (typeof item.exit_code === 'number' && item.exit_code !== 0)
-            ? 'error'
-            : 'success',
-      });
-    };
-
     const assistantByItemKey = new Map<
       string,
       { text: string; order: number; completed: boolean }
@@ -734,11 +684,8 @@ export class ChatInterfaceCodex extends ChatInterface {
           case 'item.started': {
             const item = (event as { item?: unknown })?.item as
               | CodexToolCallItem
-              | CodexCommandExecutionItem
               | undefined;
             if (item?.type === 'mcp_tool_call') emitCodexToolRequest(item);
-            if (item?.type === 'command_execution')
-              emitCodexCommandRequest(item);
             break;
           }
           case 'item.updated':
@@ -746,7 +693,6 @@ export class ChatInterfaceCodex extends ChatInterface {
             const item = (event as { item?: unknown })?.item as
               | CodexToolCallItem
               | CodexAssistantMessageItem
-              | CodexCommandExecutionItem
               | undefined;
 
             if (item?.type === 'reasoning') {
@@ -810,11 +756,6 @@ export class ChatInterfaceCodex extends ChatInterface {
               break;
             }
 
-            if (item?.type === 'command_execution') {
-              if (event.type === 'item.completed') emitCodexCommandResult(item);
-              break;
-            }
-
             if (!item || item.type !== 'agent_message') break;
             const itemKey = getAssistantItemKey(item);
             const existing = assistantByItemKey.get(itemKey);
@@ -838,7 +779,7 @@ export class ChatInterfaceCodex extends ChatInterface {
               break;
             }
 
-            const nextText = (item as CodexAssistantMessageItem).text ?? '';
+            const nextText = item.text ?? '';
             const previousLength = existing?.text.length ?? 0;
             const isNonPrefixUpdate =
               previousLength > 0 && !nextText.startsWith(existing?.text ?? '');

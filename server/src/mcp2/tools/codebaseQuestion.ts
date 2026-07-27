@@ -22,7 +22,6 @@ import {
   createInflight,
   getCompletedInflightByReplayId,
   getInflight,
-  setInflightResponseMetadata,
   type CompletedInflightState,
 } from '../../chat/inflightRegistry.js';
 import type {
@@ -76,11 +75,7 @@ import {
   updateConversationMeta,
   updateConversationWorkingFolder,
 } from '../../mongo/repo.js';
-import type {
-  TurnRuntimeMetadata,
-  TurnTimingMetadata,
-  TurnUsageMetadata,
-} from '../../mongo/turn.js';
+import type { TurnRuntimeMetadata } from '../../mongo/turn.js';
 import {
   getCodexDetection,
   setCodexDetection,
@@ -122,7 +117,6 @@ const paramsSchema = z
     provider: z.enum(['codex', 'copilot', 'lmstudio']).optional(),
     model: z.string().min(1).optional(),
     repository: z.string().trim().min(1).optional(),
-    deep: z.boolean().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -161,14 +155,6 @@ export type CodebaseQuestionResult = {
   conversationId: string | null;
   modelId: string;
   segments: Segment[];
-  usage?: TurnUsageMetadata;
-  timing?: TurnTimingMetadata;
-  toolStats?: {
-    totalCalls: number;
-    mcpCalls: number;
-    shellCalls: number;
-    resultChars: number;
-  };
   replay?:
     | {
         replayId: string;
@@ -206,7 +192,6 @@ function buildReplayResult(params: {
           },
         }
       : {}),
-    ...(params.completedReplay.responseMetadata ?? {}),
   };
 
   return {
@@ -1455,9 +1440,7 @@ async function executeCodebaseQuestion(
     networkAccessEnabled: codexDefaults.networkAccessEnabled,
     webSearchEnabled: codexDefaults.webSearchEnabled,
     approvalPolicy: codexDefaults.approvalPolicy,
-    modelReasoningEffort: parsed.deep
-      ? (codexDefaults.modelReasoningEffort as unknown as ThreadOptions['modelReasoningEffort'])
-      : 'low',
+    modelReasoningEffort: 'low',
   } as ThreadOptions;
 
   const lateCompletedReplay = await getReplayResult({
@@ -1560,8 +1543,6 @@ async function executeCodebaseQuestion(
           },
         }
       : executionContext.runtime;
-  const executionStartedAtMs = Date.now();
-  let executionTotalTimeSec: number | undefined;
 
   try {
     try {
@@ -1576,11 +1557,8 @@ async function executeCodebaseQuestion(
                 : undefined,
               runtimeConfig: chatRuntimeConfig,
               codexFlags: threadOpts,
-              systemPrompt: parsed.deep
-                ? undefined
-                : FAST_CODEBASE_QUESTION_SYSTEM_PROMPT,
+              systemPrompt: FAST_CODEBASE_QUESTION_SYSTEM_PROMPT,
               finalAnswerOnly: true,
-              deferInflightCleanup: true,
               inflightId,
               workingDirectoryOverride:
                 executionContext.workingDirectoryOverride,
@@ -1607,10 +1585,7 @@ async function executeCodebaseQuestion(
             runtime: runtimeMetadata,
             signal: getInflight(resolvedConversationId)?.abortController.signal,
             envOverrides,
-            deferInflightCleanup: true,
-            ...(!parsed.deep
-              ? { systemPrompt: FAST_CODEBASE_QUESTION_SYSTEM_PROMPT }
-              : {}),
+            systemPrompt: FAST_CODEBASE_QUESTION_SYSTEM_PROMPT,
             ...(executionProvider === 'copilot'
               ? {
                   copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
@@ -1643,22 +1618,6 @@ async function executeCodebaseQuestion(
         options?.onReplayClaimVisible?.();
       }
       await runChatPromise;
-      executionTotalTimeSec = (Date.now() - executionStartedAtMs) / 1000;
-      const providerTiming = responder.getTiming();
-      setInflightResponseMetadata({
-        conversationId: resolvedConversationId,
-        inflightId,
-        responseMetadata: {
-          ...(responder.getUsage() ? { usage: responder.getUsage() } : {}),
-          timing: providerTiming?.totalTimeSec
-            ? providerTiming
-            : {
-                ...(providerTiming ?? {}),
-                totalTimeSec: executionTotalTimeSec,
-              },
-          toolStats: responder.getToolStats(),
-        },
-      });
     } catch (error) {
       options?.onReplayClaimVisible?.();
       if (error instanceof ToolExecutionError) throw error;
@@ -1724,8 +1683,6 @@ async function executeCodebaseQuestion(
   try {
     payload = responder.toResult(executionModel, resolvedConversationId, {
       preferFallbackConversationId: true,
-      totalTimeSec:
-        executionTotalTimeSec ?? (Date.now() - executionStartedAtMs) / 1000,
     });
   } catch (error) {
     if (error instanceof ToolExecutionError) throw error;
@@ -1797,7 +1754,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Defaults to bounded fast research with concise final-only output; pass repository when the current checkout is known and deep=true only for intentionally open-ended investigation. After retrieval, inspect relevant source files directly and do your own reasoning when the task needs stronger evidence. Returns a final answer plus conversationId, modelId, usage, timing, and tool statistics.',
+      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Uses bounded fast research with low reasoning effort and concise final-only output; pass repository when the current checkout is known. After retrieval, inspect relevant source files directly and do your own reasoning when the task needs stronger evidence. Returns a final answer plus conversationId and modelId for follow-ups.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -1831,11 +1788,6 @@ export function codebaseQuestionDefinition() {
           type: 'string',
           description:
             'Optional repository selector. Supports repository id (case-insensitive), mounted container path, or host path. When supplied, the nested agent starts in that repository and all default retrieval is scoped to it.',
-        },
-        deep: {
-          type: 'boolean',
-          description:
-            'Optional deep-research mode. Defaults to false, which uses bounded fast research, low reasoning effort, and concise final-only output.',
         },
       },
     },

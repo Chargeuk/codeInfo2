@@ -325,8 +325,8 @@ describe('runtimeConfig bootstrap', () => {
       assert.equal(result.copied, false);
       assert.equal(result.generatedTemplate, true);
       assert.equal(result.branch, 'generated_template');
-      assert.match(content, /model = "gpt-5.4-mini"/u);
-      assert.match(content, /model_reasoning_effort = "medium"/u);
+      assert.match(content, /model = "gpt-5.6-sol"/u);
+      assert.match(content, /model_reasoning_effort = "high"/u);
       assert.match(content, /approval_policy = "on-request"/u);
       assert.match(content, /sandbox_mode = "danger-full-access"/u);
       assert.match(content, /web_search = "live"/u);
@@ -364,7 +364,7 @@ describe('runtimeConfig bootstrap', () => {
 
       assert.equal(result.copied, false);
       assert.equal(result.branch, 'generated_template');
-      assert.match(chatContents, /model = "gpt-5.4-mini"/u);
+      assert.match(chatContents, /model = "gpt-5.6-sol"/u);
       assert.doesNotMatch(chatContents, /base-model/u);
       assert.doesNotMatch(chatContents, /\[mcp_servers\.context7\]/u);
       assert.match(chatContents, /\[mcp_servers\.code_info\]/u);
@@ -435,7 +435,7 @@ describe('runtimeConfig bootstrap', () => {
       assert.match(baseConfig, /model = "gpt-5\.6-sol"/u);
       assert.doesNotMatch(baseConfig, /from-example/u);
       assert.equal(bootstrapResult.branch, 'generated_template');
-      assert.match(chatConfig, /model = "gpt-5\.4-mini"/u);
+      assert.match(chatConfig, /model = "gpt-5\.6-sol"/u);
       assert.doesNotMatch(chatConfig, /from-copy-template/u);
     } finally {
       process.chdir(originalCwd);
@@ -1552,7 +1552,12 @@ describe('runtimeConfig Context7 overlay', () => {
       (normalized.mcp_servers as Record<string, unknown>).code_info,
       {
         command: 'npx',
-        args: ['-y', 'mcp-remote', 'http://localhost:6511/mcp', '--allow-http'],
+        args: [
+          '-y',
+          'mcp-remote',
+          'http://localhost:6511/mcp',
+          '--allow-http',
+        ],
         startup_timeout_sec: 60,
         tool_timeout_sec: 1800,
       },
@@ -1602,7 +1607,12 @@ describe('runtimeConfig Context7 overlay', () => {
       (normalized.mcp_servers as Record<string, unknown>).code_info,
       {
         command: 'npx',
-        args: ['-y', 'mcp-remote', 'http://localhost:5011/mcp', '--allow-http'],
+        args: [
+          '-y',
+          'mcp-remote',
+          'http://localhost:5011/mcp',
+          '--allow-http',
+        ],
         startup_timeout_sec: 60,
         tool_timeout_sec: 1800,
       },
@@ -3474,7 +3484,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         'utf8',
       );
 
-      assert.match(codexConfig, /model = "gpt-5\.4-mini"/u);
+      assert.match(codexConfig, /model = "gpt-5\.6-sol"/u);
       assert.match(copilotConfig, /model = "copilot-gpt-5"/u);
       assert.match(lmstudioConfig, /model = "model-1"/u);
     } finally {

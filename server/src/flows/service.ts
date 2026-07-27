@@ -176,10 +176,7 @@ import {
   resolveFlowAgentForDiscovery,
   type FlowSummary,
 } from './discovery.js';
-import {
-  executeTrackedFlowDecisionScript,
-  runFlowDecisionScript,
-} from './flowDecisionScript.js';
+import { executeTrackedFlowDecisionScript } from './flowDecisionScript.js';
 import {
   __resetFlowDefinitionCatalogForTests,
   getFlowDefinitionCatalogEntry,
@@ -4749,13 +4746,22 @@ export const __readCurrentPlanStoryContextForTests = async (params: {
         ? parsed.plan_path.trim()
         : undefined;
     if (!planPath) return null;
-    const planFullPath = path.resolve(workingRepositoryRoot, planPath);
-    if (!isPathContainedWithinRoot(workingRepositoryRoot, planFullPath)) {
+    const resolvedWorkingRepositoryRoot = await fs.realpath(
+      workingRepositoryRoot,
+    );
+    const planFullPath = path.resolve(resolvedWorkingRepositoryRoot, planPath);
+    const resolvedPlanFullPath = await fs.realpath(planFullPath);
+    if (
+      !isPathContainedWithinRoot(
+        resolvedWorkingRepositoryRoot,
+        resolvedPlanFullPath,
+      )
+    ) {
       return null;
     }
     const storyNumberMatch = path.basename(planPath).match(/^(\d+)/u);
     const storyNumber = storyNumberMatch?.[1];
-    const planRaw = await fs.readFile(planFullPath, 'utf8');
+    const planRaw = await fs.readFile(resolvedPlanFullPath, 'utf8');
     const headingMatch = planRaw.match(/^#\s+Story\s+\d+\s+-\s+(.+)$/mu);
     const title =
       headingMatch?.[1]?.trim() ||
@@ -7397,26 +7403,15 @@ async function runFlowUnlocked(params: {
       }
 
       normalizeActiveGitHubReviewScratchAuthority();
-      const execution = paramsForDecision.decisionScript
-        ? await runFlowDecisionScript({
-            codeInfoRoot: params.repositoryContext.codeInfo2Root,
-            workingFolder: workingRepositoryRoot,
-            decisionScript,
-          })
-            .then((stdout) => ({ ok: true as const, stdout }))
-            .catch((error) => ({
-              ok: false as const,
-              reason: error instanceof Error ? error.message : String(error),
-            }))
-        : await executeTrackedFlowDecisionScript({
-            workingFolder: workingRepositoryRoot,
-            decisionScript,
-            timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
-            env: {
-              ...process.env,
-              ...buildFlowEnvOverrides(),
-            },
-          });
+      const execution = await executeTrackedFlowDecisionScript({
+        workingFolder: workingRepositoryRoot,
+        decisionScript,
+        timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
+        env: {
+          ...process.env,
+          ...buildFlowEnvOverrides(),
+        },
+      });
       if (!execution.ok) {
         await emitFailedFlowStep({
           flowConversationId: params.conversationId,

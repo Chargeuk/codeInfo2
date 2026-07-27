@@ -88,3 +88,54 @@ test('current plan story context rejects a plan path that escapes the worked rep
     await fs.rm(outsideRoot, { recursive: true, force: true });
   }
 });
+
+test('current plan story context rejects an in-repository plan symlink that escapes the worked repository root', async (t) => {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'story-context-'));
+  const outsideRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'story-outside-'),
+  );
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
+    const outsidePlan = path.join(outsideRoot, 'escaped-plan.md');
+    await fs.writeFile(
+      outsidePlan,
+      '# Story 9999999 - Escaped Story Title\n',
+      'utf8',
+    );
+    try {
+      await fs.symlink(
+        outsidePlan,
+        path.join(repoRoot, 'planning', planFilename),
+      );
+    } catch (error) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        ['EPERM', 'EACCES', 'ENOTSUP'].includes(
+          String((error as NodeJS.ErrnoException).code),
+        )
+      ) {
+        t.skip('symlink creation is not permitted in this environment');
+      }
+      throw error;
+    }
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
+      JSON.stringify({ plan_path: `planning/${planFilename}` }, null, 2),
+      'utf8',
+    );
+
+    const context = await __readCurrentPlanStoryContextForTests({
+      workingRepositoryRoot: repoRoot,
+    });
+
+    assert.equal(context, null);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+    await fs.rm(outsideRoot, { recursive: true, force: true });
+  }
+});

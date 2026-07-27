@@ -3346,7 +3346,7 @@ test('shared decision seam fails hard for extra-key script output', async () => 
   );
 });
 
-test('shared decision seam fails hard for timeout script output', async () => {
+test('explicit decisionScript fails hard for timeout script output', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
       await writeFlowFile({
@@ -3357,7 +3357,8 @@ test('shared decision seam fails hard for timeout script output', async () => {
             type: 'break',
             agentType: 'coding_agent',
             identifier: 'main',
-            question: 'flow-control/decision-timeout.py',
+            question: 'Run the timeout decision script.',
+            decisionScript: 'flow-control/decision-timeout.py',
             breakOn: 'yes',
           },
         ],

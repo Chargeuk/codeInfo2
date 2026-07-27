@@ -132,12 +132,6 @@
                       "breakOn": "yes"
                     },
                     {
-                      "type": "reset",
-                      "label": "Reset coder before implementation repair",
-                      "agentType": "coding_agent",
-                      "identifier": "coder"
-                    },
-                    {
                       "type": "llm",
                       "label": "Load coder current task context before implementation repair",
                       "agentType": "coding_agent",
@@ -149,48 +143,7 @@
                       "label": "Deep repair implementation blocker",
                       "agentType": "coding_agent",
                       "identifier": "coder",
-                      "continueOnFailure": true,
                       "markdownFile": "deep_implementation_blocker_repair.md"
-                    },
-                    {
-                      "type": "startLoop",
-                      "label": "Optional Stronger Implementation Blocker Repair",
-                      "maxIterations": 1,
-                      "steps": [
-                        {
-                          "type": "break",
-                          "label": "Skip Stronger Implementation Repair When Normal Repair Cleared Blocker",
-                          "agentType": "coding_agent",
-                          "identifier": "coder",
-                          "question": "Read the persisted current-plan and current-task handoffs, then run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\" --task-number <bound-task-number>` using the task number resolved from the current-task handoff. Has the normal repair removed every live implementation blocker from the bound task? Answer yes only when the current parser output positively confirms that `selected_task.live_blockers` is empty. Answer no when any live blocker remains or the evidence is unavailable, malformed, or uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
-                          "breakOn": "yes",
-                          "continueOnFailure": true,
-                          "continueOnInvalidResponse": true
-                        },
-                        {
-                          "type": "reset",
-                          "label": "Reset Stronger Implementation Blocker Repairer",
-                          "agentType": "research_agent",
-                          "identifier": "implementation_blocker_researcher"
-                        },
-                        {
-                          "type": "llm",
-                          "label": "Research And Resolve Remaining Implementation Blocker",
-                          "agentType": "research_agent",
-                          "identifier": "implementation_blocker_researcher",
-                          "continueOnFailure": true,
-                          "markdownFile": "research_implementation_blocker_repair.md"
-                        },
-                        {
-                          "type": "break",
-                          "label": "Exit Optional Stronger Implementation Repair After One Attempt",
-                          "agentType": "loop_control_agent",
-                          "identifier": "implementation_research_loop_controller",
-                          "question": "The optional stronger implementation-blocker repair has now had its single allowed invocation. Return exact JSON only: {\"answer\":\"yes\"}.",
-                          "breakOn": "yes",
-                          "breakOnFailure": true
-                        }
-                      ]
                     },
                     {
                       "type": "break",
@@ -247,12 +200,6 @@
                       "identifier": "loop_controller",
                       "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_ready_for_manual_testing.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
-                    },
-                    {
-                      "type": "reset",
-                      "label": "Reset coder before proof repair",
-                      "agentType": "coding_agent",
-                      "identifier": "coder"
                     },
                     {
                       "type": "llm",
@@ -454,16 +401,6 @@
               "markdownFile": "research_blocker_impact_on_plan.md"
             },
             {
-              "type": "break",
-              "label": "Exit story flow successfully while durable blocker remains",
-              "agentType": "loop_control_agent",
-              "identifier": "loop_controller",
-              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_blocker.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
-              "breakOn": "yes",
-              "exitFlow": true,
-              "decisionScript": "scripts/flow_control/check_current_task_has_blocker.py"
-            },
-            {
               "type": "llm",
               "label": "Refresh current plan handoff after planner edits",
               "agentType": "planning_agent_lite",
@@ -503,10 +440,17 @@
         },
         {
           "type": "llm",
+          "label": "Reset Review Cycle State",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite",
+          "markdownFile": "reset_review_cycle_state.md"
+        },
+        {
+          "type": "llm",
           "label": "Checkpoint Push Before Review Loop",
           "agentType": "planning_agent_lite",
           "identifier": "planner_lite",
-          "markdownFile": "checkpoint_push.md"
+          "markdownFile": "final_push.md"
         },
         {
           "type": "subflow",
@@ -515,33 +459,32 @@
         },
         {
           "type": "llm",
-          "label": "Refresh Plan Handoff After Review Settlement",
+          "label": "Generate Or Update Final Revalidation Task For Minor Fixes",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "markdownFile": "refresh_current_plan_handoff.md"
+          "markdownFile": "generate_or_update_minor_fix_revalidation_task.md"
         },
         {
           "type": "llm",
-          "label": "Repair Story State After Review Settlement",
+          "label": "Write Review No-Findings Closeout",
           "agentType": "planning_agent",
           "identifier": "planner",
-          "markdownFile": "repair_story_workflow_state.md"
+          "markdownFile": "write_review_no_findings_closeout.md"
         },
         {
           "type": "llm",
           "label": "Checkpoint Push Before Story Completion Check",
           "agentType": "planning_agent_lite",
           "identifier": "planner_lite",
-          "markdownFile": "checkpoint_push.md"
+          "markdownFile": "final_push.md"
         },
         {
           "type": "break",
-          "label": "Exit Story Loop When Plan And Review Are Complete",
+          "label": "Check for completion",
           "agentType": "loop_control_agent",
           "identifier": "loop_controller",
           "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_plan_scope_story_complete.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
-          "breakOn": "yes",
-          "decisionScript": "scripts/flow_control/check_plan_scope_story_complete.py"
+          "breakOn": "yes"
         }
       ]
     },

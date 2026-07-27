@@ -1161,9 +1161,8 @@ describe('flow schema (v1)', () => {
     );
   });
 
-  test('main implementation flows share one bounded stronger blocker repair with a fresh research agent', async () => {
+  test('review-enabled implementation flows share one bounded stronger blocker repair with a fresh research agent', async () => {
     const flowFiles = [
-      'flows/implement_next_plan.json',
       'flows/implement_current_plan.json',
       'flows/improve_task_implement_plan.json',
       'flows/task_and_implement_plan.json',
@@ -1302,9 +1301,8 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('main implementation flows reset the coder immediately before proof repair context', async () => {
+  test('review-enabled implementation flows reset the coder immediately before proof repair context', async () => {
     const flowFiles = [
-      'flows/implement_next_plan.json',
       'flows/implement_current_plan.json',
       'flows/improve_task_implement_plan.json',
       'flows/task_and_implement_plan.json',
@@ -1347,14 +1345,14 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('implement_current_plan preserves the persisted plan while retaining the canonical review path', async () => {
-    const [currentRaw, nextRaw, repairPrompt] = await Promise.all([
+  test('implement_current_plan preserves the persisted plan while retaining the review-enabled canonical path', async () => {
+    const [currentRaw, reviewEnabledRaw, repairPrompt] = await Promise.all([
       fs.readFile(
         path.join(repoRoot, 'flows/implement_current_plan.json'),
         'utf8',
       ),
       fs.readFile(
-        path.join(repoRoot, 'flows/implement_next_plan.json'),
+        path.join(repoRoot, 'flows/task_and_implement_plan.json'),
         'utf8',
       ),
       fs.readFile(
@@ -1366,10 +1364,12 @@ describe('flow schema (v1)', () => {
       ),
     ]);
     const current = JSON.parse(currentRaw) as { steps?: FlowStep[] };
-    const next = JSON.parse(nextRaw) as { steps?: FlowStep[] };
+    const reviewEnabled = JSON.parse(reviewEnabledRaw) as {
+      steps?: FlowStep[];
+    };
     const currentSteps = current.steps ?? [];
-    const nextSteps = next.steps ?? [];
-    const storyLoopIndex = nextSteps.findIndex(
+    const reviewEnabledSteps = reviewEnabled.steps ?? [];
+    const storyLoopIndex = reviewEnabledSteps.findIndex(
       (step) => step.label === 'Story Execution And Review Loop',
     );
     const flattened = flattenSteps(currentSteps);
@@ -1417,15 +1417,15 @@ describe('flow schema (v1)', () => {
       }));
     assert.deepEqual(
       normalizeCurrentRepairPrompt(currentSteps),
-      nextSteps.slice(storyLoopIndex),
+      reviewEnabledSteps.slice(storyLoopIndex),
     );
     assert.match(repairPrompt, /retain its exact `plan_path`/u);
     assert.match(repairPrompt, /Never run next-plan discovery/u);
     assert.match(repairPrompt, /no different plan was selected/u);
   });
 
-  test('main implementation flows share the canonical execution, review, and closeout suffix', async () => {
-    const canonicalPath = 'flows/implement_next_plan.json';
+  test('review-enabled implementation flows share the canonical execution, review, and closeout suffix', async () => {
+    const canonicalPath = 'flows/task_and_implement_plan.json';
     const canonicalRaw = await fs.readFile(
       path.join(repoRoot, canonicalPath),
       'utf8',
@@ -1457,10 +1457,7 @@ describe('flow schema (v1)', () => {
       );
     }
 
-    for (const relativePath of [
-      'flows/task_and_implement_plan.json',
-      'flows/improve_task_implement_plan.json',
-    ]) {
+    for (const relativePath of ['flows/improve_task_implement_plan.json']) {
       const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
       const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
       const steps = parsed.steps ?? [];
@@ -1488,10 +1485,9 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('main implementation flows use the direct outer story completion decision', async () => {
+  test('review-enabled implementation flows use the direct outer story completion decision', async () => {
     for (const relativePath of [
       'flows/implement_current_plan.json',
-      'flows/implement_next_plan.json',
       'flows/implement_next_plan_github_review.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
@@ -1501,7 +1497,10 @@ describe('flow schema (v1)', () => {
       const storyLoop = (parsed.steps ?? []).find(
         (step) => step.label === 'Story Execution And Review Loop',
       );
-      assert.ok(storyLoop?.steps, `${relativePath} should define the story loop`);
+      assert.ok(
+        storyLoop?.steps,
+        `${relativePath} should define the story loop`,
+      );
 
       const labels = storyLoop.steps.map((step) => step.label);
       assertOrdered(
@@ -1537,6 +1536,46 @@ describe('flow schema (v1)', () => {
       );
       assert.equal(completionGates[0]?.breakOn, 'yes', relativePath);
     }
+  });
+
+  test('implement_next_plan preserves the comparison-base review settlement and completion gate', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/implement_next_plan.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const storyLoop = (parsed.steps ?? []).find(
+      (step) => step.label === 'Story Execution And Review Loop',
+    );
+    assert.ok(storyLoop?.steps);
+
+    const labels = storyLoop.steps.map((step) => step.label);
+    assertOrdered(
+      labels,
+      'Reset Review Cycle State',
+      'Checkpoint Push Before Review Loop',
+    );
+    assertOrdered(
+      labels,
+      'Run Two-Phase Review Cycle',
+      'Generate Or Update Final Revalidation Task For Minor Fixes',
+    );
+    assertOrdered(
+      labels,
+      'Generate Or Update Final Revalidation Task For Minor Fixes',
+      'Write Review No-Findings Closeout',
+    );
+    assertOrdered(
+      labels,
+      'Write Review No-Findings Closeout',
+      'Checkpoint Push Before Story Completion Check',
+    );
+
+    const completionGate = storyLoop.steps.find(
+      (step) => step.label === 'Check for completion',
+    );
+    assert.equal(completionGate?.decisionScript, undefined);
+    assert.equal(completionGate?.breakOn, 'yes');
   });
 
   test('two-phase review helpers reset review agents at review-owned boundaries', async () => {
@@ -1773,7 +1812,7 @@ describe('flow schema (v1)', () => {
   test('review flows initialize state before agent-native disposition and settlement tasking', async () => {
     const finalReviewFlowFiles = [
       'flows/implement_current_plan.json',
-      'flows/implement_next_plan.json',
+      'flows/implement_next_plan_github_review.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
     ] as const;
@@ -1856,10 +1895,10 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('main implementation flows include story repair and review settlement audit', async () => {
+  test('review-enabled implementation flows include story repair and review settlement audit', async () => {
     const flowFiles = [
       'flows/implement_current_plan.json',
-      'flows/implement_next_plan.json',
+      'flows/implement_next_plan_github_review.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
     ] as const;
@@ -1884,10 +1923,10 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('main implementation flows apply and audit agent-native review settlement', async () => {
+  test('review-enabled implementation flows apply and audit agent-native review settlement', async () => {
     const flowFiles = [
       'flows/implement_current_plan.json',
-      'flows/implement_next_plan.json',
+      'flows/implement_next_plan_github_review.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
     ] as const;
@@ -1917,10 +1956,10 @@ describe('flow schema (v1)', () => {
     }
   });
 
-  test('main implementation flows keep mid-loop pushes persistence-only and force settlement before completion', async () => {
+  test('review-enabled implementation flows keep mid-loop pushes persistence-only and force settlement before completion', async () => {
     const flowFiles = [
       'flows/implement_current_plan.json',
-      'flows/implement_next_plan.json',
+      'flows/implement_next_plan_github_review.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
     ] as const;
@@ -2508,7 +2547,7 @@ describe('flow schema (v1)', () => {
   test('story implementation flows exit successfully instead of halting on durable blockers', async () => {
     for (const relativePath of [
       'flows/implement_current_plan.json',
-      'flows/implement_next_plan.json',
+      'flows/implement_next_plan_github_review.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
     ]) {

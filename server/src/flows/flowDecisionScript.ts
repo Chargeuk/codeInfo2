@@ -96,18 +96,30 @@ export type FlowDecisionScriptExecutionResult =
 
 export const executeTrackedFlowDecisionScript = async (params: {
   workingFolder: string;
+  scriptRepositoryRoot?: string;
   decisionScript: string;
   timeoutMs: number;
   env?: NodeJS.ProcessEnv;
 }): Promise<FlowDecisionScriptExecutionResult> => {
+  let workingFolder: string;
   let repositoryRoot: string;
   let scriptPath: string;
   try {
-    repositoryRoot = await fsPromises.realpath(params.workingFolder);
+    workingFolder = await fsPromises.realpath(params.workingFolder);
   } catch {
     return {
       ok: false,
       reason: `Worked repository root could not be resolved: ${params.workingFolder}`,
+    };
+  }
+  try {
+    repositoryRoot = await fsPromises.realpath(
+      params.scriptRepositoryRoot ?? params.workingFolder,
+    );
+  } catch {
+    return {
+      ok: false,
+      reason: `Script repository root could not be resolved: ${params.scriptRepositoryRoot ?? params.workingFolder}`,
     };
   }
   try {
@@ -162,7 +174,7 @@ export const executeTrackedFlowDecisionScript = async (params: {
 
   return new Promise<FlowDecisionScriptExecutionResult>((resolve) => {
     const child = spawnProcess('python3', [scriptPath], {
-      cwd: repositoryRoot,
+      cwd: workingFolder,
       env: params.env,
     });
     let stdout = '';

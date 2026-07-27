@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 import {
+  executeTrackedFlowDecisionScript,
   resolveFlowDecisionScriptPath,
   runFlowDecisionScript,
 } from '../../flows/flowDecisionScript.js';
@@ -80,5 +82,47 @@ test('flow decision scripts execute with the repository working folder and retur
     ]);
   } finally {
     fs.rmSync(codeInfoRoot, { recursive: true, force: true });
+  }
+});
+
+test('tracked harness decision scripts execute in the worked repository', async () => {
+  const scriptRepositoryRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'flow-script-repository-'),
+  );
+  const workingFolder = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'flow-working-repository-'),
+  );
+  try {
+    const flowControlRoot = path.join(
+      scriptRepositoryRoot,
+      'scripts',
+      'flow_control',
+    );
+    fs.mkdirSync(flowControlRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(flowControlRoot, 'check_working_folder.py'),
+      'import os\nprint(os.getcwd())\n',
+    );
+    execFileSync('git', ['init'], { cwd: scriptRepositoryRoot });
+    execFileSync(
+      'git',
+      ['add', 'scripts/flow_control/check_working_folder.py'],
+      { cwd: scriptRepositoryRoot },
+    );
+
+    const result = await executeTrackedFlowDecisionScript({
+      workingFolder,
+      scriptRepositoryRoot,
+      decisionScript: 'scripts/flow_control/check_working_folder.py',
+      timeoutMs: 5_000,
+    });
+
+    assert.deepEqual(result, {
+      ok: true,
+      stdout: fs.realpathSync(workingFolder),
+    });
+  } finally {
+    fs.rmSync(scriptRepositoryRoot, { recursive: true, force: true });
+    fs.rmSync(workingFolder, { recursive: true, force: true });
   }
 });

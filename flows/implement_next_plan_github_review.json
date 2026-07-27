@@ -511,7 +511,7 @@
         {
           "type": "subflow",
           "label": "Run Two-Phase Review Cycle",
-          "flowNames": ["two_phase_review_cycle_agent_native"]
+          "flowNames": ["two_phase_review_cycle"]
         },
         {
           "type": "llm",

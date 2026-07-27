@@ -22,7 +22,6 @@ export type FlowReviewBasePolicy = 'branched_from_or_default_if_merged';
 
 export type PreparedReviewBase = ReviewIdentity & {
   schema_version: 2;
-  parent_execution_id?: string;
   branched_from: string | null;
   repo_alias: string;
   target_id?: string;
@@ -569,7 +568,6 @@ export async function prepareReviewBase(
     workingRepositoryPath: string;
     outputKey: string;
     basePolicy?: FlowReviewBasePolicy;
-    parentExecutionId?: string;
     initializeReviewPointers?: boolean;
     explicitScope?: ExplicitReviewBaseScope;
     signal?: AbortSignal;
@@ -584,12 +582,9 @@ export async function prepareReviewBase(
   );
   if (
     params.explicitScope &&
-    path.resolve(params.explicitScope.target.repoRoot) !==
-      path.resolve(repoRoot)
+    path.resolve(params.explicitScope.target.repoRoot) !== path.resolve(repoRoot)
   ) {
-    throw new Error(
-      'Explicit review target does not match the resolved repository.',
-    );
+    throw new Error('Explicit review target does not match the resolved repository.');
   }
   const outputKey = ensureSafeOutputKey(params.outputKey);
   const basePolicy = params.basePolicy ?? 'branched_from_or_default_if_merged';
@@ -610,9 +605,7 @@ export async function prepareReviewBase(
     planPath = params.explicitScope.planPath;
     storyNumber = params.explicitScope.storyNumber;
     if (deriveCanonicalStoryId(planPath) !== storyNumber) {
-      throw new Error(
-        'Explicit review scope story does not match its plan path.',
-      );
+      throw new Error('Explicit review scope story does not match its plan path.');
     }
     currentPlanBranchedFrom = params.explicitScope.branchedFrom;
   } else {
@@ -716,9 +709,6 @@ export async function prepareReviewBase(
   const artifact: PreparedReviewBase = {
     schema_version: 2,
     ...identity,
-    ...(params.parentExecutionId
-      ? { parent_execution_id: params.parentExecutionId }
-      : {}),
     branched_from: currentPlanBranchedFrom,
     repo_alias: params.explicitScope?.target.repoAlias ?? 'current_repository',
     ...(params.explicitScope

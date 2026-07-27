@@ -2025,9 +2025,9 @@ test('github review runtime keeps the newer execution selector authoritative aft
         }
         if (params.args[0] === 'pr' && params.args[1] === 'create') {
           return {
-            exitCode: 1,
-            stdout: '',
-            stderr: 'connection dropped after create',
+            exitCode: 0,
+            stdout: 'https://github.com/example/repo/pull/45\n',
+            stderr: '',
           };
         }
         const endpoint = params.args.at(-1) ?? '';
@@ -2040,6 +2040,7 @@ test('github review runtime keeps the newer execution selector authoritative aft
             stdout: JSON.stringify({
               number: 45,
               html_url: 'https://github.com/example/repo/pull/45',
+              state: 'open',
               head: {
                 ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
               },
@@ -2665,7 +2666,7 @@ test('github review resume keeps execution-scoped fetch and close authority even
   }
 });
 
-test('github review resume rejects a persisted and resumed PR identity mismatch', async () => {
+test('github review fetch failure rejects a persisted and resumed PR identity mismatch without scheduling a retry wait', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {
     const selectorPath = path.join(
@@ -2926,32 +2927,13 @@ test('github review resume rejects a persisted and resumed PR identity mismatch'
           ).length,
           1,
         );
-        await waitForPredicate(
-          () => {
-            const flowState = (memoryConversations.get(conversationId)?.flags ??
-              {}) as {
-              flow?: {
-                wait?: {
-                  kind?: string;
-                  stepPath?: number[];
-                  githubReviewContext?: { retryAttempt?: number };
-                };
-              };
-            };
-            return (
-              flowState.flow?.wait?.kind === 'review_retry' &&
-              flowState.flow.wait.githubReviewContext?.retryAttempt === 1
-            );
-          },
-          4000,
-          'Timed out waiting for the failed review stage to persist retry ownership',
-        );
+        await delay(50);
         const retryWait = (
           (memoryConversations.get(conversationId)?.flags ?? {}) as {
-            flow?: { wait?: { stepPath?: number[] } };
+            flow?: { wait?: { kind?: string; stepPath?: number[] } };
           }
         ).flow?.wait;
-        assert.deepEqual(retryWait?.stepPath, [0]);
+        assert.notEqual(retryWait?.kind, 'review_retry');
 
         const updatedHandoff = await readGitHubReviewScratch({
           handoffPath,
@@ -3048,6 +3030,7 @@ test('github review resume verifies the exact resumed PR when the execution-scop
               stdout: JSON.stringify({
                 number: 78,
                 html_url: 'https://github.com/example/repo/pull/78',
+                state: 'open',
                 head: {
                   ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
                 },

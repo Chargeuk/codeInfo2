@@ -315,9 +315,6 @@ export const GITHUB_REVIEW_HANDOFF_KIND = 'github-review-handoff-v1';
 export const GITHUB_REVIEW_SELECTOR_KIND = 'github-review-selector-v1';
 export const MAX_GITHUB_REVIEW_SUBMISSIONS = 200;
 export const MAX_GITHUB_INLINE_REVIEW_COMMENTS = 200;
-const GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS = [
-  0, 1_000, 2_000, 5_000, 10_000,
-] as const;
 const GITHUB_FILE_LOCK_TIMEOUT_MS = 30_000;
 const GITHUB_FILE_LOCK_STALE_MS = 5 * 60_000;
 
@@ -1110,81 +1107,6 @@ export const lookupLatestOpenPullRequest = async (params: {
   }
 };
 
-const buildMissingPullRequestLookupFailure =
-  (): GitHubCommandFailureDetail => ({
-    reason: 'INVALID_GITHUB_RESPONSE',
-    message:
-      'GitHub pull request creation completed but no latest open pull request could be resolved for the current branch.',
-  });
-
-const buildGitHubFailureDetail = (params: {
-  result: GitHubStepOutcome<GitHubPullRequestIdentity | null>;
-}): GitHubCommandFailureDetail => {
-  if (params.result.kind === 'error' || params.result.kind === 'skip') {
-    return {
-      reason: params.result.reason,
-      message: params.result.message,
-      stderr: params.result.stderr,
-      exitCode: params.result.exitCode,
-    };
-  }
-  return buildMissingPullRequestLookupFailure();
-};
-
-const lookupLatestOpenPullRequestWithRetry = async (params: {
-  repository: GitHubRepositoryState;
-  token: string;
-}): Promise<
-  | {
-      kind: 'ok';
-      value: GitHubPullRequestIdentity;
-      diagnostics: GitHubLookupRetryDiagnostic[];
-    }
-  | {
-      kind: 'error';
-      failure: GitHubCommandFailureDetail;
-      diagnostics: GitHubLookupRetryDiagnostic[];
-    }
-> => {
-  const diagnostics: GitHubLookupRetryDiagnostic[] = [];
-  for (const [
-    index,
-    waitMs,
-  ] of GITHUB_OPEN_PR_LOOKUP_RETRY_DELAYS_MS.entries()) {
-    if (waitMs > 0) await githubReviewDeps.sleep(waitMs);
-    const lookedUp = await lookupLatestOpenPullRequest({
-      repository: params.repository,
-      token: params.token,
-    });
-    if (lookedUp.kind === 'ok' && lookedUp.value) {
-      return {
-        kind: 'ok',
-        value: lookedUp.value,
-        diagnostics,
-      };
-    }
-    const failure = buildGitHubFailureDetail({
-      result: lookedUp,
-    });
-    diagnostics.push({
-      attemptNumber: index + 1,
-      waitMs,
-      ...failure,
-    });
-  }
-  const failure = diagnostics.at(-1) ?? buildMissingPullRequestLookupFailure();
-  return {
-    kind: 'error',
-    failure: {
-      reason: failure.reason,
-      message: failure.message,
-      stderr: failure.stderr,
-      exitCode: failure.exitCode,
-    },
-    diagnostics,
-  };
-};
-
 export const createPullRequest = async (params: {
   repository: GitHubRepositoryState;
   token: string;
@@ -1215,24 +1137,81 @@ export const createPullRequest = async (params: {
       lookupDiagnostics: [],
     };
   }
-  const lookedUp = await lookupLatestOpenPullRequestWithRetry({
-    repository: params.repository,
-    token: params.token,
-  });
-  if (lookedUp.kind !== 'ok') {
+
+  const createdUrl = normalizeTrimmedString(createResult.value.stdout);
+  let createdPullRequestNumber: number | undefined;
+  try {
+    const parsedUrl = createdUrl ? new URL(createdUrl) : null;
+    const pathSegments = parsedUrl?.pathname.split('/').filter(Boolean) ?? [];
+    const expectedPath = [
+      params.repository.repositoryOwner,
+      params.repository.repositoryName,
+      'pull',
+    ];
+    const parsedNumber = Number(pathSegments[3]);
+    if (
+      !parsedUrl ||
+      parsedUrl.protocol !== 'https:' ||
+      parsedUrl.hostname !== params.repository.repositoryHost ||
+      parsedUrl.search ||
+      parsedUrl.hash ||
+      pathSegments.length !== 4 ||
+      !expectedPath.every(
+        (segment, index) => pathSegments[index] === segment,
+      ) ||
+      !Number.isSafeInteger(parsedNumber) ||
+      parsedNumber <= 0 ||
+      String(parsedNumber) !== pathSegments[3]
+    ) {
+      throw new Error('The create command did not print the expected pull request URL.');
+    }
+    createdPullRequestNumber = parsedNumber;
+  } catch (error) {
     return {
       kind: 'error',
-      reason: lookedUp.failure.reason,
-      message: lookedUp.failure.message,
-      stderr: lookedUp.failure.stderr,
-      exitCode: lookedUp.failure.exitCode,
-      lookupDiagnostics: lookedUp.diagnostics,
+      reason: 'INVALID_GITHUB_RESPONSE',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'The create command did not print the expected pull request URL.',
+      lookupDiagnostics: [],
+    };
+  }
+
+  const lookedUp = await lookupPullRequestByNumber({
+    repository: params.repository,
+    token: params.token,
+    pullRequestNumber: createdPullRequestNumber,
+  });
+  if (
+    lookedUp.kind !== 'ok' ||
+    lookedUp.value.number !== createdPullRequestNumber ||
+    lookedUp.value.headRefName !== params.repository.upstreamBranch ||
+    lookedUp.value.baseRefName !== params.repository.baseBranch
+  ) {
+    return {
+      kind: 'error',
+      reason:
+        lookedUp.kind === 'ok'
+          ? 'INVALID_GITHUB_RESPONSE'
+          : lookedUp.reason,
+      message:
+        lookedUp.kind === 'ok'
+          ? 'GitHub pull request lookup did not return the created branch and base identity.'
+          : lookedUp.message,
+      ...(lookedUp.kind !== 'ok' && lookedUp.stderr
+        ? { stderr: lookedUp.stderr }
+        : {}),
+      ...(lookedUp.kind !== 'ok' && lookedUp.exitCode !== undefined
+        ? { exitCode: lookedUp.exitCode }
+        : {}),
+      lookupDiagnostics: [],
     };
   }
   return {
     kind: 'ok',
     value: lookedUp.value,
-    lookupDiagnostics: lookedUp.diagnostics,
+    lookupDiagnostics: [],
   };
 };
 
@@ -2305,12 +2284,41 @@ export const claimGitHubReviewScratchOwnership = async (params: {
   }
 };
 
+export const prepareGitHubReviewScratchOwnership = async (params: {
+  repository: GitHubRepositoryState;
+  executionId: string;
+}): Promise<GitHubStepOutcome<GitHubReviewScratchSelector>> => {
+  const planContext = await readCurrentPlanContext(
+    params.repository.workingRepositoryRoot,
+  );
+  if (planContext.kind !== 'ok') return planContext;
+  const scratchPaths = buildGitHubReviewScratchPaths(
+    params.repository.workingRepositoryRoot,
+    planContext.value.storyNumber,
+  );
+  return {
+    kind: 'ok',
+    value: {
+      selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
+      execution_id: params.executionId,
+      plan_path: planContext.value.planPath,
+      story_number: planContext.value.storyNumber,
+      repository_root: params.repository.workingRepositoryRoot,
+      branch_name: params.repository.upstreamBranch,
+      handoff_path: scratchPaths.buildExecutionScopedHandoffPath(
+        params.executionId,
+      ),
+    },
+  };
+};
+
 export const writeGitHubReviewScratch = async (params: {
   repository: GitHubRepositoryState;
   executionId: string;
   pullRequest: GitHubPullRequestIdentity;
   artifact: GitHubReviewArtifact;
   preserveForeignSelectorOwnership?: boolean;
+  replaceForeignSelectorOwnership?: boolean;
 }): Promise<GitHubStepOutcome<GitHubCurrentReviewHandoff>> => {
   const planContext = await readCurrentPlanContext(
     params.repository.workingRepositoryRoot,
@@ -2362,12 +2370,14 @@ export const writeGitHubReviewScratch = async (params: {
             validatedSelector.kind === 'ok' &&
             validatedSelector.value.execution_id !== params.executionId
           ) {
-            if (params.preserveForeignSelectorOwnership) {
-              return 'preserved';
+            if (!params.replaceForeignSelectorOwnership) {
+              if (params.preserveForeignSelectorOwnership) {
+                return 'preserved';
+              }
+              throw new Error(
+                'GitHub review selector already belongs to a newer or foreign flow execution and cannot be reclaimed by this run.',
+              );
             }
-            throw new Error(
-              'GitHub review selector already belongs to a newer or foreign flow execution and cannot be reclaimed by this run.',
-            );
           }
         }
         await writeJsonAtomically({

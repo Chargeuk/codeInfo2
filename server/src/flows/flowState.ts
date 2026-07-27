@@ -86,6 +86,7 @@ export type FlowGitHubReviewContext = {
   selectorPath?: string;
   handoffPath?: string;
   phase?: 'opened' | 'fetched' | 'skipped';
+  selectorPublicationPending?: boolean;
   retryAttempt?: number;
   retryStepPath?: number[];
   warningMessage?: string;

@@ -407,6 +407,19 @@ test('GitHub PR creation uses the remote upstream branch when its local name dif
             stderr: '',
           };
         }
+        if ((params.args.at(-1) ?? '').endsWith('/pulls/45')) {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({
+              number: 45,
+              html_url: 'https://github.com/example/repo/pull/45',
+              state: 'open',
+              head: { ref: 'feature/remote-review' },
+              base: { ref: 'main' },
+            }),
+            stderr: '',
+          };
+        }
         return {
           exitCode: 0,
           stdout: JSON.stringify([
@@ -438,22 +451,13 @@ test('GitHub PR creation uses the remote upstream branch when its local name dif
       (args) => args[0] === 'pr' && args[1] === 'create',
     );
     assert.equal(createArgs?.[createArgs.indexOf('--head') + 1], 'feature/remote-review');
-    assert.ok(
-      seenArgs.some((args) => {
-        const endpoint = args.at(-1);
-        return (
-          endpoint !== undefined &&
-          new URL(`https://example.test/${endpoint}`).searchParams.get('head') ===
-            'example:feature/remote-review'
-        );
-      }),
-    );
+    assert.ok(seenArgs.some((args) => args.at(-1) === 'repos/example/repo/pulls/45'));
   } finally {
     await tempRepo.cleanup();
   }
 });
 
-test('latest-open PR lookup uses explicit repository-plus-branch filtering and retries canonical post-create reconciliation', async () => {
+test('post-create reconciliation uses the PR number printed by gh instead of the latest open PR', async () => {
   const tempRepo = await createTempRepo();
   try {
     const pullPages = [
@@ -496,6 +500,22 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering and r
           };
         }
         const endpoint = params.args.at(-1) ?? '';
+        if (endpoint.endsWith('/pulls/45')) {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({
+              number: 45,
+              html_url: 'https://github.com/example/repo/pull/45',
+              state: 'open',
+              head: {
+                ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+              },
+              base: { ref: 'main' },
+              user: { login: 'review-bot' },
+            }),
+            stderr: '',
+          };
+        }
         const page = Number(
           new URL(`https://example.test/${endpoint}`).searchParams.get('page') ??
             '1',
@@ -514,6 +534,7 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering and r
     });
     assert.equal(latest.kind, 'ok');
     assert.equal(latest.value?.number, 145);
+    seenArgs.length = 0;
 
     const created = await createPullRequest({
       repository: baseRepositoryState(tempRepo.repoRoot),
@@ -522,82 +543,20 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering and r
       body: 'body',
     });
     assert.equal(created.kind, 'ok');
-    assert.equal(created.value.number, 145);
+    assert.equal(created.value.number, 45);
     assert.deepEqual(created.lookupDiagnostics, []);
     assert.ok(
       seenArgs.some((args) => {
         const endpoint = args.at(-1);
-        if (!endpoint) return false;
-        const parsed = new URL(`https://example.test/${endpoint}`);
-        return (
-          parsed.pathname === '/repos/example/repo/pulls' &&
-          parsed.searchParams.get('state') === 'open' &&
-          parsed.searchParams.get('head') ===
-            'example:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
-        );
+        return endpoint === 'repos/example/repo/pulls/45';
       }),
     );
-    assert.ok(seenArgs.every((args) => !args.includes('--paginate')));
-    assert.ok(seenArgs.every((args) => !args.includes('--slurp')));
-    assert.ok(
-      seenArgs.some((args) => (args.at(-1) ?? '').includes('page=2')),
+    assert.equal(
+      seenArgs.some((args) => (args.at(-1) ?? '').includes('?state=open')),
+      false,
     );
 
-    const retrySleepCalls: number[] = [];
-    let lookupAttempts = 0;
     __setGitHubReviewDepsForTests({
-      sleep: async (ms) => {
-        retrySleepCalls.push(ms);
-      },
-      runCommand: async (params) => {
-        if (params.args[0] === 'pr' && params.args[1] === 'create') {
-          return {
-            exitCode: 0,
-            stdout: 'https://github.com/example/repo/pull/45\n',
-            stderr: '',
-          };
-        }
-        lookupAttempts += 1;
-        if (lookupAttempts < 3) {
-          return {
-            exitCode: 1,
-            stdout: '',
-            stderr: `lookup attempt ${lookupAttempts} failed`,
-          };
-        }
-        const endpoint = params.args.at(-1) ?? '';
-        const page = Number(
-          new URL(`https://example.test/${endpoint}`).searchParams.get('page') ??
-            '1',
-        );
-        return {
-          exitCode: 0,
-          stdout: JSON.stringify(pullPages[page - 1] ?? []),
-          stderr: '',
-        };
-      },
-    });
-
-    const replayResolved = await createPullRequest({
-      repository: baseRepositoryState(tempRepo.repoRoot),
-      token: 'secret',
-      title: 'Story review',
-      body: 'body',
-    });
-    assert.equal(replayResolved.kind, 'ok');
-    assert.equal(replayResolved.value.number, 145);
-    assert.equal(replayResolved.lookupDiagnostics.length, 2);
-    assert.deepEqual(
-      replayResolved.lookupDiagnostics.map((diagnostic) => diagnostic.stderr),
-      ['lookup attempt 1 failed', 'lookup attempt 2 failed'],
-    );
-    assert.deepEqual(retrySleepCalls, [1000, 2000]);
-
-    const failedCreateSleepCalls: number[] = [];
-    __setGitHubReviewDepsForTests({
-      sleep: async (ms) => {
-        failedCreateSleepCalls.push(ms);
-      },
       runCommand: async (params) => {
         if (params.args[0] === 'pr' && params.args[1] === 'create') {
           return {
@@ -629,7 +588,6 @@ test('latest-open PR lookup uses explicit repository-plus-branch filtering and r
     assert.equal(failedCreate.reason, 'GITHUB_CLI_FAILED');
     assert.equal(failedCreate.stderr, 'connection dropped after create');
     assert.deepEqual(failedCreate.lookupDiagnostics, []);
-    assert.deepEqual(failedCreateSleepCalls, []);
   } finally {
     await tempRepo.cleanup();
   }

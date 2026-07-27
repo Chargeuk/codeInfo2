@@ -1470,7 +1470,7 @@ test('exhausted nested GitHub review recovery skips the marked review branch', a
   }
 });
 
-test('a different failed GitHub review step starts with a fresh recovery budget', async () => {
+test('a different failed GitHub close step starts with a fresh recovery budget', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-github-recovery-new-step-'),
   );
@@ -1482,7 +1482,7 @@ test('a different failed GitHub review step starts with a fresh recovery budget'
         description: 'Reset recovery for a different step',
         steps: [
           { type: 'wait', label: 'Completed review wait', seconds: 60 },
-          { type: 'github_fetch_reviews', label: 'Fetch review' },
+          { type: 'github_close_pr', label: 'Close review' },
         ],
       },
       null,

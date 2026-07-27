@@ -218,7 +218,6 @@ import type {
 import {
   appendGitHubReviewPlanNote,
   buildGitHubReviewScratchPaths,
-  claimGitHubReviewScratchOwnership,
   materializeGitHubExternalReviewInput,
   closePullRequest,
   createPullRequest,
@@ -229,6 +228,7 @@ import {
   lookupLatestOpenPullRequest,
   reconcileResumedGitHubReviewPullRequest,
   pushBranchToExistingUpstream,
+  prepareGitHubReviewScratchOwnership,
   readGitHubReviewScratch,
   readWorkedRepositoryGitHubToken,
   resolveCanonicalGitHubReviewScratchPaths,
@@ -1310,6 +1310,9 @@ const parseFlowGitHubReviewContext = (
     value.phase === 'fetched' ||
     value.phase === 'skipped'
       ? { phase: value.phase }
+      : {}),
+    ...(value.selectorPublicationPending === true
+      ? { selectorPublicationPending: true }
       : {}),
     ...(typeof value.retryAttempt === 'number' &&
     Number.isInteger(value.retryAttempt) &&
@@ -8119,12 +8122,12 @@ async function runFlowUnlocked(params: {
       typeof activeGitHubReviewContext.prNumber === 'number' &&
       !activeGitHubReviewContext.storyNumber
     ) {
-      const scratchOwnershipClaim = await claimGitHubReviewScratchOwnership({
+      const scratchOwnershipClaim = await prepareGitHubReviewScratchOwnership({
         repository: context.value.repository,
         executionId: params.executionId,
       });
       if (scratchOwnershipClaim.kind !== 'ok') {
-        const warningMessage = `GitHub review stage could not restore scratch ownership for pull request #${String(activeGitHubReviewContext.prNumber)}: ${scratchOwnershipClaim.message}`;
+        const warningMessage = `GitHub review stage could not prepare scratch context for pull request #${String(activeGitHubReviewContext.prNumber)}: ${scratchOwnershipClaim.message}`;
         await appendGitHubStagePlanNote(warningMessage);
         await emitGitHubStepWarning({
           instruction: 'GitHub open PR step',
@@ -8273,12 +8276,12 @@ async function runFlowUnlocked(params: {
       phase: 'opened',
       retryAttempt: 0,
     };
-    const scratchOwnershipClaim = await claimGitHubReviewScratchOwnership({
+    const scratchOwnershipClaim = await prepareGitHubReviewScratchOwnership({
       repository: context.value.repository,
       executionId: params.executionId,
     });
     if (scratchOwnershipClaim.kind !== 'ok') {
-      const warningMessage = `GitHub review stage could not persist scratch ownership after opening pull request #${String(createResult.value.number)}: ${scratchOwnershipClaim.message}`;
+      const warningMessage = `GitHub review stage could not prepare scratch context after opening pull request #${String(createResult.value.number)}: ${scratchOwnershipClaim.message}`;
       await appendGitHubStagePlanNote(warningMessage);
       await emitGitHubStepWarning({
         instruction: 'GitHub open PR step',
@@ -8298,6 +8301,7 @@ async function runFlowUnlocked(params: {
       ).selectorPath,
       handoffPath: scratchOwnershipClaim.value.handoff_path,
       phase: 'opened',
+      selectorPublicationPending: true,
       retryAttempt: 0,
     };
     return 'ok';
@@ -8486,6 +8490,8 @@ async function runFlowUnlocked(params: {
       preserveForeignSelectorOwnership: Boolean(
         activeGitHubReviewContext?.executionId,
       ),
+      replaceForeignSelectorOwnership:
+        activeGitHubReviewContext?.selectorPublicationPending === true,
     });
     if (scratchWriteResult.kind !== 'ok') {
       await appendGitHubStagePlanNote(
@@ -11417,13 +11423,7 @@ async function runFlowUnlocked(params: {
         const status = await runGitHubFetchReviewsStep();
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          const recovery = await recoverGitHubReviewStepFailure(
-            status,
-            nextPath,
-            nativeGitHubRecovery,
-          );
-          if (recovery) return recovery;
-          continue;
+          return status;
         }
         lastCompletedStepPath = nextPath;
         clearContinueBoundaryForActiveLoop();

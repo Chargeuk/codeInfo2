@@ -12,6 +12,7 @@ import {
   claimGitHubReviewScratchOwnership,
   GITHUB_REVIEW_HANDOFF_KIND,
   GITHUB_REVIEW_SELECTOR_KIND,
+  prepareGitHubReviewScratchOwnership,
   readGitHubReviewScratch,
   resolveCanonicalGitHubReviewScratchPaths,
   writeGitHubReviewScratch,
@@ -122,6 +123,54 @@ const buildExecutionScopedHandoffPath = (
     repoRoot,
     `codeInfoTmp/reviews/0000060-github-review-${executionId}-current.json`,
   );
+
+test('preparing GitHub review scratch context does not publish an active selector before fetch succeeds', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const prepared = await prepareGitHubReviewScratchOwnership({
+      repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'prepared',
+    });
+    assert.equal(prepared.kind, 'ok');
+    assert.equal(
+      await fs
+        .access(buildSelectorPath(tempRepo.repoRoot))
+        .then(() => true)
+        .catch(() => false),
+      false,
+    );
+
+    const written = await writeGitHubReviewScratch({
+      repository: buildRepositoryState(tempRepo.repoRoot),
+      executionId: 'prepared',
+      pullRequest: {
+        number: 45,
+        url: 'https://github.com/example/repo/pull/45',
+        headRefName: 'feature/0000060-demo',
+        baseRefName: 'main',
+      },
+      artifact: {
+        repository: { owner: 'example', name: 'repo' },
+        pullRequest: {
+          number: 45,
+          url: 'https://github.com/example/repo/pull/45',
+          headRefName: 'feature/0000060-demo',
+          baseRefName: 'main',
+        },
+        fetchedAt: '2026-07-27T16:00:00Z',
+        reviews: [],
+        reviewComments: [],
+      },
+    });
+    assert.equal(written.kind, 'ok');
+    const selector = JSON.parse(
+      await fs.readFile(buildSelectorPath(tempRepo.repoRoot), 'utf8'),
+    ) as GitHubReviewScratchSelector;
+    assert.equal(selector.execution_id, 'prepared');
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
 
 test('failed execution-scoped scratch publish leaves the last valid selector-owned handoff authoritative', async () => {
   const tempRepo = await createTempRepo();

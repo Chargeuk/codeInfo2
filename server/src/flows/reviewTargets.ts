@@ -14,11 +14,7 @@ import {
   resolveBaseComparison,
   resolveReviewRepositoryRoot,
 } from './reviewBase.js';
-import {
-  atomicWriteJson,
-  buildReviewArtifactPath,
-  deriveCanonicalStoryId,
-} from './reviewIdentity.js';
+import { atomicWriteJson, deriveCanonicalStoryId } from './reviewIdentity.js';
 
 const execFile = promisify(execFileCb);
 const BRANCH_STORY_PATTERN = /^(\d{7})(?:-|$)/u;
@@ -84,30 +80,6 @@ const defaultDeps: ReviewTargetDeps = {
   execFile,
   now: () => new Date(),
   randomHex: () => crypto.randomBytes(4).toString('hex'),
-};
-
-const stableTargetPromotionLocks = new Map<string, Promise<void>>();
-
-const withStableTargetPromotionLock = async <T>(
-  key: string,
-  operation: () => Promise<T>,
-): Promise<T> => {
-  const previous = stableTargetPromotionLocks.get(key) ?? Promise.resolve();
-  let release!: () => void;
-  const current = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const queued = previous.then(() => current);
-  stableTargetPromotionLocks.set(key, queued);
-  await previous;
-  try {
-    return await operation();
-  } finally {
-    release();
-    if (stableTargetPromotionLocks.get(key) === queued) {
-      stableTargetPromotionLocks.delete(key);
-    }
-  }
 };
 
 const nonEmptyString = (value: unknown, label: string): string => {
@@ -186,7 +158,6 @@ export async function prepareReviewTargets(
   deps: Partial<ReviewTargetDeps> = {},
 ): Promise<{
   snapshot: ReviewTargetSnapshot;
-  stablePath: string;
   versionedPath: string;
 }> {
   const resolvedDeps = { ...defaultDeps, ...deps };
@@ -385,29 +356,11 @@ export async function prepareReviewTargets(
     reviewRoot,
     `${reviewWaveId}-review-targets.json`,
   );
-  const stablePath = buildReviewArtifactPath({
-    repoRoot: planHostRoot,
-    storyId,
-    outputKey: 'current-review-targets',
-  });
   const atomicDeps = {
     mkdir: resolvedDeps.mkdir,
     rename: resolvedDeps.rename,
     writeFile: resolvedDeps.writeFile,
   };
   await atomicWriteJson(versionedPath, snapshot, atomicDeps);
-  await withStableTargetPromotionLock(stablePath, async () => {
-    let currentCreatedAt = '';
-    try {
-      const current = JSON.parse(
-        await resolvedDeps.readFile(stablePath, 'utf8'),
-      ) as Partial<ReviewTargetSnapshot>;
-      currentCreatedAt = current.created_at ?? '';
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    }
-    if (currentCreatedAt > snapshot.created_at) return;
-    await atomicWriteJson(stablePath, snapshot, atomicDeps);
-  });
-  return { snapshot, stablePath, versionedPath };
+  return { snapshot, versionedPath };
 }

@@ -1969,7 +1969,7 @@ describe('flow schema (v1)', () => {
         (step, index) =>
           index > checkpointIndex &&
           step.type === 'break' &&
-          step.label === 'Check for completion',
+          step.label === 'Exit Story Loop When Plan And Review Are Complete',
       );
 
       assert.ok(

@@ -7707,14 +7707,14 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run build:summary:client`.
-3. [ ] Run `npm run compose:build:summary`.
-4. [ ] Run `npm run test:summary:all:parallel`, recording coverage of the full client suite, server unit/integration suite, server Cucumber suite, and Playwright e2e flow.
-5. [ ] Start the supported main stack with `npm run compose:up` for the normal-runtime smoke proof.
-6. [ ] Stop the stack started by this task with `npm run compose:down`.
-7. [ ] Run `npm run lint` and fix any story-caused issues.
-8. [ ] Run `npm run format:check` and fix any story-caused issues.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run build:summary:client`.
+3. [x] Run `npm run compose:build:summary`.
+4. [x] Run `npm run test:summary:all:parallel`, recording coverage of the full client suite, server unit/integration suite, server Cucumber suite, and Playwright e2e flow.
+5. [x] Start the supported main stack with `npm run compose:up` for the normal-runtime smoke proof.
+6. [x] Stop the stack started by this task with `npm run compose:down`.
+7. [x] Run `npm run lint` and fix any story-caused issues.
+8. [x] Run `npm run format:check` and fix any story-caused issues.
 
 #### Manual Testing Guidance
 
@@ -7726,3 +7726,12 @@ Record the final validated HEAD, every full wrapper result, any same-task repair
 
 - Completed the lint subtask: `npm run lint` passed with exit code 0 and no story-caused issues required repair.
 - Completed the formatting subtask: `npm run format:check` passed with exit code 0; all matched files used Prettier style and no repair was needed.
+- Completed testing step 1: `npm run build:summary:server` passed with exit code 0 and no warnings.
+- Completed testing step 2: `npm run build:summary:client` passed with exit code 0; the wrapper reported only the existing Rollup chunk-size warning.
+- Completed testing step 3: `npm run compose:build:summary` passed with 2 items passed and 0 failed.
+- Same-task repair after the initial full-suite run: the Copilot discovery-failure test now asserts the documented fail-closed `503` response when no endpoint can be inferred, and the OpenCode workspace prompt now states the exact running-handle continuation contract required by its guard test; both focused server-unit reruns passed.
+- Completed testing step 4: `npm run test:summary:all:parallel` passed with client 900/900, server unit 2642/2642, server Cucumber 133/133, and Playwright e2e 77/77; all four exit codes were 0.
+- Completed testing step 5: `npm run compose:up` started the supported main stack successfully; MongoDB and server health checks reached healthy and the client started.
+- Completed testing step 6: `npm run compose:down` stopped and removed the stack started by this task successfully.
+- Completed testing step 7: `npm run lint` passed with exit code 0 and no warnings.
+- Completed testing step 8: `npm run format:check` passed with exit code 0; all matched files used Prettier style.

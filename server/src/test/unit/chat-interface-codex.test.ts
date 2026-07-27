@@ -213,54 +213,6 @@ describe('ChatInterfaceCodex', () => {
     assert.equal(finals[0]?.content, 'I can help with that.');
   });
 
-  it('returns only the last assistant item when finalAnswerOnly is enabled', async () => {
-    resetMemory();
-    setCodexDetection({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    });
-    const finals: string[] = [];
-    const events = async function* () {
-      yield { type: 'thread.started', thread_id: 'tid-final-only' };
-      yield {
-        type: 'item.completed',
-        item: {
-          type: 'agent_message',
-          id: 'progress',
-          text: 'I am checking the repository.',
-        },
-      };
-      yield {
-        type: 'item.completed',
-        item: {
-          type: 'agent_message',
-          id: 'answer',
-          text: 'The concise final answer.',
-        },
-      };
-      yield { type: 'turn.completed' };
-    };
-    const thread = {
-      id: 'tid-final-only',
-      runStreamed: async () => ({ events: events() }),
-    };
-    const chat = new TestChatInterfaceCodex(() => ({
-      startThread: () => thread,
-      resumeThread: () => thread,
-    }));
-    chat.on('final', (event) => finals.push(event.content));
-
-    await chat.run(
-      'Hello',
-      { threadId: null, finalAnswerOnly: true },
-      'conv-final-only',
-      'gpt-5',
-    );
-
-    assert.deepEqual(finals, ['The concise final answer.']);
-  });
-
   it('keeps interleaved assistant item updates isolated by item id', async () => {
     resetMemory();
     setCodexDetection({

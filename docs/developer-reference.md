@@ -131,8 +131,8 @@ Use this document for API contracts, protocol details, and advanced runtime beha
   - MCP v2 JSON-RPC server on `CODEINFO_CHAT_MCP_PORT` (tooling: `codebase_question`, `reingest_repository`, documented under **MCP v2 tools** below).
     Their response conventions differ and must remain stable; shared MCP infrastructure lives under `server/src/mcpCommon/`.
 - Retrieval boundary: treat `codebase_question` / `code_info` as a repository-search helper for repository facts, likely file locations, summaries of existing implementations, and current contracts. After retrieval, inspect the relevant source files directly and do your own reasoning; the tool reduces search cost, but it does not replace implementation design, risk assessment, or review by the working model.
-- Caller guidance for `codebase_question`: send `question`, the current repository id/path when known, and optionally `conversationId` for follow-up turns.
-- Fast mode starts Codex with low reasoning effort, instructs the nested agent to use two focused vector searches plus four bounded evidence actions, returns only the last completed assistant message, caps vector payload defaults at 15,000 total characters and 2,500 characters per chunk, and caps AST symbol listings at 50. The payload caps can be overridden with `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
+- Caller guidance for `codebase_question`: send `question` and optionally `conversationId` for follow-up turns.
+- Codex calls use low reasoning effort and bounded repository-research instructions. Vector payload defaults are capped at 15,000 total characters and 2,500 characters per chunk, while AST symbol listings are capped at 50. The payload caps can be overridden with `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
 - Use `provider` only when the user explicitly asked for a provider-specific run.
 - Use `model` only when the user explicitly asked for a model-specific run.
 - When `provider` and `model` are omitted, the server resolves them through the shared default-selection contract.

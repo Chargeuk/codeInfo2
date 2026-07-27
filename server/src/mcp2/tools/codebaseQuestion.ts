@@ -66,7 +66,6 @@ import {
 } from '../../lmstudio/toolService.js';
 import { append } from '../../logStore.js';
 import { appendSummaryBackedTransitiveConsumerLogs } from '../../logging/transitiveConsumerMarkers.js';
-import { resolveRepositorySelector } from '../../mcpCommon/repositorySelector.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {
@@ -101,14 +100,12 @@ const GENERIC_CODEX_EXEC_STARTUP_BANNER =
   'Codex Exec exited with code 1: Reading prompt from stdin...';
 const TASK8_LOG_MARKER = 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED';
 const REPLAY_ID_REGEX = /^[A-Za-z0-9._:-]{1,128}$/u;
-export const FAST_CODEBASE_QUESTION_SYSTEM_PROMPT = `Fast repository-research mode is active.
-- Work only inside the selected repository and scope every indexed query to it.
-- Use two focused VectorSearch queries, then at most four additional evidence actions.
-- Prefer exact symbol queries and bounded file ranges. Never dump whole files, request more than 50 AST symbols, or run broad recursive searches that can return large output.
-- Keep every shell result below 10,000 characters and every file read below 200 lines.
-- Stop researching as soon as the answer is supported. Do not investigate inactive providers or unrelated implementations.
-- Do not narrate progress in the final answer. Return only the concise, evidence-backed answer, no longer than 8,000 characters.
-- External documentation is only required when the question actually depends on external API or version-specific behavior.`;
+const CODEBASE_QUESTION_SYSTEM_PROMPT = `Answer this repository question using bounded research.
+- Use at most two focused VectorSearch queries and four additional evidence actions.
+- Prefer exact symbols and bounded ranges; do not dump files or run broad recursive searches.
+- Limit AST requests to 50 symbols, shell output to 10,000 characters, file reads to 200 lines, and the final answer to 8,000 characters.
+- Stop as soon as the evidence supports a concise answer. Return only that answer without progress narration.
+- Use external documentation only for API- or version-specific questions.`;
 const paramsSchema = z
   .object({
     question: z.string().min(1),
@@ -116,7 +113,6 @@ const paramsSchema = z
     replayId: z.string().min(1).max(128).regex(REPLAY_ID_REGEX).optional(),
     provider: z.enum(['codex', 'copilot', 'lmstudio']).optional(),
     model: z.string().min(1).optional(),
-    repository: z.string().trim().min(1).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -1029,15 +1025,6 @@ async function executeCodebaseQuestion(
   let mutableConversation = existingConversation;
   let knownRepositoryPathsState: KnownRepositoryPathsState | undefined =
     undefined;
-  let listedRepositoriesPromise:
-    | ReturnType<typeof listIngestedRepositories>
-    | undefined;
-  const getListedRepositories = () => {
-    listedRepositoriesPromise ??= (
-      deps.listIngestedRepositoriesFn ?? listIngestedRepositories
-    )();
-    return listedRepositoriesPromise;
-  };
   const persistWorkingFolder = async (
     workingFolder?: string | null,
     expectedWorkingFolder?: string | null,
@@ -1077,26 +1064,11 @@ async function executeCodebaseQuestion(
     return updated?.flags?.workingFolder?.trim();
   };
 
-  if (parsed.repository) {
-    const selectedRepository = await resolveRepositorySelector(
-      parsed.repository,
-      {
-        listIngestedRepositories: getListedRepositories,
-      },
-    );
-    if (!selectedRepository) {
-      throw new InvalidParamsError('Unknown repository selector', {
-        repository: parsed.repository,
-      });
-    }
-    effectiveWorkingFolder =
-      selectedRepository.hostPath || selectedRepository.containerPath;
-    await persistWorkingFolder(effectiveWorkingFolder);
-  }
-
   try {
     try {
-      const repos = await getListedRepositories();
+      const repos = await (
+        deps.listIngestedRepositoriesFn ?? listIngestedRepositories
+      )();
       knownRepositoryPathsState = knownRepositoryPathsAvailable(
         repos.repos.flatMap((repo) =>
           getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
@@ -1104,20 +1076,11 @@ async function executeCodebaseQuestion(
           ),
         ),
       );
-      if (
-        !parsed.repository &&
-        !mutableConversation &&
-        repos.repos.length === 1
-      ) {
-        const onlyRepository = repos.repos[0];
-        effectiveWorkingFolder =
-          onlyRepository?.hostPath || onlyRepository?.containerPath;
-      }
     } catch {
       // ignore and fall back to later retry logic when appropriate
     }
 
-    if (mutableConversation && !effectiveWorkingFolder) {
+    if (mutableConversation) {
       effectiveWorkingFolder = await restoreSavedWorkingFolder({
         conversation: mutableConversation,
         surface: 'mcp_codebase_question',
@@ -1169,7 +1132,11 @@ async function executeCodebaseQuestion(
     ) {
       knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
         async () =>
-          (await getListedRepositories()).repos.flatMap((repo) =>
+          (
+            await (
+              deps.listIngestedRepositoriesFn ?? listIngestedRepositories
+            )()
+          ).repos.flatMap((repo) =>
             getAdvertisedRepositoryIdentityPaths(repo).map((entry) =>
               path.resolve(entry),
             ),
@@ -1557,8 +1524,7 @@ async function executeCodebaseQuestion(
                 : undefined,
               runtimeConfig: chatRuntimeConfig,
               codexFlags: threadOpts,
-              systemPrompt: FAST_CODEBASE_QUESTION_SYSTEM_PROMPT,
-              finalAnswerOnly: true,
+              systemPrompt: CODEBASE_QUESTION_SYSTEM_PROMPT,
               inflightId,
               workingDirectoryOverride:
                 executionContext.workingDirectoryOverride,
@@ -1585,7 +1551,6 @@ async function executeCodebaseQuestion(
             runtime: runtimeMetadata,
             signal: getInflight(resolvedConversationId)?.abortController.signal,
             envOverrides,
-            systemPrompt: FAST_CODEBASE_QUESTION_SYSTEM_PROMPT,
             ...(executionProvider === 'copilot'
               ? {
                   copilotModels: copilotReadiness.modelsRaw as ModelInfo[],
@@ -1754,7 +1719,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Uses bounded fast research with low reasoning effort and concise final-only output; pass repository when the current checkout is known. After retrieval, inspect relevant source files directly and do your own reasoning when the task needs stronger evidence. Returns a final answer plus conversationId and modelId for follow-ups.',
+      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Uses bounded repository research and low Codex reasoning effort to reduce latency and token usage. After retrieval, inspect relevant source files directly and do your own reasoning when the task needs stronger evidence. Returns a final answer segment plus conversationId and modelId for follow-ups.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -1783,11 +1748,6 @@ export function codebaseQuestionDefinition() {
           type: 'string',
           description:
             'Optional explicit model override. Omit this unless the user specifically asked for a model-specific run. When omitted, model resolution follows the normal shared server default-resolution contract for the selected or resolved provider.',
-        },
-        repository: {
-          type: 'string',
-          description:
-            'Optional repository selector. Supports repository id (case-insensitive), mounted container path, or host path. When supplied, the nested agent starts in that repository and all default retrieval is scoped to it.',
         },
       },
     },

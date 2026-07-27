@@ -31,7 +31,6 @@ type CodexRunFlags = {
   codexHome?: string;
   disableSystemContext?: boolean;
   systemPrompt?: string;
-  finalAnswerOnly?: boolean;
   useConfigDefaults?: boolean;
   runtimeConfig?: CodexOptions['config'];
   requestId?: string;
@@ -290,7 +289,6 @@ export class ChatInterfaceCodex extends ChatInterface {
       codexHome,
       disableSystemContext,
       systemPrompt,
-      finalAnswerOnly,
       useConfigDefaults,
       workingDirectoryOverride,
       envOverrides,
@@ -582,12 +580,6 @@ export class ChatInterfaceCodex extends ChatInterface {
         .sort((a, b) => a.order - b.order)
         .map((entry) => entry.text)
         .join('');
-    const buildFinalAssistantText = (): string => {
-      const ordered = [...assistantByItemKey.values()].sort(
-        (a, b) => a.order - b.order,
-      );
-      return ordered.at(-1)?.text ?? '';
-    };
 
     const emitAssistantDeltaFromComposed = () => {
       const composed = buildAssistantText();
@@ -834,9 +826,7 @@ export class ChatInterfaceCodex extends ChatInterface {
           }
           case 'turn.completed':
             if (!finalEmitted) {
-              const authoritativeFinal = finalAnswerOnly
-                ? buildFinalAssistantText()
-                : buildAssistantText();
+              const authoritativeFinal = buildAssistantText();
               if (authoritativeFinal.length > 0) {
                 this.emitEvent({ type: 'final', content: authoritativeFinal });
                 finalEmitted = true;

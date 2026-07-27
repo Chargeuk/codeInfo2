@@ -182,7 +182,9 @@ class MockCodex {
 
 class ThrowingBannerOnlyThread {
   async runStreamed(): Promise<{ events: AsyncGenerator<unknown> }> {
-    throw new Error('Codex Exec exited with code 1: Reading prompt from stdin...');
+    throw new Error(
+      'Codex Exec exited with code 1: Reading prompt from stdin...',
+    );
   }
 }
 
@@ -204,9 +206,7 @@ class EmitsSpecificErrorThenThrowsBannerChat extends ChatInterface {
       message:
         'stream disconnected before completion: stream closed before response.completed',
     });
-    throw new Error(
-      'Codex Exec exited with code 1: Reading prompt from stdin...',
-    );
+    throw new Error('Codex Exec exited with code 1: Reading prompt from stdin...');
   }
 }
 

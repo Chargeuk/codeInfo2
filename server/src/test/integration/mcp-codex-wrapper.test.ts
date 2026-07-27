@@ -17,7 +17,6 @@ import {
   applyCodexOpenAiCompatEndpointToRuntimeConfig,
 } from '../../config/codexConfig.js';
 import { RuntimeConfigResolutionError } from '../../config/runtimeConfig.js';
-import type { ListReposResult } from '../../lmstudio/toolService.js';
 import { handleRpc } from '../../mcp2/router.js';
 import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
@@ -318,7 +317,7 @@ test('MCP responder payload reports the chat-config-aware default model when no 
   }
 });
 
-test('MCP codebase_question uses shared resolver defaults with low reasoning in fast mode', async () => {
+test('MCP codebase_question uses bounded research with low reasoning', async () => {
   const prev = getCodexDetection();
   setCodexDetection({
     available: true,
@@ -359,60 +358,10 @@ test('MCP codebase_question uses shared resolver defaults with low reasoning in 
     assert.equal(mockCodex.lastStartOptions?.modelReasoningEffort, 'low');
     assert.match(
       mockCodex.lastInput ?? '',
-      /Fast repository-research mode is active/u,
+      /Answer this repository question using bounded research/u,
     );
   } finally {
     setCodexDetection(prev);
-  }
-});
-
-test('MCP codebase_question starts Codex in an explicitly selected repository', async () => {
-  const prev = getCodexDetection();
-  setCodexDetection({
-    available: true,
-    authPresent: true,
-    configPresent: true,
-  });
-  const repoRoot = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'codeinfo2-selected-repo-'),
-  );
-  const mockCodex = new MockCodex();
-  const repositories: ListReposResult = {
-    repos: [
-      {
-        id: repoRoot,
-        name: 'selected-repo',
-        description: null,
-        containerPath: repoRoot,
-        hostPath: repoRoot,
-        lastIngestAt: new Date().toISOString(),
-        embeddingProvider: 'lmstudio',
-        embeddingModel: 'embedding-model',
-        embeddingDimensions: 1024,
-        modelId: 'embedding-model',
-        counts: { files: 1, chunks: 1, embedded: 1 },
-        lastError: null,
-      },
-    ],
-    lockedModelId: 'embedding-model',
-  };
-
-  try {
-    await runCodebaseQuestion(
-      {
-        question: 'Inspect the selected repository',
-        repository: repoRoot,
-      },
-      {
-        codexFactory: () => mockCodex,
-        clientFactory: makeLmStudioClientFactory(),
-        listIngestedRepositoriesFn: async () => repositories,
-      },
-    );
-    assert.equal(mockCodex.lastStartOptions?.workingDirectory, repoRoot);
-  } finally {
-    setCodexDetection(prev);
-    await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
 

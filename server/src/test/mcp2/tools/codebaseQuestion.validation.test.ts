@@ -272,28 +272,6 @@ test('codebase_question validation accepts a conversation-scoped replayId for on
   );
 });
 
-test('codebase_question validation accepts repository selection', () => {
-  assert.deepEqual(
-    validateParams({
-      question: 'inspect this repository',
-      repository: '/workspace/repo',
-    }),
-    {
-      question: 'inspect this repository',
-      repository: '/workspace/repo',
-    },
-  );
-
-  assert.throws(
-    () =>
-      validateParams({
-        question: 'inspect this repository',
-        deep: true,
-      }),
-    /Invalid params/u,
-  );
-});
-
 test('codebase_question validation rejects replayId without conversationId before provider work starts', async () => {
   let providerWorkStarted = 0;
   setToolDeps({

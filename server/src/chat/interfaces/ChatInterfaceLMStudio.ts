@@ -153,7 +153,6 @@ type LmStudioRunFlags = {
   repositoryContext?: RepositoryExecutionContextMetadata;
   signal?: AbortSignal;
   history?: Array<{ role?: string; content?: unknown }>;
-  systemPrompt?: string;
   skipPersistence?: boolean;
   source?: 'REST' | 'MCP';
 };
@@ -174,8 +173,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     conversationId: string,
     model: string,
   ): Promise<void> {
-    const { requestId, baseUrl, signal, systemPrompt } = (flags ??
-      {}) as LmStudioRunFlags;
+    const { requestId, baseUrl, signal } = (flags ?? {}) as LmStudioRunFlags;
     signal?.throwIfAborted();
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
@@ -280,16 +278,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       (newestTurnEnd?.role === 'user' && newestTurnEnd.content === message);
 
     const chatHistory = [
-      ...(SYSTEM_CONTEXT || systemPrompt
-        ? [
-            {
-              role: 'system',
-              content: [SYSTEM_CONTEXT, systemPrompt]
-                .filter((entry) => entry?.trim().length)
-                .join('\n\n'),
-            },
-          ]
-        : []),
+      ...(SYSTEM_CONTEXT ? [{ role: 'system', content: SYSTEM_CONTEXT }] : []),
       ...storedTurns.map((turn) => ({
         role: turn.role,
         content: turn.content,

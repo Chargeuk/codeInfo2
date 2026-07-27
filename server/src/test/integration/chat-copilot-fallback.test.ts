@@ -212,25 +212,9 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
         }
     }
 });
-test('explicit Copilot chat requests tolerate endpoint discovery failures during inference', async () => {
-    const originalCompatEndpoints = process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-    const originalCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-    let externalServer: Awaited<ReturnType<typeof startExternalOpenAiCompatServer>> | undefined;
-    let copilotHome: string | undefined;
+test('explicit Copilot chat requests fail closed on endpoint discovery failures during inference', async () => {
     let server: Awaited<ReturnType<typeof startCopilotChatServer>> | undefined;
     try {
-        externalServer = await startExternalOpenAiCompatServer({
-            models: ['endpoint-copilot-model'],
-        });
-        copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-chat-discovery-tolerated-'));
-        setScopedTestEnvValue("CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS", `${externalServer.baseUrl}/v1|completions`);
-        setScopedTestEnvValue("CODEINFO_COPILOT_HOME", copilotHome);
-        await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
-        await fs.writeFile(path.join(copilotHome, 'chat', 'config.toml'), [
-            'model = "copilot-gpt-5"',
-            `codeinfo_openai_endpoint = "${externalServer.baseUrl}/v1|completions"`,
-            '',
-        ].join('\n'), 'utf8');
         server = await startCopilotChatServer({
             scenario: {
                 name: 'copilot-chat-discovery-failure-tolerated',
@@ -249,30 +233,15 @@ test('explicit Copilot chat requests tolerate endpoint discovery failures during
             provider: 'copilot',
             model: 'endpoint-copilot-model',
             conversationId: 'copilot-discovery-failure-tolerated',
-            message: 'Continue even if endpoint discovery throws',
+            message: 'Fail if endpoint discovery throws',
         });
-        assert.equal(response.status, 202);
-        assert.equal(response.body.provider, 'copilot');
-        assert.equal(memoryConversations.get('copilot-discovery-failure-tolerated')?.provider, 'copilot');
+        assert.equal(response.status, 503);
+        assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+        assert.match(String(response.body.message), /failed to discover external models/i);
+        assert.equal(memoryConversations.get('copilot-discovery-failure-tolerated'), undefined);
     }
     finally {
         await server?.stop();
-        await externalServer?.stop();
-        if (originalCompatEndpoints === undefined) {
-            clearScopedTestEnvValue("CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS", originalCompatEndpoints);
-        }
-        if (originalCopilotHome === undefined) {
-            clearScopedTestEnvValue("CODEINFO_COPILOT_HOME");
-        }
-        else {
-            setScopedTestEnvValue("CODEINFO_COPILOT_HOME", originalCopilotHome);
-        }
-        if (copilotHome) {
-            await fs.rm(copilotHome, { recursive: true, force: true });
-        }
     }
 });
 test('explicit Copilot chat requests honor a pinned external endpoint when the request model matches config', async () => {

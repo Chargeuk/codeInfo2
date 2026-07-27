@@ -8824,20 +8824,48 @@ async function runFlowUnlocked(params: {
       .filter((activeSubflow): activeSubflow is FlowActiveSubflow =>
         Boolean(activeSubflow),
       );
-    const stopActiveSubflowsAndWaitForTerminalStatus = async () =>
+    const stopActiveSubflowsAndWaitForTerminalStatus = async (): Promise<
+      Array<{
+        childRun: FlowActiveSubflow;
+        status: Extract<
+          FlowChildLifecycleStatus,
+          'ok' | 'failed' | 'stopped'
+        >;
+      }>
+    > =>
       Promise.all(
         childRuns.map(async (childRun) => {
+          let activeChildRun = childRun;
           requestActiveSubflowStop({
-            conversationId: childRun.conversationId,
-            runToken: childRun.runToken,
+            conversationId: activeChildRun.conversationId,
+            runToken: activeChildRun.runToken,
           });
           while (true) {
             const status = await getFlowConversationLifecycleStatus({
-              conversationId: childRun.conversationId,
-              runToken: childRun.runToken,
+              conversationId: activeChildRun.conversationId,
+              runToken: activeChildRun.runToken,
             });
             if (isTerminalFlowChildLifecycleStatus(status)) {
-              return { childRun, status };
+              return { childRun: activeChildRun, status };
+            }
+            if (status === 'orphaned') {
+              const resumedChildRun = await resumeWaveChild(activeChildRun);
+              if (resumedChildRun) {
+                activeChildRun = resumedChildRun;
+                requestActiveSubflowStop({
+                  conversationId: activeChildRun.conversationId,
+                  runToken: activeChildRun.runToken,
+                });
+                continue;
+              }
+              await persistFlowRunLifecycleStatus(
+                activeChildRun.conversationId,
+                'failed',
+              );
+              return { childRun: activeChildRun, status: 'failed' };
+            }
+            if (status === 'missing') {
+              return { childRun: activeChildRun, status: 'failed' };
             }
             await sleep(25);
           }
@@ -9568,8 +9596,8 @@ async function runFlowUnlocked(params: {
               .filter(({ status }) => status === 'stopped')
               .map(({ childRun }) => childRun.title ?? childRun.flowName);
             if (
-              stoppedChildTitles.length === childStatuses.length &&
-              childStatuses.length > 0
+              childStatuses.length === 0 ||
+              stoppedChildTitles.length === childStatuses.length
             ) {
               terminalStatus = 'stopped';
             } else {
@@ -13024,8 +13052,11 @@ export async function getFlowRunStatus(
   };
 }
 
-export function stopFlowRun(conversationId: string): boolean {
+export async function stopFlowRun(conversationId: string): Promise<boolean> {
   const normalizedConversationId = conversationId.trim();
+  if (!normalizedConversationId) return false;
+  const conversation = await getConversation(normalizedConversationId);
+  if (!conversation?.flowName?.trim()) return false;
   const ownership = getActiveRunOwnership(normalizedConversationId);
   if (!ownership) return false;
   registerPendingConversationCancel({

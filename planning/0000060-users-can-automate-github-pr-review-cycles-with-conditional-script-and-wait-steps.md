@@ -3344,6 +3344,194 @@ The final branch review found bounded Story 60 lifecycle gaps in automatic revie
 
 ## Code Review Findings
 
+- Findings recorded: `July 27, 2026 at 3:52:57 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T014848Z-81d0dc43`
+- Review cycle: `0000060-rc-20260727T002700Z-64f8c3fc`
+- Reviews attempted:
+  - Codex native review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) — completed with five supported findings; numeric wrapper exit status was not reported.
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - OpenCode review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`, target `current_repository`) — completed with one supported medium finding; final comments validation was valid and the focused helper test reported 8 passed.
+    - Input tokens: `5,617,482`
+    - Cached input tokens: `5,415,680`
+    - Output tokens: `16,984`
+  - Cross-repository review (`cross_repository_review`, job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`, target `cross-repository story scope`) — completed as not applicable/no-work because only `current_repository` was assigned.
+    - Input tokens: `160,469`
+    - Cached input tokens: `137,472`
+    - Output tokens: `2,318`
+
+### Accepted
+
+#### 1. Explicit decision scripts bypass the strict worked-repository runner
+
+- Finding ID: `F2`
+- Source/target: `server/src/flows/service.ts:7400-7418`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - Codex native review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and verified the finding.
+- Simple description: The explicit `decisionScript` path bypasses the tracked-file, worked-root, and timeout protections used by the implicit decision path.
+- Example: An explicit `break`, `continue`, or `if` script hangs or is not Git-tracked, but the flow still enters the legacy runner instead of the strict worked-repository executor.
+- Why accepted: Current HEAD proves the divergence and the existing `executeTrackedFlowDecisionScript` seam at `server/src/flows/flowDecisionScript.ts:97-232` expresses the smallest authorized repair. The direct-Python Acceptance Criteria authorize this bounded behavior, the scenario is supported and material, and no Out Of Scope policy or new mechanism is needed. Apparent repair opportunity: normal repair attempt appears suitable; final routing is deferred.
+
+#### 2. Unknown PR author drops every fetched reviewer comment
+
+- Finding ID: `F4`
+- Source/target: `server/src/flows/githubReview.ts:2063-2070`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - Codex native review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and verified the finding.
+- Simple description: When PR author identity is absent, the feedback filter returns an empty list before evaluating fetched review submissions and inline comments.
+- Example: A supported PR identity lacks optional `authorLogin` while reviewer comments are fetched, so the review cycle can be classified as having no reviewer feedback.
+- Why accepted: Current HEAD proves the false-clean branch. Story 60 authorizes distinguishing other-user feedback but not silently dropping unknown-author feedback; the existing `GitHubStepOutcome`/`SCRATCH_INVALID` seam expresses the narrow evidence-preserving repair. Author-resolution redesign, retry, classifier, and other Out Of Scope mechanisms are not claimed. The feedback-loss impact is material. Apparent repair opportunity: normal repair attempt appears suitable; final routing is deferred.
+
+#### 3. Fetch failures gain a hidden retry wait during an active review execution
+
+- Finding ID: `F5` (narrowed to the active-execution form)
+- Source/target: `server/src/flows/service.ts:11390-11400`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - Codex native review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and verified the finding.
+- Simple description: A failed fetch during an opened or resumed review execution persists a `review_retry` wait even when the flow authored no retry or wait composition.
+- Example: GitHub review retrieval fails after PR open or resume, and the flow pauses for implicit recovery rather than returning the fetch failure under authored timing.
+- Why accepted: Current HEAD proves the active-execution recovery path and its existing `eligible` seam. The retrieval-only Acceptance Criterion authorizes removing hidden timing, while the existing call-site control expresses that repair without adding retry, timeout, fallback, or state policy. The supported cadence and control-state impact are material. Apparent repair opportunity: normal repair attempt appears suitable; final routing is deferred.
+
+#### 4. Unreadable review evidence is converted into no feedback
+
+- Finding ID: `F6`
+- Source/target: `scripts/flow_control/check_github_review_has_reviewer_feedback.py:149-160`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated and verified the finding.
+- Simple description: Evidence-loading failures are caught and converted into a successful `{"answer":"no"}` decision, so unreadable review evidence can look like clean no-feedback.
+- Example: A missing or ownership-mismatched selector causes validation to raise, but the helper exits successfully with `no` and the review disposition is bypassed.
+- Why accepted: Current HEAD proves the catch-and-zero behavior and the existing decision-script executor already converts non-zero exit status into failure. Story 60 expressly requires invalid evidence to hard-fail; changing the exit status adds no new storage, classification, retry, wait, or fallback policy. The false-success impact is material. Apparent repair opportunity: normal repair attempt appears suitable; final routing is deferred.
+
+### Ignored for This Story
+
+#### 5. Existing default implementation flow is changed instead of remaining opt-in
+
+- Finding ID or Review reference: `F1`
+- Source/target: `flows/implement_next_plan.json:152-153`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - Codex native review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and verified the observation.
+- Simple description: The committed default implementation flow contains Story 60 repair/reset behavior instead of leaving existing in-use flows unchanged and using copied opt-in variants.
+- Example: The reviewed HEAD differs from comparison base `00ced5bb15524d12395dfc5c0d427b3c65eb7f97` at the default flow, and restoring the required behavior would edit that protected file in place.
+- Why ignored: Negative scope filtering fully removed `F1` under gates 1, 4, 9, and 11. The observation and value are technically supported, but the only demonstrated remedy is the in-place edit barred by Out Of Scope, and no existing configuration field, schema control, API, or runtime seam can restore the JSON behavior without that excluded mechanism. This complete removal cannot reach authorization, materiality, or repair.
+
+#### 6. Fresh GitHub scratch ownership becomes active before a successful fetch
+
+- Finding ID or Review reference: `F3`
+- Source/target: `server/src/flows/service.ts:8267-8277`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - Codex native review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and verified the observation.
+- Simple description: Fresh scratch ownership is claimed after PR creation but before fetch success, so a failed fetch can replace the prior active selection with an empty one.
+- Example: PR creation succeeds, ownership publication runs, the subsequent fetch fails, and the previous active selector is hidden despite no successful new corpus.
+- Why ignored: Positive authorization removed `F3` after negative filtering. Current HEAD does not expose a proven non-publishing ownership-preparation seam; the proposed ordering also needs new selector-preservation and concurrency policy not authorized by the story contract. The observation and value remain technically supported, but the claimed mechanism is not expressible through an existing authorized seam, so this complete removal cannot reach materiality or repair.
+
+#### 7. Standalone GitHub fetches schedule a retry wait without an active review execution (narrowed-away portion of F5)
+
+- Finding ID or Review reference: `F5` narrowed-away meaning
+- Source/target: `server/src/flows/service.ts:11390-11400`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - Codex native review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the broad claim; reconciliation narrowed its reachability.
+- Simple description: The original broad claim included standalone fetch failures with no active review execution as if they also scheduled hidden recovery.
+- Example: A fetch fails with no active execution context; current HEAD returns the failure status without scheduling a wait, so that standalone-retry behavior is not demonstrated.
+- Why ignored: Negative scope filtering narrowed F5 to the active-execution form. Only this overbroad meaning is removed; the supported active-execution finding remains accepted as item 3. The narrowed-away portion is non-actionable and must not be restored or separately repaired.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 2:39:00 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T002658Z-ea1f4a78`
+- Review cycle: `0000060-rc-20260727T002700Z-64f8c3fc`
+- Reviews attempted:
+  - OpenCode current-repository review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`, target `current_repository`) — completed successfully; verification supported five reported findings in a complete non-partial bundle with documented exclusions.
+    - Input tokens: `10625627`
+    - Cached input tokens: `10350336`
+    - Output tokens: `26955`
+  - Codex current-repository review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) — completed successfully; verification retained three supported findings and rejected one native documentation candidate.
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - Cross-repository review (`cross_repository_review`, job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`, target `current_repository`; scope `cross-repository story scope`) — completed as not applicable because only one repository target was assigned; no second target or survivor existed.
+    - Input tokens: `184834`
+    - Cached input tokens: `156160`
+    - Output tokens: `2246`
+
+### Accepted
+
+#### 1. Explicit and implicit decision scripts do not share the required bounded tracked runner
+
+- Finding ID: `supported finding 2` (original pre-filter identity; no separate machine-stable ID was recorded)
+- Source/target: `server/src/flows/flowDecisionScript.ts:63-89` and `server/src/flows/service.ts:7400-7405`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - OpenCode current-repository review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated and independently verified the finding.
+  - Codex current-repository review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and independently verified the same subject.
+- Simple description: Explicit `decisionScript` execution uses a helper without the tracked-file and timeout protections used by the implicit decision path, so a supported direct-Python decision can bypass Story 60’s bounded repository execution contract.
+- Example: A flow runs an explicit script for a `break`, `continue`, or `if` condition; the script hangs or is not Git-tracked, but the explicit path does not use the existing bounded tracked runner, so the flow can remain stuck or execute an invalid entrypoint.
+- Why accepted: Current HEAD proves the dispatch divergence and the existing `executeTrackedFlowDecisionScript` seam at `server/src/flows/flowDecisionScript.ts:97-231` proves the smallest repair. Story 60 explicitly authorizes and constrains this direct-Python path, the supported impact is material, and the repair does not add an excluded mechanism. Apparent repair opportunity: normal repair attempt appears suitable; final task/repair routing is deferred.
+
+#### 2. GitHub-review skips are persisted as clean success instead of completed-with-warning
+
+- Finding ID: `supported finding 3` (original pre-filter identity; no separate machine-stable ID was recorded)
+- Source/target: `server/src/flows/service.ts:11969`, with lifecycle seams at `server/src/flows/service.ts:11893-11920` and `server/src/flows/flowState.ts:118-120`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - OpenCode current-repository review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated and verified the finding.
+- Simple description: A supported GitHub-review skip emits a warning but the persisted lifecycle status is normalized to ordinary `ok`, so consumers cannot distinguish skipped external review from clean completion.
+- Example: `CODEINFO_PR_TOKEN` is missing or blank and the GitHub stage skips; the flow emits a warning, yet a status consumer sees `ok` and can treat the cycle as clean even though no external review ran.
+- Why accepted: Current HEAD proves the warning/status split across existing lifecycle, parser, child-status, persistence, and observed-status seams. Story 60 explicitly requires completed-with-warning behavior; the false-success impact is material, and the existing seams express the smallest authorized end-to-end repair without new completion or retry policy. Apparent repair opportunity: normal repair attempt appears suitable through those seams; final task/repair routing is deferred.
+
+#### 3. Discovery preflight omits commands inside `if` branches
+
+- Finding ID: `supported finding 4` (original pre-filter identity; no separate machine-stable ID was recorded)
+- Source/target: `server/src/flows/discovery.ts:654-679` (reported source line `:170` in the review); target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - OpenCode current-repository review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated and verified the finding.
+- Simple description: The command-availability collector does not recurse through an `if` step’s `then` or optional `else` branches, so a flow can appear available while a conditional branch contains a missing or invalid command.
+- Example: Discovery loads a schema-valid flow whose `then` branch calls an unavailable command; the flow is reported available, the condition selects `then`, and execution fails only after branch selection.
+- Why accepted: Current HEAD proves the missing traversal and existing `collectCommandSteps` seam; comparison-base behavior and Story 60’s authorized `if` shape establish the bounded repair. The late supported-operation failure is material, and branch recursion adds no excluded policy. Apparent repair opportunity: normal repair attempt appears suitable; final task/repair routing is deferred.
+
+#### 4. Canonical PR metadata is not required after PR creation
+
+- Finding ID: `supported finding 6` (original pre-filter identity; no separate machine-stable ID was recorded)
+- Source/target: `server/src/flows/githubReview.ts:1231-1237`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - Codex current-repository review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and verified the finding.
+- Simple description: After `gh pr create` prints a URL, a failed canonical latest-open-PR lookup falls back to a provisional identity that lacks required metadata such as author and creation time.
+- Example: PR creation returns a URL but the follow-up lookup cannot return canonical metadata; the cycle continues with the provisional identity, later author filtering can discard valid feedback, and the review can be misclassified as clean.
+- Why accepted: Current HEAD proves the fallback and the existing canonical lookup/failure seams. Story 60 requires the printed URL to be only a creation indicator and canonical metadata to come from the explicit lookup; the false-clean evidence loss is material. Returning the existing lookup failure is narrow and preserves the authored retry and selection rules without excluded mechanisms. Apparent repair opportunity: normal repair attempt appears suitable; final task/repair routing is deferred.
+
+### Ignored for This Story
+
+#### 5. Existing protected/in-use flows differ from the assigned comparison base
+
+- Finding ID or Review reference: `supported finding 1` (original pre-filter identity; exact source reference)
+- Source/target: OpenCode and Codex reports concerning `flows/implement_next_plan.json` and `flows/review_plan.json`, compared with base `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`; target `current_repository`
+- Review harnesses:
+  - OpenCode current-repository review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated the comparison observation.
+  - Codex current-repository review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — corroborated the comparison observation.
+- Simple description: The protected flow files differ from the assigned comparison base, and the proposed remedy was to restore both files to that base while keeping Story 60 composition separate.
+- Example: A comparison shows later reset, stronger-repair, minor-fix-audit, or durable-blocker behavior in the protected files; restoring the whole files would remove unrelated later behavior, and the review evidence does not establish a Story 60-caused change.
+- Why ignored: The independent negative scope audit fully removed this finding under gates 6 and 10. The cross-story provenance is not authorization, the full restore is not a smallest Story 60 repair, and no narrower Story 60-caused change was demonstrated. The Out Of Scope boundary bars editing protected flows as part of this story, so this technically supported observation is non-actionable and cannot create repair, tasking, or loop continuation.
+
+#### 6. Flow definitions are cached without production invalidation
+
+- Finding ID or Review reference: `supported finding 5` (original pre-filter identity; no separate machine-stable ID was recorded)
+- Source/target: OpenCode report at `server/src/flows/flowDefinitionCatalog.ts:79`; target `current_repository`
+- Review harnesses:
+  - OpenCode current-repository review (`open_code_review`, job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated and verified the observation.
+- Simple description: The flow-definition catalog is cached by resolved flows root, so later added, edited, or removed definitions are not visible until restart.
+- Example: The catalog loads once, an operator edits a flow file, and later discovery or execution still uses the old catalog because no reload or invalidation occurs.
+- Why ignored: The independent negative scope audit fully removed this finding under gates 4 and 8. Story 60 requires opt-in copied flow variants and runtime behavior, not hot reload or catalog invalidation; the proposed reload, metadata, or watcher mechanisms are broader hardening outside the authorized contract. The observation remains non-actionable and was not reconsidered by materiality.
+
+#### 7. Token-permission documentation candidate contradicted by reviewed documentation
+
+- Finding ID or Review reference: `Codex native candidate at server/src/flows/githubReview.ts:705-708` (rejected before the actionable reconciliation)
+- Source/target: Codex current-repository review at `server/src/flows/githubReview.ts:705-708`; reviewed `design.md` supplies the contradictory documentation; target `current_repository`
+- Review harnesses:
+  - Codex current-repository review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the candidate and then rejected it in output and verification.
+- Simple description: The native review initially claimed that `CODEINFO_PR_TOKEN` and the required `Pull requests: write` permission were undocumented.
+- Example: The reviewed `design.md` documentation records the token and permission requirements, so the claimed documentation gap is contradicted by current review evidence.
+- Why ignored: Codex verification rejected the candidate because the cited documentation is present. It was never a supported survivor and is retained only as historical evidence; disposition does not promote it.
+
+## Code Review Findings
+
 - Review pass: `0000060-20260714T201549Z-7192cbffa1-415a21ab`
 - Review cycle: `0000060-rc-20260714T211735Z-280b5c53`
 - Comparison context: local `HEAD` `7192cbffa1c889411fb6d0ccad36e48fdbbb0df6` versus resolved base `origin/main@038a0264ff35e020f5394d33b79c413e891d155f` from the stored review handoff, with comparison rule `local_head_vs_resolved_base`, resolved base source `remote`, and remote fetch status `success`.
@@ -3375,3 +3563,387 @@ The final branch review found bounded Story 60 lifecycle gaps in automatic revie
 ### Ignored for This Story
 
 - None.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 6:04:30 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T030309Z-22faeb97`
+- Review cycle: `0000060-rc-20260727T002700Z-64f8c3fc`
+- Reviews attempted:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`, target `current_repository`) — completed with three supported findings and documented partial bundle coverage.
+    - Input tokens: `10818934`
+    - Cached input tokens: `10533632`
+    - Output tokens: `20925`
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) — recovered completed evidence with four grouped findings; direct-launcher status and numeric usage unavailable.
+    - Input tokens: `Not reported`
+    - Cached input tokens: `Not reported`
+    - Output tokens: `Not reported`
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`, target `cross-repository story scope`) — completed as not applicable because only one repository target was assigned.
+    - Input tokens: `184976`
+    - Cached input tokens: `146688`
+    - Output tokens: `2422`
+
+### Accepted
+
+#### 1. Keep the created PR identity through canonical lookup
+
+- Finding ID: `Original finding 3; Codex P1; server/src/flows/githubReview.ts:1223-1251`
+- Source/target: `server/src/flows/githubReview.ts:1223-1251`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: After PR creation, the flow accepts whichever latest-open lookup succeeds without requiring it to be the PR just created, so later persistence, fetching, or closing can use another PR.
+- Example: Creation returns PR 101, but a lagged or competing branch lookup returns PR 102; the review cycle then persists, fetches, or closes 102.
+- Why accepted: Negative scope and positive authorization both retained this current-HEAD identity defect, and materiality confirmed wrong-PR state mutation or closure as a meaningful core-workflow failure. The existing create seam can compare `lookedUp.value.number` with `createdPullRequest.number` and use the existing warning/skip result without an excluded mechanism. It is not duplicate or already resolved and appears suitable for the normal repair attempt; final routing is deferred.
+
+#### 2. Route every direct decision script through the strict worked-repository runner
+
+- Finding ID: `Original finding 4; Codex P1; server/src/flows/service.ts:7400-7418`
+- Source/target: `server/src/flows/service.ts:7400-7418`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: The explicit `decisionScript` branch bypasses the strict runner's worked-root, Git-tracking, timeout, and bounded-output controls used by the alternate script path.
+- Example: An explicit Python decision for `if`, `break`, or `continue` hangs or emits excessive output, but the explicit branch does not apply the existing strict timeout and 64-KiB bound.
+- Why accepted: Negative scope and positive authorization retained the dispatch divergence, and materiality confirmed a meaningful stuck-flow or hard-failure contract breach. The existing `executeTrackedFlowDecisionScript` seam is a narrow authorized repair. It is not duplicate or already resolved and appears suitable for the normal repair attempt; final routing is deferred.
+
+### Ignored for This Story
+
+#### 3. Final-review readiness candidate was introduced outside Story 60 scope
+
+- Finding ID or Review reference: `Original finding 1; OpenCode High; server/src/flows/reviewCycleLifecycle.ts:324`
+- Source/target: `server/src/flows/reviewCycleLifecycle.ts:324`; target `current_repository`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: Final-mode initialization can mutate review state without enforcing computed readiness for an incomplete or blocked plan.
+- Example: A final review starts for an ineligible plan and replaces active review disposition state before readiness is enforced.
+- Why ignored: Negative scope gates 6 and 10 removed the item because current-HEAD history attributes it to Story 64 and Story 60 does not authorize that separate lifecycle. The proposed skip-before-mutation remedy is preserved as other-story evidence only.
+
+#### 4. Protected existing flow-entrypoint changes were not proven Story 60 work
+
+- Finding ID or Review reference: `Original finding 5; OpenCode High / Codex P1 cluster; protected flow definitions`
+- Source/target: `flows/implement_next_plan.json`, `flows/improve_task_implement_plan.json`, `flows/task_and_implement_plan.json`, `flows/review_plan.json`, and `flows/codex_review.json`; target `current_repository`, comparison base `00ced5bb15524d12395dfc5c0d427b3c65eb7f97`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: Protected flow files differ from the assigned comparison base, and a whole-file restoration was proposed while provenance remains uncertain.
+- Example: Restoring the files could remove later reset, stronger-repair, minor-fix-audit, or durable-blocker behavior unrelated to Story 60.
+- Why ignored: Negative scope gates 6 and 10 removed the cluster. Cross-story provenance and the exact base are unresolved, and Story 60's Out Of Scope section bars editing currently used flow definitions in place. The broad restoration remedy is not authorized or a smallest repair.
+
+#### 5. Browser-visible Story 64 wave UI is outside the flow-only story scope
+
+- Finding ID or Review reference: `Original finding 6; OpenCode Medium; client/src/components/chat/ConversationList.tsx:819-846`
+- Source/target: `client/src/components/chat/ConversationList.tsx:819-846`; target `current_repository`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: Wave-progress and review-target chips change the browser-visible conversation list UI.
+- Example: The ordinary conversation list displays Story 64 wave information even though Story 60 authorizes flow-only review-cycle behavior.
+- Why ignored: Negative scope gates 1, 6, and 7 removed the complete item. The Story 60 Out Of Scope contract excludes browser-visible behavior and current-HEAD blame attributes the UI to Story 35/64 work.
+
+#### 6. URL-only PR metadata after canonical lookup failure is below materiality
+
+- Finding ID or Review reference: `Original finding 2; Codex P1; server/src/flows/githubReview.ts:1223-1251`
+- Source/target: `server/src/flows/githubReview.ts:1223-1251`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`)
+- Simple description: A failed canonical lookup after PR creation can leave the open step with a URL-derived identity lacking metadata such as `authorLogin`.
+- Example: Creation prints a URL, canonical lookup exhausts its retries, and the flow enters its wait with only the PR number before later by-number reconciliation.
+- Why ignored: The item was technically supported and positively authorized, but materiality removed it because current HEAD re-resolves the number before feedback filtering and fails fetch if canonical lookup still fails. The demonstrated impact is limited to premature success or later failure, not the claimed false-clean feedback loss, so the value of changing completed code was insufficiently realistic, impactful, or proportionate for this story.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 7:11:29 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T042046Z-2978ad86`
+- Review cycle: `0000060-rc-20260727T002700Z-64f8c3fc`
+- Current HEAD checked for disposition: `cf7a6b9e849997ef33aa43c578c27ca89c6f20e4`
+- Reviews attempted:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`, target `current_repository`) — completed with three supported findings and partial supported-file coverage.
+    - Input tokens: `8819760`
+    - Cached input tokens: `8596224`
+    - Output tokens: `22675`
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) — partial/unavailable native review with no trustworthy terminal conclusion, finding, approval, test result, or build result.
+    - Input tokens: `Not reported`
+    - Cached input tokens: `Not reported`
+    - Output tokens: `Not reported`
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`, target `cross-repository story scope`) — completed as not applicable because only `current_repository` was assigned.
+    - Input tokens: `194739`
+    - Cached input tokens: `164352`
+    - Output tokens: `2831`
+
+### Accepted
+
+#### 1. Keep the existing default implementation flow unchanged
+
+- Finding ID: `Finding 1; OpenCode High/bug; flows/implement_next_plan.json:134-139 and later changed review-settlement hunks`
+- Source/target: `flows/implement_next_plan.json`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: The existing `implement_next_plan` entrypoint was changed in place even though the story adds a copied GitHub-review variant. Operators who keep selecting the existing entrypoint therefore receive new reset, blocker-repair, exit, checkpoint, and review-settlement behavior without opting in.
+- Example: An operator runs the established `implement_next_plan` flow and gets the new repair/reset and review-loop behavior even though they never selected `implement_next_plan_github_review.json`; the default workflow no longer preserves its prior behavior.
+- Why accepted: Negative scope, positive authorization, and materiality all retained this exact file-level survivor. The comparison-base diff and current checked-in JSON proved the behavior-bearing seam, and restoring only the Story 60-changed hunks was authorized and materially valuable for the explicit non-opt-in contract. Independent current-HEAD comparison now shows this file matches the comparison base, so the survivor is already resolved by the normal repair and creates no new repair or task work.
+
+#### 2. Resolve the plan path before using it in PR content
+
+- Finding ID: `Finding 2; OpenCode High/security; server/src/flows/service.ts:4721-4758`
+- Source/target: `server/src/flows/service.ts:4721-4758`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: The PR-content reader checks lexical containment before reading the selected plan, so a repository-contained symlink can resolve outside the worked repository. External content can then supply reviewer-facing PR title or body context instead of the current story plan.
+- Example: A tracked `planning/...md` path in the current-plan handoff is a symlink to a readable file outside the worked repository; opening the PR follows that link and includes the external heading or Description excerpt in GitHub content.
+- Why accepted: Negative scope, positive authorization, and materiality all retained the exact reader survivor. The current-story PR-content contract authorized physical containment for this read, and the existing `node:fs/promises` API, containment predicate, and `null` fallback expressed the smallest repair without the excluded broad symlink policy. Independent current-HEAD inspection now shows realpath resolution for the root and selected plan before the contained read, so the survivor is already resolved by the normal repair and creates no new repair or task work.
+
+#### 3. Use the bounded tracked-script executor for explicit `decisionScript` values
+
+- Finding ID: `Finding 3; OpenCode High/bug; server/src/flows/service.ts:7400-7419`
+- Source/target: `server/src/flows/service.ts:7400-7419`; target `current_repository` at reviewed HEAD `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: An explicit `decisionScript` uses `runFlowDecisionScript`, while the equivalent implicit script path uses `executeTrackedFlowDecisionScript` with worked-root, Git-tracking, timeout, environment, and output controls. The same supported direct-Python behavior therefore changes according to which schema field carries the path.
+- Example: A supported flow supplies an explicit Python decision helper that blocks on a code defect, subprocess wait, or unavailable dependency; the explicit branch has no strict timeout and can leave the flow stuck instead of producing the required hard failure.
+- Why accepted: Negative scope, positive authorization, and materiality all retained the current-HEAD dispatch-divergence survivor. The schema, shared decision function, timeout constant, environment overrides, and existing tracked executor expressed the narrow authorized repair without a new policy. Independent current-HEAD inspection now shows explicit and implicit script values use `executeTrackedFlowDecisionScript` with the existing controls, so the survivor is already resolved by the normal repair and creates no new repair or task work.
+
+### Ignored for This Story
+
+#### 4. Unnamed additional flow-file restoration was narrowed away
+
+- Finding ID or Review reference: `Finding 1 narrowed-away remedy wording; OpenCode High/bug; flows/implement_next_plan.json`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: The original recommendation also referred to “other currently-in-use flow definitions” without identifying exact additional files or separate finding identities.
+- Example: Restoring an unspecified neighboring flow could remove unrelated later behavior, but the batch evidence names no exact additional target that can be independently authorized or repaired for Story 60.
+- Why ignored: Negative-scope filtering narrowed Finding 1 to the exact `flows/implement_next_plan.json` target under gates 9 and 10. This is only the removed remedy meaning, not a separate survivor; its lack of stable target identity prevents promotion, duplication, repair, task creation, or review-loop continuation.
+
+#### 5. Blanket repository-wide symlink rejection was narrowed away
+
+- Finding ID or Review reference: `Finding 2 narrowed-away remedy wording; OpenCode High/security; server/src/flows/service.ts:4721-4758`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: The original remedy alternative would reject symlinks generally rather than making the authorized current-story plan read physically contained.
+- Example: A broad symlink rule could change unrelated repository paths even though the demonstrated problem is the one PR-content plan read following a link outside the worked repository.
+- Why ignored: Negative-scope filtering narrowed Finding 2 under gates 7, 8, and 9 to realpath-based containment with the existing fallback. The broad policy is not authorized, not necessary for the demonstrated outcome, and cannot be restored or routed as separate work.
+
+#### 6. Independently duplicated script controls were narrowed away
+
+- Finding ID or Review reference: `Finding 3 narrowed-away remedy wording; OpenCode High/bug; server/src/flows/service.ts:7400-7419`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`)
+- Simple description: The original remedy alternative would independently reimplement tracking, timeout, environment, and output-limit controls instead of using the existing strict executor.
+- Example: A second hand-written runner could choose different timeout or output behavior from `executeTrackedFlowDecisionScript`, leaving explicit and implicit decision scripts inconsistent again.
+- Why ignored: Negative-scope filtering narrowed Finding 3 under gates 8 and 10 to reusing the existing tracked executor. The duplicate policy is unnecessary because the current seam exists, is not authorized as a new mechanism, and cannot create repair or task work.
+
+### Task 39. Record Review Fixes From Batch 0000060-rw-20260727T042046Z-2978ad86
+
+- Repository Name: `Current Repository`
+- Review Task Role: `completed_review_fixes`
+- Task Dependencies: `Task 38`
+- Task Status: `__done__`
+- Review Batch: `0000060-rw-20260727T042046Z-2978ad86`
+- Review Cycle: `0000060-rc-20260727T002700Z-64f8c3fc`
+- Git Commits: `cf7a6b9e849997ef33aa43c578c27ca89c6f20e4`
+- Created: `July 27, 2026 at 6:28:15 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+The normal repair for review batch `0000060-rw-20260727T042046Z-2978ad86` resolved all three narrowed, positively authorized, material OpenCode findings in `current_repository`. The repair preserved the default flow's opt-in boundary, physically contained the plan read used for PR content, and routed explicit decision scripts through the existing bounded tracked executor.
+
+#### Task Exit Criteria
+
+- [x] All three accepted findings from batch `0000060-rw-20260727T042046Z-2978ad86` are resolved by the exact normal-repair commit.
+- [x] Focused repair proof and the absence of stronger-repair work are recorded without creating unresolved-finding or final-revalidation tasks.
+
+#### Documentation Locations
+
+- Batch outcome and repair audit: `codeInfoTmp/reviews/0000060-rc-20260727T002700Z-64f8c3fc/batches/0000060-rw-20260727T042046Z-2978ad86--head-eda3ac9cc05b/reconciliation/`
+- Immutable review evidence: the three direct job directories under the batch's `jobs/` path.
+
+#### Affected Repositories
+
+- `current_repository` — `/home/d_a_s/code/codeInfo2`
+
+#### Review Harnesses
+
+- OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated all three addressed findings.
+- Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — partial/unavailable and did not corroborate or generate an addressed finding.
+- Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`) — not applicable because only one target was assigned; it contributed no finding.
+
+#### Addresses Findings
+
+- Finding 1, `Keep the existing default implementation flow unchanged`, owned by `current_repository`: restored the Story 60-changed hunks in `flows/implement_next_plan.json` to comparison-base behavior so the copied GitHub-review variant remains opt-in.
+- Finding 2, `Resolve the plan path before using it in PR content`, owned by `current_repository`: physically resolved the worked repository and selected plan before reading PR context while preserving the existing `null` fallback.
+- Finding 3, `Use the bounded tracked-script executor for explicit decisionScript values`, owned by `current_repository`: routed the explicit field through `executeTrackedFlowDecisionScript` with its existing timeout and repository controls.
+
+#### Subtasks
+
+1. [x] Restore `flows/implement_next_plan.json` to comparison-base behavior for the Story 60-changed default-entrypoint hunks and preserve the copied opt-in flow variant.
+2. [x] Repair the current-plan PR-context reader in `server/src/flows/service.ts` with physical containment and the existing unavailable-context fallback.
+3. [x] Route explicit `decisionScript` values through the existing bounded tracked executor and remove the obsolete direct-runner path from the shared decision dispatch.
+4. [x] Add the focused regression assertions in `server/src/test/unit/flows-schema.test.ts`, `server/src/test/unit/flows.story-context.test.ts`, and `server/src/test/integration/flows.run.errors.test.ts`.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.story-context.test.ts --file server/src/test/unit/flows-schema.test.ts --file server/src/test/integration/flows.run.errors.test.ts`; 162 passed and 0 failed.
+2. [x] Run `./node_modules/.bin/eslint server/src/flows/service.ts server/src/test/unit/flows.story-context.test.ts server/src/test/integration/flows.run.errors.test.ts server/src/test/unit/flows-schema.test.ts --max-warnings=0`; changed-file lint passed.
+3. [x] Run `git diff --check`; repair diff passed whitespace validation.
+
+#### Implementation Notes
+
+- Normal repair completed all three material survivors in one repository and one commit: `cf7a6b9e849997ef33aa43c578c27ca89c6f20e4` (`DEV-60 - Repair authorized review batch findings`).
+- Changed files were `flows/implement_next_plan.json`, `server/src/flows/service.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/unit/flows-schema.test.ts`, and `server/src/test/unit/flows.story-context.test.ts`.
+- The focused server-unit wrapper passed 162 tests; changed-file ESLint and `git diff --check` also passed. The full repository test suite, full-project lint, and full-project format check were not run for this narrow repair.
+- The stronger repair was deliberately skipped because the normal-repair audit positively records that every authorized, material survivor was resolved and no stronger repair or later finding task is required. No stronger commit or test is claimed.
+- The reviewed HEAD was `eda3ac9cc05b35556c33b26379e7b666af1cd3b8`; the final repair HEAD is `cf7a6b9e849997ef33aa43c578c27ca89c6f20e4`. The branch is ahead of its remote by one commit, and the pre-existing uncommitted plan maintenance change was preserved.
+- A new review batch against the final repair HEAD is useful for post-repair verification. This completed-fixes record does not create unresolved-finding implementation or final revalidation work.
+
+## Code Review Findings
+
+- Findings recorded: `July 27, 2026 at 7:15:02 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260727T053023Z-27738b56`
+- Review cycle: `0000060-rc-20260727T002700Z-64f8c3fc`
+- Reviews attempted:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed retained static review with three validated findings; no build or automated suite was run.
+    - Input tokens: `8460134`
+    - Cached input tokens: `8230656`
+    - Output tokens: `22412`
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — partial native-process continuation with one retained finding and one rejected candidate; numeric launcher exit status unavailable.
+    - Input tokens: `Not reported (an assigned artifact says 0, but provenance is uncertain)`
+    - Cached input tokens: `Not reported (an assigned artifact says 0, but provenance is uncertain)`
+    - Output tokens: `Not reported (an assigned artifact says 0, but provenance is uncertain)`
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed not applicable because only `current_repository` was assigned.
+    - Input tokens: `213087`
+    - Cached input tokens: `156928`
+    - Output tokens: `2892`
+
+The negative-scope, positive-authorization, and materiality gates were all applicable and completed. Four narrowed survivors remain actionable; the normal repair attempt appears suitable for each, while final repair/task routing is deferred. The enterprise-host implementation was narrowed away, and the token-permission documentation candidate was rejected by current documentation evidence.
+
+### Accepted
+
+#### 1. Keep the rewritten review cycle off the default entrypoint
+
+- Finding ID: `Reconciliation finding 1; OpenCode High/bug; flows/two_phase_review_cycle.json:16-23`
+- Source/target: `flows/two_phase_review_cycle.json`; target `current_repository` at reviewed HEAD `cf7a6b9e849997ef33aa43c578c27ca89c6f20e4`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated and verified the finding.
+- Simple description: The shared `two_phase_review_cycle` flow now contains the new generic review-batch composition while existing default entrypoints still invoke it. Operators who do not select the copied GitHub-review variant receive a materially different review workflow.
+- Example: An operator runs `flows/implement_next_plan.json` without choosing the opt-in variant; its existing call runs the new repeated/one-shot batch composition instead of the comparison-base fast/slow review behavior.
+- Why accepted: All three gates retain this exact current-HEAD survivor. Story 60 requires copied variants and preserved default entrypoints, and the existing `flowNames` seam plus comparison-base flow express the smallest authorized repair. The scenario and workflow impact are realistic and material; the normal repair attempt appears suitable, with no duplicate or already-resolved status established.
+
+#### 2. Reject symlink escapes in GitHub plan context
+
+- Finding ID: `Reconciliation finding 2; OpenCode High/security; flows/githubReview.ts:587-593`
+- Source/target: `server/src/flows/githubReview.ts:587-593`, with plan-note access at `appendImplementationNoteToPlan`; target `current_repository` at reviewed HEAD `cf7a6b9e849997ef33aa43c578c27ca89c6f20e4`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated and verified the finding.
+- Simple description: The GitHub plan-context reader uses lexical containment for the current-plan handoff and selected plan, while later code reads those paths. A repository-contained symlink can therefore resolve outside the worked repository.
+- Example: A worked repository contains a symlink at `codeInfoStatus/flow-state/current-plan.json` or its selected plan path; the opt-in flow accepts the lexical path, then uses external content for the PR base or plan-note read.
+- Why accepted: All three gates retain the physical-containment survivor and its wrong-target/filesystem-boundary impact. Existing `fs.realpath`, containment, and warning/skip seams express the narrow repair without a new policy. The normal repair attempt appears suitable; broader path-policy alternatives are not authorized.
+
+#### 3. Record GitHub skips after the task handoff reaches story-complete
+
+- Finding ID: `Reconciliation finding 3; OpenCode Medium; flows/githubReview.ts:2022-2033`
+- Source/target: `server/src/flows/githubReview.ts:2022-2033`, with caller `server/src/flows/service.ts:7856-7878`; target `current_repository` at reviewed HEAD `cf7a6b9e849997ef33aa43c578c27ca89c6f20e4`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated and verified the finding.
+- Simple description: After story completion, the current-task handoff has no selected task, but the GitHub warning-note writer requires a task number. Supported missing-token, push-failure, and PR-creation-failure paths can finish with warning without recording the required durable plan note.
+- Example: The opt-in flow reaches its GitHub stage with `selection_status: "story_complete"` and `selected_task: null`; a missing token triggers the warning path, but note append fails because no task heading can be selected.
+- Why accepted: All three gates retain this story-complete persistence defect. The story explicitly requires notes for token, push, and PR-creation skips, and the existing atomic note seam can add a story-complete note without reopening a task. The scenario and provenance loss are material; the normal repair attempt appears suitable.
+
+#### 4. Reject non-github.com remotes before invoking `gh`
+
+- Finding ID: `Reconciliation finding 4; Native Codex P1; flows/githubReview.ts:556-563`
+- Source/target: `server/src/flows/githubReview.ts:556-563`, with downstream hostless `gh` calls; target `current_repository` at reviewed HEAD `cf7a6b9e849997ef33aa43c578c27ca89c6f20e4`
+- Review harnesses:
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and retained the finding after verifier review.
+- Simple description: The remote parser accepts `ghe.com` but downstream state keeps only `owner/name`, and the child `gh` environment sets `GH_TOKEN` without `GH_HOST`. A non-github.com upstream can therefore be operated on as a same-named github.com repository.
+- Example: A worked repository uses `https://ghe.com/acme/project.git` with a repository-local token; hostless `gh` can create, fetch, or close `github.com/acme/project` and expose the token to the wrong host.
+- Why accepted: All three gates retain the narrowed github.com-validation survivor. The first-version contract requires explicit repository targeting and safe failure, while the existing parser null result, invalid-remote setup path, and completed-with-warning handling express the smallest repair. The wrong-target/token exposure is material and the normal repair attempt appears suitable; enterprise routing is not authorized.
+
+### Ignored for This Story
+
+#### 5. Enterprise-host routing was narrowed away
+
+- Finding ID or Review reference: `Finding 4 narrowed-away remedy; Native Codex P1; flows/githubReview.ts:556-563`
+- Review harnesses:
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the broader remedy alternative; accepted item 4 preserves the narrower rejection finding.
+- Simple description: The broader recommendation would add explicit enterprise-host routing for `ghe.com` instead of rejecting unsupported hosts in the first-version transport.
+- Example: A `ghe.com/acme/project` remote would require `GH_HOST`, host-aware API calls, and token-routing behavior, but the current repository exposes no such control.
+- Why ignored: Negative-scope filtering removed this remedy under gates 4, 8, and 11. The current contract authorizes the narrow github.com-only outcome, not a new enterprise capability; only accepted item 4 remains actionable.
+
+#### 6. GitHub token permission documentation was a rejected candidate
+
+- Finding ID or Review reference: `Native Codex rejected P2 candidate; CODEINFO_PR_TOKEN and Pull requests: write permission documentation`
+- Review harnesses:
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and rejected the candidate in retained output and verifier evidence.
+- Simple description: The candidate claimed that the required `CODEINFO_PR_TOKEN` setting and fine-grained `Pull requests: write` permission were undocumented.
+- Example: A reviewer searches `design.md` for `CODEINFO_PR_TOKEN` and the required permission; `design.md:32-36` contains that requirement, so the claimed documentation gap is not present.
+- Why ignored: The source verifier rejected the candidate against current documentation before it became a supported survivor. It is preserved for identity and provenance only and cannot create repair, task work, or review-loop continuation.
+
+### Task 40. Record Review Fixes From Batch 0000060-rw-20260727T053023Z-27738b56
+
+- Repository Name: `Current Repository`
+- Review Task Role: `completed_review_fixes`
+- Task Dependencies: `Task 39`
+- Task Status: `__done__`
+- Review Batch: `0000060-rw-20260727T053023Z-27738b56`
+- Review Cycle: `0000060-rc-20260727T002700Z-64f8c3fc`
+- Git Commits: `aafb400be2dd1f89750d8e207820d1c84219ad6a`, `728ef202feb9f646545ad6985cd2968b9d4d5373`
+- Created: `July 27, 2026 at 8:37:38 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+The normal and stronger repair agents completed the four authorized, material survivors from review batch `0000060-rw-20260727T053023Z-27738b56` in `current_repository`. The normal repair resolved the symlink-containment, story-complete GitHub-note, and unsupported-remote findings; the stronger repair restored the comparison-base default flow while preserving the agent-native composition as an opt-in variant for the remaining finding.
+
+#### Task Exit Criteria
+
+- [x] All four accepted material findings from batch `0000060-rw-20260727T053023Z-27738b56` are resolved by the exact normal and stronger repair commits.
+- [x] Normal and stronger repair proof, failed diagnostic attempts, unavailable coverage, changed files, and final HEAD state are recorded in the batch outcome.
+- [x] No unresolved-finding implementation task or final testing/revalidation task is created by this batch outcome.
+
+#### Documentation Locations
+
+- Batch outcome: `codeInfoTmp/reviews/0000060-rc-20260727T002700Z-64f8c3fc/batches/0000060-rw-20260727T053023Z-27738b56--head-cf7a6b9e8499/reconciliation/outcome.md`
+- Normal repair audit: `codeInfoTmp/reviews/0000060-rc-20260727T002700Z-64f8c3fc/batches/0000060-rw-20260727T053023Z-27738b56--head-cf7a6b9e8499/reconciliation/normal-repair-audit.md`
+- Stronger repair audit: `codeInfoTmp/reviews/0000060-rc-20260727T002700Z-64f8c3fc/batches/0000060-rw-20260727T053023Z-27738b56--head-cf7a6b9e8499/reconciliation/stronger-repair-audit.md`
+- Immutable batch handoff and launch record: `codeInfoTmp/reviews/0000060-current-review-batch.md` and `codeInfoTmp/reviews/0000060-rc-20260727T002700Z-64f8c3fc/batches/0000060-rw-20260727T053023Z-27738b56--head-cf7a6b9e8499/batch-launch.md`
+
+#### Affected Repositories
+
+- `current_repository`: `/home/d_a_s/code/codeInfo2`
+
+#### Review Harnesses
+
+- OpenCode review: `open_code_review`, instance `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`; generated findings 1, 2, and 3.
+- Native Codex review: `codex_review`, instance `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`; generated finding 4. Retained review text was trustworthy, but the launcher exit status was unavailable.
+- Cross-repository review: `cross_repository_review`, instance `story_review:cross_repository_review`, source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`; one-target input made it not applicable and it generated or corroborated no addressed finding.
+
+#### Addresses Findings
+
+- Finding 1, `Keep the rewritten review cycle off the default entrypoint`, owned by `current_repository`: the stronger commit `728ef202feb9f646545ad6985cd2968b9d4d5373` restored comparison-base pointer-oriented defaults under `*_legacy` flow names, preserved the agent-native composition in `flows/two_phase_review_cycle_agent_native.json`, and kept the GitHub variant’s agent-native selection opt-in.
+- Finding 2, `Reject symlink escapes in GitHub plan context`, owned by `current_repository`: normal commit `aafb400be2dd1f89750d8e207820d1c84219ad6a` physically resolves and contains the worked root, handoff, and selected plan before GitHub plan-context reads and writes.
+- Finding 3, `Record GitHub skips after the task handoff reaches story-complete`, owned by `current_repository`: normal commit `aafb400be2dd1f89750d8e207820d1c84219ad6a` adds an idempotent story-level note path when `selected_task` is null.
+- Finding 4, `Reject non-github.com remotes before invoking gh`, owned by `current_repository`: normal commit `aafb400be2dd1f89750d8e207820d1c84219ad6a` rejects unsupported hosts through the existing invalid-remote warning path before `gh` invocation.
+
+#### Subtasks
+
+1. [x] Resolve and physically contain the worked repository, current-plan handoff, and selected plan used by GitHub review context.
+2. [x] Persist an idempotent story-level GitHub review note when story completion leaves no selected task.
+3. [x] Reject non-`github.com` remotes before hostless GitHub CLI operations while preserving the supported warning path.
+4. [x] Restore current-schema-compatible comparison-base default and legacy flow seams, and preserve the agent-native composition as an opt-in flow variant.
+5. [x] Add and update the focused runtime, schema, integration, and publisher proof needed for the normal and stronger repairs.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts --file server/src/test/unit/flows.github-scratch.test.ts`; 31 passed and 0 failed.
+2. [x] Run `npm run build:summary:server`; the revised stronger-repair build passed.
+3. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/codex-review.test.ts --file server/src/test/unit/review-artifacts.test.ts --file server/src/test/unit/review-base.test.ts --file server/src/test/unit/flows-schema.test.ts`; 177 passed and 0 failed.
+4. [x] Run `npm run test:summary:server:unit -- --file server/src/test/integration/review-production-loop.test.ts`; 3 passed and 0 failed.
+5. [x] Run `python3 -m unittest scripts.test.test_publish_open_code_review`; 7 passed and 0 failed.
+6. [x] Run `npm run test:summary:server:unit`; 2,829 passed and 0 failed.
+7. [x] Run changed-file ESLint with `--max-warnings=0`; changed-file lint passed.
+8. [x] Run `git diff --check` and staged `git diff --cached --check`; both passed.
+
+#### Implementation Notes
+
+- Normal repair commit `aafb400be2dd1f89750d8e207820d1c84219ad6a` (`DEV-60 - Repair GitHub review batch findings`) changed `server/src/flows/githubReview.ts`, `server/src/test/unit/flows.github-adapter.test.ts`, and `server/src/test/unit/flows.github-scratch.test.ts`, resolving findings 2 through 4.
+- The normal agent attempted literal comparison-base restoration for finding 1, but current schema validation and the coupled focused diagnostic failed with 115 passed and 21 failed; the attempt was reverted before the normal commit and is not claimed as a fix.
+- Stronger repair commit `728ef202feb9f646545ad6985cd2968b9d4d5373` (`DEV-60 - Preserve default two-phase review behavior`) changed these 24 files: `codeinfo_markdown/advance_review_cycle_to_slow_phase.md`, `codeinfo_markdown/finalize_two_phase_review_disposition.md`, `codeinfo_markdown/merge_codex_review_findings_into_canonical_review.md`, `codeinfo_markdown/merge_open_code_review_findings_into_canonical_review.md`, `codeinfo_markdown/record_fast_review_pass_outcome.md`, `codeinfo_markdown/run_open_code_review.md`, `flows/codex_review_legacy.json`, `flows/implement_next_plan_github_review.json`, `flows/open_code_review_legacy.json`, `flows/review_artifacts_main_legacy.json`, `flows/two_phase_review_cycle.json`, `flows/two_phase_review_cycle_agent_native.json`, `scripts/publish_open_code_review.py`, `scripts/test/test_publish_open_code_review.py`, `server/src/flows/codexReview.ts`, `server/src/flows/flowSchema.ts`, `server/src/flows/reviewArtifacts.ts`, `server/src/flows/reviewBase.ts`, `server/src/flows/service.ts`, `server/src/test/integration/review-production-loop.test.ts`, `server/src/test/unit/codex-review.test.ts`, `server/src/test/unit/flows-schema.test.ts`, `server/src/test/unit/review-artifacts.test.ts`, and `server/src/test/unit/subflow-wave.test.ts`. It resolved finding 1 without broadening findings 2 through 4.
+- The stronger proof included the passing revised server build, 177 focused restored-runtime tests, 3 focused integration tests, 7 publisher tests, and the final 2,829-test server suite. The repair evidence does not claim Compose, client, Cucumber, e2e, live GitHub, full-project lint, or full-project format coverage; it also preserves the lost Native Codex launcher exit status limitation.
+- At final HEAD `728ef202feb9f646545ad6985cd2968b9d4d5373`, only the pre-existing uncommitted Story 60 plan maintenance change remains in the worktree. Neither repair was pushed. A new review is useful against the changed final HEAD, but this task records completed fixes only and does not create final revalidation or unresolved implementation work.
+- Evidence used: the immutable batch handoff and launch record, all three direct job records and retained outputs, normal and stronger repair audits, filtering reconciliation and audit artifacts, disposition, and current Git state.

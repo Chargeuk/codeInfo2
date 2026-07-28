@@ -417,6 +417,25 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("`planning/**` changes are excluded", copilot_prompt)
         self.assertIn("Never modify source files", copilot_prompt)
         self.assertIn("Run the review exactly once", copilot_prompt)
+        self.assertIn("work/copilot-review-instructions.md", copilot_prompt)
+        self.assertIn(
+            "derives the fixed `input/`, `work/`, and `output/` locations",
+            copilot_prompt,
+        )
+        self.assertIn(
+            "If `copilot_review_spec.available` is false, still invoke the launcher once",
+            copilot_prompt,
+        )
+        for removed_path_option in (
+            "--instructions",
+            "--stdout",
+            "--stderr",
+            "--status",
+            "--invocation",
+            "--normalized",
+            "--usage",
+        ):
+            self.assertNotIn(removed_path_option, copilot_prompt)
 
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(

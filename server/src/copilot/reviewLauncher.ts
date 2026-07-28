@@ -20,6 +20,9 @@ const execFile = promisify(execFileCallback);
 const SUPPORTED_REASONING = new Set<string>(COPILOT_REVIEW_REASONING_EFFORTS);
 
 export type CopilotReviewLauncherPaths = {
+  workspacePath: string;
+  availabilitySpecPath: string;
+  instructionsPath: string;
   stdoutPath: string;
   stderrPath: string;
   exitStatusPath: string;
@@ -40,11 +43,15 @@ export type CopilotReviewLauncherOptions = {
   reasoningEffort: CopilotReviewReasoningEffort;
   endpointLabel?: string;
   endpointId?: string;
-  instructionsPath: string;
-  outputPaths: CopilotReviewLauncherPaths;
   env?: NodeJS.ProcessEnv;
   signal?: AbortSignal;
   timeoutMs?: number;
+};
+
+type ResolvedCopilotReviewLauncherOptions = CopilotReviewLauncherOptions & {
+  workspacePath: string;
+  instructionsPath: string;
+  outputPaths: CopilotReviewLauncherPaths;
 };
 
 export type CopilotReviewLauncherResult = {
@@ -111,14 +118,59 @@ const isContained = (parent: string, candidate: string): boolean => {
   );
 };
 
+const requireContainedPath = (
+  workspacePath: string,
+  candidatePath: string,
+  label: string,
+) => {
+  if (!isContained(workspacePath, candidatePath)) {
+    throw new Error(`${label} must remain inside the assigned workspace.`);
+  }
+};
+
+export async function resolveCopilotReviewWorkspacePaths(
+  rawWorkspacePath: string,
+): Promise<CopilotReviewLauncherPaths> {
+  const workspacePath = await fs.realpath(
+    requireValue(rawWorkspacePath, 'workspacePath'),
+  );
+  const [inputPath, workPath, outputPath] = await Promise.all(
+    ['input', 'work', 'output'].map(async (directoryName) => {
+      const directoryPath = await fs.realpath(
+        path.join(workspacePath, directoryName),
+      );
+      if (!(await fs.stat(directoryPath)).isDirectory()) {
+        throw new Error(
+          `Assigned workspace ${directoryName} path must be a directory.`,
+        );
+      }
+      requireContainedPath(
+        workspacePath,
+        directoryPath,
+        `Assigned workspace ${directoryName} path`,
+      );
+      return directoryPath;
+    }),
+  );
+  return {
+    workspacePath,
+    availabilitySpecPath: path.join(inputPath, 'copilot-review-spec.json'),
+    instructionsPath: path.join(workPath, 'copilot-review-instructions.md'),
+    stdoutPath: path.join(workPath, 'copilot.stdout.jsonl'),
+    stderrPath: path.join(workPath, 'copilot.stderr.log'),
+    exitStatusPath: path.join(workPath, 'copilot.exit.json'),
+    invocationPath: path.join(workPath, 'copilot.invocation.json'),
+    normalizedResultPath: path.join(outputPath, 'copilot-review.json'),
+    usagePath: path.join(workPath, 'review-usage', 'native-copilot.json'),
+  };
+}
+
 const requireContainedOutputPaths = (
   workspacePath: string,
   outputPaths: CopilotReviewLauncherPaths,
 ) => {
   for (const [label, filePath] of Object.entries(outputPaths)) {
-    if (!isContained(workspacePath, path.resolve(filePath))) {
-      throw new Error(`${label} must remain inside the assigned workspace.`);
-    }
+    requireContainedPath(workspacePath, path.resolve(filePath), label);
   }
 };
 
@@ -134,7 +186,7 @@ const gitStdout = async (
 };
 
 const verifyRepositoryAndCommits = async (
-  options: CopilotReviewLauncherOptions,
+  options: ResolvedCopilotReviewLauncherOptions,
   deps: CopilotReviewLauncherDeps,
 ) => {
   const [repositoryPath, workspacePath, instructionsPath] = await Promise.all([
@@ -185,6 +237,40 @@ const verifyRepositoryAndCommits = async (
     );
   }
   return { repositoryPath, workspacePath, instructionsPath };
+};
+
+const readAvailabilitySnapshot = async (
+  specPath: string,
+): Promise<{ available: boolean; unavailableReason?: string }> => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await fs.readFile(specPath, 'utf8'));
+  } catch {
+    throw new Error(
+      'Pinned Copilot review availability snapshot could not be read.',
+    );
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Pinned Copilot review availability snapshot is invalid.');
+  }
+  const record = parsed as Record<string, unknown>;
+  if (typeof record.available !== 'boolean') {
+    throw new Error('Pinned Copilot review availability snapshot is invalid.');
+  }
+  if (
+    record.unavailableReason !== undefined &&
+    (typeof record.unavailableReason !== 'string' ||
+      !record.unavailableReason.trim())
+  ) {
+    throw new Error('Pinned Copilot review availability snapshot is invalid.');
+  }
+  return {
+    available: record.available,
+    unavailableReason:
+      typeof record.unavailableReason === 'string'
+        ? record.unavailableReason.trim()
+        : undefined,
+  };
 };
 
 export const COPILOT_REVIEW_EXCLUDED_PATHS = ['planning/**'] as const;
@@ -717,7 +803,7 @@ const extractUsage = (events: readonly unknown[]): NormalizedUsage => {
 };
 
 const writeArtifacts = async (params: {
-  options: CopilotReviewLauncherOptions;
+  options: ResolvedCopilotReviewLauncherOptions;
   args: string[];
   launched: boolean;
   exitStatus: number;
@@ -731,8 +817,16 @@ const writeArtifacts = async (params: {
   const events = parseJsonLines(params.stdout);
   const review = collectReviewText(events);
   const usage = extractUsage(events);
+  const artifactPaths = [
+    params.options.outputPaths.stdoutPath,
+    params.options.outputPaths.stderrPath,
+    params.options.outputPaths.exitStatusPath,
+    params.options.outputPaths.invocationPath,
+    params.options.outputPaths.normalizedResultPath,
+    params.options.outputPaths.usagePath,
+  ];
   await Promise.all(
-    Object.values(params.options.outputPaths).map((filePath) =>
+    artifactPaths.map((filePath) =>
       fs.mkdir(path.dirname(filePath), { recursive: true }),
     ),
   );
@@ -839,20 +933,21 @@ export async function runCopilotReview(
   injectedDeps: Partial<CopilotReviewLauncherDeps> = {},
 ): Promise<CopilotReviewLauncherResult> {
   const deps = { ...defaultDeps, ...injectedDeps };
-  const options: CopilotReviewLauncherOptions = {
+  const workspacePaths = await resolveCopilotReviewWorkspacePaths(
+    rawOptions.workspacePath,
+  );
+  const options: ResolvedCopilotReviewLauncherOptions = {
     ...rawOptions,
     repositoryPath: requireValue(rawOptions.repositoryPath, 'repositoryPath'),
-    workspacePath: requireValue(rawOptions.workspacePath, 'workspacePath'),
+    workspacePath: workspacePaths.workspacePath,
     targetId: requireValue(rawOptions.targetId, 'targetId'),
     reviewWaveId: requireValue(rawOptions.reviewWaveId, 'reviewWaveId'),
     jobInstanceId: requireValue(rawOptions.jobInstanceId, 'jobInstanceId'),
     baseCommit: requireValue(rawOptions.baseCommit, 'baseCommit'),
     headCommit: requireValue(rawOptions.headCommit, 'headCommit'),
     modelId: requireValue(rawOptions.modelId, 'modelId'),
-    instructionsPath: requireValue(
-      rawOptions.instructionsPath,
-      'instructionsPath',
-    ),
+    instructionsPath: workspacePaths.instructionsPath,
+    outputPaths: workspacePaths,
     endpointLabel: rawOptions.endpointLabel?.trim() || undefined,
     endpointId: rawOptions.endpointId?.trim()
       ? normalizeOpenAiCompatEndpointId(rawOptions.endpointId, {
@@ -860,16 +955,21 @@ export async function runCopilotReview(
         })
       : undefined,
   };
-  if (Boolean(options.endpointLabel) !== Boolean(options.endpointId)) {
-    throw new Error(
-      'endpointLabel and endpointId must be supplied together for an external review.',
-    );
-  }
   if (!SUPPORTED_REASONING.has(options.reasoningEffort)) {
     throw new Error('reasoningEffort is unsupported.');
   }
-  const validatedWorkspace = await fs.realpath(options.workspacePath);
-  requireContainedOutputPaths(validatedWorkspace, options.outputPaths);
+  requireContainedOutputPaths(options.workspacePath, options.outputPaths);
+  const availability = await readAvailabilitySnapshot(
+    options.outputPaths.availabilitySpecPath,
+  );
+  if (
+    availability.available &&
+    Boolean(options.endpointLabel) !== Boolean(options.endpointId)
+  ) {
+    throw new Error(
+      'endpointLabel and endpointId must be supplied together for an available external review.',
+    );
+  }
   const startedAt = deps.now().toISOString();
   let args: string[] = [];
   let processResult = {
@@ -882,6 +982,12 @@ export async function runCopilotReview(
   let setupUnavailable = false;
   const secretValues: string[] = [];
   try {
+    if (!availability.available) {
+      throw new CopilotReviewUnavailableError(
+        availability.unavailableReason ??
+          'The configured Copilot review model was unavailable when this batch was prepared.',
+      );
+    }
     const verified = await verifyRepositoryAndCommits(options, deps);
     const sourceEnv = options.env ?? process.env;
     let childEnv: NodeJS.ProcessEnv;

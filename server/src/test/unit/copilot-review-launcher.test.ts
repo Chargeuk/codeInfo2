@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   COPILOT_REVIEW_EXCLUDED_PATHS,
   COPILOT_REVIEW_GIT_INSPECTION_COMMANDS,
+  resolveCopilotReviewWorkspacePaths,
   runCopilotReview,
   type CopilotReviewLauncherOptions,
 } from '../../copilot/reviewLauncher.js';
@@ -22,6 +23,7 @@ const makeFixture = async () => {
   const workspace = path.join(root, 'workspace');
   await Promise.all([
     fs.mkdir(repo, { recursive: true }),
+    fs.mkdir(path.join(workspace, 'input'), { recursive: true }),
     fs.mkdir(path.join(workspace, 'work'), { recursive: true }),
     fs.mkdir(path.join(workspace, 'output'), { recursive: true }),
   ]);
@@ -37,21 +39,23 @@ const makeFixture = async () => {
   git(repo, 'commit', '-m', 'head');
   const head = git(repo, 'rev-parse', 'HEAD');
 
-  const instructions = path.join(workspace, 'work', 'instructions.md');
+  const outputPaths = await resolveCopilotReviewWorkspacePaths(workspace);
+  await fs.writeFile(
+    outputPaths.availabilitySpecPath,
+    `${JSON.stringify(
+      {
+        mode: 'native',
+        modelId: 'gpt-5.4',
+        reasoningEffort: 'low',
+        available: true,
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
+  const instructions = outputPaths.instructionsPath;
   await fs.writeFile(instructions, 'Review the pinned diff. Do not edit.\n');
-  const outputPaths = {
-    stdoutPath: path.join(workspace, 'work', 'copilot.stdout.jsonl'),
-    stderrPath: path.join(workspace, 'work', 'copilot.stderr.log'),
-    exitStatusPath: path.join(workspace, 'work', 'copilot.exit.json'),
-    invocationPath: path.join(workspace, 'work', 'copilot.invocation.json'),
-    normalizedResultPath: path.join(workspace, 'output', 'copilot-review.json'),
-    usagePath: path.join(
-      workspace,
-      'work',
-      'review-usage',
-      'native-copilot.json',
-    ),
-  };
   return {
     root,
     repo,
@@ -106,11 +110,20 @@ const launcherOptions = (
   headCommit: fixture.head,
   modelId: 'gpt-5.4',
   reasoningEffort: 'low',
-  instructionsPath: fixture.instructions,
-  outputPaths: fixture.outputPaths,
   env,
   ...overrides,
 });
+
+const artifactPaths = (
+  fixture: Awaited<ReturnType<typeof makeFixture>>,
+): string[] => [
+  fixture.outputPaths.stdoutPath,
+  fixture.outputPaths.stderrPath,
+  fixture.outputPaths.exitStatusPath,
+  fixture.outputPaths.invocationPath,
+  fixture.outputPaths.normalizedResultPath,
+  fixture.outputPaths.usagePath,
+];
 
 const fakeEnvironment = (
   fixture: Awaited<ReturnType<typeof makeFixture>>,
@@ -131,6 +144,48 @@ const fakeEnvironment = (
 
 const nulArgs = async (filePath: string): Promise<string[]> =>
   (await fs.readFile(filePath)).toString('utf8').split('\0').filter(Boolean);
+
+test('workspace paths are derived from one real assigned job directory', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+
+  assert.equal(
+    fixture.outputPaths.instructionsPath,
+    path.join(fixture.workspace, 'work', 'copilot-review-instructions.md'),
+  );
+  assert.equal(
+    fixture.outputPaths.stdoutPath,
+    path.join(fixture.workspace, 'work', 'copilot.stdout.jsonl'),
+  );
+  assert.equal(
+    fixture.outputPaths.normalizedResultPath,
+    path.join(fixture.workspace, 'output', 'copilot-review.json'),
+  );
+  assert.equal(
+    fixture.outputPaths.availabilitySpecPath,
+    path.join(fixture.workspace, 'input', 'copilot-review-spec.json'),
+  );
+});
+
+test('workspace path derivation rejects an assigned directory that resolves outside the job', async (t) => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-review-paths-'),
+  );
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const workspace = path.join(root, 'workspace');
+  const outside = path.join(root, 'outside');
+  await Promise.all([
+    fs.mkdir(path.join(workspace, 'input'), { recursive: true }),
+    fs.mkdir(path.join(workspace, 'output'), { recursive: true }),
+    fs.mkdir(outside, { recursive: true }),
+  ]);
+  await fs.symlink(outside, path.join(workspace, 'work'));
+
+  await assert.rejects(
+    resolveCopilotReviewWorkspacePaths(workspace),
+    /must remain inside the assigned workspace/u,
+  );
+});
 
 test('native launcher invokes local /review once with pinned read-only non-interactive arguments and closed stdin', async (t) => {
   const fixture = await makeFixture();
@@ -246,7 +301,7 @@ test('native launcher invokes local /review once with pinned read-only non-inter
   assert.match(childEnv, /^GIT_PAGER=cat$/mu);
   assert.match(childEnv, /^PAGER=cat$/mu);
   const artifacts = await Promise.all(
-    Object.values(fixture.outputPaths).map((file) => fs.readFile(file, 'utf8')),
+    artifactPaths(fixture).map((file) => fs.readFile(file, 'utf8')),
   );
   assert.doesNotMatch(artifacts.join('\n'), new RegExp(secret, 'u'));
   const normalized = JSON.parse(
@@ -326,9 +381,7 @@ test('external launcher exposes only the selected endpoint and key to the child'
   assert.doesNotMatch(childEnv, /https:\/\/other\.test/u);
   const persisted = (
     await Promise.all(
-      Object.values(fixture.outputPaths).map((file) =>
-        fs.readFile(file, 'utf8'),
-      ),
+      artifactPaths(fixture).map((file) => fs.readFile(file, 'utf8')),
     )
   ).join('\n');
   assert.doesNotMatch(
@@ -407,6 +460,66 @@ test('missing CLI and external runtime drift produce unavailable artifacts witho
   );
 });
 
+test('pinned unavailable model produces canonical artifacts without requiring instructions or launching Copilot', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot);
+  await Promise.all([
+    fs.rm(fixture.instructions),
+    fs.writeFile(
+      fixture.outputPaths.availabilitySpecPath,
+      `${JSON.stringify(
+        {
+          mode: 'external',
+          modelId: 'unavailable-model',
+          reasoningEffort: 'minimal',
+          endpointLabel: 'openrouter',
+          available: false,
+          unavailableReason: 'Model discovery was temporarily unavailable.',
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    ),
+  ]);
+
+  const result = await runCopilotReview(
+    launcherOptions(fixture, env, {
+      endpointLabel: 'openrouter',
+      modelId: 'unavailable-model',
+      reasoningEffort: 'minimal',
+    }),
+  );
+
+  assert.equal(result.launched, false);
+  assert.equal(result.status, 'unavailable');
+  await assert.rejects(
+    fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8'),
+    /ENOENT/u,
+  );
+  const normalized = JSON.parse(
+    await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
+  ) as {
+    provider_mode?: string;
+    model_id?: string;
+    failure_reason?: string;
+    review?: string | null;
+  };
+  assert.equal(normalized.provider_mode, 'external');
+  assert.equal(normalized.model_id, 'unavailable-model');
+  assert.equal(normalized.review, null);
+  assert.equal(
+    normalized.failure_reason,
+    'Model discovery was temporarily unavailable.',
+  );
+  assert.equal(await fs.readFile(fixture.outputPaths.stdoutPath, 'utf8'), '');
+  await Promise.all(
+    artifactPaths(fixture).map((filePath) => fs.access(filePath)),
+  );
+});
+
 test('external endpoint identity drift is unavailable before credential or model discovery', async (t) => {
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
@@ -441,9 +554,7 @@ test('external endpoint identity drift is unavailable before credential or model
   );
   const persisted = (
     await Promise.all(
-      Object.values(fixture.outputPaths).map((file) =>
-        fs.readFile(file, 'utf8'),
-      ),
+      artifactPaths(fixture).map((file) => fs.readFile(file, 'utf8')),
     )
   ).join('\n');
   assert.match(persisted, /external endpoint identity changed before launch/iu);
@@ -474,9 +585,7 @@ test('malformed external configuration is unavailable without leaking raw config
   );
   const persisted = (
     await Promise.all(
-      Object.values(fixture.outputPaths).map((file) =>
-        fs.readFile(file, 'utf8'),
-      ),
+      artifactPaths(fixture).map((file) => fs.readFile(file, 'utf8')),
     )
   ).join('\n');
   assert.doesNotMatch(persisted, new RegExp(secret, 'u'));
@@ -600,13 +709,61 @@ test('abort terminates one launched Copilot process without losing diagnostics',
   );
 });
 
+test('CLI derives artifacts from semantic arguments and the assigned workspace', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot);
+  const launcher = fileURLToPath(
+    new URL('../../copilot/reviewLauncherCli.js', import.meta.url),
+  );
+
+  execFileSync(
+    process.execPath,
+    [
+      launcher,
+      '--repository',
+      fixture.repo,
+      '--workspace',
+      fixture.workspace,
+      '--target-id',
+      'repository-a',
+      '--review-wave-id',
+      'review-wave-1',
+      '--job-instance-id',
+      'copilot-model:repository-a:copilot_review',
+      '--base',
+      fixture.base,
+      '--head',
+      fixture.head,
+      '--model',
+      'gpt-5.4',
+      '--reasoning-effort',
+      'low',
+    ],
+    {
+      encoding: 'utf8',
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+
+  assert.equal(
+    (await fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8')).trim(),
+    'launch',
+  );
+  await Promise.all(
+    artifactPaths(fixture).map((filePath) => fs.access(filePath)),
+  );
+});
+
 test('CLI argument parsing errors stay inside the launcher error boundary', () => {
   const launcher = fileURLToPath(
     new URL('../../copilot/reviewLauncherCli.js', import.meta.url),
   );
   assert.throws(
     () =>
-      execFileSync(process.execPath, [launcher, '--unknown-option'], {
+      execFileSync(process.execPath, [launcher, '--stdout', '/tmp/wrong'], {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
       }),
@@ -617,7 +774,7 @@ test('CLI argument parsing errors stay inside the launcher error boundary', () =
       };
       assert.equal(failure.status, 2);
       const stderr = String(failure.stderr);
-      assert.match(stderr, /Unknown option/u);
+      assert.match(stderr, /Unknown option.*stdout/u);
       assert.doesNotMatch(stderr, /reviewLauncherCli\.(?:js|ts):\d+/u);
       return true;
     },

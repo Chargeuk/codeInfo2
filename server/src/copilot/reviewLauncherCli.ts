@@ -1,10 +1,7 @@
 import { parseArgs } from 'node:util';
 
 import type { CopilotReviewReasoningEffort } from '../flows/copilotReviewModels.js';
-import {
-  runCopilotReview,
-  type CopilotReviewLauncherPaths,
-} from './reviewLauncher.js';
+import { runCopilotReview } from './reviewLauncher.js';
 
 try {
   const parsed = parseArgs({
@@ -20,13 +17,6 @@ try {
       'reasoning-effort': { type: 'string' },
       'endpoint-label': { type: 'string' },
       'endpoint-id': { type: 'string' },
-      instructions: { type: 'string' },
-      stdout: { type: 'string' },
-      stderr: { type: 'string' },
-      status: { type: 'string' },
-      invocation: { type: 'string' },
-      normalized: { type: 'string' },
-      usage: { type: 'string' },
     },
     strict: true,
     allowPositionals: false,
@@ -37,14 +27,6 @@ try {
       throw new Error(`Missing required --${name} argument.`);
     }
     return value;
-  };
-  const outputPaths: CopilotReviewLauncherPaths = {
-    stdoutPath: required('stdout'),
-    stderrPath: required('stderr'),
-    exitStatusPath: required('status'),
-    invocationPath: required('invocation'),
-    normalizedResultPath: required('normalized'),
-    usagePath: required('usage'),
   };
   const abortController = new AbortController();
   const abort = () => abortController.abort();
@@ -72,8 +54,6 @@ try {
         typeof parsed.values['endpoint-id'] === 'string'
           ? parsed.values['endpoint-id']
           : undefined,
-      instructionsPath: required('instructions'),
-      outputPaths,
       signal: abortController.signal,
     });
   } finally {

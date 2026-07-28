@@ -4820,10 +4820,10 @@ Resolve only the three deduplicated materiality survivors from batch `0000060-rw
 #### Testing
 
 1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts`
-2. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "github review"`
-3. [ ] `npm run build:summary:server`
-4. [ ] `npm run lint`
-5. [ ] `npm run format:check`
+2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "github review"`
+3. [x] `npm run build:summary:server`
+4. [x] `npm run lint`
+5. [x] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -4840,7 +4840,11 @@ Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, a
 - Made only the PR URL owner and repository path segments case-insensitive while retaining exact host, path shape, pull number, branch, and base validation.
 - Added focused adapter regressions for the `GH_HOST` child environment, complete 205-entry review/comment pagination, and mixed-case canonical owner/repository PR URLs.
 - Focused adapter wrapper initially exposed stale integration imports for the removed cap constants; updated that fixture to use explicit 205-entry corpora, then reran successfully with 19 tests passed.
-- Implementation-only audit: repository HEAD `5170b99d6` contains the scoped host, complete-pagination, PR-URL, and focused-regression changes described above; all four subtasks and the recorded adapter proof are supported by repository evidence. No story-caused preserved-behavior regression or unrelated user-facing drift was found. The remaining four Testing items stay open for automated proof, no live `**BLOCKER**` is present, and Task 45 remains `__in_progress__`.
+- The focused GitHub review integration proof passed with 10 tests passed and 0 failures.
+- The server build summary passed with zero warnings.
+- Repository lint passed with no reported errors or warnings.
+- Repository formatting check passed; all matched files use Prettier code style.
+- Implementation-only audit: repository HEAD `5170b99d6` contains the scoped host, complete-pagination, PR-URL, and focused-regression changes described above; all four subtasks and the recorded adapter proof are supported by repository evidence. No story-caused preserved-behavior regression or unrelated user-facing drift was found. At proof start, four Testing items remained open; all five Testing items now pass, no live `**BLOCKER**` is present, and Task 45 remains `__in_progress__`.
 
 ### Task 46. Remove Git-Tracking Enforcement From Flow Decision Scripts
 

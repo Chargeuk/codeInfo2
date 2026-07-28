@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,13 +9,6 @@ import {
   resolveFlowDecisionScriptPath,
   runFlowDecisionScript,
 } from '../../flows/flowDecisionScript.js';
-
-const initializeRepository = (repositoryRoot: string, scriptPath: string) => {
-  execFileSync('git', ['init'], { cwd: repositoryRoot });
-  execFileSync('git', ['add', path.relative(repositoryRoot, scriptPath)], {
-    cwd: repositoryRoot,
-  });
-};
 
 test('flow decision scripts are restricted to the flow_control helper directory', () => {
   const codeInfoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'flow-control-'));
@@ -92,7 +84,7 @@ test('bundled flow decision scripts execute without Git metadata and return trim
   }
 });
 
-test('checked-in repository entrypoint contract', async () => {
+test('decision scripts execute without Git metadata in the worked repository', async () => {
   const scriptRepositoryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'flow-script-repository-'),
   );
@@ -106,12 +98,10 @@ test('checked-in repository entrypoint contract', async () => {
       'flow_control',
     );
     fs.mkdirSync(flowControlRoot, { recursive: true });
-    const scriptPath = path.join(flowControlRoot, 'check_working_folder.py');
     fs.writeFileSync(
-      scriptPath,
+      path.join(flowControlRoot, 'check_working_folder.py'),
       'import os\nprint(os.getcwd())\n',
     );
-    initializeRepository(scriptRepositoryRoot, scriptPath);
     const result = await executeFlowDecisionScript({
       workingFolder,
       scriptRepositoryRoot,
@@ -136,9 +126,8 @@ test('checked-in repository entrypoint contract', async () => {
       timeoutMs: 5_000,
     });
     assert.deepEqual(untrackedResult, {
-      ok: false,
-      reason:
-        'Script file must be checked in: scripts/flow_control/check_untracked.py',
+      ok: true,
+      stdout: 'yes',
     });
   } finally {
     fs.rmSync(scriptRepositoryRoot, { recursive: true, force: true });
@@ -160,9 +149,8 @@ test('timed-out decision scripts settle even when a descendant retains stdout', 
       'flow_control',
     );
     fs.mkdirSync(flowControlRoot, { recursive: true });
-    const scriptPath = path.join(flowControlRoot, 'retain-stdio.py');
     fs.writeFileSync(
-      scriptPath,
+      path.join(flowControlRoot, 'retain-stdio.py'),
       [
         'import subprocess',
         'import sys',
@@ -172,7 +160,6 @@ test('timed-out decision scripts settle even when a descendant retains stdout', 
         '',
       ].join('\n'),
     );
-    initializeRepository(scriptRepositoryRoot, scriptPath);
     const startedAt = Date.now();
     const result = await executeFlowDecisionScript({
       workingFolder,

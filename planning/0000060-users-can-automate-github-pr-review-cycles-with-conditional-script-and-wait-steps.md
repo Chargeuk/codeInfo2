@@ -4886,12 +4886,12 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 3. [x] Replace Git-tracking rejection tests with focused proof that untracked in-root scripts execute while the remaining safeguards still apply.
 4. [x] Make GitHub review setup-file limitations mark the review stage skipped and continue later safe flow steps after publishing a warning.
 5. [x] Align the merged PR-open integration regression with the exact URL-derived PR-number lookup inherited from `main`.
-6. [x] Restore the locked checked-in repository-relative entrypoint contract for direct Python decisions and update the focused executor tests without weakening the retained path and process safeguards.
+6. [x] Restore the repository-relative direct-Python entrypoint contract without Git tracking enforcement, and update the focused executor tests without weakening the retained path and process safeguards.
 
 #### Testing
 
 1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
-2. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
+2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
 3. [ ] `npm run build:summary:server`
 4. [ ] `npm run lint`
 5. [ ] `npm run format:check`
@@ -4900,7 +4900,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 8. [ ] `npm run test:summary:all:parallel`
 9. [ ] `npm run lint`
 10. [ ] `npm run format:check`
-11. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
+11. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "decision scripts execute without Git metadata in the worked repository"`
 
 #### Implementation Notes
 
@@ -4928,7 +4928,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - **RESOLVED ISSUE** Task 46's checked-in entrypoint contract is restored and the targeted proof passed; no containment, symlink, timeout, process-error, or output safeguards were weakened.
 - Audit 2026-07-28: Fresh implementation evidence from `fcf661e6a` supports all six subtasks and all eleven recorded testing entries, and the parser reports no live blocker. The restored checked-in entrypoint behavior matches the locked story contract; no additional story-caused preserved-behavior regression or unrelated user-facing drift was found. Task 46 is normalized to `__in_progress__` because this audit is implementation-only and automated proof has not been completed in this loop; it is ready for the separate automated-proof step.
 - Audit 2026-07-28 implementation-plus-automated-proof normalization: `fcf661e6a` changed the production decision executor and the shared-decision integration regression after the prior build, lint, formatting, and full parallel-suite evidence. The focused executor proof remains supported by the recorded 4/4 result, and the unrelated GitHub-focused checks remain valid; Testing items 2, 3, 4, 5, 8, 9, and 10 were reopened because their earlier results are stale after that repair. No new story-caused behavior drift was found beyond the already restored checked-in entrypoint contract.
-- **BLOCKER** Task 46 cannot continue honestly: Testing items 2 (shared decision seam integration), 3 (server build), 4 (lint), 5 (format check), 8 (full parallel suite), 9 (follow-up lint), and 10 (follow-up format check) remained open after audit normalization. Evidence checked: the fresh bounded Task 46 packet, `plan_status.py --task-number 46`, the `fcf661e6a` production and test diff, and the recorded proof notes. The stale automated proof must be rerun after the latest implementation repair before Task 46 can be marked `__done__`.
+- **RESOLVED ISSUE** Deep automated-proof repair found that `fcf661e6a` had reintroduced the prohibited `git ls-files` gate and reversed the focused untracked-entrypoint assertions. Removed that gate again, restored untracked in-root direct and symlink execution coverage, and reran the focused executor suite (4/4) plus the shared-decision integration wrapper (9/9). Testing item 2 is complete; remaining validation is tracked without a generic live blocker.
 
 ### Task 47. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

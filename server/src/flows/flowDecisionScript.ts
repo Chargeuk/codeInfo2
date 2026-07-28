@@ -95,7 +95,7 @@ export type FlowDecisionScriptExecutionResult =
   | { ok: true; stdout: string }
   | { ok: false; reason: string };
 
-export const executeTrackedFlowDecisionScript = async (params: {
+export const executeFlowDecisionScript = async (params: {
   workingFolder: string;
   scriptRepositoryRoot?: string;
   decisionScript: string;
@@ -150,27 +150,6 @@ export const executeTrackedFlowDecisionScript = async (params: {
   }
   if (!fileContent.trim()) {
     return { ok: false, reason: `Script file is empty: ${scriptPath}` };
-  }
-
-  const relativeScriptPath = path.relative(repositoryRoot, scriptPath);
-  try {
-    await promisify(execFileCb)(
-      'git',
-      [
-        '-C',
-        repositoryRoot,
-        'ls-files',
-        '--error-unmatch',
-        '--',
-        relativeScriptPath,
-      ],
-      { windowsHide: true },
-    );
-  } catch {
-    return {
-      ok: false,
-      reason: `Script file must be Git-tracked: ${params.decisionScript}`,
-    };
   }
 
   return new Promise<FlowDecisionScriptExecutionResult>((resolve) => {

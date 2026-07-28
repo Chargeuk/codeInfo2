@@ -4835,27 +4835,83 @@ Settlement provenance: F1, F3, and F5 are the only positively authorized, materi
 
 Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, and the single-target cross-repository job generated no finding. This provenance correction does not change the accepted survivor set or implementation scope.
 
-### Task 46. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
+### Task 46. Remove Git-Tracking Enforcement From Flow Decision Scripts
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `None (user-directed Story 0000060 follow-up)`
+- Task Status: `__done__`
+- Affected Repositories: `current_repository`
+
+#### Overview
+
+Remove the `git ls-files` prerequisite from repository-local flow decision-script execution. Retain the independent Python-file, root-containment, realpath, existence, non-empty, timeout, process-error, and output-limit protections, and rename the executor so its API no longer claims Git-tracking semantics.
+
+#### Task Exit Criteria
+
+- [x] Untracked Python decision scripts inside the worked repository can execute without Git metadata or index membership.
+- [x] Path containment, symlink escape, missing-file, empty-file, timeout, process-error, and output-limit protections remain enforced.
+- [x] Production call sites and focused tests use terminology that does not imply a Git-tracking requirement.
+- [x] Repository-wide flow and handoff guidance documents KISS, state-first continuation, self-describing artifacts, best-effort consumption, and safe partial or unavailable outcomes.
+
+#### Non-Goals
+
+- Do not weaken repository-root containment or allow non-Python decision scripts.
+- Do not remove timeout, output-size, existence, or non-empty-file safeguards.
+- Do not redesign the broader flow decision protocol or add a replacement allowlist, hash, or Git policy.
+
+#### Documentation Locations
+
+- `AGENTS.md`
+- `planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md`
+
+#### Subtasks
+
+1. [x] Add the repository-wide `Flow Design And Agent Handoffs` policy to `AGENTS.md`.
+2. [x] Remove Git index enforcement from `server/src/flows/flowDecisionScript.ts`, rename the general executor, and update its production call site.
+3. [x] Replace Git-tracking rejection tests with focused proof that untracked in-root scripts execute while the remaining safeguards still apply.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
+2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
+3. [x] `npm run build:summary:server`
+4. [x] `npm run lint`
+5. [x] `npm run format:check`
+
+#### Implementation Notes
+
+- Added the repository-wide flow-design and handoff policy to `AGENTS.md`, including the safe best-effort boundary requested after the failed completion-check investigation.
+- Removed the `git ls-files` gate, renamed the general executor to `executeFlowDecisionScript`, and updated the production service call site while leaving the independent execution safeguards intact.
+- Replaced the obsolete untracked-entrypoint and in-root-symlink rejection assertions with success coverage, while retaining the existing missing-file, empty-file, escape, timeout, process-error, parsing, and output-limit cases.
+- The focused decision-script unit wrapper passed all 4 tests after rebuilding the server.
+- The first two integration attempts reached persisted `ok` state for both new success cases but waited for a WebSocket terminal event that script-only flows do not publish; the tests now assert the authoritative persisted run lifecycle instead of waiting for a nonexistent chat event.
+- The focused shared-decision integration wrapper passed all 9 selected tests, covering untracked execution and the retained failure boundaries.
+- The server summary build passed without warnings.
+- Repository lint passed with zero warnings.
+- Repository formatting validation passed for all tracked supported files.
+- Task 46 is complete: the Git-index prerequisite is removed, all retained safeguards remain covered, and every planned validation gate passed.
+
+### Task 47. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 
 - Repository Name: `Current Repository`
 - Review Task Role: `final_revalidation`
-- Task Dependencies: `Task 45`
+- Task Dependencies: `Tasks 45 and 46`
 - Task Status: `__to_do__`
 - Review Cycle: `0000060-rc-20260727T131555Z-a8e020a4`
 - Affected Repositories: `current_repository`
-- Review Scope: complete story validation after all completed review fixes and Task 45 implementation work
+- Review Scope: complete story validation after all completed review fixes and Tasks 45-46 implementation work
 - Created: `July 27, 2026 at 10:40:38 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
 
 #### Overview
 
-Perform the single final closeout validation after Task 45 has completed. Cover the complete story, every changed file in `current_repository`, commits `61952544053c0a84efd5be06d9909d0445f3ffec`, `1ab7a95721854febcb19551ebcc3643dd4e5bdbc`, `299de63b6a3b0de870ce3d4d223d100faa202ed3`, and `869016a47f0a710b950217139ffa0864a398665b`, and the three batch-4 findings addressed by Task 45. This task is the final revalidation owner; it must remain last in the plan and must not reopen ignored findings or start another review cycle.
+Perform the single final closeout validation after Tasks 45 and 46 have completed. Cover the complete story, every changed file in `current_repository`, commits `61952544053c0a84efd5be06d9909d0445f3ffec`, `1ab7a95721854febcb19551ebcc3643dd4e5bdbc`, `299de63b6a3b0de870ce3d4d223d100faa202ed3`, and `869016a47f0a710b950217139ffa0864a398665b`, the three batch-4 findings addressed by Task 45, and the user-directed decision-script policy change in Task 46. This task is the final revalidation owner; it must remain last in the plan and must not reopen ignored findings or start another review cycle.
 
 #### Task Exit Criteria
 
 - [ ] All story-caused implementation and test changes are validated on the final target HEAD.
 - [ ] Full automated client, server, Compose, and e2e proof completes through the repository wrappers, with failures diagnosed from their saved logs.
 - [ ] The supported Compose stack is shut down after proof, and final lint and format checks pass.
-- [ ] Review-cycle closeout records the immutable batch evidence, completed fix tasks, Task 45 proof, final validation results, and honest limitations.
+- [ ] Review-cycle closeout records the immutable batch evidence, completed fix tasks, Tasks 45-46 proof, final validation results, and honest limitations.
 
 #### Review Cycle Coverage
 
@@ -4897,4 +4953,4 @@ Optional, non-blocking human proof may use the supported main stack at `http://l
 
 #### Implementation Notes
 
-This is the one final validation owner for the complete review settlement. It must consume the immutable batch findings blocks and the exact completed-review-fix records for batches 1, 2, 3, and 5, then the Task 45 implementation proof. No additional implementation work, disposition prediction, gate removal, or review launch belongs in this task.
+This is the one final validation owner for the complete review settlement. It must consume the immutable batch findings blocks and the exact completed-review-fix records for batches 1, 2, 3, and 5, then the Tasks 45-46 implementation proof. No additional implementation work, disposition prediction, gate removal, or review launch belongs in this task.

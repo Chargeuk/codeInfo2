@@ -177,7 +177,7 @@ import {
   type FlowSummary,
 } from './discovery.js';
 import {
-  executeTrackedFlowDecisionScript,
+  executeFlowDecisionScript,
   runFlowDecisionScript,
 } from './flowDecisionScript.js';
 import {
@@ -7428,7 +7428,7 @@ async function runFlowUnlocked(params: {
                   ? error.message
                   : 'Unable to execute bundled flow decision script.',
             }))
-        : await executeTrackedFlowDecisionScript({
+        : await executeFlowDecisionScript({
             workingFolder: workingRepositoryRoot,
             decisionScript,
             timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,

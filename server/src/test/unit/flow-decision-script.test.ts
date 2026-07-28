@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 import {
-  executeTrackedFlowDecisionScript,
+  executeFlowDecisionScript,
   resolveFlowDecisionScriptPath,
   runFlowDecisionScript,
 } from '../../flows/flowDecisionScript.js';
@@ -85,7 +84,7 @@ test('bundled flow decision scripts execute without Git metadata and return trim
   }
 });
 
-test('tracked harness decision scripts execute in the worked repository', async () => {
+test('decision scripts execute without Git metadata in the worked repository', async () => {
   const scriptRepositoryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'flow-script-repository-'),
   );
@@ -103,14 +102,7 @@ test('tracked harness decision scripts execute in the worked repository', async 
       path.join(flowControlRoot, 'check_working_folder.py'),
       'import os\nprint(os.getcwd())\n',
     );
-    execFileSync('git', ['init'], { cwd: scriptRepositoryRoot });
-    execFileSync(
-      'git',
-      ['add', 'scripts/flow_control/check_working_folder.py'],
-      { cwd: scriptRepositoryRoot },
-    );
-
-    const result = await executeTrackedFlowDecisionScript({
+    const result = await executeFlowDecisionScript({
       workingFolder,
       scriptRepositoryRoot,
       decisionScript: 'scripts/flow_control/check_working_folder.py',
@@ -152,15 +144,8 @@ test('timed-out decision scripts settle even when a descendant retains stdout', 
         '',
       ].join('\n'),
     );
-    execFileSync('git', ['init'], { cwd: scriptRepositoryRoot });
-    execFileSync(
-      'git',
-      ['add', 'scripts/flow_control/retain-stdio.py'],
-      { cwd: scriptRepositoryRoot },
-    );
-
     const startedAt = Date.now();
-    const result = await executeTrackedFlowDecisionScript({
+    const result = await executeFlowDecisionScript({
       workingFolder,
       scriptRepositoryRoot,
       decisionScript: 'scripts/flow_control/retain-stdio.py',

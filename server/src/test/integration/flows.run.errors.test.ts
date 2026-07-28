@@ -2996,9 +2996,9 @@ test('shared decision seam fails hard for missing script file', async () => {
   );
 });
 
-test('shared decision seam fails hard for an untracked script entrypoint', async () => {
+test('shared decision seam executes an untracked in-root script entrypoint', async () => {
   await withFlowHarness(
-    async ({ tmpDir, ws, baseUrl }) => {
+    async ({ tmpDir, baseUrl }) => {
       await fs.writeFile(
         path.join(tmpDir, 'flow-control', 'decision-untracked.py'),
         'print(\'{"answer":"yes"}\')\n',
@@ -3018,31 +3018,32 @@ test('shared decision seam fails hard for an untracked script entrypoint', async
         ],
       });
 
+      const conversationId = randomUUID();
       const result = await supertest(baseUrl)
         .post('/flows/untracked-script-flow/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
-        });
+      });
       assert.equal(result.status, 202);
 
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
-      const final = await waitForFlowFinal({
-        ws,
-        conversationId,
-        status: 'failed',
-      });
-      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-      assert.match(final.error?.message ?? '', /must be Git-tracked/);
+      await waitFor(
+        () =>
+          (
+            memoryConversations.get(conversationId)?.flags?.flow as
+              | { runLifecycle?: { status?: string } }
+              | undefined
+          )?.runLifecycle?.status === 'ok',
+      );
     },
     { registerTmpDirAsRepo: true },
   );
 });
 
-test('shared decision seam rejects a tracked script symlink to an untracked target', async (t) => {
+test('shared decision seam executes an in-root symlink to an untracked target', async (t) => {
   await withFlowHarness(
-    async ({ tmpDir, ws, baseUrl }) => {
+    async ({ tmpDir, baseUrl }) => {
       const targetPath = path.join(
         tmpDir,
         'flow-control',
@@ -3069,11 +3070,6 @@ test('shared decision seam rejects a tracked script symlink to an untracked targ
         }
         throw error;
       }
-      await execFileAsync(
-        'git',
-        ['add', 'flow-control/decision-tracked-link.py'],
-        { cwd: tmpDir },
-      );
       await writeFlowFile({
         tmpDir,
         flowName: 'tracked-symlink-untracked-target-flow',
@@ -3088,23 +3084,24 @@ test('shared decision seam rejects a tracked script symlink to an untracked targ
         ],
       });
 
+      const conversationId = randomUUID();
       const result = await supertest(baseUrl)
         .post('/flows/tracked-symlink-untracked-target-flow/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
-        });
+      });
       assert.equal(result.status, 202);
 
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
-      const final = await waitForFlowFinal({
-        ws,
-        conversationId,
-        status: 'failed',
-      });
-      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-      assert.match(final.error?.message ?? '', /must be Git-tracked/);
+      await waitFor(
+        () =>
+          (
+            memoryConversations.get(conversationId)?.flags?.flow as
+              | { runLifecycle?: { status?: string } }
+              | undefined
+          )?.runLifecycle?.status === 'ok',
+      );
     },
     { registerTmpDirAsRepo: true },
   );

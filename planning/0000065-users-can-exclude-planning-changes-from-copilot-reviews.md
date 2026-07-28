@@ -368,3 +368,57 @@ Prevent Copilot from spending review effort on changed planning files while reta
 - The parallel all-tests wrapper, live provider spending, login, and manual testing also remain deliberately out of scope.
 
 ---
+
+### Task 6. Harden Copilot review workspace path handling
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 5`
+- Task Status: `__done__`
+- Git Commits: `67e2d606`
+- Created: `July 28, 2026 at 11:00:15 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Prevent Copilot review wrapper agents from corrupting long scheduler-assigned artifact paths by making the checked-in launcher derive every canonical input, work, and output location from one real job workspace. Retain the existing Copilot-specific provider security, exactly-once local `/review` execution, raw evidence, normalization, and best-effort unavailable coverage while adopting the safer workspace discipline already used by the other native review mechanisms.
+
+#### Task Exit Criteria
+
+- The wrapper passes one assigned workspace and semantic review identity arguments without selecting or retyping individual artifact paths.
+- The launcher derives fixed contained paths, rejects workspace directories that resolve outside the assigned job, and preserves the existing workspace layout for resume and reconciliation.
+- A pinned unavailable model produces complete terminal artifacts without launching Copilot.
+- Focused sequential tests and required server and Compose builds pass without manual provider proof.
+
+#### Documentation Locations
+
+- `codeinfo_markdown/review_job_workspace_contract.md` and `codeinfo_markdown/run_copilot_review_workspace.md`: shared path ownership and Copilot wrapper execution contracts.
+
+#### Subtasks
+
+1. [x] Add one launcher-owned resolver for the real assigned workspace and its pinned specification, instructions, raw JSONL, stderr, status, invocation, usage, and normalized-result paths.
+2. [x] Remove caller-selected instructions and artifact paths from the Copilot CLI while retaining repository, workspace, review identity, commits, model, reasoning, and optional endpoint identity.
+3. [x] Read the pinned availability snapshot inside the launcher and generate deterministic unavailable artifacts without contacting Copilot.
+4. [x] Preserve repository and commit checks, workspace containment, native and external environment isolation, credential redaction, exactly-once process handling, and normalization.
+5. [x] Update the Copilot wrapper prompt to use one assigned job-directory variable, one canonical instructions path, semantic launcher arguments, and launcher-owned artifact paths.
+6. [x] Extend launcher and Python prompt-contract tests for canonical path generation, containment, simplified CLI invocation, unavailable coverage, and removal of individual output arguments.
+7. [x] Run targeted ESLint and Prettier checks for every changed supported implementation, test, prompt, and plan file.
+
+#### Testing
+
+1. [x] Run the sequential Copilot launcher suite with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; all 15 tests passed.
+2. [x] Run the sequential review-batch workspace suite with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; all 3 tests passed.
+3. [x] Run the sequential flow-schema suite with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; all 87 tests passed.
+4. [x] Run the targeted repository-by-model wave integration scenario with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; the test passed.
+5. [x] Run the complete Python review prompt-contract suite; all 47 tests passed.
+6. [x] Run `npm run build:summary:server`; the server build passed without warnings.
+7. [x] Run `npm run compose:build:summary`; both Compose build items passed.
+8. [x] Run targeted ESLint and Prettier checks; all changed supported files passed.
+
+#### Implementation notes
+
+- Canonical filenames remain unchanged, so reconciliation and resumed review batches continue to discover the same artifacts.
+- The launcher resolves `input/`, `work/`, and `output/` through the real assigned workspace and retains containment checks as defence in depth.
+- Unavailable external snapshots may legitimately lack a resolved endpoint ID; the launcher records their endpoint label and reason without resolving credentials or launching Copilot.
+- The first test-wrapper attempt exposed its multi-worker default and was stopped before tests ran; every successful server test invocation used the explicit concurrency-one override and exact source test path.
+- Fixing the repository test harness so it can safely run tests in parallel remains out of scope, and no manual testing or live provider spending was performed or desired for this story.
+
+---

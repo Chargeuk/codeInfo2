@@ -4898,10 +4898,10 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 5. [x] `npm run format:check`
 6. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --test-name "github review open PR skips the cycle when canonical post-create reconciliation fails"`
 7. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts --test-name "missing GitHub review setup records a warning and continues later flow steps"`
-8. [ ] `npm run test:summary:all:parallel`
-9. [ ] `npm run lint`
-10. [ ] `npm run format:check`
-11. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
+8. [x] `npm run test:summary:all:parallel`
+9. [x] `npm run lint`
+10. [x] `npm run format:check`
+11. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
 
 #### Implementation Notes
 
@@ -4957,6 +4957,10 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - **BLOCKING ANSWER** Chosen solution: the E2E harness owner should place the ingest-root stateful specs in a dedicated Playwright project with `workers: 1` and `fullyParallel: false`, while retaining the existing resource lock for cross-process or shard isolation and aligning all legitimate lock-holder budgets with the longest supported ingest operation. This is the supported structural fix for the proven cross-file lock-timeout cascade; merely rerunning the broad wrapper or increasing a wait without serializing the shared fixture would not remove the race, and removing or weakening the lock would reintroduce mutable-fixture corruption risk. The first `chat-tools.spec.ts` ingest timeout remains a separate E2E ingest timing defect for that harness owner; Task 46 does not own either defect because its scope is flow-decision execution and its story-owned range did not modify the E2E harness. The parser-visible `**BLOCKER**` above remains intact until the E2E owner supplies the required repair and fresh full-suite proof.
 - Planner repair 2026-07-28: the blocker-family and ownership conclusion showed that the story plan was incomplete, not that Task 46's flow-decision implementation was wrong. Story 60 explicitly requires the canonical parallel and stress wrappers to run without cross-test timing or filesystem interference, so the repository-owned E2E harness repair is now a bounded prerequisite rather than an unowned external limitation. Task 46 is `__to_do__` behind Task 47, and Task 47 is the next active owner; the old Task 46 blocker is retained as a `**RESOLVED ISSUE**` history entry while the blocking evidence remains in the `**BLOCKING ANSWER**` notes.
 - Audit 2026-07-28 implementation-only normalization: fresh repository evidence at `df15c5c5a` shows the approved checked-in repository-relative Python entrypoint guard is restored in the production executor and focused integration/unit tests, with the retained containment, symlink, existence, non-empty, timeout, process-error, and output-limit safeguards intact. The current story-owned flow-decision surface introduces no additional preserved-behavior regression or unrelated user-facing drift under the Story Behavior Lock. All six subtasks remain complete; Testing items 8, 9, 10, and 11 remain intentionally unchecked for the separate automated-proof pass, and no testing item was newly marked complete here. Task 46 remains `__in_progress__`, the parser reports no live blocker, and the prior E2E proof seam is now covered by completed Task 47 without being treated as proven in this implementation-only audit.
+- Automated proof item 8 passed: the full parallel suite completed successfully with client 908/908, server unit 2787/2787, server Cucumber 138/138, and e2e 78/78; the wrapper removed both repository-owned test stacks afterward.
+- Automated proof item 9 passed: repository lint completed with zero warnings.
+- Automated proof item 10 passed: formatting validation reported that all matched files use Prettier code style.
+- Automated proof item 11 passed: the checked-in repository entrypoint contract focused test passed 1/1.
 
 ### Task 47. Repair Shared E2E Ingest Fixture Serialization Harness
 

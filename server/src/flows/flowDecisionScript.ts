@@ -152,32 +152,6 @@ export const executeFlowDecisionScript = async (params: {
     return { ok: false, reason: `Script file is empty: ${scriptPath}` };
   }
 
-  const relativeScriptPath = path.relative(repositoryRoot, scriptPath);
-  try {
-    await execFile(
-      'git',
-      [
-        '-C',
-        repositoryRoot,
-        'ls-files',
-        '--error-unmatch',
-        '--',
-        relativeScriptPath,
-      ],
-      {
-        cwd: repositoryRoot,
-        env: process.env,
-        encoding: 'utf8',
-        maxBuffer: 1024 * 1024,
-      },
-    );
-  } catch {
-    return {
-      ok: false,
-      reason: `Script file must be checked in: ${params.decisionScript}`,
-    };
-  }
-
   return new Promise<FlowDecisionScriptExecutionResult>((resolve) => {
     const child = spawnProcess('python3', [scriptPath], {
       cwd: workingFolder,

@@ -645,6 +645,24 @@ const waitForFlowFinal = async (params: {
   }
 };
 
+const waitForPersistedFlowStatus = async (
+  conversationId: string,
+  status: 'ok' | 'failed' | 'stopped',
+  timeoutMs = 5000,
+) => {
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
+  while (Date.now() < deadline) {
+    const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+      | { runLifecycle?: { status?: string } }
+      | undefined;
+    if (flowState?.runLifecycle?.status === status) return flowState;
+    await delay(25);
+  }
+  throw new Error(
+    `Timed out waiting for persisted flow status ${status} for ${conversationId}`,
+  );
+};
+
 const subscribeConversation = (ws: WebSocket, conversationId: string) => {
   sendJson(ws, { type: 'subscribe_conversation', conversationId });
 };
@@ -2996,7 +3014,7 @@ test('shared decision seam fails hard for missing script file', async () => {
   );
 });
 
-test('shared decision seam rejects an untracked in-root script entrypoint', async () => {
+test('shared decision seam executes an untracked in-root script entrypoint', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
       await fs.writeFile(
@@ -3029,19 +3047,13 @@ test('shared decision seam rejects an untracked in-root script entrypoint', asyn
       });
       assert.equal(result.status, 202);
 
-      const final = await waitForFlowFinal({
-        ws,
-        conversationId,
-        status: 'failed',
-      });
-      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-      assert.match(final.error?.message ?? '', /must be checked in/);
+      await waitForPersistedFlowStatus(conversationId, 'ok');
     },
     { registerTmpDirAsRepo: true },
   );
 });
 
-test('shared decision seam rejects an in-root symlink to an untracked target', async (t) => {
+test('shared decision seam executes an in-root symlink to an untracked target', async (t) => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
       const targetPath = path.join(
@@ -3095,13 +3107,7 @@ test('shared decision seam rejects an in-root symlink to an untracked target', a
       });
       assert.equal(result.status, 202);
 
-      const final = await waitForFlowFinal({
-        ws,
-        conversationId,
-        status: 'failed',
-      });
-      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-      assert.match(final.error?.message ?? '', /must be checked in/);
+      await waitForPersistedFlowStatus(conversationId, 'ok');
     },
     { registerTmpDirAsRepo: true },
   );

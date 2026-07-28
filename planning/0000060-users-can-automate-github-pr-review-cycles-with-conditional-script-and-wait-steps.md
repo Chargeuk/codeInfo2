@@ -4883,15 +4883,15 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 #### Subtasks
 
 1. [x] Add the repository-wide `Flow Design And Agent Handoffs` policy to `AGENTS.md`.
-2. [ ] Remove the active `git ls-files --error-unmatch` gate from `executeFlowDecisionScript` in `server/src/flows/flowDecisionScript.ts` and retain the existing root-containment, realpath, existence, non-empty, timeout, process-error, and output-limit checks.
-3. [ ] Update `server/src/test/unit/flow-decision-script.test.ts` and `server/src/test/integration/flows.run.errors.test.ts` so untracked in-root direct scripts and in-root symlinks execute, while missing, empty, escaping, timeout, process-error, and output-limit cases still fail.
+2. [x] Remove the active `git ls-files --error-unmatch` gate from `executeFlowDecisionScript` in `server/src/flows/flowDecisionScript.ts` and retain the existing root-containment, realpath, existence, non-empty, timeout, process-error, and output-limit checks.
+3. [x] Update `server/src/test/unit/flow-decision-script.test.ts` and `server/src/test/integration/flows.run.errors.test.ts` so untracked in-root direct scripts and in-root symlinks execute, while missing, empty, escaping, timeout, process-error, and output-limit cases still fail.
 4. [x] Make GitHub review setup-file limitations mark the review stage skipped and continue later safe flow steps after publishing a warning.
 5. [x] Align the merged PR-open integration regression with the exact URL-derived PR-number lookup inherited from `main`.
-6. [ ] Reverse the later reintroduction of the checked-in-entrypoint guard and restore the approved untracked in-root execution contract in production and focused tests without weakening the retained path and process safeguards.
+6. [x] Reverse the later reintroduction of the checked-in-entrypoint guard and restore the approved untracked in-root execution contract in production and focused tests without weakening the retained path and process safeguards.
 
 #### Testing
 
-1. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
 2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
 3. [x] `npm run build:summary:server`
 4. [x] `npm run lint`
@@ -4904,6 +4904,10 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 11. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "in-root untracked repository entrypoint contract"`
 
 #### Implementation Notes
+
+- Removed the active Git-index prerequisite from `executeFlowDecisionScript`; the existing path, file, timeout, process, and output safeguards remain in place.
+- Updated unit and shared-decision integration coverage for untracked in-root scripts and in-root symlinks. The initial integration assertion waited for a nonexistent WebSocket terminal event, so it was corrected to poll the authoritative persisted flow lifecycle; the focused wrapper then passed 9/9.
+- Restored the approved untracked in-root execution contract after the later checked-in-entrypoint guard reintroduction; the focused unit wrapper passed 4/4 and the directly corresponding Testing item 1 is complete.
 
 - Added the repository-wide flow-design and handoff policy to `AGENTS.md`, including the safe best-effort boundary requested after the failed completion-check investigation.
 - Removed the `git ls-files` gate, renamed the general executor to `executeFlowDecisionScript`, and updated the production service call site while leaving the independent execution safeguards intact.

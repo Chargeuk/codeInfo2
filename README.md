@@ -4,7 +4,7 @@ Monorepo for client (React 19 + MUI), server (Express), and shared common packag
 
 ## Prerequisites
 
-- Node.js 22.x and npm 10+
+- Node.js 22.12.0 or later and npm 10+
 - Docker 27+ and Docker Compose v2
 - Git, Git-lfs, curl
 - Openai Codex

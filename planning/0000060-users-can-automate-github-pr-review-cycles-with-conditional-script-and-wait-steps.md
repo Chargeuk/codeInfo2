@@ -4887,21 +4887,21 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 3. [x] Update `server/src/test/unit/flow-decision-script.test.ts` and `server/src/test/integration/flows.run.errors.test.ts` so untracked in-root direct scripts and in-root symlinks execute, while missing, empty, escaping, timeout, process-error, and output-limit cases still fail.
 4. [x] Make GitHub review setup-file limitations mark the review stage skipped and continue later safe flow steps after publishing a warning.
 5. [x] Align the merged PR-open integration regression with the exact URL-derived PR-number lookup inherited from `main`.
-6. [x] Reverse the later reintroduction of the checked-in-entrypoint guard and restore the approved untracked in-root execution contract in production and focused tests without weakening the retained path and process safeguards.
+6. [ ] Restore the locked checked-in repository-relative entrypoint contract for direct Python decisions and update the focused executor tests without weakening the retained path and process safeguards.
 
 #### Testing
 
-1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
-2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
-3. [x] `npm run build:summary:server`
-4. [x] `npm run lint`
-5. [x] `npm run format:check`
+1. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
+2. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run lint`
+5. [ ] `npm run format:check`
 6. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --test-name "github review open PR skips the cycle when canonical post-create reconciliation fails"`
 7. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts --test-name "missing GitHub review setup records a warning and continues later flow steps"`
-8. [x] `npm run test:summary:all:parallel`
-9. [x] `npm run lint`
-10. [x] `npm run format:check`
-11. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "in-root untracked repository entrypoint contract"`
+8. [ ] `npm run test:summary:all:parallel`
+9. [ ] `npm run lint`
+10. [ ] `npm run format:check`
+11. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
 
 #### Implementation Notes
 
@@ -4967,6 +4967,8 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Automated proof item 11 passed: the checked-in repository entrypoint contract focused test passed 1/1.
 - Audit 2026-07-28 implementation-plus-automated-proof normalization: current repository evidence confirms the restored checked-in repository-relative Python entrypoint contract remains in production and focused tests after the latest implementation commit, with no additional story-caused preserved-behavior regression or unrelated user-facing drift under the Story Behavior Lock. The full parallel suite passed with client 908/908, server unit 2787/2787, server Cucumber 138/138, and e2e 78/78; the repository-owned test stacks were removed afterward, and the follow-up lint, formatting, and checked-in-entrypoint proof also passed. All six subtasks and all eleven testing items are complete, the parser reports no live blocker, and Task 46 is now honestly `__done__` before manual testing begins.
 - Manual proof 2026-07-28 (task-scoped) restarted the documented main Compose stack, confirmed `http://localhost:5010/health` and `http://localhost:5001` respond successfully, then exercised the live compiled executor with a temporary untracked in-root Python script. It returned `Script file must be checked in: flow-control/untracked.py`, which contradicts this task's title, Overview, and intended untracked-entrypoint proof. The temporary runtime fixture was removed and the main stack was stopped cleanly. Reopened the existing executor and focused-proof subtasks plus Testing items 1 and 11; no duplicate manual-testing subtask was added.
+- Audit 2026-07-28 implementation-only re-audit: current HEAD `339eb0b39` removed the `git ls-files` gate again and changed the focused unit and integration tests to accept untracked direct and in-root-symlink entrypoints. The story-level Acceptance Criteria require a checked-in repository-relative Python entrypoint, and the Story Behavior Lock preserves behavior outside the explicitly approved flow-only additions; because this story changed the same production executor and focused tests, the untracked acceptance is story-caused preserved-behavior drift rather than merely discovered behavior. Reopened Subtask 6 and Testing items 1, 2, 3, 4, 5, 8, 9, 10, and 11; no testing item was newly marked complete in this implementation-only audit. The task remains `__in_progress__` and automated proof is not complete.
+- **BLOCKER** Subtask 6 remained open after audit normalization: restore the locked checked-in repository-relative direct-Python entrypoint contract and its focused production/test coverage. Evidence checked: the story Acceptance Criteria and Story Behavior Lock, the current `flowDecisionScript.ts`, the current unit and shared-decision integration tests, the `339eb0b39` diff, and the prior manual proof showing the compiled executor rejected an untracked entrypoint. Implementation cannot continue honestly without completing that restoration or receiving planner intervention to resolve the contradictory task wording.
 
 ### Task 47. Repair Shared E2E Ingest Fixture Serialization Harness
 

@@ -422,3 +422,58 @@ Prevent Copilot review wrapper agents from corrupting long scheduler-assigned ar
 - Fixing the repository test harness so it can safely run tests in parallel remains out of scope, and no manual testing or live provider spending was performed or desired for this story.
 
 ---
+
+### Task 7. Give Copilot reviews Docker-contained full access
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 6`
+- Task Status: `__done__`
+- Git Commits: `96e37f35`
+- Created: `July 28, 2026 at 11:16:46 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Give local Copilot `/review` invocations the same practical full-access policy as the existing Codex and OpenCode reviews because CodeInfo's Docker container is the intended isolation boundary and restricted tool permissions prevented reliable review completion. Preserve the independent security boundaries that prevent remote review publication or delegation, protect provider credentials, close interactive input, validate pinned repositories and commits, and contain persisted evidence in each assigned review workspace.
+
+#### Task Exit Criteria
+
+- Every available native and external Copilot review passes exactly one `--allow-all` flag and no conflicting tool allowlist or denial flags.
+- Docker is documented as the full-access isolation boundary, matching Codex and OpenCode.
+- Remote control/export, built-in GitHub MCP access, interactive input, provider-secret exposure, duplicate invocation, and artifact-path escape remain disabled or prevented.
+- Focused sequential tests and required server and Compose builds pass without manual provider proof.
+
+#### Documentation Locations
+
+- Installed GitHub Copilot CLI `1.0.75` help: confirm that `--allow-all` enables all tool, path, and URL permissions.
+- `README.md` and `codeinfo_markdown/run_copilot_review_workspace.md`: operational full-access rationale and retained security boundaries.
+
+#### Subtasks
+
+1. [x] Verify the installed Copilot CLI's explicit full-access flag and compare the effective Codex, OpenCode, and Copilot permission policies.
+2. [x] Replace Copilot's restricted available-tool, read, write-denial, and Git allow/deny arguments with exactly one `--allow-all` flag.
+3. [x] Remove the obsolete Git inspection and mutation permission constants.
+4. [x] Preserve closed stdin, local-only flags, disabled built-in GitHub MCP access, provider-secret isolation and redaction, repository and commit validation, exactly-once execution, cancellation, timeout, and canonical artifact containment.
+5. [x] Update the wrapper prompt, README, story description, acceptance criteria, and implementation guidance to describe Docker-contained full access.
+6. [x] Extend launcher and Python prompt-contract tests for native and external full-access arguments and retained security controls.
+7. [x] Run targeted ESLint and Prettier checks for every changed supported implementation, test, prompt, documentation, and plan file.
+
+#### Testing
+
+1. [x] Run the sequential Copilot launcher suite with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; all 15 tests passed.
+2. [x] Run the sequential review-batch workspace suite with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; all 3 tests passed.
+3. [x] Run the sequential flow-schema suite with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; all 87 tests passed.
+4. [x] Run the targeted repository-by-model wave integration scenario with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; the test passed.
+5. [x] Run the complete Python review prompt-contract suite; all 47 tests passed.
+6. [x] Run `npm run build:summary:server`; the server build passed without warnings.
+7. [x] Run `npm run compose:build:summary`; both Compose build items passed.
+8. [x] Run targeted ESLint and Prettier checks; all changed supported files passed.
+
+#### Implementation notes
+
+- This task supersedes Task 4's original read-only tool and positive Git-inspection allowlist policy; Task 4 remains unchanged as historical evidence of the earlier implementation.
+- The installed CLI defines `--allow-all` as the combined all-tools, all-paths, and all-URLs policy, which is intentionally acceptable only because the review runs within CodeInfo's Docker boundary.
+- Full access does not enable remote GitHub behavior: `--no-remote`, `--no-remote-export`, and disabled built-in MCP access remain mandatory.
+- `--secret-env-vars` still removes provider credentials from shell and MCP environments and redacts them from Copilot output, while the launcher retains its own output redaction.
+- Fixing parallel test-runner isolation remains out of scope, and no manual testing, live provider spending, login, remote session, or remote PR review was performed or desired.
+
+---

@@ -61,6 +61,7 @@ test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath toget
   });
 
   assert.equal(resolved.copilotHome, home);
+  assert.equal(resolved.clientOptions.baseDirectory, home);
   assert.equal(resolved.clientOptions.env?.COPILOT_HOME, home);
   assert.equal(resolved.clientOptions.env?.HOME, home);
   assert.equal(
@@ -68,8 +69,19 @@ test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath toget
     getCopilotCacheDirForHome(home),
   );
   assert.equal(resolved.clientOptions.env?.XDG_CONFIG_HOME, home);
-  assert.equal(resolved.clientOptions.cliPath, '/usr/local/bin/copilot');
-  assert.deepEqual(resolved.clientOptions.cliArgs, ['--allow-all-paths']);
+  assert.equal(resolved.clientOptions.connection?.kind, 'stdio');
+  assert.equal(
+    resolved.clientOptions.connection?.kind === 'stdio'
+      ? resolved.clientOptions.connection.path
+      : undefined,
+    '/usr/local/bin/copilot',
+  );
+  assert.deepEqual(
+    resolved.clientOptions.connection?.kind === 'stdio'
+      ? resolved.clientOptions.connection.args
+      : undefined,
+    ['--allow-all-paths'],
+  );
   assert.equal(resolved.cliMode, 'cliPath');
 });
 
@@ -79,13 +91,12 @@ test('buildCopilotClientOptions preserves caller CLI arg order and duplicates wh
     cliArgs: [' --header ', 'A', '--header', 'B', '--allow-all-paths'],
   });
 
-  assert.deepEqual(resolved.clientOptions.cliArgs, [
-    '--header',
-    'A',
-    '--header',
-    'B',
-    '--allow-all-paths',
-  ]);
+  assert.deepEqual(
+    resolved.clientOptions.connection?.kind === 'stdio'
+      ? resolved.clientOptions.connection.args
+      : undefined,
+    ['--header', 'A', '--header', 'B', '--allow-all-paths'],
+  );
 });
 
 test('seeds copilot/config.toml through the startup-owned provider base-config path', async () => {

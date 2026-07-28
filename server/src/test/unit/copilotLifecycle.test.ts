@@ -13,7 +13,7 @@ const createRuntimeStub = (
   stop: async () => [],
   ping: async (message?: string) => ({
     message: message ?? 'pong',
-    timestamp: Date.now(),
+    timestamp: new Date().toISOString(),
   }),
   getAuthStatus: async () => ({
     isAuthenticated: true,
@@ -72,12 +72,18 @@ test('copilot lifecycle uses the injected dependency instead of a hidden singlet
 
 test('copilot lifecycle passes an explicit cliPath override into the runtime factory', () => {
   let receivedCliPath: string | undefined;
-  let receivedCliArgs: string[] | undefined;
+  let receivedCliArgs: readonly string[] | undefined;
   const lifecycle = new CopilotLifecycle({
     cliPath: '/custom/copilot',
     clientFactory: (options) => {
-      receivedCliPath = options.cliPath;
-      receivedCliArgs = options.cliArgs;
+      receivedCliPath =
+        options.connection?.kind === 'stdio'
+          ? options.connection.path
+          : undefined;
+      receivedCliArgs =
+        options.connection?.kind === 'stdio'
+          ? options.connection.args
+          : undefined;
       return createRuntimeStub();
     },
   });
@@ -91,7 +97,10 @@ test('copilot lifecycle leaves cliPath undefined when PATH discovery should be u
   let receivedCliPath: string | undefined = 'unset';
   const lifecycle = new CopilotLifecycle({
     clientFactory: (options) => {
-      receivedCliPath = options.cliPath;
+      receivedCliPath =
+        options.connection?.kind === 'stdio'
+          ? options.connection.path
+          : undefined;
       return createRuntimeStub();
     },
   });
@@ -167,7 +176,7 @@ test('copilot lifecycle injects configDir without dropping create-session tool c
     onPermissionRequest,
   });
 
-  assert.equal(capturedConfig?.configDir, lifecycle.configDir);
+  assert.equal(capturedConfig?.configDirectory, lifecycle.configDir);
   assert.equal(capturedConfig?.reasoningEffort, 'high');
   assert.deepEqual(capturedConfig?.availableTools, ['VectorSearch']);
   assert.deepEqual(capturedConfig?.mcpServers, {
@@ -188,7 +197,7 @@ test('copilot lifecycle injects configDir without dropping create-session tool c
   assert.equal(delegatedPermissionCalls, 0);
 });
 
-test('copilot lifecycle preserves resume-session tool and permission config while injecting configDir', async () => {
+test('copilot lifecycle preserves resume-session tool and permission config while injecting configDirectory', async () => {
   let capturedResume:
     | import('@github/copilot-sdk').ResumeSessionConfig
     | undefined;
@@ -219,7 +228,7 @@ test('copilot lifecycle preserves resume-session tool and permission config whil
     onPermissionRequest,
   });
 
-  assert.equal(capturedResume?.configDir, lifecycle.configDir);
+  assert.equal(capturedResume?.configDirectory, lifecycle.configDir);
   assert.equal(capturedResume?.reasoningEffort, 'medium');
   assert.deepEqual(capturedResume?.availableTools, [
     'ListIngestedRepositories',

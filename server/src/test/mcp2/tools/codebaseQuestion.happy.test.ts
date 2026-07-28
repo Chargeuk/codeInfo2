@@ -1941,10 +1941,10 @@ test('codebase_question keeps the requested provider and repairs the model there
             }),
         });
         const payload = JSON.parse(result.content[0].text);
-        assert.equal(payload.modelId, 'copilot-gpt-5');
-        assert.equal(calls[0]?.model, 'copilot-gpt-5');
+        assert.equal(payload.modelId, 'gpt-5-mini');
+        assert.equal(calls[0]?.model, 'gpt-5-mini');
         assert.equal(memoryConversations.get(payload.conversationId)?.provider, 'copilot');
-        assert.equal(memoryConversations.get(payload.conversationId)?.model, 'copilot-gpt-5');
+        assert.equal(memoryConversations.get(payload.conversationId)?.model, 'gpt-5-mini');
     }
     finally {
         if (originalHome === undefined)

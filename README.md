@@ -4,7 +4,7 @@ Monorepo for client (React 19 + MUI), server (Express), and shared common packag
 
 ## Prerequisites
 
-- Node.js 22.x and npm 10+
+- Node.js 22.12.0 or later and npm 10+
 - Docker 27+ and Docker Compose v2
 - Git, Git-lfs, curl
 - Openai Codex
@@ -170,13 +170,14 @@ Corporate certificate directory requirements:
 - Copilot credential precedence is runtime-owned, not committed-env-owned. Checked-in env files may set `CODEINFO_COPILOT_HOME` and the optional CLI-path override, but they do not replace or mask `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, or `gh` fallback. `/health` also stays process-only; Copilot readiness continues to surface through `/chat/providers` and `/chat/models` instead of server health.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 - Server SDK pin and runtime guard are coupled:
-  - `@openai/codex` and `@openai/codex-sdk` are pinned at `0.144.1` in `server/package.json`.
-  - startup guard requires exact `0.144.1`; pre-release, lower, and higher versions are rejected.
+  - `@openai/codex` and `@openai/codex-sdk` are pinned at `0.145.0` in `server/package.json`.
+  - startup guard requires exact `0.145.0`; pre-release, lower, and higher versions are rejected.
   - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
 
 ## GitHub Copilot and provider-neutral runtime
 
 - Story `0000051` added GitHub Copilot as a third chat provider alongside Codex and LM Studio. Story `0000057` extends the same provider-neutral runtime contract across chat, agents, commands, and flows.
+- The server pins `@github/copilot-sdk` at `1.0.8`, while the container installs `@github/copilot@1.0.75`; both CLI pins are recorded in `server/npm-global.txt` so image rebuilds are reproducible.
 - Provider ordering remains one shared contract everywhere runtime selection uses it: `codex`, then `copilot`, then `lmstudio`.
 - Chat still uses the selected chat provider directly, while agents and flow-owned agent runs resolve their provider from the agent's `config.toml` and fall back through the configured provider order when needed.
 - The runtime resolves `CODEINFO_COPILOT_HOME` in the same style as `CODEINFO_CODEX_HOME`:

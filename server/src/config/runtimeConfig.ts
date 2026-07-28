@@ -260,7 +260,7 @@ const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
     '',
   ].join('\n'),
   copilot: [
-    'model = "copilot-gpt-5"',
+    'model = "gpt-5.4-mini"',
     'reasoning_effort = "medium"',
     'tool_access = "on"',
     'web_search = "live"',

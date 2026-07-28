@@ -1108,7 +1108,10 @@ test('providers route degrades malformed Copilot chat defaults to warnings inste
       authType: 'gh-cli',
       statusMessage: 'authenticated via gh',
     },
-    models: [{ id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never],
+    models: [
+      { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini' } as never,
+      { id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never,
+    ],
   });
   const server = await startServer({
     mcpAvailable: true,
@@ -1127,7 +1130,7 @@ test('providers route degrades malformed Copilot chat defaults to warnings inste
     assert.ok(copilot);
     assert.equal(res.body.selectedProvider, 'codex');
     assert.equal(copilot.available, true);
-    assert.equal(copilot.defaultModel, 'copilot-gpt-5');
+    assert.equal(copilot.defaultModel, 'gpt-5.4-mini');
     assert.equal(copilot.defaultModelSource, 'hardcoded');
     assert.deepEqual(
       (
@@ -1226,7 +1229,10 @@ test('providers route clamps unsupported Copilot config defaults to the runtime-
       authType: 'gh-cli',
       statusMessage: 'authenticated via gh',
     },
-    models: [{ id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never],
+    models: [
+      { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini' } as never,
+      { id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never,
+    ],
   });
   const server = await startServer({
     mcpAvailable: true,
@@ -1258,7 +1264,11 @@ test('providers route clamps unsupported Copilot config defaults to the runtime-
         { key: 'toolAccess', resolvedDefault: 'on' },
       ],
     );
-    assert.equal((copilot.warnings as string[]).length, 0);
+    assert.equal(
+      (copilot.warnings as string[]).length,
+      0,
+      JSON.stringify(copilot.warnings),
+    );
   } finally {
     await stopServer(server);
   }

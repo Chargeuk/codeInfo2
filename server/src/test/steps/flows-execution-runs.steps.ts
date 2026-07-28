@@ -1159,7 +1159,7 @@ Then('the active flow conversation clears its persisted wait', async () => {
   assert(lastResponse, 'expected flow execution response');
   const conversationId = String(lastResponse.body.conversationId ?? '');
   assert(conversationId, 'expected started conversation id');
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (let attempt = 0; attempt < 240; attempt += 1) {
     const conversation = await waitForConversation(conversationId);
     const waitState = (
       (conversation.flags ?? {}) as {

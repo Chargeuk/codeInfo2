@@ -24,6 +24,8 @@ Copilot is explicitly instructed not to inspect, read, summarize, cite, or repor
 
 Each Copilot review remains independently discoverable with its model-specific status, output, diagnostics, endpoint identity, and usage. Existing generic verification and reconciliation discover all completed child artifacts without assuming a fixed provider count, preserve per-job provenance, and merge supported findings into the normal batch reconciliation.
 
+Automated proof for this story must run with test-runner concurrency set to one. The relevant flow integration suite mutates process-wide `FLOWS_DIR`, `CODEINFO_COPILOT_REVIEW_MODELS`, and `CODEINFO_COPILOT_CLI_PATH` values and uses shared in-memory conversation and turn stores that its setup and cleanup hooks clear. That harness has not been designed or validated for concurrent test execution, so worker- or thread-level parallelism cannot provide trustworthy proof without separate test-isolation work. This restriction applies only to the test runner: controlled sequential tests deliberately hold child fakes open and prove that the application still admits all existing and Copilot children concurrently into one wave.
+
 ### Acceptance Criteria
 
 - Missing, unset, or whitespace-only `CODEINFO_COPILOT_REVIEW_MODELS` produces exactly the pre-change review-group structure and launches no Copilot children.
@@ -34,6 +36,7 @@ Each Copilot review remains independently discoverable with its model-specific s
 - The tracked server environment configures built-in `kimi-k2.7-code|none` and `claude-sonnet-5|medium`; the operator-local configuration can additionally select `openrouter::deepseek/deepseek-v4-flash|none` and `openrouter::qwen/qwen3.7-flash|none`.
 - Configuration entries are validated independently. Every valid unambiguous entry survives malformed siblings, and every discarded malformed entry emits a visible secret-free warning.
 - Duplicate endpoint/model selectors use deterministic first-valid-entry-wins behavior even when a later duplicate requests another reasoning effort, with a visible secret-free warning.
+- Repository agent guidance requires KISS, semantic best-effort recovery for applicable artifacts, independent validation of configured list entries, deterministic duplicate handling, visible secret-free warnings, and safe isolation rather than guessing safety-critical identities or stopping the parent flow.
 - No arbitrary configured-model count limit is imposed, and preparation logs repository, model, and derived Copilot job counts.
 - Native availability distinguishes unavailable CLI, required authentication, discovery failure, and an absent exact model.
 - External availability distinguishes unknown endpoint label, incompatible endpoint capability, discovery failure, and absent exact model without persisting endpoint credentials.
@@ -62,7 +65,7 @@ Each Copilot review remains independently discoverable with its model-specific s
 - Every prompt explicitly instructs Copilot to exclude changed repository-root-relative `planning/**` content from inspection and findings and supplies `git diff <base>...<head> -- . ':(exclude)planning/**'` as the review diff command.
 - The prepared review-instructions file remains available as the authoritative story context, so planning changes are excluded without removing acceptance criteria and scope information.
 - Invocation and normalized-result artifacts record `planning/**` in `excluded_paths`.
-- In a mixed change range, non-planning implementation changes remain in review scope while planning changes are explicitly excluded. If only planning files changed, Copilot must not invent implementation findings and may honestly report that no reviewable implementation changes remain.
+- In a mixed change range, the immutable prompt keeps non-planning implementation changes in review scope while excluding planning changes. When only planning files changed, it instructs Copilot not to invent implementation findings and to report honestly that no reviewable implementation changes remain.
 - Copilot never creates a remote GitHub pull-request review, exports a session, or delegates to a remote coding agent.
 - Existing verification and reconciliation discover variable numbers of child artifacts generically, retain per-job provenance and usage independently, and merge supported findings into one normal batch reconciliation.
 - Focused sequential parser, availability, matrix, concurrency, launcher, flow, workspace, schema, prompt-contract, server-build, and Compose-build proof passes.
@@ -75,12 +78,13 @@ Each Copilot review remains independently discoverable with its model-specific s
 - Routing the first implementation through CodeInfo's internal OpenAI-compatibility proxy.
 - Adding an arbitrary Copilot model-count limit or a new global dynamic model-selection interface.
 - Adding a second review wave, changing existing non-Copilot review groups, or changing reconciliation to assume a fixed provider count.
-- Updating the behavior, prompts, launchers, model configuration, or output contracts of existing Codex, OpenCode, multi-agent, cross-repository, or other review mechanisms; only provider-neutral batch integration needed to admit and reconcile Copilot siblings is in scope.
+- Updating the behavior, launchers, model configuration, output contracts, or substantive prompt contracts of existing Codex, OpenCode, multi-agent, cross-repository, or other review mechanisms; only provider-neutral batch integration needed to admit and reconcile Copilot siblings is in scope. The terminology-only repair that restores the disposition prompt's already-tested `materiality survivors` phrase does not authorize any behavior change.
 - Adding a client configuration UI or requiring client code changes for model-specific job labels.
 - Adding a synthetic commit, filtered repository, Git shim, or provider-specific hard filesystem sandbox to hide planning files mechanically.
 - Changing the shared `planning/**` review exclusion used by other review harnesses.
 - Guaranteeing that Copilot CLI internals never observe changed-file metadata for excluded planning paths; the implemented boundary is explicit model instruction plus Git exclusion pathspec.
-- Fixing unrelated failures in parallel test wrappers or parallel test suites.
+- Redesigning or fixing Copilot or server tests so they can use `node:test` runner concurrency, worker threading, parallel wrappers, or simultaneous shared-fixture execution.
+- Diagnosing or repairing the process-environment, shared in-memory state, fixture, database, port, or cleanup isolation required to make those tests parallel-safe.
 - Running or repairing `npm run test:summary:all:parallel`; this story uses sequential targeted tests and the repository build wrappers.
 - Manual testing, manual Compose startup proof, provider login, screenshots, and other human-operated validation are not desired for this story.
 
@@ -137,7 +141,7 @@ Introduce the optional model-list contract and resolve each native or explicitly
 
 1. [x] Add `server/src/flows/copilotReviewModels.ts` with the model specification, supported reasoning values, parser, stable identity generation, warning contract, native discovery, and external endpoint/model availability resolution.
 2. [x] Implement independent entry validation, deterministic first-valid duplicate handling, environment-order preservation, exact model matching, and secret-free warning text.
-3. [x] Reuse Copilot readiness and OpenAI-compatible endpoint configuration without resolving external credentials during batch preparation.
+3. [x] Register `CODEINFO_COPILOT_REVIEW_MODELS` and the launcher timeout in `server/src/config/startupEnv.ts`, then reuse Copilot readiness and OpenAI-compatible endpoint configuration without resolving external credentials during batch preparation.
 4. [x] Update `AGENTS.md` so independent batch entries and imperfect review artifacts are handled with safe best effort, visible accounting, and no forced parent-flow stop.
 5. [x] Configure `server/.env` with the built-in Kimi and Claude review models and preserve the operator-local native-plus-OpenRouter model configuration.
 6. [x] Add parser and availability coverage in `server/src/test/unit/copilot-review-models.test.ts`.
@@ -188,7 +192,7 @@ Create one dynamic matrix group per resolved Copilot model and expand every grou
 2. [x] Extend `server/src/flows/flowSchema.ts` and `server/src/flows/service.ts` with the `prepareCopilotReviewGroups` custom step and persisted `effective_review_groups`.
 3. [x] Update `flows/review_batch.json` so preparation occurs after repository targets and the existing single `subflowWave` reads `effective_review_groups`.
 4. [x] Preserve the existing first and repeated group inputs from `flows/two_phase_review_cycle.json`, enable Copilot for the repeated group's first and later passes, and explicitly preserve the later one-shot batch's Copilot disable.
-5. [x] Keep machine identity separate from model-specific display labels and include model group, target, and flow in every Copilot child identity.
+5. [x] Update `server/src/flows/subflowWave.ts` to use optional group display names while keeping machine identity separate and including model group, target, and flow in every Copilot child identity.
 6. [x] Add 2×3 matrix, unavailable-cell, blank-config, malformed-entry, duplicate, stable-identity, workspace-collision, and dynamic-schema proof in `server/src/test/unit/copilot-review-groups.test.ts`, `server/src/test/unit/subflow-wave.test.ts`, and `server/src/test/unit/flows-schema.test.ts`.
 7. [x] Add controlled same-wave concurrency and persisted dynamic-value proof in `server/src/test/integration/flows.run.subflow.test.ts`.
 8. [x] Run targeted ESLint for the matrix preparation, schema, service, wave, and test surfaces and resolve every issue.
@@ -238,7 +242,7 @@ Add the `copilot_review` child flow and give every repository/model cell an immu
 3. [x] Require available external jobs to carry both normalized endpoint label and endpoint identity while rejecting external identity on native jobs.
 4. [x] Ensure unavailable specifications produce secret-free not-launched artifacts and an honest normalized unavailable result without invoking Copilot.
 5. [x] Preserve generic discovery, verification, disposition, and reconciliation instead of adding a fixed Copilot result count.
-6. [x] Update `codeinfo_markdown/disposition_review_batch.md` and shared handoff guidance so missing or imperfect applicable evidence degrades honestly while deliberately inapplicable later artifacts remain valid skips.
+6. [x] Retain the terminology-only `materiality survivors` repair in `codeinfo_markdown/disposition_review_batch.md` required by its existing prompt-contract test without changing existing review behavior.
 7. [x] Add flow discovery, schema, immutable input, workspace isolation, interrupted preparation, unavailable coverage, and target-boundary proof in `server/src/test/unit/review-batch-workspace.test.ts`, flow schema tests, and Python prompt-contract tests.
 8. [x] Run targeted ESLint for workspace preparation and its tests and resolve every issue.
 9. [x] Run targeted Prettier checks for workspace preparation, flow and prompt files, and tests and resolve every issue.
@@ -319,7 +323,7 @@ Implement one reusable TypeScript launcher with a thin checked-in script entrypo
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 4`
 - Task Status: `__done__`
-- Git Commits: `9dff3f7d`, `032b0d1b`
+- Git Commits: `9dff3f7d`, `032b0d1b`, `6ceebf50`, `6c6646fa`
 
 #### Overview
 
@@ -342,7 +346,7 @@ Prevent Copilot from spending review effort on changed planning files while reta
 3. [x] Keep the prepared review-instructions file as the authoritative compact story context instead of asking Copilot to read changed plan files.
 4. [x] Record `excluded_paths` in invocation and normalized artifacts.
 5. [x] Extend launcher and Python prompt-contract tests for the exclusion prompt, exact Git command, wrapper instruction, and artifacts.
-6. [x] Expand `README.md` and this story to document configuration, scheduling, execution, recovery, artifacts, security, and exclusion behavior.
+6. [x] Expand `README.md` and this story to document configuration, scheduling, execution, recovery, artifacts, security, exclusion behavior, and why proof must remain sequential at the test-runner level.
 7. [x] Run targeted ESLint for all changed TypeScript source and test surfaces and resolve every issue.
 8. [x] Run targeted Prettier checks for all changed Prettier-supported source, flow, prompt, documentation, and plan files and resolve every issue.
 
@@ -360,6 +364,7 @@ Prevent Copilot from spending review effort on changed planning files while reta
 - The exclusion is intentionally prompt/pathspec based because Copilot `/review` exposes no native changed-path exclusion flag.
 - Mixed ranges retain implementation changes; planning-only ranges must not produce invented implementation findings.
 - The compact story context remains available even though changed planning files are out of review scope.
-- Parallel test repair, the parallel all-tests wrapper, live provider spending, login, and manual testing remain deliberately out of scope.
+- The relevant integration harness owns process-wide environment and shared in-memory stores, so making it runner-parallel-safe requires separate isolation work that remains deliberately out of scope.
+- The parallel all-tests wrapper, live provider spending, login, and manual testing also remain deliberately out of scope.
 
 ---

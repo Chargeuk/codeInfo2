@@ -4861,7 +4861,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 
 #### Task Exit Criteria
 
-- [x] Untracked Python decision scripts inside the worked repository can execute without Git metadata or index membership.
+- [ ] Direct Python decision scripts execute only for checked-in repository-relative entrypoints while retaining the independent path and process safeguards.
 - [x] Path containment, symlink escape, missing-file, empty-file, timeout, process-error, and output-limit protections remain enforced.
 - [x] Production call sites and focused tests use terminology that does not imply a Git-tracking requirement.
 - [x] Repository-wide flow and handoff guidance documents KISS, state-first continuation, self-describing artifacts, best-effort consumption, and safe partial or unavailable outcomes.
@@ -4886,21 +4886,21 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 3. [x] Replace Git-tracking rejection tests with focused proof that untracked in-root scripts execute while the remaining safeguards still apply.
 4. [x] Make GitHub review setup-file limitations mark the review stage skipped and continue later safe flow steps after publishing a warning.
 5. [x] Align the merged PR-open integration regression with the exact URL-derived PR-number lookup inherited from `main`.
-6. [x] Restore the repository-relative direct-Python entrypoint contract without Git tracking enforcement, and update the focused executor tests without weakening the retained path and process safeguards.
+6. [ ] Restore the locked checked-in repository-relative entrypoint contract for direct Python decisions and update the focused executor tests without weakening the retained path and process safeguards.
 
 #### Testing
 
-1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
-2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
-3. [x] `npm run build:summary:server`
-4. [x] `npm run lint`
-5. [x] `npm run format:check`
+1. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
+2. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run lint`
+5. [ ] `npm run format:check`
 6. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --test-name "github review open PR skips the cycle when canonical post-create reconciliation fails"`
 7. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts --test-name "missing GitHub review setup records a warning and continues later flow steps"`
-8. [x] `npm run test:summary:all:parallel`
-9. [x] `npm run lint`
-10. [x] `npm run format:check`
-11. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "decision scripts execute without Git metadata in the worked repository"`
+8. [ ] `npm run test:summary:all:parallel`
+9. [ ] `npm run lint`
+10. [ ] `npm run format:check`
+11. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
 
 #### Implementation Notes
 
@@ -4935,6 +4935,8 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Automated proof item 8 passed: the full parallel suite completed successfully with client 908/908, server unit 2787/2787, server Cucumber 138/138, and e2e 78/78; repository-owned test stacks were removed by the wrapper.
 - Automated proof item 9 passed: the post-suite repository lint completed with zero warnings.
 - Automated proof item 10 passed: post-suite formatting validation reported that all matched files use Prettier code style.
+- Audit 2026-07-28 implementation-plus-automated-proof re-audit: commits `2f5a1243e` and `c09aebe53` removed the checked-in guard again, changed focused tests to accept untracked direct and symlink scripts, and recorded green proof for that unapproved behavior. Because the same runtime surface was changed by story-owned commits, this is story-caused preserved-behavior drift rather than merely discovered out-of-scope behavior. Reopened Task Exit Criterion 1, Subtask 6, and Testing items 1, 2, 3, 4, 5, 8, 9, 10, and 11 so the approved checked-in contract must be restored and all affected proof rerun; Task 46 remains `__in_progress__`.
+- **BLOCKER** Task 46 cannot continue honestly: unchecked Task Exit Criterion 1 and Subtask 6 (restore the locked checked-in repository-relative entrypoint contract), plus Testing items 1, 2, 3, 4, 5, 8, 9, 10, and 11, remained open after audit normalization. Evidence checked: the fresh bounded Task 46 packet, `plan_status.py --task-number 46`, the story behavior lock, and the `2f5a1243e`/`c09aebe53` implementation and proof diffs. The unapproved behavior must be restored and the affected automated proof rerun before Task 46 can be marked `__done__`.
 
 ### Task 47. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

@@ -4770,7 +4770,7 @@ The independent combined filtering audit completed the negative story-scope gate
 - Repository Name: `Current Repository`
 - Review Task Role: `review_actionable_findings`
 - Task Dependencies: `Task 44`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Batch: `0000060-rw-20260727T174611Z-bdcfcce2`
 - Review Cycle: `0000060-rc-20260727T131555Z-a8e020a4`
 - Affected Repositories: `current_repository`
@@ -4784,10 +4784,10 @@ Resolve only the three deduplicated materiality survivors from batch `0000060-rw
 
 #### Task Exit Criteria
 
-- [ ] Supported GitHub CLI child invocations explicitly target `github.com` through the intended `GH_HOST=github.com` boundary without adding a broad environment allowlist or `GH_CONFIG_DIR` policy.
-- [ ] GitHub review and reviewer retrieval preserves the complete paginated actionable corpus instead of truncating at the hard-coded 200-entry limit, without introducing an unauthorized cap or quota policy.
-- [ ] Successful PR URL validation compares only the owner and repository path segments case-insensitively while preserving host, path shape, PR number, canonical repository, head, and base checks.
-- [ ] Focused automated proof covers all three contracts, including more than 200 entries and canonical owner/repository casing.
+- [x] Supported GitHub CLI child invocations explicitly target `github.com` through the intended `GH_HOST=github.com` boundary without adding a broad environment allowlist or `GH_CONFIG_DIR` policy.
+- [x] GitHub review and reviewer retrieval preserves the complete paginated actionable corpus instead of truncating at the hard-coded 200-entry limit, without introducing an unauthorized cap or quota policy.
+- [x] Successful PR URL validation compares only the owner and repository path segments case-insensitively while preserving host, path shape, PR number, canonical repository, head, and base checks.
+- [x] Focused automated proof covers all three contracts, including more than 200 entries and canonical owner/repository casing.
 
 #### Review Cycle Coverage
 
@@ -4845,6 +4845,7 @@ Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, a
 - Repository lint passed with no reported errors or warnings.
 - Repository formatting check passed; all matched files use Prettier code style.
 - Implementation-only audit: repository HEAD `5170b99d6` contains the scoped host, complete-pagination, PR-URL, and focused-regression changes described above; all four subtasks and the recorded adapter proof are supported by repository evidence. No story-caused preserved-behavior regression or unrelated user-facing drift was found. At proof start, four Testing items remained open; all five Testing items now pass, no live `**BLOCKER**` is present, and Task 45 remains `__in_progress__`.
+- Implementation-plus-automated-proof audit: fresh repository evidence confirms all four subtasks, all five Testing items, and all four task exit criteria. The implementation remains within the approved GitHub review scope, with no story-caused preserved-behavior regression or unrelated user-facing drift identified. No live `**BLOCKER**` exists; Task 45 is now honestly `__done__`, and manual testing remains optional, non-blocking guidance.
 
 ### Task 46. Remove Git-Tracking Enforcement From Flow Decision Scripts
 

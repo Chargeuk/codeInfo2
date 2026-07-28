@@ -663,6 +663,22 @@ test('post-create reconciliation uses the PR number printed by gh instead of the
           };
         }
         const endpoint = params.args.at(-1) ?? '';
+        if (endpoint.endsWith('/pulls/145')) {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({
+              number: 145,
+              html_url: 'https://github.com/example/repo/pull/145',
+              state: 'open',
+              head: {
+                ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+              },
+              base: { ref: 'main' },
+              user: { login: 'review-bot' },
+            }),
+            stderr: '',
+          };
+        }
         if (endpoint.endsWith('/pulls/45')) {
           return {
             exitCode: 0,
@@ -1058,6 +1074,72 @@ test('review fetch preserves paginated review submissions and inline review comm
     assert.equal(fetched.value.reviews.length, 2);
     assert.equal(fetched.value.reviewComments.length, 2);
     assert.equal(fetched.value.reviewComments[1].in_reply_to_id, 2001);
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('latest-open lookup canonicalizes a selected PR whose list response has no author', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const seenEndpoints: string[] = [];
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const endpoint = params.args.at(-1) ?? '';
+        seenEndpoints.push(endpoint);
+        if (endpoint === 'repos/example/repo/pulls/145') {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({
+              number: 145,
+              html_url: 'https://github.com/example/repo/pull/145',
+              state: 'open',
+              head: { ref: 'feature/0000060-demo' },
+              base: { ref: 'main' },
+              user: { login: 'pull-request-author' },
+            }),
+            stderr: '',
+          };
+        }
+        if (endpoint.includes('?state=open')) {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify([
+              {
+                number: 145,
+                html_url: 'https://github.com/example/repo/pull/145',
+                created_at: '2026-07-28T22:00:00Z',
+                head: { ref: 'feature/0000060-demo' },
+                base: { ref: 'main' },
+                user: null,
+              },
+            ]),
+            stderr: '',
+          };
+        }
+        throw new Error(`Unexpected endpoint: ${endpoint}`);
+      },
+    });
+
+    const latest = await lookupLatestOpenPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+    });
+
+    assert.deepEqual(latest, {
+      kind: 'ok',
+      value: {
+        number: 145,
+        url: 'https://github.com/example/repo/pull/145',
+        headRefName: 'feature/0000060-demo',
+        baseRefName: 'main',
+        authorLogin: 'pull-request-author',
+      },
+    });
+    assert.ok(
+      seenEndpoints.includes('repos/example/repo/pulls/145'),
+      'lookup should canonicalize the selected pull request by number',
+    );
   } finally {
     await tempRepo.cleanup();
   }

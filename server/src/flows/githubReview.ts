@@ -1094,7 +1094,14 @@ export const lookupLatestOpenPullRequest = async (params: {
       }
     }
     if (pageEntries.length < perPage) {
-      return { kind: 'ok', value: latestPullRequest };
+      if (!latestPullRequest) {
+        return { kind: 'ok', value: null };
+      }
+      return lookupPullRequestByNumber({
+        repository: params.repository,
+        token: params.token,
+        pullRequestNumber: latestPullRequest.number,
+      });
     }
     page += 1;
   }

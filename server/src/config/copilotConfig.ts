@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ChatProviderId } from '@codeinfo2/common';
-import type { CopilotClientOptions } from '@github/copilot-sdk';
+import {
+  RuntimeConnection,
+  type CopilotClientOptions,
+} from '@github/copilot-sdk';
 import { parse as parseJsonc, type ParseError } from 'jsonc-parser';
 
 export const DEFAULT_CODEINFO_COPILOT_HOME = './copilot';
@@ -710,10 +713,13 @@ export function buildCopilotClientOptions(params?: {
   };
 
   const clientOptions: CopilotClientOptions = {
+    connection: RuntimeConnection.forStdio({
+      ...(cliPath ? { path: cliPath } : {}),
+      ...(cliArgs.length > 0 ? { args: cliArgs } : {}),
+    }),
+    baseDirectory: copilotHome,
     env: mergedEnv,
-    ...(cliPath ? { cliPath } : {}),
-    ...(cliArgs.length > 0 ? { cliArgs } : {}),
-    ...(params?.cwd ? { cwd: params.cwd } : {}),
+    ...(params?.cwd ? { workingDirectory: params.cwd } : {}),
     ...(params?.logLevel ? { logLevel: params.logLevel } : {}),
   };
 

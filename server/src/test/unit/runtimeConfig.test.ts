@@ -158,14 +158,34 @@ describe('copilot runtime env wiring', () => {
       },
     });
 
-    assert.equal(withCliPath.clientOptions.cliPath, '/opt/copilot/bin/copilot');
-    assert.deepEqual(withCliPath.clientOptions.cliArgs, ['--allow-all-paths']);
+    assert.equal(withCliPath.clientOptions.connection?.kind, 'stdio');
+    assert.equal(
+      withCliPath.clientOptions.connection?.kind === 'stdio'
+        ? withCliPath.clientOptions.connection.path
+        : undefined,
+      '/opt/copilot/bin/copilot',
+    );
+    assert.deepEqual(
+      withCliPath.clientOptions.connection?.kind === 'stdio'
+        ? withCliPath.clientOptions.connection.args
+        : undefined,
+      ['--allow-all-paths'],
+    );
     assert.equal(withCliPath.cliPathOverride, 'present');
     assert.equal(withCliPath.cliMode, 'cliPath');
-    assert.equal(withoutCliPath.clientOptions.cliPath, undefined);
-    assert.deepEqual(withoutCliPath.clientOptions.cliArgs, [
-      '--allow-all-paths',
-    ]);
+    assert.equal(withoutCliPath.clientOptions.connection?.kind, 'stdio');
+    assert.equal(
+      withoutCliPath.clientOptions.connection?.kind === 'stdio'
+        ? withoutCliPath.clientOptions.connection.path
+        : undefined,
+      undefined,
+    );
+    assert.deepEqual(
+      withoutCliPath.clientOptions.connection?.kind === 'stdio'
+        ? withoutCliPath.clientOptions.connection.args
+        : undefined,
+      ['--allow-all-paths'],
+    );
     assert.equal(withoutCliPath.cliPathOverride, 'absent');
     assert.equal(withoutCliPath.cliMode, 'path');
   });
@@ -1552,12 +1572,7 @@ describe('runtimeConfig Context7 overlay', () => {
       (normalized.mcp_servers as Record<string, unknown>).code_info,
       {
         command: 'npx',
-        args: [
-          '-y',
-          'mcp-remote',
-          'http://localhost:6511/mcp',
-          '--allow-http',
-        ],
+        args: ['-y', 'mcp-remote', 'http://localhost:6511/mcp', '--allow-http'],
         startup_timeout_sec: 60,
         tool_timeout_sec: 1800,
       },
@@ -1607,12 +1622,7 @@ describe('runtimeConfig Context7 overlay', () => {
       (normalized.mcp_servers as Record<string, unknown>).code_info,
       {
         command: 'npx',
-        args: [
-          '-y',
-          'mcp-remote',
-          'http://localhost:5011/mcp',
-          '--allow-http',
-        ],
+        args: ['-y', 'mcp-remote', 'http://localhost:5011/mcp', '--allow-http'],
         startup_timeout_sec: 60,
         tool_timeout_sec: 1800,
       },

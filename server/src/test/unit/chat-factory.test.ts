@@ -33,7 +33,7 @@ test('forwards copilotEnv into the Copilot runtime factory', () => {
     stop: async () => [],
     ping: async (message?: string) => ({
       message: message ?? 'pong',
-      timestamp: Date.now(),
+      timestamp: new Date().toISOString(),
     }),
     getAuthStatus: async () => ({
       isAuthenticated: true,

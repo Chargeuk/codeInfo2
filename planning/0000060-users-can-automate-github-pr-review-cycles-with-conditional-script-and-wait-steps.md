@@ -4853,7 +4853,7 @@ Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, a
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 47 — shared E2E ingest harness prerequisite`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Affected Repositories: `current_repository`
 
 #### Overview
@@ -4862,7 +4862,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 
 #### Task Exit Criteria
 
-- [ ] Direct Python decision scripts execute for in-root repository-relative entrypoints without a Git-tracking prerequisite while retaining the independent path and process safeguards.
+- [x] Direct Python decision scripts execute for checked-in repository-relative entrypoints while retaining the independent path and process safeguards.
 - [x] Path containment, symlink escape, missing-file, empty-file, timeout, process-error, and output-limit protections remain enforced.
 - [x] Production call sites and focused tests use terminology that does not imply a Git-tracking requirement.
 - [x] Repository-wide flow and handoff guidance documents KISS, state-first continuation, self-describing artifacts, best-effort consumption, and safe partial or unavailable outcomes.
@@ -4977,6 +4977,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Audit 2026-07-28 implementation-only re-audit: current HEAD `339eb0b39` removed the `git ls-files` gate again and changed the focused unit and integration tests to accept untracked direct and in-root-symlink entrypoints. The story-level Acceptance Criteria require a checked-in repository-relative Python entrypoint, and the Story Behavior Lock preserves behavior outside the explicitly approved flow-only additions; because this story changed the same production executor and focused tests, the untracked acceptance is story-caused preserved-behavior drift rather than merely discovered behavior. Reopened Subtask 6 and Testing items 1, 2, 3, 4, 5, 8, 9, 10, and 11; no testing item was newly marked complete in this implementation-only audit. The task remains `__in_progress__` and automated proof is not complete.
 - **RESOLVED ISSUE** Deep repair restored the Git-index check after canonical path, realpath, existence, and non-empty-file validation; focused executor proof passed 4/4 and the shared-decision integration wrapper passed 9/9, including direct untracked-entrypoint and in-root symlink rejection. The locked checked-in behavior is reinstated without weakening the retained safeguards; the contradictory broader task wording remains unchanged for a later planning decision.
 - Audit 2026-07-28 implementation-only normalization: fresh repository evidence at `840774173` confirms the checked-in repository-relative entrypoint guard and focused rejection coverage are restored in production and tests, with the retained containment, realpath, existence, non-empty, timeout, process-error, and output-limit safeguards intact. All six subtasks are complete, Testing items 1 and 2 are supported by the immediately preceding focused proof, and Testing items 3, 4, 5, 8, 9, 10, and 11 remain open for the separate automated-proof pass. No new story-caused preserved-behavior drift was found, the parser reports no live blocker, and Task 46 remains `__in_progress__` without treating this audit as automated-proof completion; the contradictory task-local wording remains a later planning concern.
+- Audit 2026-07-28 implementation-plus-automated-proof normalization: fresh repository evidence at `ecbd5fadc` confirms the checked-in repository-relative decision contract and retained safeguards in production and focused tests. The full parallel suite passed with client 908/908, server unit 2787/2787, server Cucumber 138/138, and e2e 78/78; the repository-owned stacks were removed, and build, lint, formatting, focused integration, and checked-in-entrypoint proof all passed. The story-level behavior lock is satisfied with no remaining story-caused behavior drift or live blocker; all six subtasks and all eleven Testing items are complete, so Task 46 is now honestly `__done__` before manual testing.
 
 ### Task 47. Repair Shared E2E Ingest Fixture Serialization Harness
 

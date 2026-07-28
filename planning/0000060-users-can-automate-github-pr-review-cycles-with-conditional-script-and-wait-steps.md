@@ -4823,7 +4823,7 @@ Resolve only the three deduplicated materiality survivors from batch `0000060-rw
 2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "github review"`
 3. [x] `npm run build:summary:server`
 4. [x] `npm run lint`
-5. [x] `npm run format:check`
+5. [ ] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -4897,10 +4897,10 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 5. [x] `npm run format:check`
 6. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --test-name "github review open PR skips the cycle when canonical post-create reconciliation fails"`
 7. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts --test-name "missing GitHub review setup records a warning and continues later flow steps"`
-8. [x] `npm run test:summary:all:parallel`
-9. [x] `npm run lint`
-10. [x] `npm run format:check`
-11. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
+8. [ ] `npm run test:summary:all:parallel`
+9. [ ] `npm run lint`
+10. [ ] `npm run format:check`
+11. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
 
 #### Implementation Notes
 
@@ -4946,6 +4946,8 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - The focused shared-decision integration wrapper passed 9/9, including rejection of both direct untracked entrypoints and symlinks resolving to untracked targets.
 - Automated proof item 3 passed: the server summary build completed cleanly with zero warnings after restoring the checked-in entrypoint guard.
 - Automated proof item 4 passed: repository lint completed with zero warnings.
+- Audit 2026-07-28 implementation-plus-automated-proof re-audit: restoration commit `df15c5c5a` reinstated the approved checked-in entrypoint guard, and current evidence supports the exit criterion, all six subtasks, Testing items 1, 2, 3, 4, 6, and 7. Testing items 5, 8, 9, 10, and 11 were carried forward from the earlier untracked-script proof or lack a post-restoration result, so they were reopened; no new story-caused behavior drift remains.
+- **BLOCKER** Task 46 cannot continue honestly: Testing items 5 (format check), 8 (full parallel suite), 9 (post-suite lint), 10 (post-suite format check), and 11 (checked-in repository entrypoint focused test) remained open after audit normalization. Evidence checked: the fresh bounded Task 46 packet, `plan_status.py --task-number 46`, restoration commit `df15c5c5a`, and the latest implementation notes. These validations must be rerun against the restored implementation before Task 46 can be marked `__done__`.
 
 ### Task 47. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

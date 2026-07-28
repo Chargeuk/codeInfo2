@@ -3014,7 +3014,7 @@ test('shared decision seam fails hard for missing script file', async () => {
   );
 });
 
-test('shared decision seam executes an untracked in-root script entrypoint', async () => {
+test('shared decision seam rejects an untracked in-root script entrypoint', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
       await fs.writeFile(
@@ -3047,13 +3047,19 @@ test('shared decision seam executes an untracked in-root script entrypoint', asy
       });
       assert.equal(result.status, 202);
 
-      await waitForPersistedFlowStatus(conversationId, 'ok');
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /must be checked in/);
     },
     { registerTmpDirAsRepo: true },
   );
 });
 
-test('shared decision seam executes an in-root symlink to an untracked target', async (t) => {
+test('shared decision seam rejects an in-root symlink to an untracked target', async (t) => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
       const targetPath = path.join(
@@ -3107,7 +3113,13 @@ test('shared decision seam executes an in-root symlink to an untracked target', 
       });
       assert.equal(result.status, 202);
 
-      await waitForPersistedFlowStatus(conversationId, 'ok');
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /must be checked in/);
     },
     { registerTmpDirAsRepo: true },
   );

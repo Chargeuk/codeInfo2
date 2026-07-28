@@ -92,7 +92,7 @@ test('bundled flow decision scripts execute without Git metadata and return trim
   }
 });
 
-test('in-root repository entrypoint contract', async () => {
+test('checked-in repository entrypoint contract', async () => {
   const scriptRepositoryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'flow-script-repository-'),
   );
@@ -111,6 +111,7 @@ test('in-root repository entrypoint contract', async () => {
       scriptPath,
       'import os\nprint(os.getcwd())\n',
     );
+    initializeRepository(scriptRepositoryRoot, scriptPath);
     const result = await executeFlowDecisionScript({
       workingFolder,
       scriptRepositoryRoot,
@@ -134,7 +135,11 @@ test('in-root repository entrypoint contract', async () => {
       decisionScript: 'scripts/flow_control/check_untracked.py',
       timeoutMs: 5_000,
     });
-    assert.deepEqual(untrackedResult, { ok: true, stdout: 'yes' });
+    assert.deepEqual(untrackedResult, {
+      ok: false,
+      reason:
+        'Script file must be checked in: scripts/flow_control/check_untracked.py',
+    });
 
     const symlinkPath = path.join(flowControlRoot, 'check_symlink.py');
     fs.symlinkSync('check_untracked.py', symlinkPath);
@@ -144,7 +149,11 @@ test('in-root repository entrypoint contract', async () => {
       decisionScript: 'scripts/flow_control/check_symlink.py',
       timeoutMs: 5_000,
     });
-    assert.deepEqual(symlinkResult, { ok: true, stdout: 'yes' });
+    assert.deepEqual(symlinkResult, {
+      ok: false,
+      reason:
+        'Script file must be checked in: scripts/flow_control/check_symlink.py',
+    });
 
   } finally {
     fs.rmSync(scriptRepositoryRoot, { recursive: true, force: true });

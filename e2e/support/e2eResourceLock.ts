@@ -4,6 +4,7 @@ import path from 'node:path';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const LOCK_METADATA_FILE = 'owner.json';
+export const E2E_RESOURCE_LOCK_TIMEOUT_MS = 300_000;
 
 function sanitizeLockName(name: string) {
   return name.replace(/[^a-z0-9._-]+/giu, '-').toLowerCase();
@@ -149,7 +150,7 @@ export async function acquireE2eResourceLock(
   name: string,
   options: { timeoutMs?: number; pollMs?: number; staleAfterMs?: number } = {},
 ) {
-  const timeoutMs = options.timeoutMs ?? 240_000;
+  const timeoutMs = options.timeoutMs ?? E2E_RESOURCE_LOCK_TIMEOUT_MS;
   const pollMs = options.pollMs ?? 500;
   const staleAfterMs = options.staleAfterMs ?? 30_000;
   const lockDir = path.join(
@@ -183,5 +184,7 @@ export async function acquireE2eResourceLock(
     await sleep(pollMs);
   }
 
-  throw new Error(`timed out waiting for e2e resource lock "${name}"`);
+  throw new Error(
+    `timed out waiting ${timeoutMs}ms for e2e resource lock "${name}" at ${lockDir}`,
+  );
 }

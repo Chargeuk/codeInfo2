@@ -4978,14 +4978,14 @@ Repair the repository-owned Playwright harness for the shared `ingest-root-fixtu
 
 #### Subtasks
 
-1. [ ] Add a dedicated Playwright project in `playwright.config.ts` that matches only `e2e/ingest.spec.ts` and `e2e/chat-tools.spec.ts`, limits that project to one worker, and leaves unrelated projects on the existing dynamic worker budget.
-2. [ ] Align `e2e/support/e2eResourceLock.ts`, `e2e/ingest.spec.ts`, and `e2e/chat-tools.spec.ts` so legitimate lock holders cannot outlive a shorter contender budget, while preserving atomic acquisition, stale-owner recovery, and guaranteed release after failed tests.
-3. [ ] Add or update harness proof-authoring coverage for the dedicated project selection, cross-file lock serialization, failure cleanup, and bounded ingest-terminal-state diagnostics.
-4. [ ] If the serialized focused proof still reaches the bounded ingest timeout, capture the saved wrapper log and terminal ingest state, record the exact remaining harness seam, and stop without widening Task 46 production ownership.
+1. [x] Add a dedicated Playwright project in `playwright.config.ts` that matches only `e2e/ingest.spec.ts` and `e2e/chat-tools.spec.ts`, limits that project to one worker, and leaves unrelated projects on the existing dynamic worker budget.
+2. [x] Align `e2e/support/e2eResourceLock.ts`, `e2e/ingest.spec.ts`, and `e2e/chat-tools.spec.ts` so legitimate lock holders cannot outlive a shorter contender budget, while preserving atomic acquisition, stale-owner recovery, and guaranteed release after failed tests.
+3. [x] Add or update harness proof-authoring coverage for the dedicated project selection, cross-file lock serialization, failure cleanup, and bounded ingest-terminal-state diagnostics.
+4. [x] If the serialized focused proof still reaches the bounded ingest timeout, capture the saved wrapper log and terminal ingest state, record the exact remaining harness seam, and stop without widening Task 46 production ownership.
 
 #### Testing
 
-1. [ ] `npm run test:summary:e2e -- --grep "Chat tools citations|Ingest flows"`
+1. [x] `npm run test:summary:e2e -- --grep "Chat tools citations|Ingest flows"`
 2. [ ] `npm run test:summary:e2e`
 3. [ ] `npm run test:summary:all:parallel`
 4. [ ] `npm run lint`
@@ -4994,6 +4994,11 @@ Repair the repository-owned Playwright harness for the shared `ingest-root-fixtu
 #### Implementation Notes
 
 - Planner repair 2026-07-28: Story 60 explicitly includes reliable parallel and stress wrappers, while Task 46's blocker research proved the shared ingest fixture seam belongs to the repository E2E harness. This task is the next active prerequisite owner; Task 46 is held at `__to_do__` until this bounded repair and proof complete.
+- Added the dedicated `stateful-ingest` Playwright project with one worker and cross-project exclusion for the two shared-fixture specs; unrelated E2E files continue using the existing dynamic worker budget.
+- Focused Playwright listing confirmed the dedicated project contains exactly the two stateful spec files (14 tests total).
+- Unified the ingest lock timeout at 300 seconds, longer than the supported 240-second test budget, retained atomic/stale-owner/release behavior, and added lock-path/timeout diagnostics plus run ID, last-state, and last-error ingest timeout diagnostics.
+- Added explicit Playwright steps around shared-lock acquisition and release in both stateful specs, and around the chat-tools ingest terminal wait, so project serialization, failure cleanup, and bounded timeout diagnostics remain visible in proof output.
+- The focused E2E wrapper passed 13/13 selected tests with no bounded ingest timeout; the conditional diagnostic branch was not needed, and the wrapper removed its test stack cleanly.
 
 ### Task 48. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

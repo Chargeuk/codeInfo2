@@ -1,6 +1,9 @@
 import { mkdirSync } from 'fs';
 import { expect, test, type APIRequestContext } from '@playwright/test';
-import { acquireE2eResourceLock } from './support/e2eResourceLock';
+import {
+  acquireE2eResourceLock,
+  E2E_RESOURCE_LOCK_TIMEOUT_MS,
+} from './support/e2eResourceLock';
 import { installMockChatWs } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
@@ -56,6 +59,8 @@ async function startIngest(request: APIRequestContext, modelId: string) {
 }
 
 async function waitForIngest(request: APIRequestContext, runId: string) {
+  let lastState = 'unknown';
+  let lastError: string | null = null;
   for (let i = 0; i < 90; i += 1) {
     const statusRes = await request.get(`${apiBase}/ingest/status/${runId}`);
     if (!statusRes.ok()) {
@@ -63,13 +68,19 @@ async function waitForIngest(request: APIRequestContext, runId: string) {
     }
     const status = await statusRes.json();
     const state = (status.state as string)?.toLowerCase();
+    lastState = state || 'unknown';
+    lastError = (status.lastError as string | null | undefined) ?? null;
     if (state === 'completed') return status;
     if (state === 'error') {
-      throw new Error(`ingest error: ${status.lastError ?? 'unknown'}`);
+      throw new Error(
+        `ingest error for run ${runId}: ${lastError ?? 'unknown'}`,
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
-  throw new Error('ingest did not complete within timeout');
+  throw new Error(
+    `ingest did not complete within timeout for run ${runId}; last state=${lastState}; last error=${lastError ?? 'none'}`,
+  );
 }
 
 async function vectorSearch(
@@ -90,12 +101,19 @@ test.describe.serial('Chat tools citations', () => {
   let releaseIngestLock: (() => Promise<void>) | undefined;
 
   test.beforeEach(async () => {
-    releaseIngestLock = await acquireE2eResourceLock('ingest-root-fixtures-repo');
+    await test.step('acquire shared ingest fixture lock', async () => {
+      releaseIngestLock = await acquireE2eResourceLock(
+        'ingest-root-fixtures-repo',
+        { timeoutMs: E2E_RESOURCE_LOCK_TIMEOUT_MS },
+      );
+    });
   });
 
   test.afterEach(async () => {
-    await releaseIngestLock?.();
-    releaseIngestLock = undefined;
+    await test.step('release shared ingest fixture lock', async () => {
+      await releaseIngestLock?.();
+      releaseIngestLock = undefined;
+    });
   });
 
   test('shows vector search citation with host path', async ({ page }) => {
@@ -107,7 +125,9 @@ test.describe.serial('Chat tools citations', () => {
     const model = await pickEmbeddingModel(page.request);
     await clearRoots(page.request);
     const runId = await startIngest(page.request, model.id);
-    await waitForIngest(page.request, runId);
+    await test.step('wait for ingest terminal state', async () => {
+      await waitForIngest(page.request, runId);
+    });
 
     let searchPayload: Awaited<ReturnType<typeof vectorSearch>> | undefined;
     try {

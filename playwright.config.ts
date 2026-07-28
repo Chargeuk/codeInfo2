@@ -30,6 +30,18 @@ export default defineConfig({
   outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR ?? 'playwright-output',
   workers: resolvePlaywrightWorkers(),
   reporter: 'list',
+  projects: [
+    {
+      name: 'stateful-ingest',
+      testMatch: /\/(?:ingest|chat-tools)\.spec\.ts$/,
+      fullyParallel: false,
+      workers: 1,
+    },
+    {
+      name: 'default',
+      testIgnore: /\/(?:ingest|chat-tools)\.spec\.ts$/,
+    },
+  ],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001',
     screenshot: 'on',

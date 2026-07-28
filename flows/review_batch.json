@@ -7,10 +7,18 @@
       "outputKey": "review_batch_targets"
     },
     {
+      "type": "prepareCopilotReviewGroups",
+      "label": "Prepare Copilot Review Matrix Groups",
+      "groupsFrom": "review_groups",
+      "targetsFrom": "review_batch_targets.targets",
+      "enabledFrom": "copilot_reviews_enabled",
+      "outputKey": "effective_review_groups"
+    },
+    {
       "type": "subflowWave",
       "label": "Run Configured Review Batch",
       "failureMode": "best_effort",
-      "groupsFrom": "review_groups",
+      "groupsFrom": "effective_review_groups",
       "reviewWorkspace": {
         "snapshotFrom": "review_batch_targets"
       }

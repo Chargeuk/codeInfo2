@@ -14,6 +14,7 @@ import type { SubflowWaveJob } from './subflowWave.js';
 import type { FlowJsonObject } from './types.js';
 
 const SAFE_PATH_SEGMENT = /[^A-Za-z0-9._-]+/gu;
+const COPILOT_REVIEW_SPEC_FILE = 'copilot-review-spec.json';
 const execFile = promisify(execFileCb);
 
 const safeSegment = (value: string) => {
@@ -110,9 +111,11 @@ const requirePrivateInput = async (params: {
   privateInputDir: string;
   sharedInputDir: string;
   inputFiles: string[];
+  pinnedFiles?: Record<string, string>;
   jobInstanceId: string;
   jobRoot: string;
 }) => {
+  const pinnedFiles = Object.entries(params.pinnedFiles ?? {});
   await Promise.all([
     requireDirectory(
       params.privateInputDir,
@@ -136,6 +139,19 @@ const requirePrivateInput = async (params: {
         `private input ${fileName} for ${params.jobInstanceId}`,
       ),
     ),
+    ...pinnedFiles.map(([fileName]) =>
+      requireFile(
+        path.join(params.privateInputDir, fileName),
+        `private input ${fileName} for ${params.jobInstanceId}`,
+      ),
+    ),
+    ...pinnedFiles.map(([fileName]) =>
+      requireContainedPath(
+        path.join(params.privateInputDir, fileName),
+        params.privateInputDir,
+        `private input ${fileName} for ${params.jobInstanceId}`,
+      ),
+    ),
   ]);
   await Promise.all(
     params.inputFiles.map(async (fileName) => {
@@ -146,6 +162,19 @@ const requirePrivateInput = async (params: {
       if (!privateInput.equals(sharedInput)) {
         throw new Error(
           `Existing review batch private input ${fileName} does not match the pinned source for ${params.jobInstanceId}.`,
+        );
+      }
+    }),
+  );
+  await Promise.all(
+    pinnedFiles.map(async ([fileName, expected]) => {
+      const actual = await fs.readFile(
+        path.join(params.privateInputDir, fileName),
+        'utf8',
+      );
+      if (actual !== expected) {
+        throw new Error(
+          `Existing review batch private input ${fileName} does not match the pinned flow input for ${params.jobInstanceId}.`,
         );
       }
     }),
@@ -163,6 +192,7 @@ const ensurePrivateInput = async (
   sourceDirectory: string,
   inputDirectory: string,
   fileNames: string[],
+  pinnedFiles: Record<string, string> = {},
 ) => {
   await fs.mkdir(inputDirectory, { recursive: true });
   await Promise.all(
@@ -172,12 +202,79 @@ const ensurePrivateInput = async (
       await fs.copyFile(path.join(sourceDirectory, fileName), inputPath);
     }),
   );
+  await Promise.all(
+    Object.entries(pinnedFiles).map(async ([fileName, content]) => {
+      const inputPath = path.join(inputDirectory, fileName);
+      if (await isFile(inputPath)) return;
+      await atomicWriteText(inputPath, content);
+    }),
+  );
   await Promise.all([
-    ...fileNames.map((fileName) =>
+    ...[...fileNames, ...Object.keys(pinnedFiles)].map((fileName) =>
       fs.chmod(path.join(inputDirectory, fileName), 0o444),
     ),
     fs.chmod(inputDirectory, 0o555),
   ]);
+};
+
+const pinnedCopilotReviewSpec = (
+  job: SubflowWaveJob,
+): Record<string, string> => {
+  if (job.flowName !== 'copilot_review') return {};
+  const candidate = job.input?.copilot_review_spec;
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    throw new Error(
+      `Copilot review job ${job.instanceId} is missing copilot_review_spec.`,
+    );
+  }
+  const spec = candidate as FlowJsonObject;
+  const requiredString = (key: string): string => {
+    const value = spec[key];
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new Error(
+        `Copilot review job ${job.instanceId} has an invalid ${key}.`,
+      );
+    }
+    return value;
+  };
+  const mode = requiredString('mode');
+  if (mode !== 'native' && mode !== 'external') {
+    throw new Error(
+      `Copilot review job ${job.instanceId} has an invalid mode.`,
+    );
+  }
+  if (typeof spec.available !== 'boolean') {
+    throw new Error(
+      `Copilot review job ${job.instanceId} has an invalid available value.`,
+    );
+  }
+  const pinned: FlowJsonObject = {
+    selector: requiredString('selector'),
+    mode,
+    modelId: requiredString('modelId'),
+    reasoningEffort: requiredString('reasoningEffort'),
+    stableId: requiredString('stableId'),
+    available: spec.available,
+  };
+  for (const key of ['endpointLabel', 'endpointId', 'unavailableReason']) {
+    const value = spec[key];
+    if (value !== undefined) {
+      if (typeof value !== 'string' || !value.trim()) {
+        throw new Error(
+          `Copilot review job ${job.instanceId} has an invalid ${key}.`,
+        );
+      }
+      pinned[key] = value;
+    }
+  }
+  if (mode === 'external' && typeof pinned.endpointLabel !== 'string') {
+    throw new Error(
+      `Copilot review job ${job.instanceId} is missing endpointLabel.`,
+    );
+  }
+  return {
+    [COPILOT_REVIEW_SPEC_FILE]: `${JSON.stringify(pinned, null, 2)}\n`,
+  };
 };
 
 const ensureText = async (filePath: string, content: string) => {
@@ -492,6 +589,7 @@ export async function prepareReviewBatchWorkspace(params: {
     const inputFiles = job.targetId
       ? ['review-target.md', 'story-context.md']
       : ['review-targets.md', 'story-context.md'];
+    const pinnedFiles = pinnedCopilotReviewSpec(job);
     if (reusingBatch) {
       await Promise.all([
         requireDirectory(jobRoot, `job directory for ${job.instanceId}`),
@@ -534,6 +632,7 @@ export async function prepareReviewBatchWorkspace(params: {
           privateInputDir,
           sharedInputDir,
           inputFiles,
+          pinnedFiles,
           jobInstanceId: job.instanceId,
           jobRoot,
         }),
@@ -544,11 +643,17 @@ export async function prepareReviewBatchWorkspace(params: {
         fs.mkdir(outputDir, { recursive: true }),
         fs.mkdir(verificationDir, { recursive: true }),
       ]);
-      await ensurePrivateInput(sharedInputDir, privateInputDir, inputFiles);
+      await ensurePrivateInput(
+        sharedInputDir,
+        privateInputDir,
+        inputFiles,
+        pinnedFiles,
+      );
       await requirePrivateInput({
         privateInputDir,
         sharedInputDir,
         inputFiles,
+        pinnedFiles,
         jobInstanceId: job.instanceId,
         jobRoot,
       });

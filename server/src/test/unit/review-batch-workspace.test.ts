@@ -117,13 +117,33 @@ test('review batch workspace gives every job immutable private input and pre-cre
         flowName: 'cross_repository_review',
         displayName: 'cross_repository_review',
       },
+      {
+        instanceId:
+          'copilot-external-openrouter-google-gemini-3-6-flash:cross-repository:copilot_review',
+        flowName: 'copilot_review',
+        targetId: 'cross-repository',
+        displayName:
+          'Copilot: openrouter/google/gemini-3.6-flash (minimal) [cross-repository]',
+        workingFolder: repoRoot,
+        input: {
+          copilot_review_spec: {
+            selector: 'openrouter::google/gemini-3.6-flash',
+            mode: 'external',
+            modelId: 'google/gemini-3.6-flash',
+            reasoningEffort: 'minimal',
+            endpointLabel: 'openrouter',
+            stableId: 'external-openrouter-google-gemini-3-6-flash-example',
+            available: true,
+          },
+        },
+      },
     ];
 
     const result = await prepareReviewBatchWorkspace({ snapshot, jobs });
 
     assert.match(result.batchRoot, /batches/u);
     assert.doesNotMatch(result.batchRoot, /fast|slow/iu);
-    assert.equal(result.jobs.length, 3);
+    assert.equal(result.jobs.length, 4);
     const codexJob = result.jobs[0]?.input?.review_job as Record<
       string,
       unknown
@@ -170,6 +190,28 @@ test('review batch workspace gives every job immutable private input and pre-cre
       [],
       'empty output remains visible because the job directory exists',
     );
+    const copilotJob = result.jobs[3]?.input?.review_job as Record<
+      string,
+      unknown
+    >;
+    assert.deepEqual(
+      JSON.parse(
+        await fs.readFile(
+          path.join(String(copilotJob.input_dir), 'copilot-review-spec.json'),
+          'utf8',
+        ),
+      ),
+      jobs[3]?.input?.copilot_review_spec,
+    );
+    assert.equal(
+      (
+        await fs.stat(
+          path.join(String(copilotJob.input_dir), 'copilot-review-spec.json'),
+        )
+      ).mode & 0o222,
+      0,
+      'pinned Copilot spec is read-only',
+    );
     assert.match(
       await fs.readFile(result.currentBatchHandoff, 'utf8'),
       /Scheduled job directories/u,
@@ -202,7 +244,10 @@ test('review batch workspace gives every job immutable private input and pre-cre
       /ENOENT/u,
     );
     const distinctIdentityResult = await prepareReviewBatchWorkspace({
-      snapshot: { ...snapshot, review_wave_id: '0000064-rw-distinct-identities' },
+      snapshot: {
+        ...snapshot,
+        review_wave_id: '0000064-rw-distinct-identities',
+      },
       jobs: [
         {
           instanceId: 'a-b:c:d',

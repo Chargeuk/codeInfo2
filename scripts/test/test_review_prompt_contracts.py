@@ -130,7 +130,11 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/run_open_code_review_workspace.md"
         )
 
-        for prompt in (contract, codex, open_code):
+        copilot = read_text(
+            "codeinfo_markdown/run_copilot_review_workspace.md"
+        )
+
+        for prompt in (contract, codex, copilot, open_code):
             self.assertIn("direct `exec_command`", prompt)
             self.assertIn("`session_id`", prompt)
             self.assertIn("`write_stdin`", prompt)
@@ -152,7 +156,11 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/run_open_code_review_workspace.md"
         )
 
-        for prompt in (contract, codex, open_code):
+        copilot = read_text(
+            "codeinfo_markdown/run_copilot_review_workspace.md"
+        )
+
+        for prompt in (contract, codex, copilot, open_code):
             self.assertIn("direct `exec_command`", prompt)
             self.assertIn("`session_id`", prompt)
             self.assertIn("`write_stdin`", prompt)
@@ -195,6 +203,7 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         output_owners = (
             "codeinfo_markdown/run_codex_review_workspace.md",
+            "codeinfo_markdown/run_copilot_review_workspace.md",
             "codeinfo_markdown/run_open_code_review_workspace.md",
             "codeinfo_markdown/run_cross_repository_review_workspace.md",
             "codeinfo_markdown/consolidate_deep_review_workspace.md",
@@ -395,6 +404,16 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("JSONL stdout", codex_prompt)
         self.assertIn("work/review-usage/native-codex.md", codex_prompt)
         self.assertIn("Do not include this wrapper agent's own usage", codex_prompt)
+
+        copilot_prompt = read_text(
+            "codeinfo_markdown/run_copilot_review_workspace.md"
+        )
+        self.assertIn("$CODEINFO_ROOT/scripts/run-copilot-review.sh", copilot_prompt)
+        self.assertIn("raw Copilot JSONL", copilot_prompt)
+        self.assertIn("native Copilot usage", copilot_prompt)
+        self.assertIn("wrapper agent's usage", copilot_prompt)
+        self.assertIn("--no-remote-export", copilot_prompt)
+        self.assertIn("Never modify source files", copilot_prompt)
 
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(

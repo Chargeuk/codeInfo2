@@ -4852,7 +4852,7 @@ Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, a
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None (user-directed Story 0000060 follow-up)`
-- Task Status: `__done__`
+- Task Status: `__in_progress__`
 - Affected Repositories: `current_repository`
 
 #### Overview
@@ -4926,6 +4926,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Audit 2026-07-28: Task 46 remains `__in_progress__`; no existing checklist item was newly marked complete, and automated proof was not treated as complete in this implementation-only audit. Repository evidence from `3eea7f11f` shows the story-owned change removed the `git ls-files` gate and changed focused tests to prove untracked decision scripts execute, while the locked Acceptance Criteria require a checked-in repository-relative Python entrypoint and the Story Behavior Lock forbids unapproved behavior broadening. The GitHub warning-and-continue changes remain within the explicit story contract. Added Subtask 6 and Testing item 11 to restore and prove the approved entrypoint behavior.
 - Restored the checked-in repository-relative entrypoint guard after realpath containment and non-empty-file validation; the focused executor suite passed 4/4, including tracked execution, untracked rejection, and timeout behavior. The affected flow-level untracked-entrypoint regression also passed after being restored to the expected hard-failure assertion.
 - **RESOLVED ISSUE** Task 46's checked-in entrypoint contract is restored and the targeted proof passed; no containment, symlink, timeout, process-error, or output safeguards were weakened.
+- Audit 2026-07-28: Fresh implementation evidence from `fcf661e6a` supports all six subtasks and all eleven recorded testing entries, and the parser reports no live blocker. The restored checked-in entrypoint behavior matches the locked story contract; no additional story-caused preserved-behavior regression or unrelated user-facing drift was found. Task 46 is normalized to `__in_progress__` because this audit is implementation-only and automated proof has not been completed in this loop; it is ready for the separate automated-proof step.
 
 ### Task 47. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

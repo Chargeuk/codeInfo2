@@ -152,7 +152,8 @@ test('empty Codex_model_list still falls back to the parser-owned model defaults
   const { models, warnings, fallbackUsed } = getCodexModelList();
 
   assert.equal(fallbackUsed, true);
-  assert.ok(models.length > 0);
+  assert.equal(models.includes('gpt-5.3-codex'), false);
+  assert.equal(models.includes('gpt-5.3-codex-spark'), true);
   assert.ok(
     warnings.some((warning) => warning.includes('Codex_model_list is empty')),
   );

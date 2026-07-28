@@ -3495,7 +3495,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       );
 
       assert.match(codexConfig, /model = "gpt-5\.6-sol"/u);
-      assert.match(copilotConfig, /model = "copilot-gpt-5"/u);
+      assert.match(copilotConfig, /model = "gpt-5\.4-mini"/u);
       assert.match(lmstudioConfig, /model = "model-1"/u);
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });

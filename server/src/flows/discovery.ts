@@ -488,11 +488,11 @@ const collectFlowAvailability = async (params: {
       repos: params.repos,
     });
     if (resolved.ok) continue;
-      warningDetails.push({
-        code: 'discovery_warning',
-        message: resolved.message,
-        visibility: 'details',
-      });
+    warningDetails.push({
+      code: 'discovery_warning',
+      message: resolved.message,
+      visibility: 'details',
+    });
     disabledReason ??= {
       code: 'agent_not_found',
       message: resolved.message,

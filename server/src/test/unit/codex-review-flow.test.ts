@@ -62,7 +62,7 @@ test('Codex review flow uses the generic workspace agent and launcher prompt', (
   ]);
 
   const prompt = readRepoFile(
-    'codeInfo_markdown/run_codex_review_workspace.md',
+    'codeinfo_markdown/run_codex_review_workspace.md',
   );
   for (const required of [
     '$CODEINFO_ROOT/scripts/run-codex-review.sh',

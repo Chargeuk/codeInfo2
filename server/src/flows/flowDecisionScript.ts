@@ -35,7 +35,10 @@ export const resolveFlowDecisionScriptPath = (
   }
   const resolvedAllowedRoot = realpathSync(allowedRoot);
   const resolvedScriptPath = realpathSync(scriptPath);
-  const resolvedRelative = path.relative(resolvedAllowedRoot, resolvedScriptPath);
+  const resolvedRelative = path.relative(
+    resolvedAllowedRoot,
+    resolvedScriptPath,
+  );
   if (resolvedRelative.startsWith('..') || path.isAbsolute(resolvedRelative)) {
     throw new Error(
       'Flow decision scripts must be Python files under scripts/flow_control.',
@@ -54,15 +57,11 @@ export const runFlowDecisionScript = async (params: {
     params.codeInfoRoot,
     params.decisionScript,
   );
-  const result = await (params.execFile ?? execFile)(
-    'python3',
-    [scriptPath],
-    {
-      cwd: params.workingFolder,
-      env: process.env,
-      encoding: 'utf8',
-      maxBuffer: 1024 * 1024,
-    },
-  );
+  const result = await (params.execFile ?? execFile)('python3', [scriptPath], {
+    cwd: params.workingFolder,
+    env: process.env,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024,
+  });
   return result.stdout.trim();
 };

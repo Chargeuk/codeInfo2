@@ -20,10 +20,6 @@ args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_K
 command = 'npx'
 startup_timeout_sec = 20.0
 
-[mcp_servers.mui]
-args = ['-y', '@mui/mcp@latest']
-command = 'npx'
-
 [mcp_servers.deepwiki]
 url = "https://mcp.deepwiki.com/mcp"
 startup_timeout_sec = 20.0

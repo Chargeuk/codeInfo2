@@ -582,9 +582,12 @@ export async function prepareReviewBase(
   );
   if (
     params.explicitScope &&
-    path.resolve(params.explicitScope.target.repoRoot) !== path.resolve(repoRoot)
+    path.resolve(params.explicitScope.target.repoRoot) !==
+      path.resolve(repoRoot)
   ) {
-    throw new Error('Explicit review target does not match the resolved repository.');
+    throw new Error(
+      'Explicit review target does not match the resolved repository.',
+    );
   }
   const outputKey = ensureSafeOutputKey(params.outputKey);
   const basePolicy = params.basePolicy ?? 'branched_from_or_default_if_merged';
@@ -605,7 +608,9 @@ export async function prepareReviewBase(
     planPath = params.explicitScope.planPath;
     storyNumber = params.explicitScope.storyNumber;
     if (deriveCanonicalStoryId(planPath) !== storyNumber) {
-      throw new Error('Explicit review scope story does not match its plan path.');
+      throw new Error(
+        'Explicit review scope story does not match its plan path.',
+      );
     }
     currentPlanBranchedFrom = params.explicitScope.branchedFrom;
   } else {

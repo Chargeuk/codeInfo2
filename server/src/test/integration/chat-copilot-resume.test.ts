@@ -253,8 +253,7 @@ test('copilot create-session path builds an OpenAI-compatible provider config fr
     ].join('\n'),
   );
   process.env.CODEINFO_COPILOT_HOME = tempHome.copilotHome;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-    `${externalServer.baseUrl}/v1|responses,completions`;
+  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${externalServer.baseUrl}/v1|responses,completions`;
 
   const server = await startCopilotChatServer({
     scenario: {

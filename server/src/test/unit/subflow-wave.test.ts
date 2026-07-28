@@ -82,7 +82,12 @@ test('expandSubflowWaveJobs distinguishes valid tuple components containing deli
 
   assert.deepEqual(
     jobs.map((job) => job.instanceId),
-    ['reviews:a:b%3Ac', 'reviews:a:c', 'reviews:a%3Ab:b%3Ac', 'reviews:a%3Ab:c'],
+    [
+      'reviews:a:b%3Ac',
+      'reviews:a:c',
+      'reviews:a%3Ab:b%3Ac',
+      'reviews:a%3Ab:c',
+    ],
   );
   assert.equal(new Set(jobs.map((job) => job.instanceId)).size, jobs.length);
 });

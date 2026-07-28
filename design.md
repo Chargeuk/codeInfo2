@@ -2768,6 +2768,7 @@ flowchart LR
   - `llm`: `{ type, label?, agentType, identifier, messages: { role: 'user', content: string[] }[] }` or `{ type, label?, agentType, identifier, markdownFile }`.
   - `break`: `{ type, label?, agentType, identifier, question, breakOn: 'yes' | 'no' }`.
   - `command`: `{ type, label?, agentType, identifier, commandName }`.
+  - `wait`: `{ type, label?, seconds }`, where `seconds` is a positive integer no greater than 86,400. Wait steps use an abortable inflight timer so Stop interrupts the delay immediately; successful waits persist their completed step path, while stopped waits remain incomplete for resume.
   - `reset`: `{ type, label?, agentType, identifier }`.
   - `reingest`: `{ type, label?, sourceId }`.
 - All objects are `.strict()` and use trimmed non-empty strings; unknown keys or empty/whitespace-only values fail validation.
@@ -2827,7 +2828,7 @@ flowchart TD
 - Flow runs create a conversation titled `customTitle` when provided (fallback `Flow: <name>`) and set `flowName` for sidebar filtering.
 - Per-agent flow conversations use `${customTitle} (<identifier>)` when provided (fallback `Flow: <name> (<identifier>)`) and remain agent-only (no `flowName`).
 - Resume requests never rename existing flow or per-agent conversation titles; `customTitle` applies only on creation.
-- Core execution supports `llm`, `startLoop`, `break`, `continue`, `command`, `reset`, `prepareReviewBase`, `codexReview`, `subflow`, and `reingest` steps; unsupported step types return `400 { error: "invalid_request" }`.
+- Core execution supports `llm`, `startLoop`, `break`, `continue`, `command`, `wait`, `reset`, `prepareReviewBase`, `codexReview`, `subflow`, and `reingest` steps; unsupported step types return `400 { error: "invalid_request" }`.
 - `startLoop` executes its nested steps repeatedly, tracking a loop stack with `loopStepPath` and iteration count; `break` exits only the nearest loop.
 - `reset` targets the execution-local agent slot keyed by `agentType:identifier`. It removes that slot from runtime and persisted resume state without deleting or archiving the old child conversation, so the next agent-backed step for the same key resolves current runtime configuration and creates a new child conversation and provider thread.
 - Resetting a slot that has not been used, or resetting the same slot repeatedly, is an observable successful no-op. The step logs `flows.agent.reset` with outcome `reset` or `already_absent`, persists its completed step path immediately, and continues the flow without making a model call.

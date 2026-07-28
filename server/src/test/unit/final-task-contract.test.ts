@@ -20,9 +20,18 @@ describe('final task contract', () => {
 
     assert.match(contract, /repository-agnostic contract/);
     assert.match(contract, /dedicated final validation task/);
-    assert.match(contract, /When newly created or reopened with new unchecked work/);
-    assert.match(contract, /Normal execution may promote it to `__in_progress__`/);
-    assert.doesNotMatch(contract, /final task must remain `Task Status: __to_do__`/);
+    assert.match(
+      contract,
+      /When newly created or reopened with new unchecked work/,
+    );
+    assert.match(
+      contract,
+      /Normal execution may promote it to `__in_progress__`/,
+    );
+    assert.doesNotMatch(
+      contract,
+      /final task must remain `Task Status: __to_do__`/,
+    );
     assert.match(contract, /run the supported lint command and fix issues\./);
     assert.match(
       contract,
@@ -47,7 +56,10 @@ describe('final task contract', () => {
     assert.match(contract, /failures found by these checks/);
     assert.match(contract, /rerun every affected check/);
     assert.doesNotMatch(contract, /failures found by these suites/);
-    assert.match(contract, /Do not reopen an older task solely to own that repair/);
+    assert.match(
+      contract,
+      /Do not reopen an older task solely to own that repair/,
+    );
     assert.match(
       contract,
       /Do not reopen older tasks solely because their implementation is implicated/,
@@ -62,7 +74,10 @@ describe('final task contract', () => {
       contract,
       /After shutdown and all full suites have passed.*supported lint command.*supported formatting command/,
     );
-    assert.match(contract, /Do not add startup or shutdown.*no supported runtime/);
+    assert.match(
+      contract,
+      /Do not add startup or shutdown.*no supported runtime/,
+    );
     assert.match(contract, /Do not invent commands/);
     assert.match(contract, /Do not add.*targeting filters/);
     assert.match(contract, /confirms.*no supported automated test suite/);
@@ -79,13 +94,19 @@ describe('final task contract', () => {
       contract,
       /Do not invent a test command, placeholder, harness, proof-authoring subtask, or blocker/,
     );
-    assert.match(contract, /missing, unreadable, or otherwise cannot be inspected/);
+    assert.match(
+      contract,
+      /missing, unreadable, or otherwise cannot be inspected/,
+    );
     assert.match(
       contract,
       /runtime exception to the initial lint-and-format-only rule/,
     );
     assert.doesNotMatch(contract, /Keep lint and formatting out of.*`Testing`/);
-    assert.doesNotMatch(contract, /exactly two checklist items for each repository/);
+    assert.doesNotMatch(
+      contract,
+      /exactly two checklist items for each repository/,
+    );
   });
 
   test('preserves the local creation time for review-created final tasks', async () => {
@@ -253,7 +274,10 @@ describe('final task contract', () => {
       minorRevalidation,
       /non-checkbox final-task repair-scope note/,
     );
-    assert.match(minorRevalidation, /every repository-supported full automated suite/);
+    assert.match(
+      minorRevalidation,
+      /every repository-supported full automated suite/,
+    );
     assert.match(minorRevalidation, /every supported end-to-end suite/);
     assert.match(minorRevalidation, /full build, applicable startup/);
     assert.match(minorRevalidation, /matching shutdown/);
@@ -263,10 +287,22 @@ describe('final task contract', () => {
     );
     assert.match(minorRevalidation, /omit unsupported commands/);
     assert.match(minorRevalidation, /Do not add a proof-authoring subtask/);
-    assert.match(minorRevalidation, /Do not add.*automated testing placeholder/);
-    assert.match(minorRevalidation, /omit the unavailable suite item and continue/);
-    assert.match(minorRevalidation, /affected repository or affected component/);
-    assert.doesNotMatch(minorRevalidation, /suite exists for the affected files/);
+    assert.match(
+      minorRevalidation,
+      /Do not add.*automated testing placeholder/,
+    );
+    assert.match(
+      minorRevalidation,
+      /omit the unavailable suite item and continue/,
+    );
+    assert.match(
+      minorRevalidation,
+      /affected repository or affected component/,
+    );
+    assert.doesNotMatch(
+      minorRevalidation,
+      /suite exists for the affected files/,
+    );
     assert.match(minorRevalidation, /every validation item made stale/);
     assert.match(
       minorRevalidation,
@@ -276,7 +312,10 @@ describe('final task contract', () => {
       minorRevalidation,
       /build, runtime, full-suite, shutdown, lint, and formatting items in both `Subtasks` and `Testing`/,
     );
-    assert.match(minorRevalidation, /non-blocking `Implementation Notes` entry/);
+    assert.match(
+      minorRevalidation,
+      /non-blocking `Implementation Notes` entry/,
+    );
     assert.match(minorRevalidation, /repository is missing or unreadable/);
     assert.doesNotMatch(
       minorRevalidation,
@@ -324,7 +363,11 @@ describe('final task contract', () => {
       'flows/improve_task_implement_plan.json',
     ]) {
       const flow = await read(flowPath);
-      assert.match(flow, /independently discovered supported lint and formatting/, flowPath);
+      assert.match(
+        flow,
+        /independently discovered supported lint and formatting/,
+        flowPath,
+      );
       assert.match(flow, /full build, applicable startup/, flowPath);
       assert.match(flow, /matching shutdown/, flowPath);
       assert.match(
@@ -333,8 +376,16 @@ describe('final task contract', () => {
         flowPath,
       );
       assert.match(flow, /omits unsupported commands/, flowPath);
-      assert.doesNotMatch(flow, /final lint then prettier testing steps/, flowPath);
-      assert.doesNotMatch(flow, /does not duplicate lint or formatting/, flowPath);
+      assert.doesNotMatch(
+        flow,
+        /final lint then prettier testing steps/,
+        flowPath,
+      );
+      assert.doesNotMatch(
+        flow,
+        /does not duplicate lint or formatting/,
+        flowPath,
+      );
     }
 
     for (const promptPath of [
@@ -375,14 +426,26 @@ describe('final task contract', () => {
     const separationPrompt = await read(
       'codeinfo_markdown/task_up/12-subtasks-and-testing-separation.md',
     );
-    assert.match(separationPrompt, /each substantive task still has explicit proof-authoring/);
-    assert.match(separationPrompt, /Exclude the dedicated final validation task/);
+    assert.match(
+      separationPrompt,
+      /each substantive task still has explicit proof-authoring/,
+    );
+    assert.match(
+      separationPrompt,
+      /Exclude the dedicated final validation task/,
+    );
 
     const generationPrompt = await read(
       'codeinfo_markdown/task_up/04-generate.md',
     );
-    assert.match(generationPrompt, /Except for the dedicated final validation task/);
-    assert.match(generationPrompt, /end each non-final task's `Subtasks` section/);
+    assert.match(
+      generationPrompt,
+      /Except for the dedicated final validation task/,
+    );
+    assert.match(
+      generationPrompt,
+      /end each non-final task's `Subtasks` section/,
+    );
     assert.match(
       generationPrompt,
       /Each substantive implementation task must belong to exactly one repository/,
@@ -434,7 +497,9 @@ describe('final task contract', () => {
     assert.match(riskPrompt, /During initial task creation and enhancement/);
     assert.match(riskPrompt, /bounded same-task repair exception/);
 
-    const finalizePrompt = await read('codeinfo_markdown/task_up/14-finalize.md');
+    const finalizePrompt = await read(
+      'codeinfo_markdown/task_up/14-finalize.md',
+    );
     assert.match(finalizePrompt, /supported lint and formatting subtasks/);
     assert.doesNotMatch(finalizePrompt, /prettier or format-check/);
 
@@ -448,7 +513,11 @@ describe('final task contract', () => {
         /For each non-final task's affected repository or project/,
         testingPrompt,
       );
-      assert.match(testingContract, /full build, applicable startup/, testingPrompt);
+      assert.match(
+        testingContract,
+        /full build, applicable startup/,
+        testingPrompt,
+      );
       assert.match(testingContract, /matching shutdown/, testingPrompt);
       assert.match(
         testingContract,
@@ -482,7 +551,11 @@ describe('final task contract', () => {
       const prompt = await read(promptPath);
       assert.match(prompt, /by meaning|semantically/u, promptPath);
       assert.match(prompt, /Manual Testing Guidance/u, promptPath);
-      assert.match(prompt, /remove only the misplaced checklist item/u, promptPath);
+      assert.match(
+        prompt,
+        /remove only the misplaced checklist item/u,
+        promptPath,
+      );
       assert.match(prompt, /retire.*blocker/isu, promptPath);
     }
   });

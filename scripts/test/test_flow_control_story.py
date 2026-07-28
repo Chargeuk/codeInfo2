@@ -90,6 +90,7 @@ class FlowControlPromptContractTests(unittest.TestCase):
     ]
 
     MIGRATED_LABELS = {
+        "Skip task execution when current plan is already complete",
         "Exit if no valid implementation task handoff is available",
         "Proceed to automated proof if implementation is complete",
         "Implementation blocker remains",

@@ -355,7 +355,12 @@ test('additional targets use only their repository-local comparison-base hints',
     await execFile('git', ['commit', '-m', 'next'], { cwd: additionalRoot });
     await execFile('git', ['branch', 'host-only'], { cwd: additionalRoot });
     await fs.writeFile(
-      path.join(fixture.primary, 'codeInfoStatus', 'flow-state', 'current-plan.json'),
+      path.join(
+        fixture.primary,
+        'codeInfoStatus',
+        'flow-state',
+        'current-plan.json',
+      ),
       JSON.stringify({
         plan_path: 'planning/0000064-parallel-review.md',
         branched_from: 'host-only',

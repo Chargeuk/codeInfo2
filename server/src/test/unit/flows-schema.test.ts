@@ -30,6 +30,7 @@ describe('flow schema (v1)', () => {
     exitFlow?: boolean;
     steps?: FlowStep[];
     commandName?: string;
+    seconds?: number;
     markdownFile?: string;
     flowNames?: string[];
     reviewFlowNames?: string[];
@@ -486,6 +487,7 @@ describe('flow schema (v1)', () => {
       'flows/two_phase_review_cycle.json',
       'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
+      'flows/implement_pr_task_fixes.json',
       'flows/ingest_external_review_plan.json',
       'flows/improve_task_implement_plan.json',
       'flows/task_and_implement_plan.json',
@@ -600,7 +602,10 @@ describe('flow schema (v1)', () => {
     const artifacts = JSON.parse(artifactsRaw) as { steps?: FlowStep[] };
     const consolidator = artifacts.steps?.at(-1);
 
-    assert.equal(crossRepositoryReviewer?.label, 'Review Cross-Repository Contracts');
+    assert.equal(
+      crossRepositoryReviewer?.label,
+      'Review Cross-Repository Contracts',
+    );
     assert.equal(crossRepositoryReviewer?.agentType, 'review_agent_heavy');
     assert.equal(crossRepositoryReviewer?.continueOnFailure, undefined);
     assert.equal(consolidator?.label, 'Consolidate Multi-Agent Review');
@@ -1048,12 +1053,17 @@ describe('flow schema (v1)', () => {
     const serializedWave = JSON.stringify(evidenceWave);
 
     assert.equal(prepare?.reviewMode, 'diagnostic');
-    assert.equal(evidenceWave?.reviewWorkspace?.snapshotFrom, 'review_batch_targets');
+    assert.equal(
+      evidenceWave?.reviewWorkspace?.snapshotFrom,
+      'review_batch_targets',
+    );
     assert.doesNotMatch(serializedWave, /"flowName":"review_batch"/u);
     assert.equal(
       steps.some(
         (step) =>
-          step.type === 'llm' || step.type === 'reset' || step.type === 'reingest',
+          step.type === 'llm' ||
+          step.type === 'reset' ||
+          step.type === 'reingest',
       ),
       false,
     );
@@ -1304,12 +1314,17 @@ describe('flow schema (v1)', () => {
       const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
       const steps = flattenSteps(parsed.steps ?? []);
       const contextIndex = steps.findIndex(
-        (step) => step.label === 'Load coder current task context before proof repair',
+        (step) =>
+          step.label === 'Load coder current task context before proof repair',
       );
       assert.ok(contextIndex > 0, relativePath);
       const reset = steps[contextIndex - 1];
       const context = steps[contextIndex];
-      assert.equal(reset?.label, 'Reset coder before proof repair', relativePath);
+      assert.equal(
+        reset?.label,
+        'Reset coder before proof repair',
+        relativePath,
+      );
       assert.equal(reset?.type, 'reset', relativePath);
       assert.equal(reset?.agentType, 'coding_agent', relativePath);
       assert.equal(reset?.identifier, 'coder', relativePath);
@@ -1484,7 +1499,10 @@ describe('flow schema (v1)', () => {
       const storyLoop = (parsed.steps ?? []).find(
         (step) => step.label === 'Story Execution And Review Loop',
       );
-      assert.ok(storyLoop?.steps, `${relativePath} should define the story loop`);
+      assert.ok(
+        storyLoop?.steps,
+        `${relativePath} should define the story loop`,
+      );
 
       const labels = storyLoop.steps.map((step) => step.label);
       assertOrdered(
@@ -1912,18 +1930,12 @@ describe('flow schema (v1)', () => {
       'utf8',
     );
 
-    assert.match(
-      checkpointPrompt,
-      /This is a checkpoint only\./u,
-    );
+    assert.match(checkpointPrompt, /This is a checkpoint only\./u);
     assert.match(
       checkpointPrompt,
       /Do not implement any task or review finding\./u,
     );
-    assert.match(
-      checkpointPrompt,
-      /Do not change any task status, checkbox/u,
-    );
+    assert.match(checkpointPrompt, /Do not change any task status, checkbox/u);
     assert.match(
       checkpointPrompt,
       /If commit or push fails, report the failure and continue/u,
@@ -1944,14 +1956,11 @@ describe('flow schema (v1)', () => {
         `${flowFile} should have both mid-loop checkpoints`,
       );
       assert.ok(
-        checkpoints.every(
-          (step) => step.markdownFile === 'checkpoint_push.md',
-        ),
+        checkpoints.every((step) => step.markdownFile === 'checkpoint_push.md'),
         `${flowFile} should use the persistence-only checkpoint prompt`,
       );
       assert.equal(
-        rawSteps.filter((step) => step.markdownFile === 'final_push.md')
-          .length,
+        rawSteps.filter((step) => step.markdownFile === 'final_push.md').length,
         1,
         `${flowFile} should reserve final_push.md for true story closeout`,
       );
@@ -2598,6 +2607,54 @@ describe('flow schema (v1)', () => {
     });
 
     const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('wait steps parse a positive integer duration and trimmed label', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'wait',
+            label: '  Wait five minutes  ',
+            seconds: 300,
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.deepEqual(parsed.flow.steps[0], {
+      type: 'wait',
+      label: 'Wait five minutes',
+      seconds: 300,
+    });
+  });
+
+  test('wait steps reject missing, invalid, or excessive durations', () => {
+    for (const seconds of [undefined, 0, -1, 1.5, '300', 86_401]) {
+      const parsed = parseFlowFile(
+        JSON.stringify({
+          steps: [
+            {
+              type: 'wait',
+              ...(seconds === undefined ? {} : { seconds }),
+            },
+          ],
+        }),
+      );
+      assert.equal(parsed.ok, false, `seconds=${String(seconds)}`);
+    }
+  });
+
+  test('wait steps reject unsupported extra fields', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [{ type: 'wait', seconds: 5, extra: true }],
+      }),
+    );
+
     assert.equal(parsed.ok, false);
   });
 

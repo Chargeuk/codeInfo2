@@ -65,9 +65,7 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          flows: [
-            { name: 'echo', description: 'Echo flow', disabled: false },
-          ],
+          flows: [{ name: 'echo', description: 'Echo flow', disabled: false }],
         }),
       });
       return;
@@ -227,12 +225,12 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
     timeout: 20000,
   });
   await page.getByRole('button', { name: /open menu/i }).click();
-  await expect(page.getByTestId('workspace-mobile-app-menu-overlay')).toBeVisible(
-    { timeout: 20000 },
-  );
+  await expect(
+    page.getByTestId('workspace-mobile-app-menu-overlay'),
+  ).toBeVisible({ timeout: 20000 });
   await page
     .getByTestId('workspace-mobile-app-menu-overlay')
-  .getByRole('link', { name: 'Flows' })
+    .getByRole('link', { name: 'Flows' })
     .click();
   await expect(page).toHaveURL(/\/flows$/);
   await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
@@ -586,7 +584,9 @@ test('flows composer footer controls use upward desktop popovers and centered mo
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
         }),
       });
       return;
@@ -646,9 +646,9 @@ test('flows composer footer controls use upward desktop popovers and centered mo
     expect(triggerBox).not.toBeNull();
     expect(popoverBox).not.toBeNull();
     expect(popoverBox?.y ?? 0).toBeLessThan(triggerBox?.y ?? 0);
-    expect((popoverBox?.y ?? 0) + (popoverBox?.height ?? 0)).toBeLessThanOrEqual(
-      (triggerBox?.y ?? 0) + 12,
-    );
+    expect(
+      (popoverBox?.y ?? 0) + (popoverBox?.height ?? 0),
+    ).toBeLessThanOrEqual((triggerBox?.y ?? 0) + 12);
 
     await page.keyboard.press('Escape');
     await expect(popover).toBeHidden({ timeout: 20000 });
@@ -756,7 +756,9 @@ test('flows existing-conversation working-folder picker applies a local reposito
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
         }),
       });
       return;
@@ -819,17 +821,13 @@ test('flows existing-conversation working-folder picker applies a local reposito
         body: JSON.stringify({
           base: '/base',
           path: requestedPath,
-          dirs:
-            requestedPath === '/base/repo' ? ['child'] : [],
+          dirs: requestedPath === '/base/repo' ? ['child'] : [],
         }),
       });
       return;
     }
 
-    if (
-      path === '/conversations/flow-1/working-folder' &&
-      method === 'POST'
-    ) {
+    if (path === '/conversations/flow-1/working-folder' && method === 'POST') {
       const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
       workingFolderBodies.push(payload);
       const workingFolder =
@@ -871,9 +869,7 @@ test('flows existing-conversation working-folder picker applies a local reposito
                 ? 'working_folder_unavailable'
                 : 'invalid_request',
             code: err.code ?? 'WORKING_FOLDER_INVALID',
-            message:
-              err.reason ??
-              'working_folder validation failed',
+            message: err.reason ?? 'working_folder validation failed',
           }),
         });
       }
@@ -896,15 +892,15 @@ test('flows existing-conversation working-folder picker applies a local reposito
   );
 
   await page.getByTestId('flow-working-folder-trigger').click();
-  await expect(page.getByRole('dialog', { name: 'Choose folder…' })).toBeVisible(
-    { timeout: 20000 },
-  );
+  await expect(
+    page.getByRole('dialog', { name: 'Choose folder…' }),
+  ).toBeVisible({ timeout: 20000 });
   await page.getByRole('button', { name: 'child' }).click();
   await page.getByRole('button', { name: 'Use this folder' }).click();
 
-  await expect(page.getByRole('dialog', { name: 'Choose folder…' })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole('dialog', { name: 'Choose folder…' }),
+  ).toHaveCount(0);
 
   await expect(page.getByTestId('flow-working-folder-trigger')).toContainText(
     'child',
@@ -1014,10 +1010,7 @@ test('flows existing conversations open at the newest visible content and preser
       return;
     }
 
-    if (
-      path === '/conversations/flow-1/working-folder' &&
-      method === 'POST'
-    ) {
+    if (path === '/conversations/flow-1/working-folder' && method === 'POST') {
       const payload = req.postDataJSON?.() ?? {};
       await route.fulfill({
         status: 200,
@@ -1036,9 +1029,8 @@ test('flows existing conversations open at the newest visible content and preser
               typeof (payload as { workingFolder?: string }).workingFolder ===
               'string'
                 ? {
-                    workingFolder: (
-                      payload as { workingFolder: string }
-                    ).workingFolder,
+                    workingFolder: (payload as { workingFolder: string })
+                      .workingFolder,
                   }
                 : {},
           },

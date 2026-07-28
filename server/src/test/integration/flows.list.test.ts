@@ -227,6 +227,9 @@ describe('GET /flows', () => {
         'loop-max-iterations',
         'multi-agent',
         'valid-flow',
+        'wait-basic',
+        'wait-loop',
+        'wait-resume',
       ]);
 
       const invalidJson = response.body.flows.find(
@@ -245,6 +248,11 @@ describe('GET /flows', () => {
         (flow: { name: string }) => flow.name === 'valid-flow',
       );
       assert.equal(valid.disabled, false);
+
+      const wait = response.body.flows.find(
+        (flow: { name: string }) => flow.name === 'wait-basic',
+      );
+      assert.equal(wait.disabled, false);
       assert.equal(valid.description, 'Valid flow');
     });
 
@@ -738,8 +746,7 @@ describe('GET /flows', () => {
         );
 
         const missingWaveChild = response.body.flows.find(
-          (flow: { name: string }) =>
-            flow.name === 'parent-wave-missing-child',
+          (flow: { name: string }) => flow.name === 'parent-wave-missing-child',
         );
         assert.ok(missingWaveChild);
         assert.match(
@@ -748,8 +755,7 @@ describe('GET /flows', () => {
         );
 
         const invalidWaveChild = response.body.flows.find(
-          (flow: { name: string }) =>
-            flow.name === 'parent-wave-invalid-child',
+          (flow: { name: string }) => flow.name === 'parent-wave-invalid-child',
         );
         assert.ok(invalidWaveChild);
         assert.match(

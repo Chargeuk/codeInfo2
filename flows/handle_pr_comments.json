@@ -1,0 +1,54 @@
+{
+  "description": "Continuously drain globally ordered PROJ-5204 pull-request comment leaves while keeping rich thread context away from the loop controller.",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Monitor Pull Request Comments",
+      "steps": [
+        {
+          "type": "reset",
+          "label": "Reset Pull Request Agent Before Queue Drain",
+          "agentType": "pr_agent",
+          "identifier": "pr_agent"
+        },
+        {
+          "type": "startLoop",
+          "label": "Drain Eligible Pull Request Leaves",
+          "steps": [
+            {
+              "type": "break",
+              "label": "Exit Drain Loop When No Eligible Leaves Remain",
+              "agentType": "loop_control_agent",
+              "identifier": "loop_controller",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_pr_comment_threads_empty.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because pull-request comments and configuration may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+              "breakOn": "yes"
+            },
+            {
+              "type": "llm",
+              "label": "Handle Globally Oldest Eligible Pull Request Leaf",
+              "agentType": "pr_agent",
+              "identifier": "pr_agent",
+              "markdownFile": "handle_pr_comments.md"
+            },
+            {
+              "type": "reset",
+              "label": "Reset Pull Request Agent After Concept",
+              "agentType": "pr_agent",
+              "identifier": "pr_agent"
+            },
+            {
+              "type": "wait",
+              "label": "Avoid Hot Queue Polling",
+              "seconds": 2
+            }
+          ]
+        },
+        {
+          "type": "wait",
+          "label": "Wait Before Next Pull Request Poll",
+          "seconds": 180
+        }
+      ]
+    }
+  ]
+}

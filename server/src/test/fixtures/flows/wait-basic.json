@@ -1,0 +1,21 @@
+{
+  "description": "Wait before continuing",
+  "steps": [
+    {
+      "type": "wait",
+      "label": "Short pause",
+      "seconds": 5
+    },
+    {
+      "type": "llm",
+      "agentType": "coding_agent",
+      "identifier": "after-wait",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["Continue after wait."]
+        }
+      ]
+    }
+  ]
+}

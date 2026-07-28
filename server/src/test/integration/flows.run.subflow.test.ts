@@ -22,9 +22,7 @@ import {
   memoryTurns,
   recordMemoryTurn,
 } from '../../chat/memoryPersistence.js';
-import {
-  __resetProviderBootstrapStatusForTests,
-} from '../../config/runtimeConfig.js';
+import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
 import {
   getFlowConversationLifecycleStatus,
@@ -795,18 +793,19 @@ test('successful flow cleanup preserves the settlement auditor explicit incomple
       working_folder: repoDir,
       chatFactory: () =>
         new SubflowChat(25, async ({ message }) => {
-          if (!message.includes('record explicit incomplete settlement')) return;
-          const active = JSON.parse(await fs.readFile(activePath, 'utf8')) as Record<
-            string,
-            unknown
-          >;
+          if (!message.includes('record explicit incomplete settlement'))
+            return;
+          const active = JSON.parse(
+            await fs.readFile(activePath, 'utf8'),
+          ) as Record<string, unknown>;
           await fs.writeFile(
             activePath,
             JSON.stringify({
               ...active,
               status: 'incomplete',
               completed_at: '2026-07-21T12:05:00.000Z',
-              incomplete_reason: 'One flexible settlement artifact remained ambiguous.',
+              incomplete_reason:
+                'One flexible settlement artifact remained ambiguous.',
             }),
           );
         }),
@@ -896,10 +895,16 @@ test('an orphaned execution-owned review cycle cannot block a later best-effort 
     });
     await waitFor(() => executions.includes('parent continued after review'));
     await waitForAssistantStatus(result.conversationId, 'ok');
-    assert.equal(executions.includes('reviewer launched after orphaned cycle'), true);
+    assert.equal(
+      executions.includes('reviewer launched after orphaned cycle'),
+      true,
+    );
     assert.equal(executions.includes('parent continued after review'), true);
     const active = JSON.parse(
-      await fs.readFile(path.join(stateRoot, 'active-review-cycle.json'), 'utf8'),
+      await fs.readFile(
+        path.join(stateRoot, 'active-review-cycle.json'),
+        'utf8',
+      ),
     ) as Record<string, unknown>;
     assert.equal(active.schema_version, 'codeinfo-active-review-cycle/v2');
     assert.equal(active.status, 'incomplete');
@@ -1233,10 +1238,7 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
         }
       ).flow?.executionId,
     );
-    assert.equal(
-      childWaveIdentity?.instanceId,
-      'reviews:client:main-review',
-    );
+    assert.equal(childWaveIdentity?.instanceId, 'reviews:client:main-review');
     assert.equal(childWaveIdentity?.targetId, 'client');
     assert.equal(childWaveIdentity?.displayName, 'main-review [client]');
     assert.equal(typeof childWaveIdentity?.waveInvocationId, 'string');
@@ -1561,11 +1563,12 @@ test('repeated subflow wave titles show their loop iteration', async () => {
       chatFactory: () => new SubflowChat(25),
     });
     await waitForAssistantStatus(result.conversationId, 'ok');
-    await waitFor(() =>
-      findChildFlowConversations({
-        parentConversationId: result.conversationId,
-        childFlowNames: ['repeated-wave-child'],
-      }).length === 2,
+    await waitFor(
+      () =>
+        findChildFlowConversations({
+          parentConversationId: result.conversationId,
+          childFlowNames: ['repeated-wave-child'],
+        }).length === 2,
     );
 
     const titles = findChildFlowConversations({
@@ -1810,7 +1813,9 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
         (conversation) =>
           (conversation.flags as { flow?: { input?: unknown } }).flow?.input,
       )
-      .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+      .sort((left, right) =>
+        JSON.stringify(left).localeCompare(JSON.stringify(right)),
+      );
     assert.deepEqual(resumedLocalInputs, [
       { target: { id: 'a' } },
       { target: { id: 'b' } },
@@ -2414,9 +2419,10 @@ test('a review wave starts before an unavailable later loop controller is resolv
         }),
     });
 
-    await waitFor(() =>
-      executions.includes('review child work') &&
-      executions.includes('record review outcome'),
+    await waitFor(
+      () =>
+        executions.includes('review child work') &&
+        executions.includes('record review outcome'),
     );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
@@ -2482,9 +2488,10 @@ test('a malformed later review-loop decision still records the review outcome', 
         }),
     });
 
-    await waitFor(() =>
-      executions.includes('review child work') &&
-      executions.includes('record review outcome'),
+    await waitFor(
+      () =>
+        executions.includes('review child work') &&
+        executions.includes('record review outcome'),
     );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
@@ -2662,13 +2669,7 @@ test('review workspace records attempts for a configured reviewer with a non-rev
     assert.match(evidence, /Status: completed/u);
     await assert.rejects(
       fs.readdir(
-        path.join(
-          repoDir,
-          'codeInfoTmp',
-          'reviews',
-          reviewCycleId,
-          'attempts',
-        ),
+        path.join(repoDir, 'codeInfoTmp', 'reviews', reviewCycleId, 'attempts'),
       ),
       /ENOENT/u,
     );

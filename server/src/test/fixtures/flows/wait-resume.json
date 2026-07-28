@@ -1,0 +1,32 @@
+{
+  "description": "Resume an interrupted wait",
+  "steps": [
+    {
+      "type": "llm",
+      "agentType": "coding_agent",
+      "identifier": "before-wait",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["Run before wait."]
+        }
+      ]
+    },
+    {
+      "type": "wait",
+      "label": "Resumable pause",
+      "seconds": 5
+    },
+    {
+      "type": "llm",
+      "agentType": "coding_agent",
+      "identifier": "after-resumed-wait",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["Run after resumed wait."]
+        }
+      ]
+    }
+  ]
+}

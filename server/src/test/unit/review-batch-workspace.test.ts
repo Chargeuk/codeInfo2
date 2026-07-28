@@ -202,7 +202,10 @@ test('review batch workspace gives every job immutable private input and pre-cre
       /ENOENT/u,
     );
     const distinctIdentityResult = await prepareReviewBatchWorkspace({
-      snapshot: { ...snapshot, review_wave_id: '0000064-rw-distinct-identities' },
+      snapshot: {
+        ...snapshot,
+        review_wave_id: '0000064-rw-distinct-identities',
+      },
       jobs: [
         {
           instanceId: 'a-b:c:d',

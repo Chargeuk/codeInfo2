@@ -187,15 +187,20 @@ const verifyRepositoryAndCommits = async (
   return { repositoryPath, workspacePath, instructionsPath };
 };
 
+export const COPILOT_REVIEW_EXCLUDED_PATHS = ['planning/**'] as const;
+
 export function buildCopilotReviewPrompt(params: {
   baseCommit: string;
   headCommit: string;
   instructionsPath: string;
 }): string {
+  const excludedPath = COPILOT_REVIEW_EXCLUDED_PATHS[0];
   return [
     `/review the committed changes at ${params.headCommit} compared with ${params.baseCommit}.`,
     `Review the exact range ${params.baseCommit}...${params.headCommit}.`,
     `Read the review requirements from ${params.instructionsPath}.`,
+    `Exclude all changed files under ${excludedPath} from the review. Do not inspect, read, summarize, cite, or report findings for those changes; use the supplied review requirements instead.`,
+    `For Git diff inspection, use git diff ${params.baseCommit}...${params.headCommit} -- . ':(exclude)${excludedPath}' so excluded changes are not sent to the model.`,
     'Do not modify source files, Git state, branches, commits, or remotes.',
     'Do not create or submit a GitHub pull-request review and do not delegate to a remote coding agent.',
     'Return review findings only, with concrete file and line evidence where available.',
@@ -766,6 +771,7 @@ const writeArtifacts = async (params: {
           job_instance_id: params.options.jobInstanceId,
           base_commit: params.options.baseCommit,
           head_commit: params.options.headCommit,
+          excluded_paths: [...COPILOT_REVIEW_EXCLUDED_PATHS],
           instructions_path: params.options.instructionsPath,
           arguments: params.args,
           launched: params.launched,
@@ -809,6 +815,7 @@ const writeArtifacts = async (params: {
           job_instance_id: params.options.jobInstanceId,
           base_commit: params.options.baseCommit,
           head_commit: params.options.headCommit,
+          excluded_paths: [...COPILOT_REVIEW_EXCLUDED_PATHS],
           launched: params.launched,
           exit_status: params.exitStatus,
           review: review || null,

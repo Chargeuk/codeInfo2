@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  COPILOT_REVIEW_EXCLUDED_PATHS,
   COPILOT_REVIEW_GIT_INSPECTION_COMMANDS,
   runCopilotReview,
   type CopilotReviewLauncherOptions,
@@ -161,6 +162,16 @@ test('native launcher invokes local /review once with pinned read-only non-inter
     prompt,
     new RegExp(fixture.instructions.replaceAll('/', '\\/'), 'u'),
   );
+  assert.match(
+    prompt,
+    /Exclude all changed files under planning\/\*\* from the review/u,
+  );
+  assert.equal(
+    prompt.includes(
+      `git diff ${fixture.base}...${fixture.head} -- . ':(exclude)planning/**'`,
+    ),
+    true,
+  );
   for (const expected of [
     '--model',
     'gpt-5.4',
@@ -242,6 +253,7 @@ test('native launcher invokes local /review once with pinned read-only non-inter
     await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
   ) as {
     review?: string;
+    excluded_paths?: string[];
     usage?: {
       input_tokens?: number;
       premium_requests?: number;
@@ -255,6 +267,9 @@ test('native launcher invokes local /review once with pinned read-only non-inter
     };
   };
   assert.equal(normalized.review, 'Review result');
+  assert.deepEqual(normalized.excluded_paths, [
+    ...COPILOT_REVIEW_EXCLUDED_PATHS,
+  ]);
   assert.equal(normalized.usage?.input_tokens, 11);
   assert.equal(normalized.usage?.premium_requests, 0.33);
   assert.equal(normalized.usage?.total_api_duration_ms, 1200);
@@ -324,11 +339,14 @@ test('external launcher exposes only the selected endpoint and key to the child'
   assert.match(persisted, /provider diagnostic \[REDACTED\]/u);
   const invocation = JSON.parse(
     await fs.readFile(fixture.outputPaths.invocationPath, 'utf8'),
-  ) as { endpoint_id?: string };
+  ) as { endpoint_id?: string; excluded_paths?: string[] };
   const normalized = JSON.parse(
     await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
   ) as { endpoint_id?: string };
   assert.equal(invocation.endpoint_id, 'https://selected.test/v1');
+  assert.deepEqual(invocation.excluded_paths, [
+    ...COPILOT_REVIEW_EXCLUDED_PATHS,
+  ]);
   assert.equal(normalized.endpoint_id, 'https://selected.test/v1');
 });
 

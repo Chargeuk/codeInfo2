@@ -1063,7 +1063,7 @@ test('persisted waits resume the originally selected conditional branch without 
   }
 });
 
-test('exhausted GitHub review recovery records a terminal warning and continues later flow steps', async () => {
+test('missing GitHub review setup records a warning and continues later flow steps', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-github-recovery-exhausted-'),
   );
@@ -1176,7 +1176,7 @@ test('exhausted GitHub review recovery records a terminal warning and continues 
         | undefined;
       assert.equal(flow?.wait, undefined);
       assert.equal(flow?.githubReviewContext?.phase, 'skipped');
-      assert.equal(flow?.githubReviewContext?.retryAttempt, 4);
+      assert.equal(flow?.githubReviewContext?.retryAttempt, 3);
     });
   } finally {
     const flow = memoryConversations.get(conversationId)?.flags?.flow as

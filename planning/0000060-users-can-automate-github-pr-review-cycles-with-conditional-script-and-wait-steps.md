@@ -4852,6 +4852,8 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - [x] Path containment, symlink escape, missing-file, empty-file, timeout, process-error, and output-limit protections remain enforced.
 - [x] Production call sites and focused tests use terminology that does not imply a Git-tracking requirement.
 - [x] Repository-wide flow and handoff guidance documents KISS, state-first continuation, self-describing artifacts, best-effort consumption, and safe partial or unavailable outcomes.
+- [x] GitHub review setup-file limitations produce a warning and skip only the unavailable review work while later safe flow steps continue.
+- [x] Merged integration coverage preserves `main`'s exact URL-derived PR-number reconciliation contract without expecting the superseded latest-open retry behavior.
 
 #### Non-Goals
 
@@ -4869,6 +4871,8 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 1. [x] Add the repository-wide `Flow Design And Agent Handoffs` policy to `AGENTS.md`.
 2. [x] Remove Git index enforcement from `server/src/flows/flowDecisionScript.ts`, rename the general executor, and update its production call site.
 3. [x] Replace Git-tracking rejection tests with focused proof that untracked in-root scripts execute while the remaining safeguards still apply.
+4. [x] Make GitHub review setup-file limitations mark the review stage skipped and continue later safe flow steps after publishing a warning.
+5. [x] Align the merged PR-open integration regression with the exact URL-derived PR-number lookup inherited from `main`.
 
 #### Testing
 
@@ -4877,6 +4881,11 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 3. [x] `npm run build:summary:server`
 4. [x] `npm run lint`
 5. [x] `npm run format:check`
+6. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --test-name "github review open PR skips the cycle when canonical post-create reconciliation fails"`
+7. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts --test-name "missing GitHub review setup records a warning and continues later flow steps"`
+8. [x] `npm run test:summary:all:parallel`
+9. [x] `npm run lint`
+10. [x] `npm run format:check`
 
 #### Implementation Notes
 
@@ -4890,6 +4899,15 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Repository lint passed with zero warnings.
 - Repository formatting validation passed for all tracked supported files.
 - Task 46 is complete: the Git-index prerequisite is removed, all retained safeguards remain covered, and every planned validation gate passed.
+- The first full parallel-suite run exposed two merged-contract regressions: one stale latest-open retry assertion and one real best-effort continuation gap for missing GitHub setup files. Task 46 was reopened narrowly to repair and validate those failures without changing the final Task 47 position.
+- GitHub review setup resolution now publishes a warning, preserves useful execution context, marks only the unavailable review cycle skipped, clears any obsolete review wait, and lets later safe flow steps continue.
+- The PR-open regression now checks `main`'s canonical URL-derived pull-request number lookup directly: one failed exact lookup, no obsolete latest-open retry telemetry, and a warning-based skipped review cycle.
+- The focused canonical post-create reconciliation regression passed 1/1 after rebuilding the server.
+- The focused best-effort GitHub setup regression passed 1/1 and confirmed the later LLM step runs while the flow finishes with a visible warning.
+- The canonical full parallel suite passed: client 907/907, server unit 2784/2784, server Cucumber 138/138, and e2e 78/78; both repository-owned test stacks were removed by the wrapper afterward.
+- Repository lint passed with zero warnings after the follow-up changes.
+- Repository formatting validation passed for all tracked supported files after the follow-up changes.
+- Task 46 is complete again: both full-suite failures are fixed, the best-effort continuation policy is enforced for GitHub setup artifacts, and all focused and repository-wide validation gates pass.
 
 ### Task 47. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

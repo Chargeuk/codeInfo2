@@ -2284,7 +2284,7 @@ test('github review skip publishes a warning, records a durable plan note, and p
   }
 });
 
-test('github review open PR skips the cycle when canonical post-create reconciliation exhausts all lookup attempts', async () => {
+test('github review open PR skips the cycle when canonical post-create reconciliation fails', async () => {
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-open-pr-flow-'),
   );
@@ -2399,10 +2399,8 @@ test('github review open PR skips the cycle when canonical post-create reconcili
     }).filter(
       (entry) => entry.context?.flowName === 'github-open-pr-retry-failure',
     );
-    assert.deepEqual(
-      retryLogs.map((entry) => entry.context?.waitMs),
-      [0, 1000, 2000, 5000],
-    );
+    assert.deepEqual(retryLogs, []);
+    assert.equal(lookupAttempts, 1);
 
     assert.equal(
       assistantTurns.some((turn) => turn.status === 'failed'),
@@ -2426,11 +2424,11 @@ test('github review open PR skips the cycle when canonical post-create reconcili
       'utf8',
     );
     assert.match(planRaw, /GitHub review stage failed during PR open\./);
-    assert.match(
+    assert.doesNotMatch(
       planRaw,
-      /GitHub review stage warning during PR open lookup retry 4 after waiting 5s:/,
+      /GitHub review stage warning during PR open lookup retry/,
     );
-    assert.match(planRaw, /stderr: lookup attempt 5 failed/i);
+    assert.match(planRaw, /stderr: lookup attempt 1 failed/i);
   } finally {
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });

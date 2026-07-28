@@ -7957,11 +7957,14 @@ async function runFlowUnlocked(params: {
 
   const markGitHubReviewCycleSkipped = (warningMessage: string) => {
     activeGitHubReviewContext = {
-      executionId: params.executionId,
+      ...activeGitHubReviewContext,
+      executionId:
+        activeGitHubReviewContext?.executionId ?? params.executionId,
       phase: 'skipped',
-      retryAttempt: 0,
+      retryAttempt: activeGitHubReviewContext?.retryAttempt ?? 0,
       warningMessage,
     };
+    activeWait = undefined;
   };
 
   const formatGitHubFailureDetail = (paramsForDetail: {
@@ -8423,18 +8426,18 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub fetch reviews step',
         message: warningMessage,
       });
-      return 'warning';
+      markGitHubReviewCycleSkipped(warningMessage);
+      return 'ok';
     }
     if (context.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during review fetch: ${context.message}`,
-      );
-      await emitGitHubStepFailure({
+      const warningMessage = `GitHub review stage skipped during review fetch after setup failed: ${context.message}`;
+      await appendGitHubStagePlanNote(warningMessage);
+      await emitGitHubStepWarning({
         instruction: 'GitHub fetch reviews step',
-        message: context.message,
-        errorCode: context.reason,
+        message: warningMessage,
       });
-      return 'failed';
+      markGitHubReviewCycleSkipped(warningMessage);
+      return 'ok';
     }
     const pullRequestResult =
       await resolveExecutionScopedGitHubReviewPullRequest({

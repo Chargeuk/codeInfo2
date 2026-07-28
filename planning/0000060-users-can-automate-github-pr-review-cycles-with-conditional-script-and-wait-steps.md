@@ -4986,10 +4986,10 @@ Repair the repository-owned Playwright harness for the shared `ingest-root-fixtu
 #### Testing
 
 1. [x] `npm run test:summary:e2e -- --grep "Chat tools citations|Ingest flows"`
-2. [ ] `npm run test:summary:e2e`
-3. [ ] `npm run test:summary:all:parallel`
-4. [ ] `npm run lint`
-5. [ ] `npm run format:check`
+2. [x] `npm run test:summary:e2e`
+3. [x] `npm run test:summary:all:parallel`
+4. [x] `npm run lint`
+5. [x] `npm run format:check`
 
 #### Implementation Notes
 
@@ -5000,6 +5000,10 @@ Repair the repository-owned Playwright harness for the shared `ingest-root-fixtu
 - Added explicit Playwright steps around shared-lock acquisition and release in both stateful specs, and around the chat-tools ingest terminal wait, so project serialization, failure cleanup, and bounded timeout diagnostics remain visible in proof output.
 - The focused E2E wrapper passed 13/13 selected tests with no bounded ingest timeout; the conditional diagnostic branch was not needed, and the wrapper removed its test stack cleanly.
 - Audit 2026-07-28 implementation-only: commit `1897232ff` provides repository evidence for all four implementation subtasks and focused Testing item 1. The project split and lock/diagnostic changes are test-harness-only, are explicitly within Story 60's parallel-harness reliability contract, and introduce no story-caused user-facing behavior drift. Testing items 2 through 5 remain open for the separate automated-proof pass; no live blocker is present, and Task 47 remains `__in_progress__` ready for that proof.
+- Automated proof item 2 passed: the full E2E wrapper completed 78/78 tests successfully and removed its test-owned stack during cleanup.
+- Automated proof item 3 passed: the canonical full parallel suite completed with client 908/908, server unit 2787/2787, server Cucumber 138/138, and e2e 78/78; both repository-owned test stacks were removed by the wrapper.
+- Automated proof item 4 passed: repository lint completed with zero warnings.
+- Automated proof item 5 passed: formatting validation reported that all matched files use Prettier code style.
 
 ### Task 48. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

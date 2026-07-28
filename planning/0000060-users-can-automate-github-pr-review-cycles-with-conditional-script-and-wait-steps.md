@@ -4852,8 +4852,8 @@ Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, a
 ### Task 46. Remove Git-Tracking Enforcement From Flow Decision Scripts
 
 - Repository Name: `Current Repository`
-- Task Dependencies: `None (user-directed Story 0000060 follow-up)`
-- Task Status: `__in_progress__`
+- Task Dependencies: `Task 47 — shared E2E ingest harness prerequisite`
+- Task Status: `__to_do__`
 - Affected Repositories: `current_repository`
 
 #### Overview
@@ -4915,7 +4915,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Repository lint passed with zero warnings.
 - Repository formatting validation passed for all tracked supported files.
 - Task 46 is complete: the Git-index prerequisite is removed, all retained safeguards remain covered, and every planned validation gate passed.
-- The first full parallel-suite run exposed two merged-contract regressions: one stale latest-open retry assertion and one real best-effort continuation gap for missing GitHub setup files. Task 46 was reopened narrowly to repair and validate those failures without changing the final Task 47 position.
+- The first full parallel-suite run exposed two merged-contract regressions: one stale latest-open retry assertion and one real best-effort continuation gap for missing GitHub setup files. Task 46 was reopened narrowly to repair and validate those failures without changing the final Task 48 position.
 - GitHub review setup resolution now publishes a warning, preserves useful execution context, marks only the unavailable review cycle skipped, clears any obsolete review wait, and lets later safe flow steps continue.
 - The PR-open regression now checks `main`'s canonical URL-derived pull-request number lookup directly: one failed exact lookup, no obsolete latest-open retry telemetry, and a warning-based skipped review cycle.
 - The focused canonical post-create reconciliation regression passed 1/1 after rebuilding the server.
@@ -4950,21 +4950,60 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Audit 2026-07-28 implementation-plus-automated-proof re-audit: restoration commit `df15c5c5a` reinstated the approved checked-in entrypoint guard, and current evidence supports the exit criterion, all six subtasks, Testing items 1, 2, 3, 4, 6, and 7. Testing items 5, 8, 9, 10, and 11 were carried forward from the earlier untracked-script proof or lack a post-restoration result, so they were reopened; no new story-caused behavior drift remains.
 - Automated proof item 5 passed: formatting validation reported that all matched files use Prettier code style after the restored checked-in-entrypoint guard.
 - **RESOLVED ISSUE** The first remaining automated proof step passed. Items 8 through 11 remain in progress without a generic blocker and will be rerun against the restored implementation.
-- **BLOCKER** Testing item 8, `npm run test:summary:all:parallel`, failed only in the pre-existing E2E ingest harness: `chat-tools.spec.ts` timed out waiting for ingest completion while holding `ingest-root-fixtures-repo`, then `ingest.spec.ts` timed out waiting for that same lock. Client (908/908), server unit (2787/2787), and Cucumber (138/138) passed; the isolated citation wrapper passed 1/1. The lock/timing seam predates Task 46 and belongs to the distinct E2E harness, so this task cannot honestly repair it without out-of-scope ownership expansion.
+- **RESOLVED ISSUE** Testing item 8 exposed a pre-existing E2E ingest-harness seam: `chat-tools.spec.ts` timed out waiting for ingest completion while holding `ingest-root-fixtures-repo`, then `ingest.spec.ts` timed out waiting for that same lock. Client (908/908), server unit (2787/2787), and Cucumber (138/138) passed; the isolated citation wrapper passed 1/1. The blocker is now explicitly owned by prerequisite Task 47 because Story 60's acceptance criteria include reliable parallel and stress harnesses; Task 46's product implementation remains unchanged and its remaining proof waits on that prerequisite.
 - **BLOCKING ANSWER** Research 2026-07-28 proved this is a proof/test-harness seam owned outside Task 46. The repository failure artifact `logs/test-summaries/e2e-tests-2026-07-28T16-47-47-962Z.log` shows `chat-tools.spec.ts` running in worker 2 for 181224 ms before `waitForIngest` timed out at its 90 x 2-second polling budget, while `ingest.spec.ts` ran in worker 1 and failed after its explicit 60000 ms lock-acquisition budget. Both specs acquire the same `ingest-root-fixtures-repo` lock in `beforeEach`, release it in `afterEach`, and are allowed to run across files in parallel by the current dynamic Playwright worker configuration. The lock helper itself was introduced by pre-existing commit `3cd2fc5915` on 2026-06-28, its current stale-owner handling was added by the same pre-existing E2E stabilization work, and the Task 46 commit range `869016a47..HEAD` touches no `e2e/**` files.
 - **BLOCKING ANSWER** Repository precedents support deliberate serialization for mutable E2E state: `codeInfo2` already uses `test.describe.serial` plus `acquireE2eResourceLock('ingest-root-fixtures-repo')`, and indexed `KaDshow_Web` uses a dedicated `.stateful.spec.ts` Playwright project with `workers: 1`, `fullyParallel: false`, plus a scoped stale-recovering resource lock. The repository's `scripts/test-docker-harness-lifecycle.test.mjs` also proves atomic lock acquisition, stale recovery, active-owner waiting, and serial handoff for its Docker harness lock.
 - **BLOCKING ANSWER** External confirmation: [Playwright parallelism guidance](https://playwright.dev/docs/next/test-parallel) states that spec files run in parallel by default and that shared state should be isolated or parallelism disabled; [Playwright's project worker configuration](https://github.com/microsoft/playwright/blob/main/docs/src/test-api/class-testproject.md) supports `workers: 1` for a project sharing a resource that cannot be accessed concurrently; [Playwright CI guidance](https://playwright.dev/docs/ci) recommends one worker where stability and conflict avoidance matter; and [Node's `fs.mkdir` documentation](https://nodejs.org/download/release/latest-jod/docs/api/fs.html) confirms that non-recursive creation returns `EEXIST` when the directory already exists, validating the helper's atomic contender gate. DeepWiki was queried for `Chargeuk/codeInfo2` but has no indexed copy, so it supplied no additional evidence.
 - **BLOCKING ANSWER** Chosen solution: the E2E harness owner should place the ingest-root stateful specs in a dedicated Playwright project with `workers: 1` and `fullyParallel: false`, while retaining the existing resource lock for cross-process or shard isolation and aligning all legitimate lock-holder budgets with the longest supported ingest operation. This is the supported structural fix for the proven cross-file lock-timeout cascade; merely rerunning the broad wrapper or increasing a wait without serializing the shared fixture would not remove the race, and removing or weakening the lock would reintroduce mutable-fixture corruption risk. The first `chat-tools.spec.ts` ingest timeout remains a separate E2E ingest timing defect for that harness owner; Task 46 does not own either defect because its scope is flow-decision execution and its story-owned range did not modify the E2E harness. The parser-visible `**BLOCKER**` above remains intact until the E2E owner supplies the required repair and fresh full-suite proof.
+- Planner repair 2026-07-28: the blocker-family and ownership conclusion showed that the story plan was incomplete, not that Task 46's flow-decision implementation was wrong. Story 60 explicitly requires the canonical parallel and stress wrappers to run without cross-test timing or filesystem interference, so the repository-owned E2E harness repair is now a bounded prerequisite rather than an unowned external limitation. Task 46 is `__to_do__` behind Task 47, and Task 47 is the next active owner; the old Task 46 blocker is retained as a `**RESOLVED ISSUE**` history entry while the blocking evidence remains in the `**BLOCKING ANSWER**` notes.
 
-### Task 47. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
+### Task 47. Repair Shared E2E Ingest Fixture Serialization Harness
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `None (Story 0000060 harness prerequisite for Tasks 46 and 48)`
+- Task Status: `__in_progress__`
+- Affected Repositories: `current_repository`
+- Owner Boundary: `Repository-owned E2E proof harness; do not change Task 46 production flow behavior while repairing this seam.`
+
+#### Overview
+
+Repair the repository-owned Playwright harness for the shared `ingest-root-fixtures-repo` fixture. The repair must serialize only the stateful ingest consumers across spec files, retain cross-process lock protection, and make the ingest timeout and lock-release behavior diagnosable without weakening the fixture-safety contract or changing production code.
+
+#### Task Exit Criteria
+
+- [ ] `e2e/ingest.spec.ts` and `e2e/chat-tools.spec.ts` run in a dedicated stateful Playwright project with `workers: 1` and `fullyParallel: false`, while unrelated E2E specs retain their existing parallelism.
+- [ ] The shared resource lock remains the cross-process or shard safety boundary, releases after pass and failure paths, and uses compatible budgets for the longest supported ingest operation rather than relying on an arbitrary broad-wrapper retry.
+- [ ] Harness-level proof covers project selection, cross-file serialization, lock release after a failed holder, and a clear terminal diagnostic when ingest does not complete.
+- [ ] The repaired E2E harness passes its focused stateful proof and the canonical full parallel wrapper without leaving test-owned resources running.
+
+#### Subtasks
+
+1. [ ] Add a dedicated Playwright project in `playwright.config.ts` that matches only `e2e/ingest.spec.ts` and `e2e/chat-tools.spec.ts`, limits that project to one worker, and leaves unrelated projects on the existing dynamic worker budget.
+2. [ ] Align `e2e/support/e2eResourceLock.ts`, `e2e/ingest.spec.ts`, and `e2e/chat-tools.spec.ts` so legitimate lock holders cannot outlive a shorter contender budget, while preserving atomic acquisition, stale-owner recovery, and guaranteed release after failed tests.
+3. [ ] Add or update harness proof-authoring coverage for the dedicated project selection, cross-file lock serialization, failure cleanup, and bounded ingest-terminal-state diagnostics.
+4. [ ] If the serialized focused proof still reaches the bounded ingest timeout, capture the saved wrapper log and terminal ingest state, record the exact remaining harness seam, and stop without widening Task 46 production ownership.
+
+#### Testing
+
+1. [ ] `npm run test:summary:e2e -- --grep "Chat tools citations|Ingest flows"`
+2. [ ] `npm run test:summary:e2e`
+3. [ ] `npm run test:summary:all:parallel`
+4. [ ] `npm run lint`
+5. [ ] `npm run format:check`
+
+#### Implementation Notes
+
+- Planner repair 2026-07-28: Story 60 explicitly includes reliable parallel and stress wrappers, while Task 46's blocker research proved the shared ingest fixture seam belongs to the repository E2E harness. This task is the next active prerequisite owner; Task 46 is held at `__to_do__` until this bounded repair and proof complete.
+
+### Task 48. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 
 - Repository Name: `Current Repository`
 - Review Task Role: `final_revalidation`
-- Task Dependencies: `Tasks 45 and 46`
+- Task Dependencies: `Tasks 45, 46, and 47`
 - Task Status: `__to_do__`
 - Review Cycle: `0000060-rc-20260727T131555Z-a8e020a4`
 - Affected Repositories: `current_repository`
-- Review Scope: complete story validation after all completed review fixes and Tasks 45-46 implementation work
+- Review Scope: complete story validation after all completed review fixes and Tasks 45-47 implementation and harness work
 - Created: `July 27, 2026 at 10:40:38 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
 
 #### Overview
@@ -4976,7 +5015,7 @@ Perform the single final closeout validation after Tasks 45 and 46 have complete
 - [ ] All story-caused implementation and test changes are validated on the final target HEAD.
 - [ ] Full automated client, server, Compose, and e2e proof completes through the repository wrappers, with failures diagnosed from their saved logs.
 - [ ] The supported Compose stack is shut down after proof, and final lint and format checks pass.
-- [ ] Review-cycle closeout records the immutable batch evidence, completed fix tasks, Tasks 45-46 proof, final validation results, and honest limitations.
+- [ ] Review-cycle closeout records the immutable batch evidence, completed fix tasks, Tasks 45-47 proof, final validation results, and honest limitations.
 
 #### Review Cycle Coverage
 
@@ -5018,4 +5057,4 @@ Optional, non-blocking human proof may use the supported main stack at `http://l
 
 #### Implementation Notes
 
-This is the one final validation owner for the complete review settlement. It must consume the immutable batch findings blocks and the exact completed-review-fix records for batches 1, 2, 3, and 5, then the Tasks 45-46 implementation proof. No additional implementation work, disposition prediction, gate removal, or review launch belongs in this task.
+This is the one final validation owner for the complete review settlement. It must consume the immutable batch findings blocks and the exact completed-review-fix records for batches 1, 2, 3, and 5, then the Tasks 45-47 implementation and harness proof. No additional implementation work, disposition prediction, gate removal, or review launch belongs in this task.

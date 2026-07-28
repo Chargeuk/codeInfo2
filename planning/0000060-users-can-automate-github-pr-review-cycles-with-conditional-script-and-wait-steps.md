@@ -5066,8 +5066,8 @@ Perform the single final closeout validation after Tasks 45 and 46 have complete
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] Run `npm run lint` and fix story-caused issues.
-2. [ ] Run `npm run format:check` and, when needed, fix with `npm run format`.
+1. [x] Run `npm run lint` and fix story-caused issues.
+2. [x] Run `npm run format:check` and, when needed, fix with `npm run format`.
 
 The remaining implementation and full proof work is defined in `Testing`; these initial subtasks intentionally contain only supported lint and formatting work.
 
@@ -5093,3 +5093,6 @@ Optional, non-blocking human proof may use the supported main stack at `http://l
 #### Implementation Notes
 
 This is the one final validation owner for the complete review settlement. It must consume the immutable batch findings blocks and the exact completed-review-fix records for batches 1, 2, 3, and 5, then the Tasks 45-47 implementation and harness proof. No additional implementation work, disposition prediction, gate removal, or review launch belongs in this task.
+
+- Subtask 1 completed: `npm run lint` passed with zero reported warnings or errors; no story-caused lint repair was needed.
+- Subtask 2 completed: `npm run format:check` reported that all matched files use Prettier code style; no formatting repair was needed.

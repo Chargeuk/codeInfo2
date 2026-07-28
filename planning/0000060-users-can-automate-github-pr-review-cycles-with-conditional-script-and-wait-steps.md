@@ -5035,7 +5035,7 @@ Repair the repository-owned Playwright harness for the shared `ingest-root-fixtu
 - Repository Name: `Current Repository`
 - Review Task Role: `final_revalidation`
 - Task Dependencies: `Tasks 45, 46, and 47`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Review Cycle: `0000060-rc-20260727T131555Z-a8e020a4`
 - Affected Repositories: `current_repository`
 - Review Scope: complete story validation after all completed review fixes and Tasks 45-47 implementation and harness work

@@ -4891,15 +4891,15 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 #### Testing
 
 1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
-2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
-3. [x] `npm run build:summary:server`
-4. [x] `npm run lint`
-5. [x] `npm run format:check`
+2. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
+3. [ ] `npm run build:summary:server`
+4. [ ] `npm run lint`
+5. [ ] `npm run format:check`
 6. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --test-name "github review open PR skips the cycle when canonical post-create reconciliation fails"`
 7. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts --test-name "missing GitHub review setup records a warning and continues later flow steps"`
-8. [x] `npm run test:summary:all:parallel`
-9. [x] `npm run lint`
-10. [x] `npm run format:check`
+8. [ ] `npm run test:summary:all:parallel`
+9. [ ] `npm run lint`
+10. [ ] `npm run format:check`
 11. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
 
 #### Implementation Notes
@@ -4927,6 +4927,8 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Restored the checked-in repository-relative entrypoint guard after realpath containment and non-empty-file validation; the focused executor suite passed 4/4, including tracked execution, untracked rejection, and timeout behavior. The affected flow-level untracked-entrypoint regression also passed after being restored to the expected hard-failure assertion.
 - **RESOLVED ISSUE** Task 46's checked-in entrypoint contract is restored and the targeted proof passed; no containment, symlink, timeout, process-error, or output safeguards were weakened.
 - Audit 2026-07-28: Fresh implementation evidence from `fcf661e6a` supports all six subtasks and all eleven recorded testing entries, and the parser reports no live blocker. The restored checked-in entrypoint behavior matches the locked story contract; no additional story-caused preserved-behavior regression or unrelated user-facing drift was found. Task 46 is normalized to `__in_progress__` because this audit is implementation-only and automated proof has not been completed in this loop; it is ready for the separate automated-proof step.
+- Audit 2026-07-28 implementation-plus-automated-proof normalization: `fcf661e6a` changed the production decision executor and the shared-decision integration regression after the prior build, lint, formatting, and full parallel-suite evidence. The focused executor proof remains supported by the recorded 4/4 result, and the unrelated GitHub-focused checks remain valid; Testing items 2, 3, 4, 5, 8, 9, and 10 were reopened because their earlier results are stale after that repair. No new story-caused behavior drift was found beyond the already restored checked-in entrypoint contract.
+- **BLOCKER** Task 46 cannot continue honestly: Testing items 2 (shared decision seam integration), 3 (server build), 4 (lint), 5 (format check), 8 (full parallel suite), 9 (follow-up lint), and 10 (follow-up format check) remained open after audit normalization. Evidence checked: the fresh bounded Task 46 packet, `plan_status.py --task-number 46`, the `fcf661e6a` production and test diff, and the recorded proof notes. The stale automated proof must be rerun after the latest implementation repair before Task 46 can be marked `__done__`.
 
 ### Task 47. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

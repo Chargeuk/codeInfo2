@@ -4853,7 +4853,7 @@ Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, a
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 47 — shared E2E ingest harness prerequisite`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Affected Repositories: `current_repository`
 
 #### Overview
@@ -4961,6 +4961,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Automated proof item 9 passed: repository lint completed with zero warnings.
 - Automated proof item 10 passed: formatting validation reported that all matched files use Prettier code style.
 - Automated proof item 11 passed: the checked-in repository entrypoint contract focused test passed 1/1.
+- Audit 2026-07-28 implementation-plus-automated-proof normalization: current repository evidence confirms the restored checked-in repository-relative Python entrypoint contract remains in production and focused tests after the latest implementation commit, with no additional story-caused preserved-behavior regression or unrelated user-facing drift under the Story Behavior Lock. The full parallel suite passed with client 908/908, server unit 2787/2787, server Cucumber 138/138, and e2e 78/78; the repository-owned test stacks were removed afterward, and the follow-up lint, formatting, and checked-in-entrypoint proof also passed. All six subtasks and all eleven testing items are complete, the parser reports no live blocker, and Task 46 is now honestly `__done__` before manual testing begins.
 
 ### Task 47. Repair Shared E2E Ingest Fixture Serialization Harness
 

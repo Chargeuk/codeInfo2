@@ -9,7 +9,6 @@ import {
   type SessionEventHandler,
   type SessionEventType,
 } from '@github/copilot-sdk';
-import type { CopilotSession } from '@github/copilot-sdk';
 import {
   CopilotLifecycle,
   type CopilotRuntimeClient,
@@ -25,7 +24,7 @@ export type MockCopilotSdkScenario = {
   stopErrors?: Error[];
   pingResponse?: {
     message: string;
-    timestamp: number;
+    timestamp: string;
     protocolVersion?: number;
   };
   authStatus?: GetAuthStatusResponse;
@@ -56,7 +55,7 @@ type MockCopilotHarnessState = {
   createRegisterToolsCount: number;
   resumeRegisterToolsCount: number;
   lastRegisteredPermissionHandler?: PermissionHandler;
-  lastRegisteredHooks?: Parameters<CopilotSession['registerHooks']>[0];
+  lastRegisteredHooks?: SessionConfig['hooks'];
   selectedScenario: string;
 };
 
@@ -177,7 +176,7 @@ const defaultScenario = (): MockCopilotSdkScenario => ({
   name: 'default',
   pingResponse: {
     message: 'mock-copilot-ok',
-    timestamp: Date.now(),
+    timestamp: new Date().toISOString(),
   },
   authStatus: defaultAuthStatus(),
   models: [defaultModel()],
@@ -316,7 +315,7 @@ class MockCopilotSession {
     this.state.lastRegisteredPermissionHandler = handler;
   }
 
-  registerHooks(hooks?: Parameters<CopilotSession['registerHooks']>[0]): void {
+  registerHooks(hooks?: SessionConfig['hooks']): void {
     if (this.registerPhase === 'create') {
       this.state.createRegisterHooksCount += 1;
       if (this.scenario.createRegisterHooksError) {
@@ -425,7 +424,7 @@ export function createMockCopilotSdkHarness(
     },
     ping: async (message?: string) => ({
       message: message ?? scenario.pingResponse?.message ?? 'mock-copilot-ok',
-      timestamp: scenario.pingResponse?.timestamp ?? Date.now(),
+      timestamp: scenario.pingResponse?.timestamp ?? new Date().toISOString(),
       ...(scenario.pingResponse?.protocolVersion
         ? { protocolVersion: scenario.pingResponse.protocolVersion }
         : {}),

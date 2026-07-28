@@ -39,7 +39,7 @@ export type CopilotRuntimeFactory = (
 export type CopilotLifecycleOptions = {
   copilotHome?: string;
   cliPath?: string;
-  cliArgs?: CopilotClientOptions['cliArgs'];
+  cliArgs?: string[];
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   logLevel?: CopilotClientOptions['logLevel'];
@@ -137,20 +137,22 @@ export class CopilotLifecycle {
   }
 
   private prepareCreateSessionConfig(config: SessionConfig): SessionConfig {
-    return this.withConfigDir(config);
+    return this.withConfigDirectory(config);
   }
 
   private prepareResumeSessionConfig(
     config: ResumeSessionConfig,
   ): ResumeSessionConfig {
-    return this.withConfigDir(config);
+    return this.withConfigDirectory(config);
   }
 
-  private withConfigDir<T extends { configDir?: string }>(config: T): T {
-    if (config.configDir) return config;
+  private withConfigDirectory<T extends { configDirectory?: string }>(
+    config: T,
+  ): T {
+    if (config.configDirectory) return config;
     return {
       ...config,
-      configDir: this.configDir,
+      configDirectory: this.configDir,
     };
   }
 }

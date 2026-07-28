@@ -206,7 +206,7 @@ async function withForcedSessionStateRenameExdev<T>(
 
 const createReadyPingResponse = () => ({
   message: 'ready',
-  timestamp: Date.now(),
+  timestamp: new Date().toISOString(),
 });
 
 const createReadyModels = (): ModelInfo[] => [

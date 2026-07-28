@@ -1,5 +1,5 @@
-@openai/codex
-@github/copilot
+@openai/codex@0.145.0
+@github/copilot@1.0.75
 mcp-remote
 @upstash/context7-mcp
 @mui/mcp@latest

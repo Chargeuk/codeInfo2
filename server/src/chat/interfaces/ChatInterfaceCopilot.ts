@@ -54,15 +54,8 @@ type OpenAiCompatProviderConfig = {
   wireApi: 'responses' | 'completions';
 };
 
-type CopilotSessionLike = Pick<
-  CopilotSession,
-  | 'sendAndWait'
-  | 'disconnect'
-  | 'registerHooks'
-  | 'registerPermissionHandler'
-  | 'registerTools'
->;
-type CopilotSessionHooks = Parameters<CopilotSession['registerHooks']>[0];
+type CopilotSessionLike = Pick<CopilotSession, 'sendAndWait' | 'disconnect'>;
+type CopilotSessionHooks = NonNullable<SessionConfig['hooks']>;
 
 type SessionPhase = 'create' | 'resume';
 type ChatInterfaceCopilotOptions = {
@@ -242,7 +235,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
             ),
           }
         : {}),
-      configDir: this.lifecycle.configDir,
+      configDirectory: this.lifecycle.configDir,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('create', typedFlags),
       ...(onEvent ? { onEvent } : {}),
@@ -277,7 +270,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
             ),
           }
         : {}),
-      configDir: this.lifecycle.configDir,
+      configDirectory: this.lifecycle.configDir,
       onPermissionRequest: this.permissionHandler,
       hooks: this.hooksFactory('resume', typedFlags),
       ...(onEvent ? { onEvent } : {}),

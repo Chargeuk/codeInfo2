@@ -3,7 +3,7 @@ import type { ModelInfo } from '@github/copilot-sdk';
 
 import { loadProviderChatDefaultsSnapshotSync } from '../config/runtimeConfig.js';
 
-const DEFAULT_COPILOT_MODEL = 'copilot-gpt-5';
+const DEFAULT_COPILOT_MODEL = 'gpt-5.4-mini';
 
 const normalizeString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;

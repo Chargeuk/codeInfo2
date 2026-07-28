@@ -629,6 +629,10 @@ test('copilot models route degrades malformed chat defaults to warnings instead 
   const server = await startServer({
     copilotModels: [
       {
+        id: 'gpt-5.4-mini',
+        name: 'GPT-5.4 Mini',
+      } as ModelInfo,
+      {
         id: 'copilot-gpt-5',
         name: 'Copilot GPT-5',
       } as ModelInfo,
@@ -642,7 +646,7 @@ test('copilot models route degrades malformed chat defaults to warnings instead 
 
     assert.equal(res.body.provider, 'copilot');
     assert.equal(res.body.available, true);
-    assert.equal(res.body.defaultModel, 'copilot-gpt-5');
+    assert.equal(res.body.defaultModel, 'gpt-5.4-mini');
     assert.equal(res.body.defaultModelSource, 'hardcoded');
     assert.deepEqual(
       res.body.agentFlags.map(

@@ -75,6 +75,7 @@ Each Copilot review remains independently discoverable with its model-specific s
 - Routing the first implementation through CodeInfo's internal OpenAI-compatibility proxy.
 - Adding an arbitrary Copilot model-count limit or a new global dynamic model-selection interface.
 - Adding a second review wave, changing existing non-Copilot review groups, or changing reconciliation to assume a fixed provider count.
+- Updating the behavior, prompts, launchers, model configuration, or output contracts of existing Codex, OpenCode, multi-agent, cross-repository, or other review mechanisms; only provider-neutral batch integration needed to admit and reconcile Copilot siblings is in scope.
 - Adding a client configuration UI or requiring client code changes for model-specific job labels.
 - Adding a synthetic commit, filtered repository, Git shim, or provider-specific hard filesystem sandbox to hide planning files mechanically.
 - Changing the shared `planning/**` review exclusion used by other review harnesses.

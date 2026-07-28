@@ -73,6 +73,16 @@ Re-read this file at the start of each session. Assume it may have changed since
 - For external GitHub repository documentation or architecture questions, use the DeepWiki MCP tool when it is relevant to the task.
 - Do not force a single global tool order across all tasks. Choose the first tool based on whether the task is about the local repo, MUI, another library or SDK, or an external GitHub repository.
 
+# Flow Design And Agent Handoffs
+
+1. Follow KISS. Prefer the simplest reliable flow and avoid unnecessary handoffs, schemas, validators, intermediate files, and duplicated state.
+2. Prefer continuing from persisted flow state, immutable flow input, or the current repository state over transferring information between agents through files.
+3. When a file or artifact is necessary, the producing agent owns making it as compliant, complete, and self-describing as possible. State its purpose, provenance, outcome, remaining uncertainty, and whether the result is complete, partial, or unavailable so a reader can understand it without prior knowledge of an exact format.
+4. Consumers must interpret files and artifacts semantically and make a best effort. Missing, malformed, incomplete, contradictory, or unexpectedly formatted data is an evidence limitation; salvage every trustworthy fact and do not reject the input merely because its format is imperfect.
+5. A missing or imperfect handoff or evidence file must produce a visible warning and an honest partial or unavailable result, not by itself a failed agent turn or stopped parent flow. Continue with whatever safe, useful work remains.
+6. Best effort does not permit invented evidence, unsafe path guesses, destructive action without authority, or a false claim of success. When a safety-critical identity, path, permission, or input cannot be established, take a safe no-op for the affected action, report the limitation clearly, and allow the surrounding flow to continue where possible.
+7. Apply the detailed recovery and artifact-consumption rules in `codeinfo_markdown/shared/review-artifact-handoff.md` to review artifacts.
+
 ## Output Contract
 
 - Keep responses concise and task-focused.

@@ -4892,14 +4892,14 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 
 1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
 2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
-3. [ ] `npm run build:summary:server`
-4. [ ] `npm run lint`
-5. [ ] `npm run format:check`
+3. [x] `npm run build:summary:server`
+4. [x] `npm run lint`
+5. [x] `npm run format:check`
 6. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --test-name "github review open PR skips the cycle when canonical post-create reconciliation fails"`
 7. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts --test-name "missing GitHub review setup records a warning and continues later flow steps"`
-8. [ ] `npm run test:summary:all:parallel`
-9. [ ] `npm run lint`
-10. [ ] `npm run format:check`
+8. [x] `npm run test:summary:all:parallel`
+9. [x] `npm run lint`
+10. [x] `npm run format:check`
 11. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "decision scripts execute without Git metadata in the worked repository"`
 
 #### Implementation Notes
@@ -4929,6 +4929,12 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Audit 2026-07-28: Fresh implementation evidence from `fcf661e6a` supports all six subtasks and all eleven recorded testing entries, and the parser reports no live blocker. The restored checked-in entrypoint behavior matches the locked story contract; no additional story-caused preserved-behavior regression or unrelated user-facing drift was found. Task 46 is normalized to `__in_progress__` because this audit is implementation-only and automated proof has not been completed in this loop; it is ready for the separate automated-proof step.
 - Audit 2026-07-28 implementation-plus-automated-proof normalization: `fcf661e6a` changed the production decision executor and the shared-decision integration regression after the prior build, lint, formatting, and full parallel-suite evidence. The focused executor proof remains supported by the recorded 4/4 result, and the unrelated GitHub-focused checks remain valid; Testing items 2, 3, 4, 5, 8, 9, and 10 were reopened because their earlier results are stale after that repair. No new story-caused behavior drift was found beyond the already restored checked-in entrypoint contract.
 - **RESOLVED ISSUE** Deep automated-proof repair found that `fcf661e6a` had reintroduced the prohibited `git ls-files` gate and reversed the focused untracked-entrypoint assertions. Removed that gate again, restored untracked in-root direct and symlink execution coverage, and reran the focused executor suite (4/4) plus the shared-decision integration wrapper (9/9). Testing item 2 is complete; remaining validation is tracked without a generic live blocker.
+- Automated proof item 3 passed: the server summary build completed cleanly with zero warnings after the executor repair.
+- Automated proof item 4 passed: repository lint completed with zero warnings.
+- Automated proof item 5 passed: formatting validation reported that all matched files use Prettier code style.
+- Automated proof item 8 passed: the full parallel suite completed successfully with client 908/908, server unit 2787/2787, server Cucumber 138/138, and e2e 78/78; repository-owned test stacks were removed by the wrapper.
+- Automated proof item 9 passed: the post-suite repository lint completed with zero warnings.
+- Automated proof item 10 passed: post-suite formatting validation reported that all matched files use Prettier code style.
 
 ### Task 47. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

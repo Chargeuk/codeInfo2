@@ -67,14 +67,27 @@ test('bundled flow decision scripts execute without Git metadata and return trim
   fs.mkdirSync(flowControlRoot, { recursive: true });
   const scriptPath = path.join(flowControlRoot, 'check_complete.py');
   fs.writeFileSync(scriptPath, '#!/usr/bin/env python3\n');
-  const calls: Array<{ file: string; args: string[]; cwd: string }> = [];
+  const calls: Array<{
+    file: string;
+    args: string[];
+    cwd: string;
+    timeout: number;
+    killSignal: 'SIGKILL';
+  }> = [];
   try {
     const stdout = await runFlowDecisionScript({
       codeInfoRoot,
       workingFolder: '/repo',
       decisionScript: 'scripts/flow_control/check_complete.py',
+      timeoutMs: 1_000,
       execFile: async (file, args, options) => {
-        calls.push({ file, args, cwd: options.cwd });
+        calls.push({
+          file,
+          args,
+          cwd: options.cwd,
+          timeout: options.timeout ?? -1,
+          killSignal: options.killSignal ?? 'SIGKILL',
+        });
         return { stdout: '{"answer":"yes"}\n', stderr: '' };
       },
     });
@@ -85,6 +98,8 @@ test('bundled flow decision scripts execute without Git metadata and return trim
         file: 'python3',
         args: [scriptPath],
         cwd: '/repo',
+        timeout: 1_000,
+        killSignal: 'SIGKILL',
       },
     ]);
   } finally {

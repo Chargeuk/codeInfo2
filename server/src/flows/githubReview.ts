@@ -1143,6 +1143,7 @@ export const createPullRequest = async (params: {
     ];
     const parsedNumber = Number(pathSegments[3]);
     if (
+      !createdUrl ||
       !parsedUrl ||
       parsedUrl.protocol !== 'https:' ||
       parsedUrl.hostname !== params.repository.repositoryHost ||
@@ -1179,28 +1180,28 @@ export const createPullRequest = async (params: {
     token: params.token,
     pullRequestNumber: createdPullRequestNumber,
   });
+  if (lookedUp.kind !== 'ok') {
+    return {
+      kind: 'ok',
+      value: {
+        number: createdPullRequestNumber,
+        url: createdUrl,
+        headRefName: params.repository.upstreamBranch,
+        baseRefName: params.repository.baseBranch,
+      },
+      lookupDiagnostics: [],
+    };
+  }
   if (
-    lookedUp.kind !== 'ok' ||
     lookedUp.value.number !== createdPullRequestNumber ||
     lookedUp.value.headRefName !== params.repository.upstreamBranch ||
     lookedUp.value.baseRefName !== params.repository.baseBranch
   ) {
     return {
       kind: 'error',
-      reason:
-        lookedUp.kind === 'ok'
-          ? 'INVALID_GITHUB_RESPONSE'
-          : lookedUp.reason,
+      reason: 'INVALID_GITHUB_RESPONSE',
       message:
-        lookedUp.kind === 'ok'
-          ? 'GitHub pull request lookup did not return the created branch and base identity.'
-          : lookedUp.message,
-      ...(lookedUp.kind !== 'ok' && lookedUp.stderr
-        ? { stderr: lookedUp.stderr }
-        : {}),
-      ...(lookedUp.kind !== 'ok' && lookedUp.exitCode !== undefined
-        ? { exitCode: lookedUp.exitCode }
-        : {}),
+        'GitHub pull request lookup did not return the created branch and base identity.',
       lookupDiagnostics: [],
     };
   }

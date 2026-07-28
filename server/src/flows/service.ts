@@ -7418,6 +7418,7 @@ async function runFlowUnlocked(params: {
             codeInfoRoot: params.repositoryContext.codeInfo2Root,
             workingFolder: workingRepositoryRoot,
             decisionScript,
+            timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
             env: decisionScriptEnv,
           })
             .then((stdout) => ({ ok: true as const, stdout }))

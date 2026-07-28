@@ -16,6 +16,8 @@ type ExecFile = (
     env: NodeJS.ProcessEnv;
     encoding: 'utf8';
     maxBuffer: number;
+    timeout?: number;
+    killSignal?: 'SIGKILL';
   },
 ) => Promise<ExecFileResult>;
 
@@ -75,6 +77,7 @@ export const runFlowDecisionScript = async (params: {
   codeInfoRoot: string;
   workingFolder: string;
   decisionScript: string;
+  timeoutMs: number;
   env?: NodeJS.ProcessEnv;
   execFile?: ExecFile;
 }) => {
@@ -87,6 +90,8 @@ export const runFlowDecisionScript = async (params: {
     env: params.env ?? process.env,
     encoding: 'utf8',
     maxBuffer: 1024 * 1024,
+    timeout: params.timeoutMs,
+    killSignal: 'SIGKILL',
   });
   return result.stdout.trim();
 };

@@ -529,6 +529,52 @@ test('GitHub PR creation uses the remote upstream branch when its local name dif
   }
 });
 
+test('GitHub PR creation retains the validated identity when immediate metadata lookup fails', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        if (params.args[0] === 'pr' && params.args[1] === 'create') {
+          return {
+            exitCode: 0,
+            stdout: 'https://github.com/example/repo/pull/45\n',
+            stderr: '',
+          };
+        }
+        if ((params.args.at(-1) ?? '').endsWith('/pulls/45')) {
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: 'temporary GitHub API failure',
+          };
+        }
+        throw new Error(`Unexpected command: ${params.args.join(' ')}`);
+      },
+    });
+
+    const repository = baseRepositoryState(tempRepo.repoRoot);
+    const created = await createPullRequest({
+      repository,
+      token: 'secret',
+      title: 'Story review',
+      body: 'body',
+    });
+
+    assert.deepEqual(created, {
+      kind: 'ok',
+      value: {
+        number: 45,
+        url: 'https://github.com/example/repo/pull/45',
+        headRefName: repository.upstreamBranch,
+        baseRefName: 'main',
+      },
+      lookupDiagnostics: [],
+    });
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
 test('PR creation accepts canonical owner and repository casing in the printed URL', async () => {
   const tempRepo = await createTempRepo();
   try {

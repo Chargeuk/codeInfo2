@@ -4852,7 +4852,7 @@ Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, a
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None (user-directed Story 0000060 follow-up)`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Affected Repositories: `current_repository`
 
 #### Overview
@@ -4886,7 +4886,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 3. [x] Replace Git-tracking rejection tests with focused proof that untracked in-root scripts execute while the remaining safeguards still apply.
 4. [x] Make GitHub review setup-file limitations mark the review stage skipped and continue later safe flow steps after publishing a warning.
 5. [x] Align the merged PR-open integration regression with the exact URL-derived PR-number lookup inherited from `main`.
-6. [ ] Restore the locked checked-in repository-relative entrypoint contract for direct Python decisions and update the focused executor tests without weakening the retained path and process safeguards.
+6. [x] Restore the locked checked-in repository-relative entrypoint contract for direct Python decisions and update the focused executor tests without weakening the retained path and process safeguards.
 
 #### Testing
 
@@ -4900,7 +4900,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 8. [x] `npm run test:summary:all:parallel`
 9. [x] `npm run lint`
 10. [x] `npm run format:check`
-11. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
+11. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
 
 #### Implementation Notes
 
@@ -4924,7 +4924,8 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Repository formatting validation passed for all tracked supported files after the follow-up changes.
 - Task 46 is complete again: both full-suite failures are fixed, the best-effort continuation policy is enforced for GitHub setup artifacts, and all focused and repository-wide validation gates pass.
 - Audit 2026-07-28: Task 46 remains `__in_progress__`; no existing checklist item was newly marked complete, and automated proof was not treated as complete in this implementation-only audit. Repository evidence from `3eea7f11f` shows the story-owned change removed the `git ls-files` gate and changed focused tests to prove untracked decision scripts execute, while the locked Acceptance Criteria require a checked-in repository-relative Python entrypoint and the Story Behavior Lock forbids unapproved behavior broadening. The GitHub warning-and-continue changes remain within the explicit story contract. Added Subtask 6 and Testing item 11 to restore and prove the approved entrypoint behavior.
-- **BLOCKER** Task 46 cannot continue honestly: unchecked Subtask 6 (restore the locked checked-in repository-relative entrypoint contract) and Testing item 11 (prove that contract with the focused unit wrapper) remained open after audit normalization. Evidence checked: the fresh bounded Task 46 packet, `plan_status.py --task-number 46`, the story Acceptance Criteria and Story Behavior Lock, and the `3eea7f11f` implementation diff. Implementation must not proceed without restoring the approved behavior, narrowing task ownership, or planner intervention.
+- Restored the checked-in repository-relative entrypoint guard after realpath containment and non-empty-file validation; the focused executor suite passed 4/4, including tracked execution, untracked rejection, and timeout behavior. The affected flow-level untracked-entrypoint regression also passed after being restored to the expected hard-failure assertion.
+- **RESOLVED ISSUE** Task 46's checked-in entrypoint contract is restored and the targeted proof passed; no containment, symlink, timeout, process-error, or output safeguards were weakened.
 
 ### Task 47. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

@@ -4812,14 +4812,14 @@ Resolve only the three deduplicated materiality survivors from batch `0000060-rw
 
 #### Subtasks
 
-1. [ ] Update `server/src/flows/githubReview.ts` so every supported `gh` child invocation receives `GH_HOST=github.com` at the existing child-environment seam, without broad environment or configuration-policy expansion.
-2. [ ] Remove the hard-coded 200-entry review/reviewer limit and update repository-owned fixtures or helpers so complete pagination and existing classification/order behavior remain explicit.
-3. [ ] Make owner/repository URL comparison case-insensitive only for those two path segments, preserving all other canonical PR identity checks.
-4. [ ] Add or update focused regression coverage in `server/src/test/unit/flows.github-adapter.test.ts` for host targeting, a corpus larger than 200, and canonical owner/repository casing.
+1. [x] Update `server/src/flows/githubReview.ts` so every supported `gh` child invocation receives `GH_HOST=github.com` at the existing child-environment seam, without broad environment or configuration-policy expansion.
+2. [x] Remove the hard-coded 200-entry review/reviewer limit and update repository-owned fixtures or helpers so complete pagination and existing classification/order behavior remain explicit.
+3. [x] Make owner/repository URL comparison case-insensitive only for those two path segments, preserving all other canonical PR identity checks.
+4. [x] Add or update focused regression coverage in `server/src/test/unit/flows.github-adapter.test.ts` for host targeting, a corpus larger than 200, and canonical owner/repository casing.
 
 #### Testing
 
-1. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts`
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts`
 2. [ ] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "github review"`
 3. [ ] `npm run build:summary:server`
 4. [ ] `npm run lint`
@@ -4834,6 +4834,12 @@ Optional, non-blocking proof may use the supported main stack at `http://localho
 Settlement provenance: F1, F3, and F5 are the only positively authorized, material, unresolved survivors from batch `0000060-rw-20260727T174611Z-bdcfcce2`. F2 and F4 were fixed on the later target HEAD by `869016a47f0a710b950217139ffa0864a398665b`; no earlier removal or batch-6 negative-scope finding is included. The batch's OpenCode and Codex review coverage was partial, and both repair opportunities were unavailable; final full-story validation is deferred to the task that follows this implementation work.
 
 Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, and the single-target cross-repository job generated no finding. This provenance correction does not change the accepted survivor set or implementation scope.
+
+- Set `GH_HOST=github.com` alongside the existing child-scoped `GH_TOKEN` at the shared `gh` invocation seam and covered the boundary with the focused adapter environment test.
+- Removed the 200-entry producer cap and retained page order while accumulating every normalized review submission and inline comment; updated the >200-entry regression to require all 205 records from each corpus.
+- Made only the PR URL owner and repository path segments case-insensitive while retaining exact host, path shape, pull number, branch, and base validation.
+- Added focused adapter regressions for the `GH_HOST` child environment, complete 205-entry review/comment pagination, and mixed-case canonical owner/repository PR URLs.
+- Focused adapter wrapper initially exposed stale integration imports for the removed cap constants; updated that fixture to use explicit 205-entry corpora, then reran successfully with 19 tests passed.
 
 ### Task 46. Remove Git-Tracking Enforcement From Flow Decision Scripts
 

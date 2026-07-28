@@ -315,8 +315,6 @@ const normalizeTrimmedString = (value: unknown): string | undefined =>
 
 export const GITHUB_REVIEW_HANDOFF_KIND = 'github-review-handoff-v1';
 export const GITHUB_REVIEW_SELECTOR_KIND = 'github-review-selector-v1';
-export const MAX_GITHUB_REVIEW_SUBMISSIONS = 200;
-export const MAX_GITHUB_INLINE_REVIEW_COMMENTS = 200;
 const GITHUB_FILE_LOCK_TIMEOUT_MS = 30_000;
 const GITHUB_FILE_LOCK_STALE_MS = 5 * 60_000;
 
@@ -459,58 +457,11 @@ const buildPagedGitHubApiEndpoint = (params: {
   return `${basePath}?${searchParams.toString()}`;
 };
 
-const parseIsoTimestamp = (value: string | undefined): number | undefined => {
-  if (!value) return undefined;
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-};
-
-const takeMostRecentEntries = <T>(params: {
-  entries: readonly T[];
-  limit: number;
-  getTimestamp: (entry: T) => string | undefined;
-  getStableNumericId: (entry: T) => number;
-}): T[] => {
-  if (params.entries.length <= params.limit) {
-    return [...params.entries];
-  }
-  const rankedEntries = params.entries.map((entry, index) => ({
-    entry,
-    index,
-    timestamp: parseIsoTimestamp(params.getTimestamp(entry)),
-    stableNumericId: params.getStableNumericId(entry),
-  }));
-  rankedEntries.sort((left, right) => {
-    const leftTimestamp = left.timestamp;
-    const rightTimestamp = right.timestamp;
-    if (leftTimestamp !== undefined && rightTimestamp !== undefined) {
-      if (leftTimestamp !== rightTimestamp) {
-        return leftTimestamp - rightTimestamp;
-      }
-    } else if (leftTimestamp !== undefined) {
-      return 1;
-    } else if (rightTimestamp !== undefined) {
-      return -1;
-    }
-    if (left.stableNumericId !== right.stableNumericId) {
-      return left.stableNumericId - right.stableNumericId;
-    }
-    return left.index - right.index;
-  });
-  const selectedIndexes = new Set(
-    rankedEntries.slice(-params.limit).map((entry) => entry.index),
-  );
-  return params.entries.filter((_, index) => selectedIndexes.has(index));
-};
-
-const fetchBoundedPaginatedEntries = async <T>(params: {
+const fetchPaginatedEntries = async <T>(params: {
   workingRepositoryRoot: string;
   token: string;
   endpoint: string;
-  limit: number;
   normalize: (entry: unknown) => T | null;
-  getTimestamp: (entry: T) => string | undefined;
-  getStableNumericId: (entry: T) => number;
 }): Promise<GitHubStepOutcome<T[]>> => {
   const perPage = 100;
   let page = 1;
@@ -539,12 +490,7 @@ const fetchBoundedPaginatedEntries = async <T>(params: {
     const normalizedEntries = pageEntries
       .map((entry) => params.normalize(entry))
       .filter((entry): entry is T => Boolean(entry));
-    acceptedEntries = takeMostRecentEntries({
-      entries: [...acceptedEntries, ...normalizedEntries],
-      limit: params.limit,
-      getTimestamp: params.getTimestamp,
-      getStableNumericId: params.getStableNumericId,
-    });
+    acceptedEntries = [...acceptedEntries, ...normalizedEntries];
     if (pageEntries.length < perPage) {
       return { kind: 'ok', value: acceptedEntries };
     }
@@ -836,6 +782,7 @@ export const buildGitHubChildProcessEnv = (params: {
   const childEnv = { ...(params.baseEnv ?? process.env) };
   delete childEnv.CODEINFO_PR_TOKEN;
   childEnv.GH_TOKEN = params.token;
+  childEnv.GH_HOST = 'github.com';
   return childEnv;
 };
 
@@ -1203,7 +1150,10 @@ export const createPullRequest = async (params: {
       parsedUrl.hash ||
       pathSegments.length !== 4 ||
       !expectedPath.every(
-        (segment, index) => pathSegments[index] === segment,
+        (segment, index) =>
+          index < 2
+            ? pathSegments[index].toLowerCase() === segment.toLowerCase()
+            : pathSegments[index] === segment,
       ) ||
       !Number.isSafeInteger(parsedNumber) ||
       parsedNumber <= 0 ||
@@ -1366,23 +1316,17 @@ export const fetchPullRequestReviews = async (params: {
   const reviewsEndpoint = `repos/${params.repository.repositoryFullName}/pulls/${params.pullRequest.number}/reviews`;
   const reviewCommentsEndpoint = `repos/${params.repository.repositoryFullName}/pulls/${params.pullRequest.number}/comments`;
   const [reviewsResult, commentsResult] = await Promise.all([
-    fetchBoundedPaginatedEntries({
+    fetchPaginatedEntries({
       workingRepositoryRoot: params.repository.workingRepositoryRoot,
       token: params.token,
       endpoint: reviewsEndpoint,
-      limit: MAX_GITHUB_REVIEW_SUBMISSIONS,
       normalize: normalizeReviewSubmission,
-      getTimestamp: (review) => review.submitted_at,
-      getStableNumericId: (review) => review.id,
     }),
-    fetchBoundedPaginatedEntries({
+    fetchPaginatedEntries({
       workingRepositoryRoot: params.repository.workingRepositoryRoot,
       token: params.token,
       endpoint: reviewCommentsEndpoint,
-      limit: MAX_GITHUB_INLINE_REVIEW_COMMENTS,
       normalize: normalizeInlineReviewComment,
-      getTimestamp: (comment) => comment.created_at,
-      getStableNumericId: (comment) => comment.id,
     }),
   ]);
   if (reviewsResult.kind !== 'ok') return reviewsResult;

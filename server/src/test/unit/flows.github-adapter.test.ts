@@ -14,8 +14,6 @@ import {
   fetchPullRequestReviews,
   filterGitHubReviewFeedback,
   lookupLatestOpenPullRequest,
-  MAX_GITHUB_INLINE_REVIEW_COMMENTS,
-  MAX_GITHUB_REVIEW_SUBMISSIONS,
   pushBranchToExistingUpstream,
   readWorkedRepositoryGitHubToken,
   reconcileResumedGitHubReviewPullRequest,
@@ -198,6 +196,7 @@ test('GitHub child-process env is scoped and does not mutate the base environmen
   assert.equal(childEnv.EXISTING, '1');
   assert.equal(childEnv.CODEINFO_PR_TOKEN, undefined);
   assert.equal(childEnv.GH_TOKEN, 'secret-token');
+  assert.equal(childEnv.GH_HOST, 'github.com');
   assert.notEqual(childEnv, baseEnv);
 });
 
@@ -525,6 +524,51 @@ test('GitHub PR creation uses the remote upstream branch when its local name dif
     );
     assert.equal(createArgs?.[createArgs.indexOf('--head') + 1], 'feature/remote-review');
     assert.ok(seenArgs.some((args) => args.at(-1) === 'repos/example/repo/pulls/45'));
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('PR creation accepts canonical owner and repository casing in the printed URL', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const endpoint = params.args.at(-1) ?? '';
+        if (params.args[0] === 'pr' && params.args[1] === 'create') {
+          return {
+            exitCode: 0,
+            stdout: 'https://github.com/Example/Repo/pull/45\n',
+            stderr: '',
+          };
+        }
+        if (endpoint === 'repos/example/repo/pulls/45') {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({
+              number: 45,
+              html_url: 'https://github.com/Example/Repo/pull/45',
+              state: 'open',
+              head: {
+                ref: baseRepositoryState(tempRepo.repoRoot).upstreamBranch,
+              },
+              base: { ref: 'main' },
+            }),
+            stderr: '',
+          };
+        }
+        throw new Error(`Unexpected endpoint: ${endpoint}`);
+      },
+    });
+
+    const created = await createPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      title: 'Story review',
+      body: 'body',
+    });
+    assert.equal(created.kind, 'ok');
+    assert.equal(created.value.number, 45);
   } finally {
     await tempRepo.cleanup();
   }
@@ -1065,11 +1109,11 @@ test('review feedback and external-review input preserve commit provenance', () 
   assert.match(markdown, /Commit ID: inline-commit/u);
 });
 
-test('review fetch keeps one bounded producer corpus while paginated materialization stays page-local', async () => {
+test('review fetch preserves the complete paginated producer corpus', async () => {
   const tempRepo = await createTempRepo();
   try {
-    const reviewCount = MAX_GITHUB_REVIEW_SUBMISSIONS + 5;
-    const commentCount = MAX_GITHUB_INLINE_REVIEW_COMMENTS + 5;
+    const reviewCount = 205;
+    const commentCount = 205;
     const reviewPages = [
       Array.from({ length: 100 }, (_, index) => ({
         id: 1000 + index + 1,
@@ -1182,14 +1226,11 @@ test('review fetch keeps one bounded producer corpus while paginated materializa
       },
     });
     assert.equal(fetched.kind, 'ok');
-    assert.equal(fetched.value.reviews.length, MAX_GITHUB_REVIEW_SUBMISSIONS);
-    assert.equal(
-      fetched.value.reviewComments.length,
-      MAX_GITHUB_INLINE_REVIEW_COMMENTS,
-    );
-    assert.equal(fetched.value.reviews[0].id, 1006);
+    assert.equal(fetched.value.reviews.length, reviewCount);
+    assert.equal(fetched.value.reviewComments.length, commentCount);
+    assert.equal(fetched.value.reviews[0].id, 1001);
     assert.equal(fetched.value.reviews.at(-1)?.id, 1205);
-    assert.equal(fetched.value.reviewComments[0].id, 2006);
+    assert.equal(fetched.value.reviewComments[0].id, 2001);
     assert.equal(fetched.value.reviewComments.at(-1)?.id, 2205);
     assert.ok(seenArgs.every((args) => !args.includes('--paginate')));
     assert.ok(seenArgs.every((args) => !args.includes('--slurp')));

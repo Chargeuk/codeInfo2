@@ -4823,7 +4823,7 @@ Resolve only the three deduplicated materiality survivors from batch `0000060-rw
 2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name "github review"`
 3. [x] `npm run build:summary:server`
 4. [x] `npm run lint`
-5. [ ] `npm run format:check`
+5. [x] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -4847,6 +4847,7 @@ Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, a
 - Implementation-only audit: repository HEAD `5170b99d6` contains the scoped host, complete-pagination, PR-URL, and focused-regression changes described above; all four subtasks and the recorded adapter proof are supported by repository evidence. No story-caused preserved-behavior regression or unrelated user-facing drift was found. At proof start, four Testing items remained open; all five Testing items now pass, no live `**BLOCKER**` is present, and Task 45 remains `__in_progress__`.
 - Implementation-plus-automated-proof audit: fresh repository evidence confirms all four subtasks, all five Testing items, and all four task exit criteria. The implementation remains within the approved GitHub review scope, with no story-caused preserved-behavior regression or unrelated user-facing drift identified. No live `**BLOCKER**` exists; Task 45 is now honestly `__done__`, and manual testing remains optional, non-blocking guidance.
 - Manual testing stayed task-scoped and used a fresh main-stack build/restart: `/health` and the UI returned successfully, then the stack stopped cleanly. Manual testing skipped for the live GitHub CLI/sandbox surface. Tried: non-interactive `gh auth status` in the main server. Observed: exit 1. Why fuller proof was not possible: no dedicated sandbox repository was available and GitHub CLI authentication was unavailable; no re-authentication was attempted. The host-network probe wrapper also failed before its probes because scoped test environment helpers were unavailable, an unrelated harness limitation that did not invalidate the direct health/UI checks or Task 45's focused automated proof.
+- Planner normalization 2026-07-28: marked Testing item 5 complete from the existing implementation-plus-automated-proof evidence, which records formatting validation passed. Task 45 now has all four subtasks and all five Testing items checked and remains `__done__`.
 
 ### Task 46. Remove Git-Tracking Enforcement From Flow Decision Scripts
 

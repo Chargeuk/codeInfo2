@@ -645,24 +645,6 @@ const waitForFlowFinal = async (params: {
   }
 };
 
-const waitForPersistedFlowStatus = async (
-  conversationId: string,
-  status: 'ok' | 'failed' | 'stopped',
-  timeoutMs = 5000,
-) => {
-  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
-  while (Date.now() < deadline) {
-    const flowState = memoryConversations.get(conversationId)?.flags?.flow as
-      | { runLifecycle?: { status?: string } }
-      | undefined;
-    if (flowState?.runLifecycle?.status === status) return flowState;
-    await delay(25);
-  }
-  throw new Error(
-    `Timed out waiting for persisted flow status ${status} for ${conversationId}`,
-  );
-};
-
 const subscribeConversation = (ws: WebSocket, conversationId: string) => {
   sendJson(ws, { type: 'subscribe_conversation', conversationId });
 };

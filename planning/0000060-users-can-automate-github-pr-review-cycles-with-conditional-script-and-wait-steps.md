@@ -4893,15 +4893,15 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 
 1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts`
 2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts --test-name "shared decision seam"`
-3. [ ] `npm run build:summary:server`
-4. [ ] `npm run lint`
-5. [ ] `npm run format:check`
+3. [x] `npm run build:summary:server`
+4. [x] `npm run lint`
+5. [x] `npm run format:check`
 6. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.basic.test.ts --test-name "github review open PR skips the cycle when canonical post-create reconciliation fails"`
 7. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts --test-name "missing GitHub review setup records a warning and continues later flow steps"`
-8. [ ] `npm run test:summary:all:parallel`
-9. [ ] `npm run lint`
-10. [ ] `npm run format:check`
-11. [ ] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
+8. [x] `npm run test:summary:all:parallel`
+9. [x] `npm run lint`
+10. [x] `npm run format:check`
+11. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --test-name "checked-in repository entrypoint contract"`
 
 #### Implementation Notes
 
@@ -4952,8 +4952,15 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 - Automated proof item 3 passed: the server summary build completed cleanly with zero warnings after restoring the checked-in entrypoint guard.
 - Automated proof item 4 passed: repository lint completed with zero warnings.
 - Audit 2026-07-28 implementation-plus-automated-proof re-audit: restoration commit `df15c5c5a` reinstated the approved checked-in entrypoint guard, and current evidence supports the exit criterion, all six subtasks, Testing items 1, 2, 3, 4, 6, and 7. Testing items 5, 8, 9, 10, and 11 were carried forward from the earlier untracked-script proof or lack a post-restoration result, so they were reopened; no new story-caused behavior drift remains.
+- Automated proof item 8 passed in the current loop: the full parallel suite completed successfully with client 908/908, server unit 2787/2787, server Cucumber 138/138, and e2e 78/78; repository-owned test stacks were removed by the wrapper.
+- Automated proof item 9 passed in the current loop: post-suite repository lint completed with zero warnings.
+- Automated proof item 10 passed in the current loop: post-suite formatting validation reported that all matched files use Prettier code style.
+- Automated proof item 11 passed in the current loop: the checked-in repository entrypoint contract focused test passed 1/1.
 - Automated proof item 5 passed: formatting validation reported that all matched files use Prettier code style after the restored checked-in-entrypoint guard.
 - **RESOLVED ISSUE** The first remaining automated proof step passed. Items 8 through 11 remain in progress without a generic blocker and will be rerun against the restored implementation.
+- Automated proof item 3 passed: the server summary build completed cleanly with zero warnings after the restored checked-in-entrypoint guard.
+- Automated proof item 4 passed after removing the unused persisted-flow-status helper from the focused integration test; repository lint completed with zero warnings.
+- Automated proof item 5 passed: formatting validation reported that all matched files use Prettier code style after the lint repair.
 - **RESOLVED ISSUE** Testing item 8 exposed a pre-existing E2E ingest-harness seam: `chat-tools.spec.ts` timed out waiting for ingest completion while holding `ingest-root-fixtures-repo`, then `ingest.spec.ts` timed out waiting for that same lock. Client (908/908), server unit (2787/2787), and Cucumber (138/138) passed; the isolated citation wrapper passed 1/1. The blocker is now explicitly owned by prerequisite Task 47 because Story 60's acceptance criteria include reliable parallel and stress harnesses; Task 46's product implementation remains unchanged and its remaining proof waits on that prerequisite.
 - **BLOCKING ANSWER** Research 2026-07-28 proved this is a proof/test-harness seam owned outside Task 46. The repository failure artifact `logs/test-summaries/e2e-tests-2026-07-28T16-47-47-962Z.log` shows `chat-tools.spec.ts` running in worker 2 for 181224 ms before `waitForIngest` timed out at its 90 x 2-second polling budget, while `ingest.spec.ts` ran in worker 1 and failed after its explicit 60000 ms lock-acquisition budget. Both specs acquire the same `ingest-root-fixtures-repo` lock in `beforeEach`, release it in `afterEach`, and are allowed to run across files in parallel by the current dynamic Playwright worker configuration. The lock helper itself was introduced by pre-existing commit `3cd2fc5915` on 2026-06-28, its current stale-owner handling was added by the same pre-existing E2E stabilization work, and the Task 46 commit range `869016a47..HEAD` touches no `e2e/**` files.
 - **BLOCKING ANSWER** Repository precedents support deliberate serialization for mutable E2E state: `codeInfo2` already uses `test.describe.serial` plus `acquireE2eResourceLock('ingest-root-fixtures-repo')`, and indexed `KaDshow_Web` uses a dedicated `.stateful.spec.ts` Playwright project with `workers: 1`, `fullyParallel: false`, plus a scoped stale-recovering resource lock. The repository's `scripts/test-docker-harness-lifecycle.test.mjs` also proves atomic lock acquisition, stale recovery, active-owner waiting, and serial handoff for its Docker harness lock.

@@ -5077,14 +5077,14 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 Run these automated commands without target filters, preserving wrapper heartbeat/log guidance and continuing to `npm run compose:down` after the proof attempt:
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run build:summary:server`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:all:parallel`
-6. [ ] `npm run compose:down`
-7. [ ] `npm run lint`
-8. [ ] `npm run format:check`
+1. [x] `npm run build:summary:client`
+2. [x] `npm run build:summary:server`
+3. [x] `npm run compose:build:summary`
+4. [x] `npm run compose:up`
+5. [x] `npm run test:summary:all:parallel`
+6. [x] `npm run compose:down`
+7. [x] `npm run lint`
+8. [x] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -5096,3 +5096,12 @@ This is the one final validation owner for the complete review settlement. It mu
 
 - Subtask 1 completed: `npm run lint` passed with zero reported warnings or errors; no story-caused lint repair was needed.
 - Subtask 2 completed: `npm run format:check` reported that all matched files use Prettier code style; no formatting repair was needed.
+- Testing 1 completed: `npm run build:summary:client` passed; the wrapper reported one existing large-chunk warning and no build failure.
+- Testing 2 completed: `npm run build:summary:server` passed cleanly through the server build wrapper.
+- Testing 3 completed: `npm run compose:build:summary` passed both Compose image-build items cleanly.
+- Testing 4 completed: `npm run compose:up` started the supported Compose stack successfully; MongoDB and the server reached healthy state.
+- Testing 5 first attempt: client (908/908), server unit (2787/2787), and server Cucumber (138/138) passed; e2e reported 76/78 with provider-history request timeout and LM Studio compatibility timeout, so this proof remains unchecked pending an affected-suite rerun.
+- Testing 6 completed: `npm run compose:down` shut down and removed the supported main Compose stack cleanly after the proof attempt.
+- Testing 5 completed after rerun: the initial parallel run passed client (908/908), server unit (2787/2787), and server Cucumber (138/138), while e2e had two provider-related timeouts; the required full e2e wrapper rerun passed all 78/78 tests, so the complete automated proof is now honest.
+- Testing 7 completed: `npm run lint` passed with zero warnings or errors.
+- Testing 8 completed: `npm run format:check` passed; all matched files use Prettier code style.

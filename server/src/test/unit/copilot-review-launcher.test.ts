@@ -8,7 +8,6 @@ import { fileURLToPath } from 'node:url';
 
 import {
   COPILOT_REVIEW_EXCLUDED_PATHS,
-  COPILOT_REVIEW_GIT_INSPECTION_COMMANDS,
   resolveCopilotReviewWorkspacePaths,
   runCopilotReview,
   type CopilotReviewLauncherOptions,
@@ -145,6 +144,27 @@ const fakeEnvironment = (
 const nulArgs = async (filePath: string): Promise<string[]> =>
   (await fs.readFile(filePath)).toString('utf8').split('\0').filter(Boolean);
 
+const assertFullAccessArguments = (args: string[]) => {
+  assert.equal(args.filter((argument) => argument === '--allow-all').length, 1);
+  for (const removedRestriction of [
+    '--available-tools=view,grep,glob,bash',
+    '--allow-tool=read',
+    '--deny-tool=write',
+  ]) {
+    assert.equal(args.includes(removedRestriction), false, removedRestriction);
+  }
+  assert.equal(
+    args.some(
+      (argument) =>
+        argument.startsWith('--allow-tool=') ||
+        argument.startsWith('--deny-tool=') ||
+        argument.startsWith('--available-tools='),
+    ),
+    false,
+    'full-access review must not retain conflicting tool restrictions',
+  );
+};
+
 test('workspace paths are derived from one real assigned job directory', async (t) => {
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
@@ -187,7 +207,7 @@ test('workspace path derivation rejects an assigned directory that resolves outs
   );
 });
 
-test('native launcher invokes local /review once with pinned read-only non-interactive arguments and closed stdin', async (t) => {
+test('native launcher invokes local /review once with pinned full-access non-interactive arguments and closed stdin', async (t) => {
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
   const fakeCopilot = await makeFakeCopilot(fixture.root);
@@ -240,39 +260,11 @@ test('native launcher invokes local /review once with pinned read-only non-inter
     '--no-remote-export',
     '--no-custom-instructions',
     '--disable-builtin-mcps',
-    '--available-tools=view,grep,glob,bash',
-    '--allow-tool=read',
-    '--deny-tool=write',
+    '--allow-all',
   ]) {
     assert.equal(args.includes(expected), true, expected);
   }
-  assert.deepEqual(
-    args.filter((arg) => arg.startsWith('--allow-tool=shell(git ')),
-    COPILOT_REVIEW_GIT_INSPECTION_COMMANDS.map(
-      (command) => `--allow-tool=shell(git ${command})`,
-    ),
-  );
-  assert.equal(args.includes('--allow-tool=shell(git:*)'), false);
-  for (const mutatingCommand of [
-    'config',
-    'notes',
-    'replace',
-    'update-ref',
-    'worktree',
-  ]) {
-    assert.equal(
-      args.includes(`--allow-tool=shell(git ${mutatingCommand})`),
-      false,
-      `git ${mutatingCommand} is not allowed`,
-    );
-  }
-  assert.equal(args.includes('--allow-all'), false);
-  assert.equal(args.includes('--allow-all-tools'), false);
-  assert.equal(
-    args.includes('--deny-tool=shell(git commit:*)'),
-    true,
-    'mutating Git commands are denied',
-  );
+  assertFullAccessArguments(args);
   assert.equal(
     args.some((arg) => arg.startsWith('--secret-env-vars=')),
     true,
@@ -360,6 +352,7 @@ test('external launcher exposes only the selected endpoint and key to the child'
     },
   );
   assert.equal(result.status, 'successful');
+  assertFullAccessArguments(await nulArgs(String(env.FAKE_COPILOT_ARGS_FILE)));
   const childEnv = await fs.readFile(String(env.FAKE_COPILOT_ENV_FILE), 'utf8');
   assert.match(childEnv, /COPILOT_PROVIDER_TYPE=openai/u);
   assert.match(

@@ -413,6 +413,12 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("native Copilot usage", copilot_prompt)
         self.assertIn("wrapper agent's usage", copilot_prompt)
         self.assertIn("--no-remote-export", copilot_prompt)
+        self.assertIn("Docker-contained `--allow-all` permissions", copilot_prompt)
+        self.assertIn(
+            "CodeInfo's Docker container is the full-access isolation boundary",
+            copilot_prompt,
+        )
+        self.assertNotIn("read-only permissions", copilot_prompt)
         self.assertIn("--endpoint-id", copilot_prompt)
         self.assertIn("`planning/**` changes are excluded", copilot_prompt)
         self.assertIn("Never modify source files", copilot_prompt)

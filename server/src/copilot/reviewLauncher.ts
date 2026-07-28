@@ -311,43 +311,6 @@ const redactSecrets = (value: string, secrets: readonly string[]): string =>
       value,
     );
 
-const READ_ONLY_GIT_MUTATION_DENIES = [
-  'add',
-  'am',
-  'apply',
-  'branch',
-  'checkout',
-  'cherry-pick',
-  'clean',
-  'commit',
-  'fetch',
-  'merge',
-  'mv',
-  'pull',
-  'push',
-  'rebase',
-  'reset',
-  'restore',
-  'rm',
-  'stash',
-  'switch',
-  'tag',
-] as const;
-
-export const COPILOT_REVIEW_GIT_INSPECTION_COMMANDS = [
-  'cat-file',
-  'diff',
-  'diff-index',
-  'diff-tree',
-  'log',
-  'ls-files',
-  'ls-tree',
-  'merge-base',
-  'rev-parse',
-  'show',
-  'status',
-] as const;
-
 export function buildCopilotReviewArguments(params: {
   repositoryPath: string;
   prompt: string;
@@ -371,15 +334,7 @@ export function buildCopilotReviewArguments(params: {
     '--no-remote-export',
     '--no-custom-instructions',
     '--disable-builtin-mcps',
-    '--available-tools=view,grep,glob,bash',
-    '--allow-tool=read',
-    ...COPILOT_REVIEW_GIT_INSPECTION_COMMANDS.map(
-      (command) => `--allow-tool=shell(git ${command})`,
-    ),
-    '--deny-tool=write',
-    ...READ_ONLY_GIT_MUTATION_DENIES.map(
-      (command) => `--deny-tool=shell(git ${command}:*)`,
-    ),
+    '--allow-all',
     `--secret-env-vars=${SECRET_ENVIRONMENT_NAMES.join(',')}`,
   ];
 }

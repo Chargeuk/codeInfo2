@@ -4961,7 +4961,7 @@ Remove the `git ls-files` prerequisite from repository-local flow decision-scrip
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `None (Story 0000060 harness prerequisite for Tasks 46 and 48)`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Affected Repositories: `current_repository`
 - Owner Boundary: `Repository-owned E2E proof harness; do not change Task 46 production flow behavior while repairing this seam.`
 
@@ -5004,6 +5004,7 @@ Repair the repository-owned Playwright harness for the shared `ingest-root-fixtu
 - Automated proof item 3 passed: the canonical full parallel suite completed with client 908/908, server unit 2787/2787, server Cucumber 138/138, and e2e 78/78; both repository-owned test stacks were removed by the wrapper.
 - Automated proof item 4 passed: repository lint completed with zero warnings.
 - Automated proof item 5 passed: formatting validation reported that all matched files use Prettier code style.
+- Audit 2026-07-28 implementation-plus-automated-proof: commit `72cf2cc75` records all remaining automated proof as successful, and the latest implementation commit `1897232ff` is limited to the repository-owned E2E harness. All four subtasks and all five Testing items are complete, the parser reports no live blocker, and no story-caused user-facing behavior drift was introduced. Task 47 is now honestly `__done__`; no manual-testing checklist was needed for this harness-only task.
 
 ### Task 48. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260727T131555Z-a8e020a4
 

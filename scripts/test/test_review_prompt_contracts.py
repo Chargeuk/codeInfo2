@@ -413,6 +413,7 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("native Copilot usage", copilot_prompt)
         self.assertIn("wrapper agent's usage", copilot_prompt)
         self.assertIn("--no-remote-export", copilot_prompt)
+        self.assertIn("--endpoint-id", copilot_prompt)
         self.assertIn("Never modify source files", copilot_prompt)
         self.assertIn("Run the review exactly once", copilot_prompt)
 

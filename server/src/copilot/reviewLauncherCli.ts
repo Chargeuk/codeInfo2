@@ -19,6 +19,7 @@ try {
       model: { type: 'string' },
       'reasoning-effort': { type: 'string' },
       'endpoint-label': { type: 'string' },
+      'endpoint-id': { type: 'string' },
       instructions: { type: 'string' },
       stdout: { type: 'string' },
       stderr: { type: 'string' },
@@ -66,6 +67,10 @@ try {
       endpointLabel:
         typeof parsed.values['endpoint-label'] === 'string'
           ? parsed.values['endpoint-label']
+          : undefined,
+      endpointId:
+        typeof parsed.values['endpoint-id'] === 'string'
+          ? parsed.values['endpoint-id']
           : undefined,
       instructionsPath: required('instructions'),
       outputPaths,

@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { normalizeOpenAiCompatEndpointId } from '../config/openaiCompatEndpoints.js';
 import { hashFlowInput, normalizeFlowInput } from './flowInput.js';
 import {
   formatPreparedReviewContext,
@@ -268,12 +269,35 @@ const pinnedCopilotReviewSpec = (
           `Copilot review job ${job.instanceId} has an invalid ${key}.`,
         );
       }
-      pinned[key] = value;
+      pinned[key] =
+        key === 'endpointId'
+          ? normalizeOpenAiCompatEndpointId(value, {
+              pathLabel: `Copilot review job ${job.instanceId} endpointId`,
+            })
+          : value;
     }
   }
   if (mode === 'external' && typeof pinned.endpointLabel !== 'string') {
     throw new Error(
       `Copilot review job ${job.instanceId} is missing endpointLabel.`,
+    );
+  }
+  if (
+    mode === 'external' &&
+    spec.available &&
+    typeof pinned.endpointId !== 'string'
+  ) {
+    throw new Error(
+      `Copilot review job ${job.instanceId} is missing endpointId for an available external model.`,
+    );
+  }
+  if (
+    mode === 'native' &&
+    (typeof pinned.endpointLabel === 'string' ||
+      typeof pinned.endpointId === 'string')
+  ) {
+    throw new Error(
+      `Copilot review job ${job.instanceId} has external endpoint identity in native mode.`,
     );
   }
   return {

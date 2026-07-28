@@ -132,6 +132,7 @@ test('review batch workspace gives every job immutable private input and pre-cre
             modelId: 'google/gemini-3.6-flash',
             reasoningEffort: 'minimal',
             endpointLabel: 'openrouter',
+            endpointId: 'https://openrouter.test/api/v1',
             stableId: 'external-openrouter-google-gemini-3-6-flash-example',
             available: true,
           },
@@ -211,6 +212,27 @@ test('review batch workspace gives every job immutable private input and pre-cre
       ).mode & 0o222,
       0,
       'pinned Copilot spec is read-only',
+    );
+    const invalidExternalJobs = structuredClone(jobs);
+    const invalidExternalSpec =
+      invalidExternalJobs[3]?.input?.copilot_review_spec;
+    if (
+      !invalidExternalSpec ||
+      typeof invalidExternalSpec !== 'object' ||
+      Array.isArray(invalidExternalSpec)
+    ) {
+      throw new Error('Expected the external Copilot review fixture.');
+    }
+    delete invalidExternalSpec.endpointId;
+    await assert.rejects(
+      prepareReviewBatchWorkspace({
+        snapshot: {
+          ...snapshot,
+          review_wave_id: '0000064-rw-missing-copilot-endpoint-id',
+        },
+        jobs: invalidExternalJobs,
+      }),
+      /missing endpointId for an available external model/u,
     );
     assert.match(
       await fs.readFile(result.currentBatchHandoff, 'utf8'),

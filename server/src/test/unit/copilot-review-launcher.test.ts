@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  COPILOT_REVIEW_GIT_INSPECTION_COMMANDS,
   runCopilotReview,
   type CopilotReviewLauncherOptions,
 } from '../../copilot/reviewLauncher.js';
@@ -175,10 +176,29 @@ test('native launcher invokes local /review once with pinned read-only non-inter
     '--disable-builtin-mcps',
     '--available-tools=view,grep,glob,bash',
     '--allow-tool=read',
-    '--allow-tool=shell(git:*)',
     '--deny-tool=write',
   ]) {
     assert.equal(args.includes(expected), true, expected);
+  }
+  assert.deepEqual(
+    args.filter((arg) => arg.startsWith('--allow-tool=shell(git ')),
+    COPILOT_REVIEW_GIT_INSPECTION_COMMANDS.map(
+      (command) => `--allow-tool=shell(git ${command})`,
+    ),
+  );
+  assert.equal(args.includes('--allow-tool=shell(git:*)'), false);
+  for (const mutatingCommand of [
+    'config',
+    'notes',
+    'replace',
+    'update-ref',
+    'worktree',
+  ]) {
+    assert.equal(
+      args.includes(`--allow-tool=shell(git ${mutatingCommand})`),
+      false,
+      `git ${mutatingCommand} is not allowed`,
+    );
   }
   assert.equal(args.includes('--allow-all'), false);
   assert.equal(args.includes('--allow-all-tools'), false);
@@ -210,6 +230,10 @@ test('native launcher invokes local /review once with pinned read-only non-inter
     childEnv,
     new RegExp(`COPILOT_HOME=${path.join(fixture.root, 'copilot-home')}`, 'u'),
   );
+  assert.match(childEnv, /^GIT_OPTIONAL_LOCKS=0$/mu);
+  assert.match(childEnv, /^GIT_TERMINAL_PROMPT=0$/mu);
+  assert.match(childEnv, /^GIT_PAGER=cat$/mu);
+  assert.match(childEnv, /^PAGER=cat$/mu);
   const artifacts = await Promise.all(
     Object.values(fixture.outputPaths).map((file) => fs.readFile(file, 'utf8')),
   );
@@ -250,13 +274,14 @@ test('external launcher exposes only the selected endpoint and key to the child'
   const otherSecret = 'sk-other-secret';
   const env = fakeEnvironment(fixture, fakeCopilot, {
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
-      'Unsloth,https://selected.test/v1|completions;Other,https://other.test/v1|completions',
+      'Other,https://other.test/v1|completions;Unsloth,https://selected.test/v1|completions',
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: `Unsloth,${selectedSecret};Other,${otherSecret}`,
     FAKE_COPILOT_STDERR: `provider diagnostic ${selectedSecret}\n`,
   });
   const result = await runCopilotReview(
     launcherOptions(fixture, env, {
       endpointLabel: 'unsloth',
+      endpointId: 'https://selected.test/v1',
       modelId: 'google-gemini-3.6-flash',
       reasoningEffort: 'minimal',
     }),
@@ -295,8 +320,16 @@ test('external launcher exposes only the selected endpoint and key to the child'
     persisted,
     new RegExp(`${selectedSecret}|${otherSecret}`, 'u'),
   );
-  assert.doesNotMatch(persisted, /https:\/\/selected\.test/u);
+  assert.doesNotMatch(persisted, /https:\/\/other\.test/u);
   assert.match(persisted, /provider diagnostic \[REDACTED\]/u);
+  const invocation = JSON.parse(
+    await fs.readFile(fixture.outputPaths.invocationPath, 'utf8'),
+  ) as { endpoint_id?: string };
+  const normalized = JSON.parse(
+    await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
+  ) as { endpoint_id?: string };
+  assert.equal(invocation.endpoint_id, 'https://selected.test/v1');
+  assert.equal(normalized.endpoint_id, 'https://selected.test/v1');
 });
 
 test('non-zero Copilot exit preserves unknown JSONL, stderr, and a partial normalized result', async (t) => {
@@ -343,6 +376,7 @@ test('missing CLI and external runtime drift produce unavailable artifacts witho
   const drift = await runCopilotReview(
     launcherOptions(fixture, driftEnv, {
       endpointLabel: 'unsloth',
+      endpointId: 'https://selected.test/v1',
       modelId: 'gone',
     }),
     { discoverExternalModels: async () => ['other'] },
@@ -353,6 +387,50 @@ test('missing CLI and external runtime drift produce unavailable artifacts witho
     fs.readFile(String(driftEnv.FAKE_COPILOT_COUNT_FILE), 'utf8'),
     /ENOENT/u,
   );
+});
+
+test('external endpoint identity drift is unavailable before credential or model discovery', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const replacementSecret = 'sk-replacement-secret';
+  const env = fakeEnvironment(fixture, fakeCopilot, {
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+      'Unsloth,https://replacement.test/v1|completions',
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: `Unsloth,${replacementSecret}`,
+  });
+  let discoveryCalls = 0;
+  const result = await runCopilotReview(
+    launcherOptions(fixture, env, {
+      endpointLabel: 'unsloth',
+      endpointId: 'https://selected.test/v1',
+      modelId: 'google-gemini-3.6-flash',
+      reasoningEffort: 'minimal',
+    }),
+    {
+      discoverExternalModels: async () => {
+        discoveryCalls += 1;
+        return ['google-gemini-3.6-flash'];
+      },
+    },
+  );
+  assert.equal(result.launched, false);
+  assert.equal(result.status, 'unavailable');
+  assert.equal(discoveryCalls, 0);
+  await assert.rejects(
+    fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8'),
+    /ENOENT/u,
+  );
+  const persisted = (
+    await Promise.all(
+      Object.values(fixture.outputPaths).map((file) =>
+        fs.readFile(file, 'utf8'),
+      ),
+    )
+  ).join('\n');
+  assert.match(persisted, /external endpoint identity changed before launch/iu);
+  assert.doesNotMatch(persisted, new RegExp(replacementSecret, 'u'));
+  assert.doesNotMatch(persisted, /https:\/\/replacement\.test/u);
 });
 
 test('malformed external configuration is unavailable without leaking raw configuration', async (t) => {
@@ -366,6 +444,7 @@ test('malformed external configuration is unavailable without leaking raw config
   const result = await runCopilotReview(
     launcherOptions(fixture, env, {
       endpointLabel: 'openrouter',
+      endpointId: 'https://openrouter.test/v1',
       modelId: 'model',
     }),
   );
@@ -386,6 +465,46 @@ test('malformed external configuration is unavailable without leaking raw config
   assert.match(
     persisted,
     /External endpoint configuration could not be resolved/u,
+  );
+});
+
+test('external endpoint label and identity must be supplied together', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot);
+
+  await assert.rejects(
+    runCopilotReview(
+      launcherOptions(fixture, env, { endpointLabel: 'openrouter' }),
+    ),
+    /must be supplied together/u,
+  );
+  await assert.rejects(
+    runCopilotReview(
+      launcherOptions(fixture, env, {
+        endpointId: 'https://openrouter.test/v1',
+      }),
+    ),
+    /must be supplied together/u,
+  );
+  const embeddedSecret = 'endpoint-password-secret';
+  await assert.rejects(
+    runCopilotReview(
+      launcherOptions(fixture, env, {
+        endpointLabel: 'openrouter',
+        endpointId: `https://user:${embeddedSecret}@openrouter.test/v1`,
+      }),
+    ),
+    (error: unknown) => {
+      assert.match(String(error), /credentials are not allowed/u);
+      assert.doesNotMatch(String(error), new RegExp(embeddedSecret, 'u'));
+      return true;
+    },
+  );
+  await assert.rejects(
+    fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8'),
+    /ENOENT/u,
   );
 });
 

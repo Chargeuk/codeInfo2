@@ -5,6 +5,8 @@ import { promisify } from 'node:util';
 
 import { fetchOpenAiCompatModels } from '../chat/openaiCompatAdapter.js';
 import {
+  normalizeOpenAiCompatEndpointId,
+  resolveOpenAiCompatEndpointConfigsFromList,
   validateOpenAiCompatEndpointConfigForProvider,
   type OpenAiCompatEndpointConfig,
 } from '../config/openaiCompatEndpoints.js';
@@ -37,6 +39,7 @@ export type CopilotReviewLauncherOptions = {
   modelId: string;
   reasoningEffort: CopilotReviewReasoningEffort;
   endpointLabel?: string;
+  endpointId?: string;
   instructionsPath: string;
   outputPaths: CopilotReviewLauncherPaths;
   env?: NodeJS.ProcessEnv;
@@ -240,6 +243,20 @@ const READ_ONLY_GIT_MUTATION_DENIES = [
   'tag',
 ] as const;
 
+export const COPILOT_REVIEW_GIT_INSPECTION_COMMANDS = [
+  'cat-file',
+  'diff',
+  'diff-index',
+  'diff-tree',
+  'log',
+  'ls-files',
+  'ls-tree',
+  'merge-base',
+  'rev-parse',
+  'show',
+  'status',
+] as const;
+
 export function buildCopilotReviewArguments(params: {
   repositoryPath: string;
   prompt: string;
@@ -265,7 +282,9 @@ export function buildCopilotReviewArguments(params: {
     '--disable-builtin-mcps',
     '--available-tools=view,grep,glob,bash',
     '--allow-tool=read',
-    '--allow-tool=shell(git:*)',
+    ...COPILOT_REVIEW_GIT_INSPECTION_COMMANDS.map(
+      (command) => `--allow-tool=shell(git ${command})`,
+    ),
     '--deny-tool=write',
     ...READ_ONLY_GIT_MUTATION_DENIES.map(
       (command) => `--deny-tool=shell(git ${command}:*)`,
@@ -285,6 +304,10 @@ const withoutProviderEnvironment = (
   delete result.CODEINFO_COPILOT_REVIEW_MODELS;
   delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  result.GIT_OPTIONAL_LOCKS = '0';
+  result.GIT_TERMINAL_PROMPT = '0';
+  result.GIT_PAGER = 'cat';
+  result.PAGER = 'cat';
   return result;
 };
 
@@ -299,6 +322,7 @@ export function buildNativeCopilotReviewEnvironment(
 
 const resolveExternalLaunch = async (
   endpointLabel: string,
+  endpointId: string,
   modelId: string,
   source: NodeJS.ProcessEnv,
   deps: CopilotReviewLauncherDeps,
@@ -306,6 +330,33 @@ const resolveExternalLaunch = async (
   endpoint: OpenAiCompatEndpointConfig;
   apiKey?: string;
 }> => {
+  let endpointConfigs: ReturnType<
+    typeof resolveOpenAiCompatEndpointConfigsFromList
+  >;
+  try {
+    endpointConfigs = resolveOpenAiCompatEndpointConfigsFromList({
+      value: source.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
+      pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    });
+  } catch {
+    throw new CopilotReviewUnavailableError(
+      'External endpoint configuration could not be resolved before launch.',
+    );
+  }
+  const pinnedEndpoint = endpointConfigs.endpoints.find(
+    (candidate) => candidate.authLookupKey === endpointLabel,
+  );
+  if (!pinnedEndpoint) {
+    throw new CopilotReviewUnavailableError(
+      'The selected external endpoint is no longer configured.',
+    );
+  }
+  if (pinnedEndpoint.endpointId !== endpointId) {
+    throw new CopilotReviewUnavailableError(
+      'The selected external endpoint identity changed before launch.',
+    );
+  }
+
   let resolution: ReturnType<typeof resolveExternalOpenAiCompatEndpoints>;
   try {
     resolution = resolveExternalOpenAiCompatEndpoints({ env: source });
@@ -315,11 +366,13 @@ const resolveExternalLaunch = async (
     );
   }
   const endpoint = resolution.endpoints.find(
-    (candidate) => candidate.authLookupKey === endpointLabel,
+    (candidate) =>
+      candidate.authLookupKey === endpointLabel &&
+      candidate.endpointId === endpointId,
   );
   if (!endpoint) {
     throw new CopilotReviewUnavailableError(
-      'The selected external endpoint is no longer configured.',
+      'The selected external endpoint could not be resolved before launch.',
     );
   }
   try {
@@ -703,6 +756,7 @@ const writeArtifacts = async (params: {
           schema_version: 'codeinfo-copilot-review-invocation/v1',
           provider_mode: params.options.endpointLabel ? 'external' : 'native',
           endpoint_label: params.options.endpointLabel ?? null,
+          endpoint_id: params.options.endpointId ?? null,
           model_id: params.options.modelId,
           reasoning_effort: params.options.reasoningEffort,
           repository_path: params.options.repositoryPath,
@@ -746,6 +800,7 @@ const writeArtifacts = async (params: {
           status: params.status,
           provider_mode: params.options.endpointLabel ? 'external' : 'native',
           endpoint_label: params.options.endpointLabel ?? null,
+          endpoint_id: params.options.endpointId ?? null,
           model_id: params.options.modelId,
           reasoning_effort: params.options.reasoningEffort,
           repository_path: params.options.repositoryPath,
@@ -792,7 +847,17 @@ export async function runCopilotReview(
       'instructionsPath',
     ),
     endpointLabel: rawOptions.endpointLabel?.trim() || undefined,
+    endpointId: rawOptions.endpointId?.trim()
+      ? normalizeOpenAiCompatEndpointId(rawOptions.endpointId, {
+          pathLabel: 'endpointId',
+        })
+      : undefined,
   };
+  if (Boolean(options.endpointLabel) !== Boolean(options.endpointId)) {
+    throw new Error(
+      'endpointLabel and endpointId must be supplied together for an external review.',
+    );
+  }
   if (!SUPPORTED_REASONING.has(options.reasoningEffort)) {
     throw new Error('reasoningEffort is unsupported.');
   }
@@ -814,8 +879,12 @@ export async function runCopilotReview(
     const sourceEnv = options.env ?? process.env;
     let childEnv: NodeJS.ProcessEnv;
     if (options.endpointLabel) {
+      if (!options.endpointId) {
+        throw new Error('endpointId is required for an external review.');
+      }
       const external = await resolveExternalLaunch(
         options.endpointLabel,
+        options.endpointId,
         options.modelId,
         sourceEnv,
         deps,

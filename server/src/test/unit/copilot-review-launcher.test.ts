@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   runCopilotReview,
@@ -76,6 +77,12 @@ else
 fi
 printf '%b' "\${FAKE_COPILOT_STDOUT:-}"
 printf '%b' "\${FAKE_COPILOT_STDERR:-}" >&2
+if [[ "\${FAKE_COPILOT_WAIT:-}" == "1" ]]; then
+  trap 'exit 143' TERM
+  while true; do
+    sleep 0.05
+  done
+fi
 exit "\${FAKE_COPILOT_EXIT:-0}"
 `,
     { mode: 0o755 },
@@ -164,7 +171,9 @@ test('native launcher invokes local /review once with pinned read-only non-inter
     '--no-auto-update',
     '--no-remote',
     '--no-remote-export',
-    '--available-tools=read,shell',
+    '--no-custom-instructions',
+    '--disable-builtin-mcps',
+    '--available-tools=view,grep,glob,bash',
     '--allow-tool=read',
     '--allow-tool=shell(git:*)',
     '--deny-tool=write',
@@ -173,6 +182,11 @@ test('native launcher invokes local /review once with pinned read-only non-inter
   }
   assert.equal(args.includes('--allow-all'), false);
   assert.equal(args.includes('--allow-all-tools'), false);
+  assert.equal(
+    args.includes('--deny-tool=shell(git commit:*)'),
+    true,
+    'mutating Git commands are denied',
+  );
   assert.equal(
     args.some((arg) => arg.startsWith('--secret-env-vars=')),
     true,
@@ -341,6 +355,40 @@ test('missing CLI and external runtime drift produce unavailable artifacts witho
   );
 });
 
+test('malformed external configuration is unavailable without leaking raw configuration', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const secret = 'sk-malformed-endpoint-secret';
+  const env = fakeEnvironment(fixture, fakeCopilot, {
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: `malformed-${secret}`,
+  });
+  const result = await runCopilotReview(
+    launcherOptions(fixture, env, {
+      endpointLabel: 'openrouter',
+      modelId: 'model',
+    }),
+  );
+  assert.equal(result.launched, false);
+  assert.equal(result.status, 'unavailable');
+  await assert.rejects(
+    fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8'),
+    /ENOENT/u,
+  );
+  const persisted = (
+    await Promise.all(
+      Object.values(fixture.outputPaths).map((file) =>
+        fs.readFile(file, 'utf8'),
+      ),
+    )
+  ).join('\n');
+  assert.doesNotMatch(persisted, new RegExp(secret, 'u'));
+  assert.match(
+    persisted,
+    /External endpoint configuration could not be resolved/u,
+  );
+});
+
 test('pinned-head mismatch is rejected before Copilot invocation', async (t) => {
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
@@ -358,5 +406,83 @@ test('pinned-head mismatch is rejected before Copilot invocation', async (t) => 
   assert.match(
     await fs.readFile(fixture.outputPaths.stderrPath, 'utf8'),
     /HEAD does not match/u,
+  );
+});
+
+test('timeout terminates one launched Copilot process and preserves partial output', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot, {
+    FAKE_COPILOT_STDOUT:
+      '{"type":"assistant.message","data":{"content":"Partial before timeout"}}\\n',
+    FAKE_COPILOT_WAIT: '1',
+  });
+  const result = await runCopilotReview(
+    launcherOptions(fixture, env, { timeoutMs: 50 }),
+  );
+  assert.equal(result.launched, true);
+  assert.equal(result.exitStatus, 124);
+  assert.equal(result.status, 'partial');
+  assert.match(
+    await fs.readFile(fixture.outputPaths.stderrPath, 'utf8'),
+    /timed out/u,
+  );
+  assert.equal(
+    (await fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8')).trim(),
+    'launch',
+  );
+});
+
+test('abort terminates one launched Copilot process without losing diagnostics', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot, {
+    FAKE_COPILOT_STDOUT: '',
+    FAKE_COPILOT_WAIT: '1',
+  });
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 50);
+  const result = await runCopilotReview(
+    launcherOptions(fixture, env, {
+      signal: controller.signal,
+      timeoutMs: 5_000,
+    }),
+  );
+  assert.equal(result.launched, true);
+  assert.equal(result.exitStatus, 130);
+  assert.equal(result.status, 'failed');
+  assert.match(
+    await fs.readFile(fixture.outputPaths.stderrPath, 'utf8'),
+    /cancelled/u,
+  );
+  assert.equal(
+    (await fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8')).trim(),
+    'launch',
+  );
+});
+
+test('CLI argument parsing errors stay inside the launcher error boundary', () => {
+  const launcher = fileURLToPath(
+    new URL('../../copilot/reviewLauncherCli.js', import.meta.url),
+  );
+  assert.throws(
+    () =>
+      execFileSync(process.execPath, [launcher, '--unknown-option'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    (error: unknown) => {
+      const failure = error as {
+        status?: number;
+        stderr?: string | Buffer;
+      };
+      assert.equal(failure.status, 2);
+      const stderr = String(failure.stderr);
+      assert.match(stderr, /Unknown option/u);
+      assert.doesNotMatch(stderr, /reviewLauncherCli\.(?:js|ts):\d+/u);
+      return true;
+    },
   );
 });

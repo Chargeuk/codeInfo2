@@ -308,6 +308,16 @@ test('review batch workspace gives every job immutable private input and pre-cre
       'story-context.md',
     );
     const incompleteInput = await fs.readFile(incompletePrivateInput, 'utf8');
+    const incompleteCopilotJob = incompleteBatch.jobs[3]?.input
+      ?.review_job as Record<string, unknown>;
+    const incompleteCopilotInputDir = String(incompleteCopilotJob.input_dir);
+    const missingPinnedSpec = path.join(
+      incompleteCopilotInputDir,
+      'copilot-review-spec.json',
+    );
+    await fs.chmod(incompleteCopilotInputDir, 0o755);
+    await fs.rm(missingPinnedSpec);
+    await fs.chmod(incompleteCopilotInputDir, 0o555);
     const completedInterruptedBatch = await prepareReviewBatchWorkspace({
       snapshot: {
         ...snapshot,
@@ -323,6 +333,16 @@ test('review batch workspace gives every job immutable private input and pre-cre
       await fs.readFile(incompletePrivateInput, 'utf8'),
       incompleteInput,
       'an interrupted batch keeps its original private input untouched',
+    );
+    assert.deepEqual(
+      JSON.parse(await fs.readFile(missingPinnedSpec, 'utf8')),
+      jobs[3]?.input?.copilot_review_spec,
+      'an interrupted batch reconstructs a missing pinned input inside the relocked directory',
+    );
+    assert.equal(
+      (await fs.stat(incompleteCopilotInputDir)).mode & 0o222,
+      0,
+      'the reconstructed private input directory is relocked',
     );
     assert.match(
       await fs.readFile(

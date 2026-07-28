@@ -114,6 +114,7 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
   };
 };
 
+import { prepareCopilotReviewGroups } from './copilotReviewGroups.js';
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import { runFlowDecisionScript } from './flowDecisionScript.js';
 import {
@@ -171,7 +172,6 @@ import {
   recordReviewInvocationAttempt,
   type ReviewInvocationAttemptStatus,
 } from './reviewCycleLifecycle.js';
-import { prepareCopilotReviewGroups } from './copilotReviewGroups.js';
 import { prepareReviewTargets } from './reviewTargets.js';
 import type { ReviewTargetSnapshot } from './reviewTargets.js';
 import { writeReviewUsageArtifact } from './reviewUsage.js';
@@ -6987,6 +6987,7 @@ async function runFlowUnlocked(params: {
       const root = { ...(params.input ?? {}), ...flowValues };
       const reviewGroups = resolveFlowValue(root, step.groupsFrom);
       const repositoryTargets = resolveFlowValue(root, step.targetsFrom);
+      const reviewWave = resolveFlowValue(root, step.reviewWaveFrom);
       const enabledValue = step.enabledFrom
         ? resolveFlowValue(root, step.enabledFrom)
         : undefined;
@@ -6998,6 +6999,11 @@ async function runFlowUnlocked(params: {
       if (repositoryTargets === undefined) {
         throw new Error(
           `prepareCopilotReviewGroups binding "${step.targetsFrom}" did not resolve.`,
+        );
+      }
+      if (reviewWave === undefined) {
+        throw new Error(
+          `prepareCopilotReviewGroups binding "${step.reviewWaveFrom}" did not resolve.`,
         );
       }
       if (enabledValue !== undefined && typeof enabledValue !== 'boolean') {
@@ -7012,6 +7018,8 @@ async function runFlowUnlocked(params: {
       const result = await prepareCopilotReviewGroups({
         reviewGroups,
         repositoryTargets,
+        targetItemsFrom: step.targetsFrom,
+        reviewWaveFrom: step.reviewWaveFrom,
         env: reviewEnv,
       });
       if (inflightSignal.aborted) {
@@ -7036,6 +7044,7 @@ async function runFlowUnlocked(params: {
         response: [
           `Prepared ${result.modelCount} Copilot review model(s) across ${result.repositoryCount} repository target(s).`,
           `Copilot jobs: ${result.copilotJobCount}`,
+          `Configuration warnings: ${result.configurationWarnings.length}`,
           `Effective review groups: ${result.effectiveReviewGroups.length}`,
         ].join('\n'),
         modelId: params.modelId,
@@ -7712,8 +7721,23 @@ async function runFlowUnlocked(params: {
           totalSteps: steps.length,
           loopDepth: loopStack.length,
         });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            copilotReviewGroupsOutputKey: step.outputKey,
+          },
+        });
         const status = await runPrepareCopilotReviewGroupsStep(step, command);
         if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.prepareCopilotReviewGroups',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
           await persistRuntimeResumeState(lastCompletedStepPath);
           return status;
         }

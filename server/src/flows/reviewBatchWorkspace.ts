@@ -195,26 +195,30 @@ const ensurePrivateInput = async (
   pinnedFiles: Record<string, string> = {},
 ) => {
   await fs.mkdir(inputDirectory, { recursive: true });
-  await Promise.all(
-    fileNames.map(async (fileName) => {
-      const inputPath = path.join(inputDirectory, fileName);
-      if (await isFile(inputPath)) return;
-      await fs.copyFile(path.join(sourceDirectory, fileName), inputPath);
-    }),
-  );
-  await Promise.all(
-    Object.entries(pinnedFiles).map(async ([fileName, content]) => {
-      const inputPath = path.join(inputDirectory, fileName);
-      if (await isFile(inputPath)) return;
-      await atomicWriteText(inputPath, content);
-    }),
-  );
-  await Promise.all([
-    ...[...fileNames, ...Object.keys(pinnedFiles)].map((fileName) =>
-      fs.chmod(path.join(inputDirectory, fileName), 0o444),
-    ),
-    fs.chmod(inputDirectory, 0o555),
-  ]);
+  await fs.chmod(inputDirectory, 0o755);
+  try {
+    await Promise.all(
+      fileNames.map(async (fileName) => {
+        const inputPath = path.join(inputDirectory, fileName);
+        if (await isFile(inputPath)) return;
+        await fs.copyFile(path.join(sourceDirectory, fileName), inputPath);
+      }),
+    );
+    await Promise.all(
+      Object.entries(pinnedFiles).map(async ([fileName, content]) => {
+        const inputPath = path.join(inputDirectory, fileName);
+        if (await isFile(inputPath)) return;
+        await atomicWriteText(inputPath, content);
+      }),
+    );
+    await Promise.all(
+      [...fileNames, ...Object.keys(pinnedFiles)].map((fileName) =>
+        fs.chmod(path.join(inputDirectory, fileName), 0o444),
+      ),
+    );
+  } finally {
+    await fs.chmod(inputDirectory, 0o555);
+  }
 };
 
 const pinnedCopilotReviewSpec = (

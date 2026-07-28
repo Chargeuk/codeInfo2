@@ -95,6 +95,7 @@ export type FlowPrepareCopilotReviewGroupsStep = {
   label?: string;
   groupsFrom: string;
   targetsFrom: string;
+  reviewWaveFrom: string;
   enabledFrom?: string;
   outputKey: string;
 };
@@ -305,6 +306,7 @@ const FlowPrepareCopilotReviewGroupsStepSchema = z
     label: trimmedNonEmptyString.optional(),
     groupsFrom: flowWaveBindingPath,
     targetsFrom: flowWaveBindingPath,
+    reviewWaveFrom: flowWaveBindingPath,
     enabledFrom: flowWaveBindingPath.optional(),
     outputKey: flowWaveIdentifier,
   })

@@ -527,6 +527,7 @@ describe('flow schema (v1)', () => {
       label: 'Prepare Copilot Review Matrix Groups',
       groupsFrom: 'review_groups',
       targetsFrom: 'review_batch_targets.targets',
+      reviewWaveFrom: 'review_batch_targets',
       enabledFrom: 'copilot_reviews_enabled',
       outputKey: 'effective_review_groups',
     });

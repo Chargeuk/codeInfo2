@@ -40,6 +40,8 @@ export type CopilotReviewLauncherOptions = {
   instructionsPath: string;
   outputPaths: CopilotReviewLauncherPaths;
   env?: NodeJS.ProcessEnv;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 };
 
 export type CopilotReviewLauncherResult = {
@@ -79,6 +81,16 @@ const defaultDeps: CopilotReviewLauncherDeps = {
     ).map((model) => model.id),
   now: () => new Date(),
 };
+
+const DEFAULT_COPILOT_REVIEW_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+const COPILOT_TERMINATION_GRACE_MS = 5_000;
+
+export class CopilotReviewUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CopilotReviewUnavailableError';
+  }
+}
 
 const requireValue = (value: string, label: string): string => {
   const normalized = value.trim();
@@ -251,7 +263,7 @@ export function buildCopilotReviewArguments(params: {
     '--no-remote-export',
     '--no-custom-instructions',
     '--disable-builtin-mcps',
-    '--available-tools=read,shell',
+    '--available-tools=view,grep,glob,bash',
     '--allow-tool=read',
     '--allow-tool=shell(git:*)',
     '--deny-tool=write',
@@ -294,12 +306,21 @@ const resolveExternalLaunch = async (
   endpoint: OpenAiCompatEndpointConfig;
   apiKey?: string;
 }> => {
-  const resolution = resolveExternalOpenAiCompatEndpoints({ env: source });
+  let resolution: ReturnType<typeof resolveExternalOpenAiCompatEndpoints>;
+  try {
+    resolution = resolveExternalOpenAiCompatEndpoints({ env: source });
+  } catch {
+    throw new CopilotReviewUnavailableError(
+      'External endpoint configuration could not be resolved before launch.',
+    );
+  }
   const endpoint = resolution.endpoints.find(
     (candidate) => candidate.authLookupKey === endpointLabel,
   );
   if (!endpoint) {
-    throw new Error('The selected external endpoint is no longer configured.');
+    throw new CopilotReviewUnavailableError(
+      'The selected external endpoint is no longer configured.',
+    );
   }
   try {
     validateOpenAiCompatEndpointConfigForProvider({
@@ -308,7 +329,7 @@ const resolveExternalLaunch = async (
       pathLabel: 'selected Copilot review endpoint',
     });
   } catch {
-    throw new Error(
+    throw new CopilotReviewUnavailableError(
       'The selected external endpoint no longer supports completions.',
     );
   }
@@ -316,12 +337,12 @@ const resolveExternalLaunch = async (
   try {
     modelIds = await deps.discoverExternalModels(endpoint, source);
   } catch {
-    throw new Error(
+    throw new CopilotReviewUnavailableError(
       'The selected external endpoint could not be rediscovered before launch.',
     );
   }
   if (!modelIds.includes(modelId)) {
-    throw new Error(
+    throw new CopilotReviewUnavailableError(
       'The selected external model is no longer advertised before launch.',
     );
   }
@@ -354,17 +375,62 @@ const runProcess = async (params: {
   cwd: string;
   env: NodeJS.ProcessEnv;
   deps: CopilotReviewLauncherDeps;
+  signal?: AbortSignal;
+  timeoutMs: number;
 }): Promise<{
   launched: boolean;
   exitStatus: number;
   stdout: string;
   stderr: string;
+  terminationReason?: 'aborted' | 'timeout';
 }> =>
   await new Promise((resolve) => {
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     let settled = false;
     let child: SpawnedProcess;
+    let terminationReason: 'aborted' | 'timeout' | undefined;
+    const timers: {
+      forceKill?: NodeJS.Timeout;
+      timeout?: NodeJS.Timeout;
+    } = {};
+    const captured = () => ({
+      stdout: Buffer.concat(stdout).toString('utf8'),
+      stderr: Buffer.concat(stderr).toString('utf8'),
+    });
+    const terminateForAbort = () => terminate('aborted');
+    const finish = (result: {
+      launched: boolean;
+      exitStatus: number;
+      stdout: string;
+      stderr: string;
+      terminationReason?: 'aborted' | 'timeout';
+    }) => {
+      if (settled) return;
+      settled = true;
+      if (timers.timeout) clearTimeout(timers.timeout);
+      if (timers.forceKill) clearTimeout(timers.forceKill);
+      params.signal?.removeEventListener('abort', terminateForAbort);
+      resolve(result);
+    };
+    function terminate(reason: 'aborted' | 'timeout') {
+      if (settled || terminationReason) return;
+      terminationReason = reason;
+      child.kill('SIGTERM');
+      timers.forceKill = setTimeout(() => {
+        if (settled) return;
+        child.kill('SIGKILL');
+        const output = captured();
+        finish({
+          launched: true,
+          exitStatus: reason === 'timeout' ? 124 : 130,
+          stdout: output.stdout,
+          stderr: `${output.stderr}${reason === 'timeout' ? 'Copilot review timed out.' : 'Copilot review was cancelled.'}\n`,
+          terminationReason: reason,
+        });
+      }, COPILOT_TERMINATION_GRACE_MS);
+      timers.forceKill.unref?.();
+    }
     try {
       child = params.deps.spawn(params.cliPath, params.args, {
         cwd: params.cwd,
@@ -372,7 +438,7 @@ const runProcess = async (params: {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
     } catch {
-      resolve({
+      finish({
         launched: false,
         exitStatus: 127,
         stdout: '',
@@ -387,28 +453,67 @@ const runProcess = async (params: {
       stderr.push(Buffer.from(chunk)),
     );
     child.once('error', () => {
-      if (settled) return;
-      settled = true;
-      resolve({
+      const output = captured();
+      finish({
         launched: false,
         exitStatus: 127,
-        stdout: Buffer.concat(stdout).toString('utf8'),
-        stderr:
-          Buffer.concat(stderr).toString('utf8') ||
-          'Copilot CLI could not be started.\n',
+        stdout: output.stdout,
+        stderr: output.stderr || 'Copilot CLI could not be started.\n',
       });
     });
     child.once('close', (code) => {
-      if (settled) return;
-      settled = true;
-      resolve({
+      const output = captured();
+      const exitStatus =
+        terminationReason === 'timeout'
+          ? 124
+          : terminationReason === 'aborted'
+            ? 130
+            : typeof code === 'number'
+              ? code
+              : 1;
+      const diagnostic =
+        terminationReason === 'timeout'
+          ? 'Copilot review timed out.\n'
+          : terminationReason === 'aborted'
+            ? 'Copilot review was cancelled.\n'
+            : '';
+      finish({
         launched: true,
-        exitStatus: typeof code === 'number' ? code : 1,
-        stdout: Buffer.concat(stdout).toString('utf8'),
-        stderr: Buffer.concat(stderr).toString('utf8'),
+        exitStatus,
+        stdout: output.stdout,
+        stderr: `${output.stderr}${diagnostic}`,
+        ...(terminationReason ? { terminationReason } : {}),
       });
     });
+    if (params.signal?.aborted) {
+      terminateForAbort();
+      return;
+    }
+    params.signal?.addEventListener('abort', terminateForAbort, { once: true });
+    timers.timeout = setTimeout(
+      () => terminate('timeout'),
+      Math.max(1, params.timeoutMs),
+    );
+    timers.timeout.unref?.();
   });
+
+const resolveReviewTimeoutMs = (
+  options: CopilotReviewLauncherOptions,
+): number => {
+  if (
+    typeof options.timeoutMs === 'number' &&
+    Number.isFinite(options.timeoutMs) &&
+    options.timeoutMs > 0
+  ) {
+    return options.timeoutMs;
+  }
+  const raw = options.env?.CODEINFO_COPILOT_REVIEW_TIMEOUT_SEC?.trim();
+  if (!raw) return DEFAULT_COPILOT_REVIEW_TIMEOUT_MS;
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds > 0
+    ? seconds * 1000
+    : DEFAULT_COPILOT_REVIEW_TIMEOUT_MS;
+};
 
 const parseJsonLines = (raw: string): unknown[] =>
   raw.split(/\r?\n/u).flatMap((line) => {
@@ -702,6 +807,7 @@ export async function runCopilotReview(
     stderr: '',
   };
   let failureReason: string | undefined;
+  let setupUnavailable = false;
   const secretValues: string[] = [];
   try {
     const verified = await verifyRepositoryAndCommits(options, deps);
@@ -745,8 +851,11 @@ export async function runCopilotReview(
       cwd: verified.repositoryPath,
       env: childEnv,
       deps,
+      signal: options.signal,
+      timeoutMs: resolveReviewTimeoutMs(options),
     });
   } catch (error) {
+    setupUnavailable = error instanceof CopilotReviewUnavailableError;
     failureReason =
       error instanceof Error ? error.message : 'Copilot review setup failed.';
     processResult.stderr = `${failureReason}\n`;
@@ -769,8 +878,7 @@ export async function runCopilotReview(
     !processResult.launched && processResult.exitStatus === 127
       ? 'unavailable'
       : !processResult.launched
-        ? failureReason?.includes('no longer') ||
-          failureReason?.includes('rediscovered')
+        ? setupUnavailable
           ? 'unavailable'
           : 'failed'
         : processResult.exitStatus === 0 && review

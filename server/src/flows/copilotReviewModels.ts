@@ -45,19 +45,35 @@ export type ResolvedCopilotReviewSpec = CopilotReviewModelSpec & {
   endpointId?: string;
 };
 
-export class CopilotReviewConfigurationError extends Error {
-  constructor(message: string) {
-    super(`Invalid CODEINFO_COPILOT_REVIEW_MODELS configuration: ${message}`);
-    this.name = 'CopilotReviewConfigurationError';
-  }
-}
+export type CopilotReviewConfigurationWarning = {
+  entryNumber: number;
+  code:
+    | 'empty_entry'
+    | 'invalid_delimiters'
+    | 'missing_model'
+    | 'missing_reasoning_effort'
+    | 'unsupported_reasoning_effort'
+    | 'invalid_endpoint_qualification'
+    | 'invalid_model_id'
+    | 'duplicate_selector';
+  message: string;
+  duplicateOfEntryNumber?: number;
+};
 
 const SAFE_ID_CHARACTERS = /[^A-Za-z0-9_-]+/gu;
 const REASONING_EFFORT_SET = new Set<string>(COPILOT_REVIEW_REASONING_EFFORTS);
 
-const configurationError = (entryNumber: number, message: string): never => {
-  throw new CopilotReviewConfigurationError(`entry ${entryNumber} ${message}.`);
-};
+const configurationWarning = (
+  entryNumber: number,
+  code: CopilotReviewConfigurationWarning['code'],
+  message: string,
+  duplicateOfEntryNumber?: number,
+): CopilotReviewConfigurationWarning => ({
+  entryNumber,
+  code,
+  message: `CODEINFO_COPILOT_REVIEW_MODELS entry ${entryNumber} ${message}.`,
+  ...(duplicateOfEntryNumber ? { duplicateOfEntryNumber } : {}),
+});
 
 const stableModelId = (
   mode: CopilotReviewModelSpec['mode'],
@@ -78,37 +94,72 @@ const stableModelId = (
 
 export function parseCopilotReviewModels(
   value: string | undefined,
+  options: {
+    onWarning?: (warning: CopilotReviewConfigurationWarning) => void;
+  } = {},
 ): CopilotReviewModelSpec[] {
   if (!value?.trim()) return [];
 
   const specs: CopilotReviewModelSpec[] = [];
-  const seenSelectors = new Set<string>();
+  const seenSelectors = new Map<string, number>();
   const entries = value.split(',');
   for (const [index, rawEntry] of entries.entries()) {
     const entryNumber = index + 1;
     const entry = rawEntry.trim();
-    if (!entry) configurationError(entryNumber, 'is empty');
+    const warn = (
+      code: CopilotReviewConfigurationWarning['code'],
+      message: string,
+      duplicateOfEntryNumber?: number,
+    ) =>
+      options.onWarning?.(
+        configurationWarning(
+          entryNumber,
+          code,
+          message,
+          duplicateOfEntryNumber,
+        ),
+      );
+    if (!entry) {
+      warn('empty_entry', 'is empty and was ignored');
+      continue;
+    }
 
     const pipeParts = entry.split('|');
     if (pipeParts.length !== 2) {
-      configurationError(entryNumber, 'must contain exactly one "|" delimiter');
+      warn(
+        'invalid_delimiters',
+        'must contain exactly one "|" delimiter and was ignored',
+      );
+      continue;
     }
     const rawSelector = pipeParts[0]?.trim() ?? '';
     const rawEffort = pipeParts[1]?.trim() ?? '';
-    if (!rawSelector) configurationError(entryNumber, 'is missing a model');
+    if (!rawSelector) {
+      warn('missing_model', 'is missing a model and was ignored');
+      continue;
+    }
     if (!rawEffort) {
-      configurationError(entryNumber, 'is missing a reasoning effort');
+      warn(
+        'missing_reasoning_effort',
+        'is missing a reasoning effort and was ignored',
+      );
+      continue;
     }
     if (!REASONING_EFFORT_SET.has(rawEffort)) {
-      configurationError(entryNumber, 'uses an unsupported reasoning effort');
+      warn(
+        'unsupported_reasoning_effort',
+        'uses an unsupported reasoning effort and was ignored',
+      );
+      continue;
     }
 
     const endpointParts = rawSelector.split('::');
     if (endpointParts.length > 2) {
-      configurationError(
-        entryNumber,
-        'contains an invalid endpoint qualification',
+      warn(
+        'invalid_endpoint_qualification',
+        'contains an invalid endpoint qualification and was ignored',
       );
+      continue;
     }
 
     let mode: CopilotReviewModelSpec['mode'] = 'native';
@@ -118,10 +169,11 @@ export function parseCopilotReviewModels(
       const rawEndpointLabel = endpointParts[0]?.trim() ?? '';
       modelId = endpointParts[1]?.trim() ?? '';
       if (!rawEndpointLabel || !modelId) {
-        configurationError(
-          entryNumber,
-          'contains an invalid endpoint qualification',
+        warn(
+          'invalid_endpoint_qualification',
+          'contains an invalid endpoint qualification and was ignored',
         );
+        continue;
       }
       try {
         endpointLabel = normalizeOpenAiCompatEndpointLabelKey(
@@ -131,23 +183,31 @@ export function parseCopilotReviewModels(
           },
         );
       } catch {
-        configurationError(
-          entryNumber,
-          'contains an invalid endpoint qualification',
+        warn(
+          'invalid_endpoint_qualification',
+          'contains an invalid endpoint qualification and was ignored',
         );
+        continue;
       }
       mode = 'external';
     }
 
     if (!modelId || modelId.includes('::')) {
-      configurationError(entryNumber, 'contains an invalid model id');
+      warn('invalid_model_id', 'contains an invalid model id and was ignored');
+      continue;
     }
     const selector =
       mode === 'external' ? `${endpointLabel}::${modelId}` : modelId;
-    if (seenSelectors.has(selector)) {
-      configurationError(entryNumber, 'duplicates an earlier model selector');
+    const duplicateOfEntryNumber = seenSelectors.get(selector);
+    if (duplicateOfEntryNumber !== undefined) {
+      warn(
+        'duplicate_selector',
+        `duplicates entry ${duplicateOfEntryNumber}; the first valid entry was kept`,
+        duplicateOfEntryNumber,
+      );
+      continue;
     }
-    seenSelectors.add(selector);
+    seenSelectors.set(selector, entryNumber);
     specs.push({
       selector,
       mode,
@@ -272,19 +332,44 @@ export async function resolveCopilotReviewModels(
     discoverExternal: options.deps?.discoverExternal ?? defaultDiscoverExternal,
   };
 
-  if (!(await deps.checkCli(env))) {
+  let cliAvailable = false;
+  try {
+    cliAvailable = await deps.checkCli(env);
+  } catch {
+    return specs.map((spec) =>
+      unavailable(spec, 'Copilot CLI readiness check failed.'),
+    );
+  }
+  if (!cliAvailable) {
     return specs.map((spec) =>
       unavailable(spec, 'Copilot CLI is unavailable.'),
     );
   }
 
-  const endpointResolution = resolveOpenAiCompatEndpointConfigsFromList({
-    value: env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
-    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
-  });
   const nativeSpecs = specs.filter((spec) => spec.mode === 'native');
-  const nativeDiscovery =
-    nativeSpecs.length > 0 ? await deps.discoverNative(env) : undefined;
+  const externalSpecs = specs.filter((spec) => spec.mode === 'external');
+  let nativeDiscovery: NativeDiscovery | undefined;
+  if (nativeSpecs.length > 0) {
+    try {
+      nativeDiscovery = await deps.discoverNative(env);
+    } catch {
+      nativeDiscovery = { status: 'discovery_failed', models: [] };
+    }
+  }
+  let endpointResolution:
+    | ReturnType<typeof resolveOpenAiCompatEndpointConfigsFromList>
+    | undefined;
+  let endpointConfigurationUnavailable = false;
+  if (externalSpecs.length > 0) {
+    try {
+      endpointResolution = resolveOpenAiCompatEndpointConfigsFromList({
+        value: env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
+        pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+      });
+    } catch {
+      endpointConfigurationUnavailable = true;
+    }
+  }
 
   const resolved: ResolvedCopilotReviewSpec[] = [];
   for (const spec of specs) {
@@ -308,6 +393,15 @@ export async function resolveCopilotReviewModels(
       continue;
     }
 
+    if (endpointConfigurationUnavailable || !endpointResolution) {
+      resolved.push(
+        unavailable(
+          spec,
+          'External endpoint configuration could not be resolved.',
+        ),
+      );
+      continue;
+    }
     const endpoint = endpointResolution.endpoints.find(
       (candidate) => candidate.authLookupKey === spec.endpointLabel,
     );

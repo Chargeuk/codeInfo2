@@ -414,6 +414,7 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("wrapper agent's usage", copilot_prompt)
         self.assertIn("--no-remote-export", copilot_prompt)
         self.assertIn("Never modify source files", copilot_prompt)
+        self.assertIn("Run the review exactly once", copilot_prompt)
 
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(

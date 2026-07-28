@@ -28,6 +28,8 @@ test('two repositories and three Copilot models produce exactly six isolated sam
     {
       reviewGroups: existingGroups,
       repositoryTargets: targets,
+      targetItemsFrom: 'review_batch_targets.targets',
+      reviewWaveFrom: 'review_batch_targets',
       env: {
         CODEINFO_COPILOT_REVIEW_MODELS:
           'gpt-5.4|low,unsloth::gemini|minimal,other::flash|high',
@@ -97,6 +99,8 @@ test('unavailable models remain one terminal coverage job per repository', async
     {
       reviewGroups: existingGroups,
       repositoryTargets: targets,
+      targetItemsFrom: 'review_batch_targets.targets',
+      reviewWaveFrom: 'review_batch_targets',
       env: { CODEINFO_COPILOT_REVIEW_MODELS: 'missing|low' },
     },
     {
@@ -129,8 +133,64 @@ test('blank configuration preserves the pre-change review group structure exactl
   const prepared = await prepareCopilotReviewGroups({
     reviewGroups: existingGroups,
     repositoryTargets: targets,
+    targetItemsFrom: 'review_batch_targets.targets',
+    reviewWaveFrom: 'review_batch_targets',
     env: { CODEINFO_COPILOT_REVIEW_MODELS: ' ' },
   });
   assert.deepEqual(prepared.effectiveReviewGroups, existingGroups);
   assert.equal(prepared.copilotJobCount, 0);
+});
+
+test('malformed and duplicate entries warn while every valid unique model is scheduled', async () => {
+  const prepared = await prepareCopilotReviewGroups(
+    {
+      reviewGroups: existingGroups,
+      repositoryTargets: targets,
+      targetItemsFrom: 'prepared.repositories',
+      reviewWaveFrom: 'prepared',
+      env: {
+        CODEINFO_COPILOT_REVIEW_MODELS:
+          'gpt-5.4|low,bad,gpt-5.4|high,external::flash|minimal',
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+          'External,https://external.test/v1|completions',
+      },
+    },
+    {
+      checkCli: async () => true,
+      discoverNative: async () => ({
+        status: 'available',
+        models: ['gpt-5.4'],
+      }),
+      discoverExternal: async () => ({
+        available: true,
+        models: ['flash'],
+      }),
+    },
+  );
+  assert.equal(prepared.modelCount, 2);
+  assert.equal(prepared.copilotJobCount, 4);
+  assert.deepEqual(
+    prepared.configurationWarnings.map((warning) => warning.code),
+    ['invalid_delimiters', 'duplicate_selector'],
+  );
+  const copilotGroups = prepared.effectiveReviewGroups.slice(1);
+  assert.equal(
+    copilotGroups.every(
+      (group) =>
+        group.kind === 'matrix' &&
+        group.itemsFrom === 'prepared.repositories' &&
+        group.bindings?.input?.review_wave === 'prepared',
+    ),
+    true,
+  );
+  const jobs = expandSubflowWaveJobs({
+    step: { type: 'subflowWave', groupsFrom: 'effective_review_groups' },
+    input: {
+      prepared: { repositories: targets },
+      review_batch_targets: { targets },
+      effective_review_groups: prepared.effectiveReviewGroups,
+    },
+  }).filter((job) => job.flowName === 'copilot_review');
+  assert.equal(jobs.length, 4);
+  assert.equal(new Set(jobs.map((job) => job.instanceId)).size, 4);
 });

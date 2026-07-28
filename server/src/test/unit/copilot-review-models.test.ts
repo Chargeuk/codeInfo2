@@ -3,7 +3,6 @@ import { describe, test } from 'node:test';
 
 import {
   COPILOT_REVIEW_REASONING_EFFORTS,
-  CopilotReviewConfigurationError,
   parseCopilotReviewModels,
   resolveCopilotReviewModels,
   type CopilotReviewAvailabilityDeps,
@@ -74,41 +73,53 @@ describe('Copilot review model configuration', () => {
     assert.equal(first[1]?.modelId, 'Exact/Model:Tag');
   });
 
-  test('rejects malformed entries and duplicate selectors at any effort', () => {
-    const invalid = [
-      'model',
-      '|low',
-      'model|',
-      'model|turbo',
-      'model|low,',
-      ',model|low',
-      '::model|low',
-      'endpoint::|low',
-      'one::two::model|low',
-      'model|low|high',
-      'model|low,model|low',
-      'model|low,model|high',
-      'Endpoint::model|low, endpoint :: model |high',
-    ];
-    for (const value of invalid) {
-      assert.throws(
-        () => parseCopilotReviewModels(value),
-        CopilotReviewConfigurationError,
-        value,
-      );
-    }
+  test('salvages valid entries, keeps the first duplicate, and warns for every discarded entry', () => {
+    const warnings: Array<{ code: string; entryNumber: number }> = [];
+    const specs = parseCopilotReviewModels(
+      'model-a|low,bad,model-a|high,Endpoint::model-b|minimal,,model-c|turbo,one::two::model|low',
+      { onWarning: (warning) => warnings.push(warning) },
+    );
+    assert.deepEqual(
+      specs.map(({ selector, reasoningEffort }) => ({
+        selector,
+        reasoningEffort,
+      })),
+      [
+        { selector: 'model-a', reasoningEffort: 'low' },
+        { selector: 'endpoint::model-b', reasoningEffort: 'minimal' },
+      ],
+    );
+    assert.deepEqual(
+      warnings.map(({ code, entryNumber }) => ({ code, entryNumber })),
+      [
+        { code: 'invalid_delimiters', entryNumber: 2 },
+        { code: 'duplicate_selector', entryNumber: 3 },
+        { code: 'empty_entry', entryNumber: 5 },
+        { code: 'unsupported_reasoning_effort', entryNumber: 6 },
+        { code: 'invalid_endpoint_qualification', entryNumber: 7 },
+      ],
+    );
   });
 
-  test('configuration errors and parsed objects never expose unrelated secrets', () => {
+  test('all malformed forms are isolated without exposing their values', () => {
     const secret = 'sk-do-not-leak';
-    assert.throws(
-      () => parseCopilotReviewModels(`${secret}|unknown`),
-      (error: unknown) => {
-        assert(error instanceof Error);
-        assert.doesNotMatch(error.message, new RegExp(secret, 'u'));
-        return true;
-      },
+    const warnings: string[] = [];
+    const parsedMalformed = parseCopilotReviewModels(
+      [
+        'model',
+        '|low',
+        'model|',
+        `${secret}|turbo`,
+        '::model|low',
+        'endpoint::|low',
+        'one::two::model|low',
+        'model|low|high',
+      ].join(','),
+      { onWarning: (warning) => warnings.push(JSON.stringify(warning)) },
     );
+    assert.deepEqual(parsedMalformed, []);
+    assert.equal(warnings.length, 8);
+    assert.doesNotMatch(warnings.join('\n'), new RegExp(secret, 'u'));
     const parsed = parseCopilotReviewModels('model|low');
     assert.doesNotMatch(JSON.stringify(parsed), /api[_-]?key|https?:\/\//iu);
   });
@@ -197,6 +208,15 @@ describe('Copilot review model availability', () => {
             status: 'discovery_failed',
             models: [],
           }),
+        },
+        reason: /discovery failed/u,
+      },
+      {
+        deps: {
+          checkCli: async () => true,
+          discoverNative: async () => {
+            throw new Error('native discovery secret');
+          },
         },
         reason: /discovery failed/u,
       },
@@ -290,5 +310,90 @@ describe('Copilot review model availability', () => {
       assert.equal(resolved?.available, true);
       assert.doesNotMatch(JSON.stringify(resolved), /sk-secret-value/u);
     }
+  });
+
+  test('native availability is independent of malformed external endpoint configuration', async () => {
+    const specs = parseCopilotReviewModels('gpt-5.4|low');
+    const [resolved] = await resolveCopilotReviewModels(specs, {
+      env: {
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+          'malformed-secret-bearing-value',
+      },
+      deps: availableDeps(),
+    });
+    assert.equal(resolved?.available, true);
+  });
+
+  test('malformed external endpoint configuration leaves external models visible and unavailable', async () => {
+    const specs = parseCopilotReviewModels('unsloth::model|minimal');
+    const [resolved] = await resolveCopilotReviewModels(specs, {
+      env: {
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+          'malformed-secret-bearing-value',
+      },
+      deps: availableDeps(),
+    });
+    assert.equal(resolved?.available, false);
+    assert.match(
+      resolved?.unavailableReason ?? '',
+      /configuration could not be resolved/u,
+    );
+    assert.doesNotMatch(
+      JSON.stringify(resolved),
+      /malformed-secret-bearing-value/u,
+    );
+  });
+
+  test('native discovery failure does not suppress an independently available external model', async () => {
+    const specs = parseCopilotReviewModels(
+      'native-model|low,unsloth::external-model|minimal',
+    );
+    const resolved = await resolveCopilotReviewModels(specs, {
+      env: {
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+          'Unsloth,https://example.test/v1|completions',
+      },
+      deps: {
+        ...availableDeps(),
+        discoverNative: async () => {
+          throw new Error('native discovery failed');
+        },
+        discoverExternal: async () => ({
+          available: true,
+          models: ['external-model'],
+        }),
+      },
+    });
+    assert.equal(resolved[0]?.available, false);
+    assert.equal(resolved[1]?.available, true);
+  });
+
+  test('missing native login does not suppress an independently available external model', async () => {
+    const specs = parseCopilotReviewModels(
+      'native-model|low,openrouter::external-model|minimal',
+    );
+    const resolved = await resolveCopilotReviewModels(specs, {
+      env: {
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+          'OpenRouter,https://openrouter.test/api/v1|completions',
+      },
+      deps: {
+        ...availableDeps(),
+        discoverNative: async () => ({
+          status: 'authentication_required',
+          models: [],
+        }),
+        discoverExternal: async () => ({
+          available: true,
+          models: ['external-model'],
+        }),
+      },
+    });
+    assert.equal(resolved[0]?.available, false);
+    assert.match(
+      resolved[0]?.unavailableReason ?? '',
+      /authentication is required/u,
+    );
+    assert.equal(resolved[1]?.available, true);
   });
 });

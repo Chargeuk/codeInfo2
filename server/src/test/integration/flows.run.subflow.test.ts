@@ -1292,6 +1292,7 @@ test('prepared Copilot repository-model cells join the existing wave and persist
           type: 'prepareCopilotReviewGroups',
           groupsFrom: 'review_groups',
           targetsFrom: 'review_batch_targets.targets',
+          reviewWaveFrom: 'review_batch_targets',
           outputKey: 'effective_review_groups',
         },
         {

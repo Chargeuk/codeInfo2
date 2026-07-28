@@ -4853,7 +4853,7 @@ Settlement audit correction: Codex generated F1, OpenCode generated F3 and F5, a
 
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 47 — shared E2E ingest harness prerequisite`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Affected Repositories: `current_repository`
 
 #### Overview

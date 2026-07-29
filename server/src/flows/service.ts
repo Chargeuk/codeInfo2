@@ -176,10 +176,7 @@ import {
   resolveFlowAgentForDiscovery,
   type FlowSummary,
 } from './discovery.js';
-import {
-  executeFlowDecisionScript,
-  runFlowDecisionScript,
-} from './flowDecisionScript.js';
+import { executeFlowDecisionScript } from './flowDecisionScript.js';
 import {
   __resetFlowDefinitionCatalogForTests,
   getFlowDefinitionCatalogEntry,
@@ -7413,28 +7410,12 @@ async function runFlowUnlocked(params: {
         ...process.env,
         ...buildFlowEnvOverrides(),
       };
-      const execution = decisionScript.startsWith('scripts/flow_control/')
-        ? await runFlowDecisionScript({
-            codeInfoRoot: params.repositoryContext.codeInfo2Root,
-            workingFolder: workingRepositoryRoot,
-            decisionScript,
-            timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
-            env: decisionScriptEnv,
-          })
-            .then((stdout) => ({ ok: true as const, stdout }))
-            .catch((error) => ({
-              ok: false as const,
-              reason:
-                error instanceof Error
-                  ? error.message
-                  : 'Unable to execute bundled flow decision script.',
-            }))
-        : await executeFlowDecisionScript({
-            workingFolder: workingRepositoryRoot,
-            decisionScript,
-            timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
-            env: decisionScriptEnv,
-          });
+      const execution = await executeFlowDecisionScript({
+        workingFolder: workingRepositoryRoot,
+        decisionScript,
+        timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
+        env: decisionScriptEnv,
+      });
       if (!execution.ok) {
         await emitFailedFlowStep({
           flowConversationId: params.conversationId,
@@ -11370,6 +11351,12 @@ async function runFlowUnlocked(params: {
             outcome !== 'failed' &&
             outcome !== 'warning' &&
             outcome !== 'stopped'
+          ) {
+            return outcome;
+          }
+          if (
+            outcome === 'failed' &&
+            isFlowDecisionScriptPath(step.condition)
           ) {
             return outcome;
           }

@@ -417,23 +417,38 @@ function buildChatConfigTempPath(chatConfigPath: string): string {
     .slice(2)}.tmp`;
 }
 
-const CHAT_CONFIG_LOCK_RETRY_DELAY_MS = 50;
-const CHAT_CONFIG_LOCK_MAX_RETRIES = 500;
+const CHAT_CONFIG_LOCK_RETRY_DELAY_MS = 25;
+const CHAT_CONFIG_LOCK_MAX_RETRIES = 20;
+const TEST_CHAT_CONFIG_LOCK_RETRY_DELAY_MS = 50;
+const TEST_CHAT_CONFIG_LOCK_MAX_RETRIES = 500;
+
+function getChatConfigLockRetryPolicy() {
+  return hasActiveTestOverrideScope()
+    ? {
+        retryDelayMs: TEST_CHAT_CONFIG_LOCK_RETRY_DELAY_MS,
+        maxRetries: TEST_CHAT_CONFIG_LOCK_MAX_RETRIES,
+      }
+    : {
+        retryDelayMs: CHAT_CONFIG_LOCK_RETRY_DELAY_MS,
+        maxRetries: CHAT_CONFIG_LOCK_MAX_RETRIES,
+      };
+}
 
 async function acquireChatConfigLock(
   chatConfigPath: string,
 ): Promise<() => Promise<void>> {
   const lockPath = `${chatConfigPath}.codeinfo.lock`;
   const startedAt = Date.now();
+  const { maxRetries, retryDelayMs } = getChatConfigLockRetryPolicy();
   appendRuntimeTestDiagnostic('runtime.chat_config_lock_acquire_begin', {
     chatConfigPath,
     lockPath,
-    maxRetries: CHAT_CONFIG_LOCK_MAX_RETRIES,
-    retryDelayMs: CHAT_CONFIG_LOCK_RETRY_DELAY_MS,
+    maxRetries,
+    retryDelayMs,
     pid: process.pid,
   });
 
-  for (let attempt = 0; attempt < CHAT_CONFIG_LOCK_MAX_RETRIES; attempt += 1) {
+  for (let attempt = 0; attempt < maxRetries; attempt += 1) {
     let handle: FileHandle | undefined;
     try {
       handle = await fs.open(lockPath, 'wx');
@@ -467,17 +482,17 @@ async function acquireChatConfigLock(
         lockPath,
         attempt: attempt + 1,
         waitedMs: Date.now() - startedAt,
-        retryDelayMs: CHAT_CONFIG_LOCK_RETRY_DELAY_MS,
+        retryDelayMs,
         pid: process.pid,
       });
-      await delay(CHAT_CONFIG_LOCK_RETRY_DELAY_MS);
+      await delay(retryDelayMs);
     }
   }
 
   appendRuntimeTestDiagnostic('runtime.chat_config_lock_timeout', {
     chatConfigPath,
     lockPath,
-    attempts: CHAT_CONFIG_LOCK_MAX_RETRIES,
+    attempts: maxRetries,
     waitedMs: Date.now() - startedAt,
     pid: process.pid,
   });

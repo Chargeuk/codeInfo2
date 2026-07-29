@@ -1189,8 +1189,23 @@ export const createPullRequest = async (params: {
   });
   if (lookedUp.kind !== 'ok') {
     return {
-      ...lookedUp,
-      lookupDiagnostics: [],
+      kind: 'ok',
+      value: {
+        number: createdPullRequestNumber,
+        url: createdUrl,
+        headRefName: params.repository.upstreamBranch,
+        baseRefName: params.repository.baseBranch,
+      },
+      lookupDiagnostics: [
+        {
+          reason: lookedUp.reason,
+          message: lookedUp.message,
+          stderr: lookedUp.stderr,
+          exitCode: lookedUp.exitCode,
+          attemptNumber: 1,
+          waitMs: 0,
+        },
+      ],
     };
   }
   if (

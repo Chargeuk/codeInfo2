@@ -3384,7 +3384,7 @@ test('explicit decisionScript fails hard for timeout script output', async () =>
   );
 });
 
-test('implicit harness decision scripts resolve from the harness root for worked repositories', async () => {
+test('script-backed if steps use the worked repository and remain terminal in GitHub recovery scopes', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
       await writeFlowFile({
@@ -3393,6 +3393,7 @@ test('implicit harness decision scripts resolve from the harness root for worked
         steps: [
           {
             type: 'if',
+            githubReviewRecovery: true,
             condition:
               'scripts/flow_control/check_github_review_cycle_active.py',
             then: [makeLlmStep()],
@@ -3413,9 +3414,10 @@ test('implicit harness decision scripts resolve from the harness root for worked
       const final = await waitForFlowFinal({
         ws,
         conversationId,
-        status: 'ok',
+        status: 'failed',
       });
-      assert.equal(final.status, 'ok');
+      assert.equal(final.error?.code, 'IF_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /Script file not found/);
     },
     { registerTmpDirAsRepo: true },
   );

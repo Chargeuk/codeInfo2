@@ -486,7 +486,7 @@ Give local Copilot `/review` invocations the same practical full-access policy a
 - Repository Name: `Current Repository`
 - Task Dependencies: `Task 7`
 - Task Status: `__done__`
-- Git Commits: `TBD`
+- Git Commits: `428f036d`
 - Created: `July 29, 2026 [locale=en-US; timeZone=Europe/London]`
 
 #### Overview

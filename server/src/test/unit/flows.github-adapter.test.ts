@@ -529,7 +529,7 @@ test('GitHub PR creation uses the remote upstream branch when its local name dif
   }
 });
 
-test('GitHub PR creation retains the validated identity when immediate metadata lookup fails', async () => {
+test('GitHub PR creation fails when immediate metadata reconciliation fails', async () => {
   const tempRepo = await createTempRepo();
   try {
     __setGitHubReviewDepsForTests({
@@ -561,13 +561,11 @@ test('GitHub PR creation retains the validated identity when immediate metadata 
     });
 
     assert.deepEqual(created, {
-      kind: 'ok',
-      value: {
-        number: 45,
-        url: 'https://github.com/example/repo/pull/45',
-        headRefName: repository.upstreamBranch,
-        baseRefName: 'main',
-      },
+      kind: 'error',
+      reason: 'GITHUB_CLI_FAILED',
+      message: 'gh api repos/example/repo/pulls/45 failed',
+      stderr: 'temporary GitHub API failure',
+      exitCode: 1,
       lookupDiagnostics: [],
     });
   } finally {

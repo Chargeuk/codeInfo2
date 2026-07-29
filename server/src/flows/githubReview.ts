@@ -1189,13 +1189,7 @@ export const createPullRequest = async (params: {
   });
   if (lookedUp.kind !== 'ok') {
     return {
-      kind: 'ok',
-      value: {
-        number: createdPullRequestNumber,
-        url: createdUrl,
-        headRefName: params.repository.upstreamBranch,
-        baseRefName: params.repository.baseBranch,
-      },
+      ...lookedUp,
       lookupDiagnostics: [],
     };
   }

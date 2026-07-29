@@ -5395,12 +5395,12 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 Run these automated commands without target filters. Preserve wrapper heartbeat and saved-log guidance, and shut down the supported Compose stack after the proof attempt:
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run build:summary:server`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client`
+2. [x] `npm run build:summary:server`
+3. [x] `npm run compose:build:summary`
+4. [x] `npm run compose:up`
+5. [x] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
+6. [x] `npm run compose:down`
 7. [x] `npm run lint`
 8. [x] `npm run format:check`
 
@@ -5416,3 +5416,18 @@ Keep optional task-level logs and screenshots under `codeInfoTmp/manual-testing/
 - Task 51 is the one final revalidation owner for the active cycle and is intentionally appended after all existing work. Its `Testing` section contains only runnable automated commands; optional browser, agent-driven, screenshot, and live-provider scenarios remain in checkbox-free manual guidance.
 - `npm run lint` passed with exit code 0; no story-caused lint issues required repair.
 - `npm run format:check` passed with exit code 0; all tracked files matched Prettier style and no repair was needed.
+- `npm run build:summary:client` passed; the wrapper reported only the existing large-chunk size warning.
+- `npm run build:summary:server` passed with a clean wrapper result.
+- `npm run compose:build:summary` passed with both Compose image items successful.
+- `npm run compose:up` passed; the supported stack started and server health checks became healthy.
+- Full validation exposed a story-caused regression: post-create GitHub PR reconciliation failures were incorrectly treated as success. `createPullRequest` now propagates the lookup failure so the flow warns and skips, and the affected unit expectation was updated; server build, Compose build/startup, full-suite, and shutdown proof are stale and must rerun.
+- Focused server-unit proof passed for `github review open PR skips the cycle when canonical post-create reconciliation fails` after the repair.
+- Rebuilt the server after the reconciliation repair; `npm run build:summary:server` passed cleanly.
+- Rebuilt the Compose images after the reconciliation repair; `npm run compose:build:summary` passed with both image items successful.
+- The first post-repair startup attempt found the still-running repository-owned stack on ports 5010/5011/5012/8932; reclaimed it with the supported `npm run compose:down` wrapper before retrying startup. This intermediate reclaim is not the final shutdown proof.
+- Post-repair `npm run compose:up` passed after reclaim; the rebuilt server reached healthy state and the client started.
+- The rerun full suite exposed only an assertion-message mismatch in the newly updated adapter test; the implementation correctly propagated the lower-layer `gh api repos/example/repo/pulls/45 failed` message, so the test expectation was corrected before the next full proof.
+- Final full-suite rerun passed: client 908/908, server unit 2,789/2,789, server Cucumber 138/138, and e2e 78/78; temporary Cucumber/e2e stacks were cleaned up by the wrapper.
+- Final `npm run compose:down` passed and removed the main repository-owned test stack; lint and formatting checks were reopened because the repair changed production and test TypeScript after their earlier passes.
+- Post-repair `npm run lint` passed cleanly with zero warnings.
+- Post-repair `npm run format:check` passed; all tracked files matched Prettier style.

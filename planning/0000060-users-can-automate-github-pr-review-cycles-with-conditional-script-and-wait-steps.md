@@ -5433,3 +5433,350 @@ Keep optional task-level logs and screenshots under `codeInfoTmp/manual-testing/
 - Post-repair `npm run format:check` passed; all tracked files matched Prettier style.
 - Audit confirmed the same-task reconciliation repair was rerun through the complete final validation lifecycle; all subtasks and automated testing items are complete with no live blocker, so Task 51 is honestly done and manual proof remains optional guidance only.
 - Manual testing skipped for the final live GitHub review-cycle surface after full-story scope was assessed. Tried: rebuilt and started the supported main stack, verified `GET /health`, opened desktop and mobile Flows, and ran the safe `smoke` flow; the main stack was then stopped cleanly. Observed: the Flow UI/API rendered without browser-console errors, but the Codex flow run could not authenticate because its token was expired; Playwright screenshot staging also lacked the requested relative directory. Why fuller proof was not possible: live GitHub review-cycle proof requires provider authentication and a sandbox repository, and repository policy prohibits autonomous re-authentication when restoring access requires human-controlled two-factor authentication; no code, blocker, or follow-up work was added.
+
+## Code Review Findings
+
+- Findings recorded: `July 29, 2026 at 3:30:15 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260729T013114Z-ff436b69`
+- Review cycle: `0000060-rc-20260729T013113Z-e703b6af`
+- Reviews attempted:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, job identity `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) — completed; four supported findings generated and corroborated by job verification.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, job identity `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`, target `current_repository`) — completed bounded review with no supported finding.
+    - Input tokens: 9327834
+    - Cached input tokens: 9082624
+    - Output tokens: 18910
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, job identity `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`, target `cross-repository story scope`) — completed not applicable because only `current_repository` was assigned.
+    - Input tokens: 201870
+    - Cached input tokens: 155392
+    - Output tokens: 2600
+- Usage note: The native Codex usage artifact reports zero input, cached input, and output tokens despite a non-empty native response; those values are retained as reported and treated as uncertain metadata only.
+
+### Accepted
+
+#### 1. Direct decision scripts can run from the harness root
+
+- Finding ID: `F1`
+- Source and target: `server/src/flows/service.ts:7416-7419`; `current_repository`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, job identity `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the finding; job verification corroborated it.
+- Simple description: A direct Python decision script under `scripts/flow_control/` is resolved through the harness root instead of the worked repository. A different or untracked harness file can therefore control a supported flow decision.
+- Example: A copied review flow invokes `scripts/flow_control/should_continue.py`; if the harness has a same-named file while the worked repository has the checked-in entrypoint, the current branch can execute the harness file and choose the wrong review-cycle path.
+- Why accepted: Current acceptance criteria require checked-in repository-relative Python execution from the worked repository root with strict path and containment rules. The current-HEAD branch is reachable through the supported copied flow and choosing the wrong authority has meaningful correctness impact. The existing `executeFlowDecisionScript` seam in `server/src/flows/flowDecisionScript.ts:103-190` already expresses worked-root resolution, checked-in-file enforcement, and containment, so this is suitable for a normal repair. The repair is limited to the authorized worked-repository contract and does not add general hardening or an Out Of Scope mechanism.
+
+#### 2. A validated PR-create URL must preserve creation success
+
+- Finding ID: `F2` (narrowed survivor)
+- Source and target: `server/src/flows/githubReview.ts:1185-1194`, caller `server/src/flows/service.ts:8206-8290`; `current_repository`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, job identity `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the finding; job verification corroborated it.
+- Simple description: After `gh pr create` prints a valid PR URL and number, an immediate canonical metadata lookup failure is returned as failed creation. The PR already exists, but the flow can report a skip or failure and lose the created identity.
+- Example: GitHub creates PR 45 and prints its URL, then a transient `gh api` lookup fails; the current caller records failed PR opening even though PR 45 is open and available for the review cycle.
+- Why accepted: Current acceptance criteria explicitly require treating the printed PR URL as a success indicator before the follow-up metadata lookup. The API-boundary scenario is supported and can strand an existing PR or require operator recovery, so the impact is material. The existing `GitHubCreatePullRequestResult` `kind: 'ok'` value carries PR identity and lookup diagnostics, and the existing caller already persists and logs that result, providing a normal-repair seam. The scope audit removed only the unapproved open-ended retry/defer policy because current HEAD exposes no retry count, delay, timeout, or generalized reconciliation control. Preserving validated identity is in scope; adding that policy is not.
+
+#### 3. Decision-script execution and parse failures must remain terminal
+
+- Finding ID: `F3`
+- Source and target: `server/src/flows/service.ts:11376-11384`; `current_repository`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, job identity `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the finding; job verification corroborated it.
+- Simple description: Failures from script-backed decisions can enter GitHub-review recovery and become `github_review_skipped` instead of remaining hard decision-step failures. Missing scripts, timeouts, nonzero exits, and invalid output can therefore look like supported review skips.
+- Example: A copied flow’s decision script is missing while GitHub recovery is enabled; instead of failing the conditional step, the current runtime can complete the review stage with a warning and no authoritative yes/no decision.
+- Why accepted: Current acceptance criteria require missing files, timeouts, nonzero exits, malformed JSON, extra keys, and invalid answers to remain hard failures, while allowing completed-with-warning only for supported GitHub-review skips. The shipped opt-in flow reaches this path and false completion can omit required review behavior. `runSharedDecisionStep` already has an internal `failureKind` marker and the existing `runIfStep` boundary can carry it to the recovery decision, making a normal repair suitable. The repair separates authorized decision failures from operational GitHub failures without adding new recovery policy or Out Of Scope behavior.
+
+#### 4. Expanded chat-config lock retries should be test-only
+
+- Finding ID: `F4`
+- Source and target: `server/src/config/runtimeConfig.ts:420-421`; `current_repository`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, job identity `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the finding; job verification corroborated it.
+- Simple description: Production startup unconditionally uses 500 lock retries at 50 ms each instead of the comparison-base 20 retries at 25 ms. A stale chat-config lock can therefore delay ordinary bootstrap recovery by about 25 seconds rather than about 0.5 seconds.
+- Example: After a process interruption leaves `.codeinfo.lock`, the next normal server startup waits through the expanded unconditional retry budget before reporting lock failure or recovering.
+- Why accepted: Current acceptance criteria require test-only isolation and state that parallel or stress execution must not change production behavior. The story-caused comparison-base regression is reachable through ordinary lock acquisition and has meaningful startup impact. Current HEAD already exposes `hasActiveTestOverrideScope`, and the test override API proves a seam for retaining the larger budget in active test scope while restoring comparison-base production values, making a normal repair suitable. This adds no new production quota, timeout, retry policy, or other Out Of Scope mechanism.
+
+### Ignored for This Story
+
+#### 5. F2 narrowed-away retry/defer remedy
+
+- Finding ID or Review reference: `F2` — narrowed-away remedy only
+- Source and target: `server/src/flows/githubReview.ts:1185-1213`; `current_repository`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, job identity `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — proposed the remedy; the filtering audit narrowed it away.
+- Simple description: The review proposed deferring or retrying canonical PR metadata reconciliation after a successful `gh pr create`. Current HEAD does not expose an existing retry control for that follow-up lookup.
+- Example: The create command prints PR 45, the lookup fails, and a proposed retry would choose a retry count and delay before deciding whether to continue; the story fixes the success indicator but does not define that policy.
+- Why ignored: This is only the removed portion of accepted finding F2, not a second finding. The negative-scope gate and mechanism check rejected it because adding retry count, delay, timeout, or generalized deferred reconciliation would expand the story and use an unproven seam. Authorization of the outcome does not authorize that mechanism. The F2 observation, identity, source, target, and narrower repair remain accepted above; no materiality rejection applies.
+
+#### 6. Malformed lookalike directory has no batch-launch or review-job coverage
+
+- Finding ID or Review reference: `Unavailable duplicate evidence at codeInfoTmp/reviews/0000060-rc-20260729T013113Z-e703b6af/batches/0000060-rw20260729T013114Z-ff436b69--head-152538a83311`
+- Review harnesses:
+  - Unknown review harness (source: `codeInfoTmp/reviews/0000060-rc-20260729T013113Z-e703b6af/batches/0000060-rw20260729T013114Z-ff436b69--head-152538a83311/reconciliation/materiality-filtered-findings.md`) — no `batch-launch.md`, `jobs/`, direct job identity, target assignment, or launch inventory exists for this spelling.
+- Simple description: A second directory spelling reports a batch identity that resembles Batch 1 but omits the hyphen after `rw`. It contains only a derived materiality record, so it provides unavailable launch and direct-review coverage rather than a fifth immutable batch.
+- Example: Settlement can inspect the canonical `0000060-rw-20260729T013114Z-ff436b69` directory and find its launch, three jobs, gates, repair, and outcome; the lookalike `0000060-rw20260729T013114Z-ff436b69` directory has none of those records and cannot establish that another review ran or completed.
+- Why ignored: The path and reported identity contradict the authoritative Batch 1 handoff. Treating this directory as another batch would duplicate the Batch 1 findings block and completed-fixes task, while treating it as clean coverage would invent launch and job evidence. It remains visible as malformed, unavailable duplicate provenance only; the canonical Batch 1 launch, direct jobs, reconciliation, repair outcome, and Task 52 control the review decision.
+
+## Code Review Findings
+
+- Findings recorded: `July 29, 2026 at 4:50:49 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260729T024820Z-c5584e7c`
+- Review cycle: `0000060-rc-20260729T013113Z-e703b6af`
+- Reviews attempted:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, job identity `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) — partial; one supported finding was recovered, but native completion and usage were unavailable.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, job identity `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`, target `current_repository`) — partial zero-finding bundle; two changed paths were omitted from retained coverage.
+    - Input tokens: 12095328
+    - Cached input tokens: 11778560
+    - Output tokens: 21772
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, job identity `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`, target `cross-repository story scope`) — completed no-work because only `current_repository` was assigned.
+    - Input tokens: 198785
+    - Cached input tokens: 169472
+    - Output tokens: 2214
+- Review coverage note: The batch is partial. The native Codex session has no terminal completion event, final response, or numeric process status; OpenCode omitted `codeInfoStatus/flow-state/current-plan.json` and `server/src/lmstudio/clientPool.ts`; and the cross-repository job had no second repository. These limitations do not promote the removed finding.
+
+### Accepted
+
+- None. The latest applicable audited negative-scope gate established an empty actionable survivor set.
+
+### Ignored for This Story
+
+#### 1. An unpushed branch is skipped instead of being pushed to its existing remote
+
+- Finding ID or Review reference: `P1`
+- Source and target: `server/src/flows/githubReview.ts:896-908` and `:967-988`; `current_repository`
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, job identity `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) — generated the finding; job verification corroborated the pinned behavior and story conflict.
+- Simple description: A branch without a tracking ref returns `UPSTREAM_MISSING` before the existing push path can run, so the flow skips branch publication and cannot reach PR creation through this path.
+- Example: A supported review flow runs on a branch with no `@{u}` tracking ref; repository-state resolution stops before `pushBranchToExistingUpstream`, and the evidence does not establish which configured remote should be authoritative.
+- Why ignored: The negative-scope gate fully removed P1 because current HEAD exposes no remote-selection field or exact runtime seam that can authorize a remote when `@{u}` is absent. Choosing `origin`, the only enumerated remote, or another configured remote would add a fallback/selection policy, while the story's Out Of Scope boundary prohibits guessing alternate remotes, forks, or first-publication targets. The observation and consequence are technically supported, but the demonstrated remedy is unauthorized and unproven; positive authorization and materiality were deliberately not applicable after the completed empty negative gate. P1 is preserved as non-actionable evidence only and is not repair, task, or review-loop work for this story.
+
+### Task 52. Record Review Fixes From Batch 0000060-rw-20260729T013114Z-ff436b69
+
+- Repository Name: `Current Repository`
+- Review Task Role: `completed_review_fixes`
+- Task Dependencies: `Task 51`
+- Task Status: `__done__`
+- Review Batch: `0000060-rw-20260729T013114Z-ff436b69`
+- Review Cycle: `0000060-rc-20260729T013113Z-e703b6af`
+- Affected Repositories: `current_repository`
+- Review Target HEAD: `152538a83311f799c820a41492d6fe198df7c721`
+- Initial Repair HEAD: `152538a83311f799c820a41492d6fe198df7c721`
+- Final Repair HEAD: `d2cc5471e5b87e4e31b1cc8a34c8b55ec4037a6d`
+- Created: `July 29, 2026 at 3:45:37 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repair for the four authorized and material survivors from batch `0000060-rw-20260729T013114Z-ff436b69`. The repair restores worked-repository direct-script authority, keeps direct-script failures terminal, preserves validated PR creation identity after an immediate metadata lookup failure, and scopes the expanded chat-config lock budget to active test overrides. The F2 retry/defer remedy remains excluded. The stronger repair was deliberately skipped because the normal repair audit establishes that no actionable finding remains; this task records completed implementation evidence and does not create unresolved work or final revalidation work.
+
+#### Affected Repositories
+
+- `current_repository`: `server/src/config/runtimeConfig.ts`, `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/unit/flows.github-adapter.test.ts`.
+
+#### Review Harnesses
+
+- Codex review (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, instance `target_reviews:current_repository:codex_review`) generated and corroborated the addressed findings F1–F4.
+
+#### Addresses Findings
+
+- F1, `Direct decision scripts can run from the harness root`, owned by `current_repository`: route `scripts/flow_control/` through the existing worked-repository checked-in and containment seam.
+- F2, `A validated PR-create URL must preserve creation success`, owned by `current_repository`: preserve validated PR identity and diagnostics through the existing result/caller seam without adding retry or reconciliation policy.
+- F3, `Decision-script execution and parse failures must remain terminal`, owned by `current_repository`: keep script-backed decision failures outside GitHub operational recovery.
+- F4, `Expanded chat-config lock retries should be test-only`, owned by `current_repository`: retain the larger budget only inside the existing active test override and restore comparison-base production behavior.
+
+#### Subtasks
+
+1. [x] Route direct `scripts/flow_control/` decisions through the existing worked-repository authority and add regression proof that a harness-only script is rejected.
+2. [x] Preserve validated PR creation identity after immediate metadata lookup failure through the existing `kind: 'ok'` result seam, without retry, delay, timeout, alternate-PR, fallback, or generalized reconciliation policy.
+3. [x] Keep script-backed `if` execution and parsing failures terminal even when GitHub-review recovery is enabled, with focused integration coverage.
+4. [x] Scope the expanded chat-config lock retry budget to active test overrides while restoring comparison-base production values, with runtime-config coverage.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` — 21/21 passed.
+2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.errors.test.ts` — 53/53 passed.
+3. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/runtimeConfig.test.ts` — 120/120 passed.
+
+`npx eslint --max-warnings=0` passed on the five changed files, and `git diff --check` passed before the repair commit. Final `npx prettier --check` on the changed files exited 1 because pre-existing style differences remained; no formatter configuration or broad cleanup was retained. No full automated suite, client build, Compose run, live GitHub/API proof, restart proof, or browser/e2e proof was run.
+
+#### Implementation Notes
+
+- Normal repair commit `d2cc5471e5b87e4e31b1cc8a34c8b55ec4037a6d` (`DEV-60 - Repair review-cycle runtime contracts`) changed exactly `server/src/config/runtimeConfig.ts`, `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and `server/src/test/unit/flows.github-adapter.test.ts`.
+- F1 and F3 use the existing service/runtime seams; F2 retains the validated URL, number, head, base, and lookup diagnostic without implementing the excluded retry/defer remedy; F4 uses existing active test override scope and comparison-base production behavior.
+- The normal repair audit checked each change against the exact positive-authorization and materiality trails, the combined filtering audit, and the disposition. No authorization conflict or materiality conflict was found.
+- The stronger repair was deliberately skipped because the normal repair audit positively established that all four accepted survivors were resolved and no actionable finding remained. No stronger commit, unresolved-finding task, or stronger-repair audit exists or is required.
+- The current repository remains on the expected feature branch, ahead of its remote by one commit; the pre-existing unstaged plan edit was preserved and is not part of the repair commit.
+- Review limitations remain: OpenCode coverage is bounded with a deterministic large-diff partition warning; the cross-repository job was not applicable because only one repository was assigned; and full-suite, Docker/Compose, live GitHub, restart, browser/e2e, and broad out-of-coverage behavior remain unavailable. A later review is useful because the repair created final HEAD `d2cc5471e5b87e4e31b1cc8a34c8b55ec4037a6d`.
+
+### Task 53. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260729T013113Z-e703b6af
+
+- Repository Name: `Current Repository`
+- Review Task Role: `final_revalidation`
+- Task Dependencies: `Task 52` plus all earlier story work
+- Task Status: `__in_progress__`
+- Review Cycle: `0000060-rc-20260729T013113Z-e703b6af`
+- Affected Repositories: `current_repository`
+- Review Scope: whole-story validation at `d2cc5471e5b87e4e31b1cc8a34c8b55ec4037a6d`, including the Batch 1 repair commit and all story-owned server, client, flow, script, test, Compose, and proof surfaces.
+- Created: `July 29, 2026 at 7:45:24 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Perform the one final whole-story automated validation after the completed Batch 1 repair record. This task owns final proof at the current target HEAD and may repair a story-caused failure exposed by its checks, but it must not reopen ignored findings or start another review. Optional provider, browser, agent-driven, and screenshot scenarios remain non-blocking manual guidance only.
+
+#### Task Exit Criteria
+
+- The complete story and the Batch 1 repair are validated at the final target HEAD through the supported build, Compose startup, full automated-suite, shutdown, lint, and formatting lifecycle.
+- Task 52 remains the single exact matching completed-review-fixes record for the only fix-bearing batch, before this final task.
+- Any story-caused failure exposed by final validation is repaired within this task when practical, with every affected check rerun; unrelated baseline limitations are recorded honestly.
+
+#### Review Cycle Coverage
+
+- Batch `0000060-rw-20260729T013114Z-ff436b69` is fix-bearing and is preserved by Task 52 with normal repair commit `d2cc5471e5b87e4e31b1cc8a34c8b55ec4037a6d`.
+- Batches `0000060-rw-20260729T024820Z-c5584e7c`, `0000060-rw-20260729T035825Z-ea8f0a1b`, and `0000060-rw-20260729T045420Z-5172ef31` have no materiality survivors and create no open implementation work.
+- The lookalike directory `codeInfoTmp/reviews/0000060-rc-20260729T013113Z-e703b6af/batches/0000060-rw20260729T013114Z-ff436b69--head-152538a83311` has no launch or direct-job inventory and remains unavailable duplicate provenance, not a fifth batch or a source of clean coverage.
+- Earlier negative-scope, positive-authorization, and materiality removals remain ignored evidence only. They must not be reopened by final validation.
+
+#### Affected Repositories
+
+- `current_repository`: complete story implementation, server and client workspaces, Compose runtime, tests, scripts, flow definitions, and repository-owned proof surfaces.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] In `current_repository`, run the supported lint command `npm run lint` and fix any story-caused issues.
+2. [ ] In `current_repository`, run the supported formatting check `npm run format:check`, using `npm run format` before manual cleanup for any story-caused issue.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+Only runnable automated proof commands belong here, in this order:
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run build:summary:server`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
+6. [ ] `npm run compose:down`
+7. [ ] `npm run lint`
+8. [ ] `npm run format:check`
+
+Use the repository wrapper heartbeat and saved-log rules. If a story-caused failure is repaired, rerun every affected command and record the exact result in Implementation Notes. Do not mark a command complete without evidence.
+
+#### Manual Testing Guidance
+
+Optional, checkbox-free manual proof may use the supported main Compose stack, started through the repository wrappers after `server/.env` and `client/.env` plus their optional `.env.local` files are available, at `http://localhost:5001` and `http://localhost:5010`. The server health check is `http://localhost:5010/health`; the client health check is `http://localhost:5001`; the stack mounts `manual_testing/codeinfo_agents` at `/app/codeinfo_agents` and `manual_testing/codex_agents` at `/app/codex_agents`. Use those mounted catalogs, provider access, and a sandbox repository as the setup source when available, and follow the documented startup order where the client depends on healthy server state. Exercise final flow-cycle clean, finding, warning, resume, and PR-identity surfaces that can honestly be observed. Keep task-level screenshots, logs, and other artifacts under `codeInfoTmp/manual-testing/0000060/53/`; for Playwright MCP, capture first using a relative path in its output directory, normally inspect `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host, then transfer selected artifacts into that task directory and do not commit them. If provider login requires human-controlled two-factor authentication, use the repository-approved skip, record the limitation honestly, and do not attempt re-authentication. Manual proof is not an automated gate, live blocker, or reason to create another review iteration.
+
+#### Implementation Notes
+
+Record the final target HEAD, every automated wrapper result, any story-caused repair and rerun, Compose startup and shutdown result, and honest limits including unavailable live-provider or browser proof. Keep this final task after Task 52 and after any genuinely open settlement work; no open settlement work is currently recommended.
+
+## Code Review Findings
+
+- Findings recorded: `July 29, 2026 at 5:48:50 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260729T035825Z-ea8f0a1b`
+- Review cycle: `0000060-rc-20260729T013113Z-e703b6af`
+- Reviews attempted:
+  - Codex review — Story 0000060 (`codex_review`, job `target_reviews:current_repository:codex_review`, job identity `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) — completed; its PR-metadata candidate was rejected during verifier recovery and no actionable finding remained.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - OpenCode review: current_repository (`open_code_review`, job `target_reviews:current_repository:open_code_review`, job identity `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`, target `current_repository`) — completed; generated one supported finding that was removed at materiality.
+    - Input tokens: 3786397
+    - Cached input tokens: 3645184
+    - Output tokens: 17187
+  - Cross-repository review — not applicable (`cross_repository_review`, job `story_review:cross_repository_review`, job identity `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`, target `cross-repository story scope`) — completed; only `current_repository` was assigned.
+    - Input tokens: 194594
+    - Cached input tokens: 164864
+    - Output tokens: 2347
+- Usage note: The native Codex usage artifact reports zero values despite a non-empty response; this is retained as uncertain metadata only. Broader full-suite, Compose, live-GitHub, and out-of-coverage behavior were not run by the review jobs.
+
+### Accepted
+
+- None. The last applicable audited materiality gate left no actionable survivor.
+
+### Ignored for This Story
+
+#### 1. Reject partial persisted review authority instead of falling back — materiality removal
+
+- Finding ID or Review reference: `F-001`; source `scripts/flow_control/check_github_review_has_reviewer_feedback.py:100-103`; target `current_repository`.
+- Review harnesses:
+  - OpenCode review: current_repository (`open_code_review`, job `target_reviews:current_repository:open_code_review`, job identity `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated the finding and supplied the retained technical evidence.
+- Simple description: The helper uses execution-scoped review authority only when both execution ID and handoff path are present. A partial persisted source can instead fall back to the mutable story-global selector, which could select feedback from another execution.
+- Example: The current code takes the selector branch if only an execution ID, only a handoff path, or only a PR number reaches the helper; the reviewed runtime evidence did not show a supported successful-fetch transition producing one of those partial states.
+- Why ignored: The finding is technically supported and its narrowed fail-closed outcome is positively authorized by Story 60’s same-execution resume contract, but realistic supported reachability was not convincingly demonstrated. Runtime normalization re-derives canonical handoff authority when execution and story identity survive, while incomplete open/fetch states fail, recover, or skip before this decision. The meaningful hypothetical impact therefore does not establish material, proportionate Story 60 repair value.
+
+#### 2. Require a persisted PR number alongside a complete execution/handoff source pair — narrowed-away remedy
+
+- Finding ID or Review reference: `F-001 narrowed-away remedy`; source `scripts/flow_control/check_github_review_has_reviewer_feedback.py:47-110`; target `current_repository`.
+- Review harnesses:
+  - OpenCode review: current_repository (`open_code_review`, job `target_reviews:current_repository:open_code_review`, job identity `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — proposed the repair; the negative-scope and mechanism audit narrowed this portion away.
+- Simple description: The original repair direction required execution ID, handoff path, and PR number together before using persisted review authority. The existing loader treats PR number as an optional cross-check when execution ID and handoff path are complete.
+- Example: A supported resumed execution can retain execution identity and canonical handoff authority without a persisted PR-number environment value; rejecting that case solely because the PR number is absent would turn an existing supported resume into a failure.
+- Why ignored: The completed negative-scope gate removed this remedy because current HEAD exposes no authorization for mandatory PR-number validation and adding it would create an unapproved validation failure. Only the complete execution-ID/handoff-path guard survived; the removed mechanism cannot be restored or routed downstream.
+
+#### 3. Treat a valid PR-create URL followed by a failed metadata lookup as failed creation — rejected candidate
+
+- Finding ID or Review reference: `R-001`; source `server/src/flows/githubReview.ts:1184-1211`; target `current_repository`.
+- Review harnesses:
+  - Codex review — Story 0000060 (`codex_review`, job `target_reviews:current_repository:codex_review`, job identity `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the candidate; verifier recovery rejected it.
+- Simple description: The candidate claimed that PR creation should be rejected when the immediate canonical metadata lookup fails after `gh pr create` prints a valid URL. The retained implementation intentionally preserves the validated PR identity and diagnostics so the existing PR is not misclassified as a failed creation.
+- Example: GitHub creates PR 45 and prints its URL, then the immediate metadata API call fails; current code retains the validated PR 45 identity and later exact-number recovery rather than falsely reporting that creation failed.
+- Why ignored: The candidate conflicts with verified current-HEAD behavior and was rejected during reconciliation recovery; the focused preservation test passed. It is not a distinct actionable defect and cannot route to repair or task work.
+
+## Code Review Findings
+
+- Findings recorded: `July 29, 2026 at 7:02:15 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260729T045420Z-5172ef31`
+- Review cycle: `0000060-rc-20260729T013113Z-e703b6af`
+- Reviews attempted:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, job identity `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`, target `current_repository`) — partial review with three pre-filter findings; the independent combined filtering audit completed all applicable gates and left no actionable survivor.
+    - Input tokens: `7740757`
+    - Cached input tokens: `7169536`
+    - Output tokens: `57888`
+- Usage note: Six designated reviewing-model artifacts reported the categories above. Cached input is recorded separately and is not added to input. Usage is factual metadata only; the review output, verification, and gate artifacts remain partial because live GitHub, browser/manual, Compose/E2E, fresh full-suite, and focused-test root-cause evidence were unavailable.
+
+### Accepted
+
+- None. The last applicable audited materiality gate left no actionable survivor.
+
+### Ignored for This Story
+
+#### 1. Review-fetch failures bypass bounded GitHub recovery
+
+- Finding ID or Review reference: `Finding 1`; source `server/src/flows/service.ts` (`runGitHubFetchReviewsStep()` and the `github_fetch_reviews` dispatch branch); target `current_repository`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, job identity `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated and corroborated the observation.
+- Simple description: Fetch-stage GitHub review failures return directly while adjacent open and close failures use the existing bounded recovery helper. A failed fetch can terminate the opt-in review flow before retry and exhausted-warning handling runs.
+- Example: A provider, scratch-publication, handoff, or materialization failure occurs during review fetch; the dispatch returns failure instead of entering the existing persisted retry/resume path.
+- Why ignored: The observation is technically supported, but applying the existing three-attempt retry, exponential delay, persisted resume, and exhausted-warning fallback to fetch failures is a new policy application. No exact current story contract or comparison-base behavior authorizes it, and the helper's existence is not authorization of every mechanism. Positive authorization therefore removed it from actionable work.
+
+#### 2. F2 immediate post-create fallback propagation claim and narrowed-away remedies
+
+- Finding ID or Review reference: `Finding 2` — removed causal subclaim and remedies only; source `server/src/flows/githubReview.ts` and `server/src/flows/service.ts`; target `current_repository`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, job identity `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated the original claim and supplied the narrowing correction.
+- Simple description: The original claim said that failed immediate PR metadata lookup directly carried an authorless create fallback into later filtering. Current HEAD prepares an execution-owned handoff path but does not write that fallback identity, so first fetch re-resolves by number.
+- Example: PR 45 is created and its URL is printed, but immediate metadata lookup fails; the next fetch sees no persisted handoff and calls by-number reconciliation rather than directly filtering the create fallback.
+- Why ignored: Current-HEAD behavior disproves the direct propagation chain, so negative scope removed it. Retry, warning/skip, fallback-author, alternate-PR, schema-field, timeout, and configuration-control remedies were also narrowed away because their authority or existing seam was not proven. The removed meaning cannot be restored under the surviving Finding 2 core.
+
+#### 3. Authorless PR identity can produce a false-clean review
+
+- Finding ID or Review reference: `Finding 2` — narrowed authorless-canonical-identity survivor; source `server/src/flows/githubReview.ts` and `server/src/flows/service.ts`; target `current_repository`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, job identity `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated and corroborated the technical behavior; materiality filtering removed it.
+- Simple description: Canonical PR identity validation accepts an identity without `authorLogin`, and feedback filtering returns an empty list when the author is absent. If that state were supported, other-user review feedback could be represented as no reviewer-authored feedback.
+- Example: A by-number response contains the required PR number, URL, open state, head, and base but no author; filtering then returns an empty feedback list instead of classifying other-user submissions or inline comments.
+- Why ignored: The behavior is technically supported and positively authorized in narrowed form, but realistic supported reachability was not demonstrated after the create-fallback route was disproved. No live response, repository-owned provider contract, supported fixture path, or exact-HEAD integration test establishes the remaining condition. The possible impact is meaningful, but value proportionate to changing completed code is not sufficiently demonstrated; this is a materiality removal, not a claim that the issue is harmless.
+
+#### 4. Visible warning status text has insufficient contrast
+
+- Finding ID or Review reference: `Finding 3`; source `client/src/components/chat/transcriptSurfaceTokens.ts`, `client/src/components/chat/AssistantTranscriptSlice.tsx`, and `client/src/pages/FlowsPage.tsx`; target `current_repository`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, job identity `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated and corroborated the source-level observation.
+- Simple description: The visible warning chip uses `#B7791F` text on `#FFF4E5`, with reported contrast below the normal-text target. The warning label may be difficult to read for low-vision users.
+- Example: A completed-with-warning flow turn renders the small filled `Warning` chip with those token colors; source-level contrast was approximately `3.35:1`, and no browser measurement was performed.
+- Why ignored: Browser-visible UI changes are explicitly Out Of Scope beyond the new flow-only review-cycle capabilities, and no narrower flow-runtime seam expresses a color correction. The observation remains separately approvable accessibility evidence but is non-actionable for this story.

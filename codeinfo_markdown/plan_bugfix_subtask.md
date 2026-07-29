@@ -16,6 +16,7 @@ Create the bound subtask's `plan.md`. It must be a concise, one-shot implementat
 - Required broader repository-owned test and build wrappers.
 - Applicable lint, formatting, and Prettier commands discovered from `AGENTS.md` or repository scripts.
 - The affected components and repository-supported commands that will build, start, readiness-check, and stop each one.
+- For every startup proof, the documented expected cold-start duration, readiness signal, terminal failure signal, and timeout. State explicitly when the repository defines no timeout.
 - Whether the planned change appears to have a browser-visible or browser-accessible frontend surface, with the repository evidence supporting that preliminary assessment.
 - Manual verification that can be performed autonomously during implementation.
 - Explicit completion evidence and any current blocker.

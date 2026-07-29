@@ -19,6 +19,11 @@
               "breakOnFailure": true
             },
             {
+              "type": "reingest",
+              "label": "Re-ingest Working Repository Before Next Subtask",
+              "target": "working"
+            },
+            {
               "type": "reset",
               "label": "Reset Bugfix Worker Before Next Subtask",
               "agentType": "coding_agent",

@@ -157,9 +157,7 @@ def _candidate_gt_paths() -> list[Path]:
             Path(
                 "/home/dastapleton/code/enterprise-gt/services/enterprise-gt/bin/gt"
             ),
-            Path("/home/dastapleton/code/gt/gt"),
             Path("/data/enterprise-gt/services/enterprise-gt/bin/gt"),
-            Path("/data/gt/gt"),
         ]
     )
     discovered = shutil.which("gt")

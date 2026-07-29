@@ -18,6 +18,8 @@ Native models reuse local Copilot CLI readiness, model discovery, and normal aut
 
 Every Copilot child receives immutable pinned target, base, head, wave, model, endpoint, reasoning, availability, and job identity data in a private review workspace. The local launcher validates the repository and commits before contacting a provider, invokes Copilot exactly once with non-interactive JSONL `/review`, closes stdin, and passes `--allow-all` because CodeInfo's Docker container is the isolation boundary, matching the existing Codex and OpenCode review policy. Full access does not weaken the provider or remote-session boundaries: built-in GitHub MCP access, remote control, and remote export remain disabled, provider credentials remain isolated from tool environments, and persisted artifacts remain confined to the assigned workspace. Native launches remove inherited BYOK variables; external launches receive only the selected endpoint and key in their child-process environment. Credentials and broad key maps never enter command arguments, flow state, resume state, metadata, output, or logs.
 
+The Copilot child flow launches through a native service step rather than an LLM wrapper. That step cross-checks the persisted child payload against the immutable wave target, pinned model snapshot, and canonical private workspace; generates the review instructions deterministically from the pinned target and story context; and directly awaits the reusable launcher with the flow cancellation signal. No agent copies absolute paths or semantic arguments into a shell command, and no orchestration cell or tool-session handle sits between the flow lifecycle and the Copilot process.
+
 The launcher preserves secret-free invocation metadata, raw JSONL, raw stderr, numeric exit status, timestamps, inner Copilot usage, and a normalized review result in the assigned workspace. Successful, partial, failed, timed-out, cancelled, drifted, and unavailable outcomes retain whatever trustworthy evidence exists. One child failure does not stop independent reviews. Resume reattaches through stable instance and input identities without duplicating children, and cancellation follows the existing wave semantics.
 
 Copilot is explicitly instructed not to inspect, read, summarize, cite, or report findings for changes under repository-root-relative `planning/**`. Its Git diff guidance uses the exact pinned `base...head` range with `-- . ':(exclude)planning/**'`, while the compact prepared story context remains the authoritative requirements source. This is an instruction and Git pathspec boundary, not a synthetic commit or hard filesystem sandbox.
@@ -49,6 +51,7 @@ Automated proof for this story must run with test-runner concurrency set to one.
 - Every Copilot child instance identity contains the stable model-group identity, repository target identity, and `copilot_review` flow name.
 - Stable model and child identities do not contain reasoning effort and do not change when unrelated endpoint entries are reordered.
 - Every child uses an isolated workspace and immutable pinned input containing its repository target, base, head, wave, model, reasoning effort, availability snapshot, and external endpoint identity when applicable.
+- The `copilot_review` child uses one native flow-service step that derives all launcher arguments from persisted scheduler input, generates the pinned instructions deterministically, and awaits terminal launcher completion without an LLM wrapper or tool-session polling.
 - Persisted effective groups and wave progress support deterministic resume without duplicating previously created Copilot children.
 - Parent cancellation prevents later admissions and settles or cancels active Copilot children through the existing wave behavior.
 - Each available child invokes the locally installed Copilot CLI exactly once using `CODEINFO_COPILOT_CLI_PATH` or `copilot` from `PATH`.
@@ -475,5 +478,70 @@ Give local Copilot `/review` invocations the same practical full-access policy a
 - Full access does not enable remote GitHub behavior: `--no-remote`, `--no-remote-export`, and disabled built-in MCP access remain mandatory.
 - `--secret-env-vars` still removes provider credentials from shell and MCP environments and redacts them from Copilot output, while the launcher retains its own output redaction.
 - Fixing parallel test-runner isolation remains out of scope, and no manual testing, live provider spending, login, remote session, or remote PR review was performed or desired.
+
+---
+
+### Task 8. Make Copilot review launch inputs and completion service-owned
+
+- Repository Name: `Current Repository`
+- Task Dependencies: `Task 7`
+- Task Status: `__done__`
+- Git Commits: `TBD`
+- Created: `July 29, 2026 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Remove the LLM wrapper from Copilot launcher argument transport and process supervision after live review evidence showed that a wrapper could mistype an otherwise-correct scheduler workspace or treat a yielded launcher as terminal. Run the existing reusable TypeScript launcher from a native flow-service step using the immutable child input and assigned review workspace directly, while preserving exactly-once local `/review`, cancellation, resume checkpoints, best-effort terminal coverage, provider isolation, and existing normalized artifacts.
+
+#### Task Exit Criteria
+
+- The `copilot_review` child flow contains a native service step rather than an LLM step that constructs a shell command.
+- Repository, workspace, target, wave, instance, base, head, model, reasoning, availability, and endpoint identity come from persisted scheduler input without manual string transcription.
+- The service owns and awaits the launcher process until terminal completion and propagates cancellation without orchestration-cell or tool-session polling.
+- Existing successful, partial, failed, unavailable, usage, security, workspace, resume, and reconciliation contracts remain intact.
+- Focused sequential tests and required server and Compose builds pass without manual provider proof.
+
+#### Documentation Locations
+
+- `flows/copilot_review.json`, `server/src/flows/service.ts`, and `server/src/copilot/reviewLauncher.ts`: native child-flow execution and launcher contracts.
+- `README.md` and this story: operational behavior and proof scope.
+
+#### Subtasks
+
+1. [x] Add a native Copilot review flow-step schema and replace the LLM step in `copilot_review`.
+2. [x] Resolve and validate every launcher input from the persisted child-flow payload and assigned private workspace without caller-selected path reconstruction.
+3. [x] Generate the pinned Copilot instructions deterministically from immutable job inputs before provider contact.
+4. [x] Await the reusable launcher directly in the flow service with cancellation and honest terminal result reporting.
+5. [x] Remove obsolete wrapper-prompt dependencies and update documentation and story contracts for service-owned execution.
+6. [x] Extend focused schema, service, and prompt-contract tests for exact input propagation, no LLM launch, terminal waiting, cancellation, and unavailable coverage, then rerun the existing launcher and workspace regressions.
+7. [x] Run targeted ESLint and Prettier checks for every changed supported implementation, test, flow, documentation, and plan file.
+
+#### Testing
+
+1. [x] Run the sequential Copilot launcher unit suite with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`.
+2. [x] Run the sequential native Copilot flow-step and schema suites with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`.
+3. [x] Run the sequential review-batch workspace and repository-by-model wave suites with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`.
+4. [x] Run the complete Python review prompt-contract suite.
+5. [x] Run `npm run build:summary:server`.
+6. [x] Run `npm run compose:build:summary`.
+7. [x] Confirm the branch diff and Git status contain only intended story changes before committing.
+
+#### Implementation notes
+
+- Live run `C` proved that the scheduler-persisted job, target, model, and endpoint inputs were correct; the remaining failures occurred while an LLM wrapper retyped the workspace and supervised a yielded tool process.
+- Added the schema-only `runCopilotReview` step and changed `copilot_review` from an LLM step to that native step, removing the wrapper-agent launch boundary.
+- Added strict cross-checks between the child payload, immutable wave target, pinned model snapshot, and canonical workspace directories before deriving launcher options.
+- The native step now writes one deterministic instructions file from the pinned target and story context rather than asking an agent to reconstruct the review brief.
+- The flow service directly awaits `runCopilotReview`, passes its inflight cancellation signal, and records the provider result only after the launcher returns terminally.
+- Removed the unused Copilot wrapper prompt and updated README, story description, acceptance criteria, and prompt-contract proof for service-owned execution.
+- The new five-test native-step suite, 88-test schema suite, and targeted service integration scenario passed sequentially; the integration fake remained blocked until explicitly released and was called exactly once.
+- The unchanged 15-test launcher suite passed sequentially, covering local invocation, external and native environments, cancellation, artifacts, normalization, and security flags beneath the new native step.
+- Fourteen workspace/group/wave tests and the targeted two-repository/three-model integration scenario passed sequentially, preserving the existing matrix, isolation, persistence, and same-wave behavior.
+- Added focused native-step, schema, and service integration coverage while retaining the existing launcher/workspace regressions; the complete 47-test Python contract suite passed with the new native-flow assertions.
+- Targeted ESLint passed with zero warnings after correcting import order, Prettier passed for every supported changed file, and Python compilation passed for the updated contract test.
+- The final server summary build passed cleanly with no warnings.
+- The Compose summary build passed both image items and confirmed the runtime flow assets were baked into the server image.
+- Final diff and status inspection found only the intended native Copilot flow, tests, documentation, and Task 8 changes; `git diff --check` passed and no obsolete wrapper-prompt reference remains outside historical task notes.
+- Manual Compose/provider proof remains undesired for this story, and parallel test-runner isolation remains out of scope.
 
 ---

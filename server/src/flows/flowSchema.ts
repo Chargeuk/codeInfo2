@@ -100,6 +100,11 @@ export type FlowPrepareCopilotReviewGroupsStep = {
   outputKey: string;
 };
 
+export type FlowRunCopilotReviewStep = {
+  type: 'runCopilotReview';
+  label?: string;
+};
+
 export type FlowSubflowStep = {
   type: 'subflow';
   label?: string;
@@ -155,6 +160,7 @@ export type FlowStep =
   | FlowInitializeReviewCycleStep
   | FlowPrepareReviewTargetsStep
   | FlowPrepareCopilotReviewGroupsStep
+  | FlowRunCopilotReviewStep
   | FlowSubflowStep
   | FlowSubflowWaveStep
   | FlowReingestStep;
@@ -312,6 +318,13 @@ const FlowPrepareCopilotReviewGroupsStepSchema = z
   })
   .strict();
 
+const FlowRunCopilotReviewStepSchema = z
+  .object({
+    type: z.literal('runCopilotReview'),
+    label: trimmedNonEmptyString.optional(),
+  })
+  .strict();
+
 const FlowJsonValueSchema: z.ZodType<FlowJsonValue> = z.lazy(() =>
   z.union([
     z.string(),
@@ -446,6 +459,7 @@ function flowStepUnionSchema() {
     FlowInitializeReviewCycleStepSchema,
     FlowPrepareReviewTargetsStepSchema,
     FlowPrepareCopilotReviewGroupsStepSchema,
+    FlowRunCopilotReviewStepSchema,
     FlowSubflowStepSchema,
     FlowSubflowWaveStepSchema,
     FlowReingestSourceIdStepSchema,

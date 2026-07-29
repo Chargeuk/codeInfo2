@@ -57,6 +57,7 @@ import { runReingestStepLifecycle } from '../chat/reingestStepLifecycle.js';
 import { buildReingestToolResult } from '../chat/reingestToolResult.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import { getProviderBootstrapStatus } from '../config/runtimeConfig.js';
+import { runCopilotReview } from '../copilot/reviewLauncher.js';
 import { formatReingestPrestartReason } from '../ingest/reingestError.js';
 import { executeReingestRequest } from '../ingest/reingestExecution.js';
 import type { ReingestResult } from '../ingest/reingestService.js';
@@ -115,6 +116,7 @@ const snapshotFlowRuntimeCleanupState = (conversationId: string) => {
 };
 
 import { prepareCopilotReviewGroups } from './copilotReviewGroups.js';
+import { executeCopilotReviewStep } from './copilotReviewStep.js';
 import { discoverFlows, type FlowSummary } from './discovery.js';
 import { runFlowDecisionScript } from './flowDecisionScript.js';
 import {
@@ -135,6 +137,7 @@ import {
   type FlowCommandStep,
   type FlowLlmStep,
   type FlowPrepareCopilotReviewGroupsStep,
+  type FlowRunCopilotReviewStep,
   type FlowPrepareReviewTargetsStep,
   type FlowReingestStep,
   type FlowResetStep,
@@ -205,6 +208,7 @@ type FlowServiceDeps = {
   }) => Promise<ReingestResult>;
   buildReingestToolResult: typeof buildReingestToolResult;
   runReingestStepLifecycle: typeof runReingestStepLifecycle;
+  runCopilotReview: typeof runCopilotReview;
   createCallId: () => string;
 };
 
@@ -212,6 +216,7 @@ const defaultFlowServiceDeps: FlowServiceDeps = {
   runReingestRepository,
   buildReingestToolResult,
   runReingestStepLifecycle,
+  runCopilotReview,
   createCallId: () => crypto.randomUUID(),
 };
 
@@ -1988,6 +1993,7 @@ const buildFlowCommandMetadata = (params: {
     | FlowInitializeReviewCycleStep
     | FlowPrepareReviewTargetsStep
     | FlowPrepareCopilotReviewGroupsStep
+    | FlowRunCopilotReviewStep
     | FlowSubflowStep
     | FlowSubflowWaveStep
     | FlowReingestStep;
@@ -7087,6 +7093,88 @@ async function runFlowUnlocked(params: {
     }
   };
 
+  const runCopilotReviewStep = async (
+    _step: FlowRunCopilotReviewStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
+    const instruction = 'Run scheduler-owned Copilot review';
+    const inflightState = createInflight({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: params.providerId,
+      model: params.modelId,
+      source: params.source,
+      command,
+    });
+    const inflightSignal = inflightState.abortController.signal;
+    try {
+      const result = await executeCopilotReviewStep(
+        params.input ?? {},
+        inflightSignal,
+        { runCopilotReview: flowServiceDeps.runCopilotReview },
+      );
+      if (inflightSignal.aborted) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
+      await emitCompletedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        response: [
+          `Copilot review status: ${result.status}`,
+          `Copilot launched: ${result.launched ? 'yes' : 'no'}`,
+          `Exit status: ${result.exitStatus}`,
+          `Completed at: ${result.completedAt}`,
+        ].join('\n'),
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        command,
+      });
+      return 'ok';
+    } catch (error) {
+      if (
+        inflightSignal.aborted ||
+        (error instanceof Error && error.name === 'AbortError')
+      ) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command,
+        });
+        return 'stopped';
+      }
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction,
+        modelId: params.modelId,
+        providerId: params.providerId,
+        source: params.source,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'runCopilotReview failed unexpectedly',
+        errorCode: 'INVALID_REQUEST',
+        command,
+      });
+      return 'failed';
+    }
+  };
+
   const runReingestStep = async (
     step: FlowReingestStep,
     command: TurnCommandMetadata,
@@ -7735,6 +7823,40 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           params.onStopUnwindCheckpoint?.({
             checkpoint: 'runSteps.return.stop.prepareCopilotReviewGroups',
+            conversationId: params.conversationId,
+            detail: `status=${status} step=${command.stepIndex}`,
+          });
+          await persistRuntimeResumeState(lastCompletedStepPath);
+          return status;
+        }
+        lastCompletedStepPath = nextPath;
+        clearContinueBoundaryForActiveLoop();
+        await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
+      if (step.type === 'runCopilotReview') {
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            nativeCopilotReview: true,
+          },
+        });
+        const status = await runCopilotReviewStep(step, command);
+        if (shouldStopAfter(status)) {
+          params.onStopUnwindCheckpoint?.({
+            checkpoint: 'runSteps.return.stop.runCopilotReview',
             conversationId: params.conversationId,
             detail: `status=${status} step=${command.stepIndex}`,
           });

@@ -503,6 +503,25 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('Copilot review flow uses one native service-owned launch step', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/copilot_review.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+
+    assert.deepEqual(parsed.steps, [
+      {
+        type: 'runCopilotReview',
+        label: 'Run Copilot Workspace Review',
+      },
+    ]);
+    assert.equal(
+      parsed.steps?.some((step) => step.type === 'llm'),
+      false,
+    );
+  });
+
   test('review batch bounds optional filtering and repair while always finalizing', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/review_batch.json'),

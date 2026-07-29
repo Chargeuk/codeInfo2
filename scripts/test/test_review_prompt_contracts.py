@@ -130,11 +130,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/run_open_code_review_workspace.md"
         )
 
-        copilot = read_text(
-            "codeinfo_markdown/run_copilot_review_workspace.md"
-        )
-
-        for prompt in (contract, codex, copilot, open_code):
+        for prompt in (contract, codex, open_code):
             self.assertIn("direct `exec_command`", prompt)
             self.assertIn("`session_id`", prompt)
             self.assertIn("`write_stdin`", prompt)
@@ -156,11 +152,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/run_open_code_review_workspace.md"
         )
 
-        copilot = read_text(
-            "codeinfo_markdown/run_copilot_review_workspace.md"
-        )
-
-        for prompt in (contract, codex, copilot, open_code):
+        for prompt in (contract, codex, open_code):
             self.assertIn("direct `exec_command`", prompt)
             self.assertIn("`session_id`", prompt)
             self.assertIn("`write_stdin`", prompt)
@@ -203,7 +195,6 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         output_owners = (
             "codeinfo_markdown/run_codex_review_workspace.md",
-            "codeinfo_markdown/run_copilot_review_workspace.md",
             "codeinfo_markdown/run_open_code_review_workspace.md",
             "codeinfo_markdown/run_cross_repository_review_workspace.md",
             "codeinfo_markdown/consolidate_deep_review_workspace.md",
@@ -405,43 +396,25 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("work/review-usage/native-codex.md", codex_prompt)
         self.assertIn("Do not include this wrapper agent's own usage", codex_prompt)
 
-        copilot_prompt = read_text(
-            "codeinfo_markdown/run_copilot_review_workspace.md"
+        copilot_flow = json.loads(read_text("flows/copilot_review.json"))
+        self.assertEqual(
+            copilot_flow["steps"],
+            [
+                {
+                    "type": "runCopilotReview",
+                    "label": "Run Copilot Workspace Review",
+                }
+            ],
         )
-        self.assertIn("$CODEINFO_ROOT/scripts/run-copilot-review.sh", copilot_prompt)
-        self.assertIn("raw Copilot JSONL", copilot_prompt)
-        self.assertIn("native Copilot usage", copilot_prompt)
-        self.assertIn("wrapper agent's usage", copilot_prompt)
-        self.assertIn("--no-remote-export", copilot_prompt)
-        self.assertIn("Docker-contained `--allow-all` permissions", copilot_prompt)
-        self.assertIn(
-            "CodeInfo's Docker container is the full-access isolation boundary",
-            copilot_prompt,
-        )
-        self.assertNotIn("read-only permissions", copilot_prompt)
-        self.assertIn("--endpoint-id", copilot_prompt)
-        self.assertIn("`planning/**` changes are excluded", copilot_prompt)
-        self.assertIn("Never modify source files", copilot_prompt)
-        self.assertIn("Run the review exactly once", copilot_prompt)
-        self.assertIn("work/copilot-review-instructions.md", copilot_prompt)
-        self.assertIn(
-            "derives the fixed `input/`, `work/`, and `output/` locations",
-            copilot_prompt,
-        )
-        self.assertIn(
-            "If `copilot_review_spec.available` is false, still invoke the launcher once",
-            copilot_prompt,
-        )
-        for removed_path_option in (
-            "--instructions",
-            "--stdout",
-            "--stderr",
-            "--status",
-            "--invocation",
-            "--normalized",
-            "--usage",
-        ):
-            self.assertNotIn(removed_path_option, copilot_prompt)
+        copilot_step = read_text("server/src/flows/copilotReviewStep.ts")
+        copilot_launcher = read_text("server/src/copilot/reviewLauncher.ts")
+        self.assertIn("immutable scheduler-owned review input", copilot_step)
+        self.assertIn("workPath, 'copilot-review-instructions.md'", copilot_launcher)
+        self.assertIn("runCopilotReview({ ...options, signal })", copilot_step)
+        self.assertIn("--no-remote-export", copilot_launcher)
+        self.assertIn("'--allow-all'", copilot_launcher)
+        self.assertIn("planning/**", copilot_launcher)
+        self.assertIn("Do not modify source files", copilot_launcher)
 
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(

@@ -486,6 +486,7 @@ describe('flow schema (v1)', () => {
       'flows/review_task_up_path.json',
       'flows/two_phase_review_cycle.json',
       'flows/implement_current_plan.json',
+      'flows/implement_bugfix_story.json',
       'flows/implement_next_plan.json',
       'flows/implement_pr_task_fixes.json',
       'flows/ingest_external_review_plan.json',

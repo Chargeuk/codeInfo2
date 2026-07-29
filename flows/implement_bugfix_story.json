@@ -1,0 +1,186 @@
+{
+  "description": "Continuously select, prepare, plan, implement, prove, push, publish, and close eligible Jira subtasks from the single story named in bugfix_story.md.",
+  "steps": [
+    {
+      "type": "startLoop",
+      "label": "Poll Jira Bugfix Story Forever",
+      "steps": [
+        {
+          "type": "startLoop",
+          "label": "Drain Jira Bugfix Story Subtasks",
+          "steps": [
+            {
+              "type": "break",
+              "label": "Exit When No Workable Bugfix Subtask Remains",
+              "agentType": "loop_control_agent",
+              "identifier": "bugfix_story_loop_controller",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_bugfix_story_subtasks_empty.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because bugfix_story.md, Jira issue state, assignments, comments, and attachments may have changed. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+              "breakOn": "yes",
+              "breakOnFailure": true
+            },
+            {
+              "type": "reset",
+              "label": "Reset Bugfix Worker Before Next Subtask",
+              "agentType": "coding_agent",
+              "identifier": "bugfix_worker"
+            },
+            {
+              "type": "llm",
+              "label": "Claim Selected Jira Bugfix Subtask",
+              "agentType": "coding_agent",
+              "identifier": "bugfix_worker",
+              "continueOnFailure": true,
+              "markdownFile": "claim_bugfix_subtask.md"
+            },
+            {
+              "type": "llm",
+              "label": "Gather Jira Bugfix Information And Attachments",
+              "agentType": "coding_agent",
+              "identifier": "bugfix_worker",
+              "continueOnFailure": true,
+              "markdownFile": "gather_bugfix_subtask_information.md"
+            },
+            {
+              "type": "llm",
+              "label": "Create One-Shot Jira Bugfix Plan",
+              "agentType": "coding_agent",
+              "identifier": "bugfix_worker",
+              "continueOnFailure": true,
+              "markdownFile": "plan_bugfix_subtask.md"
+            },
+            {
+              "type": "llm",
+              "label": "Implement And Test Jira Bugfix Plan",
+              "agentType": "coding_agent",
+              "identifier": "bugfix_worker",
+              "continueOnFailure": true,
+              "markdownFile": "implement_bugfix_subtask.md"
+            },
+            {
+              "type": "startLoop",
+              "label": "Optional Stronger Jira Bugfix Repair",
+              "maxIterations": 1,
+              "steps": [
+                {
+                  "type": "break",
+                  "label": "Skip Stronger Bugfix Repair When Unneeded Or Already Attempted",
+                  "agentType": "coding_agent",
+                  "identifier": "bugfix_worker",
+                  "question": "Reread the fresh selector output, the selected subtask's information.md and plan.md, current Git state, and current test evidence. Return yes when the implementation is positively complete and proven, or when information.md positively records that this subtask's single stronger repair attempt was already consumed. The latter skips another stronger invocation but does not imply completion. Return no only when a concrete in-scope blocker remains, no stronger attempt is recorded, and the stronger repair should receive its single opportunity. Missing, failed, partial, stale, contradictory, or uncertain evidence is not proof of completion or of an earlier stronger attempt. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+                  "breakOn": "yes",
+                  "continueOnFailure": true,
+                  "continueOnInvalidResponse": true
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset Stronger Jira Bugfix Repairer",
+                  "agentType": "research_agent",
+                  "identifier": "bugfix_repairer"
+                },
+                {
+                  "type": "llm",
+                  "label": "Repair Remaining Jira Bugfix Blocker",
+                  "agentType": "research_agent",
+                  "identifier": "bugfix_repairer",
+                  "continueOnFailure": true,
+                  "markdownFile": "repair_bugfix_subtask.md"
+                },
+                {
+                  "type": "break",
+                  "label": "Exit Stronger Jira Bugfix Repair After One Attempt",
+                  "agentType": "loop_control_agent",
+                  "identifier": "bugfix_repair_loop_controller",
+                  "question": "The optional stronger Jira bugfix repair has now completed its single allowed invocation. Return exact JSON only: {\"answer\":\"yes\"}.",
+                  "breakOn": "yes",
+                  "breakOnFailure": true
+                }
+              ]
+            },
+            {
+              "type": "llm",
+              "label": "Prove Final Bugfix Components Build And Start",
+              "agentType": "coding_agent",
+              "identifier": "bugfix_worker",
+              "continueOnFailure": true,
+              "markdownFile": "prove_bugfix_subtask_runtime.md"
+            },
+            {
+              "type": "startLoop",
+              "label": "Optional Frontend Screenshot Proof",
+              "maxIterations": 1,
+              "steps": [
+                {
+                  "type": "break",
+                  "label": "Skip Screenshot Proof When No Frontend Surface Changed",
+                  "agentType": "loop_control_agent",
+                  "identifier": "bugfix_screenshot_proof_loop_controller",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_bugfix_screenshot_proof_unneeded.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because the selected subtask, implementation, Git changes, and proof requirements may have changed. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+                  "breakOn": "yes",
+                  "continueOnFailure": true,
+                  "continueOnInvalidResponse": true
+                },
+                {
+                  "type": "reset",
+                  "label": "Reset Jira Bugfix Manual Tester",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "bugfix_manual_tester"
+                },
+                {
+                  "type": "llm",
+                  "label": "Capture Local Frontend Screenshot Proof",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "bugfix_manual_tester",
+                  "continueOnFailure": true,
+                  "markdownFile": "capture_bugfix_frontend_screenshot_proof.md"
+                }
+              ]
+            },
+            {
+              "type": "llm",
+              "label": "Commit And Attempt Jira Bugfix Push",
+              "agentType": "coding_agent",
+              "identifier": "bugfix_worker",
+              "continueOnFailure": true,
+              "markdownFile": "commit_push_bugfix_subtask.md"
+            },
+            {
+              "type": "llm",
+              "label": "Publish Jira Bugfix Result And Screenshots",
+              "agentType": "coding_agent",
+              "identifier": "bugfix_worker",
+              "continueOnFailure": true,
+              "markdownFile": "publish_bugfix_subtask_result.md"
+            },
+            {
+              "type": "llm",
+              "label": "Close Proven Jira Bugfix Subtask",
+              "agentType": "coding_agent",
+              "identifier": "bugfix_worker",
+              "continueOnFailure": true,
+              "markdownFile": "complete_bugfix_subtask.md"
+            },
+            {
+              "type": "break",
+              "label": "Exit When Current Jira Bugfix Remains Blocked",
+              "agentType": "coding_agent",
+              "identifier": "bugfix_worker",
+              "question": "Reread the bound subtask directly in Jira, its information.md and plan.md, current Git and upstream state, and the immediately preceding completion result. Return yes when the bound subtask remains active because implementation, automated proof, build or startup proof, required screenshot proof, Jira publication, commit, push, or Jira-transition evidence is blocked, failed, partial, stale, contradictory, or uncertain. Return no only when the bound subtask is independently verified Closed with resolution Resolved, so the inner loop may safely select another subtask. Never inspect or decide about a newly selected issue. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+              "breakOn": "yes",
+              "breakOnFailure": true
+            },
+            {
+              "type": "wait",
+              "label": "Wait Before Selecting Next Jira Bugfix Subtask",
+              "seconds": 5
+            }
+          ]
+        },
+        {
+          "type": "wait",
+          "label": "Wait Before Polling Jira Bugfix Story Again",
+          "seconds": 1800
+        }
+      ]
+    }
+  ]
+}

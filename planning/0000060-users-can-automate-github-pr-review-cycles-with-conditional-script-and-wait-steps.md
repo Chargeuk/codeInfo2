@@ -5646,8 +5646,8 @@ Perform the one final whole-story automated validation after the completed Batch
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `current_repository`, run the supported lint command `npm run lint` and fix any story-caused issues.
-2. [ ] In `current_repository`, run the supported formatting check `npm run format:check`, using `npm run format` before manual cleanup for any story-caused issue.
+1. [x] In `current_repository`, run the supported lint command `npm run lint` and fix any story-caused issues.
+2. [x] In `current_repository`, run the supported formatting check `npm run format:check`, using `npm run format` before manual cleanup for any story-caused issue.
 
 #### Testing
 
@@ -5672,6 +5672,8 @@ Optional, checkbox-free manual proof may use the supported main Compose stack, s
 
 #### Implementation Notes
 
+- `npm run lint` passed with exit code 0; no story-caused lint issues required repair.
+- `npm run format:check` passed with exit code 0; no story-caused formatting issues required repair.
 Record the final target HEAD, every automated wrapper result, any story-caused repair and rerun, Compose startup and shutdown result, and honest limits including unavailable live-provider or browser proof. Keep this final task after Task 52 and after any genuinely open settlement work; no open settlement work is currently recommended.
 
 ## Code Review Findings

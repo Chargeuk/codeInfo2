@@ -5107,3 +5107,310 @@ This is the one final validation owner for the complete review settlement. It mu
 - Testing 8 completed: `npm run format:check` passed; all matched files use Prettier code style.
 - Automated-proof audit completed: the saved wrapper and test artifacts corroborate the recorded client, server-unit, Cucumber, build, Compose, teardown, lint, and formatting results; the affected e2e rerun reports 78 expected, 0 unexpected, and no teardown failure. The current implementation-plus-proof pass introduced no user-facing code change, so no story-caused behavior regression or scope drift was identified. Task 48 is complete; the remaining manual-testing guidance is optional and non-blocking.
 - Manual testing skipped for the final-story live GitHub PR review-cycle surface. Tried: rebuilt and started the supported main Compose stack, verified `GET /health` and the browser UI, inspected provider readiness and the Flows selector, and did not launch a review without a sandbox target. Observed: health returned 200, the Flow catalog rendered, and Codex was available, but no dedicated non-production sandbox repository or documented GitHub CLI-access source was available in the stored scope. Why fuller proof was not possible: the optional live PR path depends on that external prerequisite, which was not recoverable within this one bounded diagnosis pass; this is not a task blocker. The stack was shut down cleanly. Playwright staging files `proof-01-home-provider-readiness.png` and `proof-02-flows-catalog.png` required the recorded local-container copy-out fallback after nested staging paths were unavailable; they were saved as `codeInfoTmp/manual-testing/0000060/48/proof-01-home-provider-readiness.png` and `codeInfoTmp/manual-testing/0000060/48/proof-02-flows-catalog.png`. Full-story proof was assessed but could not honestly extend beyond current stack/UI readiness; these latest screenshots cover the re-proved Home and Flows surfaces, while earlier screenshots remain uniquely necessary for live GitHub-cycle outcomes not exercised here.
+
+## Code Review Findings
+
+- Findings recorded: `July 28, 2026 at 11:19:14 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260728T213745Z-93cd8519`
+- Review cycle: `0000060-rc-20260728T213745Z-131cdb87`
+- Reviews attempted:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed with two supported findings; no automated tests or live GitHub proof were run by the review.
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - OpenCode Review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed with two supported findings; verification retained partial coverage because two Git paths were absent from its review manifest.
+    - Input tokens: `9,520,619`
+    - Cached input tokens: `9,263,616`
+    - Output tokens: `19,244`
+  - Cross-Repository review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed not applicable because only `current_repository` was assigned and no cross-target contract existed.
+    - Input tokens: `493,126`
+    - Cached input tokens: `461,824`
+    - Output tokens: `3,447`
+
+The independent combined filtering audit is complete. All three gates were applicable: three findings survived negative scope, two survived positive authorization, and both were material. The accepted items below are only the narrowed timeout and post-create deferral cores; the missing-author finding and both narrowed-away remedy meanings are preserved as non-actionable. The normal repair opportunity appears suitable for both accepted findings through existing current-HEAD seams; repair, stronger-repair selection, task creation, and review-loop continuation remain later decisions.
+
+### Accepted
+
+#### 1. Bound bundled flow-control decision scripts with the existing timeout
+
+- Finding ID: `Reconciliation finding 1 — Bundled flow-control scripts can bypass the required execution timeout`
+- Source and target: `server/src/flows/service.ts:7416-7437` and `server/src/flows/flowDecisionScript.ts:74-93`; `current_repository` at reviewed HEAD `f526cd83e556b2d5568fa9c70d98d368c5c76347`.
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, immutable source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and verified the finding.
+  - OpenCode Review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, immutable source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — independently corroborated the same timeout finding.
+- Simple description: Bundled `scripts/flow_control/*.py` conditions use an execution path without the existing Python timeout, so a blocking condition can leave the flow waiting indefinitely instead of producing the required hard timeout failure.
+- Example: A supported opt-in flow evaluates an `if` condition whose bundled Python process blocks on a script defect or blocking repository I/O; the flow remains awaiting that process rather than recording a bounded decision-step failure.
+- Why accepted: The current Acceptance Criteria authorize strict timeout behavior and hard failure for direct Python decisions, and the opt-in flow uses bundled Python conditions. Current HEAD proves the unbounded `runFlowDecisionScript` seam and the existing bounded `executeFlowDecisionScript({ timeoutMs })` implementation plus `FLOW_DECISION_SCRIPT_TIMEOUT_MS`. Applying that existing bounded behavior is the smallest policy-free repair, with realistic reachability, meaningful stall impact, and value proportionate to changing completed code. Relocating scripts, adding schema or authored timeout fields, and adding retry/fallback policy are outside the authorized boundary.
+
+#### 2. Preserve successful PR creation after transient immediate metadata lookup failure
+
+- Finding ID: `Reconciliation finding 2 — Successful PR creation can be abandoned after a transient metadata lookup failure`
+- Source and target: `server/src/flows/githubReview.ts:1110-1211` and `server/src/flows/service.ts:8210-8288`; `current_repository` at reviewed HEAD `f526cd83e556b2d5568fa9c70d98d368c5c76347`.
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, immutable source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and verified the finding; no sibling job reported or rejected this exact issue.
+- Simple description: After `gh pr create` prints and validates a canonical PR URL and number, one failed immediate metadata lookup is treated as PR-open failure, so the flow can skip the configured wait and review-fetch cycle even though the PR was created.
+- Example: GitHub creates a PR and returns its canonical URL, but the immediately following supported API lookup is temporarily unavailable; the flow records the open step as failed or skipped and leaves the real PR without its review-cycle ingestion.
+- Why accepted: The current Acceptance Criteria make the printed PR URL a creation-success indicator before canonical metadata resolution and require the flow to open, wait, and fetch review comments. Current HEAD proves the reclassification at `githubReview.ts` and the downstream skip at `service.ts`; existing `GitHubPullRequestIdentity`, `activeGitHubReviewContext`, and later exact-number lookup seams express the smallest remedy. Preserving the validated URL/number and deferring to the existing later lookup is realistic, materially useful, and proportionate without inventing retry counts, delays, alternate-PR selection, or fallback policy.
+
+### Ignored for This Story
+
+#### 3. Do not classify missing PR author identity as a clean review
+
+- Finding ID or Review reference: `Reconciliation finding 3 — Missing PR author identity can be classified as a clean review`
+- Source and target: `server/src/flows/githubReview.ts:58-66`, `:1037-1052`, and `:2060-2080`; `current_repository` at reviewed HEAD `f526cd83e556b2d5568fa9c70d98d368c5c76347`.
+- Review harnesses:
+  - OpenCode Review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, immutable source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — generated and verified the finding.
+- Simple description: When PR author identity is absent, feedback filtering returns an empty list, so reviewer submissions or inline comments can be treated as if there were no external feedback.
+- Example: A fetched PR has reviewer-authored comments but `authorLogin` is unavailable; filtering produces no feedback, allowing the no-feedback path to reach a clean closeout even though the evidence is incomplete.
+- Why ignored: The observation is technically supported and survived negative scope, but positive authorization did not establish a concrete current-HEAD mechanism for unknown author identity. Requiring identity, returning an error, warning/skipping, or retaining every comment each adds a new policy, and retaining all comments can misclassify the PR author's feedback. This item did not reach materiality and cannot route to repair, task creation, or review-loop continuation.
+
+#### 4. Route bundled scripts through the worked-repository/Git-tracking mechanism
+
+- Finding ID or Review reference: `Finding 1 narrowed-away remedy — broader worked-repository/Git-tracking enforcement`
+- Source and target: the timeout finding from Codex and OpenCode, `server/src/flows/service.ts:7416-7437` and `server/src/flows/flowDecisionScript.ts:74-93`; `current_repository`.
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, immutable source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the broader proposed remedy.
+  - OpenCode Review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, immutable source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — corroborated the underlying timeout observation.
+- Simple description: The broader remedy would relocate bundled decision scripts into the worked-repository executor or require Git-tracked validation, rather than applying the existing timeout to the current bundled execution seam.
+- Example: A bundled condition in the new opt-in flow would be forced through repository tracking even though the same dispatch serves protected existing default entrypoints and no per-flow relocation control exists.
+- Why ignored: Negative scope narrowed the finding to timeout and bounded-process behavior. The top-level Out Of Scope rule protects existing default flow behavior, current HEAD exposes no per-flow relocation/configuration control, and the story does not authorize a new Git-tracking or script-placement policy. Only this remedy meaning is removed; the timeout core remains accepted as item 1.
+
+#### 5. Add a new post-create retry policy for metadata lookup
+
+- Finding ID or Review reference: `Finding 2 narrowed-away remedy — reviewer-proposed post-create retry`
+- Source and target: `server/src/flows/githubReview.ts:1110-1211` and `server/src/flows/service.ts:8210-8288`; `current_repository`.
+- Review harnesses:
+  - Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, immutable source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the transient-lookup finding and proposed retry direction.
+- Simple description: The narrowed-away remedy would invent post-create lookup attempt counts, delays, or retry handling after the validated PR URL is printed.
+- Example: A transient exact-number lookup failure would trigger a newly selected number of retries and delay before the flow either gives up or follows another path, but no such authored or runtime control exists at current HEAD.
+- Why ignored: Negative scope removed this retry meaning because current HEAD exposes diagnostics but no implemented attempt, delay, or retry control. The authorized repair is policy-free deferral through the existing validated identity and later exact-number lookup; it does not authorize new retry values or fallback behavior. Only the retry remedy is removed; the post-create success-indicator finding remains accepted as item 2.
+
+### Task 49. Record Review Fixes From Batch 0000060-rw-20260728T213745Z-93cd8519
+
+- Repository Name: `Current Repository`
+- Review Task Role: `completed_review_fixes`
+- Task Dependencies: `Task 48`
+- Task Status: `__done__`
+- Review Batch: `0000060-rw-20260728T213745Z-93cd8519`
+- Review Cycle: `0000060-rc-20260728T213745Z-131cdb87`
+- Affected Repositories: `current_repository`
+- Review Target HEAD: `f526cd83e556b2d5568fa9c70d98d368c5c76347`
+- Final Repair HEAD: `621f923dc48190fd0353a94f9b67f0d2b9c9575f`
+- Created: `July 28, 2026 at 11:39:08 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repair for the two authorized and material survivors from review batch `0000060-rw-20260728T213745Z-93cd8519`. The normal repair bounded bundled flow-control Python execution and preserved a validated PR identity after a transient immediate metadata lookup failure. The stronger repair was deliberately skipped because the normal repair audit established that no actionable finding remained; this task records completed implementation evidence and does not create unresolved work or final revalidation work.
+
+#### Review Harnesses
+
+- Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, source job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) generated both addressed findings.
+- OpenCode Review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, source job `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) corroborated the bundled-timeout finding. Its missing-author finding was not addressed because positive authorization did not establish a safe mechanism.
+- Cross-Repository review (`cross_repository_review`, job `story_review:cross_repository_review`, source job `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`) was completed not applicable for the single-target batch and generated no addressed finding.
+
+#### Addresses Findings
+
+- Bundled flow-control scripts can bypass the required execution timeout, owned by `current_repository`: `server/src/flows/service.ts` now passes the existing `FLOW_DECISION_SCRIPT_TIMEOUT_MS` to the bundled dispatch, and `server/src/flows/flowDecisionScript.ts` applies bounded process options and `SIGKILL`.
+- Successful PR creation can be abandoned after a transient metadata lookup failure, owned by `current_repository`: `server/src/flows/githubReview.ts` preserves the already validated PR URL, number, upstream branch, and base when the immediate lookup fails, while retaining mismatch validation and the later exact-number lookup.
+
+#### Subtasks
+
+1. [x] Apply the existing timeout and bounded process termination to bundled `scripts/flow_control/` decision execution.
+2. [x] Preserve validated PR creation identity when immediate metadata lookup is temporarily unavailable without adding retry, delay, alternate-PR, or fallback policy.
+3. [x] Add focused regression coverage for both repair seams while preserving the pre-existing plan worktree edit.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts` — 4/4 passed.
+2. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` — 20/20 passed.
+3. [x] `npm run format:check` — passed according to the normal repair audit.
+4. [x] `npm run lint` — passed with zero warnings.
+5. [x] `git diff --check` — passed before the repair commit.
+
+#### Implementation Notes
+
+- Normal repair commit `621f923dc48190fd0353a94f9b67f0d2b9c9575f` (`DEV-60 - Repair bounded review-flow execution`) changed exactly `server/src/flows/flowDecisionScript.ts`, `server/src/flows/githubReview.ts`, `server/src/flows/service.ts`, `server/src/test/unit/flow-decision-script.test.ts`, and `server/src/test/unit/flows.github-adapter.test.ts`.
+- The repair started at reviewed/initial-repair HEAD `f526cd83e556b2d5568fa9c70d98d368c5c76347` and ended at final repair HEAD `621f923dc48190fd0353a94f9b67f0d2b9c9575f`. The current branch is ahead of its remote by one commit; the only worktree modification is the pre-existing unstaged plan edit.
+- The normal repair audit confirms both authorized/material survivors resolved and no actionable finding remained. The stronger repair was therefore deliberately skipped; no stronger audit or commit exists, and this is not unavailable repair coverage.
+- The missing-author finding, bundled-script relocation/Git-tracking remedy, and post-create retry remedy remain non-actionable removals. No historical plan finding, task, disposition, repair, or commit was used as authorization or materiality evidence.
+- The review batch remains partially covered: OpenCode omitted two Git paths from its manifest, and the review jobs did not run full client/server/e2e, Docker, or live-GitHub proof. Broad formatter scans exposed pre-existing baseline drift and temporary invalid fixtures; those unrelated edits were reverted and are not part of the repair.
+- The cross-repository job was not applicable because the batch assigned only `current_repository`; it did not assess or reject the addressed target findings. A later review at final repair HEAD is useful for post-repair validation while preserving the filtering removals and coverage limits.
+
+## Code Review Findings
+
+- Findings recorded: `July 29, 2026 at 12:33:47 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260728T224105Z-d3f27b0a`
+- Review cycle: `0000060-rc-20260728T213745Z-131cdb87`
+- Reviews attempted:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — completed with one supported high-severity finding; live GitHub, Docker/Compose, full-suite, restart-lifecycle, browser/e2e, and live-classification proof were unavailable and remain coverage limits.
+    - Input tokens: `7,341,723`
+    - Cached input tokens: `6,811,648`
+    - Output tokens: `62,743`
+
+The independent combined filtering audit completed all applicable gates: one pre-filter finding survived negative scope in narrowed form, positive authorization approved the existing by-number canonicalization seam, and materiality confirmed the same survivor. No later gate was deliberately inapplicable. The accepted item below is the sole materiality survivor; every removed claim and remedy is preserved under `Ignored for This Story` and is non-actionable for this story. The existing by-number canonicalization is apparently suitable for the normal repair attempt; stronger-repair selection and any later task or review-loop routing remain outside this disposition step.
+
+### Accepted
+
+#### 1. Canonicalize the latest PR identity before filtering review feedback
+
+- Finding ID: `Reconciliation finding 1 — Accepted PR identity can lack its author and make real feedback appear empty`
+- Source and target: `server/src/flows/githubReview.ts:58-66, 1009-1054, 1057-1100, 2061-2069, 2412-2455` and `server/src/flows/service.ts:8326-8349, 8453-8462`; `current_repository` at reviewed/current HEAD `621f923dc48190fd0353a94f9b67f0d2b9c9575f`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, source job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated, corroborated, consolidated, and verified the finding.
+- Simple description: The latest-open-PR list path accepts an otherwise usable PR identity without an author login. Later feedback filtering returns an empty reviewer-feedback list when that author is missing, so actual reviewer feedback can be treated as no feedback.
+- Example: The supported list-pulls response returns an open PR with a nullable `user`, while review submissions or inline comments contain reviewer-authored content. The flow accepts the PR, then produces an empty feedback set because it cannot distinguish the PR author from other users.
+- Why accepted: The current Acceptance Criteria require classification of feedback from other users and allow a clean cycle only when the fetched set is empty or wholly non-actionable. Current HEAD proves the authorless normalization/filter behavior and the existing `lookupPullRequestByNumber` seam. The pinned official GitHub REST contract makes nullable list-response authorship a supported scenario, and the false-clean result can skip required repair work. Canonicalizing the already-selected PR number through the existing by-number API is the smallest authorized repair; it adds no new policy, schema, configuration, validation, retry, timeout, fallback, warning, skip, or alternate-PR behavior.
+
+### Ignored for This Story
+
+#### 2. Treat an immediate post-create lookup failure as direct feedback filtering
+
+- Finding ID or Review reference: `Finding 1 narrowed-away causal claim — immediate post-create lookup failure directly reaches filtering`
+- Source and target: `server/src/flows/service.ts:8326-8406` and the authorless-identity finding evidence; `current_repository` at reviewed/current HEAD `621f923dc48190fd0353a94f9b67f0d2b9c9575f`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, source job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated the candidate wording and narrowed it during consolidation and verification.
+- Simple description: The original wording claimed that a failed immediate metadata lookup after PR creation sends the partial create result directly into feedback filtering.
+- Example: A create command prints a PR URL, its immediate metadata lookup fails, and the flow is claimed to filter the partial object as though it were a fetched review artifact. Current service code instead re-resolves the execution-owned PR before fetch and fails the fetch when that resolution fails.
+- Why ignored: The claim is factually overbroad at current HEAD. The same root finding remains accepted through the independently supported nullable list response, but this causal path was removed by the negative gate and is non-actionable for this story.
+
+#### 3. Persist the partial create-fallback identity directly in fetched scratch
+
+- Finding ID or Review reference: `Finding 1 narrowed-away causal claim — partial create fallback is directly persisted by first fetch`
+- Source and target: `server/src/flows/service.ts:8485-8511` and the authorless-identity finding evidence; `current_repository` at reviewed/current HEAD `621f923dc48190fd0353a94f9b67f0d2b9c9575f`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, source job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated the candidate wording and narrowed it during consolidation and verification.
+- Simple description: The original wording claimed that the partial identity retained after create is the identity written into the fetched review scratch handoff.
+- Example: A successful PR create is followed by a temporary metadata problem, and the partial create object is claimed to be written as the fetched artifact. Current HEAD writes the handoff only after fetch using the independently reconciled identity.
+- Why ignored: Current source disproves the claimed direct persistence path. The create number still supports later reconciliation, but the partial object is not itself persisted by that path; this meaning was removed and must not be restored as a second finding.
+
+#### 4. Reuse `createFailure` for every immediate post-create degradation
+
+- Finding ID or Review reference: `Finding 1 narrowed-away remedy — surface successful-create lookup degradation through createFailure`
+- Source and target: `server/src/flows/service.ts:7997-8007` and the authorless-identity finding evidence; `current_repository` at reviewed/current HEAD `621f923dc48190fd0353a94f9b67f0d2b9c9575f`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, source job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated the remedy proposal and rejected it during negative filtering.
+- Simple description: The proposed remedy would use the existing `createFailure` field to report a successful create followed by a failed immediate metadata lookup.
+- Example: `gh pr create` succeeds, the later lookup is temporarily unavailable, and the flow records that event in a field whose existing meaning describes a failed create later recovered by lookup.
+- Why ignored: The existing field would misstate the event, and adding a new diagnostic contract is not needed for the false-clean core. The negative gate removed this observability remedy under gates 6, 9, and 10; only the author-canonicalization survivor remains actionable.
+
+#### 5. Invent a new unknown-author response or recovery policy
+
+- Finding ID or Review reference: `Finding 1 narrowed-away remedies — unknown-author validation, error, warning/skip, fallback, retry, configuration, or classification policy`
+- Source and target: `server/src/flows/githubReview.ts:58-66, 1057-1100, 2061-2069, 2412-2455` and `server/src/flows/service.ts:8326-8349`; `current_repository` at reviewed/current HEAD `621f923dc48190fd0353a94f9b67f0d2b9c9575f`.
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, source job `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated or assessed these alternatives during filtering and consolidation.
+- Simple description: The removed alternatives would solve missing authorship by rejecting the list result, raising a new terminal error, warning or skipping, retaining every comment, guessing an author, selecting another PR, adding retries or timeouts, or introducing a new configuration/schema/classification control.
+- Example: A list response has `user: null`; the flow could newly reject it, keep all comments, invent an author, retry lookup with new limits, or select another PR, but current HEAD provides no approved rule that chooses one of those behaviors.
+- Why ignored: Positive authorization is for accurate other-user classification and the existing by-number canonicalization seam only. It does not authorize a new validation, terminal-error, warning/skip, all-comments fallback, guessed-author, alternate-PR, retry/timeout, configuration/schema, or classification policy. These mechanisms are not proven existing controls and would exceed the story’s Out Of Scope boundary, so this record fails closed and preserves them as non-actionable.
+
+### Task 50. Record Review Fixes From Batch 0000060-rw-20260728T224105Z-d3f27b0a
+
+- Repository Name: `Current Repository`
+- Review Task Role: `completed_review_fixes`
+- Task Dependencies: `Task 49`
+- Task Status: `__done__`
+- Review Batch: `0000060-rw-20260728T224105Z-d3f27b0a`
+- Review Cycle: `0000060-rc-20260728T213745Z-131cdb87`
+- Affected Repositories: `current_repository`
+- Review Target HEAD: `621f923dc48190fd0353a94f9b67f0d2b9c9575f`
+- Final Repair HEAD: `92f6d74bb268a27b37c6855040c5b700255da8fc`
+- Created: `July 29, 2026 at 12:48:02 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repair for the sole authorized and material survivor from batch `0000060-rw-20260728T224105Z-d3f27b0a`. The repair canonicalizes the selected latest open PR through the existing by-number GitHub API so a nullable list-response author cannot reach feedback filtering as a false clean review. The stronger repair was deliberately skipped because the normal-repair audit established that no actionable finding remained.
+
+#### Review Harnesses
+
+- `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, source job directory `jobs/add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) generated and corroborated the addressed finding through its evidence, findings, visual, saturation, blind-spot, and consolidator stages.
+
+#### Addresses Findings
+
+- `Reconciliation finding 1 — Accepted PR identity can lack its author and make real feedback appear empty`, owned by `current_repository`: after latest-PR selection, the runtime resolves the selected PR number through the existing by-number API before feedback filtering.
+
+#### Subtasks
+
+1. [x] Canonicalize the selected latest open PR through the existing by-number GitHub API while preserving the existing latest-PR selection and pagination behavior.
+2. [x] Add focused adapter coverage for a nullable list-response author and the canonical by-number response, including the existing paginated latest-PR fixture.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` — passed before formatting, 21/21 tests passed.
+2. [x] `npm run format:check` — passed.
+3. [x] `npm run lint` — passed with `--max-warnings=0`.
+4. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` — passed after formatting, 21/21 tests passed.
+5. [x] `git diff --check` — passed before commit.
+
+#### Implementation Notes
+
+- Normal repair commit `92f6d74bb268a27b37c6855040c5b700255da8fc` (`DEV-60 - Canonicalize latest PR review identity`) changed exactly `server/src/flows/githubReview.ts` and `server/src/test/unit/flows.github-adapter.test.ts` in `current_repository`.
+- The initial/reviewed HEAD was `621f923dc48190fd0353a94f9b67f0d2b9c9575f`; the final repair HEAD is `92f6d74bb268a27b37c6855040c5b700255da8fc`. The repair began from the exact reviewed branch and preserved the pre-existing unstaged plan modification.
+- An initial focused test exposed the paginated latest-PR fixture’s missing by-number response after canonicalization; the directly affected fixture was updated and the rerun passed. No unrelated source change was retained.
+- The repository-supported `npm run format` command ran successfully as completed repair hygiene. It is retained here rather than under `Testing` because it mutates files instead of proving behavior.
+- The stronger repair was deliberately skipped because the normal-repair audit confirmed the sole accepted survivor resolved and no actionable finding remained. No stronger repair commit or unresolved-finding task was created.
+- The batch outcome, normal-repair audit, reconciliation, all applicable filtering records, disposition, current Git state, exact direct job evidence, usage records, and focused proof were used. Full automated, Docker/Compose, live GitHub/token, restart, browser/e2e, and live classification coverage remains unavailable and belongs to later broader review/revalidation.
+
+### Task 51. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260728T213745Z-131cdb87
+
+- Repository Name: `Current Repository`
+- Review Task Role: `final_revalidation`
+- Task Dependencies: `Tasks 49 and 50`, plus all earlier completed story work covered by the prior final-validation inventory
+- Task Status: `__in_progress__`
+- Review Cycle: `0000060-rc-20260728T213745Z-131cdb87`
+- Affected Repositories: `current_repository`
+- Review Scope: whole-story validation at the current target HEAD, including the repair commits `621f923dc48190fd0353a94f9b67f0d2b9c9575f` and `92f6d74bb268a27b37c6855040c5b700255da8fc`
+- Created: `July 29, 2026 at 12:59:17 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Perform the single final automated validation after the two fix-bearing review-batch records. The complete story and every story-owned change in `current_repository` are in scope, including both normal repair commits and the focused proof already recorded by Tasks 49 and 50. This task is the closeout owner for review cycle `0000060-rc-20260728T213745Z-131cdb87`; it must not reopen ignored findings, create implementation work, or start another review.
+
+#### Task Exit Criteria
+
+- The whole approved story is validated at the final target HEAD through the repository-supported build, runtime, full automated-suite, shutdown, lint, and formatting lifecycle.
+- The two exact-ID completed-review-fix tasks remain preserved before this task, and no disposition prediction or earlier gate removal is routed as open work.
+- Any story-caused issue exposed by final validation is repaired within this task when practical and every affected check is rerun; unrelated baseline limitations are recorded honestly.
+
+#### Review Cycle Coverage
+
+- Batch `0000060-rw-20260728T213745Z-93cd8519` is represented by completed Task 49 and resolved by commit `621f923dc48190fd0353a94f9b67f0d2b9c9575f`.
+- Batch `0000060-rw-20260728T224105Z-d3f27b0a` is represented by completed Task 50 and resolved by commit `92f6d74bb268a27b37c6855040c5b700255da8fc`.
+- The missing-author finding and all negative-scope or positive-authorization removals remain ignored evidence only. The normal repair audits for both batches established no actionable survivor, and both stronger repairs were deliberately skipped for that reason.
+- Review limitations remain visible: partial OpenCode range coverage, unavailable direct native continuation for the second batch job, and absent live GitHub, Docker/Compose, restart, browser/e2e, and full-suite review coverage. These limitations are covered by final validation where supported and are not implementation work by themselves.
+
+#### Affected Repositories
+
+- `current_repository`: complete story implementation, server and client workspaces, Compose runtime, tests, scripts, flow definitions, and repository-owned proof surfaces.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [ ] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues with `npm run format` when needed.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+Run these automated commands without target filters. Preserve wrapper heartbeat and saved-log guidance, and shut down the supported Compose stack after the proof attempt:
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run build:summary:server`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
+6. [ ] `npm run compose:down`
+7. [ ] `npm run lint`
+8. [ ] `npm run format:check`
+
+#### Manual Testing Guidance
+
+Optional, non-blocking manual proof may use the supported main stack at `http://localhost:5001` and `http://localhost:5010` with a dedicated sandbox repository and the repository-owned manual-testing catalog. Later testers may exercise the final GitHub review-cycle clean, finding, warning, host, casing, and pagination behavior when provider access is available. If provider login requires human-controlled two-factor authentication, use the repository-allowed skip, record the limitation honestly, and do not attempt re-authentication. Manual proof is not an automated gate or blocker.
+
+Keep optional task-level logs and screenshots under `codeInfoTmp/manual-testing/0000060/51/` and do not commit them. For Playwright MCP screenshots, capture first with a relative path in the Playwright output directory, normally inspect `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host, then transfer selected artifacts into the task scratch directory. Later story closeout may curate durable proof into `codeInfoStatus/manual-proof/0000060/`; screenshot capture alone is not sufficient when a visual comparison is claimed, so retain comparison notes with any curated proof.
+
+#### Implementation Notes
+
+- Settlement routing is complete for the active review pass: two canonical batches are fix-bearing, Tasks 49 and 50 are the exact matching completed-review-fix records in launch order, and no materiality survivor remains after normal repair.
+- Task 51 is the one final revalidation owner for the active cycle and is intentionally appended after all existing work. Its `Testing` section contains only runnable automated commands; optional browser, agent-driven, screenshot, and live-provider scenarios remain in checkbox-free manual guidance.

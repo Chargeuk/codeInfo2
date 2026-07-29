@@ -5386,8 +5386,8 @@ Perform the single final automated validation after the two fix-bearing review-b
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
-2. [ ] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues with `npm run format` when needed.
+1. [x] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [x] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues with `npm run format` when needed.
 
 #### Testing
 
@@ -5401,8 +5401,8 @@ Run these automated commands without target filters. Preserve wrapper heartbeat 
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
 6. [ ] `npm run compose:down`
-7. [ ] `npm run lint`
-8. [ ] `npm run format:check`
+7. [x] `npm run lint`
+8. [x] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -5414,3 +5414,5 @@ Keep optional task-level logs and screenshots under `codeInfoTmp/manual-testing/
 
 - Settlement routing is complete for the active review pass: two canonical batches are fix-bearing, Tasks 49 and 50 are the exact matching completed-review-fix records in launch order, and no materiality survivor remains after normal repair.
 - Task 51 is the one final revalidation owner for the active cycle and is intentionally appended after all existing work. Its `Testing` section contains only runnable automated commands; optional browser, agent-driven, screenshot, and live-provider scenarios remain in checkbox-free manual guidance.
+- `npm run lint` passed with exit code 0; no story-caused lint issues required repair.
+- `npm run format:check` passed with exit code 0; all tracked files matched Prettier style and no repair was needed.

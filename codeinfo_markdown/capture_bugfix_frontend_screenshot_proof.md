@@ -10,18 +10,20 @@ Start the smallest repository-supported browser environment that honestly exerci
 
 Use Playwright MCP or Chrome DevTools MCP to exercise the repaired behaviour and its most relevant visible regression case. Inspect browser console and failed network activity where useful, but retain only screenshots as task artifacts. Confirm visually that each retained screenshot actually shows the intended fixed state.
 
-Playwright screenshot paths are relative to its runtime output directory, normally `/tmp/playwright-output`; do not pass a target-repository absolute path to Playwright. Use deterministic staging names such as:
+When using Playwright MCP, call its screenshot tool with the `filename` argument set to one flat relative filename containing no `/` characters. Do not pass an absolute path, a target-repository path, or a nested relative path. Use a deterministic staging filename such as:
 
-`bugfixes/<storyId>/<subtaskId>/proof-01-<short-description>.png`
+`bugfix-<storyId>-<subtaskId>-proof-01-<short-description>.png`
 
-For the normal CodeInfo2 harness, first look for that staged file at:
+For the normal CodeInfo2 local harness, Playwright resolves that relative filename inside `/tmp/playwright-output`. After the screenshot tool succeeds, find that exact staged file at:
 
-`$CODEINFO_ROOT/playwright-output-local/bugfixes/<storyId>/<subtaskId>/proof-01-<short-description>.png`
+`$CODEINFO_ROOT/playwright-output-local/bugfix-<storyId>-<subtaskId>-proof-01-<short-description>.png`
 
 Transfer each retained image into the target repository as a direct child of:
 
 `codeInfoTmp/bugfixes/<storyId>/<subtaskId>/proof/`
 
 Use deterministic basenames such as `proof-01-<short-description>.png`. Verify every transferred file exists and inspect it from its final local path. If the normal host-visible staging bind is unavailable, use only the positively identified Playwright runtime's supported copy-out path; do not guess a container.
+
+If Playwright cannot produce a transferable file, use Chrome DevTools MCP as the backup. Prefer a focused viewport screenshot rather than a full-page screenshot so the returned image remains small while still showing complete proof. If Chrome DevTools cannot write directly to the final proof path but returns the PNG as image or base64 content, stream that base64 data through stdin in small chunks to a `base64 --decode` process writing the exact final proof file. Never put the complete base64 payload in a shell command argument or send it as one large terminal write. Use an explicit end marker, wait for the decoder to exit successfully, confirm the resulting file is non-empty and has a PNG signature, and inspect it from the final proof path. Delete any incomplete or uninspectable file and report failure honestly if a clean recapture and transfer does not succeed.
 
 Return the tested environment to the state observed at the beginning of this step. If startup, browser access, capture, transfer, inspection, or cleanup fails, report the limitation honestly and do not create or preserve a misleading screenshot. Make no Jira call even when proof succeeds.

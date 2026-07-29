@@ -271,6 +271,10 @@ test('compose stacks expose harness instructions while local uses live workflow 
     localServer,
     /\$\{CODEINFO_DOCKER_SOCKET_PATH:-\/var\/run\/docker\.sock\}:\/var\/run\/docker\.sock/u,
   );
+  assert.match(
+    localServer,
+    /\.\/playwright-output-local:\/app\/playwright-output-local/u,
+  );
   assert.match(localServer, /CODEINFO_RUNTIME_SOURCE_BIND_MOUNT_COUNT=6/u);
   assert.match(
     localServer,
@@ -282,6 +286,10 @@ test('compose stacks expose harness instructions while local uses live workflow 
   assert.doesNotMatch(localPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(localPlaywright, /\n\s+networks:/u);
   assert.match(localPlaywright, /entrypoint: \['node', '\/app\/cli\.js'\]/u);
+  assert.match(
+    localPlaywright,
+    /'--output-dir',\s*\n\s*'\/tmp\/playwright-output'/u,
+  );
   assert.match(localPlaywright, /'8931'/u);
   assert.match(
     localPlaywright,

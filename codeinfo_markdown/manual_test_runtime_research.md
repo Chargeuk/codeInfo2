@@ -176,7 +176,7 @@ When browser proof may use Playwright MCP, also record the artifact-transfer pat
 - how that target artifact repository root was resolved, such as the active working repository path or `git rev-parse --show-toplevel` from the directory containing `plan_path`
 - the intended target artifact destination relative to that target repository
 - for this codeInfo2 harness workflow, treat the manual-testing agent's Playwright MCP runtime as the local agent stack unless current repository evidence explicitly proves a different runtime is active
-- for this codeInfo2 harness workflow, record that any Playwright MCP artifact saved under `/tmp/playwright-output/<relative-path>` inside the local Playwright MCP runtime will appear at `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host
+- for this codeInfo2 harness workflow, record that the Playwright MCP screenshot tool should receive one flat relative `filename` containing no `/` characters; the local Playwright runtime resolves it under `/tmp/playwright-output`, and the resulting file appears at `$CODEINFO_ROOT/playwright-output-local/<filename>`
 - for this codeInfo2 harness workflow, record `$CODEINFO_ROOT/playwright-output-local/<relative-path>` as the normal first place the manual-testing agent should look for captured Playwright MCP screenshots
 - do not infer the screenshot source from the app-under-test compose stack alone; record the Playwright MCP runtime separately from the runtime being proved whenever those differ
 - the Playwright MCP output root inside the Playwright runtime, normally `/tmp/playwright-output`

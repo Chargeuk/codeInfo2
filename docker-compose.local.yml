@@ -63,6 +63,7 @@ services:
       - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
     volumes:
       - ./logs:/app/logs
+      - ./playwright-output-local:/app/playwright-output-local
       - ./scripts:/app/scripts:ro
       - ./codeinfo_markdown:/app/codeinfo_markdown:ro
       - ./copilot:/app/copilot
@@ -210,6 +211,8 @@ services:
         '--ignore-https-errors',
         '--no-sandbox',
         '--isolated',
+        '--output-dir',
+        '/tmp/playwright-output',
         '--port',
         '8931',
         '--allowed-hosts',

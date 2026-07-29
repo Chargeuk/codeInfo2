@@ -5355,7 +5355,7 @@ Record the completed normal repair for the sole authorized and material survivor
 - Repository Name: `Current Repository`
 - Review Task Role: `final_revalidation`
 - Task Dependencies: `Tasks 49 and 50`, plus all earlier completed story work covered by the prior final-validation inventory
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Cycle: `0000060-rc-20260728T213745Z-131cdb87`
 - Affected Repositories: `current_repository`
 - Review Scope: whole-story validation at the current target HEAD, including the repair commits `621f923dc48190fd0353a94f9b67f0d2b9c9575f` and `92f6d74bb268a27b37c6855040c5b700255da8fc`
@@ -5431,3 +5431,4 @@ Keep optional task-level logs and screenshots under `codeInfoTmp/manual-testing/
 - Final `npm run compose:down` passed and removed the main repository-owned test stack; lint and formatting checks were reopened because the repair changed production and test TypeScript after their earlier passes.
 - Post-repair `npm run lint` passed cleanly with zero warnings.
 - Post-repair `npm run format:check` passed; all tracked files matched Prettier style.
+- Audit confirmed the same-task reconciliation repair was rerun through the complete final validation lifecycle; all subtasks and automated testing items are complete with no live blocker, so Task 51 is honestly done and manual proof remains optional guidance only.

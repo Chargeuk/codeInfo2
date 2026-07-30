@@ -722,17 +722,19 @@ Restore the three pre-existing Copilot chat-default tests that still encode the 
 
 #### Subtasks
 
-1. [ ] Update only `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, `server/src/test/unit/chatModels.copilot.test.ts`, and `server/src/test/unit/chatProviders.test.ts` so their fixtures and assertions explicitly match the current `gpt-5.4-mini` default and its documented normalization-warning behavior; do not change production chat-default code.
+1. [x] Update only `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, `server/src/test/unit/chatModels.copilot.test.ts`, and `server/src/test/unit/chatProviders.test.ts` so their fixtures and assertions explicitly match the current `gpt-5.4-mini` default and its documented normalization-warning behavior; do not change production chat-default code.
 
 #### Testing
 
-1. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --skip-build --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts --file server/src/test/unit/chatModels.copilot.test.ts --file server/src/test/unit/chatProviders.test.ts --test-name "codebase_question keeps the requested provider|copilot models route clamps unsupported configured defaults|providers route clamps unsupported Copilot config defaults"`; all three targeted baseline tests must pass.
+1. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --skip-build --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts --file server/src/test/unit/chatModels.copilot.test.ts --file server/src/test/unit/chatProviders.test.ts --test-name "codebase_question keeps the requested provider|copilot models route clamps unsupported configured defaults|providers route clamps unsupported Copilot config defaults"`; all three targeted baseline tests must pass.
 2. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`; the complete sequential server-unit and integration surface must pass before Task 11 resumes.
 
 #### Implementation Notes
 
 - Planner repair re-owned the proven shared chat-default baseline seam as the next executable prerequisite. The current final closeout task is moved behind this bounded test-only repair so the implementation loop has a concrete owner and stopping condition.
 - The current default change and the three stale tests are documented in Task 11's preserved blocking-answer research; no Story 65 product behavior is authorized by this prerequisite.
+- Updated only the three named test fixtures and assertions to use `gpt-5.4-mini`, preserving the zero-warning clamping contract and leaving production chat-default code unchanged.
+- The focused three-test server-unit wrapper passed with concurrency 1: 3 tests run, 3 passed, 0 failed. The complete server-unit proof remains for the task's later automated-proof step.
 
 ---
 

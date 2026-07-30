@@ -335,6 +335,8 @@ test('external launcher exposes only the selected endpoint and key to the child'
   const selectedSecret = 'sk-selected-secret';
   const otherSecret = 'sk-other-secret';
   const env = fakeEnvironment(fixture, fakeCopilot, {
+    COPILOT_HOME: path.join(fixture.root, 'ambient-copilot-home'),
+    CODEINFO_COPILOT_HOME: path.join(fixture.root, 'native-copilot-home'),
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
       'Other,https://other.test/v1|completions;Unsloth,https://selected.test/v1|completions',
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: `Unsloth,${selectedSecret};Other,${otherSecret}`,
@@ -361,6 +363,11 @@ test('external launcher exposes only the selected endpoint and key to the child'
   );
   assert.match(childEnv, /COPILOT_PROVIDER_WIRE_API=completions/u);
   assert.match(childEnv, /COPILOT_MODEL=google-gemini-3\.6-flash/u);
+  assert.doesNotMatch(childEnv, /^COPILOT_HOME=/mu);
+  assert.doesNotMatch(
+    childEnv,
+    new RegExp(`${fixture.root}/(ambient|native)-copilot-home`, 'u'),
+  );
   assert.match(
     childEnv,
     new RegExp(`COPILOT_PROVIDER_API_KEY=${selectedSecret}`, 'u'),

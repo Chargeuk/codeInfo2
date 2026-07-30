@@ -458,8 +458,8 @@ export function buildExternalCopilotReviewEnvironment(params: {
   apiKey?: string;
 }): NodeJS.ProcessEnv {
   const result = withoutProviderEnvironment(params.source);
-  const copilotHome = params.source.CODEINFO_COPILOT_HOME?.trim();
-  if (copilotHome) result.COPILOT_HOME = copilotHome;
+  delete result.COPILOT_HOME;
+  delete result.CODEINFO_COPILOT_HOME;
   result.COPILOT_PROVIDER_TYPE = 'openai';
   result.COPILOT_PROVIDER_BASE_URL = params.endpoint.baseUrl;
   result.COPILOT_PROVIDER_WIRE_API = 'completions';

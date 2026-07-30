@@ -138,6 +138,61 @@ const availableDeps = (): CopilotReviewAvailabilityDeps => ({
 });
 
 describe('Copilot review model availability', () => {
+  test('sanitizes only external provider state from CLI readiness', async () => {
+    const specs = parseCopilotReviewModels('gpt-5.4|low');
+    const env: NodeJS.ProcessEnv = {
+      PATH: '/test/bin',
+      CODEINFO_COPILOT_CLI_PATH: '/test/bin/copilot',
+      CODEINFO_COPILOT_HOME: '/test/copilot-home',
+      COPILOT_GITHUB_TOKEN: 'copilot-native-token',
+      GH_TOKEN: 'gh-native-token',
+      GITHUB_TOKEN: 'github-native-token',
+      COPILOT_PROVIDER_TYPE: 'openai',
+      COPILOT_PROVIDER_API_KEY: 'external-secret',
+      COPILOT_PROVIDER_CUSTOM: 'external-setting',
+      COPILOT_MODEL: 'external-model',
+      CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+        'External,https://external.test/v1|completions',
+      CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: 'External,external-secret',
+      UNRELATED_SETTING: 'preserved',
+    };
+    let readinessEnv: NodeJS.ProcessEnv | undefined;
+    let discoveryEnv: NodeJS.ProcessEnv | undefined;
+
+    const [resolved] = await resolveCopilotReviewModels(specs, {
+      env,
+      deps: {
+        ...availableDeps(),
+        checkCli: async (candidate) => {
+          readinessEnv = candidate;
+          return true;
+        },
+        discoverNative: async (candidate) => {
+          discoveryEnv = candidate;
+          return { status: 'available', models: ['gpt-5.4'] };
+        },
+      },
+    });
+
+    assert.equal(resolved?.available, true);
+    assert.notStrictEqual(readinessEnv, env);
+    assert.equal(discoveryEnv, env);
+    assert.deepEqual(readinessEnv, {
+      PATH: '/test/bin',
+      CODEINFO_COPILOT_CLI_PATH: '/test/bin/copilot',
+      CODEINFO_COPILOT_HOME: '/test/copilot-home',
+      COPILOT_GITHUB_TOKEN: 'copilot-native-token',
+      GH_TOKEN: 'gh-native-token',
+      GITHUB_TOKEN: 'github-native-token',
+      UNRELATED_SETTING: 'preserved',
+    });
+    assert.equal(env.COPILOT_PROVIDER_API_KEY, 'external-secret');
+    assert.equal(
+      env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS,
+      'External,external-secret',
+    );
+  });
+
   test('resolves available native and exact endpoint-qualified external models', async () => {
     const specs = parseCopilotReviewModels(
       'gpt-5.4|low,unsloth::google-gemini-3.6-flash|minimal',

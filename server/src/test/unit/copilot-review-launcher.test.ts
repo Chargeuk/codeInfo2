@@ -337,6 +337,9 @@ test('external launcher exposes only the selected endpoint and key to the child'
   const env = fakeEnvironment(fixture, fakeCopilot, {
     COPILOT_HOME: path.join(fixture.root, 'ambient-copilot-home'),
     CODEINFO_COPILOT_HOME: path.join(fixture.root, 'native-copilot-home'),
+    COPILOT_GITHUB_TOKEN: 'copilot-native-token',
+    GH_TOKEN: 'gh-native-token',
+    GITHUB_TOKEN: 'github-native-token',
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
       'Other,https://other.test/v1|completions;Unsloth,https://selected.test/v1|completions',
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: `Unsloth,${selectedSecret};Other,${otherSecret}`,
@@ -367,6 +370,10 @@ test('external launcher exposes only the selected endpoint and key to the child'
   assert.doesNotMatch(
     childEnv,
     new RegExp(`${fixture.root}/(ambient|native)-copilot-home`, 'u'),
+  );
+  assert.doesNotMatch(
+    childEnv,
+    /^(?:COPILOT_GITHUB_TOKEN|GH_TOKEN|GITHUB_TOKEN)=/mu,
   );
   assert.match(
     childEnv,

@@ -235,6 +235,19 @@ export type CopilotReviewAvailabilityDeps = {
   ) => Promise<{ available: boolean; models: string[]; reason?: string }>;
 };
 
+const buildCliReadinessEnvironment = (
+  source: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv => {
+  const result = { ...source };
+  for (const key of Object.keys(result)) {
+    if (key.startsWith('COPILOT_PROVIDER_')) delete result[key];
+  }
+  delete result.COPILOT_MODEL;
+  delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  return result;
+};
+
 const defaultCheckCli = async (env: NodeJS.ProcessEnv): Promise<boolean> => {
   const cliPath = env.CODEINFO_COPILOT_CLI_PATH?.trim() || 'copilot';
   try {
@@ -334,7 +347,7 @@ export async function resolveCopilotReviewModels(
 
   let cliAvailable = false;
   try {
-    cliAvailable = await deps.checkCli(env);
+    cliAvailable = await deps.checkCli(buildCliReadinessEnvironment(env));
   } catch {
     return specs.map((spec) =>
       unavailable(spec, 'Copilot CLI readiness check failed.'),

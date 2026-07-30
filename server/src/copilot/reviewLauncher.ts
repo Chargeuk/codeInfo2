@@ -460,6 +460,9 @@ export function buildExternalCopilotReviewEnvironment(params: {
   const result = withoutProviderEnvironment(params.source);
   delete result.COPILOT_HOME;
   delete result.CODEINFO_COPILOT_HOME;
+  delete result.COPILOT_GITHUB_TOKEN;
+  delete result.GH_TOKEN;
+  delete result.GITHUB_TOKEN;
   result.COPILOT_PROVIDER_TYPE = 'openai';
   result.COPILOT_PROVIDER_BASE_URL = params.endpoint.baseUrl;
   result.COPILOT_PROVIDER_WIRE_API = 'completions';

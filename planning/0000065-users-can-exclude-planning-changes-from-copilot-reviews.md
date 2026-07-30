@@ -783,15 +783,15 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ##### Current Repository
 
-1. [ ] Run `npm run build:summary:server`; the complete server build must pass after Tasks 9 and 10.
-2. [ ] Run `npm run compose:build:summary`; both supported Compose build items and baked flow assets must pass.
-3. [ ] Run `npm run compose:up`; the checked-in main `codeinfo` stack must start successfully through the repository-supported wrapper.
-4. [ ] Run `python3 -m unittest scripts.test.test_review_prompt_contracts`; the complete Python review prompt-contract suite must pass.
-5. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`; the complete server unit and integration Node test surface must pass with the story-required runner concurrency of one.
-6. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:cucumber`; the complete server Cucumber feature surface must pass sequentially.
-7. [ ] Run `npm run compose:down`; shut down the main stack started by this task through the repository-supported wrapper after the full automated suites finish, or during failure cleanup if an earlier suite stops the proof sequence.
-8. [ ] Run `npm run lint` again after build, runtime, and test proof; fix story-caused issues and rerun affected checks.
-9. [ ] Run `npm run format:check` again last; fix story-caused issues and rerun affected checks.
+1. [x] Run `npm run build:summary:server`; the complete server build must pass after Tasks 9 and 10.
+2. [x] Run `npm run compose:build:summary`; both supported Compose build items and baked flow assets must pass.
+3. [x] Run `npm run compose:up`; the checked-in main `codeinfo` stack must start successfully through the repository-supported wrapper.
+4. [x] Run `python3 -m unittest scripts.test.test_review_prompt_contracts`; the complete Python review prompt-contract suite must pass.
+5. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`; the complete server unit and integration Node test surface must pass with the story-required runner concurrency of one.
+6. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:cucumber`; the complete server Cucumber feature surface must pass sequentially.
+7. [x] Run `npm run compose:down`; shut down the main stack started by this task through the repository-supported wrapper after the full automated suites finish, or during failure cleanup if an earlier suite stops the proof sequence.
+8. [x] Run `npm run lint` again after build, runtime, and test proof; fix story-caused issues and rerun affected checks.
+9. [x] Run `npm run format:check` again last; fix story-caused issues and rerun affected checks.
 
 The story has no client-owned implementation surface, browser surface, or live-provider requirement. Do not replace these sequential commands with `npm run test:summary:all:parallel`; the story explicitly excludes that parallel wrapper because its test harness uses process-wide mutable state.
 
@@ -802,6 +802,15 @@ None. The story explicitly excludes manual Compose startup, provider authenticat
 #### Implementation Notes
 
 - This task is the single final revalidation owner after Task 9 and Task 10, and preserves the partial review-coverage limitations recorded for the settlement pass.
+- Ran `npm run build:summary:server` successfully with exit code 0 and no wrapper-reported warnings; the server build proof item is complete for the current repository state.
+- Ran `npm run compose:build:summary` successfully; both supported Compose build items passed and runtime assets were baked without requiring source bind mounts.
+- Ran `npm run compose:up` successfully; the checked-in main stack passed preflight, reached healthy server state, and started all services.
+- Ran `python3 -m unittest scripts.test.test_review_prompt_contracts` successfully; all 47 tests passed.
+- Ran `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit` successfully; all 2,688 server unit and integration tests passed with concurrency set to one.
+- Ran `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:cucumber` successfully; all 133 Cucumber feature tests passed sequentially.
+- Ran `npm run compose:down` successfully; the main stack started by this task was shut down through the supported wrapper.
+- Ran `npm run lint` successfully after build, runtime, and test proof with exit code 0 and no reported issues.
+- Ran `npm run format:check` successfully last; all matched files use Prettier code style.
 - Ran `npm run lint` successfully with exit code 0 and no reported issues; the lint subtask is complete for the post-Task-10 repository state.
 - Ran `npm run format:check` successfully with exit code 0; all matched files use Prettier code style, and the formatting subtask is complete for the post-Task-10 repository state.
 - Ran `npm run lint` successfully with exit code 0 and no reported issues; the lint subtask is complete.

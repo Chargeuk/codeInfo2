@@ -638,7 +638,7 @@ Remove the LLM wrapper from Copilot launcher argument transport and process supe
 - Repository Name: `Current Repository`
 - Affected Repositories: `current_repository`
 - Task Dependencies: `Task 8`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Task Role: `review_finding_repair`
 - Review Batch: `0000065-rw-20260729T233952Z-f493e79c`
 - Review Cycle: `0000065-rc-20260729T223631Z-72cb0b36`
@@ -694,6 +694,7 @@ None. The story explicitly excludes manual Compose startup, provider login, live
 - Main Compose smoke stack shut down cleanly through the supported wrapper.
 - Repository lint passed with zero reported issues.
 - Repository format check passed; all tracked files matched Prettier style.
+- Audit confirmed the scoped external-home isolation implementation and all recorded automated proof are present, with native home mapping preserved and no story-caused behavior drift. All subtasks and testing are complete, no live blocker is reported, and Task 9 is now honestly complete for final story closeout.
 
 ---
 

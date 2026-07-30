@@ -699,25 +699,62 @@ None. The story explicitly excludes manual Compose startup, provider login, live
 
 ---
 
-### Task 10. Revalidate the complete Copilot review story
+### Task 10. Repair the shared Copilot chat-default test baseline
 
 - Repository Name: `Current Repository`
 - Affected Repositories: `current_repository`
 - Task Dependencies: `Tasks 1–9`
 - Task Status: `__in_progress__`
+- Review Task Role: `shared_baseline_repair`
+- Repair Boundary: this prerequisite owns only the stale chat-default test fixtures and assertions required to restore the repository's current baseline; it must not change Story 65 production behavior.
+- Created: `July 30, 2026 at 4:00:00 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Restore the three pre-existing Copilot chat-default tests that still encode the old `copilot-gpt-5` default after mainline changed the supported default to `gpt-5.4-mini`. Keep the repair limited to the named test files and make the full sequential server-unit wrapper green before the final story revalidation task resumes.
+
+#### Task Exit Criteria
+
+- The three named tests represent the current `gpt-5.4-mini` default contract: fallback expectations match the current live model behavior, flag-clamping fixtures include the current default when zero warnings are intended, and intentional missing-default fixtures assert the normalization warning.
+- No Story 65 production file or global chat-default implementation is changed by this task.
+- The focused three-test wrapper passes and the complete sequential server-unit wrapper passes with concurrency one.
+- Task 11 can resume its complete story closeout without carrying a known shared-baseline failure.
+
+#### Subtasks
+
+1. [ ] Update only `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, `server/src/test/unit/chatModels.copilot.test.ts`, and `server/src/test/unit/chatProviders.test.ts` so their fixtures and assertions explicitly match the current `gpt-5.4-mini` default and its documented normalization-warning behavior; do not change production chat-default code.
+
+#### Testing
+
+1. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --skip-build --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts --file server/src/test/unit/chatModels.copilot.test.ts --file server/src/test/unit/chatProviders.test.ts --test-name "codebase_question keeps the requested provider|copilot models route clamps unsupported configured defaults|providers route clamps unsupported Copilot config defaults"`; all three targeted baseline tests must pass.
+2. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`; the complete sequential server-unit and integration surface must pass before Task 11 resumes.
+
+#### Implementation Notes
+
+- Planner repair re-owned the proven shared chat-default baseline seam as the next executable prerequisite. The current final closeout task is moved behind this bounded test-only repair so the implementation loop has a concrete owner and stopping condition.
+- The current default change and the three stale tests are documented in Task 11's preserved blocking-answer research; no Story 65 product behavior is authorized by this prerequisite.
+
+---
+
+### Task 11. Revalidate the complete Copilot review story
+
+- Repository Name: `Current Repository`
+- Affected Repositories: `current_repository`
+- Task Dependencies: `Tasks 1–10`
+- Task Status: `__to_do__`
 - Review Task Role: `final_revalidation`
 - Review Batch: `0000065-rw-20260729T233952Z-f493e79c`
 - Review Cycle: `0000065-rc-20260729T223631Z-72cb0b36`
-- Final Revalidation Owner: this task owns whole-story closeout after the F1 repair.
+- Final Revalidation Owner: this task owns whole-story closeout after the F1 repair and Task 10's shared-baseline repair.
 - Created: `July 30, 2026 at 1:56:23 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
 
 #### Overview
 
-Revalidate the complete approved Copilot review story after Task 9's external child-environment repair. This is the sole final closeout owner and covers the current repository's server, flow, prompt-contract, review workspace, and Compose-build surfaces delivered across Tasks 1–9.
+Revalidate the complete approved Copilot review story after Task 9's external child-environment repair and Task 10's shared chat-default baseline repair. This is the sole final closeout owner and covers the current repository's server, flow, prompt-contract, review workspace, and Compose-build surfaces delivered across Tasks 1–10.
 
 #### Task Exit Criteria
 
-- Every initial lint and formatting subtask and every automated proof item is checked only after the named command passes.
+- Every lint and formatting subtask and every automated proof item is checked only after the named command passes against the post-Task-10 repository state.
 - The final proof reflects the latest story-owned code and no story-caused failure remains unresolved.
 - The final task remains last in the plan and is the only final revalidation owner for this review cycle.
 - No manual, provider-login, browser, screenshot, remote GitHub, or parallel all-tests gate is added to the story.
@@ -732,8 +769,8 @@ Revalidate the complete approved Copilot review story after Task 9's external ch
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [x] Run the repository-supported full lint command `npm run lint` for the current repository.
-2. [x] Run the repository-supported full formatting check `npm run format:check` for the current repository.
+1. [ ] Run the repository-supported full lint command `npm run lint` for the current repository after Task 10.
+2. [ ] Run the repository-supported full formatting check `npm run format:check` for the current repository after Task 10.
 
 #### Testing
 
@@ -741,13 +778,13 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ##### Current Repository
 
-1. [x] Run `npm run build:summary:server`; the complete server build must pass after the latest story-owned repair.
-2. [x] Run `npm run compose:build:summary`; both supported Compose build items and baked flow assets must pass.
-3. [x] Run `npm run compose:up`; the checked-in main `codeinfo` stack must start successfully through the repository-supported wrapper.
-4. [x] Run `python3 -m unittest scripts.test.test_review_prompt_contracts`; the complete Python review prompt-contract suite must pass.
+1. [ ] Run `npm run build:summary:server`; the complete server build must pass after Tasks 9 and 10.
+2. [ ] Run `npm run compose:build:summary`; both supported Compose build items and baked flow assets must pass.
+3. [ ] Run `npm run compose:up`; the checked-in main `codeinfo` stack must start successfully through the repository-supported wrapper.
+4. [ ] Run `python3 -m unittest scripts.test.test_review_prompt_contracts`; the complete Python review prompt-contract suite must pass.
 5. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`; the complete server unit and integration Node test surface must pass with the story-required runner concurrency of one.
 6. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:cucumber`; the complete server Cucumber feature surface must pass sequentially.
-7. [x] Run `npm run compose:down`; shut down the main stack started by this task through the repository-supported wrapper after the full automated suites finish, or during failure cleanup if an earlier suite stops the proof sequence.
+7. [ ] Run `npm run compose:down`; shut down the main stack started by this task through the repository-supported wrapper after the full automated suites finish, or during failure cleanup if an earlier suite stops the proof sequence.
 8. [ ] Run `npm run lint` again after build, runtime, and test proof; fix story-caused issues and rerun affected checks.
 9. [ ] Run `npm run format:check` again last; fix story-caused issues and rerun affected checks.
 
@@ -759,7 +796,7 @@ None. The story explicitly excludes manual Compose startup, provider authenticat
 
 #### Implementation Notes
 
-- This task is the single final revalidation owner after the unresolved F1 implementation task and preserves the partial review-coverage limitations recorded for the settlement pass.
+- This task is the single final revalidation owner after Task 9 and Task 10, and preserves the partial review-coverage limitations recorded for the settlement pass.
 - Ran `npm run lint` successfully with exit code 0 and no reported issues; the lint subtask is complete.
 - Ran `npm run format:check` successfully with exit code 0; all matched files use Prettier code style and the formatting subtask is complete.
 - Ran `npm run build:summary:server` successfully with exit code 0 and no wrapper-reported warnings.
@@ -768,8 +805,9 @@ None. The story explicitly excludes manual Compose startup, provider authenticat
 - Ran `python3 -m unittest scripts.test.test_review_prompt_contracts` successfully; all 47 tests passed.
 - Repaired `requirePrivateInput` validation ordering so missing private input directories report the intended error before contained-path checks; the targeted review-batch workspace wrapper passed all 3 tests, and the full server unit wrapper passed 2,685 of 2,688 tests with the story-caused failure resolved.
 - Ran `npm run compose:down` during failure cleanup; the main stack was shut down through the supported wrapper.
-- **BLOCKER** Automated proof stopped at Testing item 5 (`CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`). After the repair and a full rerun, three unchanged pre-story chat-default tests still fail: the Copilot codebase-question fallback selects `gpt-5-mini` instead of the expected `copilot-gpt-5`, and two Copilot route tests report one warning instead of zero. The failures reproduce in isolated targeted runs and the affected chat-default files have no story-owned diff, so no credible in-scope repair remains; the task should remain final-task-owned but be re-owned or reordered to repair the pre-existing chat-default behavior before automated proof continues.
+- **RESOLVED ISSUE** Automated proof stopped at Testing item 5 (`CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`). After the repair and a full rerun, three unchanged pre-story chat-default tests still fail: the Copilot codebase-question fallback selects `gpt-5-mini` instead of the expected `copilot-gpt-5`, and two Copilot route tests report one warning instead of zero. The failures reproduce in isolated targeted runs and the affected chat-default files have no story-owned diff. Planner repair now assigns that shared-baseline repair to Task 10 before this final task resumes; the original live blocker is retained here as historical evidence rather than an active blocker on the queued closeout task.
 - **BLOCKING ANSWER** Research proves this is a shared wrapper or baseline seam, specifically stale chat-default test expectations, not a Story 65 product defect. Repository-first `code_info` research found the same ownership pattern in [Story 54 Task 14](planning/0000054-users-can-ingest-repositories-with-large-text-files-faster.md), which kept the required full server-unit wrapper as the completion gate for an unrelated suite failure, and in [Story 56 Task 4](planning/0000056-users-can-use-copilot-as-a-first-class-chat-provider-with-shared-agent-flags-and-defaults.md) and [Story 57 Task 35](planning/0000057-provider-neutral-agent-runtime-config-and-codeinfo-agents.md), which moved ownership only after evidence proved a shared baseline seam. Direct repository evidence shows the three failing files have no Story 65 diff (`git diff main...HEAD -- server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts server/src/test/unit/chatModels.copilot.test.ts server/src/test/unit/chatProviders.test.ts server/src/chat/copilotModelSupport.ts` is empty for those paths), while mainline commit `d1a12e4f` changed `DEFAULT_COPILOT_MODEL` from `copilot-gpt-5` to `gpt-5.4-mini` and updated only some related expectations. The fresh supported targeted wrapper run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --skip-build --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts --file server/src/test/unit/chatModels.copilot.test.ts --file server/src/test/unit/chatProviders.test.ts --test-name "codebase_question keeps the requested provider|copilot models route clamps unsupported configured defaults|providers route clamps unsupported Copilot config defaults"` ran exactly 3 tests and failed all 3; its artifact is [test-results/server-unit-tests-2026-07-30T03-19-33-986Z.log](test-results/server-unit-tests-2026-07-30T03-19-33-986Z.log). The log proves the MCP test expects `copilot-gpt-5` while the current resolver returns `gpt-5-mini`, and both route tests expect zero warnings while the current resolver emits one normalization warning.
 - **BLOCKING ANSWER** External-library and issue-resolution research confirms that targeted diagnosis cannot be substituted for the required full-suite result. The official [Node.js test-runner documentation](https://nodejs.org/api/test.html) states that any failing test sets the process exit code to 1, and documents `--test-name-pattern` and `--test-rerun-failures` as filtering/rerun tools rather than ways to make a failing full suite green; [DeepWiki's nodejs/node guidance](https://deepwiki.com/search/what-is-the-supported-behavior_1cde3c19-f650-4c3b-b280-7bcdb8cae8c8) and the Context7 `/nodejs/node` documentation confirm the same process-isolation and targeted-diagnosis model. A direct current-runtime probe of `resolveCopilotDefaultModel` proves the repair shape: with no current default in the fixture it returns `gpt-5-mini` and a normalization warning, while adding live `gpt-5.4-mini` returns `gpt-5.4-mini` with no warning. The chosen solution is therefore to re-own or reorder this prerequisite baseline repair outside Story 65, update the three stale fixtures/assertions to the current `gpt-5.4-mini` contract (including the normalization-warning expectation where the fixture intentionally omits that model, or including it when the test is only about flag clamping), then rerun the full sequential server-unit wrapper before continuing items 6, 8, and 9. This fits the local repository because the failing surfaces predate Story 65 and the story's final task must not change unrelated chat-default behavior. Rejected alternatives are changing Story 65 production code, silently weakening or skipping the three tests, marking the full wrapper complete from the targeted run, repeatedly rerunning the unchanged full wrapper without repairing its stale baseline, or adding a test-runner force-exit/parallel workaround; each would hide or mis-own the proven baseline contract instead of restoring it. The live `**BLOCKER**` remains because the prerequisite baseline repair and a fresh green full-wrapper artifact are still unavailable.
+- Planner repair inserted Task 10 as the explicit prerequisite owner, moved this final task to `__to_do__`, and reset its closeout checks because the baseline test edits will make earlier proof stale. The live blocker was therefore retired as a historical resolved issue on this queued task; Task 10 remains the active executable owner until its bounded test repair and full server-unit proof pass.
 
 ---

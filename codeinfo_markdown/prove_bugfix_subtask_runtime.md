@@ -1,6 +1,6 @@
 # Prove the final bugfix components build and start
 
-Continue only with the story and subtask bound throughout the current loop. Read and follow `AGENTS.md`. Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_next_bugfix_subtask.py"` again and inspect fresh Git state. Continue only when the selector still returns `status: "ready"` for the same In Progress subtask assigned to the current user and the branch still matches the baseline in `information.md`. Do not adopt another issue, edit product source, commit, push, publish to Jira, or change Jira state during this step.
+Continue only with the story and subtask bound throughout the current loop. Read and follow `AGENTS.md`. Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py"` and inspect fresh Git state. Continue only when the helper returns `status: "ready"` for the same durably bound In Progress subtask, reports `assigned_to_current_user: true`, and the branch still matches the baseline in `information.md`. Never run the next-work selector. Do not adopt another issue, edit product source, commit, push, publish to Jira, or change Jira state during this step.
 
 Read the bound subtask's `information.md`, `plan.md`, current diff, and any stronger-repair evidence. Identify every component materially modified for this subtask. Use repository-owned commands and wrapper scripts from `AGENTS.md` and the repository documentation to prove each affected component:
 
@@ -22,18 +22,18 @@ Append or refresh an `## Final build and startup proof` section in `information.
 - Every remaining blocker or uncertainty.
 - Whether the subtask has complete final automated and runtime proof.
 
-Before recording the frontend decision, create the selector-provided `proof` directory when needed and remove its existing direct-child image files. Those files are non-committed scratch evidence from an earlier pass and must not be mistaken for current proof. Do not remove downloaded Jira attachments or anything outside this selected subtask's proof directory.
+Before recording the frontend decision, create the bound-task-helper-provided `proof` directory when needed and remove its existing direct-child image files. Those files are non-committed scratch evidence from an earlier pass and must not be mistaken for current proof. Do not remove downloaded Jira attachments or anything outside this bound subtask's proof directory.
 
-Then create or refresh the exact selector-provided `frontend_proof` file. It must contain exactly one JSON property and no explanatory properties:
+Then create or refresh the exact bound-task-helper-provided `frontend_proof` file. It must contain exactly one JSON property and no explanatory properties:
 
 ```json
-{"required":true}
+{ "required": true }
 ```
 
 Use `true` when the actual final diff changes any browser-visible or browser-accessible frontend surface, when Jira acceptance criteria require browser proof, or when the answer is uncertain. Use:
 
 ```json
-{"required":false}
+{ "required": false }
 ```
 
 only when current repository and Git evidence positively establishes that no frontend surface changed and no browser proof is required. Put the human-readable rationale in `information.md`, not in the JSON file. Creating this decision does not itself prove the frontend.

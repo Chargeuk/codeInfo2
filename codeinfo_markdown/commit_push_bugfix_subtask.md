@@ -1,6 +1,6 @@
 # Commit and attempt one Jira bugfix push
 
-Continue with the story and subtask bound throughout the current loop. Read and follow `AGENTS.md`. Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_next_bugfix_subtask.py"` again and inspect fresh Jira and Git state. Continue only when the same subtask remains In Progress and assigned to the current user, the branch is unchanged, and `information.md` plus `plan.md` positively show that the in-scope implementation and mandatory proof are complete.
+Continue with the story and subtask bound throughout the current loop. Read and follow `AGENTS.md`. Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py"` and inspect fresh Jira and Git state. Continue only when the helper returns `status: "ready"` for the same durably bound In Progress subtask, reports `assigned_to_current_user: true`, the branch is unchanged, and `information.md` plus `plan.md` positively show that the in-scope implementation and mandatory proof are complete. Never run the next-work selector or adopt another issue.
 
 Do not commit partial, stale, blocked, or unproven work. Preserve unrelated working-tree changes and stage only files belonging to this subtask. Never stage or commit anything under `codeInfoTmp/`; attachments, screenshots, proof decisions, generated Jira comments, and evidence Markdown there are local flow artifacts. Follow the repository's required commit-message format, including any required body. Do not amend, rewrite, squash, reset, or otherwise alter unrelated history.
 

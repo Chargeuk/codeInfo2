@@ -2,9 +2,9 @@
 
 Continue with the story and subtask bound in the immediately preceding claim step. Read and follow `AGENTS.md` again. Work only in the selected repository and do not switch branches, edit product source, plan the fix, commit, push, or close Jira during this step.
 
-Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_next_bugfix_subtask.py"` again. Continue only when it returns `status: "ready"` for the same bound story and subtask and Jira still shows that subtask as In Progress and assigned to the current user. If selection changes, becomes empty, is blocked, or cannot be verified, stop safely instead of adopting a different issue.
+Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py"` now. Continue only when it returns `status: "ready"` for the same durably bound story and subtask, reports `assigned_to_current_user: true`, and Jira still shows that exact subtask In Progress. If the binding is unavailable or Jira ownership or state changed incompatibly, stop safely instead of selecting or adopting another issue.
 
-Use the exact repository-relative paths returned by the selector:
+Use the exact repository-relative paths returned by the bound-task helper:
 
 - `codeInfoTmp/bugfixes/<storyId>/<subtaskId>/information.md`
 - `codeInfoTmp/bugfixes/<storyId>/<subtaskId>/plan.md`
@@ -13,7 +13,7 @@ Use the exact repository-relative paths returned by the selector:
 - `codeInfoTmp/bugfixes/<storyId>/<subtaskId>/frontend-proof.json`
 - `codeInfoTmp/bugfixes/<storyId>/<subtaskId>/jira-fix-comment.json`
 
-Create the root, attachments, and proof directories if needed. Preserve useful files from a previous recovery pass, but refresh stale Jira-derived content. The later proof and publication steps own `frontend-proof.json`, `jira-fix-comment.json`, and screenshots; do not create or infer them here. Do not use absolute repository paths in the generated Markdown.
+Create the root, attachments, and proof directories if needed. Preserve useful files from an earlier attempt, but refresh stale Jira-derived content. The later proof and publication steps own `frontend-proof.json`, `jira-fix-comment.json`, and screenshots; do not create or infer them here. Do not use absolute repository paths in the generated Markdown.
 
 Gather fresh information on a best-effort basis with:
 

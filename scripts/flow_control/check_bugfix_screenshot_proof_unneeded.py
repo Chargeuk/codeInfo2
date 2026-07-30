@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Return yes only when the selected bugfix needs no screenshot proof."""
+"""Return yes only when the bound bugfix needs no screenshot proof."""
 
 from __future__ import annotations
 

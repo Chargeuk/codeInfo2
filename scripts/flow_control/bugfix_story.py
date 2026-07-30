@@ -1,4 +1,4 @@
-"""Deterministic, stateless selection for the Jira bugfix-story flow."""
+"""Deterministic selection and binding for the Jira bugfix-story flow."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,13 +23,9 @@ STORY_KEY_PATTERN = re.compile(
 )
 TODO_STATUS = "to do"
 IN_PROGRESS_STATUS = "in progress"
-TERMINAL_STATUSES = {
-    "cancelled",
-    "canceled",
-    "closed",
-    "done",
-    "resolved",
-}
+BOUND_SUBTASK_RELATIVE_PATH = (
+    Path("codeInfoTmp") / "bugfixes" / "current-subtask.json"
+)
 
 
 class BugfixStoryGateError(RuntimeError):
@@ -142,6 +139,19 @@ def _required_text(value: Any, description: str) -> str:
     return value.strip()
 
 
+def _assignee_name(value: Any, description: str) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip() or "(assigned)"
+    if isinstance(value, Mapping):
+        display_name = value.get("displayName")
+        if isinstance(display_name, str) and display_name.strip():
+            return display_name.strip()
+        return "(assigned)"
+    raise BugfixStoryGateError(f"Jira {description} has an invalid assignee")
+
+
 def _issue_from_search(value: Mapping[str, Any]) -> JiraIssue:
     fields = value.get("fields")
     if not isinstance(fields, Mapping):
@@ -153,17 +163,6 @@ def _issue_from_search(value: Mapping[str, Any]) -> JiraIssue:
         raise BugfixStoryGateError(
             "Jira child issue has no usable status or issue type"
         )
-
-    assignee = fields.get("assignee")
-    assignee_name: str | None = None
-    if assignee is not None:
-        if not isinstance(assignee, Mapping):
-            raise BugfixStoryGateError(
-                "Jira child issue has an invalid assignee"
-            )
-        display_name = assignee.get("displayName")
-        if display_name is not None:
-            assignee_name = _required_text(display_name, "assignee name")
 
     type_name = _required_text(issue_type.get("name"), "issue type")
     subtask_flag = issue_type.get("subtask")
@@ -179,7 +178,10 @@ def _issue_from_search(value: Mapping[str, Any]) -> JiraIssue:
         summary=_required_text(fields.get("summary"), "summary"),
         status=_required_text(status.get("name"), "status"),
         issue_type=type_name,
-        assignee=assignee_name,
+        assignee=_assignee_name(
+            fields.get("assignee"),
+            "child issue",
+        ),
         is_subtask=is_subtask,
     )
 
@@ -214,16 +216,53 @@ def _story_from_payload(
             f"{expected_key} is not a Jira story"
         )
 
-    assignee = payload.get("assignee")
     return JiraIssue(
         key=key,
         summary=_required_text(payload.get("summary"), "summary"),
         status=_required_text(payload.get("status"), "status"),
         issue_type=issue_type,
-        assignee=assignee.strip()
-        if isinstance(assignee, str) and assignee.strip()
-        else None,
+        assignee=_assignee_name(payload.get("assignee"), "story"),
         is_subtask=False,
+    )
+
+
+def _issue_from_get_payload(
+    payload: Mapping[str, Any],
+    expected_key: str,
+) -> JiraIssue:
+    key = _required_text(payload.get("key"), "key").upper()
+    if key != expected_key:
+        raise BugfixStoryGateError("gt returned the wrong Jira subtask")
+
+    raw = payload.get("raw")
+    raw_fields = raw.get("fields") if isinstance(raw, Mapping) else None
+    raw_issue_type = (
+        raw_fields.get("issuetype")
+        if isinstance(raw_fields, Mapping)
+        else None
+    )
+    issue_type = _required_text(payload.get("type"), "issue type")
+    subtask_flag = (
+        raw_issue_type.get("subtask")
+        if isinstance(raw_issue_type, Mapping)
+        else None
+    )
+    is_subtask = (
+        subtask_flag
+        if isinstance(subtask_flag, bool)
+        else "sub-task" in issue_type.casefold()
+        or "subtask" in issue_type.casefold()
+    )
+    if not is_subtask:
+        raise BugfixStoryGateError(f"{expected_key} is not a Jira subtask")
+
+    return JiraIssue(
+        key=key,
+        summary=_required_text(payload.get("summary"), "summary"),
+        status=_required_text(payload.get("status"), "status"),
+        issue_type=issue_type,
+        assignee=_assignee_name(payload.get("assignee"), "subtask"),
+        is_subtask=True,
     )
 
 
@@ -305,59 +344,14 @@ def select_bugfix_subtask(
     child_issues = _issues_from_search(
         runner(["jira", "issues", "list", "--parent", story_key])
     )
-    mine_issues = _issues_from_search(
-        runner(
-            [
-                "jira",
-                "issues",
-                "list",
-                "--parent",
-                story_key,
-                "--mine",
-            ]
-        )
-    )
 
     subtasks = tuple(issue for issue in child_issues if issue.is_subtask)
-    mine_keys = {issue.key for issue in mine_issues if issue.is_subtask}
-    unknown_statuses = sorted(
-        {
-            issue.status
-            for issue in subtasks
-            if _normalized_status(issue.status)
-            not in {TODO_STATUS, IN_PROGRESS_STATUS, *TERMINAL_STATUSES}
-        },
-        key=str.casefold,
-    )
-    if unknown_statuses:
-        raise BugfixStoryGateError(
-            "unrecognized Jira subtask statuses: "
-            + ", ".join(unknown_statuses)
-        )
-
-    recoverable = sorted(
-        (
-            issue
-            for issue in subtasks
-            if _normalized_status(issue.status) == IN_PROGRESS_STATUS
-            and issue.key in mine_keys
-        ),
-        key=_issue_sort_key,
-    )
-    if recoverable:
-        return BugfixSelection(
-            connection=connection_name,
-            story=story,
-            subtask=recoverable[0],
-            selection_reason="recover_in_progress",
-        )
-
     todo = sorted(
         (
             issue
             for issue in subtasks
             if _normalized_status(issue.status) == TODO_STATUS
-            and (issue.assignee is None or issue.key in mine_keys)
+            and issue.assignee is None
         ),
         key=_issue_sort_key,
     )
@@ -369,16 +363,6 @@ def select_bugfix_subtask(
             selection_reason="next_todo",
         )
 
-    active_or_todo = [
-        issue
-        for issue in subtasks
-        if _normalized_status(issue.status)
-        in {TODO_STATUS, IN_PROGRESS_STATUS}
-    ]
-    if active_or_todo:
-        raise BugfixStoryGateError(
-            "active or To Do subtasks exist but none is safe to claim"
-        )
     return None
 
 
@@ -389,6 +373,19 @@ def _issue_payload(issue: JiraIssue) -> Mapping[str, Any]:
         "status": issue.status,
         "type": issue.issue_type,
         "assignee": issue.assignee,
+    }
+
+
+def _artifact_paths(story_key: str, subtask_key: str) -> Mapping[str, str]:
+    root = Path("codeInfoTmp") / "bugfixes" / story_key / subtask_key
+    return {
+        "root": root.as_posix(),
+        "information": (root / "information.md").as_posix(),
+        "plan": (root / "plan.md").as_posix(),
+        "attachments": (root / "attachments").as_posix(),
+        "proof": (root / "proof").as_posix(),
+        "frontend_proof": (root / "frontend-proof.json").as_posix(),
+        "jira_fix_comment": (root / "jira-fix-comment.json").as_posix(),
     }
 
 
@@ -417,31 +414,219 @@ def get_next_bugfix_subtask_payload(
     if selection is None:
         return {
             "status": "empty",
-            "reason": "no_active_or_todo_subtasks",
+            "reason": "no_unassigned_todo_subtasks",
             "connection": resolve_jira_connection(connection),
         }
 
-    root = (
-        Path("codeInfoTmp")
-        / "bugfixes"
-        / selection.story.key
-        / selection.subtask.key
-    )
     return {
         "status": "ready",
         "reason": selection.selection_reason,
         "connection": selection.connection,
         "story": _issue_payload(selection.story),
         "subtask": _issue_payload(selection.subtask),
-        "paths": {
-            "root": root.as_posix(),
-            "information": (root / "information.md").as_posix(),
-            "plan": (root / "plan.md").as_posix(),
-            "attachments": (root / "attachments").as_posix(),
-            "proof": (root / "proof").as_posix(),
-            "frontend_proof": (root / "frontend-proof.json").as_posix(),
-            "jira_fix_comment": (root / "jira-fix-comment.json").as_posix(),
-        },
+        "paths": _artifact_paths(
+            selection.story.key,
+            selection.subtask.key,
+        ),
+    }
+
+
+def resolve_bound_subtask_path(
+    *,
+    working_folder: Path | None = None,
+) -> Path:
+    return (working_folder or Path.cwd()) / BOUND_SUBTASK_RELATIVE_PATH
+
+
+def _remove_bound_subtask(path: Path) -> None:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def _write_bound_subtask(
+    path: Path,
+    payload: Mapping[str, Any],
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, path)
+    except BaseException:
+        try:
+            os.unlink(temporary_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def bind_next_bugfix_subtask_payload(
+    *,
+    story_path: Path | None = None,
+    working_folder: Path | None = None,
+    connection: str | None = None,
+    gt_runner: GtRunner | None = None,
+) -> Mapping[str, Any]:
+    target_folder = working_folder or Path.cwd()
+    bound_path = resolve_bound_subtask_path(
+        working_folder=target_folder,
+    )
+    try:
+        _remove_bound_subtask(bound_path)
+    except OSError as error:
+        return {
+            "status": "blocked",
+            "reason": "binding_unavailable",
+            "error_type": type(error).__name__,
+            "message": "stale bugfix subtask binding could not be cleared",
+        }
+    payload = get_next_bugfix_subtask_payload(
+        story_path=story_path,
+        working_folder=target_folder,
+        connection=connection,
+        gt_runner=gt_runner,
+    )
+    if payload.get("status") != "ready":
+        return payload
+    try:
+        _write_bound_subtask(bound_path, payload)
+    except (OSError, UnicodeError) as error:
+        try:
+            _remove_bound_subtask(bound_path)
+        except OSError:
+            pass
+        return {
+            "status": "blocked",
+            "reason": "binding_unavailable",
+            "error_type": type(error).__name__,
+            "message": "current bugfix subtask binding could not be written",
+        }
+    return payload
+
+
+def _read_bound_subtask(path: Path) -> Mapping[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as error:
+        raise BugfixStoryGateError(
+            "current bugfix subtask binding does not exist"
+        ) from error
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise BugfixStoryGateError(
+            "current bugfix subtask binding could not be read"
+        ) from error
+    if not isinstance(payload, Mapping):
+        raise BugfixStoryGateError(
+            "current bugfix subtask binding is not an object"
+        )
+    return payload
+
+
+def _required_bound_issue(
+    payload: Mapping[str, Any],
+    field: str,
+) -> Mapping[str, Any]:
+    issue = payload.get(field)
+    if not isinstance(issue, Mapping):
+        raise BugfixStoryGateError(
+            f"current bugfix subtask binding has no {field}"
+        )
+    return issue
+
+
+def get_bound_bugfix_subtask_payload(
+    *,
+    story_path: Path | None = None,
+    working_folder: Path | None = None,
+    gt_runner: GtRunner | None = None,
+) -> Mapping[str, Any]:
+    target_folder = working_folder or Path.cwd()
+    try:
+        binding = _read_bound_subtask(
+            resolve_bound_subtask_path(working_folder=target_folder)
+        )
+        if binding.get("status") != "ready":
+            raise BugfixStoryGateError(
+                "current bugfix subtask binding is not ready"
+            )
+        connection = _required_text(
+            binding.get("connection"),
+            "bound Jira connection",
+        )
+        story = _required_bound_issue(binding, "story")
+        subtask = _required_bound_issue(binding, "subtask")
+        story_key = _required_text(
+            story.get("key"),
+            "bound story key",
+        ).upper()
+        subtask_key = _required_text(
+            subtask.get("key"),
+            "bound subtask key",
+        ).upper()
+        current_story_key = read_story_key(
+            resolve_bugfix_story_path(
+                story_path=story_path,
+                working_folder=target_folder,
+            )
+        )
+        if story_key != current_story_key:
+            raise BugfixStoryGateError(
+                "current bugfix subtask binding belongs to another story"
+            )
+        paths = binding.get("paths")
+        if paths != _artifact_paths(story_key, subtask_key):
+            raise BugfixStoryGateError(
+                "current bugfix subtask binding has invalid artifact paths"
+            )
+
+        runner = gt_runner or make_subprocess_gt_runner(
+            connection=connection
+        )
+        current_subtask = _issue_from_get_payload(
+            runner(["jira", "issues", "get", subtask_key]),
+            subtask_key,
+        )
+        mine_issues = _issues_from_search(
+            runner(
+                [
+                    "jira",
+                    "issues",
+                    "list",
+                    "--parent",
+                    story_key,
+                    "--mine",
+                ]
+            )
+        )
+        mine_keys = {
+            issue.key for issue in mine_issues if issue.is_subtask
+        }
+    except (BugfixStoryGateError, OSError, UnicodeError) as error:
+        return {
+            "status": "blocked",
+            "reason": "binding_unavailable",
+            "error_type": type(error).__name__,
+            "message": str(error),
+        }
+
+    return {
+        "status": "ready",
+        "reason": "bound_subtask",
+        "connection": connection,
+        "story": story,
+        "subtask": _issue_payload(current_subtask),
+        "assigned_to_current_user": subtask_key in mine_keys,
+        "paths": paths,
     }
 
 
@@ -462,12 +647,12 @@ def evaluate_bugfix_story_subtasks_empty(
     if status == "ready":
         subtask = payload["subtask"]
         return no(
-            "workable_bugfix_subtask_present",
+            "eligible_unassigned_todo_bugfix_subtask_present",
             story_key=payload["story"]["key"],
             subtask_key=subtask["key"],
         )
     if status == "empty":
-        return yes("no_active_or_todo_bugfix_subtasks")
+        return yes("no_unassigned_todo_bugfix_subtasks")
     return yes(
         "bugfix_story_selection_blocked",
         message=payload.get("message"),
@@ -481,20 +666,31 @@ def evaluate_bugfix_screenshot_proof_unneeded(
     connection: str | None = None,
     gt_runner: GtRunner | None = None,
 ) -> DecisionOutcome:
-    """Return yes only when the selected subtask explicitly needs no proof."""
+    """Return yes only when the bound subtask explicitly needs no proof."""
 
     target_folder = working_folder or Path.cwd()
-    payload = get_next_bugfix_subtask_payload(
+    payload = get_bound_bugfix_subtask_payload(
         story_path=story_path,
         working_folder=target_folder,
-        connection=connection,
         gt_runner=gt_runner,
     )
     if payload.get("status") != "ready":
         return no(
             "bugfix_screenshot_requirement_unavailable",
-            selector_status=payload.get("status"),
+            binding_status=payload.get("status"),
         )
+    subtask = payload.get("subtask")
+    subtask_status = (
+        subtask.get("status")
+        if isinstance(subtask, Mapping)
+        else None
+    )
+    if (
+        not isinstance(subtask_status, str)
+        or _normalized_status(subtask_status) != IN_PROGRESS_STATUS
+        or payload.get("assigned_to_current_user") is not True
+    ):
+        return no("bound_bugfix_subtask_not_active")
 
     paths = payload.get("paths")
     frontend_proof = (

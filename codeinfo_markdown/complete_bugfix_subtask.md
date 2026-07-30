@@ -1,8 +1,8 @@
 # Close the proven Jira bugfix subtask
 
-Evaluate completion only for the story and subtask bound throughout this loop. Read and follow `AGENTS.md`. Do not adopt a different issue even if a fresh selector now points elsewhere.
+Evaluate completion only for the story and subtask durably bound throughout this loop. Read and follow `AGENTS.md`. Never run the next-work selector or adopt a different issue.
 
-Reread the bound Jira issue directly, its `information.md`, `plan.md`, current Git state, commit history, configured upstream, and test evidence. Rerun `python3 "$CODEINFO_ROOT/scripts/flow_control/get_next_bugfix_subtask.py"` only as a consistency check. If Jira already closed the bound subtask, verify its resolution and stop without touching another issue. If the selector returns a different issue, do not act on that issue.
+Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py"` and reread that exact bound Jira issue directly, its `information.md`, `plan.md`, current Git state, commit history, configured upstream, and test evidence. If Jira already closed the bound subtask, verify its resolution and stop without touching another issue. Otherwise, continue only when the helper returns `status: "ready"` for the same In Progress subtask and reports `assigned_to_current_user: true`.
 
 Transition the bound subtask only when all applicable facts are positively proven:
 
@@ -18,7 +18,7 @@ Transition the bound subtask only when all applicable facts are positively prove
 
 If any fact is missing, failed, stale, partial, contradictory, or uncertain, leave Jira In Progress and report the blocker. A local commit with a failed push is not sufficient for Jira completion.
 
-When every gate passes, use the connection bound by the selector and run exactly:
+When every gate passes, use the connection from the durable binding and run exactly:
 
 `gt jira issues update <subtask-key> --connection <connection> --status Closed --resolution Resolved`
 

@@ -71,6 +71,29 @@ def issue(
     }
 
 
+def issue_get(
+    key: str,
+    *,
+    status: str = "In Progress",
+    assignee: str | None = "Current User",
+) -> dict[str, Any]:
+    return {
+        "key": key,
+        "summary": f"Fix {key}",
+        "status": status,
+        "assignee": assignee,
+        "type": "DEVT Sub-task",
+        "raw": {
+            "fields": {
+                "issuetype": {
+                    "name": "DEVT Sub-task",
+                    "subtask": True,
+                }
+            }
+        },
+    }
+
+
 class FakeGtRunner:
     def __init__(
         self,
@@ -78,12 +101,14 @@ class FakeGtRunner:
         story_payload: dict[str, Any] | None = None,
         children: list[dict[str, Any]] | None = None,
         mine: list[dict[str, Any]] | None = None,
+        issue_payloads: dict[str, dict[str, Any]] | None = None,
         child_metadata: dict[str, Any] | None = None,
         mine_metadata: dict[str, Any] | None = None,
     ) -> None:
         self.story_payload = story_payload or story()
         self.children = children or []
         self.mine = mine or []
+        self.issue_payloads = issue_payloads or {}
         self.child_metadata = child_metadata or {}
         self.mine_metadata = mine_metadata or {}
         self.calls: list[list[str]] = []
@@ -92,6 +117,9 @@ class FakeGtRunner:
         args = list(arguments)
         self.calls.append(args)
         if args[:3] == ["jira", "issues", "get"]:
+            issue_key = args[3]
+            if issue_key in self.issue_payloads:
+                return self.issue_payloads[issue_key]
             return self.story_payload
         if args[:3] == ["jira", "issues", "list"]:
             if "--mine" in args:
@@ -167,7 +195,7 @@ class BugfixStoryFlowControlTests(unittest.TestCase):
         self.assertEqual(payload["status"], "blocked")
         self.assertIn("is not a Jira story", payload["message"])
 
-    def test_recovers_my_in_progress_subtask_before_todo(self) -> None:
+    def test_ignores_my_in_progress_subtask_and_selects_todo(self) -> None:
         todo = issue("DEVT-101")
         active = issue(
             "DEVT-105",
@@ -182,18 +210,17 @@ class BugfixStoryFlowControlTests(unittest.TestCase):
         )
 
         self.assertEqual(payload["status"], "ready")
-        self.assertEqual(payload["reason"], "recover_in_progress")
-        self.assertEqual(payload["subtask"]["key"], "DEVT-105")
+        self.assertEqual(payload["reason"], "next_todo")
+        self.assertEqual(payload["subtask"]["key"], "DEVT-101")
 
     def test_selects_unassigned_todo_in_natural_key_order(self) -> None:
-        payload = self.payload(
-            FakeGtRunner(
-                children=[
-                    issue("DEVT-110"),
-                    issue("DEVT-102"),
-                ]
-            )
+        runner = FakeGtRunner(
+            children=[
+                issue("DEVT-110"),
+                issue("DEVT-102"),
+            ]
         )
+        payload = self.payload(runner)
 
         self.assertEqual(payload["status"], "ready")
         self.assertEqual(payload["reason"], "next_todo")
@@ -203,24 +230,34 @@ class BugfixStoryFlowControlTests(unittest.TestCase):
             "codeInfoTmp/bugfixes/DEVT-100/DEVT-102",
         )
         self.assertEqual(payload["connection"], "test-jira")
+        self.assertNotIn(
+            "--mine",
+            [argument for call in runner.calls for argument in call],
+        )
 
-    def test_selects_todo_already_assigned_to_me(self) -> None:
+    def test_ignores_todo_already_assigned_to_me(self) -> None:
         mine = issue("DEVT-102", assignee="Current User")
         payload = self.payload(
             FakeGtRunner(children=[mine], mine=[mine])
         )
 
-        self.assertEqual(payload["status"], "ready")
-        self.assertEqual(payload["subtask"]["key"], "DEVT-102")
+        self.assertEqual(payload["status"], "empty")
 
-    def test_never_claims_another_users_subtask(self) -> None:
+    def test_ignores_another_users_subtask(self) -> None:
         another_users = issue("DEVT-102", assignee="Another User")
         payload = self.payload(
             FakeGtRunner(children=[another_users])
         )
 
-        self.assertEqual(payload["status"], "blocked")
-        self.assertIn("none is safe to claim", payload["message"])
+        self.assertEqual(payload["status"], "empty")
+
+    def test_any_non_null_assignee_object_counts_as_assigned(self) -> None:
+        assigned = issue("DEVT-102")
+        assigned["fields"]["assignee"] = {"accountId": "account-123"}
+
+        payload = self.payload(FakeGtRunner(children=[assigned]))
+
+        self.assertEqual(payload["status"], "empty")
 
     def test_ignores_completed_and_non_subtask_children(self) -> None:
         payload = self.payload(
@@ -239,18 +276,37 @@ class BugfixStoryFlowControlTests(unittest.TestCase):
         self.assertEqual(payload["status"], "empty")
         self.assertEqual(
             payload["reason"],
-            "no_active_or_todo_subtasks",
+            "no_unassigned_todo_subtasks",
         )
 
-    def test_unknown_subtask_status_fails_closed(self) -> None:
+    def test_ignores_unrecognized_non_todo_status(self) -> None:
         payload = self.payload(
             FakeGtRunner(
                 children=[issue("DEVT-101", status="Awaiting Triage")]
             )
         )
 
-        self.assertEqual(payload["status"], "blocked")
-        self.assertIn("Awaiting Triage", payload["message"])
+        self.assertEqual(payload["status"], "empty")
+
+    def test_ignores_every_assigned_or_non_todo_subtask(self) -> None:
+        payload = self.payload(
+            FakeGtRunner(
+                children=[
+                    issue("DEVT-101", assignee="Current User"),
+                    issue("DEVT-102", assignee="Another User"),
+                    issue("DEVT-103", status="In Progress"),
+                    issue(
+                        "DEVT-104",
+                        status="In Progress",
+                        assignee="Current User",
+                    ),
+                    issue("DEVT-105", status="Closed"),
+                    issue("DEVT-106", status="Awaiting Triage"),
+                ]
+            )
+        )
+
+        self.assertEqual(payload["status"], "empty")
 
     def test_truncated_jira_results_fail_closed(self) -> None:
         payload = self.payload(
@@ -288,24 +344,157 @@ class BugfixStoryFlowControlTests(unittest.TestCase):
         blocked = bugfix_story.evaluate_bugfix_story_subtasks_empty(
             **common,
             gt_runner=FakeGtRunner(
-                children=[issue("DEVT-101", status="Unknown")]
+                children=[issue("DEVT-101")],
+                child_metadata={"nextPageToken": "next"},
             ),
         )
 
         self.assertEqual(ready.answer, "no")
         self.assertEqual(
             ready.reason_code,
-            "workable_bugfix_subtask_present",
+            "eligible_unassigned_todo_bugfix_subtask_present",
         )
         self.assertEqual(empty.answer, "yes")
         self.assertEqual(
             empty.reason_code,
-            "no_active_or_todo_bugfix_subtasks",
+            "no_unassigned_todo_bugfix_subtasks",
         )
         self.assertEqual(blocked.answer, "yes")
         self.assertEqual(
             blocked.reason_code,
             "bugfix_story_selection_blocked",
+        )
+
+    def test_binding_preserves_exact_claimed_subtask(self) -> None:
+        _, story_path = self.write_story()
+        selection_runner = FakeGtRunner(
+            children=[issue("DEVT-101"), issue("DEVT-102")]
+        )
+        selected = bugfix_story.bind_next_bugfix_subtask_payload(
+            story_path=story_path,
+            working_folder=story_path.parent,
+            connection="test-jira",
+            gt_runner=selection_runner,
+        )
+
+        bound = bugfix_story.get_bound_bugfix_subtask_payload(
+            story_path=story_path,
+            working_folder=story_path.parent,
+            gt_runner=FakeGtRunner(
+                mine=[
+                    issue(
+                        "DEVT-101",
+                        status="In Progress",
+                        assignee="Current User",
+                    )
+                ],
+                issue_payloads={
+                    "DEVT-101": issue_get("DEVT-101"),
+                },
+            ),
+        )
+
+        self.assertEqual(selected["subtask"]["key"], "DEVT-101")
+        self.assertEqual(bound["status"], "ready")
+        self.assertEqual(bound["subtask"]["key"], "DEVT-101")
+        self.assertTrue(bound["assigned_to_current_user"])
+        binding_path = bugfix_story.resolve_bound_subtask_path(
+            working_folder=story_path.parent
+        )
+        self.assertTrue(binding_path.is_file())
+
+    def test_non_ready_selection_clears_stale_binding(self) -> None:
+        _, story_path = self.write_story()
+        common = {
+            "story_path": story_path,
+            "working_folder": story_path.parent,
+            "connection": "test-jira",
+        }
+        ready = bugfix_story.bind_next_bugfix_subtask_payload(
+            **common,
+            gt_runner=FakeGtRunner(children=[issue("DEVT-101")]),
+        )
+        empty = bugfix_story.bind_next_bugfix_subtask_payload(
+            **common,
+            gt_runner=FakeGtRunner(
+                children=[issue("DEVT-101", status="In Progress")]
+            ),
+        )
+
+        self.assertEqual(ready["status"], "ready")
+        self.assertEqual(empty["status"], "empty")
+        self.assertFalse(
+            bugfix_story.resolve_bound_subtask_path(
+                working_folder=story_path.parent
+            ).exists()
+        )
+
+    def test_screenshot_decision_uses_bound_subtask(self) -> None:
+        _, story_path = self.write_story()
+        bugfix_story.bind_next_bugfix_subtask_payload(
+            story_path=story_path,
+            working_folder=story_path.parent,
+            connection="test-jira",
+            gt_runner=FakeGtRunner(children=[issue("DEVT-101")]),
+        )
+        decision_path = (
+            story_path.parent
+            / "codeInfoTmp/bugfixes/DEVT-100/DEVT-101/frontend-proof.json"
+        )
+        decision_path.parent.mkdir(parents=True)
+        decision_path.write_text('{"required":false}\n', encoding="utf-8")
+
+        outcome = bugfix_story.evaluate_bugfix_screenshot_proof_unneeded(
+            story_path=story_path,
+            working_folder=story_path.parent,
+            gt_runner=FakeGtRunner(
+                mine=[
+                    issue(
+                        "DEVT-101",
+                        status="In Progress",
+                        assignee="Current User",
+                    )
+                ],
+                issue_payloads={
+                    "DEVT-101": issue_get("DEVT-101"),
+                },
+            ),
+        )
+
+        self.assertEqual(outcome.answer, "yes")
+        self.assertEqual(
+            outcome.reason_code,
+            "bugfix_frontend_screenshot_proof_unneeded",
+        )
+
+    def test_screenshot_decision_rejects_reassigned_bound_subtask(
+        self,
+    ) -> None:
+        _, story_path = self.write_story()
+        bugfix_story.bind_next_bugfix_subtask_payload(
+            story_path=story_path,
+            working_folder=story_path.parent,
+            connection="test-jira",
+            gt_runner=FakeGtRunner(children=[issue("DEVT-101")]),
+        )
+
+        outcome = bugfix_story.evaluate_bugfix_screenshot_proof_unneeded(
+            story_path=story_path,
+            working_folder=story_path.parent,
+            gt_runner=FakeGtRunner(
+                issue_payloads={
+                    "DEVT-101": issue_get(
+                        "DEVT-101",
+                        assignee="Another User",
+                    ),
+                },
+            ),
+        )
+
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(
+            outcome.reason_code,
+            "bound_bugfix_subtask_not_active",
         )
 
     def test_connection_uses_environment_override(self) -> None:
@@ -335,23 +524,55 @@ class BugfixStoryFlowControlTests(unittest.TestCase):
                 import sys
 
                 if sys.argv[1:4] == ["jira", "issues", "get"]:
-                    payload = {
-                        "key": "DEVT-100",
-                        "summary": "Bugfix story",
-                        "status": "In Progress",
-                        "assignee": None,
-                        "type": "Story",
-                        "raw": {
-                            "fields": {
-                                "issuetype": {
-                                    "name": "Story",
-                                    "subtask": False
+                    if sys.argv[4] == "DEVT-100":
+                        payload = {
+                            "key": "DEVT-100",
+                            "summary": "Bugfix story",
+                            "status": "In Progress",
+                            "assignee": None,
+                            "type": "Story",
+                            "raw": {
+                                "fields": {
+                                    "issuetype": {
+                                        "name": "Story",
+                                        "subtask": False
+                                    }
                                 }
                             }
                         }
-                    }
+                    else:
+                        payload = {
+                            "key": "DEVT-101",
+                            "summary": "Fix bug",
+                            "status": "In Progress",
+                            "assignee": "Current User",
+                            "type": "DEVT Sub-task",
+                            "raw": {
+                                "fields": {
+                                    "issuetype": {
+                                        "name": "DEVT Sub-task",
+                                        "subtask": True
+                                    }
+                                }
+                            }
+                        }
                 elif "--mine" in sys.argv:
-                    payload = {"issues": []}
+                    payload = {
+                        "issues": [{
+                            "key": "DEVT-101",
+                            "fields": {
+                                "summary": "Fix bug",
+                                "status": {"name": "In Progress"},
+                                "assignee": {
+                                    "displayName": "Current User"
+                                },
+                                "issuetype": {
+                                    "name": "DEVT Sub-task",
+                                    "subtask": True
+                                }
+                            }
+                        }]
+                    }
                 else:
                     payload = {
                         "issues": [{
@@ -409,6 +630,38 @@ class BugfixStoryFlowControlTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
+        binder = subprocess.run(
+            [
+                "python3",
+                str(
+                    REPO_ROOT
+                    / "scripts"
+                    / "flow_control"
+                    / "bind_next_bugfix_subtask.py"
+                ),
+            ],
+            cwd=root,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        bound = subprocess.run(
+            [
+                "python3",
+                str(
+                    REPO_ROOT
+                    / "scripts"
+                    / "flow_control"
+                    / "get_bound_bugfix_subtask.py"
+                ),
+            ],
+            cwd=root,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
         self.assertEqual(gate.stdout, '{"answer":"no"}\n')
         self.assertEqual(gate.stderr, "")
@@ -417,6 +670,13 @@ class BugfixStoryFlowControlTests(unittest.TestCase):
         self.assertEqual(payload["connection"], "test-jira")
         self.assertEqual(payload["subtask"]["key"], "DEVT-101")
         self.assertEqual(selector.stderr, "")
+        self.assertEqual(json.loads(binder.stdout)["status"], "ready")
+        bound_payload = json.loads(bound.stdout)
+        self.assertEqual(bound_payload["status"], "ready")
+        self.assertEqual(bound_payload["subtask"]["key"], "DEVT-101")
+        self.assertTrue(bound_payload["assigned_to_current_user"])
+        self.assertEqual(binder.stderr, "")
+        self.assertEqual(bound.stderr, "")
 
 
 if __name__ == "__main__":

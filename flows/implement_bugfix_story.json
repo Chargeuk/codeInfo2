@@ -11,7 +11,7 @@
           "steps": [
             {
               "type": "break",
-              "label": "Exit When No Workable Bugfix Subtask Remains",
+              "label": "Exit When No Unassigned To Do Bugfix Subtask Remains",
               "agentType": "loop_control_agent",
               "identifier": "bugfix_story_loop_controller",
               "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_bugfix_story_subtasks_empty.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because bugfix_story.md, Jira issue state, assignments, comments, and attachments may have changed. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
@@ -71,7 +71,7 @@
                   "label": "Skip Stronger Bugfix Repair When Unneeded Or Already Attempted",
                   "agentType": "coding_agent",
                   "identifier": "bugfix_worker",
-                  "question": "Reread the fresh selector output, the selected subtask's information.md and plan.md, current Git state, and current test evidence. Return yes when the implementation is positively complete and proven, or when information.md positively records that this subtask's single stronger repair attempt was already consumed. The latter skips another stronger invocation but does not imply completion. Return no only when a concrete in-scope blocker remains, no stronger attempt is recorded, and the stronger repair should receive its single opportunity. Missing, failed, partial, stale, contradictory, or uncertain evidence is not proof of completion or of an earlier stronger attempt. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py\"` and reread only that durably bound subtask's information.md and plan.md, current Git state, and current test evidence. Never run the next-work selector or adopt another issue. Return yes when the implementation is positively complete and proven, or when information.md positively records that this subtask's single stronger repair attempt was already consumed. The latter skips another stronger invocation but does not imply completion. Return no only when the binding is ready for the same In Progress subtask assigned to the current user, a concrete in-scope blocker remains, no stronger attempt is recorded, and the stronger repair should receive its single opportunity. Missing, failed, partial, stale, contradictory, or uncertain evidence is not proof of completion or of an earlier stronger attempt. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
                   "breakOn": "yes",
                   "continueOnFailure": true,
                   "continueOnInvalidResponse": true
@@ -119,7 +119,7 @@
                   "label": "Skip Screenshot Proof When No Frontend Surface Changed",
                   "agentType": "loop_control_agent",
                   "identifier": "bugfix_screenshot_proof_loop_controller",
-                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_bugfix_screenshot_proof_unneeded.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because the selected subtask, implementation, Git changes, and proof requirements may have changed. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_bugfix_screenshot_proof_unneeded.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because the bound subtask, implementation, Git changes, and proof requirements may have changed. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                   "breakOn": "yes",
                   "continueOnFailure": true,
                   "continueOnInvalidResponse": true
@@ -169,7 +169,7 @@
               "label": "Exit When Current Jira Bugfix Remains Blocked",
               "agentType": "coding_agent",
               "identifier": "bugfix_worker",
-              "question": "Reread the bound subtask directly in Jira, its information.md and plan.md, current Git and upstream state, and the immediately preceding completion result. Return yes when the bound subtask remains active because implementation, automated proof, build or startup proof, required screenshot proof, Jira publication, commit, push, or Jira-transition evidence is blocked, failed, partial, stale, contradictory, or uncertain. Return no only when the bound subtask is independently verified Closed with resolution Resolved, so the inner loop may safely select another subtask. Never inspect or decide about a newly selected issue. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py\"` and reread only that exact bound subtask directly in Jira, its information.md and plan.md, current Git and upstream state, and the immediately preceding completion result. Never run the next-work selector or inspect another issue. Return yes when the binding is unavailable or the bound subtask remains active because implementation, automated proof, build or startup proof, required screenshot proof, Jira publication, commit, push, or Jira-transition evidence is blocked, failed, partial, stale, contradictory, or uncertain. Return no only when the exact bound subtask is independently verified Closed with resolution Resolved, so the inner loop may safely select another unassigned To Do subtask. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
               "breakOn": "yes",
               "breakOnFailure": true
             },

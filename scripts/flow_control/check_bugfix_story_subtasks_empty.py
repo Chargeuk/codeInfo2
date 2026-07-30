@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Return yes when the bugfix-story flow has no safely workable subtask."""
+"""Return yes when no unassigned To Do bugfix subtask is eligible."""
 
 from __future__ import annotations
 

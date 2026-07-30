@@ -33,16 +33,24 @@ class BugfixStoryFlowContractTests(unittest.TestCase):
     def test_flow_has_expected_one_subtask_order(self) -> None:
         outer = self.flow["steps"][0]
         self.assertEqual(outer["type"], "startLoop")
-        labels = [step["label"] for step in outer["steps"]]
+        self.assertEqual(outer["label"], "Poll Jira Bugfix Story Forever")
+        drain = outer["steps"][0]
+        self.assertEqual(drain["type"], "startLoop")
+        self.assertEqual(drain["label"], "Drain Jira Bugfix Story Subtasks")
+        labels = [step["label"] for step in drain["steps"]]
         expected = [
-            "Exit When No Workable Bugfix Subtask Remains",
+            "Exit When No Unassigned To Do Bugfix Subtask Remains",
+            "Re-ingest Working Repository Before Next Subtask",
             "Reset Bugfix Worker Before Next Subtask",
             "Claim Selected Jira Bugfix Subtask",
             "Gather Jira Bugfix Information And Attachments",
             "Create One-Shot Jira Bugfix Plan",
             "Implement And Test Jira Bugfix Plan",
             "Optional Stronger Jira Bugfix Repair",
+            "Prove Final Bugfix Components Build And Start",
+            "Optional Frontend Screenshot Proof",
             "Commit And Attempt Jira Bugfix Push",
+            "Publish Jira Bugfix Result And Screenshots",
             "Close Proven Jira Bugfix Subtask",
             "Exit When Current Jira Bugfix Remains Blocked",
             "Wait Before Selecting Next Jira Bugfix Subtask",
@@ -50,7 +58,7 @@ class BugfixStoryFlowContractTests(unittest.TestCase):
         self.assertEqual(labels, expected)
 
     def test_gate_uses_fresh_authoritative_wrapper_contract(self) -> None:
-        gate = self.flow["steps"][0]["steps"][0]
+        gate = self.flow["steps"][0]["steps"][0]["steps"][0]
         question = gate["question"]
         self.assertIn(
             "scripts/flow_control/check_bugfix_story_subtasks_empty.py",
@@ -72,7 +80,7 @@ class BugfixStoryFlowContractTests(unittest.TestCase):
         llm_steps = [
             node for node in self.nodes if node.get("type") == "llm"
         ]
-        self.assertEqual(len(llm_steps), 7)
+        self.assertEqual(len(llm_steps), 10)
         for step in llm_steps:
             self.assertTrue(
                 step.get("continueOnFailure"),
@@ -142,9 +150,10 @@ class BugfixStoryFlowContractTests(unittest.TestCase):
         self.assertIn("image-viewing capability", text)
         self.assertNotIn("/home/dastapleton/", text)
 
-    def test_all_work_prompts_bind_one_subtask_and_distrust_jira_content(
+    def test_all_work_prompts_use_selection_then_durable_binding(
         self,
     ) -> None:
+        claim_filename = "claim_bugfix_subtask.md"
         for node in self.nodes:
             filename = node.get("markdownFile")
             if not filename:
@@ -153,15 +162,43 @@ class BugfixStoryFlowContractTests(unittest.TestCase):
                 encoding="utf-8"
             )
             self.assertIn("AGENTS.md", text, filename)
-            if filename not in {
-                "commit_push_bugfix_subtask.md",
-                "complete_bugfix_subtask.md",
-            }:
+            if filename == claim_filename:
                 self.assertIn(
+                    "bind_next_bugfix_subtask.py",
+                    text,
+                    filename,
+                )
+                self.assertIn("unassigned", text, filename)
+                self.assertIn("To Do", text, filename)
+            else:
+                self.assertIn(
+                    "get_bound_bugfix_subtask.py",
+                    text,
+                    filename,
+                )
+                self.assertNotIn(
                     "get_next_bugfix_subtask.py",
                     text,
                     filename,
                 )
+
+    def test_flow_controls_never_reselect_bound_work(self) -> None:
+        stronger_gate = next(
+            node
+            for node in self.nodes
+            if node.get("label")
+            == "Skip Stronger Bugfix Repair When Unneeded Or Already Attempted"
+        )
+        blocker_gate = next(
+            node
+            for node in self.nodes
+            if node.get("label")
+            == "Exit When Current Jira Bugfix Remains Blocked"
+        )
+        for gate in (stronger_gate, blocker_gate):
+            question = gate["question"]
+            self.assertIn("get_bound_bugfix_subtask.py", question)
+            self.assertIn("Never run the next-work selector", question)
 
     def test_commit_and_completion_require_remote_evidence(self) -> None:
         commit_text = (
@@ -185,7 +222,7 @@ class BugfixStoryFlowContractTests(unittest.TestCase):
             commit_text,
         )
         self.assertIn(
-            "do not act on that issue",
+            "Never run the next-work selector or adopt a different issue",
             complete_text,
         )
 

@@ -1,8 +1,8 @@
 # Capture local frontend screenshot proof
 
-This is the one optional frontend-proof pass for the story and subtask already bound by the current loop. Read and follow `AGENTS.md`. Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_next_bugfix_subtask.py"` and continue only when it still returns `status: "ready"` for the same In Progress subtask assigned to the current user. Read that subtask's `information.md`, `plan.md`, exact selector-provided `frontend_proof` file, and the smallest relevant repository startup documentation.
+This is the one optional frontend-proof pass for the story and subtask already bound by the current loop. Read and follow `AGENTS.md`. Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py"` and continue only when it returns `status: "ready"` for the same durably bound In Progress subtask and reports `assigned_to_current_user: true`. Never run the next-work selector or adopt another issue. Read that subtask's `information.md`, `plan.md`, exact bound-task-helper-provided `frontend_proof` file, and the smallest relevant repository startup documentation.
 
-Do not edit product source, tests, `information.md`, `plan.md`, or Jira. Do not commit, push, upload attachments, add comments, or change Jira state. The only task artifacts this step may create or replace are current screenshot image files directly inside the selector-provided `proof` directory.
+Do not edit product source, tests, `information.md`, `plan.md`, or Jira. Do not commit, push, upload attachments, add comments, or change Jira state. The only task artifacts this step may create or replace are current screenshot image files directly inside the bound-task-helper-provided `proof` directory.
 
 Continue only when `frontend-proof.json` contains exactly `{"required":true}`. The preceding final-proof step owns stale-image cleanup; this step must only add screenshots captured during the current pass and must never rely on an earlier image as current proof.
 

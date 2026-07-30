@@ -2,7 +2,7 @@
 
 Continue only with the story and subtask bound throughout the current loop. Read and follow `AGENTS.md`. Do not adopt another issue, edit product source, switch branches, create another commit, push again, or close Jira during this step.
 
-Reread the bound Jira issue directly and run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_next_bugfix_subtask.py"` only as a consistency check. Continue only when Jira still shows the bound subtask assigned to the current user and In Progress. Read its `information.md`, `plan.md`, current Git state, commit and push evidence, exact selector-provided `frontend_proof` file, and direct-child files in the selector-provided `proof` directory.
+Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py"` and reread that exact bound Jira issue directly. Continue only when the helper returns `status: "ready"` for the same durably bound In Progress subtask and reports `assigned_to_current_user: true`. Never run the next-work selector or adopt another issue. Read its `information.md`, `plan.md`, current Git state, commit and push evidence, exact bound-task-helper-provided `frontend_proof` file, and direct-child files in the bound-task-helper-provided `proof` directory.
 
 Treat only current, non-empty image files directly inside `proof/` as screenshot candidates. Do not upload downloaded Jira attachments, nested stale files, temporary browser files, logs, JSON, or unsupported files. When screenshots exist, attempt one best-effort upload call using every current image as a repeated `--file` argument:
 
@@ -10,7 +10,7 @@ Treat only current, non-empty image files directly inside `proof/` as screenshot
 
 Do not make an upload call when there are no screenshots. Do not retry the upload indefinitely. Preserve the returned attachment IDs, filenames, and per-file outcomes when GT supplies them. An upload failure must not prevent the comment attempt.
 
-Create or refresh the exact selector-provided `jira_fix_comment` file as a valid Atlassian Document Format document. The comment must concisely explain:
+Create or refresh the exact bound-task-helper-provided `jira_fix_comment` file as a valid Atlassian Document Format document. The comment must concisely explain:
 
 - What was wrong.
 - The underlying cause.

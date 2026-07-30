@@ -117,11 +117,11 @@ const requirePrivateInput = async (params: {
   jobRoot: string;
 }) => {
   const pinnedFiles = Object.entries(params.pinnedFiles ?? {});
+  await requireDirectory(
+    params.privateInputDir,
+    `private input directory for ${params.jobInstanceId}`,
+  );
   await Promise.all([
-    requireDirectory(
-      params.privateInputDir,
-      `private input directory for ${params.jobInstanceId}`,
-    ),
     requireContainedPath(
       params.privateInputDir,
       params.jobRoot,

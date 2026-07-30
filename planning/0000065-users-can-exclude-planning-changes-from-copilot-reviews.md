@@ -741,13 +741,13 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ##### Current Repository
 
-1. [ ] Run `npm run build:summary:server`; the complete server build must pass after the latest story-owned repair.
-2. [ ] Run `npm run compose:build:summary`; both supported Compose build items and baked flow assets must pass.
-3. [ ] Run `npm run compose:up`; the checked-in main `codeinfo` stack must start successfully through the repository-supported wrapper.
-4. [ ] Run `python3 -m unittest scripts.test.test_review_prompt_contracts`; the complete Python review prompt-contract suite must pass.
+1. [x] Run `npm run build:summary:server`; the complete server build must pass after the latest story-owned repair.
+2. [x] Run `npm run compose:build:summary`; both supported Compose build items and baked flow assets must pass.
+3. [x] Run `npm run compose:up`; the checked-in main `codeinfo` stack must start successfully through the repository-supported wrapper.
+4. [x] Run `python3 -m unittest scripts.test.test_review_prompt_contracts`; the complete Python review prompt-contract suite must pass.
 5. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`; the complete server unit and integration Node test surface must pass with the story-required runner concurrency of one.
 6. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:cucumber`; the complete server Cucumber feature surface must pass sequentially.
-7. [ ] Run `npm run compose:down`; shut down the main stack started by this task through the repository-supported wrapper after the full automated suites finish, or during failure cleanup if an earlier suite stops the proof sequence.
+7. [x] Run `npm run compose:down`; shut down the main stack started by this task through the repository-supported wrapper after the full automated suites finish, or during failure cleanup if an earlier suite stops the proof sequence.
 8. [ ] Run `npm run lint` again after build, runtime, and test proof; fix story-caused issues and rerun affected checks.
 9. [ ] Run `npm run format:check` again last; fix story-caused issues and rerun affected checks.
 
@@ -762,5 +762,12 @@ None. The story explicitly excludes manual Compose startup, provider authenticat
 - This task is the single final revalidation owner after the unresolved F1 implementation task and preserves the partial review-coverage limitations recorded for the settlement pass.
 - Ran `npm run lint` successfully with exit code 0 and no reported issues; the lint subtask is complete.
 - Ran `npm run format:check` successfully with exit code 0; all matched files use Prettier code style and the formatting subtask is complete.
+- Ran `npm run build:summary:server` successfully with exit code 0 and no wrapper-reported warnings.
+- Ran `npm run compose:build:summary` successfully; both Compose build items passed and runtime assets were baked.
+- Ran `npm run compose:up` successfully; the checked-in main stack reached healthy server state and started all services.
+- Ran `python3 -m unittest scripts.test.test_review_prompt_contracts` successfully; all 47 tests passed.
+- Repaired `requirePrivateInput` validation ordering so missing private input directories report the intended error before contained-path checks; the targeted review-batch workspace wrapper passed all 3 tests, and the full server unit wrapper passed 2,685 of 2,688 tests with the story-caused failure resolved.
+- Ran `npm run compose:down` during failure cleanup; the main stack was shut down through the supported wrapper.
+- **BLOCKER** Automated proof stopped at Testing item 5 (`CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`). After the repair and a full rerun, three unchanged pre-story chat-default tests still fail: the Copilot codebase-question fallback selects `gpt-5-mini` instead of the expected `copilot-gpt-5`, and two Copilot route tests report one warning instead of zero. The failures reproduce in isolated targeted runs and the affected chat-default files have no story-owned diff, so no credible in-scope repair remains; the task should remain final-task-owned but be re-owned or reordered to repair the pre-existing chat-default behavior before automated proof continues.
 
 ---

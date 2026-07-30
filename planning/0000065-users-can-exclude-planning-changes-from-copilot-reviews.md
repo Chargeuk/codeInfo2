@@ -737,6 +737,7 @@ Restore the three pre-existing Copilot chat-default tests that still encode the 
 - The focused three-test server-unit wrapper passed with concurrency 1: 3 tests run, 3 passed, 0 failed. The complete server-unit proof remains for the task's later automated-proof step.
 - Ran the complete `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit` wrapper successfully with 2,688 tests passed and 0 failed.
 - Audit confirmed the three named test-only changes match the current `gpt-5.4-mini` baseline, introduce no Story 65 user-facing behavior drift, and have complete targeted and full server-unit proof; Task 10 is honestly complete with no live blocker.
+- Manual testing assessed task-scoped and not applicable: Task 10 changes only server test fixtures and assertions, has no runnable or externally observable proof surface of its own, and the story excludes manual proof; no stack was started and no follow-up work is needed.
 
 ---
 

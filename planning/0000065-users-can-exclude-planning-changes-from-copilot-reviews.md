@@ -774,8 +774,8 @@ Revalidate the complete approved Copilot review story after Task 9's external ch
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] Run the repository-supported full lint command `npm run lint` for the current repository after Task 10.
-2. [ ] Run the repository-supported full formatting check `npm run format:check` for the current repository after Task 10.
+1. [x] Run the repository-supported full lint command `npm run lint` for the current repository after Task 10.
+2. [x] Run the repository-supported full formatting check `npm run format:check` for the current repository after Task 10.
 
 #### Testing
 
@@ -802,6 +802,8 @@ None. The story explicitly excludes manual Compose startup, provider authenticat
 #### Implementation Notes
 
 - This task is the single final revalidation owner after Task 9 and Task 10, and preserves the partial review-coverage limitations recorded for the settlement pass.
+- Ran `npm run lint` successfully with exit code 0 and no reported issues; the lint subtask is complete for the post-Task-10 repository state.
+- Ran `npm run format:check` successfully with exit code 0; all matched files use Prettier code style, and the formatting subtask is complete for the post-Task-10 repository state.
 - Ran `npm run lint` successfully with exit code 0 and no reported issues; the lint subtask is complete.
 - Ran `npm run format:check` successfully with exit code 0; all matched files use Prettier code style and the formatting subtask is complete.
 - Ran `npm run build:summary:server` successfully with exit code 0 and no wrapper-reported warnings.

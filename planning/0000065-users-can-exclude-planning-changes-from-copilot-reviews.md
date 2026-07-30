@@ -704,7 +704,7 @@ None. The story explicitly excludes manual Compose startup, provider login, live
 - Repository Name: `Current Repository`
 - Affected Repositories: `current_repository`
 - Task Dependencies: `Tasks 1–9`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Review Task Role: `final_revalidation`
 - Review Batch: `0000065-rw-20260729T233952Z-f493e79c`
 - Review Cycle: `0000065-rc-20260729T223631Z-72cb0b36`

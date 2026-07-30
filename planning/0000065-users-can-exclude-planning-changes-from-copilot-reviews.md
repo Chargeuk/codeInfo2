@@ -727,7 +727,7 @@ Restore the three pre-existing Copilot chat-default tests that still encode the 
 #### Testing
 
 1. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --skip-build --file server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts --file server/src/test/unit/chatModels.copilot.test.ts --file server/src/test/unit/chatProviders.test.ts --test-name "codebase_question keeps the requested provider|copilot models route clamps unsupported configured defaults|providers route clamps unsupported Copilot config defaults"`; all three targeted baseline tests must pass.
-2. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`; the complete sequential server-unit and integration surface must pass before Task 11 resumes.
+2. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`; the complete sequential server-unit and integration surface must pass before Task 11 resumes.
 
 #### Implementation Notes
 
@@ -735,6 +735,7 @@ Restore the three pre-existing Copilot chat-default tests that still encode the 
 - The current default change and the three stale tests are documented in Task 11's preserved blocking-answer research; no Story 65 product behavior is authorized by this prerequisite.
 - Updated only the three named test fixtures and assertions to use `gpt-5.4-mini`, preserving the zero-warning clamping contract and leaving production chat-default code unchanged.
 - The focused three-test server-unit wrapper passed with concurrency 1: 3 tests run, 3 passed, 0 failed. The complete server-unit proof remains for the task's later automated-proof step.
+- Ran the complete `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit` wrapper successfully with 2,688 tests passed and 0 failed.
 
 ---
 

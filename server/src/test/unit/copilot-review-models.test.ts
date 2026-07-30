@@ -176,16 +176,27 @@ describe('Copilot review model availability', () => {
 
     assert.equal(resolved?.available, true);
     assert.notStrictEqual(readinessEnv, env);
-    assert.equal(discoveryEnv, env);
-    assert.deepEqual(readinessEnv, {
-      PATH: '/test/bin',
-      CODEINFO_COPILOT_CLI_PATH: '/test/bin/copilot',
-      CODEINFO_COPILOT_HOME: '/test/copilot-home',
-      COPILOT_GITHUB_TOKEN: 'copilot-native-token',
-      GH_TOKEN: 'gh-native-token',
-      GITHUB_TOKEN: 'github-native-token',
-      UNRELATED_SETTING: 'preserved',
-    });
+    assert.notStrictEqual(discoveryEnv, env);
+    assert.deepEqual(discoveryEnv, readinessEnv);
+    assert.equal(readinessEnv?.PATH, '/test/bin');
+    assert.equal(readinessEnv?.CODEINFO_COPILOT_CLI_PATH, '/test/bin/copilot');
+    assert.equal(readinessEnv?.CODEINFO_COPILOT_HOME, '/test/copilot-home');
+    assert.equal(readinessEnv?.COPILOT_GITHUB_TOKEN, 'copilot-native-token');
+    assert.equal(readinessEnv?.GH_TOKEN, 'gh-native-token');
+    assert.equal(readinessEnv?.GITHUB_TOKEN, 'github-native-token');
+    assert.equal(readinessEnv?.UNRELATED_SETTING, 'preserved');
+    assert.equal(readinessEnv?.COPILOT_PROVIDER_TYPE, undefined);
+    assert.equal(readinessEnv?.COPILOT_PROVIDER_API_KEY, undefined);
+    assert.equal(readinessEnv?.COPILOT_PROVIDER_CUSTOM, undefined);
+    assert.equal(readinessEnv?.COPILOT_MODEL, undefined);
+    assert.equal(
+      readinessEnv?.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
+      undefined,
+    );
+    assert.equal(
+      readinessEnv?.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS,
+      undefined,
+    );
     assert.equal(env.COPILOT_PROVIDER_API_KEY, 'external-secret');
     assert.equal(
       env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS,

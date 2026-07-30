@@ -239,12 +239,13 @@ const buildCliReadinessEnvironment = (
   source: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv => {
   const result = { ...source };
-  for (const key of Object.keys(result)) {
-    if (key.startsWith('COPILOT_PROVIDER_')) delete result[key];
+  const keys = new Set([...Object.keys(process.env), ...Object.keys(source)]);
+  for (const key of keys) {
+    if (key.startsWith('COPILOT_PROVIDER_')) result[key] = undefined;
   }
-  delete result.COPILOT_MODEL;
-  delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-  delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  result.COPILOT_MODEL = undefined;
+  result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = undefined;
+  result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS = undefined;
   return result;
 };
 
@@ -364,7 +365,9 @@ export async function resolveCopilotReviewModels(
   let nativeDiscovery: NativeDiscovery | undefined;
   if (nativeSpecs.length > 0) {
     try {
-      nativeDiscovery = await deps.discoverNative(env);
+      nativeDiscovery = await deps.discoverNative(
+        buildCliReadinessEnvironment(env),
+      );
     } catch {
       nativeDiscovery = { status: 'discovery_failed', models: [] };
     }

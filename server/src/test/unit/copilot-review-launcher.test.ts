@@ -340,6 +340,7 @@ test('external launcher exposes only the selected endpoint and key to the child'
     COPILOT_GITHUB_TOKEN: 'copilot-native-token',
     GH_TOKEN: 'gh-native-token',
     GITHUB_TOKEN: 'github-native-token',
+    CODEINFO_CONTEXT7_API_KEY: 'context7-secret',
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
       'Other,https://other.test/v1|completions;Unsloth,https://selected.test/v1|completions',
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: `Unsloth,${selectedSecret};Other,${otherSecret}`,
@@ -375,6 +376,7 @@ test('external launcher exposes only the selected endpoint and key to the child'
     childEnv,
     /^(?:COPILOT_GITHUB_TOKEN|GH_TOKEN|GITHUB_TOKEN)=/mu,
   );
+  assert.doesNotMatch(childEnv, /^CODEINFO_CONTEXT7_API_KEY=/mu);
   assert.match(
     childEnv,
     new RegExp(`COPILOT_PROVIDER_API_KEY=${selectedSecret}`, 'u'),
@@ -676,7 +678,13 @@ test('timeout terminates one launched Copilot process and preserves partial outp
   );
   assert.equal(result.launched, true);
   assert.equal(result.exitStatus, 124);
-  assert.equal(result.status, 'partial');
+  assert.equal(result.status, 'timed_out');
+  assert.equal(
+    JSON.parse(
+      await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
+    ).status,
+    'timed_out',
+  );
   assert.match(
     await fs.readFile(fixture.outputPaths.stderrPath, 'utf8'),
     /timed out/u,
@@ -705,7 +713,13 @@ test('abort terminates one launched Copilot process without losing diagnostics',
   );
   assert.equal(result.launched, true);
   assert.equal(result.exitStatus, 130);
-  assert.equal(result.status, 'failed');
+  assert.equal(result.status, 'cancelled');
+  assert.equal(
+    JSON.parse(
+      await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
+    ).status,
+    'cancelled',
+  );
   assert.match(
     await fs.readFile(fixture.outputPaths.stderrPath, 'utf8'),
     /cancelled/u,

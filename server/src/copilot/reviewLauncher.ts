@@ -57,7 +57,13 @@ type ResolvedCopilotReviewLauncherOptions = CopilotReviewLauncherOptions & {
 export type CopilotReviewLauncherResult = {
   launched: boolean;
   exitStatus: number;
-  status: 'successful' | 'partial' | 'failed' | 'unavailable';
+  status:
+    | 'successful'
+    | 'partial'
+    | 'failed'
+    | 'unavailable'
+    | 'timed_out'
+    | 'cancelled';
   startedAt: string;
   completedAt: string;
 };
@@ -350,6 +356,7 @@ const withoutProviderEnvironment = (
   delete result.CODEINFO_COPILOT_REVIEW_MODELS;
   delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  delete result.CODEINFO_CONTEXT7_API_KEY;
   result.GIT_OPTIONAL_LOCKS = '0';
   result.GIT_TERMINAL_PROMPT = '0';
   result.GIT_PAGER = 'cat';
@@ -930,7 +937,7 @@ export async function runCopilotReview(
   }
   const startedAt = deps.now().toISOString();
   let args: string[] = [];
-  let processResult = {
+  let processResult: Awaited<ReturnType<typeof runProcess>> = {
     launched: false,
     exitStatus: 2,
     stdout: '',
@@ -1021,11 +1028,15 @@ export async function runCopilotReview(
         ? setupUnavailable
           ? 'unavailable'
           : 'failed'
-        : processResult.exitStatus === 0 && review
-          ? 'successful'
-          : processResult.stdout.trim()
-            ? 'partial'
-            : 'failed';
+        : processResult.terminationReason === 'timeout'
+          ? 'timed_out'
+          : processResult.terminationReason === 'aborted'
+            ? 'cancelled'
+            : processResult.exitStatus === 0 && review
+              ? 'successful'
+              : processResult.stdout.trim()
+                ? 'partial'
+                : 'failed';
   const completedAt = deps.now().toISOString();
   await writeArtifacts({
     options,

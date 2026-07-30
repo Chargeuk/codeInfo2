@@ -669,13 +669,13 @@ Remove `COPILOT_HOME` from external Copilot child environments so an external la
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`; the server build must pass.
-2. [ ] Run `npm run compose:build:summary`; both supported Compose build items must pass.
+1. [x] Run `npm run build:summary:server`; the server build must pass.
+2. [x] Run `npm run compose:build:summary`; both supported Compose build items must pass.
 3. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --file server/src/test/unit/copilot-review-launcher.test.ts`; the focused launcher suite must pass, including native-home preservation and external-home absence.
-4. [ ] Run `npm run compose:up`; the checked-in main `codeinfo` stack must start successfully through the repository-supported wrapper as automated smoke proof for the changed launcher/runtime surface.
-5. [ ] Run `npm run compose:down`; shut down the main test stack started by the preceding smoke-proof step through the repository-supported wrapper, including when the smoke proof fails after startup.
-6. [ ] Run `npm run lint`; fix all reported lint issues using the supported auto-fix path when appropriate.
-7. [ ] Run `npm run format:check`; fix all reported formatting issues using the supported formatter before manual cleanup when appropriate.
+4. [x] Run `npm run compose:up`; the checked-in main `codeinfo` stack must start successfully through the repository-supported wrapper as automated smoke proof for the changed launcher/runtime surface.
+5. [x] Run `npm run compose:down`; shut down the main test stack started by the preceding smoke-proof step through the repository-supported wrapper, including when the smoke proof fails after startup.
+6. [x] Run `npm run lint`; fix all reported lint issues using the supported auto-fix path when appropriate.
+7. [x] Run `npm run format:check`; fix all reported formatting issues using the supported formatter before manual cleanup when appropriate.
 
 #### Manual Testing Guidance
 
@@ -688,6 +688,12 @@ None. The story explicitly excludes manual Compose startup, provider login, live
 - Updated `buildExternalCopilotReviewEnvironment` to delete inherited `COPILOT_HOME` and removed its `CODEINFO_COPILOT_HOME` mapping; the native environment builder remains unchanged.
 - Extended the external-launch capture test with ambient and native Copilot-home values and assertions that neither reaches the child; existing endpoint, model, key, redaction, and native-home coverage remains intact.
 - The focused launcher wrapper initially exposed the preserved `CODEINFO_COPILOT_HOME` path in the external child environment; deleting that source variable from the external result closed the gap, and the rerun passed all 15 tests.
+- Server build wrapper passed cleanly with zero warnings.
+- Compose build summary passed both supported build items with zero failures.
+- Main Compose smoke stack started successfully through the supported wrapper.
+- Main Compose smoke stack shut down cleanly through the supported wrapper.
+- Repository lint passed with zero reported issues.
+- Repository format check passed; all tracked files matched Prettier style.
 
 ---
 

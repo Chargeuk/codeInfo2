@@ -695,6 +695,7 @@ None. The story explicitly excludes manual Compose startup, provider login, live
 - Repository lint passed with zero reported issues.
 - Repository format check passed; all tracked files matched Prettier style.
 - Audit confirmed the scoped external-home isolation implementation and all recorded automated proof are present, with native home mapping preserved and no story-caused behavior drift. All subtasks and testing are complete, no live blocker is reported, and Task 9 is now honestly complete for final story closeout.
+- Manual testing assessed as not applicable (task-scoped): external Copilot child-environment isolation has no required runnable, browser-visible, HTTP-visible, or otherwise externally observable proof surface beyond its completed focused automated capture test. Story and task guidance both exclude manual Compose startup, provider login, live-provider use, browser proof, screenshots, and remote GitHub validation; no stack was started and no further subtasks are needed.
 
 ---
 

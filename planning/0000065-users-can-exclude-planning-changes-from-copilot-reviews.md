@@ -1551,7 +1551,7 @@ None. The story excludes provider login, live Copilot spending, browser and scre
 - Repository Name: `Current Repository`
 - Affected Repositories: `current_repository` / `codeInfo2`
 - Task Dependencies: `Task 15` and completed Tasks `12, 13, and 14`
-- Task Status: `__to_do__`
+- Task Status: `__in_progress__`
 - Review Task Role: `final_revalidation`
 - Review Cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
 - Final Revalidation Owner: this task owns whole-story closeout after the remaining F1/F3 repair and all completed review-fix records.

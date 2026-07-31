@@ -332,7 +332,7 @@ test('external launcher exposes only the selected endpoint and key to the child'
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
   const fakeCopilot = await makeFakeCopilot(fixture.root);
-  const selectedSecret = 'sk-selected-secret';
+  const selectedSecret = 'key';
   const otherSecret = 'sk-other-secret';
   const env = fakeEnvironment(fixture, fakeCopilot, {
     COPILOT_HOME: path.join(fixture.root, 'ambient-copilot-home'),

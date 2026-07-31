@@ -310,7 +310,7 @@ const SECRET_ENVIRONMENT_NAMES = [
 
 const redactSecrets = (value: string, secrets: readonly string[]): string =>
   [...new Set(secrets)]
-    .filter((secret) => secret.length >= 6)
+    .filter(Boolean)
     .sort((left, right) => right.length - left.length)
     .reduce(
       (redacted, secret) => redacted.replaceAll(secret, '[REDACTED]'),

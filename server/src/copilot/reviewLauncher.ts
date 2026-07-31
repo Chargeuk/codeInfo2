@@ -680,31 +680,20 @@ const parseJsonLines = (raw: string): unknown[] =>
   });
 
 const collectReviewText = (events: readonly unknown[]): string => {
-  const values: string[] = [];
-  const visit = (value: unknown, key?: string) => {
-    if (typeof value === 'string') {
-      if (
-        key === 'content' ||
-        key === 'text' ||
-        key === 'message' ||
-        key === 'result' ||
-        key === 'output'
-      ) {
-        const trimmed = value.trim();
-        if (trimmed) values.push(trimmed);
-      }
-      return;
+  const values = events.flatMap((event) => {
+    if (!event || typeof event !== 'object') return [];
+    const { type, data } = event as {
+      type?: unknown;
+      data?: unknown;
+    };
+    if (type !== 'assistant.message' || !data || typeof data !== 'object') {
+      return [];
     }
-    if (Array.isArray(value)) {
-      value.forEach((entry) => visit(entry));
-      return;
-    }
-    if (!value || typeof value !== 'object') return;
-    for (const [childKey, childValue] of Object.entries(value)) {
-      visit(childValue, childKey);
-    }
-  };
-  events.forEach((event) => visit(event));
+    const content = (data as { content?: unknown }).content;
+    if (typeof content !== 'string') return [];
+    const trimmed = content.trim();
+    return trimmed ? [trimmed] : [];
+  });
   return [...new Set(values)].join('\n\n');
 };
 
@@ -1070,20 +1059,20 @@ export async function runCopilotReview(
     !processResult.launched && processResult.terminationReason === 'aborted'
       ? 'cancelled'
       : !processResult.launched && processResult.exitStatus === 127
-      ? 'unavailable'
-      : !processResult.launched
-        ? setupUnavailable
-          ? 'unavailable'
-          : 'failed'
-        : processResult.terminationReason === 'timeout'
-          ? 'timed_out'
-          : processResult.terminationReason === 'aborted'
-            ? 'cancelled'
-            : processResult.exitStatus === 0 && review
-              ? 'successful'
-              : processResult.stdout.trim()
-                ? 'partial'
-                : 'failed';
+        ? 'unavailable'
+        : !processResult.launched
+          ? setupUnavailable
+            ? 'unavailable'
+            : 'failed'
+          : processResult.terminationReason === 'timeout'
+            ? 'timed_out'
+            : processResult.terminationReason === 'aborted'
+              ? 'cancelled'
+              : processResult.exitStatus === 0 && review
+                ? 'successful'
+                : processResult.stdout.trim()
+                  ? 'partial'
+                  : 'failed';
   const completedAt = deps.now().toISOString();
   await writeArtifacts({
     options,

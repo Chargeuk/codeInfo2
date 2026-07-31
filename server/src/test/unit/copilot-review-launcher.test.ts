@@ -443,6 +443,30 @@ test('non-zero Copilot exit preserves unknown JSONL, stderr, and a partial norma
   assert.equal(normalized.failure_reason, 'provider failed');
 });
 
+test('zero-exit non-assistant JSONL remains raw and produces a partial result', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot, {
+    FAKE_COPILOT_STDOUT:
+      '{"type":"user.message","data":{"content":"Review prompt"}}\\n{"type":"assistant.reasoning","data":{"content":"Reasoning"}}\\n{"type":"tool.execution_complete","data":{"result":"Tool output"}}\\n{"type":"unknown.future","data":{"output":"Unknown output"}}\\n{"type":"result","data":{"message":"Terminal message"}}\\n',
+  });
+
+  const result = await runCopilotReview(launcherOptions(fixture, env));
+
+  assert.equal(result.exitStatus, 0);
+  assert.equal(result.status, 'partial');
+  assert.match(
+    await fs.readFile(fixture.outputPaths.stdoutPath, 'utf8'),
+    /user\.message/u,
+  );
+  const normalized = JSON.parse(
+    await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
+  ) as { review?: string | null; status?: string };
+  assert.equal(normalized.review, null);
+  assert.equal(normalized.status, 'partial');
+});
+
 test('missing CLI and external runtime drift produce unavailable artifacts without a second launch', async (t) => {
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));

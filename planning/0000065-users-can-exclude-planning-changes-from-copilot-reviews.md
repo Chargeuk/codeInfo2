@@ -188,6 +188,108 @@ Batch usage totals: input `At least 2,609,357 reported; incomplete`; cached inpu
 
 - None.
 
+## Code Review Findings
+
+- Findings recorded: `July 30, 2026 at 6:47:31 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000065-rw-20260730T045348Z-3ae87451`
+- Review cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Reviews attempted:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed with three supported findings; terminal completion was retained but a numeric direct-process continuation status was not reported
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - `open_code_review [current_repository]` (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed with no supported findings in its bounded 14-file bundle; coverage was partial because planning, changed tests, and unsupported Markdown were excluded
+    - Input tokens: `2288777`
+    - Cached input tokens: `2156544`
+    - Output tokens: `14923`
+  - `cross_repository_review` (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed as not applicable because the immutable target list contained only `current_repository`; it made no target-local correctness claim
+    - Input tokens: `156156`
+    - Cached input tokens: `126464`
+    - Output tokens: `2292`
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`, target `current_repository`) — partial verification after a successful provider exit; no supported finding remained after verifier recovery
+    - Input tokens: `Not reported`
+    - Cached input tokens: `Not reported`
+    - Output tokens: `2178`
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`, target `current_repository`) — completed with one supported short-secret redaction finding; other provider candidates were rejected by verification
+    - Input tokens: `Not reported`
+    - Cached input tokens: `Not reported`
+    - Output tokens: `2548`
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — completed and corroborated the timeout/cancellation observation; no other supported finding remained
+    - Input tokens: `Not reported`
+    - Cached input tokens: `Not reported`
+    - Output tokens: `1277`
+
+Batch usage totals: input `At least 2444933 reported; incomplete`; cached input `At least 2283008 reported; incomplete`; output `23218 reported`; reasoning output `Not reported`; premium requests `At least 1 reported; incomplete`. Cached input is not added to input. Copilot input and cached-input categories were not reported, and no administrative usage was included.
+
+### Accepted
+
+#### 1. Short external API keys may be persisted unredacted
+
+- Finding ID: `reconciliation finding 3`
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — corroborated it.
+- Simple description: External endpoint configuration accepts every non-empty key, but the existing redactor omits keys shorter than six characters before captured or normalized review evidence is persisted.
+- Example: A supported endpoint uses a one-to-five-character key and the Copilot child echoes it in stdout, stderr, or failure diagnostics; the selected key can remain in retained review evidence.
+- Why accepted: Current HEAD confirms the accepted configuration and redaction/persistence seam at `server/src/config/openaiCompatEndpoints.ts:323-350` and `server/src/copilot/reviewLauncher.ts:305-312`, `:789-883`, and `:953-1010`. The story explicitly requires credentials to stay out of captured output, normalized output, and logs, so this is a realistic supported disclosure path with direct practical impact. The existing `redactSecrets` helper expresses the smallest repair by applying its replacement logic to every non-empty selected credential, without adding validation, policy, endpoint selection, retry, fallback, or schema behavior. It survived negative scope, positive authorization, and materiality filtering.
+
+### Ignored for This Story
+
+#### 2. Launcher accepts selectors without validating the pinned model snapshot
+
+- Finding ID or Review reference: `reconciliation finding 1`
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+- Simple description: The reusable launcher accepts selector arguments without independently comparing every selector with the immutable workspace snapshot.
+- Example: A direct or manual caller could pass a model, effort, endpoint label, or endpoint identity that differs from the workspace spec; the supported scheduler path is not shown to permit that mismatch.
+- Why ignored: Negative scope retained only this technical observation and narrowed away the claim that the launcher should use the story's isolated-unavailable outcome for a mismatch. Positive authorization removed it because `server/src/flows/copilotReviewStep.ts:300-312` and `:340-360` already validate the persisted child input and derive launcher arguments. An additional launcher guard and mismatch policy are not authorized by the top-level contract, so the observation and narrowed-away remedy are non-actionable here.
+
+#### 3. Timeout and cancellation are collapsed into generic terminal statuses
+
+- Finding ID or Review reference: `reconciliation finding 2`
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated it.
+- Simple description: Timeout and cancellation use generic `partial` or `failed` status values even though the complete normalized result retains distinct exit codes and diagnostics.
+- Example: A consumer that reads only `status` cannot distinguish timeout from cancellation, while the contract's combined status, exit code, and diagnostics retain exit statuses `124` and `130` and their diagnostic text.
+- Why ignored: Positive authorization removed this observation after negative scope retained it. The Acceptance Criteria require the outcome to be represented through normalized status, exit code, and diagnostics together, which current HEAD does. A new status enum or output-contract mechanism is not authorized, and no supported consumer failure was demonstrated.
+
+#### 4. DeepSeek external-key environment leak candidate
+
+- Finding ID or Review reference: `DeepSeek provider candidate; output/verification-recovery.md and verification/verification.md`
+- Review harnesses:
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) — generated the candidate; verifier rejected it.
+- Simple description: The provider candidate claimed that a broad external endpoint-key environment or unintended selected key could leak into child review state.
+- Example: The claim would be harmful if `CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS` reached persisted or unintended child state, but the verified launch path removes the broad map and restores only the selected key for the child.
+- Why ignored: Verification rejected the candidate because the existing environment-isolation seam removes the broad key map before launch. No supported credential disclosure was established, so it was not promoted.
+
+#### 5. DeepSeek unsupported `--disable-builtin-mcps` flag candidate
+
+- Finding ID or Review reference: `DeepSeek provider candidate concerning --disable-builtin-mcps; output/verification-recovery.md and verification/verification.md`
+- Review harnesses:
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) — generated the candidate; verifier rejected it.
+- Simple description: The provider candidate claimed that the Copilot invocation used an unrecognized `--disable-builtin-mcps` option.
+- Example: An unrecognized option would prevent launch, but the retained invocation completed with numeric exit status `0` while using the flag.
+- Why ignored: Verification directly contradicted the claimed failure, so this provider suggestion is not a supported current-HEAD finding.
+
+#### 6. DeepSeek residual provider observations
+
+- Finding ID or Review reference: `DeepSeek provider findings 2, 3, 5, 6, and 7; retained provider output and verifier recovery`
+- Review harnesses:
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) — generated the observations; verification rejected or self-disposed them.
+- Simple description: These observations concern redundant-but-correct code, expected dependency injection, defensive redaction, a pre-existing artifact, and stable identity correctness.
+- Example: The retained provider discussion describes intentional or already-correct behavior, such as defensive redaction and stable identity handling, without establishing a harmful scenario at the reviewed HEAD.
+- Why ignored: The reconciliation records each cited observation as self-disposed or rejected by verification. They are preserved by their complete provider finding-number set but are not supported actionable findings and received no positive authorization or materiality promotion.
+
+#### 7. Qwen provider candidates other than short-secret redaction
+
+- Finding ID or Review reference: `Qwen provider findings 1, 2, and 4–18; retained provider output and verification/verification.md`
+- Review harnesses:
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — generated the candidates; verification rejected or classified them as non-findings.
+- Simple description: These candidates cover expected defaults, intentional environment stripping, sufficient test coverage, planning exclusion, identity hashing, warnings, containment, optional strings, style, one-shot disabling, schema/configuration, committed non-secret model configuration, and private-input locking.
+- Example: The provider output raised concerns such as the default timeout, planning exclusion, or stable identity hashing, but verification classified those behaviors as equivalent, intentional, already covered, or required rather than harmful failures.
+- Why ignored: Verification explicitly rejected or self-disposed every listed candidate. Only the short-secret observation survived corroboration, authorization, and materiality; these candidates remain rejected provenance and cannot be promoted.
+
 ## Implementation Ideas
 
 - Parse each configured model entry independently and retain deterministic environment order.
@@ -747,21 +849,21 @@ Restore the three pre-existing Copilot chat-default tests that still encode the 
 - Affected Repositories: `current_repository`
 - Task Dependencies: `Tasks 1–10`
 - Task Status: `__done__`
-- Review Task Role: `final_revalidation`
+- Review Task Role: `historical_final_revalidation`
 - Review Batch: `0000065-rw-20260729T233952Z-f493e79c`
 - Review Cycle: `0000065-rc-20260729T223631Z-72cb0b36`
-- Final Revalidation Owner: this task owns whole-story closeout after the F1 repair and Task 10's shared-baseline repair.
+- Final Revalidation Owner: historical closeout evidence only; Task 16 is the current settlement final-revalidation owner after later review-fix batches.
 - Created: `July 30, 2026 at 1:56:23 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
 
 #### Overview
 
-Revalidate the complete approved Copilot review story after Task 9's external child-environment repair and Task 10's shared chat-default baseline repair. This is the sole final closeout owner and covers the current repository's server, flow, prompt-contract, review workspace, and Compose-build surfaces delivered across Tasks 1–10.
+Revalidate the complete approved Copilot review story after Task 9's external child-environment repair and Task 10's shared chat-default baseline repair. This records the historical closeout evidence for the earlier review cycle and covers the current repository's server, flow, prompt-contract, review workspace, and Compose-build surfaces delivered across Tasks 1–10. Task 16 supersedes it as the current settlement closeout owner.
 
 #### Task Exit Criteria
 
 - Every lint and formatting subtask and every automated proof item is checked only after the named command passes against the post-Task-10 repository state.
 - The final proof reflects the latest story-owned code and no story-caused failure remains unresolved.
-- The final task remains last in the plan and is the only final revalidation owner for this review cycle.
+- This historical task is not the current final-revalidation owner; Task 16 is the final task for the settlement pass.
 - No manual, provider-login, browser, screenshot, remote GitHub, or parallel all-tests gate is added to the story.
 
 #### Documentation Locations
@@ -801,7 +903,7 @@ None. The story explicitly excludes manual Compose startup, provider authenticat
 
 #### Implementation Notes
 
-- This task is the single final revalidation owner after Task 9 and Task 10, and preserves the partial review-coverage limitations recorded for the settlement pass.
+- This task preserves historical revalidation evidence after Task 9 and Task 10; Task 16 is the current settlement final-revalidation owner after the later fix-bearing batches.
 - Ran `npm run build:summary:server` successfully with exit code 0 and no wrapper-reported warnings; the server build proof item is complete for the current repository state.
 - Ran `npm run compose:build:summary` successfully; both supported Compose build items passed and runtime assets were baked without requiring source bind mounts.
 - Ran `npm run compose:up` successfully; the checked-in main stack passed preflight, reached healthy server state, and started all services.
@@ -828,3 +930,653 @@ None. The story explicitly excludes manual Compose startup, provider authenticat
 - Audit confirmed the implementation-plus-automated-proof pass is complete: all two subtasks and nine Testing items are checked, the current server-unit and Cucumber artifacts report 2,688 and 133 passing tests respectively, build/Compose/lint/format proof is recorded, and no live blocker remains. The proof pass introduced no new out-of-scope user-facing behavior; manual testing remains explicitly outside this story's validation contract.
 
 ---
+
+## Code Review Findings
+
+- Findings recorded: `July 30, 2026 at 7:48:53 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000065-rw-20260730T055352Z-1db7556a`
+- Review cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Reviews attempted:
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed with one supported readiness/discovery finding; coverage was limited to a pinned 14-file bundle.
+    - Input tokens: 3,062,528
+    - Cached input tokens: 2,878,208
+    - Output tokens: 19,466
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed with two supported findings.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed no-work because only one repository target was supplied.
+    - Input tokens: 174,798
+    - Cached input tokens: 147,712
+    - Output tokens: 2,945
+  - Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`, target `current_repository`) — completed; eight retained observations were verified as non-actionable.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 1,890
+  - Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository] (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`, target `current_repository`) — partial; retained output has no terminal finding/no-findings conclusion.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 4
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — completed process, but its no-defect assessment was misleading and was recovered.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 1,560
+
+Optional actual-review usage totals: input `At least 3,237,326 reported; incomplete`; cached input `At least 3,025,920 reported; incomplete`; output `25,865 reported`. Copilot input and cached input were not reported, so no complete total is claimed for those categories. Cached input is not added to input and usage does not affect routing.
+
+The reconciliation, reconciliation audit, and combined filtering audit establish that negative scope, positive authorization, and materiality were all applicable and completed. The Qwen result remains partial and was not treated as a clean empty set. Historical findings, tasks, implementation notes, commits, and tests were used only as provenance or factual comparison, never as authorization.
+
+### Accepted
+
+#### 1. External review children retain native GitHub credentials
+
+- Finding ID: `supported finding 1 — External review children retain native GitHub credentials`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated the omission during recovery despite its contradictory original conclusion.
+- Simple description: The external Copilot child environment inherits native GitHub credential variables in addition to the selected external endpoint, optional key, and exact model. This crosses the provider-isolation boundary promised by the story.
+- Example: When an operator starts an ordinary external review while the server has `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` set, `buildExternalCopilotReviewEnvironment` at current HEAD can pass those variables to the external child.
+- Why accepted: Current HEAD at `server/src/copilot/reviewLauncher.ts:454-468` leaves those variables in inherited state, and the ordinary external path supplies that state before launch. The supported scenario is reachable and the practical impact is native credential exposure across the selected external-provider boundary; the evidence proves exposure, not actual credential use or transmission. The current Acceptance Criteria and Description expressly require external children to expose only the selected endpoint, optional key, and exact model and to isolate provider credentials. The existing environment-builder seam can remove exactly these variables without a new field, policy, branch, timeout, retry, fallback, or global provider change. The finding survived all applicable gates and is material in its unchanged form.
+
+#### 2. Copilot CLI readiness receives external provider environment state
+
+- Finding ID: `supported finding 3, narrowed CLI-readiness core — Native readiness/discovery receives unsanitized environment state`
+- Review harnesses:
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the finding.
+- Simple description: The local `copilot --version` readiness subprocess receives external provider/model settings, endpoint configuration, and endpoint-key maps before model-specific isolation is applied. The broader model-discovery claim is not part of this accepted finding.
+- Example: With external endpoint or provider overrides configured, normal model preparation passes `process.env` through `server/src/flows/service.ts:7020-7030` and `server/src/flows/copilotReviewModels.ts:328-338` to `copilot --version` through `:238-245`, so the readiness process can see those values.
+- Why accepted: Current HEAD proves the exposure through a realistic ordinary preparation path. The story requires provider credentials to remain isolated and explicitly excludes the named external provider/model/endpoint/key-map values from native launches. The existing `CopilotReviewAvailabilityDeps.checkCli(env)` and direct `execFile(..., { env })` seam express the smallest repair: copy the readiness environment and remove only the forbidden entries while preserving CLI path/home, native authentication, and otherwise unchanged state. This exact narrowed form is authorized and material. The broader discovery/minimal-environment remedy was removed because the lifecycle seam re-merges `process.env` and does not prove isolation.
+
+### Ignored for This Story
+
+#### 3. Production timeout configuration is ignored for normal callers
+
+- Finding ID or Review reference: `supported finding 2 — The production timeout setting is ignored for normal callers`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+- Simple description: `resolveReviewTimeoutMs` reads `CODEINFO_COPILOT_REVIEW_TIMEOUT_SEC` only from an explicit options environment, while ordinary callers use the process environment later and keep the existing two-hour default.
+- Example: An operator can set the process-level timeout variable and start a normal review, yet the ordinary caller does not pass `options.env`, so the configured duration is not used.
+- Why ignored: The negative gate fully removed this technically supported and positively considered observation under rejection gates 7, 10, and 11 because the story requires honest timeout outcomes but does not authorize activating an operator-configurable timeout policy. The existing default supplies a timeout outcome; making the setting effective would change runtime policy without explicit authority. It is non-actionable for this story and cannot be restored for repair or tasking.
+
+#### 4. Broader native discovery and minimal-environment remedy was narrowed away
+
+- Finding ID or Review reference: `narrowed remainder of supported finding 3 — Native readiness/discovery receives unsanitized environment state`
+- Review harnesses:
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the original finding and proposed the broader discovery remedy.
+- Simple description: The original claim extended beyond CLI readiness to native model discovery and proposed a broad minimal or neutral environment. The accepted finding preserves only the directly expressible CLI-readiness exposure.
+- Example: Sanitizing the environment for `CopilotLifecycle` at the claimed discovery seam would not establish isolation because current HEAD `server/src/config/copilotConfig.ts:684-723` merges `process.env` back into the SDK child environment.
+- Why ignored: The negative gate removed this meaning because the cited lifecycle seam does not prove the requested isolation and a new merge/isolation API, tombstone contract, or shared Copilot configuration change would be required. The top-level story does not authorize that mechanism, and Out Of Scope excludes global chat/provider behavior changes. Authorization of the CLI-readiness outcome does not authorize this broader mechanism. The removal is technically supported and preserved for provenance only.
+
+#### 5. DeepSeek provider observations did not establish additional supported defects
+
+- Finding ID or Review reference: `DeepSeek Copilot retained observations 1–8 in the job output and verification/recovery artifacts`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) — generated the observations; verification rejected or self-disposed them.
+- Simple description: The provider observations concerned style, redundancy, expected dependency injection, defensive behavior, or unsupported hypothetical concerns rather than a demonstrated harmful current-HEAD scenario.
+- Example: The retained provider output raised concerns about existing flags, redaction, or environment behavior, but verification records those behaviors as correct, intentional, or unsupported and supplies no additional supported defect beyond the two accepted findings.
+- Why ignored: Reconciliation verified these observations as non-actionable and no positive authorization or materiality decision promoted them. They remain provenance and coverage evidence only and cannot resurrect a removed or rejected item.
+
+Coverage limits remain explicit: the cross-repository job was deliberately no-work with one target, OpenCode reviewed only its pinned bundle, Qwen is partial, and the native Claude no-defect statement conflicts with the verified credential finding. No fresh build or test wrapper was run by this disposition step.
+
+### Task 12. Record Review Fixes From Batch 0000065-rw-20260730T055352Z-1db7556a
+
+- Task Status: `__done__`
+- Repository Name: `codeInfo2`
+- Task Dependencies: `Task 11`
+- Review Task Role: `completed_review_fixes`
+- Review Cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Review Batch: `0000065-rw-20260730T055352Z-1db7556a`
+- Findings Recorded: `July 30, 2026 at 7:48:53 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Review Harnesses: `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) generated the external-child credential finding; `open_code_review [current_repository]` (`open_code_review`, job `target_reviews:current_repository:open_code_review`) generated the CLI-readiness environment finding; `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) corroborated the external-child credential omission during recovery.
+- Reviewed HEAD: `7b3a2f7d30a3b67073b481e0f8cbee5ca24d371c`
+- Initial Repair HEAD: `7b3a2f7d30a3b67073b481e0f8cbee5ca24d371c`
+- Final Repair HEAD: `da4796177295c1456cf73dc69dbceb114cb53e70`
+- Created: `July 30, 2026 at 5:57:55 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed stronger repair for the two material survivors from this immutable batch. The normal-repair audit is unavailable, so no normal-agent contribution is attributed. The stronger repair removed native GitHub credential variables from external Copilot children and sanitized only the authorized external-provider state from the Copilot CLI-readiness environment. No actionable survivor remains after the committed repair; this task records historical evidence and does not create unresolved implementation or final revalidation work.
+
+#### Task Exit Criteria
+
+- The two material survivors are addressed in the owning repository by the exact committed repair.
+- The normal-repair evidence gap is preserved as unavailable rather than treated as a successful skip.
+- Focused proof, changed files, exact commit, reviewed HEAD, final HEAD, and repair limitations are recorded.
+- All task subtasks and focused tests describe only work already evidenced by the batch.
+
+#### Addresses Findings
+
+- External review children retain native GitHub credentials — owner `current_repository` / `codeInfo2`; the stronger repair deletes `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN` only from external child environments.
+- Copilot CLI readiness receives external provider environment state — owner `current_repository` / `codeInfo2`; the stronger repair copies the readiness environment and removes only the authorized provider/model/endpoint/key-map entries before `checkCli`.
+
+#### Subtasks
+
+1. [x] Update `server/src/copilot/reviewLauncher.ts` and its existing external-launch capture test so external children do not receive inherited `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN`, while selected external configuration and native-launch behavior remain unchanged.
+2. [x] Update `server/src/flows/copilotReviewModels.ts` and its unit proof so only the existing CLI-readiness environment receives a copied environment with the named external provider/model/endpoint/key-map entries removed, while discovery, native authentication, CLI path/home, unrelated state, and source immutability remain unchanged.
+3. [x] Commit both repairs in `current_repository` as `da4796177295c1456cf73dc69dbceb114cb53e70` (`DEV-0000065 - Isolate Copilot review subprocess environments`).
+
+#### Testing
+
+1. [x] Run the corrected external-launch focused server-unit test with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; 1 test passed, including the server build phase.
+2. [x] Run the CLI-readiness focused server-unit test with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; 1 test passed.
+3. [x] Run the complete `server/src/test/unit/copilot-review-launcher.test.ts` file with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`; 15 tests passed.
+4. [x] Run the complete `server/src/test/unit/copilot-review-models.test.ts` file with `CODEINFO_SERVER_UNIT_CONCURRENCY=1` after the final formatting change; 15 tests passed.
+5. [x] Run targeted Prettier write and targeted ESLint safe-fix commands over the four changed implementation/test files; both passed.
+6. [x] Run `npm run format:check`; all matched files used Prettier style.
+7. [x] Run `npm run lint`; lint passed with zero warnings.
+8. [x] Run `git diff --check`; no whitespace errors were reported before commit.
+
+#### Manual Testing Guidance
+
+None. The story excludes manual provider, browser, Compose, and remote GitHub proof for this focused repair record.
+
+#### Implementation Notes
+
+- The stronger-repair audit found no assigned normal-repair audit, so normal-agent ownership and any normal focused proof remain unavailable rather than being inferred.
+- The stronger repair fixed the external credential survivor in `server/src/copilot/reviewLauncher.ts` and `server/src/test/unit/copilot-review-launcher.test.ts`.
+- The stronger repair fixed the CLI-readiness survivor in `server/src/flows/copilotReviewModels.ts` and `server/src/test/unit/copilot-review-models.test.ts`.
+- The exact repair commit is `da4796177295c1456cf73dc69dbceb114cb53e70`, `DEV-0000065 - Isolate Copilot review subprocess environments`, from reviewed/initial HEAD `7b3a2f7d30a3b67073b481e0f8cbee5ca24d371c` to final HEAD `da4796177295c1456cf73dc69dbceb114cb53e70`.
+- Failed-before regression probes and an early zero-test path invocation remain recorded in `reconciliation/stronger-repair-audit.md` as diagnostic evidence and are not counted as passing tests.
+- The full server, Cucumber, e2e, Compose, and manual proof surfaces were not run. The missing normal-repair audit and these unrun broad surfaces are limitations for later settlement, not unresolved survivors or new task work.
+- The batch outcome, disposition, filtering artifacts, stronger-repair audit, six direct job records, and usable immutable outputs are the evidence for this completed historical task.
+
+## Code Review Findings
+
+- Findings recorded: `July 30, 2026 at 10:49:20 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000065-rw-20260730T171502Z-8a8c6539`
+- Review cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Reviews attempted:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — partial semantic evidence; process completed but the no-defect conclusion was misleading.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: `1,397`
+  - Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`, target `current_repository`) — partial semantic evidence; no usable final review conclusion.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: `341`
+  - Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository] (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`, target `current_repository`) — partial semantic evidence; normalized output was misleading and recovered evidence was used only where stated below.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: `2,419`
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed no-work / not applicable because only `current_repository` was assigned.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed and usable; three supported findings.
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - OpenCode workspace review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed and usable; one validated finding with bounded bundle coverage.
+    - Input tokens: `4,810,031`
+    - Cached input tokens: `4,659,456`
+    - Output tokens: `17,304`
+
+Optional actual-review usage totals: input `At least 4,810,031 reported; incomplete`; cached input `At least 4,659,456 reported; incomplete`; output `21,461 reported; incomplete` because the cross-repository and Copilot categories were not all reported. Cached input is not added to input and usage does not affect routing.
+
+The reconciliation audit and combined filtering audit are complete. Negative scope, positive authorization, and materiality were all applicable; no later gate was skipped because an earlier trustworthy stage had no survivors. The upstream review coverage remains partial, so incomplete or misleading Copilot results are not treated as clean no-findings evidence.
+
+### Accepted
+
+#### 1. Native model discovery receives the raw server environment
+
+- Finding ID: `reconciliation finding 1 — Native model discovery receives the raw server environment`
+- Review harnesses:
+  - OpenCode workspace review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the finding.
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — corroborated it independently.
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — partial recovered corroboration.
+  - Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository] (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — partial recovered acknowledgement, not relied on for completeness.
+- Target: `server/src/flows/copilotReviewModels.ts:365-368`; the sanitizer and merge seam are at `:238-248`, `server/src/chat/copilotLifecycle.ts:62-70`, and `server/src/config/copilotConfig.ts:706-713`.
+- Simple description: Native model discovery can receive external Copilot provider and endpoint state before recording the native availability snapshot. The snapshot can therefore validate a native selector under a provider context that the native launch cannot use.
+- Example: With a native model configured and external provider variables present, readiness uses the sanitized environment but discovery receives raw `env`, so the persisted native availability result can be based on external-provider state.
+- Why accepted: Current HEAD proves the behavior, the scenario is supported, and the false snapshot can lose supported review coverage. The Description and Acceptance Criteria require native entries not to inherit external provider selection. The existing override seam can express the smallest effective repair, but a deletion-only sanitizer is ineffective because the current merge can reintroduce process values. This is a material, authorized, non-duplicate, not-already-resolved survivor and is likely to need the stronger repair attempt; that classification is advisory only.
+
+#### 2. Child review environments inherit `CODEINFO_CONTEXT7_API_KEY`
+
+- Finding ID: `reconciliation finding 2 — Child review environments inherit unrelated provider credentials`, narrowed to the supported Context7 credential case.
+- Review harnesses:
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and validated the finding.
+- Target: `server/src/copilot/reviewLauncher.ts:342-357` and `:454-471`; the supported credential is read at `server/src/config/runtimeConfig.ts:477-484`.
+- Simple description: An external Copilot child can inherit the unrelated Context7 service credential in addition to its selected endpoint, optional key, and model. This crosses the provider-secret isolation boundary promised by the story.
+- Example: During a normal external review with Context7 configured in the server environment, the external child receives `CODEINFO_CONTEXT7_API_KEY` while running with `--allow-all`; the launcher’s named-secret list does not cover this value.
+- Why accepted: The current Description and Acceptance Criteria require external launches to expose only the selected endpoint/key/model and to isolate credentials. Current HEAD proves a reachable configuration, concrete credential exposure, meaningful impact, and the existing `withoutProviderEnvironment` seam for one exact named deletion. The broader allowlist and future-provider policy claims were removed and are recorded below. This is a material, authorized, non-duplicate, not-already-resolved survivor apparently suitable for the normal narrow repair attempt; that classification is advisory only.
+
+#### 3. Timeout and cancellation are normalized into ordinary statuses
+
+- Finding ID: `reconciliation finding 3 — Timeout and cancellation are normalized into ordinary statuses`, narrowed to timeout and cancellation.
+- Review harnesses:
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and validated the finding.
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — partial recovered corroboration.
+  - Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository] (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — partial recovered acknowledgement, not relied on for completeness.
+- Target: `server/src/copilot/reviewLauncher.ts:57-63`, `:487`, `:518-531`, and `:1017-1028`; the existing artifact seam is `:763-774`.
+- Simple description: The launcher records timeout and cancellation as ordinary partial or failed statuses instead of preserving their actual terminal cause. Persisted review artifacts therefore misstate two supported lifecycle outcomes.
+- Example: A launched review reaches its configured timeout or receives the existing parent cancellation signal, but normalization writes `partial` or `failed` even though `terminationReason` identifies the distinct cause.
+- Why accepted: The current Description and Acceptance Criteria explicitly require timed-out and cancelled outcomes to be preserved and normalized honestly. Current HEAD proves both paths, the false artifact label is materially useful to correct, and the existing status union, termination reason, artifact writer, and flow consumer express the narrow repair. The broader not-launched redesign was removed below. This is a material, authorized, non-duplicate, not-already-resolved survivor apparently suitable for the normal narrow repair attempt; that classification is advisory only.
+
+### Ignored for This Story
+
+#### 4. Broader child-environment credential filtering was narrowed away
+
+- Finding ID or Review reference: `reconciliation finding 2; negative-gate and positive-authorization narrowings`
+- Review harnesses:
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the broader credential-inheritance observation.
+- Simple description: The broader claim proposed filtering arbitrary `OPENAI_*` values, every future provider variable, provider-name patterns, or an ordinary-environment allowlist. The audited gates retained only the demonstrated `CODEINFO_CONTEXT7_API_KEY` case.
+- Example: Current HEAD proves the supported Context7 key is copied to an external child, but it does not provide an exhaustive provider-variable inventory or an existing policy-free allowlist seam that establishes the broader claim or remedy.
+- Why ignored: The broader meaning was narrowed away by negative scope and is not positively authorized as a new filtering policy. Only the exact named Context7 deletion is authorized. This is a non-actionable narrowed-away meaning, not a materiality rejection.
+
+#### 5. Deletion-only native discovery sanitization was not an effective authorized remedy
+
+- Finding ID or Review reference: `reconciliation finding 1; positive-authorization repair narrowing`
+- Review harnesses:
+  - OpenCode workspace review (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated the native-environment finding.
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — corroborated the current merge seam.
+- Simple description: A repair that only deletes forbidden keys from the sanitizer result would not reliably isolate native discovery because the existing Copilot client-options merge can reintroduce process values.
+- Example: If the sanitizer returns an object without `COPILOT_MODEL`, `buildCopilotClientOptions` at current HEAD spreads `process.env` before the supplied overrides, so the value can return unless the override explicitly shadows it.
+- Why ignored: The raw-environment observation remains accepted, but this deletion-only mechanism is ineffective and is not authorized. The allowed repair uses the existing override seam with explicit `undefined` shadows; changing the shared merge or adding a policy is Out Of Scope. This entry records only the narrowed-away remedy.
+
+#### 6. The broader not-launched outcome redesign was narrowed away
+
+- Finding ID or Review reference: `reconciliation finding 3; negative-gate narrowing`
+- Review harnesses:
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the lifecycle finding.
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — partial recovered corroboration.
+  - Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository] (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — partial recovered acknowledgement.
+- Simple description: The original lifecycle discussion also requested redesigning every not-launched outcome. The audited evidence supports the timeout/cancellation status defect but does not demonstrate a specific false not-launched artifact.
+- Example: Current HEAD retains `launched`, `exit_status`, `failure_reason`, and unavailable/failed handling for setup and process-start outcomes; no concrete false not-launched artifact was recorded.
+- Why ignored: The broader request was removed by negative scope and is not positively authorized or materially demonstrated. The materiality audit also removed the unsupported claim that the ordinary timeout/cancellation label necessarily changes resume or recovery routing; only the false artifact label is accepted. The timeout/cancellation finding remains accepted independently. No not-launched state redesign, new flow field, retry, fallback, parent-admission change, timeout-duration change, grace-period change, cancellation-policy change, or existing non-Copilot behavior change is actionable for this story.
+
+#### 7. Partial Qwen observations were rejected or not promoted
+
+- Finding ID or Review reference: `Copilot Qwen recovered-review candidates in the assigned batch`
+- Review harnesses:
+  - Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository] (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — partial and unreliable semantic evidence.
+- Simple description: The partial Qwen trace raised additional claims about timeout configuration, endpoint-source ordering, stable model identity, temporary permissions, diagnostics, test names, README coverage, one-shot configuration, temporary-file collisions, and display labels. None became a supported additional survivor.
+- Example: The timeout-configuration claim is contradicted by current HEAD reading and validating `CODEINFO_COPILOT_REVIEW_TIMEOUT_SEC` at `server/src/copilot/reviewLauncher.ts:602-617` and passing it to `runProcess` around `:988-996`; the remaining claims lack a demonstrated story-contract violation or describe intentional behavior.
+- Why ignored: The reconciliation rejects false claims and does not promote speculative maintainability, diagnostic quality-of-life, documentation-completeness, negligible-race, display-label, or intentional-behavior observations. The partial Qwen result is not clean no-findings coverage, but these claims lack an independent authorization and materiality trail and remain non-actionable.
+
+### Task 13. Record Review Fixes From Batch 0000065-rw-20260730T171502Z-8a8c6539
+
+- Repository Name: `Current Repository`
+- Affected Repositories: `current_repository`
+- Task Dependencies: `Task 12`
+- Task Status: `__done__`
+- Review Task Role: `completed_review_fixes`
+- Review Batch: `0000065-rw-20260730T171502Z-8a8c6539`
+- Review Cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Review Harnesses: OpenCode workspace review, Native Codex review, Copilot Claude, and Copilot Qwen as recorded in the batch outcome; OpenCode and Native Codex generated/corroborated the addressed findings, while the partial Copilot recoveries corroborated findings 1 and 3.
+- Created: `July 30, 2026 at 11:10:16 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal-repair work for the fix-bearing immutable review batch. The repair isolated native model discovery, removed the demonstrated unrelated Context7 credential from child environments, and preserved distinct timeout and cancellation statuses. This is historical repair evidence; the stronger repair was deliberately skipped after the normal audit established that no actionable survivor remained.
+
+#### Task Exit Criteria
+
+- All three accepted material survivors are repaired in `current_repository` by the exact committed change.
+- The normal repair proof and limitations are recorded without claiming broad or live-provider validation.
+- The stronger-repair skip is preserved as a normal-repair completion decision, not as missing evidence.
+- Every subtask and focused proof item below is checked only because the named work actually ran.
+
+#### Addresses Findings
+
+- `reconciliation finding 1 — Native model discovery receives the raw server environment` — owner `current_repository` / `codeInfo2`; native discovery now receives the isolated readiness environment with explicit shadows preventing process-environment reintroduction.
+- `reconciliation finding 2 — Child review environments inherit unrelated provider credentials`, narrowed to `CODEINFO_CONTEXT7_API_KEY` — owner `current_repository` / `codeInfo2`; the exact named credential is removed from the shared child-environment filter.
+- `reconciliation finding 3 — Timeout and cancellation are normalized into ordinary statuses`, narrowed to timeout and cancellation — owner `current_repository` / `codeInfo2`; `timed_out` and `cancelled` are preserved through launcher normalization and artifacts.
+
+#### Subtasks
+
+1. [x] Update `server/src/flows/copilotReviewModels.ts` and `server/src/test/unit/copilot-review-models.test.ts` so native discovery receives the isolated readiness environment and excluded provider/model/endpoint/key-map values cannot be restored by the existing merge.
+2. [x] Update `server/src/copilot/reviewLauncher.ts` and `server/src/test/unit/copilot-review-launcher.test.ts` to remove only `CODEINFO_CONTEXT7_API_KEY` from child environments and to preserve `timed_out` and `cancelled` result/artifact statuses.
+3. [x] Commit the completed repairs in `current_repository` as `b5e73a5ad53ccd3646680fa767c0a75e7198959c` (`DEV-0000065 - Repair Copilot review isolation contracts`).
+
+#### Testing
+
+1. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --file server/src/test/unit/copilot-review-models.test.ts --file server/src/test/unit/copilot-review-launcher.test.ts`; 30 tests passed and 0 failed. The final focused wrapper artifact is `test-results/server-unit-tests-2026-07-30T22-04-28-014Z.log`.
+2. [x] Rerun the same focused sequential server-unit command after formatting; 30 tests passed and 0 failed. The post-format artifact is `test-results/server-unit-tests-2026-07-30T22-05-05-549Z.log`.
+3. [x] Run `npm run format:check`; formatting passed.
+4. [x] Run `npm run lint`; lint passed with zero warnings.
+5. [x] Run `git diff --check`; no whitespace errors were reported.
+
+#### Manual Testing Guidance
+
+None. The batch repair used focused fake-provider proof and did not require live Copilot authentication, provider spending, browser proof, or manual Compose validation.
+
+#### Implementation Notes
+
+- The normal repair audit at `reconciliation/normal-repair-audit.md` independently reconfirmed authorization, materiality, current behavior, and the exact repair seam for all three accepted findings before editing.
+- The normal repair began at initial HEAD `da4796177295c1456cf73dc69dbceb114cb53e70` and ended at final HEAD `b5e73a5ad53ccd3646680fa767c0a75e7198959c` with commit `DEV-0000065 - Repair Copilot review isolation contracts`.
+- Changed files are `server/src/flows/copilotReviewModels.ts`, `server/src/copilot/reviewLauncher.ts`, `server/src/test/unit/copilot-review-models.test.ts`, and `server/src/test/unit/copilot-review-launcher.test.ts`.
+- The first repair-focused wrapper attempt exposed a repair-caused TypeScript inference error, and a subsequent run exposed two misplaced test expectation edits; both were corrected before the two passing final focused runs. Those failed diagnostics are not counted as passing proof.
+- No stronger-repair audit or commit was created because the completed normal audit positively established that all actionable survivors were resolved. Broad server, Cucumber, client, e2e, Compose, manual, and live-provider proof were not run; this limitation remains explicit in the batch outcome.
+- The batch outcome, disposition, combined filtering audit, normal-repair audit, six direct job records, immutable outputs, and exact repair commit are the settlement evidence. The new committed HEAD makes another review useful for normal settlement; no removed or rejected earlier item is restored.
+
+## Code Review Findings
+
+- Findings recorded: `July 31, 2026 at 9:12:19 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000065-rw-20260730T221219Z-95bbbd6a`
+- Review cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Reviewed HEAD: `b5e73a5ad53ccd3646680fa767c0a75e7198959c`
+- Reviews attempted, each listed once from the immutable `jobs/` inventory:
+  - `open_code_review [current_repository]` (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed with no findings, but only the bounded 14-file implementation/configuration bundle was reviewed; changed tests and unsupported-extension files were not substantively covered.
+    - Input tokens: `2,782,162`; cached input tokens: `2,555,392`; output tokens: `14,647`.
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed with F1, F2, and F3; the direct launcher did not preserve a numeric continuation status, while its terminal response and completion evidence were retained.
+    - Input tokens: `0`; cached input tokens: `0`; output tokens: `0`.
+  - `cross_repository_review` (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed not applicable because the immutable input contained one repository target and no producer/consumer boundary; this is not clean multi-repository coverage.
+    - Input tokens: `201,984`; cached input tokens: `171,008`; output tokens: `2,497`.
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`, target `current_repository`) — completed with exit status `0`; its provider conclusion was partial, and verifier recovery corroborated the redaction and cancellation observations without promoting its unsupported extra claims.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `1,994`.
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`, target `current_repository`) — completed with exit status `0` and no supported provider finding; verification retained the honest sibling no-findings outcome while source reconciliation established the supported batch findings.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `4,924`.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — completed with exit status `0`; verifier recovery confirmed F1 and partially corroborated F2 and F3, while rejecting the unsupported session-export claim.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `1,583`.
+
+Optional actual-review usage is kept separate from cached input: input `At least 2,984,146 reported; incomplete`; cached input `At least 2,726,400 reported; incomplete`; output `25,645 reported`. Copilot input and cached input were not reported, and Copilot premium-request and duration totals are partial. No usage value changes settlement routing.
+
+### Accepted
+
+#### 1. External Copilot children inherit unrelated parent environment values
+
+- Finding ID: `F1`
+- Review harnesses:
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated the finding and supplied verifier-recovered corroboration.
+- Simple description: The external child starts from the complete source environment and removes only a named blocklist, so unrelated ambient values can cross the selected-endpoint isolation boundary.
+- Example: When the CodeInfo server has an unrelated ambient value while launching a configured external model, `buildExternalCopilotReviewEnvironment` copies that value into the fully permitted external Copilot child even though only the selected endpoint base URL, optional key, wire API, and exact model should cross the boundary.
+- Why accepted: Current HEAD confirms the behavior at `server/src/copilot/reviewLauncher.ts:348-365` and external use at `:461-478`. Negative scope, positive authorization, and materiality retained the exact demonstrated environment-inheritance defect and authorized only the existing builder seam: construct the safe CLI/Git baseline, then add the selected external values. No normal or stronger repair audit or commit exists for this batch, so F1 remains actionable in Task 15; no broader provider policy is authorized.
+
+#### 2. Short external API keys bypass persisted-output redaction
+
+- Finding ID: `F2`
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — supplied verifier-recovered corroboration.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — supplied verifier-recovered corroboration.
+- Simple description: Accepted non-empty keys shorter than six characters are omitted from the redaction list and can remain in captured or normalized review evidence.
+- Example: An operator configures a supported external endpoint with a three-character key and the child echoes it in stdout, stderr, or failure diagnostics; the reviewed launcher can persist the key because the redactor discards it before replacement.
+- Why accepted: The accepted-key and redaction seams at `server/src/config/openaiCompatEndpoints.ts:323-350` and `server/src/copilot/reviewLauncher.ts:311-318` establish the story-contract violation, and all three gates retained it. The later fix-bearing batch `0000065-rw-20260731T194925Z-cfb8a20d` repaired the same defect in commit `d512e5af97cf2dfbc9a0ba4e6a66091e1b30656a`, recorded by Task 14, so F2 is resolved and is not duplicated as open work in Task 15.
+
+#### 3. Cancellation can still spawn Copilot after asynchronous setup
+
+- Finding ID: `F3`
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — supplied partial verifier-recovered corroboration.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — supplied partial verifier-recovered corroboration.
+  - `codex_review [current_repository]` in later batch `0000065-rw-20260731T112523Z-728a8531` (`codex_review`, job `target_reviews:current_repository:codex_review`) — independently generated duplicate evidence.
+  - `open_code_review [current_repository]` in later batch `0000065-rw-20260731T112523Z-728a8531` (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — independently corroborated the duplicate.
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` in later batch `0000065-rw-20260731T112523Z-728a8531` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) — supplied verifier-recovered duplicate corroboration.
+- Simple description: Cancellation during repository verification or external model rediscovery can reach `spawn` before the already-aborted check, starting a provider process instead of returning a not-launched cancelled result.
+- Example: The parent aborts a Copilot child while repository verification or external rediscovery is still running; setup completes, `runProcess` calls `spawn`, and only afterward observes the already-aborted signal, contacting the provider after cancellation.
+- Why accepted: Current HEAD confirms the pre-spawn seam at `server/src/copilot/reviewLauncher.ts:543-548` and the late abort check at `:597-600`. Negative scope, positive authorization, and materiality retained this exact ordering defect. The later failed batch adds duplicate evidence but no second decision or task. With no normal or stronger repair audit or commit for the source batch, F3 remains actionable in Task 15.
+
+### Ignored for This Story
+
+#### 4. Negative terminal child results must fail the parent flow step
+
+- Finding ID or Review reference: `Qwen negative-step-status claim in batch 0000065-rw-20260730T221219Z-95bbbd6a`
+- Review harnesses:
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — generated the claim.
+- Simple description: The provider output claimed that a negative terminal child result must fail the parent flow step.
+- Example: Applying the claim would make one failed or unavailable Copilot child fail the parent step even though the story contract requires independently attributable child outcomes and best-effort continuation.
+- Why ignored: Verification rejected the claim against the current flow contract and implementation. It never entered the supported F1-F3 set, received no positive-authorization or materiality route, and is not repair or task work.
+
+#### 5. Review instructions omit the session-export prohibition
+
+- Finding ID or Review reference: `Claude session-export claim in batch 0000065-rw-20260730T221219Z-95bbbd6a`
+- Review harnesses:
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated the claim.
+- Simple description: The provider output claimed that the generated review instructions do not prohibit session export.
+- Example: The claim would require export to remain possible, but the retained generated instructions explicitly prohibit session export and the invocation uses `--no-remote-export`.
+- Why ignored: Verification rejected the claim from the generated instructions and retained invocation evidence. It never entered the supported F1-F3 set, received no positive-authorization or materiality route, and is not repair or task work. Remaining speculative provider observations are likewise non-promoted provenance rather than accepted findings.
+
+### Evidence limitations
+
+- The batch has no disposition artifact, combined audit, repair audit, repair commit, or outcome. This is unavailable repair and derived-stage coverage, not a clean result; it does not erase F1 or F3.
+- Cached input is not included in input totals, and no exact Copilot input or cached-input value is inferred.
+
+## Code Review Findings
+
+- Findings recorded: `July 31, 2026 at 8:49:01 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000065-rw-20260731T112523Z-728a8531`
+- Review cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Reviewed HEAD: `b5e73a5ad53ccd3646680fa767c0a75e7198959c`
+- Reviews attempted, each listed once from the immutable `jobs/` inventory:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed with cancellation evidence; no numeric shell exit status was retained.
+    - Input tokens: `0`; cached input tokens: `0`; output tokens: `0`.
+  - `open_code_review [current_repository]` (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed with bounded coverage and a cancellation observation; it did not provide full story coverage.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `Not reported`.
+  - `cross_repository_review` (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed not applicable because only `current_repository` was in scope; this is a deliberate skip, not multi-repository no-findings coverage.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `Not reported`.
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`, target `current_repository`) — completed with verifier recovery for the duplicate cancellation observation and malformed availability-snapshot behavior; no independent final gate trail exists for the latter.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `1,730`.
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`, target `current_repository`) — partial/unavailable for a final conclusion; its output does not establish clean coverage.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `99`.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — completed with the malformed availability-snapshot observation; it did not receive a completed negative-scope, positive-authorization, or materiality decision.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `1,372`.
+
+Optional actual-review usage remains separate: input `Not reported`; cached input `Not reported`; output `At least 3,201 reported; incomplete`. Copilot input, cached input, reasoning, and most other categories were not reported; premium requests are `At least 1 reported; incomplete`. Cached input is never added to input, and usage does not change routing.
+
+### Accepted
+
+- Unavailable. This failed batch has no negative-scope, positive-authorization, materiality, disposition, repair, or outcome record, so it made no batch-local acceptance decision.
+
+### Ignored for This Story
+
+- Unavailable. The missing gate and disposition stages also mean this batch made no batch-local rejection or ignored-finding decision.
+
+### Unsettled findings evidence (no batch-local decision)
+
+#### 1. Cancellation can still spawn Copilot after asynchronous setup
+
+- Finding reference: duplicate corroboration of `F3` from batch `0000065-rw-20260730T221219Z-95bbbd6a`.
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the duplicate evidence.
+  - `open_code_review [current_repository]` (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — corroborated the duplicate.
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) — supplied verifier-recovered corroboration.
+- Simple description: The cancellation observation matches the already authorized and material pre-spawn defect at `server/src/copilot/reviewLauncher.ts`; it is not a second finding.
+- Example: Cancellation completes while asynchronous setup is still running, but the launcher can call `spawn` before checking the already-aborted signal and contact the provider after cancellation.
+- Final routing: This batch has no gate trail of its own. Its duplicate evidence is conserved under F3's complete decisions in batch `0000065-rw-20260730T221219Z-95bbbd6a` and does not create a second finding or task; Task 15 owns the one authorized repair.
+
+#### 2. Malformed or unreadable availability snapshot may prevent canonical artifacts
+
+- Finding reference: `Claude and DeepSeek availability-snapshot evidence in batch 0000065-rw-20260731T112523Z-728a8531`
+- Review harnesses:
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated the observation.
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) — supplied verifier-recovered corroboration.
+- Simple description: Reading the pinned availability snapshot before the launcher's artifact-writing `try`/`catch` can let a missing, unreadable, or malformed file end the job without canonical review artifacts.
+- Example: A Copilot job starts with a missing or malformed `input/copilot-review-spec.json`; `readAvailabilitySnapshot` rejects before the launcher reaches its failure normalization and artifact writer, leaving the assigned output/work evidence absent.
+- Final routing: No negative-scope, positive-authorization, or materiality decision exists for this observation. It remains residual uncertainty only and is not promoted, repaired, tasked, or used to require an endless retry.
+
+### Evidence limitations
+
+- The batch launch record failed after direct jobs were created, and no complete gate, disposition, repair, or outcome trail was written. The six direct outcomes above remain the factual inventory; the missing derived stages cannot be interpreted as rejection or acceptance.
+- The Qwen review is partial/unavailable for a final conclusion. Other provider observations not independently established remain non-actionable, the cancellation duplicate stays under F3, and no earlier removal is resurrected.
+
+## Code Review Findings
+
+- Findings recorded: `July 31, 2026 at 9:35:27 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000065-rw-20260731T194925Z-cfb8a20d`
+- Review cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Reviews attempted:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — completed retained review artifacts; reconciliation is partial because coverage concentrated on the final repair commit, and one supported finding survived all applicable gates.
+    - Input tokens: `4,007,696`
+    - Cached input tokens: `3,643,904`
+    - Output tokens: `43,629`
+
+The reconciliation, reconciliation audit, and combined filtering audit establish that negative scope, positive authorization, and materiality were all applicable and completed. The one direct job is listed exactly once. Its partial comparison-range coverage is preserved and does not become a clean empty-set signal.
+
+### Accepted
+
+#### 1. Short external API keys can be persisted without redaction
+
+- Finding ID: `High — Supported short external API keys can be persisted without redaction` (batch-local identity; no separate stable machine ID was supplied)
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) — generated and corroborated by the retained findings, saturation, visual, and verification records in this direct job.
+- Simple description: External endpoint configuration accepts every non-empty key, but the launcher redactor omits keys shorter than six characters before captured or normalized review evidence is persisted.
+- Example: An operator configures a supported external endpoint with a one-to-five-character key, and the Copilot child echoes it in stdout, stderr, or a failure message; the key can remain in retained review evidence because it was excluded from the redaction list.
+- Why accepted: Current HEAD confirms the accepted-key path at `server/src/config/openaiCompatEndpoints.ts:323-350`, the selected-key collection at `server/src/copilot/reviewLauncher.ts:963-976`, and the six-character filter at `server/src/copilot/reviewLauncher.ts:311-318` before artifact persistence. The story's credential contract explicitly requires credentials to stay out of captured output, normalized output, and logs, so the scenario is realistic, materially harmful, and worth repairing in completed code. The existing `redactSecrets` seam expresses the smallest authorized remedy by redacting every already-accepted non-empty collected key, without adding validation policy, endpoint-selection behavior, retry, fallback, cap, new field, or other Out Of Scope behavior. The finding is not a duplicate or already resolved and is apparently suitable for the normal repair attempt; this is advisory routing only, not task creation or a final implementation-task decision.
+
+### Ignored for This Story
+
+- None. No finding was rejected by disposition, and the applicable gate artifacts record no fully removed finding or narrowed-away remedy for this batch. Partial coverage, rejected contradictory evidence, and unavailable broader review coverage remain non-actionable limitations rather than promoted findings.
+
+### Task 14. Record Review Fixes From Batch 0000065-rw-20260731T194925Z-cfb8a20d
+
+- Repository Name: `Current Repository`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Task Dependencies: `Task 13`
+- Task Status: `__done__`
+- Review Task Role: `completed_review_fixes`
+- Review Batch: `0000065-rw-20260731T194925Z-cfb8a20d`
+- Review Cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Review Harnesses: `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) generated and corroborated the addressed short-key finding through its retained findings, saturation, visual, and verification records.
+- Reviewed HEAD: `b5e73a5ad53ccd3646680fa767c0a75e7198959c`
+- Initial Repair HEAD: `b5e73a5ad53ccd3646680fa767c0a75e7198959c`
+- Final Repair HEAD: `d512e5af97cf2dfbc9a0ba4e6a66091e1b30656a`
+- Repair Commit: `d512e5af97cf2dfbc9a0ba4e6a66091e1b30656a` (`DEV-0000065 - Redact short Copilot external keys`)
+- Created: `July 31, 2026 at 9:47:02 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repair for the sole material survivor from this
+immutable batch. The repair removed the unsupported short-key redaction
+threshold and extended the existing external-launch proof to an accepted
+three-character key. The stronger repair was deliberately skipped after the
+normal audit established that no actionable survivor remained.
+
+#### Task Exit Criteria
+
+- The accepted material survivor is repaired in `current_repository` by the exact committed change.
+- The normal-repair proof, stronger-repair skip reason, exact files, commit, and coverage limitations are recorded.
+- No unresolved finding task or final revalidation task is created by this batch step.
+- Every subtask and focused proof item below is checked only because the named work actually ran.
+
+#### Addresses Findings
+
+- `High — Supported short external API keys can be persisted without redaction` — owner `current_repository` / `codeInfo2`; every accepted non-empty selected external key is now redacted before Copilot review artifacts are written.
+
+#### Subtasks
+
+1. [x] Update `server/src/copilot/reviewLauncher.ts` to remove the unsupported minimum-length filter while retaining empty-value filtering, de-duplication, ordering, and the existing artifact-writing path.
+2. [x] Update `server/src/test/unit/copilot-review-launcher.test.ts` so the existing external-launch echo fixture uses a three-character accepted key and proves it is absent from persisted artifacts.
+3. [x] Commit the completed repair in `current_repository` as `d512e5af97cf2dfbc9a0ba4e6a66091e1b30656a` (`DEV-0000065 - Redact short Copilot external keys`).
+
+#### Testing
+
+1. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --file server/src/test/unit/copilot-review-models.test.ts --file server/src/test/unit/copilot-review-launcher.test.ts`; 30 tests passed and 0 failed. The wrapper log is `test-results/server-unit-tests-2026-07-31T20-42-52-122Z.log`.
+2. [x] Run `npx prettier --check --ignore-unknown server/src/copilot/reviewLauncher.ts server/src/test/unit/copilot-review-launcher.test.ts`; the changed files passed.
+3. [x] Run `npx eslint server/src/copilot/reviewLauncher.ts server/src/test/unit/copilot-review-launcher.test.ts`; the changed files passed.
+4. [x] Run `npm run format:check`; formatting passed.
+5. [x] Run `npm run lint`; lint passed with no warnings.
+6. [x] Run `git diff --check`; no whitespace errors were reported before commit.
+
+#### Manual Testing Guidance
+
+None. The story excludes manual provider, browser, Compose, and live-provider
+proof for this focused repair.
+
+#### Implementation Notes
+
+- The normal-repair audit independently reconfirmed the sole finding's authorization, materiality, current behavior, and existing central redaction seam before editing.
+- Normal repair changed `server/src/copilot/reviewLauncher.ts` and `server/src/test/unit/copilot-review-launcher.test.ts` and committed them as `d512e5af97cf2dfbc9a0ba4e6a66091e1b30656a`.
+- The stronger repair was skipped because normal repair left no actionable survivor; no stronger commit or stronger repair success is claimed.
+- The focused sequential server-unit proof passed 30 tests, and formatting, lint, changed-file checks, and whitespace checks passed as recorded in `reconciliation/normal-repair-audit.md`.
+- Broad comparison-range review and broad server/Cucumber/client/e2e/Compose/manual/live-provider proof remain unavailable or out of scope. The new final HEAD makes another review useful for normal settlement; this task does not create that revalidation work.
+
+### Task 15. Repair remaining external environment and cancellation launch defects
+
+- Repository Name: `Current Repository`
+- Affected Repositories: `current_repository` / `codeInfo2`
+- Task Dependencies: `Tasks 12, 13, and 14`
+- Task Status: `__in_progress__`
+- Review Task Role: `review_finding_repair`
+- Review Batch: `0000065-rw-20260730T221219Z-95bbbd6a`
+- Review Cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Reviewed HEAD: `b5e73a5ad53ccd3646680fa767c0a75e7198959c`
+- Current HEAD at task creation: `d512e5af97cf2dfbc9a0ba4e6a66091e1b30656a`
+- Finding Provenance: F1 was generated by `Copilot: claude-sonnet-5 (medium) [current_repository]` and corroborated by its verifier recovery. F3 was generated by `codex_review [current_repository]` and partially corroborated by the Qwen and Claude verifier recoveries; the failed later batch `0000065-rw-20260731T112523Z-728a8531` is duplicate corroboration only. F2 from the same source batch is already resolved by Task 14's later-HEAD commit and is excluded from this task.
+- Created: `July 31, 2026 at 10:04:50 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Repair only the two positively authorized, material findings that remained after the normal and stronger repair opportunities for batch `0000065-rw-20260730T221219Z-95bbbd6a` were unavailable. Keep the change at the existing launcher seams, preserve native launch behavior and post-launch cancellation behavior, and do not restore removed provider observations or introduce new provider policy, schema, retry, wave, fallback, or filesystem-sandbox behavior.
+
+#### Task Exit Criteria
+
+- External children receive the required CLI and existing Git-control baseline plus only the selected external completions base URL, wire API, exact model, and optional selected key; unrelated ambient parent values are absent.
+- Native launch environment behavior and endpoint selection remain unchanged.
+- An abort that occurs during repository verification or external model rediscovery returns the existing not-launched cancelled result without calling `spawn`.
+- A cancellation after a legitimate launch still terminates the child and records the existing honest `cancelled` result and artifact.
+- The focused sequential proof, build, whitespace, lint, and format checks pass in the order recorded below.
+- No removed, rejected, duplicate, or unauthorized review observation is implemented or converted into additional task work.
+
+#### Subtasks
+
+1. [ ] Update `server/src/copilot/reviewLauncher.ts` so `buildExternalCopilotReviewEnvironment` starts from the explicit safe baseline required by the existing CLI and Git controls, then adds only the selected external completions base URL, wire API, exact model, and optional selected key. Preserve native-launch behavior and the existing endpoint-selection path.
+2. [ ] Extend `server/src/test/unit/copilot-review-launcher.test.ts` to prove unrelated ambient environment values are absent from an external child while the selected endpoint, selected key, and exact model remain available; retain the existing named-secret assertions.
+3. [ ] Add the already-aborted pre-spawn check to `runProcess` in `server/src/copilot/reviewLauncher.ts` using the existing signal and cancellation result path, ensuring `spawn` is not called after asynchronous setup observes cancellation while preserving post-launch termination behavior.
+4. [ ] Extend `server/src/test/unit/copilot-review-launcher.test.ts` with the pre-spawn cancellation fixture and extend `server/src/test/integration/flows.run.subflow.test.ts` only for the existing authorized no-late-admission behavior. Keep the existing signal-passing assertion in `server/src/test/unit/copilot-review-step.test.ts` green without changing its contract.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --file server/src/test/unit/copilot-review-launcher.test.ts --file server/src/test/unit/copilot-review-step.test.ts`.
+3. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts`.
+4. [ ] Run `git diff --check`.
+5. [ ] Run `npm run lint`.
+6. [ ] Run `npm run format:check`.
+
+#### Manual Testing Guidance
+
+None. The story excludes provider login, live Copilot spending, browser and screenshot proof, manual Compose proof, and remote GitHub interaction.
+
+#### Implementation Notes
+
+- This task is open settlement work derived only from the materiality survivors in immutable batch `0000065-rw-20260730T221219Z-95bbbd6a`; the malformed availability-snapshot observation from the failed later batch is intentionally not included.
+
+### Task 16. Revalidate the complete Copilot review story after settlement repairs
+
+- Repository Name: `Current Repository`
+- Affected Repositories: `current_repository` / `codeInfo2`
+- Task Dependencies: `Task 15` and completed Tasks `12, 13, and 14`
+- Task Status: `__to_do__`
+- Review Task Role: `final_revalidation`
+- Review Cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
+- Final Revalidation Owner: this task owns whole-story closeout after the remaining F1/F3 repair and all completed review-fix records.
+- Created: `July 31, 2026 at 10:05:22 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Run the single final automated revalidation after Task 15 and the completed repairs recorded in Tasks 12–14. Confirm the current repository's server build, review prompt contracts, sequential server and Cucumber proof, supported Compose lifecycle, lint, and formatting. Do not start another review, use the malformed availability-snapshot observation as task work, or add a manual/provider gate.
+
+#### Task Exit Criteria
+
+- Every automated command below passes against the latest repository state and its result is recorded.
+- F1 and F3 are repaired, the earlier F2 repair remains covered, and no materiality-surviving actionable finding remains.
+- All changed target-repository code is covered by the sequential server, Cucumber, prompt-contract, build, Compose, lint, and format proof below.
+- Residual unavailable review coverage and the unpromoted malformed availability-snapshot observation remain honestly documented without blocking this task independently.
+- This task remains last in the plan and is the sole current `final_revalidation` owner.
+
+#### Subtasks
+
+1. [ ] Run the repository-supported full lint command `npm run lint` after Task 15.
+2. [ ] Run the repository-supported full formatting check `npm run format:check` after Task 15.
+
+#### Testing
+
+1. [ ] Run `npm run build:summary:server`.
+2. [ ] Run `npm run compose:build:summary`.
+3. [ ] Run `npm run compose:up`.
+4. [ ] Run `python3 -m unittest scripts.test.test_review_prompt_contracts`.
+5. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`.
+6. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:cucumber`.
+7. [ ] Run `npm run compose:down` after the automated proof, or during failure cleanup when the stack was started by this task.
+8. [ ] Run `npm run lint` again after the build, runtime, and test proof.
+9. [ ] Run `npm run format:check` again last.
+
+#### Manual Testing Guidance
+
+None. The story excludes manual Compose startup, provider authentication, live Copilot spending, browser and screenshot proof, and remote GitHub interaction.
+
+#### Implementation Notes
+
+- This final task is intentionally queued after the two open settlement repairs and the three exact-batch completed-review-fix records. No review is launched by this task's creation.

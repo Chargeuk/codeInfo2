@@ -1487,7 +1487,7 @@ proof for this focused repair.
 - Repository Name: `Current Repository`
 - Affected Repositories: `current_repository` / `codeInfo2`
 - Task Dependencies: `Tasks 12, 13, and 14`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Task Role: `review_finding_repair`
 - Review Batch: `0000065-rw-20260730T221219Z-95bbbd6a`
 - Review Cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
@@ -1543,6 +1543,7 @@ None. The story excludes provider login, live Copilot spending, browser and scre
 - `git diff --check` passed with no whitespace errors.
 - `npm run lint` passed with zero warnings.
 - `npm run format:check` passed; all tracked files use Prettier code style.
+- Automated-proof audit found all four implementation subtasks and all six testing checks complete, with no live blocker or story-caused behavior drift; Task 15 is complete and ready for the final story revalidation task.
 
 ### Task 16. Revalidate the complete Copilot review story after settlement repairs
 

@@ -341,6 +341,8 @@ test('external launcher exposes only the selected endpoint and key to the child'
     GH_TOKEN: 'gh-native-token',
     GITHUB_TOKEN: 'github-native-token',
     CODEINFO_CONTEXT7_API_KEY: 'context7-secret',
+    CODEINFO_UNRELATED_AMBIENT_VALUE: 'must-not-cross-provider-boundary',
+    SECRET_UNRELATED_AMBIENT_VALUE: 'ambient-secret',
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
       'Other,https://other.test/v1|completions;Unsloth,https://selected.test/v1|completions',
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: `Unsloth,${selectedSecret};Other,${otherSecret}`,
@@ -377,6 +379,8 @@ test('external launcher exposes only the selected endpoint and key to the child'
     /^(?:COPILOT_GITHUB_TOKEN|GH_TOKEN|GITHUB_TOKEN)=/mu,
   );
   assert.doesNotMatch(childEnv, /^CODEINFO_CONTEXT7_API_KEY=/mu);
+  assert.doesNotMatch(childEnv, /^CODEINFO_UNRELATED_AMBIENT_VALUE=/mu);
+  assert.doesNotMatch(childEnv, /^SECRET_UNRELATED_AMBIENT_VALUE=/mu);
   assert.match(
     childEnv,
     new RegExp(`COPILOT_PROVIDER_API_KEY=${selectedSecret}`, 'u'),
@@ -727,6 +731,60 @@ test('abort terminates one launched Copilot process without losing diagnostics',
   assert.equal(
     (await fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8')).trim(),
     'launch',
+  );
+});
+
+test('abort during external setup returns cancelled without spawning Copilot', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot, {
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+      'Unsloth,https://selected.test/v1|completions',
+  });
+  const controller = new AbortController();
+  let releaseDiscovery!: () => void;
+  const discoveryGate = new Promise<void>((resolve) => {
+    releaseDiscovery = resolve;
+  });
+  let discoveryStarted!: () => void;
+  const discoveryStartedSignal = new Promise<void>((resolve) => {
+    discoveryStarted = resolve;
+  });
+  const execution = runCopilotReview(
+    launcherOptions(fixture, env, {
+      endpointLabel: 'unsloth',
+      endpointId: 'https://selected.test/v1',
+      modelId: 'google-gemini-3.6-flash',
+      reasoningEffort: 'minimal',
+      signal: controller.signal,
+    }),
+    {
+      discoverExternalModels: async () => {
+        discoveryStarted();
+        await discoveryGate;
+        return ['google-gemini-3.6-flash'];
+      },
+    },
+  );
+
+  await discoveryStartedSignal;
+  controller.abort();
+  releaseDiscovery();
+  const result = await execution;
+
+  assert.equal(result.launched, false);
+  assert.equal(result.exitStatus, 130);
+  assert.equal(result.status, 'cancelled');
+  await assert.rejects(
+    fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8'),
+    /ENOENT/u,
+  );
+  assert.equal(
+    JSON.parse(
+      await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
+    ).status,
+    'cancelled',
   );
 });
 

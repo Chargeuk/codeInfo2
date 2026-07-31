@@ -364,6 +364,46 @@ const withoutProviderEnvironment = (
   return result;
 };
 
+const EXTERNAL_COPILOT_BASELINE_ENVIRONMENT_KEYS = [
+  'CI',
+  'HOME',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'LOGNAME',
+  'PATH',
+  'SHELL',
+  'TEMP',
+  'TERM',
+  'TMP',
+  'TMPDIR',
+  'USER',
+  // These are supplied only by the launcher unit-test fake CLI.
+  'FAKE_COPILOT_ARGS_FILE',
+  'FAKE_COPILOT_COUNT_FILE',
+  'FAKE_COPILOT_ENV_FILE',
+  'FAKE_COPILOT_EXIT',
+  'FAKE_COPILOT_STDERR',
+  'FAKE_COPILOT_STDOUT',
+  'FAKE_COPILOT_STDIN_FILE',
+  'FAKE_COPILOT_WAIT',
+] as const;
+
+const buildExternalCopilotEnvironmentBaseline = (
+  source: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv => {
+  const result: NodeJS.ProcessEnv = {};
+  for (const key of EXTERNAL_COPILOT_BASELINE_ENVIRONMENT_KEYS) {
+    const value = source[key];
+    if (value !== undefined) result[key] = value;
+  }
+  result.GIT_OPTIONAL_LOCKS = '0';
+  result.GIT_TERMINAL_PROMPT = '0';
+  result.GIT_PAGER = 'cat';
+  result.PAGER = 'cat';
+  return result;
+};
+
 export function buildNativeCopilotReviewEnvironment(
   source: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv {
@@ -464,12 +504,7 @@ export function buildExternalCopilotReviewEnvironment(params: {
   modelId: string;
   apiKey?: string;
 }): NodeJS.ProcessEnv {
-  const result = withoutProviderEnvironment(params.source);
-  delete result.COPILOT_HOME;
-  delete result.CODEINFO_COPILOT_HOME;
-  delete result.COPILOT_GITHUB_TOKEN;
-  delete result.GH_TOKEN;
-  delete result.GITHUB_TOKEN;
+  const result = buildExternalCopilotEnvironmentBaseline(params.source);
   result.COPILOT_PROVIDER_TYPE = 'openai';
   result.COPILOT_PROVIDER_BASE_URL = params.endpoint.baseUrl;
   result.COPILOT_PROVIDER_WIRE_API = 'completions';
@@ -539,6 +574,16 @@ const runProcess = async (params: {
         });
       }, COPILOT_TERMINATION_GRACE_MS);
       timers.forceKill.unref?.();
+    }
+    if (params.signal?.aborted) {
+      finish({
+        launched: false,
+        exitStatus: 130,
+        stdout: '',
+        stderr: 'Copilot review was cancelled.\n',
+        terminationReason: 'aborted',
+      });
+      return;
     }
     try {
       child = params.deps.spawn(params.cliPath, params.args, {
@@ -1022,7 +1067,9 @@ export async function runCopilotReview(
   const events = parseJsonLines(processResult.stdout);
   const review = collectReviewText(events);
   const status: CopilotReviewLauncherResult['status'] =
-    !processResult.launched && processResult.exitStatus === 127
+    !processResult.launched && processResult.terminationReason === 'aborted'
+      ? 'cancelled'
+      : !processResult.launched && processResult.exitStatus === 127
       ? 'unavailable'
       : !processResult.launched
         ? setupUnavailable

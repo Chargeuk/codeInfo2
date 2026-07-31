@@ -1511,10 +1511,10 @@ Repair only the two positively authorized, material findings that remained after
 
 #### Subtasks
 
-1. [ ] Update `server/src/copilot/reviewLauncher.ts` so `buildExternalCopilotReviewEnvironment` starts from the explicit safe baseline required by the existing CLI and Git controls, then adds only the selected external completions base URL, wire API, exact model, and optional selected key. Preserve native-launch behavior and the existing endpoint-selection path.
-2. [ ] Extend `server/src/test/unit/copilot-review-launcher.test.ts` to prove unrelated ambient environment values are absent from an external child while the selected endpoint, selected key, and exact model remain available; retain the existing named-secret assertions.
-3. [ ] Add the already-aborted pre-spawn check to `runProcess` in `server/src/copilot/reviewLauncher.ts` using the existing signal and cancellation result path, ensuring `spawn` is not called after asynchronous setup observes cancellation while preserving post-launch termination behavior.
-4. [ ] Extend `server/src/test/unit/copilot-review-launcher.test.ts` with the pre-spawn cancellation fixture and extend `server/src/test/integration/flows.run.subflow.test.ts` only for the existing authorized no-late-admission behavior. Keep the existing signal-passing assertion in `server/src/test/unit/copilot-review-step.test.ts` green without changing its contract.
+1. [x] Update `server/src/copilot/reviewLauncher.ts` so `buildExternalCopilotReviewEnvironment` starts from the explicit safe baseline required by the existing CLI and Git controls, then adds only the selected external completions base URL, wire API, exact model, and optional selected key. Preserve native-launch behavior and the existing endpoint-selection path.
+2. [x] Extend `server/src/test/unit/copilot-review-launcher.test.ts` to prove unrelated ambient environment values are absent from an external child while the selected endpoint, selected key, and exact model remain available; retain the existing named-secret assertions.
+3. [x] Add the already-aborted pre-spawn check to `runProcess` in `server/src/copilot/reviewLauncher.ts` using the existing signal and cancellation result path, ensuring `spawn` is not called after asynchronous setup observes cancellation while preserving post-launch termination behavior.
+4. [x] Extend `server/src/test/unit/copilot-review-launcher.test.ts` with the pre-spawn cancellation fixture and extend `server/src/test/integration/flows.run.subflow.test.ts` only for the existing authorized no-late-admission behavior. Keep the existing signal-passing assertion in `server/src/test/unit/copilot-review-step.test.ts` green without changing its contract.
 
 #### Testing
 
@@ -1532,6 +1532,11 @@ None. The story excludes provider login, live Copilot spending, browser and scre
 #### Implementation Notes
 
 - This task is open settlement work derived only from the materiality survivors in immutable batch `0000065-rw-20260730T221219Z-95bbbd6a`; the malformed availability-snapshot observation from the failed later batch is intentionally not included.
+- Implemented the external launcher allowlist baseline with the existing Git controls and selected endpoint values; native launch and endpoint re-resolution remain unchanged.
+- Extended the external child capture fixture with unrelated ambient values and confirmed they are absent while selected endpoint, key, model, and existing secret assertions remain covered; the focused launcher wrapper passed all 15 tests.
+- Added a pre-spawn abort return that preserves the existing cancelled result/artifact path and keeps post-launch termination intact; the focused launcher wrapper passed all 16 tests.
+- Added the pre-spawn cancellation fixture and strengthened the existing pending-parent-stop integration case to cover multiple children; the focused flow wrapper passed all 53 tests and the signal assertion contract was unchanged.
+- Re-ran the unchanged Copilot review-step signal test directly; all 5 tests passed.
 
 ### Task 16. Revalidate the complete Copilot review story after settlement repairs
 

@@ -3508,13 +3508,24 @@ test('pending parent stop prevents launching a new child subflow', async () => {
   try {
     await writeFlowFile({
       tmpDir,
-      flowName: 'child-never-started',
+      flowName: 'child-never-started-a',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-never-started-b',
       steps: [llmStep('slow child')],
     });
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-stop-before-launch',
-      steps: [subflowStep('Run Child', 'child-never-started')],
+      steps: [
+        subflowStep(
+          'Run Children',
+          'child-never-started-a',
+          'child-never-started-b',
+        ),
+      ],
     });
 
     const result = await startFlowRun({
@@ -3536,9 +3547,11 @@ test('pending parent stop prevents launching a new child subflow', async () => {
     );
     assert.equal(finalAssistant?.content, 'Stopped');
 
-    const childFlowConversations = Array.from(
-      memoryConversations.values(),
-    ).filter((conversation) => conversation.flowName === 'child-never-started');
+    const childFlowConversations = Array.from(memoryConversations.values()).filter(
+      (conversation) =>
+        conversation.flowName === 'child-never-started-a' ||
+        conversation.flowName === 'child-never-started-b',
+    );
     assert.equal(childFlowConversations.length, 0);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

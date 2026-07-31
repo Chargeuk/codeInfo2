@@ -1551,7 +1551,7 @@ None. The story excludes provider login, live Copilot spending, browser and scre
 - Repository Name: `Current Repository`
 - Affected Repositories: `current_repository` / `codeInfo2`
 - Task Dependencies: `Task 15` and completed Tasks `12, 13, and 14`
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Task Role: `final_revalidation`
 - Review Cycle: `0000065-rc-20260730T045347Z-b6a99b0d`
 - Final Revalidation Owner: this task owns whole-story closeout after the remaining F1/F3 repair and all completed review-fix records.
@@ -1571,10 +1571,14 @@ Run the single final automated revalidation after Task 15 and the completed repa
 
 #### Subtasks
 
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
 1. [x] Run the repository-supported full lint command `npm run lint` after Task 15.
 2. [x] Run the repository-supported full formatting check `npm run format:check` after Task 15.
 
 #### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
 1. [x] Run `npm run build:summary:server`.
 2. [x] Run `npm run compose:build:summary`.
@@ -1604,3 +1608,4 @@ None. The story excludes manual Compose startup, provider authentication, live C
 - Ran `npm run compose:down` successfully after proof; all repository-owned Compose services and the network were removed cleanly.
 - Ran the final `npm run lint` successfully after build, Compose, and test proof with zero warnings.
 - Ran the final `npm run format:check` successfully last; all tracked files matched Prettier formatting.
+- Audited the implementation and automated proof against the locked story scope; all checklist evidence is complete, no live blocker remains, and no story-caused behavior drift was identified. Normalized this dedicated final task to `__done__` for the completed automated closeout.

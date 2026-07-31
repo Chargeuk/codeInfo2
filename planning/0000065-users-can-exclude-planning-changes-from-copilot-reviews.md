@@ -1576,15 +1576,15 @@ Run the single final automated revalidation after Task 15 and the completed repa
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `npm run compose:build:summary`.
-3. [ ] Run `npm run compose:up`.
-4. [ ] Run `python3 -m unittest scripts.test.test_review_prompt_contracts`.
-5. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`.
-6. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:cucumber`.
-7. [ ] Run `npm run compose:down` after the automated proof, or during failure cleanup when the stack was started by this task.
-8. [ ] Run `npm run lint` again after the build, runtime, and test proof.
-9. [ ] Run `npm run format:check` again last.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `npm run compose:build:summary`.
+3. [x] Run `npm run compose:up`.
+4. [x] Run `python3 -m unittest scripts.test.test_review_prompt_contracts`.
+5. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit`.
+6. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:cucumber`.
+7. [x] Run `npm run compose:down` after the automated proof, or during failure cleanup when the stack was started by this task.
+8. [x] Run `npm run lint` again after the build, runtime, and test proof.
+9. [x] Run `npm run format:check` again last.
 
 #### Manual Testing Guidance
 
@@ -1595,3 +1595,12 @@ None. The story excludes manual Compose startup, provider authentication, live C
 - This final task is intentionally queued after the two open settlement repairs and the three exact-batch completed-review-fix records. No review is launched by this task's creation.
 - Ran `npm run lint` successfully with zero warnings; the lint subtask is complete. The required final lint rerun remains in the Testing section for after the broader proof sequence.
 - Ran `npm run format:check` successfully; all tracked files matched Prettier formatting. The required final format rerun remains in the Testing section for last.
+- Ran `npm run build:summary:server` successfully with zero warnings; the server build proof is complete.
+- Ran `npm run compose:build:summary` successfully; both Compose build items passed with zero failures.
+- Ran `npm run compose:up` successfully; the repository-owned main Compose stack reached healthy server state and started the client.
+- Ran `python3 -m unittest scripts.test.test_review_prompt_contracts` successfully; all 47 prompt-contract tests passed.
+- Ran `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit` successfully; all 2,690 server unit tests passed.
+- Ran `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:cucumber` successfully; all 133 Cucumber scenarios passed.
+- Ran `npm run compose:down` successfully after proof; all repository-owned Compose services and the network were removed cleanly.
+- Ran the final `npm run lint` successfully after build, Compose, and test proof with zero warnings.
+- Ran the final `npm run format:check` successfully last; all tracked files matched Prettier formatting.

@@ -1571,8 +1571,8 @@ Run the single final automated revalidation after Task 15 and the completed repa
 
 #### Subtasks
 
-1. [ ] Run the repository-supported full lint command `npm run lint` after Task 15.
-2. [ ] Run the repository-supported full formatting check `npm run format:check` after Task 15.
+1. [x] Run the repository-supported full lint command `npm run lint` after Task 15.
+2. [x] Run the repository-supported full formatting check `npm run format:check` after Task 15.
 
 #### Testing
 
@@ -1593,3 +1593,5 @@ None. The story excludes manual Compose startup, provider authentication, live C
 #### Implementation Notes
 
 - This final task is intentionally queued after the two open settlement repairs and the three exact-batch completed-review-fix records. No review is launched by this task's creation.
+- Ran `npm run lint` successfully with zero warnings; the lint subtask is complete. The required final lint rerun remains in the Testing section for after the broader proof sequence.
+- Ran `npm run format:check` successfully; all tracked files matched Prettier formatting. The required final format rerun remains in the Testing section for last.

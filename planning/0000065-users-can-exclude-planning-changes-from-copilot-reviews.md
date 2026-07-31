@@ -1544,6 +1544,7 @@ None. The story excludes provider login, live Copilot spending, browser and scre
 - `npm run lint` passed with zero warnings.
 - `npm run format:check` passed; all tracked files use Prettier code style.
 - Automated-proof audit found all four implementation subtasks and all six testing checks complete, with no live blocker or story-caused behavior drift; Task 15 is complete and ready for the final story revalidation task.
+- Manual testing was assessed as not applicable for Task 15: its external-child environment isolation and pre-spawn cancellation behavior have no repository-supported manual proof surface, and both task and story guidance exclude manual Compose, browser, screenshot, provider-login, live-provider, and remote-GitHub proof. The pass stayed task-scoped and no runtime was started.
 
 ### Task 16. Revalidate the complete Copilot review story after settlement repairs
 

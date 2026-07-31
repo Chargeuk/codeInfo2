@@ -1518,12 +1518,12 @@ Repair only the two positively authorized, material findings that remained after
 
 #### Testing
 
-1. [ ] Run `npm run build:summary:server`.
-2. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --file server/src/test/unit/copilot-review-launcher.test.ts --file server/src/test/unit/copilot-review-step.test.ts`.
-3. [ ] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts`.
-4. [ ] Run `git diff --check`.
-5. [ ] Run `npm run lint`.
-6. [ ] Run `npm run format:check`.
+1. [x] Run `npm run build:summary:server`.
+2. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --file server/src/test/unit/copilot-review-launcher.test.ts --file server/src/test/unit/copilot-review-step.test.ts`.
+3. [x] Run `CODEINFO_SERVER_UNIT_CONCURRENCY=1 npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts`.
+4. [x] Run `git diff --check`.
+5. [x] Run `npm run lint`.
+6. [x] Run `npm run format:check`.
 
 #### Manual Testing Guidance
 
@@ -1537,6 +1537,12 @@ None. The story excludes provider login, live Copilot spending, browser and scre
 - Added a pre-spawn abort return that preserves the existing cancelled result/artifact path and keeps post-launch termination intact; the focused launcher wrapper passed all 16 tests.
 - Added the pre-spawn cancellation fixture and strengthened the existing pending-parent-stop integration case to cover multiple children; the focused flow wrapper passed all 53 tests and the signal assertion contract was unchanged.
 - Re-ran the unchanged Copilot review-step signal test directly; all 5 tests passed.
+- Server build summary passed cleanly with zero warnings.
+- Focused launcher and review-step unit proof passed: 21 tests passed, 0 failed.
+- Focused flow integration proof passed: 53 tests passed, 0 failed.
+- `git diff --check` passed with no whitespace errors.
+- `npm run lint` passed with zero warnings.
+- `npm run format:check` passed; all tracked files use Prettier code style.
 
 ### Task 16. Revalidate the complete Copilot review story after settlement repairs
 

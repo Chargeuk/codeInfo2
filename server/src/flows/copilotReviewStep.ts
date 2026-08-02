@@ -396,22 +396,6 @@ export async function prepareCopilotReviewLaunch(
     );
   }
 
-  const [targetBrief, storyContext] = await Promise.all([
-    fs.readFile(
-      path.join(
-        path.dirname(workspacePaths.availabilitySpecPath),
-        'review-target.md',
-      ),
-      'utf8',
-    ),
-    fs.readFile(
-      path.join(
-        path.dirname(workspacePaths.availabilitySpecPath),
-        'story-context.md',
-      ),
-      'utf8',
-    ),
-  ]);
   const options: CopilotReviewLauncherOptions = {
     repositoryPath: target.repo_root,
     workspacePath: workspacePaths.workspacePath,
@@ -426,6 +410,22 @@ export async function prepareCopilotReviewLaunch(
     ...(spec.endpointId ? { endpointId: spec.endpointId } : {}),
   };
   try {
+    const [targetBrief, storyContext] = await Promise.all([
+      fs.readFile(
+        path.join(
+          path.dirname(workspacePaths.availabilitySpecPath),
+          'review-target.md',
+        ),
+        'utf8',
+      ),
+      fs.readFile(
+        path.join(
+          path.dirname(workspacePaths.availabilitySpecPath),
+          'story-context.md',
+        ),
+        'utf8',
+      ),
+    ]);
     const reviewPolicy = await (
       deps.loadReviewPolicy ?? loadHarnessCopilotReviewPolicy
     )(step.markdownFile);

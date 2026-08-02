@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCb } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -1412,6 +1413,109 @@ test('prepared Copilot repository-model cells join the existing wave and persist
     } else {
       process.env.CODEINFO_COPILOT_CLI_PATH = previousCli;
     }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('cancelling Copilot group preparation interrupts readiness before any child admission', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-copilot-review-prepare-cancel-'),
+  );
+  const previousModels = process.env.CODEINFO_COPILOT_REVIEW_MODELS;
+  const previousCli = process.env.CODEINFO_COPILOT_CLI_PATH;
+  const previousMarker = process.env.COPILOT_PREP_CANCEL_MARKER;
+  const marker = path.join(tmpDir, 'readiness-started');
+  const cli = path.join(tmpDir, 'blocking-copilot.sh');
+  process.env.FLOWS_DIR = tmpDir;
+  process.env.CODEINFO_COPILOT_REVIEW_MODELS = 'gpt-5.4|low';
+  process.env.CODEINFO_COPILOT_CLI_PATH = cli;
+  process.env.COPILOT_PREP_CANCEL_MARKER = marker;
+
+  try {
+    await fs.writeFile(
+      cli,
+      `#!/usr/bin/env bash
+set -euo pipefail
+printf 'started\n' > "$COPILOT_PREP_CANCEL_MARKER"
+trap 'exit 143' TERM
+while true; do sleep 0.05; done
+`,
+      { mode: 0o755 },
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'cancel-copilot-preparation',
+      steps: [
+        {
+          type: 'prepareCopilotReviewGroups',
+          groupsFrom: 'review_groups',
+          targetsFrom: 'review_batch_targets.targets',
+          reviewWaveFrom: 'review_batch_targets',
+          outputKey: 'effective_review_groups',
+        },
+      ],
+    });
+    let runToken: string | undefined;
+    const result = await startFlowRun({
+      flowName: 'cancel-copilot-preparation',
+      source: 'REST',
+      input: {
+        review_groups: [
+          {
+            kind: 'singleton',
+            id: 'existing',
+            flowName: 'existing-review',
+          },
+        ],
+        review_batch_targets: { targets: [] },
+      },
+      chatFactory: () => new SubflowChat(25),
+      onOwnershipReady: (ownership) => {
+        runToken = ownership.runToken;
+      },
+    });
+    try {
+      await waitFor(() => existsSync(marker));
+    } catch {
+      assert.fail(
+        JSON.stringify({
+          flags: memoryConversations.get(result.conversationId)?.flags,
+          turns: memoryTurns.get(result.conversationId),
+        }),
+      );
+    }
+    assert.ok(runToken);
+    registerPendingConversationCancel({
+      conversationId: result.conversationId,
+      runToken,
+    });
+    assert.equal(
+      abortInflight({
+        conversationId: result.conversationId,
+        inflightId: result.inflightId,
+      }).ok,
+      true,
+    );
+    const stopped = await waitForAssistantStatus(
+      result.conversationId,
+      'stopped',
+    );
+    assert.match(stopped?.content ?? '', /^Stopped/u);
+    const flow = (
+      memoryConversations.get(result.conversationId)?.flags as {
+        flow?: { values?: Record<string, unknown> };
+      }
+    ).flow;
+    assert.equal(flow?.values?.effective_review_groups, undefined);
+  } finally {
+    if (previousModels === undefined)
+      delete process.env.CODEINFO_COPILOT_REVIEW_MODELS;
+    else process.env.CODEINFO_COPILOT_REVIEW_MODELS = previousModels;
+    if (previousCli === undefined) delete process.env.CODEINFO_COPILOT_CLI_PATH;
+    else process.env.CODEINFO_COPILOT_CLI_PATH = previousCli;
+    if (previousMarker === undefined)
+      delete process.env.COPILOT_PREP_CANCEL_MARKER;
+    else process.env.COPILOT_PREP_CANCEL_MARKER = previousMarker;
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -3547,7 +3651,9 @@ test('pending parent stop prevents launching a new child subflow', async () => {
     );
     assert.equal(finalAssistant?.content, 'Stopped');
 
-    const childFlowConversations = Array.from(memoryConversations.values()).filter(
+    const childFlowConversations = Array.from(
+      memoryConversations.values(),
+    ).filter(
       (conversation) =>
         conversation.flowName === 'child-never-started-a' ||
         conversation.flowName === 'child-never-started-b',

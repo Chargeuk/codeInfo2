@@ -60,6 +60,15 @@ export type CopilotReviewConfigurationWarning = {
   duplicateOfEntryNumber?: number;
 };
 
+export type CopilotReviewEndpointWarning = {
+  code: 'external_endpoint_configuration';
+  message: string;
+};
+
+export type CopilotReviewPreparationWarning =
+  | CopilotReviewConfigurationWarning
+  | CopilotReviewEndpointWarning;
+
 const SAFE_ID_CHARACTERS = /[^A-Za-z0-9_-]+/gu;
 const REASONING_EFFORT_SET = new Set<string>(COPILOT_REVIEW_REASONING_EFFORTS);
 
@@ -228,37 +237,94 @@ type NativeDiscovery =
     };
 
 export type CopilotReviewAvailabilityDeps = {
-  checkCli: (env: NodeJS.ProcessEnv) => Promise<boolean>;
-  discoverNative: (env: NodeJS.ProcessEnv) => Promise<NativeDiscovery>;
+  checkCli: (env: NodeJS.ProcessEnv, signal?: AbortSignal) => Promise<boolean>;
+  discoverNative: (
+    env: NodeJS.ProcessEnv,
+    signal?: AbortSignal,
+  ) => Promise<NativeDiscovery>;
   discoverExternal: (
     endpoint: OpenAiCompatEndpointConfig,
+    signal?: AbortSignal,
   ) => Promise<{ available: boolean; models: string[]; reason?: string }>;
+};
+
+const abortError = (): Error => {
+  const error = new Error('Copilot review model discovery was cancelled.');
+  error.name = 'AbortError';
+  return error;
+};
+
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && error.name === 'AbortError';
+
+const throwIfAborted = (signal?: AbortSignal): void => {
+  if (signal?.aborted) throw abortError();
+};
+
+const awaitAbortable = <T>(
+  operation: Promise<T>,
+  signal?: AbortSignal,
+  onAbort?: () => void | Promise<void>,
+): Promise<T> => {
+  if (!signal) return operation;
+  throwIfAborted(signal);
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => signal.removeEventListener('abort', handleAbort);
+    const handleAbort = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      void Promise.resolve(onAbort?.()).catch(() => undefined);
+      reject(abortError());
+    };
+    signal.addEventListener('abort', handleAbort, { once: true });
+    operation.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      },
+      (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(error);
+      },
+    );
+  });
 };
 
 const buildCliReadinessEnvironment = (
   source: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv => {
-  const result = { ...source };
-  const keys = new Set([...Object.keys(process.env), ...Object.keys(source)]);
-  for (const key of keys) {
-    if (key.startsWith('COPILOT_PROVIDER_')) result[key] = undefined;
+  const result = { ...process.env, ...source };
+  for (const key of Object.keys(result)) {
+    if (key.startsWith('COPILOT_PROVIDER_')) delete result[key];
   }
-  result.COPILOT_MODEL = undefined;
-  result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = undefined;
-  result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS = undefined;
+  delete result.COPILOT_MODEL;
+  delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
+  delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
   return result;
 };
 
-const defaultCheckCli = async (env: NodeJS.ProcessEnv): Promise<boolean> => {
+const defaultCheckCli = async (
+  env: NodeJS.ProcessEnv,
+  signal?: AbortSignal,
+): Promise<boolean> => {
+  throwIfAborted(signal);
   const cliPath = env.CODEINFO_COPILOT_CLI_PATH?.trim() || 'copilot';
   try {
     await execFile(cliPath, ['--version'], {
       env,
       encoding: 'utf8',
       timeout: 10_000,
+      signal,
     });
     return true;
-  } catch {
+  } catch (error) {
+    if (isAbortError(error)) throw error;
     return false;
   }
 };
@@ -270,23 +336,36 @@ const modelKeys = (models: Array<{ id?: string | null }>): string[] =>
 
 const defaultDiscoverNative = async (
   env: NodeJS.ProcessEnv,
+  signal?: AbortSignal,
 ): Promise<NativeDiscovery> => {
+  throwIfAborted(signal);
   const runtime: CopilotReadinessRuntime = new CopilotLifecycle({ env });
+  const stopRuntime = (): void => {
+    void runtime.stop().catch(() => []);
+  };
   let started = false;
   try {
     try {
-      await runtime.start();
+      await awaitAbortable(runtime.start(), signal, stopRuntime);
       started = true;
-      await runtime.ping('copilot-review-model-discovery');
-    } catch {
+      await awaitAbortable(
+        runtime.ping('copilot-review-model-discovery'),
+        signal,
+        stopRuntime,
+      );
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       return { status: 'discovery_failed', models: [] };
     }
 
     if (!hasCopilotEnvToken(env)) {
       let authenticated = false;
       try {
-        authenticated = (await runtime.getAuthStatus()).isAuthenticated;
-      } catch {
+        authenticated = (
+          await awaitAbortable(runtime.getAuthStatus(), signal, stopRuntime)
+        ).isAuthenticated;
+      } catch (error) {
+        if (isAbortError(error)) throw error;
         return { status: 'discovery_failed', models: [] };
       }
       if (!authenticated) {
@@ -297,9 +376,12 @@ const defaultDiscoverNative = async (
     try {
       return {
         status: 'available',
-        models: modelKeys(await runtime.listModels()),
+        models: modelKeys(
+          await awaitAbortable(runtime.listModels(), signal, stopRuntime),
+        ),
       };
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       return { status: 'discovery_failed', models: [] };
     }
   } finally {
@@ -308,11 +390,15 @@ const defaultDiscoverNative = async (
 };
 
 const defaultDiscoverExternal: CopilotReviewAvailabilityDeps['discoverExternal'] =
-  async (endpoint) => {
-    const result = await resolveOpenAiCompatEndpointRuntimeState({
-      endpoint,
-      provider: 'copilot',
-    });
+  async (endpoint, signal) => {
+    throwIfAborted(signal);
+    const result = await awaitAbortable(
+      resolveOpenAiCompatEndpointRuntimeState({
+        endpoint,
+        provider: 'copilot',
+      }),
+      signal,
+    );
     return {
       available: result.available,
       models: result.models,
@@ -336,8 +422,11 @@ export async function resolveCopilotReviewModels(
   options: {
     env?: NodeJS.ProcessEnv;
     deps?: Partial<CopilotReviewAvailabilityDeps>;
+    signal?: AbortSignal;
+    onWarning?: (warning: CopilotReviewEndpointWarning) => void;
   } = {},
 ): Promise<ResolvedCopilotReviewSpec[]> {
+  throwIfAborted(options.signal);
   if (specs.length === 0) return [];
   const env = options.env ?? process.env;
   const deps: CopilotReviewAvailabilityDeps = {
@@ -348,8 +437,12 @@ export async function resolveCopilotReviewModels(
 
   let cliAvailable = false;
   try {
-    cliAvailable = await deps.checkCli(buildCliReadinessEnvironment(env));
-  } catch {
+    cliAvailable = await deps.checkCli(
+      buildCliReadinessEnvironment(env),
+      options.signal,
+    );
+  } catch (error) {
+    if (isAbortError(error)) throw error;
     return specs.map((spec) =>
       unavailable(spec, 'Copilot CLI readiness check failed.'),
     );
@@ -367,8 +460,10 @@ export async function resolveCopilotReviewModels(
     try {
       nativeDiscovery = await deps.discoverNative(
         buildCliReadinessEnvironment(env),
+        options.signal,
       );
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       nativeDiscovery = { status: 'discovery_failed', models: [] };
     }
   }
@@ -382,13 +477,24 @@ export async function resolveCopilotReviewModels(
         value: env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
         pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
       });
+      for (const message of endpointResolution.warnings) {
+        options.onWarning?.({
+          code: 'external_endpoint_configuration',
+          message,
+        });
+      }
     } catch {
       endpointConfigurationUnavailable = true;
     }
   }
 
   const resolved: ResolvedCopilotReviewSpec[] = [];
+  const externalDiscoveryByEndpoint = new Map<
+    string,
+    Promise<{ available: boolean; models: string[]; reason?: string }>
+  >();
   for (const spec of specs) {
+    throwIfAborted(options.signal);
     if (spec.mode === 'native') {
       if (nativeDiscovery?.status === 'authentication_required') {
         resolved.push(unavailable(spec, 'Copilot authentication is required.'));
@@ -445,7 +551,14 @@ export async function resolveCopilotReviewModels(
     }
 
     try {
-      const discovery = await deps.discoverExternal(endpoint);
+      let discoveryPromise = externalDiscoveryByEndpoint.get(
+        endpoint.endpointId,
+      );
+      if (!discoveryPromise) {
+        discoveryPromise = deps.discoverExternal(endpoint, options.signal);
+        externalDiscoveryByEndpoint.set(endpoint.endpointId, discoveryPromise);
+      }
+      const discovery = await discoveryPromise;
       if (!discovery.available) {
         resolved.push(
           unavailable(
@@ -469,7 +582,8 @@ export async function resolveCopilotReviewModels(
           endpointId: endpoint.endpointId,
         });
       }
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       resolved.push(
         unavailable(
           spec,

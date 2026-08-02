@@ -4,7 +4,7 @@ import {
   parseCopilotReviewModels,
   resolveCopilotReviewModels,
   type CopilotReviewAvailabilityDeps,
-  type CopilotReviewConfigurationWarning,
+  type CopilotReviewPreparationWarning,
   type ResolvedCopilotReviewSpec,
 } from './copilotReviewModels.js';
 import {
@@ -19,7 +19,7 @@ export type PreparedCopilotReviewGroups = {
   repositoryCount: number;
   modelCount: number;
   copilotJobCount: number;
-  configurationWarnings: CopilotReviewConfigurationWarning[];
+  configurationWarnings: CopilotReviewPreparationWarning[];
 };
 
 const displayLabel = (spec: ResolvedCopilotReviewSpec): string => {
@@ -37,6 +37,7 @@ export async function prepareCopilotReviewGroups(
     targetItemsFrom: string;
     reviewWaveFrom: string;
     env?: NodeJS.ProcessEnv;
+    signal?: AbortSignal;
   },
   deps: Partial<CopilotReviewAvailabilityDeps> = {},
 ): Promise<PreparedCopilotReviewGroups> {
@@ -47,19 +48,26 @@ export async function prepareCopilotReviewGroups(
     );
   }
   const env = params.env ?? process.env;
-  const configurationWarnings: CopilotReviewConfigurationWarning[] = [];
+  const configurationWarnings: CopilotReviewPreparationWarning[] = [];
   const parsed = parseCopilotReviewModels(env.CODEINFO_COPILOT_REVIEW_MODELS, {
     onWarning: (warning) => configurationWarnings.push(warning),
   });
   const resolvedSpecs = await resolveCopilotReviewModels(parsed, {
     env,
     deps,
+    signal: params.signal,
+    onWarning: (warning) => configurationWarnings.push(warning),
   });
   for (const warning of configurationWarnings) {
     const context = {
-      entryNumber: warning.entryNumber,
       warningCode: warning.code,
-      duplicateOfEntryNumber: warning.duplicateOfEntryNumber,
+      warningMessage: warning.message,
+      ...('entryNumber' in warning
+        ? {
+            entryNumber: warning.entryNumber,
+            duplicateOfEntryNumber: warning.duplicateOfEntryNumber,
+          }
+        : {}),
     };
     append({
       level: 'warn',

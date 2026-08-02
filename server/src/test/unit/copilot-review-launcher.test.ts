@@ -341,6 +341,7 @@ test('external launcher exposes only the selected endpoint and key to the child'
     GH_TOKEN: 'gh-native-token',
     GITHUB_TOKEN: 'github-native-token',
     CODEINFO_CONTEXT7_API_KEY: 'context7-secret',
+    NODE_EXTRA_CA_CERTS: '/etc/ssl/certs/custom-corporate-ca.pem',
     CODEINFO_UNRELATED_AMBIENT_VALUE: 'must-not-cross-provider-boundary',
     SECRET_UNRELATED_AMBIENT_VALUE: 'ambient-secret',
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
@@ -379,6 +380,10 @@ test('external launcher exposes only the selected endpoint and key to the child'
     /^(?:COPILOT_GITHUB_TOKEN|GH_TOKEN|GITHUB_TOKEN)=/mu,
   );
   assert.doesNotMatch(childEnv, /^CODEINFO_CONTEXT7_API_KEY=/mu);
+  assert.match(
+    childEnv,
+    /^NODE_EXTRA_CA_CERTS=\/etc\/ssl\/certs\/custom-corporate-ca\.pem$/mu,
+  );
   assert.doesNotMatch(childEnv, /^CODEINFO_UNRELATED_AMBIENT_VALUE=/mu);
   assert.doesNotMatch(childEnv, /^SECRET_UNRELATED_AMBIENT_VALUE=/mu);
   assert.match(
@@ -731,10 +736,9 @@ test('timeout terminates one launched Copilot process and preserves partial outp
     FAKE_COPILOT_STDOUT:
       '{"type":"assistant.message","data":{"content":"Partial before timeout"}}\\n',
     FAKE_COPILOT_WAIT: '1',
+    CODEINFO_COPILOT_REVIEW_TIMEOUT_SEC: '0.05',
   });
-  const result = await runCopilotReview(
-    launcherOptions(fixture, env, { timeoutMs: 50 }),
-  );
+  const result = await runCopilotReview(launcherOptions(fixture, env));
   assert.equal(result.launched, true);
   assert.equal(result.exitStatus, 124);
   assert.equal(result.status, 'timed_out');

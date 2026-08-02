@@ -134,7 +134,7 @@ No manual testing is desired for this story. The implemented behavior is covered
 
 Batch usage totals: input `At least 2,609,357 reported; incomplete`; cached input `At least 2,439,936 reported; incomplete`; output `21,639 reported`; reasoning output `Not reported`; premium requests `At least 1 reported; incomplete`. Cached input is not added to input. The `attempts/87efe212612a771fe20310e53dfd256d189b7ded6b31dd0d119cf58831c682b9.md` orchestration record is retained in the settlement evidence; usage is recorded only from designated actual-review artifacts.
 
-### Accepted
+### Reviewed but Not Actioned After Operator Threat-Model Review
 
 - None.
 
@@ -1862,3 +1862,144 @@ None. This is a schema-field rename with automated coverage and does not require
 - `npm run build:summary:server` passed with zero warnings; the wrapper requested `skip_log`, so the full log was not opened.
 - `npm run compose:build:summary` passed both image items and confirmed runtime assets were baked; the wrapper requested `skip_log`, so the full log was not opened.
 - Focused Prettier checks and `git diff --check` passed, and the final obsolete-name scan remained empty. Task 19 is complete with no runtime or compatibility alias added.
+
+## Code Review Findings
+
+- Findings recorded: `August 2, 2026 at 7:12:20 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000065-rw-20260802T171855Z-aa360b43`
+- Review cycle: `0000065-rc-20260802T171854Z-cfda4acb`
+- Reviews attempted:
+  - `open_code_review [current_repository]` (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — partial coverage; its 14-file bundle reported no findings but omitted changed launcher files.
+    - Input tokens: `3,201,076`
+    - Cached input tokens: `3,067,136`
+    - Output tokens: `21,154`
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed with two supported P1 findings.
+    - Input tokens: `0`
+    - Cached input tokens: `0`
+    - Output tokens: `0`
+  - `cross_repository_review` (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed not applicable because only `current_repository` was assigned.
+    - Input tokens: `162,683`
+    - Cached input tokens: `131,328`
+    - Output tokens: `2,099`
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`, target `current_repository`) — failed after launch with exit status `1`; no provider coverage was established.
+    - Input tokens: `Not reported`
+    - Cached input tokens: `Not reported`
+    - Output tokens: `Not reported`
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — partial source-review and execution-proof coverage; its no-defects conclusion was contradicted by the supported Codex findings.
+    - Input tokens: `Not reported`
+    - Cached input tokens: `Not reported`
+    - Output tokens: `1,664`
+
+### Accepted
+
+#### 1. Native Copilot children inherit `CODEINFO_OPENAI_EMBEDDING_KEY`
+
+- Finding ID: `P1 — Native Copilot children inherit unrelated ambient service secrets`, narrowed to `CODEINFO_OPENAI_EMBEDDING_KEY` at `server/src/copilot/reviewLauncher.ts:351`
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated the source-supported isolation defect through verifier recovery.
+- Simple description: Native Copilot environment construction copies the ambient server environment and does not remove `CODEINFO_OPENAI_EMBEDDING_KEY`. The provider credential can therefore reach a full-access native review child.
+- Example: With supported OpenAI embedding configuration present, a native Copilot review starts in the same server process; the copied child environment contains `CODEINFO_OPENAI_EMBEDDING_KEY`, allowing child tools to encounter an unrelated provider credential.
+- Why not actioned: The observation is technically supported, but CodeInfo deliberately treats its Docker container as the full-access review boundary. No host escape, remote-session creation, persisted credential value, or demonstrated exfiltration was established, while narrowing the inherited native environment risks breaking authentication and CLI behavior. The operator stopped the review and rejected launcher changes for this observation; it remains defense-in-depth evidence rather than current-story implementation work.
+
+#### 2. External Copilot reviews inherit ambient state roots
+
+- Finding ID: `P1 — External Copilot review jobs can use ambient Copilot home state`, narrowed to the four-variable state-root contract at `server/src/copilot/reviewLauncher.ts:368`
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated the source-supported isolation defect through verifier recovery.
+- Simple description: External Copilot launch construction preserves ambient `HOME` and does not assign isolated `COPILOT_HOME`, `XDG_CONFIG_HOME`, or `XDG_CACHE_HOME`. Ambient Copilot state can therefore influence an external review child.
+- Example: An operator runs a supported external review while ordinary `HOME` or XDG directories contain Copilot state; the child receives those roots and can use state beyond the selected endpoint, key, and model.
+- Why not actioned: The observation is technically supported, but ambient CLI state remains inside the intended Docker boundary and no provider drift or credential leak was demonstrated. Repointing all home and XDG roots can break legitimate Copilot authentication, certificate, cache, or configuration behavior, so its regression risk is disproportionate to the unproven impact. The operator stopped the review and rejected this runtime-state change; it is retained as defense-in-depth evidence only.
+
+### Ignored for This Story
+
+#### 3. Broad native strict-allowlist remedy
+
+- Finding ID or Review reference: `P1 — Native Copilot children inherit unrelated ambient service secrets`, negative-gate remedy narrowing under gates 4, 8, and 11
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the remedy proposal.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated the underlying observation, not a separate allowlist contract.
+- Simple description: The source review proposed replacing native environment copying with a strict allowlist, but current HEAD exposes no native allowlist contract.
+- Example: Implementing that proposal would require choosing which ambient runtime variables survive native launch even though the story does not define a general native environment policy.
+- Why ignored: The broad mechanism was removed by negative scope because its policy is unproven. Only the specifically authorized `CODEINFO_OPENAI_EMBEDDING_KEY` deletion survives under Accepted item 1; the rejected allowlist must not be restored.
+
+#### 4. Native `CODEINFO_MONGO_URI` exposure
+
+- Finding ID or Review reference: `P1 — Native Copilot children inherit unrelated ambient service secrets`, positively unauthorized `CODEINFO_MONGO_URI` portion
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the technical observation.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated the underlying observation.
+- Simple description: Native environment copying can forward `CODEINFO_MONGO_URI`, a credential-bearing service setting, to the Copilot child.
+- Example: A supported server process has `CODEINFO_MONGO_URI` configured and starts a native review; the copied environment contains the setting, but the story does not define isolation for every non-provider service setting.
+- Why ignored: The observation is technically supported but the current story authorizes provider-credential isolation, not a general policy for every ambient service setting. It is non-actionable without separate authorization and was not promoted to materiality.
+
+#### 5. External `COPILOT_HOME`-only remedy
+
+- Finding ID or Review reference: `P1 — External Copilot review jobs can use ambient Copilot home state`, negative-gate remedy narrowing under gate 11
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the one-variable remedy proposal.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated the underlying observation, not a separate one-variable contract.
+- Simple description: Assigning only `COPILOT_HOME` would leave the repository's other Copilot state roots uncontrolled.
+- Example: An external child receives a fresh `COPILOT_HOME` but keeps ambient `HOME`, `XDG_CONFIG_HOME`, or `XDG_CACHE_HOME`, so state outside the selected workspace can still influence execution.
+- Why ignored: The finding survives only in the complete four-variable form described by reviewed item 2, which the operator also declined to action. Current HEAD's established contract sets all four roots together; the incomplete one-variable mechanism is non-actionable and must not be routed separately.
+
+### Task 20. Address scoped Copilot review feedback without changing the Docker trust boundary
+
+- Repository Name: `codeInfo2`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Task Dependencies: `Task 19`
+- Task Status: `__done__`
+
+#### Overview
+
+Apply the correctness, availability, cancellation, best-effort recovery, and maintenance findings from pull request 251 that remain valid on current HEAD. Preserve the deliberately configured tracked built-in models, Docker-contained `--allow-all`, native environment inheritance, local-only execution, exact model and endpoint selection, and existing review-wave behavior.
+
+#### Task Exit Criteria
+
+- Operator timeout overrides and the repository-supported CA bundle reach launched Copilot children through the existing narrow seams.
+- Native readiness discovery omits masked provider variables completely, endpoint warnings remain visible and secret-free, repeated models reuse endpoint discovery, and explicit cancellation interrupts preparation without becoming unavailability.
+- Missing pinned review context produces one normalized unavailable child artifact without provider launch or sibling interruption.
+- Mislabelled tests, brittle source-contract checks, non-portable Markdown links, and the false JSON-versus-JSONL uncertainty are corrected without changing Copilot's valid `--output-format json` argument.
+- Focused sequential tests and required server and Compose builds pass.
+
+#### Subtasks
+
+1. [x] Reconcile the stopped review record and explicitly preserve the rejected native allowlist, external home-root, tracked-model-default, docstring, and output-flag changes as non-actionable.
+2. [x] Correct launcher timeout lookup and external CA propagation with focused proof.
+3. [x] Harden readiness environment masking, endpoint warnings, discovery caching, and preparation cancellation.
+4. [x] Convert missing pinned target or story context into the established unavailable artifact path.
+5. [x] Correct test names, source-contract assertions, portable review links, and JSONL documentation.
+6. [x] Record sequential validation, close the task, and prepare the scoped changes for publication.
+
+#### Testing
+
+1. [x] Run targeted Copilot launcher tests with server test concurrency one.
+2. [x] Run targeted Copilot model and group preparation tests with server test concurrency one.
+3. [x] Run targeted native Copilot step and flow cancellation tests with server test concurrency one.
+4. [x] Run the targeted Python review prompt-contract test.
+5. [x] Run `npm run build:summary:server`.
+6. [x] Run `npm run compose:build:summary`.
+7. [x] Run focused formatting, lint if affected, and `git diff --check`.
+
+#### Manual Testing Guidance
+
+None. This task changes bounded internal preparation and artifact behavior and retains the story's explicit exclusion of live provider spending, provider login, browser proof, screenshots, and manual Compose testing.
+
+#### Implementation Notes
+
+- Added Task 20 before implementation and reconciled the stopped review record. The two Docker-boundary observations remain visible as technical evidence but are not authorized implementation work after the operator's threat-model and regression-risk decision.
+- The task explicitly leaves the tracked built-in model defaults, native environment inheritance, Docker-contained `--allow-all`, local-only flags, and correct Copilot `--output-format json` argument unchanged.
+- Updated the launcher to resolve timeout configuration from the same effective environment used for process launch and forwarded only `NODE_EXTRA_CA_CERTS` through the existing external baseline. Focused fixtures now prove the configured timeout path and corporate CA propagation without widening the external environment.
+- Readiness discovery now constructs one effective environment and deletes external provider controls instead of spawning literal `undefined` values. Endpoint parser warnings join the existing secret-free warning result, external models sharing one endpoint reuse one discovery promise, and the existing inflight signal reaches CLI, native lifecycle, external discovery, and group preparation while abort errors remain cancellation.
+- Moved pinned target and story-context reads into the existing policy preflight boundary. A missing applicable context file now supplies the launcher's normalized unavailable reason instead of failing the service-owned child step before canonical artifacts can be written.
+- Renamed four external-mode step fixtures accurately, reduced redundant Python source checks to stable tokens while retaining runtime signal proof, replaced workstation-specific review links, and corrected the blind-spot record using the installed CLI's explicit statement that `--output-format json` is JSONL.
+- Targeted Copilot launcher tests passed 18/18 with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`, covering configured timeout termination, external CA forwarding, exact provider environment isolation, cancellation, artifacts, and exactly-once launch behavior.
+- Targeted model tests passed 17/17 and group preparation tests passed 6/6 with test concurrency one. The proof covers complete environment-key omission, secret-free endpoint warnings, one discovery call per endpoint, explicit abort propagation, unchanged matrix fan-out, and unavailable-model coverage.
+- Targeted Copilot step tests passed 8/8, the service-owned native flow test passed 1/1, and the new preparation-cancellation integration test passed 1/1 with concurrency one. The cancellation fixture initially used an invalid empty review-group list and then over-specified the stopped message; both fixture-only expectations were corrected, after which the test proved readiness termination, stopped parent status, and no persisted effective groups or child admission.
+- The targeted Python review prompt-contract test passed 1/1, confirming the checked-in Copilot flow, editable policy, stable signal/path source tokens, full-access local-only controls, and planning exclusion contract.
+- The existing prepared repository-model wave integration test also passed 1/1 with concurrency one, confirming persisted effective groups, unchanged same-wave admission, deterministic child identities, and collective completion after the cancellation plumbing change.
+- `npm run build:summary:server` passed with zero warnings; the wrapper requested `skip_log`, so its full log was not opened.
+- `npm run compose:build:summary` passed both image items and confirmed the updated server and runtime assets were baked; the wrapper requested `skip_log`, so its full log was not opened.
+- Focused ESLint passed with zero warnings, supported TypeScript/Markdown Prettier checks passed, and `git diff --check` passed. Python formatting is not claimed because the repository Prettier configuration has no Python parser; the edited Python contract passed its targeted unittest.
+- Re-ran the affected model and cancellation proofs after the final abort guard and re-ran both required build wrappers after the final production change; all remained green. Task 20 is complete with rejected environment-policy changes untouched and no manual or parallel testing performed.

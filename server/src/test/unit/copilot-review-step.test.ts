@@ -134,7 +134,7 @@ const createFixture = async (params?: {
   return { input, repository, workspace, workDir, outputDir };
 };
 
-test('native Copilot step derives every launcher input from the persisted child payload', async () => {
+test('external Copilot step derives every launcher input from the persisted child payload', async () => {
   const fixture = await createFixture();
 
   const options = await prepareCopilotReviewLaunch(fixture.input, reviewStep, {
@@ -173,7 +173,7 @@ test('native Copilot step derives every launcher input from the persisted child 
   assert.match(instructions, /Pinned acceptance criteria/u);
 });
 
-test('native Copilot step rejects a caller-selected workspace directory mismatch', async () => {
+test('external Copilot step rejects a caller-selected workspace directory mismatch', async () => {
   const fixture = await createFixture();
   const input = structuredClone(fixture.input);
   const reviewJob = input.review_job as FlowJsonObject;
@@ -185,7 +185,7 @@ test('native Copilot step rejects a caller-selected workspace directory mismatch
   );
 });
 
-test('native Copilot step rejects target data that differs from the immutable wave', async () => {
+test('external Copilot step rejects target data that differs from the immutable wave', async () => {
   const fixture = await createFixture();
   const input = structuredClone(fixture.input);
   input.target = {
@@ -199,7 +199,7 @@ test('native Copilot step rejects target data that differs from the immutable wa
   );
 });
 
-test('native Copilot step awaits one launcher call and passes the cancellation signal', async () => {
+test('external Copilot step awaits one launcher call and passes the cancellation signal', async () => {
   const fixture = await createFixture();
   const controller = new AbortController();
   let captured: CopilotReviewLauncherOptions | undefined;
@@ -241,6 +241,26 @@ test('native Copilot step awaits one launcher call and passes the cancellation s
   };
   release?.(expected);
   assert.deepEqual(await execution, expected);
+});
+
+test('external Copilot step converts missing pinned context into preflight unavailability', async () => {
+  const fixture = await createFixture();
+  await fs.rm(
+    path.join(path.dirname(fixture.workDir), 'input', 'review-target.md'),
+  );
+
+  const options = await prepareCopilotReviewLaunch(fixture.input, reviewStep, {
+    loadReviewPolicy,
+  });
+
+  assert.equal(
+    options.preflightUnavailableReason,
+    'Copilot review instructions could not be prepared safely.',
+  );
+  await assert.rejects(
+    fs.readFile(path.join(fixture.workDir, 'copilot-review-instructions.md')),
+    /ENOENT/u,
+  );
 });
 
 test('unavailable native model remains a service-owned terminal launch request', async () => {

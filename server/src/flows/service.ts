@@ -7027,6 +7027,7 @@ async function runFlowUnlocked(params: {
         targetItemsFrom: step.targetsFrom,
         reviewWaveFrom: step.reviewWaveFrom,
         env: reviewEnv,
+        signal: inflightSignal,
       });
       if (inflightSignal.aborted) {
         await emitStoppedFlowStep({

@@ -372,6 +372,7 @@ const EXTERNAL_COPILOT_BASELINE_ENVIRONMENT_KEYS = [
   'LC_ALL',
   'LC_CTYPE',
   'LOGNAME',
+  'NODE_EXTRA_CA_CERTS',
   'PATH',
   'SHELL',
   'TEMP',
@@ -654,6 +655,7 @@ const runProcess = async (params: {
 
 const resolveReviewTimeoutMs = (
   options: CopilotReviewLauncherOptions,
+  sourceEnv: NodeJS.ProcessEnv,
 ): number => {
   if (
     typeof options.timeoutMs === 'number' &&
@@ -662,7 +664,7 @@ const resolveReviewTimeoutMs = (
   ) {
     return options.timeoutMs;
   }
-  const raw = options.env?.CODEINFO_COPILOT_REVIEW_TIMEOUT_SEC?.trim();
+  const raw = sourceEnv.CODEINFO_COPILOT_REVIEW_TIMEOUT_SEC?.trim();
   if (!raw) return DEFAULT_COPILOT_REVIEW_TIMEOUT_MS;
   const seconds = Number(raw);
   return Number.isFinite(seconds) && seconds > 0
@@ -1039,7 +1041,7 @@ export async function runCopilotReview(
       env: childEnv,
       deps,
       signal: options.signal,
-      timeoutMs: resolveReviewTimeoutMs(options),
+      timeoutMs: resolveReviewTimeoutMs(options, sourceEnv),
     });
   } catch (error) {
     setupUnavailable = error instanceof CopilotReviewUnavailableError;

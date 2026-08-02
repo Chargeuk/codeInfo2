@@ -197,6 +197,17 @@ describe('Copilot review model availability', () => {
       readinessEnv?.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS,
       undefined,
     );
+    for (const maskedKey of [
+      'COPILOT_PROVIDER_TYPE',
+      'COPILOT_PROVIDER_API_KEY',
+      'COPILOT_PROVIDER_CUSTOM',
+      'COPILOT_MODEL',
+      'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+      'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
+    ]) {
+      assert.equal(Object.hasOwn(readinessEnv ?? {}, maskedKey), false);
+      assert.equal(Object.hasOwn(discoveryEnv ?? {}, maskedKey), false);
+    }
     assert.equal(env.COPILOT_PROVIDER_API_KEY, 'external-secret');
     assert.equal(
       env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS,
@@ -237,6 +248,73 @@ describe('Copilot review model availability', () => {
         },
       ],
     );
+  });
+
+  test('surfaces endpoint warnings and discovers shared endpoints once', async () => {
+    const specs = parseCopilotReviewModels(
+      'openrouter::model-a|minimal,openrouter::model-b|high',
+    );
+    const warnings: string[] = [];
+    let discoveryCalls = 0;
+    const resolved = await resolveCopilotReviewModels(specs, {
+      env: {
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+          'OpenRouter,https://openrouter.test/v1|completions;Duplicate,https://openrouter.test/v1|completions',
+      },
+      deps: {
+        ...availableDeps(),
+        discoverExternal: async () => {
+          discoveryCalls += 1;
+          return {
+            available: true,
+            models: ['model-a', 'model-b'],
+          };
+        },
+      },
+      onWarning: (warning) => warnings.push(warning.message),
+    });
+
+    assert.equal(discoveryCalls, 1);
+    assert.equal(
+      resolved.every((spec) => spec.available),
+      true,
+    );
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0] ?? '', /keeping first entry/u);
+  });
+
+  test('propagates explicit cancellation instead of converting it to unavailability', async () => {
+    const specs = parseCopilotReviewModels('gpt-5.4|low');
+    const controller = new AbortController();
+    let receivedSignal: AbortSignal | undefined;
+    const resolution = resolveCopilotReviewModels(specs, {
+      env: {},
+      signal: controller.signal,
+      deps: {
+        ...availableDeps(),
+        checkCli: async (_env, signal) => {
+          receivedSignal = signal;
+          return new Promise<boolean>((_resolve, reject) => {
+            signal?.addEventListener(
+              'abort',
+              () => {
+                const error = new Error('cancelled');
+                error.name = 'AbortError';
+                reject(error);
+              },
+              { once: true },
+            );
+          });
+        },
+      },
+    });
+
+    while (!receivedSignal) {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
+    controller.abort();
+    await assert.rejects(resolution, { name: 'AbortError' });
+    assert.equal(receivedSignal, controller.signal);
   });
 
   test('distinguishes CLI, authentication, native absence, and native discovery failures', async () => {

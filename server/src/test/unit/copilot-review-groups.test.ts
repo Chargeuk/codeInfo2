@@ -194,3 +194,77 @@ test('malformed and duplicate entries warn while every valid unique model is sch
   assert.equal(jobs.length, 4);
   assert.equal(new Set(jobs.map((job) => job.instanceId)).size, 4);
 });
+
+test('endpoint parser warnings join the visible secret-free configuration warning result', async () => {
+  const prepared = await prepareCopilotReviewGroups(
+    {
+      reviewGroups: existingGroups,
+      repositoryTargets: targets,
+      targetItemsFrom: 'review_batch_targets.targets',
+      reviewWaveFrom: 'review_batch_targets',
+      env: {
+        CODEINFO_COPILOT_REVIEW_MODELS: 'openrouter::flash|minimal',
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+          'OpenRouter,https://openrouter.test/v1|completions;Duplicate,https://openrouter.test/v1|completions',
+      },
+    },
+    {
+      checkCli: async () => true,
+      discoverExternal: async () => ({
+        available: true,
+        models: ['flash'],
+      }),
+    },
+  );
+
+  assert.deepEqual(
+    prepared.configurationWarnings.map((warning) => warning.code),
+    ['external_endpoint_configuration'],
+  );
+  assert.match(
+    prepared.configurationWarnings[0]?.message ?? '',
+    /keeping first entry/u,
+  );
+  assert.doesNotMatch(
+    JSON.stringify(prepared.configurationWarnings),
+    /api[_-]?key|secret/iu,
+  );
+});
+
+test('group preparation forwards cancellation to model discovery', async () => {
+  const controller = new AbortController();
+  let receivedSignal: AbortSignal | undefined;
+  const preparation = prepareCopilotReviewGroups(
+    {
+      reviewGroups: existingGroups,
+      repositoryTargets: targets,
+      targetItemsFrom: 'review_batch_targets.targets',
+      reviewWaveFrom: 'review_batch_targets',
+      env: { CODEINFO_COPILOT_REVIEW_MODELS: 'gpt-5.4|low' },
+      signal: controller.signal,
+    },
+    {
+      checkCli: async (_env, signal) => {
+        receivedSignal = signal;
+        return new Promise<boolean>((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              const error = new Error('cancelled');
+              error.name = 'AbortError';
+              reject(error);
+            },
+            { once: true },
+          );
+        });
+      },
+    },
+  );
+
+  while (!receivedSignal) {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  controller.abort();
+  await assert.rejects(preparation, { name: 'AbortError' });
+  assert.equal(receivedSignal, controller.signal);
+});

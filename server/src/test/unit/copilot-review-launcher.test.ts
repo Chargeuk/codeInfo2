@@ -497,6 +497,37 @@ test('missing CLI and external runtime drift produce unavailable artifacts witho
   );
 });
 
+test('policy preflight failure writes unavailable artifacts without launching Copilot', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot);
+  await fs.rm(fixture.instructions);
+
+  const result = await runCopilotReview(
+    launcherOptions(fixture, env, {
+      preflightUnavailableReason:
+        'Copilot review instructions policy.md are unavailable.',
+    }),
+  );
+
+  assert.equal(result.launched, false);
+  assert.equal(result.status, 'unavailable');
+  await assert.rejects(
+    fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8'),
+    /ENOENT/u,
+  );
+  const normalized = JSON.parse(
+    await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
+  ) as { failure_reason?: string; launched?: boolean; status?: string };
+  assert.equal(normalized.launched, false);
+  assert.equal(normalized.status, 'unavailable');
+  assert.equal(
+    normalized.failure_reason,
+    'Copilot review instructions policy.md are unavailable.',
+  );
+});
+
 test('pinned unavailable model produces canonical artifacts without requiring instructions or launching Copilot', async (t) => {
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));

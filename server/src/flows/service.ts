@@ -7094,7 +7094,7 @@ async function runFlowUnlocked(params: {
   };
 
   const runCopilotReviewStep = async (
-    _step: FlowRunCopilotReviewStep,
+    step: FlowRunCopilotReviewStep,
     command: TurnCommandMetadata,
   ): Promise<TurnStatus> => {
     const instruction = 'Run scheduler-owned Copilot review';
@@ -7110,6 +7110,7 @@ async function runFlowUnlocked(params: {
     try {
       const result = await executeCopilotReviewStep(
         params.input ?? {},
+        step,
         inflightSignal,
         { runCopilotReview: flowServiceDeps.runCopilotReview },
       );

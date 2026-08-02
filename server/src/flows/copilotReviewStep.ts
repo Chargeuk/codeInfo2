@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { resolveAgentHomeEnv } from '../agents/roots.js';
 import {
   resolveCopilotReviewWorkspacePaths,
   runCopilotReview,
@@ -13,6 +14,7 @@ import {
   type ResolvedCopilotReviewSpec,
 } from './copilotReviewModels.js';
 import { hashFlowInput, normalizeFlowInput } from './flowInput.js';
+import type { FlowRunCopilotReviewStep } from './flowSchema.js';
 import type { FlowJsonObject, FlowJsonValue } from './types.js';
 
 type ReviewJobInput = {
@@ -190,16 +192,95 @@ const atomicWrite = async (filePath: string, contents: string) => {
   await fs.rename(temporaryPath, filePath);
 };
 
+export class CopilotReviewPolicyUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CopilotReviewPolicyUnavailableError';
+  }
+}
+
+const isPathInside = (candidate: string, root: string) =>
+  candidate === root || candidate.startsWith(`${root}${path.sep}`);
+
+export async function loadHarnessCopilotReviewPolicy(
+  instructionsMarkdownFile: string,
+  deps: {
+    getCodeInfoRoot?: () => string;
+    realpath?: typeof fs.realpath;
+    readFile?: typeof fs.readFile;
+  } = {},
+): Promise<string> {
+  const normalized = instructionsMarkdownFile.trim().replace(/\\/gu, '/');
+  if (
+    !normalized ||
+    path.posix.isAbsolute(normalized) ||
+    path.win32.isAbsolute(normalized) ||
+    normalized.split('/').some((segment) => segment === '..') ||
+    path.posix.normalize(normalized).startsWith('../') ||
+    path.posix.extname(normalized).toLowerCase() !== '.md'
+  ) {
+    throw new CopilotReviewPolicyUnavailableError(
+      'Copilot review instructions must be a relative Markdown path inside the harness codeinfo_markdown directory.',
+    );
+  }
+
+  const getCodeInfoRoot =
+    deps.getCodeInfoRoot ?? (() => resolveAgentHomeEnv().codeInfoRoot);
+  const realpath = deps.realpath ?? fs.realpath;
+  const readFile = deps.readFile ?? fs.readFile;
+  const policyRoot = path.resolve(getCodeInfoRoot(), 'codeinfo_markdown');
+  const policyPath = path.resolve(policyRoot, path.posix.normalize(normalized));
+  if (!isPathInside(policyPath, policyRoot)) {
+    throw new CopilotReviewPolicyUnavailableError(
+      'Copilot review instructions must resolve inside the harness codeinfo_markdown directory.',
+    );
+  }
+
+  let realPolicyRoot: string;
+  let realPolicyPath: string;
+  try {
+    [realPolicyRoot, realPolicyPath] = await Promise.all([
+      realpath(policyRoot),
+      realpath(policyPath),
+    ]);
+  } catch {
+    throw new CopilotReviewPolicyUnavailableError(
+      `Copilot review instructions ${normalized} are unavailable in the harness codeinfo_markdown directory.`,
+    );
+  }
+  if (!isPathInside(realPolicyPath, realPolicyRoot)) {
+    throw new CopilotReviewPolicyUnavailableError(
+      'Copilot review instructions must not escape the harness codeinfo_markdown directory.',
+    );
+  }
+
+  let policy: string;
+  try {
+    policy = await readFile(realPolicyPath, 'utf8');
+  } catch {
+    throw new CopilotReviewPolicyUnavailableError(
+      `Copilot review instructions ${normalized} could not be read.`,
+    );
+  }
+  if (!policy.trim()) {
+    throw new CopilotReviewPolicyUnavailableError(
+      `Copilot review instructions ${normalized} are empty.`,
+    );
+  }
+  return policy.trim();
+}
+
 const buildInstructions = (params: {
   target: ReviewTargetInput;
   spec: ResolvedCopilotReviewSpec;
+  reviewPolicy: string;
   targetBrief: string;
   storyContext: string;
 }) =>
   `${[
     '# Pinned Copilot review instructions',
     '',
-    'This file was generated from the immutable scheduler-owned review input. Review the committed implementation changes only and do not modify source files, planning files, Git state, branches, commits, remotes, or review artifacts.',
+    'This file combines harness-owned review policy with immutable scheduler-owned review input.',
     '',
     `- Repository: \`${params.target.repo_root}\``,
     `- Range: \`${params.target.comparison_base_commit}...${params.target.head_commit}\``,
@@ -207,15 +288,15 @@ const buildInstructions = (params: {
     `- Reasoning effort: \`${params.spec.reasoningEffort}\``,
     '- Excluded path: `planning/**`',
     '',
-    'Do not create a remote pull-request review, publish comments, export a session, or delegate to a remote coding agent.',
-    '',
-    'Do not inspect, read, summarize, cite, or report findings for changed repository-root-relative files under `planning/**`. Use the pinned story context below as the requirements source. Inspect implementation changes with:',
+    'Inspect implementation changes with:',
     '',
     '```sh',
     `git diff ${params.target.comparison_base_commit}...${params.target.head_commit} -- . ':(exclude)planning/**'`,
     '```',
     '',
-    'If no non-planning implementation changes remain, report that honestly instead of inventing findings. Otherwise report only concrete, evidence-backed review findings with file and line evidence where available.',
+    '## Harness-owned review policy',
+    '',
+    params.reviewPolicy.trim(),
     '',
     '## Pinned review target',
     '',
@@ -229,6 +310,10 @@ const buildInstructions = (params: {
 
 export async function prepareCopilotReviewLaunch(
   input: FlowJsonObject,
+  step: FlowRunCopilotReviewStep,
+  deps: {
+    loadReviewPolicy?: (instructionsMarkdownFile: string) => Promise<string>;
+  } = {},
 ): Promise<CopilotReviewLauncherOptions> {
   const reviewJob = parseReviewJob(input.review_job);
   const target = parseTarget(input.target);
@@ -327,12 +412,7 @@ export async function prepareCopilotReviewLaunch(
       'utf8',
     ),
   ]);
-  await atomicWrite(
-    workspacePaths.instructionsPath,
-    buildInstructions({ target, spec, targetBrief, storyContext }),
-  );
-
-  return {
+  const options: CopilotReviewLauncherOptions = {
     repositoryPath: target.repo_root,
     workspacePath: workspacePaths.workspacePath,
     targetId: target.target_id,
@@ -345,17 +425,45 @@ export async function prepareCopilotReviewLaunch(
     ...(spec.endpointLabel ? { endpointLabel: spec.endpointLabel } : {}),
     ...(spec.endpointId ? { endpointId: spec.endpointId } : {}),
   };
+  try {
+    const reviewPolicy = await (
+      deps.loadReviewPolicy ?? loadHarnessCopilotReviewPolicy
+    )(step.instructionsMarkdownFile);
+    await atomicWrite(
+      workspacePaths.instructionsPath,
+      buildInstructions({
+        target,
+        spec,
+        reviewPolicy,
+        targetBrief,
+        storyContext,
+      }),
+    );
+    return options;
+  } catch (error) {
+    return {
+      ...options,
+      preflightUnavailableReason:
+        error instanceof CopilotReviewPolicyUnavailableError
+          ? error.message
+          : 'Copilot review instructions could not be prepared safely.',
+    };
+  }
 }
 
 export async function executeCopilotReviewStep(
   input: FlowJsonObject,
+  step: FlowRunCopilotReviewStep,
   signal: AbortSignal,
   deps: {
     runCopilotReview: (
       options: CopilotReviewLauncherOptions,
     ) => Promise<CopilotReviewLauncherResult>;
+    loadReviewPolicy?: (instructionsMarkdownFile: string) => Promise<string>;
   } = { runCopilotReview },
 ): Promise<CopilotReviewLauncherResult> {
-  const options = await prepareCopilotReviewLaunch(input);
+  const options = await prepareCopilotReviewLaunch(input, step, {
+    loadReviewPolicy: deps.loadReviewPolicy,
+  });
   return deps.runCopilotReview({ ...options, signal });
 }

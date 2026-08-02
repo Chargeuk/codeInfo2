@@ -10,11 +10,20 @@ import type {
 } from '../../copilot/reviewLauncher.js';
 import {
   executeCopilotReviewStep,
+  loadHarnessCopilotReviewPolicy,
   prepareCopilotReviewLaunch,
 } from '../../flows/copilotReviewStep.js';
+import type { FlowRunCopilotReviewStep } from '../../flows/flowSchema.js';
 import type { FlowJsonObject } from '../../flows/types.js';
 
 const temporaryRoots: string[] = [];
+const reviewStep: FlowRunCopilotReviewStep = {
+  type: 'runCopilotReview',
+  label: 'Run Copilot Workspace Review',
+  instructionsMarkdownFile: 'copilot_review_instructions.md',
+};
+const loadReviewPolicy = async () =>
+  '# Review policy\n\nDo not modify source files. Exclude `planning/**`.';
 
 afterEach(async () => {
   await Promise.all(
@@ -128,7 +137,9 @@ const createFixture = async (params?: {
 test('native Copilot step derives every launcher input from the persisted child payload', async () => {
   const fixture = await createFixture();
 
-  const options = await prepareCopilotReviewLaunch(fixture.input);
+  const options = await prepareCopilotReviewLaunch(fixture.input, reviewStep, {
+    loadReviewPolicy,
+  });
 
   assert.deepEqual(options, {
     repositoryPath: fixture.repository,
@@ -148,6 +159,8 @@ test('native Copilot step derives every launcher input from the persisted child 
     'utf8',
   );
   assert.match(instructions, /immutable scheduler-owned review input/u);
+  assert.match(instructions, /Harness-owned review policy/u);
+  assert.match(instructions, /Do not modify source files/u);
   assert.match(
     instructions,
     new RegExp(`${'a'.repeat(40)}\\.\\.\\.${'b'.repeat(40)}`, 'u'),
@@ -167,7 +180,7 @@ test('native Copilot step rejects a caller-selected workspace directory mismatch
   reviewJob.work_dir = fixture.outputDir;
 
   await assert.rejects(
-    prepareCopilotReviewLaunch(input),
+    prepareCopilotReviewLaunch(input, reviewStep, { loadReviewPolicy }),
     /review_job\.work_dir does not match the assigned review workspace/u,
   );
 });
@@ -181,7 +194,7 @@ test('native Copilot step rejects target data that differs from the immutable wa
   };
 
   await assert.rejects(
-    prepareCopilotReviewLaunch(input),
+    prepareCopilotReviewLaunch(input, reviewStep, { loadReviewPolicy }),
     /target does not match the immutable review-wave target/u,
   );
 });
@@ -196,12 +209,18 @@ test('native Copilot step awaits one launcher call and passes the cancellation s
   });
   let settled = false;
 
-  const execution = executeCopilotReviewStep(fixture.input, controller.signal, {
-    runCopilotReview: async (options) => {
-      captured = options;
-      return terminal;
+  const execution = executeCopilotReviewStep(
+    fixture.input,
+    reviewStep,
+    controller.signal,
+    {
+      loadReviewPolicy,
+      runCopilotReview: async (options) => {
+        captured = options;
+        return terminal;
+      },
     },
-  }).then((result) => {
+  ).then((result) => {
     settled = true;
     return result;
   });
@@ -230,9 +249,62 @@ test('unavailable native model remains a service-owned terminal launch request',
     available: false,
   });
 
-  const options = await prepareCopilotReviewLaunch(fixture.input);
+  const options = await prepareCopilotReviewLaunch(fixture.input, reviewStep, {
+    loadReviewPolicy,
+  });
 
   assert.equal(options.modelId, 'kimi-k2.7-code');
   assert.equal(options.endpointLabel, undefined);
   assert.equal(options.endpointId, undefined);
+});
+
+test('Copilot policy resolution is limited to non-empty Markdown inside the harness root', async () => {
+  const harnessRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'copilot-review-policy-root-'),
+  );
+  temporaryRoots.push(harnessRoot);
+  const markdownRoot = path.join(harnessRoot, 'codeinfo_markdown');
+  await fs.mkdir(markdownRoot, { recursive: true });
+  await fs.writeFile(
+    path.join(markdownRoot, 'policy.md'),
+    '# Harness policy\n',
+    'utf8',
+  );
+
+  assert.equal(
+    await loadHarnessCopilotReviewPolicy('policy.md', {
+      getCodeInfoRoot: () => harnessRoot,
+    }),
+    '# Harness policy',
+  );
+  await assert.rejects(
+    loadHarnessCopilotReviewPolicy('../outside.md', {
+      getCodeInfoRoot: () => harnessRoot,
+    }),
+    /relative Markdown path inside the harness/u,
+  );
+  await assert.rejects(
+    loadHarnessCopilotReviewPolicy('missing.md', {
+      getCodeInfoRoot: () => harnessRoot,
+    }),
+    /missing\.md are unavailable/u,
+  );
+});
+
+test('missing Copilot policy becomes a secret-free preflight unavailable request', async () => {
+  const fixture = await createFixture();
+  const options = await prepareCopilotReviewLaunch(fixture.input, reviewStep, {
+    loadReviewPolicy: async () => {
+      throw new Error('provider-key-should-not-leak');
+    },
+  });
+
+  assert.equal(
+    options.preflightUnavailableReason,
+    'Copilot review instructions could not be prepared safely.',
+  );
+  assert.equal(
+    JSON.stringify(options).includes('provider-key-should-not-leak'),
+    false,
+  );
 });

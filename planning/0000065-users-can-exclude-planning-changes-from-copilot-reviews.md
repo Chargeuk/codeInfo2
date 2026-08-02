@@ -1610,3 +1610,59 @@ None. The story excludes manual Compose startup, provider authentication, live C
 - Ran the final `npm run format:check` successfully last; all tracked files matched Prettier formatting.
 - Audited the implementation and automated proof against the locked story scope; all checklist evidence is complete, no live blocker remains, and no story-caused behavior drift was identified. Normalized this dedicated final task to `__done__` for the completed automated closeout.
 - Manual testing assessed as not applicable for this final-task pass: Task 16's exit criteria are fully automated, and both Story Manual Testing Guidance and this task's Manual Testing Guidance explicitly exclude manual Compose, browser, screenshot, provider-auth, live-Copilot, and remote-GitHub proof. Full-story manual testing therefore remained not applicable; no runtime was started and no artifacts were required.
+
+### Task 18. Make Copilot review policy Markdown-editable
+
+- Repository Name: `codeInfo2`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Task Dependencies: `Task 17`
+- Task Status: `__done__`
+
+#### Overview
+
+Keep the reliable native, service-owned Copilot process lifecycle while moving human-editable review guidance into a checked-in harness-owned Markdown file. The native step must combine that policy with immutable repository, commit, model, target, and story data inside each isolated job workspace. A missing or unsafe policy reference must create an honest unavailable child result without contacting Copilot or stopping sibling reviews.
+
+#### Task Exit Criteria
+
+- `copilot_review` explicitly references one harness-owned Markdown policy and does not introduce an LLM wrapper.
+- The native step safely resolves the policy, generates pinned job instructions, and retains direct launch, cancellation, isolation, and artifact ownership.
+- Focused sequential tests and required server/Compose builds pass; manual provider testing and parallel-test remediation remain out of scope.
+
+#### Subtasks
+
+1. [x] Add the checked-in Copilot review policy and reference it from the strict native flow schema.
+2. [x] Combine the policy with immutable job data while restricting resolution to the harness-owned `codeinfo_markdown` root.
+3. [x] Preserve an isolated, normalized unavailable result when the policy reference is missing or unsafe, without launching Copilot.
+4. [x] Extend flow, native-step, integration, launcher, and prompt-contract coverage for the new policy seam.
+5. [x] Document the completed implementation and proof in this task.
+
+#### Testing
+
+1. [x] Run the targeted native Copilot step and flow-schema server unit tests sequentially with test concurrency one.
+2. [x] Run the targeted Copilot launcher unit test sequentially with test concurrency one.
+3. [x] Run the targeted native Copilot flow integration test sequentially with test concurrency one.
+4. [x] Run the targeted Python review prompt-contract tests.
+5. [x] Run `npm run build:summary:server`.
+6. [x] Run `npm run compose:build:summary`.
+7. [x] Run `git diff --check` and focused formatting checks.
+
+#### Manual Testing Guidance
+
+None. This task does not require live provider spending, Copilot authentication, Compose startup, browser proof, screenshots, or remote GitHub interaction.
+
+#### Implementation Notes
+
+- Task added before implementation so the Markdown-policy split and its sequential proof are recorded continuously. Existing uncommitted review-batch findings and the unrelated `work/blind-spots/review-result.md` change were preserved.
+- Fixing or enabling parallel test execution is explicitly out of scope because Story 0000065 requires sequential test-runner execution; this task will not use parallel or `*:local:*` commands.
+- Added `codeinfo_markdown/copilot_review_instructions.md` and made the strict `runCopilotReview` flow step name it explicitly; the flow remains native and has no wrapper-agent step.
+- Added harness-root-only, realpath-contained Markdown resolution and combined the resulting policy with the immutable per-job target, range, model, review-target, and story context.
+- Added a launcher preflight-unavailable seam so missing, empty, unreadable, or escaping policy references produce the existing normalized unavailable artifacts without contacting Copilot; hard-coded launcher safety controls remain in place independently of editable prose.
+- Extended schema, native-step, launcher, service integration, and Python prompt-contract fixtures to prove the explicit policy reference, harness-only containment, generated content, secret-free unavailable fallback, and no-launch behavior.
+- Targeted native-step tests passed 7/7 and flow-schema tests passed 88/88 with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`. The first native-step invocation exposed the wrapper's auto-concurrency default of eight, so it was rerun successfully with the required explicit one-worker override and only that compliant result is used as task proof.
+- Targeted Copilot launcher tests passed 18/18 with test concurrency one, including the new proof that a policy preflight limitation writes unavailable artifacts and never starts the CLI.
+- The targeted native Copilot flow integration test passed 1/1 with test concurrency one, proving service dispatch still launches once, waits for terminal completion, and forwards the flow's Markdown policy reference through the native step.
+- The targeted Python review workspace contract passed 1/1, confirming the flow-to-policy reference, editable policy safeguards, native service ownership, direct cancellation-aware launch, and planning exclusion contract.
+- `npm run build:summary:server` passed with zero warnings; the summary wrapper requested `skip_log`, so its full log was not opened.
+- `npm run compose:build:summary` passed both image items and confirmed the runtime assets were baked into the server image; the wrapper requested `skip_log`, so its full log was not opened.
+- Focused Prettier checks passed for all supported changed TypeScript, JSON, Markdown, and test files, and `git diff --check` passed. Python formatting was not claimed because this repository's Prettier setup has no Python parser; its edited contract was exercised by the passing targeted Python test.
+- Completed Task 18 with the native flow architecture intact: `review_batch` still schedules `copilot_review` children in the existing wave, `copilot_review` names the editable policy, and the server directly prepares, launches, waits for, and normalizes each child.

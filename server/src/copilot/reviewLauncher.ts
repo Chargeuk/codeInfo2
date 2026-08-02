@@ -43,6 +43,7 @@ export type CopilotReviewLauncherOptions = {
   reasoningEffort: CopilotReviewReasoningEffort;
   endpointLabel?: string;
   endpointId?: string;
+  preflightUnavailableReason?: string;
   env?: NodeJS.ProcessEnv;
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -981,6 +982,11 @@ export async function runCopilotReview(
   let setupUnavailable = false;
   const secretValues: string[] = [];
   try {
+    if (options.preflightUnavailableReason) {
+      throw new CopilotReviewUnavailableError(
+        options.preflightUnavailableReason,
+      );
+    }
     if (!availability.available) {
       throw new CopilotReviewUnavailableError(
         availability.unavailableReason ??

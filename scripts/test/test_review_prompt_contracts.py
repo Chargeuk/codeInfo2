@@ -403,12 +403,20 @@ class ReviewPromptContractTests(unittest.TestCase):
                 {
                     "type": "runCopilotReview",
                     "label": "Run Copilot Workspace Review",
+                    "instructionsMarkdownFile": "copilot_review_instructions.md",
                 }
             ],
+        )
+        copilot_policy = read_text(
+            "codeinfo_markdown/copilot_review_instructions.md"
         )
         copilot_step = read_text("server/src/flows/copilotReviewStep.ts")
         copilot_launcher = read_text("server/src/copilot/reviewLauncher.ts")
         self.assertIn("immutable scheduler-owned review input", copilot_step)
+        self.assertIn("Harness-owned review policy", copilot_step)
+        self.assertIn("Do not modify source files", copilot_policy)
+        self.assertIn("planning/**", copilot_policy)
+        self.assertIn("harness codeinfo_markdown directory", copilot_step)
         self.assertIn("workPath, 'copilot-review-instructions.md'", copilot_launcher)
         self.assertIn("runCopilotReview({ ...options, signal })", copilot_step)
         self.assertIn("--no-remote-export", copilot_launcher)

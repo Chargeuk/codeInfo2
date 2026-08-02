@@ -3,7 +3,8 @@
   "steps": [
     {
       "type": "runCopilotReview",
-      "label": "Run Copilot Workspace Review"
+      "label": "Run Copilot Workspace Review",
+      "instructionsMarkdownFile": "copilot_review_instructions.md"
     }
   ]
 }

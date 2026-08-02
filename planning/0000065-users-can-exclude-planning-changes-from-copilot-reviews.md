@@ -2003,3 +2003,62 @@ None. This task changes bounded internal preparation and artifact behavior and r
 - `npm run compose:build:summary` passed both image items and confirmed the updated server and runtime assets were baked; the wrapper requested `skip_log`, so its full log was not opened.
 - Focused ESLint passed with zero warnings, supported TypeScript/Markdown Prettier checks passed, and `git diff --check` passed. Python formatting is not claimed because the repository Prettier configuration has no Python parser; the edited Python contract passed its targeted unittest.
 - Re-ran the affected model and cancellation proofs after the final abort guard and re-ran both required build wrappers after the final production change; all remained green. Task 20 is complete with rejected environment-policy changes untouched and no manual or parallel testing performed.
+
+### Task 21. Harden Copilot normalization, cancellation cleanup, and review diagnostics
+
+- Repository Name: `codeInfo2`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Task Dependencies: `Task 20`
+- Task Status: `__done__`
+
+#### Overview
+
+Address the five validated follow-up findings on pull request 251 without widening the Copilot review trust boundary or changing review-wave scheduling. Keep secret-bearing output safe while deriving normalization from structurally intact JSONL, make cancellation cleanup idempotent, bound supported timeout values, improve missing-context diagnostics, and ensure cancellation tests fail promptly when their signal handoff regresses.
+
+#### Task Exit Criteria
+
+- Copilot JSONL is normalized before persistence redaction can alter event structure, while no credential is written to raw or normalized artifacts.
+- Native readiness cancellation stops its runtime at most once and preserves the existing abort outcome.
+- Review timeouts never exceed Node's supported timer delay and missing pinned context identifies the affected safe file name.
+- Cancellation tests use bounded waits, and the existing global `FLOWS_DIR` restoration plus repeated historical review headings remain unchanged because the new review comments do not establish defects requiring code changes.
+- Focused sequential tests and required server and Compose builds pass.
+
+#### Subtasks
+
+1. [x] Normalize structurally intact Copilot JSONL before redacting all persisted raw and derived values.
+2. [x] Make native readiness runtime cleanup idempotent across abort and final cleanup.
+3. [x] Clamp review timeouts to Node's supported delay and add focused proof.
+4. [x] Identify missing pinned context artifacts without exposing workspace paths.
+5. [x] Replace unbounded cancellation-test polling with a shared bounded helper.
+6. [x] Record the rejected `FLOWS_DIR` and duplicate-heading findings, validate sequentially, and prepare the scoped fix for publication.
+
+#### Testing
+
+1. [x] Run targeted Copilot launcher tests with server test concurrency one.
+2. [x] Run targeted Copilot model and group preparation tests with server test concurrency one.
+3. [x] Run targeted Copilot step and flow cancellation tests with server test concurrency one.
+4. [x] Run the targeted Python review prompt-contract test.
+5. [x] Run `npm run build:summary:server`.
+6. [x] Run `npm run compose:build:summary`.
+7. [x] Run focused formatting, lint if affected, and `git diff --check`.
+
+#### Manual Testing Guidance
+
+None. This follow-up changes bounded normalization, cleanup, diagnostics, and automated-test behavior; live provider spending, provider login, browser proof, screenshots, and manual Compose testing remain out of scope.
+
+#### Implementation Notes
+
+- Added Task 21 before implementation and limited it to the five validated follow-up findings. The existing global test hooks already restore `FLOWS_DIR`, while repeated historical review headings are not a configured repository lint gate, so those two comments remain intentionally unchanged.
+- Parsed Copilot JSONL before output redaction, retained the parsed events only in memory, and redacted both normalized review text and usage file paths before persistence. A focused external-provider fixture uses `data` as the selected credential to prove that redacting a structural JSON key no longer loses an otherwise successful review.
+- Memoized native readiness shutdown so abort callbacks and final cleanup share one stop promise. Cancellation still interrupts discovery promptly, but the Copilot runtime is stopped at most once and final cleanup awaits the same operation.
+- Clamped explicit and environment-derived review timeouts to Node's maximum supported timer delay and added direct boundary coverage.
+- Added safe, deterministic reads for `review-target.md` and `story-context.md`; unavailable coverage now identifies the missing file name without exposing its absolute workspace path.
+- Added one shared bounded condition helper for the model and group cancellation tests, replacing the two unbounded signal-polling loops with descriptive one-second failures.
+- Targeted Copilot launcher tests passed 20/20 with server test concurrency one, including structural-credential redaction, normalized review and usage recovery, timeout clamping, exactly-once launch, local-only flags, and artifact secrecy. The wrapper requested `skip_log`, so its full log was not opened.
+- Targeted Copilot model and group preparation tests passed 23/23 with server test concurrency one. The bounded signal waits retain the original cancellation assertions, and the production model resolver continues to preserve valid availability and fan-out behavior; the wrapper requested `skip_log`, so its full log was not opened.
+- Targeted Copilot step tests passed 8/8 and the flow preparation-cancellation integration test passed 1/1 with server test concurrency one. The proof covers both named missing-context diagnostics and prompt cancellation before child admission; both wrappers requested `skip_log`, so their full logs were not opened.
+- The targeted Python review prompt-contract test passed 1/1, confirming the checked-in Copilot flow still uses the editable Markdown policy, direct service-owned launcher, local-only flags, full-access container boundary, and planning exclusion contract.
+- `npm run build:summary:server` passed with zero warnings; the wrapper requested `skip_log`, so its full log was not opened.
+- `npm run compose:build:summary` passed both image items and confirmed the updated server and workflow assets were baked; the wrapper requested `skip_log`, so its full log was not opened.
+- Focused ESLint passed with zero warnings, Prettier confirmed every affected TypeScript and Markdown file, and `git diff --check` passed. The launcher suite was re-run after strengthening the structural-credential fixture to prove the derived normalized review is redacted as well as the persisted raw stream; it remained green at 20/20.
+- Task 21 is complete with the false `FLOWS_DIR` finding and non-gating historical heading observation intentionally unchanged. No manual or parallel testing was performed, and the scoped changes are ready for commit and push.

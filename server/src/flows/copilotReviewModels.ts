@@ -340,8 +340,13 @@ const defaultDiscoverNative = async (
 ): Promise<NativeDiscovery> => {
   throwIfAborted(signal);
   const runtime: CopilotReadinessRuntime = new CopilotLifecycle({ env });
-  const stopRuntime = (): void => {
-    void runtime.stop().catch(() => []);
+  let stopPromise: Promise<void> | undefined;
+  const stopRuntime = (): Promise<void> => {
+    stopPromise ??= runtime
+      .stop()
+      .then(() => undefined)
+      .catch(() => undefined);
+    return stopPromise;
   };
   let started = false;
   try {
@@ -385,7 +390,7 @@ const defaultDiscoverNative = async (
       return { status: 'discovery_failed', models: [] };
     }
   } finally {
-    if (started) await runtime.stop().catch(() => []);
+    if (started || stopPromise) await stopRuntime();
   }
 };
 

@@ -101,6 +101,7 @@ const defaultDeps: CopilotReviewLauncherDeps = {
 
 const DEFAULT_COPILOT_REVIEW_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const COPILOT_TERMINATION_GRACE_MS = 5_000;
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 export class CopilotReviewUnavailableError extends Error {
   constructor(message: string) {
@@ -653,8 +654,8 @@ const runProcess = async (params: {
     timers.timeout.unref?.();
   });
 
-const resolveReviewTimeoutMs = (
-  options: CopilotReviewLauncherOptions,
+export const resolveCopilotReviewTimeoutMs = (
+  options: Pick<CopilotReviewLauncherOptions, 'timeoutMs'>,
   sourceEnv: NodeJS.ProcessEnv,
 ): number => {
   if (
@@ -662,13 +663,13 @@ const resolveReviewTimeoutMs = (
     Number.isFinite(options.timeoutMs) &&
     options.timeoutMs > 0
   ) {
-    return options.timeoutMs;
+    return Math.min(options.timeoutMs, MAX_TIMER_DELAY_MS);
   }
   const raw = sourceEnv.CODEINFO_COPILOT_REVIEW_TIMEOUT_SEC?.trim();
   if (!raw) return DEFAULT_COPILOT_REVIEW_TIMEOUT_MS;
   const seconds = Number(raw);
   return Number.isFinite(seconds) && seconds > 0
-    ? seconds * 1000
+    ? Math.min(seconds * 1000, MAX_TIMER_DELAY_MS)
     : DEFAULT_COPILOT_REVIEW_TIMEOUT_MS;
 };
 
@@ -815,10 +816,25 @@ const writeArtifacts = async (params: {
   startedAt: string;
   completedAt: string;
   failureReason?: string;
+  events: readonly unknown[];
+  secretValues: readonly string[];
 }) => {
-  const events = parseJsonLines(params.stdout);
-  const review = collectReviewText(events);
-  const usage = extractUsage(events);
+  const review = redactSecrets(
+    collectReviewText(params.events),
+    params.secretValues,
+  );
+  const extractedUsage = extractUsage(params.events);
+  const usage: NormalizedUsage = {
+    ...extractedUsage,
+    code_changes: extractedUsage.code_changes
+      ? {
+          ...extractedUsage.code_changes,
+          files_modified: extractedUsage.code_changes.files_modified.map(
+            (filePath) => redactSecrets(filePath, params.secretValues),
+          ),
+        }
+      : null,
+  };
   const artifactPaths = [
     params.options.outputPaths.stdoutPath,
     params.options.outputPaths.stderrPath,
@@ -1041,7 +1057,7 @@ export async function runCopilotReview(
       env: childEnv,
       deps,
       signal: options.signal,
-      timeoutMs: resolveReviewTimeoutMs(options, sourceEnv),
+      timeoutMs: resolveCopilotReviewTimeoutMs(options, sourceEnv),
     });
   } catch (error) {
     setupUnavailable = error instanceof CopilotReviewUnavailableError;
@@ -1049,6 +1065,8 @@ export async function runCopilotReview(
       error instanceof Error ? error.message : 'Copilot review setup failed.';
     processResult.stderr = `${failureReason}\n`;
   }
+  const events = parseJsonLines(processResult.stdout);
+  const review = collectReviewText(events);
   processResult.stdout = redactSecrets(processResult.stdout, secretValues);
   processResult.stderr = redactSecrets(processResult.stderr, secretValues);
   if (!failureReason && processResult.exitStatus !== 0) {
@@ -1061,8 +1079,6 @@ export async function runCopilotReview(
   if (failureReason) {
     failureReason = redactSecrets(failureReason, secretValues);
   }
-  const events = parseJsonLines(processResult.stdout);
-  const review = collectReviewText(events);
   const status: CopilotReviewLauncherResult['status'] =
     !processResult.launched && processResult.terminationReason === 'aborted'
       ? 'cancelled'
@@ -1090,6 +1106,8 @@ export async function runCopilotReview(
     startedAt,
     completedAt,
     failureReason,
+    events,
+    secretValues,
   });
   return {
     launched: processResult.launched,

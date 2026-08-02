@@ -199,6 +199,19 @@ export class CopilotReviewPolicyUnavailableError extends Error {
   }
 }
 
+const readPinnedReviewContext = async (
+  inputDirectory: string,
+  fileName: 'review-target.md' | 'story-context.md',
+): Promise<string> => {
+  try {
+    return await fs.readFile(path.join(inputDirectory, fileName), 'utf8');
+  } catch {
+    throw new CopilotReviewPolicyUnavailableError(
+      `Copilot review context ${fileName} is unavailable.`,
+    );
+  }
+};
+
 const isPathInside = (candidate: string, root: string) =>
   candidate === root || candidate.startsWith(`${root}${path.sep}`);
 
@@ -410,22 +423,15 @@ export async function prepareCopilotReviewLaunch(
     ...(spec.endpointId ? { endpointId: spec.endpointId } : {}),
   };
   try {
-    const [targetBrief, storyContext] = await Promise.all([
-      fs.readFile(
-        path.join(
-          path.dirname(workspacePaths.availabilitySpecPath),
-          'review-target.md',
-        ),
-        'utf8',
-      ),
-      fs.readFile(
-        path.join(
-          path.dirname(workspacePaths.availabilitySpecPath),
-          'story-context.md',
-        ),
-        'utf8',
-      ),
-    ]);
+    const inputDirectory = path.dirname(workspacePaths.availabilitySpecPath);
+    const targetBrief = await readPinnedReviewContext(
+      inputDirectory,
+      'review-target.md',
+    );
+    const storyContext = await readPinnedReviewContext(
+      inputDirectory,
+      'story-context.md',
+    );
     const reviewPolicy = await (
       deps.loadReviewPolicy ?? loadHarnessCopilotReviewPolicy
     )(step.markdownFile);

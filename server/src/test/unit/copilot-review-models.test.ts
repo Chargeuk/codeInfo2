@@ -7,6 +7,7 @@ import {
   resolveCopilotReviewModels,
   type CopilotReviewAvailabilityDeps,
 } from '../../flows/copilotReviewModels.js';
+import { waitForCondition } from '../support/waitForCondition.js';
 
 describe('Copilot review model configuration', () => {
   test('missing and blank values disable Copilot reviews', () => {
@@ -309,9 +310,10 @@ describe('Copilot review model availability', () => {
       },
     });
 
-    while (!receivedSignal) {
-      await new Promise((resolve) => setTimeout(resolve, 1));
-    }
+    await waitForCondition(
+      () => receivedSignal !== undefined,
+      'Copilot model resolution did not receive its cancellation signal.',
+    );
     controller.abort();
     await assert.rejects(resolution, { name: 'AbortError' });
     assert.equal(receivedSignal, controller.signal);

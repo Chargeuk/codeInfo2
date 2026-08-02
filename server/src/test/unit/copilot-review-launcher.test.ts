@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   COPILOT_REVIEW_EXCLUDED_PATHS,
+  resolveCopilotReviewTimeoutMs,
   resolveCopilotReviewWorkspacePaths,
   runCopilotReview,
   type CopilotReviewLauncherOptions,
@@ -421,6 +422,41 @@ test('external launcher exposes only the selected endpoint and key to the child'
   assert.equal(normalized.endpoint_id, 'https://selected.test/v1');
 });
 
+test('external launcher normalizes intact JSONL before redacting a structural credential value', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot, {
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
+      'Unsloth,https://selected.test/v1|completions',
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: 'Unsloth,data',
+    FAKE_COPILOT_STDOUT:
+      '{"type":"assistant.message","data":{"content":"Review data result"}}\\n{"type":"turn.completed","usage":{"input_tokens":11}}\\n',
+  });
+
+  const result = await runCopilotReview(
+    launcherOptions(fixture, env, {
+      endpointLabel: 'unsloth',
+      endpointId: 'https://selected.test/v1',
+      modelId: 'google-gemini-3.6-flash',
+      reasoningEffort: 'minimal',
+    }),
+    {
+      discoverExternalModels: async () => ['google-gemini-3.6-flash'],
+    },
+  );
+
+  assert.equal(result.status, 'successful');
+  const normalized = JSON.parse(
+    await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
+  ) as { review?: string; usage?: { input_tokens?: number } };
+  assert.equal(normalized.review, 'Review [REDACTED] result');
+  assert.equal(normalized.usage?.input_tokens, 11);
+  const rawJsonl = await fs.readFile(fixture.outputPaths.stdoutPath, 'utf8');
+  assert.doesNotMatch(rawJsonl, /"data"/u);
+  assert.match(rawJsonl, /"\[REDACTED\]"/u);
+});
+
 test('non-zero Copilot exit preserves unknown JSONL, stderr, and a partial normalized result', async (t) => {
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
@@ -755,6 +791,20 @@ test('timeout terminates one launched Copilot process and preserves partial outp
   assert.equal(
     (await fs.readFile(String(env.FAKE_COPILOT_COUNT_FILE), 'utf8')).trim(),
     'launch',
+  );
+});
+
+test('review timeout resolution clamps option and environment values to the supported timer delay', () => {
+  assert.equal(
+    resolveCopilotReviewTimeoutMs({ timeoutMs: 2_147_483_648 }, {}),
+    2_147_483_647,
+  );
+  assert.equal(
+    resolveCopilotReviewTimeoutMs(
+      {},
+      { CODEINFO_COPILOT_REVIEW_TIMEOUT_SEC: '2147483.648' },
+    ),
+    2_147_483_647,
   );
 });
 

@@ -243,24 +243,26 @@ test('external Copilot step awaits one launcher call and passes the cancellation
   assert.deepEqual(await execution, expected);
 });
 
-test('external Copilot step converts missing pinned context into preflight unavailability', async () => {
-  const fixture = await createFixture();
-  await fs.rm(
-    path.join(path.dirname(fixture.workDir), 'input', 'review-target.md'),
-  );
+test('external Copilot step identifies a missing pinned context artifact in preflight unavailability', async () => {
+  for (const fileName of ['review-target.md', 'story-context.md'] as const) {
+    const fixture = await createFixture();
+    await fs.rm(path.join(path.dirname(fixture.workDir), 'input', fileName));
 
-  const options = await prepareCopilotReviewLaunch(fixture.input, reviewStep, {
-    loadReviewPolicy,
-  });
+    const options = await prepareCopilotReviewLaunch(
+      fixture.input,
+      reviewStep,
+      { loadReviewPolicy },
+    );
 
-  assert.equal(
-    options.preflightUnavailableReason,
-    'Copilot review instructions could not be prepared safely.',
-  );
-  await assert.rejects(
-    fs.readFile(path.join(fixture.workDir, 'copilot-review-instructions.md')),
-    /ENOENT/u,
-  );
+    assert.equal(
+      options.preflightUnavailableReason,
+      `Copilot review context ${fileName} is unavailable.`,
+    );
+    await assert.rejects(
+      fs.readFile(path.join(fixture.workDir, 'copilot-review-instructions.md')),
+      /ENOENT/u,
+    );
+  }
 });
 
 test('unavailable native model remains a service-owned terminal launch request', async () => {

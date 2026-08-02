@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import { prepareCopilotReviewGroups } from '../../flows/copilotReviewGroups.js';
 import { expandSubflowWaveJobs } from '../../flows/subflowWave.js';
+import { waitForCondition } from '../support/waitForCondition.js';
 
 const existingGroups = [
   {
@@ -261,9 +262,10 @@ test('group preparation forwards cancellation to model discovery', async () => {
     },
   );
 
-  while (!receivedSignal) {
-    await new Promise((resolve) => setTimeout(resolve, 1));
-  }
+  await waitForCondition(
+    () => receivedSignal !== undefined,
+    'Copilot group preparation did not receive its cancellation signal.',
+  );
   controller.abort();
   await assert.rejects(preparation, { name: 'AbortError' });
   assert.equal(receivedSignal, controller.signal);

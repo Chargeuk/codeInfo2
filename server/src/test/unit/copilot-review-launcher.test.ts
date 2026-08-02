@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { PassThrough } from 'node:stream';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -220,6 +222,7 @@ test('native launcher invokes local /review once with pinned full-access non-int
     COPILOT_PROVIDER_API_KEY: secret,
     COPILOT_MODEL: 'wrong',
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: `Wrong,${secret}`,
+    CODEINFO_OPENAI_EMBEDDING_KEY: 'sk-embedding-provider-secret',
   });
 
   const result = await runCopilotReview(launcherOptions(fixture, env));
@@ -285,6 +288,7 @@ test('native launcher invokes local /review once with pinned full-access non-int
     childEnv,
     /CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS/u,
   );
+  assert.doesNotMatch(childEnv, /CODEINFO_OPENAI_EMBEDDING_KEY/u);
   assert.match(
     childEnv,
     new RegExp(`COPILOT_HOME=${path.join(fixture.root, 'copilot-home')}`, 'u'),
@@ -297,6 +301,7 @@ test('native launcher invokes local /review once with pinned full-access non-int
     artifactPaths(fixture).map((file) => fs.readFile(file, 'utf8')),
   );
   assert.doesNotMatch(artifacts.join('\n'), new RegExp(secret, 'u'));
+  assert.doesNotMatch(artifacts.join('\n'), /sk-embedding-provider-secret/u);
   const normalized = JSON.parse(
     await fs.readFile(fixture.outputPaths.normalizedResultPath, 'utf8'),
   ) as {
@@ -879,8 +884,8 @@ test('abort during external setup returns cancelled without spawning Copilot', a
 
   await discoveryStartedSignal;
   controller.abort();
-  releaseDiscovery();
   const result = await execution;
+  releaseDiscovery();
 
   assert.equal(result.launched, false);
   assert.equal(result.exitStatus, 130);
@@ -895,6 +900,51 @@ test('abort during external setup returns cancelled without spawning Copilot', a
     ).status,
     'cancelled',
   );
+});
+
+test('force-kill cancellation waits for the child close event', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot);
+  const child = Object.assign(new EventEmitter(), {
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
+    killCalls: [] as NodeJS.Signals[],
+    kill(signal: NodeJS.Signals) {
+      this.killCalls.push(signal);
+      return true;
+    },
+  });
+  const controller = new AbortController();
+  let childSpawned!: () => void;
+  const childSpawnedSignal = new Promise<void>((resolve) => {
+    childSpawned = resolve;
+  });
+  let settled = false;
+  const execution = runCopilotReview(
+    launcherOptions(fixture, env, { signal: controller.signal }),
+    {
+      spawn: () => {
+        childSpawned();
+        return child as never;
+      },
+    },
+  ).then((result) => {
+    settled = true;
+    return result;
+  });
+
+  await childSpawnedSignal;
+  controller.abort();
+  await new Promise<void>((resolve) => setTimeout(resolve, 5_100));
+
+  assert.deepEqual(child.killCalls, ['SIGTERM', 'SIGKILL']);
+  assert.equal(settled, false);
+  child.emit('close', null);
+  const result = await execution;
+  assert.equal(result.status, 'cancelled');
+  assert.equal(result.exitStatus, 130);
 });
 
 test('CLI derives artifacts from semantic arguments and the assigned workspace', async (t) => {

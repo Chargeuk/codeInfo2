@@ -358,12 +358,46 @@ const withoutProviderEnvironment = (
   delete result.CODEINFO_COPILOT_REVIEW_MODELS;
   delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   delete result.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS;
+  delete result.CODEINFO_OPENAI_EMBEDDING_KEY;
   delete result.CODEINFO_CONTEXT7_API_KEY;
   result.GIT_OPTIONAL_LOCKS = '0';
   result.GIT_TERMINAL_PROMPT = '0';
   result.GIT_PAGER = 'cat';
   result.PAGER = 'cat';
   return result;
+};
+
+class CopilotReviewCancelledError extends Error {
+  constructor() {
+    super('Copilot review was cancelled.');
+    this.name = 'CopilotReviewCancelledError';
+  }
+}
+
+const awaitWithAbort = async <Value>(
+  operation: Promise<Value>,
+  signal?: AbortSignal,
+): Promise<Value> => {
+  if (!signal) return await operation;
+  if (signal.aborted) throw new CopilotReviewCancelledError();
+  return await new Promise<Value>((resolve, reject) => {
+    const finish = () => signal.removeEventListener('abort', onAbort);
+    const onAbort = () => {
+      finish();
+      reject(new CopilotReviewCancelledError());
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    operation.then(
+      (value) => {
+        finish();
+        resolve(value);
+      },
+      (error: unknown) => {
+        finish();
+        reject(error);
+      },
+    );
+  });
 };
 
 const EXTERNAL_COPILOT_BASELINE_ENVIRONMENT_KEYS = [
@@ -422,6 +456,7 @@ const resolveExternalLaunch = async (
   modelId: string,
   source: NodeJS.ProcessEnv,
   deps: CopilotReviewLauncherDeps,
+  signal?: AbortSignal,
 ): Promise<{
   endpoint: OpenAiCompatEndpointConfig;
   apiKey?: string;
@@ -484,8 +519,12 @@ const resolveExternalLaunch = async (
   }
   let modelIds: string[];
   try {
-    modelIds = await deps.discoverExternalModels(endpoint, source);
-  } catch {
+    modelIds = await awaitWithAbort(
+      deps.discoverExternalModels(endpoint, source),
+      signal,
+    );
+  } catch (error) {
+    if (error instanceof CopilotReviewCancelledError) throw error;
     throw new CopilotReviewUnavailableError(
       'The selected external endpoint could not be rediscovered before launch.',
     );
@@ -567,14 +606,6 @@ const runProcess = async (params: {
       timers.forceKill = setTimeout(() => {
         if (settled) return;
         child.kill('SIGKILL');
-        const output = captured();
-        finish({
-          launched: true,
-          exitStatus: reason === 'timeout' ? 124 : 130,
-          stdout: output.stdout,
-          stderr: `${output.stderr}${reason === 'timeout' ? 'Copilot review timed out.' : 'Copilot review was cancelled.'}\n`,
-          terminationReason: reason,
-        });
       }, COPILOT_TERMINATION_GRACE_MS);
       timers.forceKill.unref?.();
     }
@@ -1024,6 +1055,7 @@ export async function runCopilotReview(
         options.modelId,
         sourceEnv,
         deps,
+        options.signal,
       );
       childEnv = buildExternalCopilotReviewEnvironment({
         source: sourceEnv,
@@ -1060,10 +1092,20 @@ export async function runCopilotReview(
       timeoutMs: resolveCopilotReviewTimeoutMs(options, sourceEnv),
     });
   } catch (error) {
-    setupUnavailable = error instanceof CopilotReviewUnavailableError;
-    failureReason =
-      error instanceof Error ? error.message : 'Copilot review setup failed.';
-    processResult.stderr = `${failureReason}\n`;
+    if (error instanceof CopilotReviewCancelledError) {
+      processResult = {
+        launched: false,
+        exitStatus: 130,
+        stdout: '',
+        stderr: 'Copilot review was cancelled.\n',
+        terminationReason: 'aborted',
+      };
+    } else {
+      setupUnavailable = error instanceof CopilotReviewUnavailableError;
+      failureReason =
+        error instanceof Error ? error.message : 'Copilot review setup failed.';
+      processResult.stderr = `${failureReason}\n`;
+    }
   }
   const events = parseJsonLines(processResult.stdout);
   const review = collectReviewText(events);

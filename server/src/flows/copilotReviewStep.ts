@@ -203,14 +203,14 @@ const isPathInside = (candidate: string, root: string) =>
   candidate === root || candidate.startsWith(`${root}${path.sep}`);
 
 export async function loadHarnessCopilotReviewPolicy(
-  instructionsMarkdownFile: string,
+  markdownFile: string,
   deps: {
     getCodeInfoRoot?: () => string;
     realpath?: typeof fs.realpath;
     readFile?: typeof fs.readFile;
   } = {},
 ): Promise<string> {
-  const normalized = instructionsMarkdownFile.trim().replace(/\\/gu, '/');
+  const normalized = markdownFile.trim().replace(/\\/gu, '/');
   if (
     !normalized ||
     path.posix.isAbsolute(normalized) ||
@@ -312,7 +312,7 @@ export async function prepareCopilotReviewLaunch(
   input: FlowJsonObject,
   step: FlowRunCopilotReviewStep,
   deps: {
-    loadReviewPolicy?: (instructionsMarkdownFile: string) => Promise<string>;
+    loadReviewPolicy?: (markdownFile: string) => Promise<string>;
   } = {},
 ): Promise<CopilotReviewLauncherOptions> {
   const reviewJob = parseReviewJob(input.review_job);
@@ -428,7 +428,7 @@ export async function prepareCopilotReviewLaunch(
   try {
     const reviewPolicy = await (
       deps.loadReviewPolicy ?? loadHarnessCopilotReviewPolicy
-    )(step.instructionsMarkdownFile);
+    )(step.markdownFile);
     await atomicWrite(
       workspacePaths.instructionsPath,
       buildInstructions({
@@ -459,7 +459,7 @@ export async function executeCopilotReviewStep(
     runCopilotReview: (
       options: CopilotReviewLauncherOptions,
     ) => Promise<CopilotReviewLauncherResult>;
-    loadReviewPolicy?: (instructionsMarkdownFile: string) => Promise<string>;
+    loadReviewPolicy?: (markdownFile: string) => Promise<string>;
   } = { runCopilotReview },
 ): Promise<CopilotReviewLauncherResult> {
   const options = await prepareCopilotReviewLaunch(input, step, {

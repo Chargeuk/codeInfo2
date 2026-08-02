@@ -103,7 +103,7 @@ export type FlowPrepareCopilotReviewGroupsStep = {
 export type FlowRunCopilotReviewStep = {
   type: 'runCopilotReview';
   label?: string;
-  instructionsMarkdownFile: string;
+  markdownFile: string;
 };
 
 export type FlowSubflowStep = {
@@ -323,7 +323,7 @@ const FlowRunCopilotReviewStepSchema = z
   .object({
     type: z.literal('runCopilotReview'),
     label: trimmedNonEmptyString.optional(),
-    instructionsMarkdownFile: trimmedNonEmptyString,
+    markdownFile: trimmedNonEmptyString,
   })
   .strict();
 

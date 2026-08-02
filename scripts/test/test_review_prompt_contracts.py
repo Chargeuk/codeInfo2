@@ -403,7 +403,7 @@ class ReviewPromptContractTests(unittest.TestCase):
                 {
                     "type": "runCopilotReview",
                     "label": "Run Copilot Workspace Review",
-                    "instructionsMarkdownFile": "copilot_review_instructions.md",
+                    "markdownFile": "copilot_review_instructions.md",
                 }
             ],
         )

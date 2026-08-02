@@ -20,7 +20,7 @@ const temporaryRoots: string[] = [];
 const reviewStep: FlowRunCopilotReviewStep = {
   type: 'runCopilotReview',
   label: 'Run Copilot Workspace Review',
-  instructionsMarkdownFile: 'copilot_review_instructions.md',
+  markdownFile: 'copilot_review_instructions.md',
 };
 const loadReviewPolicy = async () =>
   '# Review policy\n\nDo not modify source files. Exclude `planning/**`.';

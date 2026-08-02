@@ -1814,3 +1814,51 @@ None. This task does not require live provider spending, Copilot authentication,
 - `npm run compose:build:summary` passed both image items and confirmed the runtime assets were baked into the server image; the wrapper requested `skip_log`, so its full log was not opened.
 - Focused Prettier checks passed for all supported changed TypeScript, JSON, Markdown, and test files, and `git diff --check` passed. Python formatting was not claimed because this repository's Prettier setup has no Python parser; its edited contract was exercised by the passing targeted Python test.
 - Completed Task 18 with the native flow architecture intact: `review_batch` still schedules `copilot_review` children in the existing wave, `copilot_review` names the editable policy, and the server directly prepares, launches, waits for, and normalizes each child.
+
+### Task 19. Align the Copilot policy field with the flow Markdown convention
+
+- Repository Name: `codeInfo2`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Task Dependencies: `Task 18`
+- Task Status: `__done__`
+
+#### Overview
+
+Rename the newly introduced native Copilot step field from `instructionsMarkdownFile` to the existing flow convention `markdownFile`. Keep the field required and preserve the harness-owned policy resolution, native launch behavior, and unavailable-result semantics unchanged.
+
+#### Task Exit Criteria
+
+- `copilot_review` and its strict schema use `markdownFile` exclusively.
+- Runtime and test references use the same field name without a compatibility alias.
+- Focused sequential tests and builds prove the rename without changing provider behavior.
+
+#### Subtasks
+
+1. [x] Rename the flow, schema, runtime, and test contract to `markdownFile`.
+2. [x] Confirm the obsolete `instructionsMarkdownFile` name is absent from tracked implementation and test files.
+3. [x] Record the completed change and proof in this task.
+
+#### Testing
+
+1. [x] Run the targeted native Copilot step and flow-schema unit tests with server test concurrency one.
+2. [x] Run the targeted native Copilot flow integration test with server test concurrency one.
+3. [x] Run the targeted Python review prompt-contract test.
+4. [x] Run `npm run build:summary:server`.
+5. [x] Run `npm run compose:build:summary`.
+6. [x] Run focused formatting and `git diff --check`.
+
+#### Manual Testing Guidance
+
+None. This is a schema-field rename with automated coverage and does not require live Copilot/provider execution.
+
+#### Implementation Notes
+
+- Added Task 19 before implementation to record the requested KISS rename and its sequential automated proof.
+- Renamed the required native flow property, strict schema, service-owned policy loader call, and all focused fixtures to the established lowercase `markdownFile` convention without adding an alias.
+- Confirmed with a bounded repository search that `instructionsMarkdownFile` is absent from tracked flow, server, prompt-contract, and Markdown sources; runtime behavior otherwise remains unchanged.
+- Targeted native Copilot step tests passed 7/7 and strict flow-schema tests passed 88/88 with `CODEINFO_SERVER_UNIT_CONCURRENCY=1`.
+- The targeted native Copilot flow integration test passed 1/1 with test concurrency one, confirming service dispatch reads `markdownFile` and still waits for one native launcher completion.
+- The targeted Python review workspace contract passed 1/1 and now asserts the conventional `markdownFile` property in `copilot_review.json`.
+- `npm run build:summary:server` passed with zero warnings; the wrapper requested `skip_log`, so the full log was not opened.
+- `npm run compose:build:summary` passed both image items and confirmed runtime assets were baked; the wrapper requested `skip_log`, so the full log was not opened.
+- Focused Prettier checks and `git diff --check` passed, and the final obsolete-name scan remained empty. Task 19 is complete with no runtime or compatibility alias added.

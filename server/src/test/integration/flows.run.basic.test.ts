@@ -116,7 +116,7 @@ test('native Copilot flow step uses persisted inputs and waits for launcher comp
       {
         type: 'runCopilotReview',
         label: 'Run native Copilot review',
-        instructionsMarkdownFile: 'copilot_review_instructions.md',
+        markdownFile: 'copilot_review_instructions.md',
       },
     ],
   });

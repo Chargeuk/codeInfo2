@@ -1611,6 +1611,154 @@ None. The story excludes manual Compose startup, provider authentication, live C
 - Audited the implementation and automated proof against the locked story scope; all checklist evidence is complete, no live blocker remains, and no story-caused behavior drift was identified. Normalized this dedicated final task to `__done__` for the completed automated closeout.
 - Manual testing assessed as not applicable for this final-task pass: Task 16's exit criteria are fully automated, and both Story Manual Testing Guidance and this task's Manual Testing Guidance explicitly exclude manual Compose, browser, screenshot, provider-auth, live-Copilot, and remote-GitHub proof. Full-story manual testing therefore remained not applicable; no runtime was started and no artifacts were required.
 
+## Code Review Findings
+
+- Findings recorded: `August 1, 2026 at 12:32:08 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000065-rw-20260731T224612Z-5d39aa09`
+- Review cycle: `0000065-rc-20260731T224611Z-68c360ab`
+- Reviewed HEAD: `9ba22b8388237b4fb8451117f87c76be60e91ea6`
+- Reviews attempted:
+  - `open_code_review [current_repository]` (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed with verified no supported finding but partial coverage of 14 of 31 changed files.
+    - Input tokens: `3,308,429`; cached input tokens: `3,167,744`; output tokens: `17,856`.
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed with F-001; native terminal completion was retained but the wrapper numeric exit status was unavailable.
+    - Input tokens: `0`; cached input tokens: `0`; output tokens: `0`.
+  - `cross_repository_review` (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed deliberate no-work because only `current_repository` was assigned.
+    - Input tokens: `195,834`; cached input tokens: `149,504`; output tokens: `2,579`.
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`, target `current_repository`) — partial recovered coverage with no independent provider finding; its normalized output was semantically contaminated despite native exit status `0`.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `2,320`.
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`, target `current_repository`) — partial recovered coverage with no independent provider finding; its normalized output included prompt and non-review events despite native exit status `0`.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `3,786`.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — partial recovered coverage with no independent provider finding; its normalized output included unrelated tool/reasoning content despite native exit status `0`.
+    - Input tokens: `Not reported`; cached input tokens: `Not reported`; output tokens: `823`.
+
+Known usage totals keep categories separate: input `At least 3,504,263 reported; incomplete`; cached input `At least 3,317,248 reported; incomplete`; output `27,364 reported`. Cached input is not added to input, and usage did not affect disposition.
+
+### Accepted
+
+#### 1. Restrict review text to recognized assistant events
+
+- Finding ID: `F-001` (P2; `codex_review` source at `server/src/copilot/reviewLauncher.ts:686`)
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the finding.
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — corroborated the contamination.
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) — corroborated the contamination.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated the contamination.
+- Simple description: `collectReviewText` accepts generic string fields from every JSONL event, so prompt, tool, reasoning, error, or unknown-event text can become review content. A zero-exit process can then be normalized as a successful review without recognized assistant review text.
+- Example: A stream contains a `user.message` or tool event with a non-empty `message`, `content`, `result`, or `output` field and exits `0`; the current collector includes that text and the status path marks the result `successful`, allowing downstream reconciliation to consume non-review text as findings.
+- Why accepted: The current Acceptance Criteria require unknown JSONL event tolerance, raw-output preservation, and honest partial normalization. Current HEAD confirms the collector at `server/src/copilot/reviewLauncher.ts:682-708`, the existing `partial` status at `:57-66` and `:1067-1086`, and the existing raw/normalized artifact seam at `:815-938`; immutable Codex evidence and all three Copilot verifier recoveries demonstrate the scenario. The practical impact is a false successful review, invented downstream findings, or concealed missing coverage. The smallest authorized remedy is event-aware assistant-result extraction, raw retention for other events, and existing `partial` when no recognized review text exists. It does not change Codex/OpenCode or introduce an Out Of Scope policy. F-001 is neither duplicate nor already resolved and is apparently suitable for a normal repair attempt; this is routing guidance, not a final task decision.
+
+### Ignored for This Story
+
+#### 2. Unsupported `unknown` normalized-status mechanism
+
+- Finding ID or Review reference: `F-001 remedy narrowing in the combined filtering audit`
+- Review harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated the underlying remedy proposal.
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — corroborated the underlying behavior, not a separate status contract.
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) — corroborated the underlying behavior, not a separate status contract.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated the underlying behavior, not a separate status contract.
+- Simple description: An earlier derived remedy said the no-recognized-review result could be `partial/unknown`, but current `CopilotReviewLauncherResult['status']` exposes `partial` and no `unknown` member.
+- Example: Implementing `unknown` would expand the normalized result contract even though current code already represents incomplete launched output with `partial`.
+- Why ignored: The combined audit narrowed away only this unsupported mechanism. The story does not authorize inventing a new status value; F-001 and its existing-`partial` remedy remain accepted. This narrowed meaning is non-actionable and must not be restored or routed to repair.
+
+#### 3. Copilot provider outputs as independent findings
+
+- Finding ID or Review reference: `Non-independent Copilot contamination observations in batch 0000065-rw-20260731T224612Z-5d39aa09`
+- Review harnesses:
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) — supplied partial verifier recovery.
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) — supplied partial verifier recovery.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — supplied partial verifier recovery.
+- Simple description: The three Copilot normalized outputs contain submitted prompt, tool, or reasoning traffic while reporting exit status `0`, so they are not trustworthy independent semantic review conclusions.
+- Example: A normalized artifact begins with submitted prompt text and includes non-review events; verifier recovery preserves raw JSONL and identifies the same collector defect but cannot establish a separate provider finding.
+- Why ignored: These observations are corroboration for F-001, not separate findings. Deduplicating them preserves identity and avoids promoting partial contaminated provider output or resurrecting unsupported provider conclusions.
+
+No finding was fully removed by negative scope, positive authorization, or materiality. The cross-repository one-target result was a deliberate no-work job, OpenCode's no-finding result had bounded coverage, and all removed or narrowed meanings remain non-actionable above.
+
+### Task 17. Record Review Fixes From Batch 0000065-rw-20260731T224612Z-5d39aa09
+
+- Repository Name: `codeInfo2`
+- Affected Repositories: `current_repository` / `codeInfo2` only.
+- Task Dependencies: `Task 16`
+- Task Status: `__done__`
+- Review Task Role: `completed_review_fixes`
+- Review Batch: `0000065-rw-20260731T224612Z-5d39aa09`
+- Review Cycle: `0000065-rc-20260731T224611Z-68c360ab`
+- Reviewed HEAD: `9ba22b8388237b4fb8451117f87c76be60e91ea6`
+- Initial Repair HEAD: `9ba22b8388237b4fb8451117f87c76be60e91ea6`
+- Final Repair HEAD: `a07f482a2b10bf44f8694c3d2862d3fda4bc3962`
+- Review Harnesses:
+  - `codex_review [current_repository]` (`codex_review`, job `target_reviews:current_repository:codex_review`) generated F-001.
+  - `Copilot: openrouter/qwen/qwen3.7-flash (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-qwen-qwen3-7-flash-b911d8a6159b:current_repository:copilot_review`) corroborated F-001 through verifier recovery.
+  - `Copilot: openrouter/deepseek/deepseek-v4-pro (none) [current_repository]` (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-pro-5112d7e6b73b:current_repository:copilot_review`) corroborated F-001 through verifier recovery.
+  - `Copilot: claude-sonnet-5 (medium) [current_repository]` (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) corroborated F-001 through verifier recovery.
+- Addresses Findings: `F-001 — Restrict review text to recognized assistant events`, owned by `current_repository` / `codeInfo2`; generic JSONL fields from non-assistant events could become successful normalized review text.
+- Fix-bearing batch: `Yes`. The normal repair resolved the sole accepted material survivor; no negative-scope, authorization, materiality, duplicate, or narrowed-away item was restored.
+- Created: `August 1, 2026 at 12:44:19 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repair for F-001 from this immutable review batch. The repair is limited to recognized `assistant.message` content and preserves raw JSONL plus the existing `partial` status for zero-exit streams without recognized review text. The stronger repair was deliberately skipped because the normal audit positively established that no actionable finding remained.
+
+#### Task Exit Criteria
+
+- F-001 is repaired in `current_repository` by the exact committed change.
+- The normal proof, stronger-repair skip reason, exact repository HEADs, commit, changed files, and evidence limitations are recorded.
+- No unresolved implementation task or final revalidation task is created by this batch step.
+
+#### Subtasks
+
+1. [x] Update `server/src/copilot/reviewLauncher.ts` so normalized review text is extracted only from recognized `assistant.message` `data.content`, while non-review JSONL remains in the existing raw artifact and the existing `partial` status handles no recognized text.
+2. [x] Add the regression stream in `server/src/test/unit/copilot-review-launcher.test.ts` covering user, reasoning, tool, unknown, and result events with exit status `0`, proving raw preservation, empty normalized review, and `partial` status.
+
+#### Testing
+
+1. [x] Run `npm run test:summary:server:unit -- --file server/src/test/unit/copilot-review-launcher.test.ts` — passed twice; 17 tests passed, 0 failed.
+2. [x] Run `npx prettier --check server/src/copilot/reviewLauncher.ts server/src/test/unit/copilot-review-launcher.test.ts` — passed.
+3. [x] Run `npx eslint server/src/copilot/reviewLauncher.ts server/src/test/unit/copilot-review-launcher.test.ts --max-warnings=0` — passed.
+4. [x] Run `git diff --check` — passed before commit.
+
+#### Manual Testing Guidance
+
+None. The story excludes provider login, live Copilot spending, browser and screenshot proof, manual Compose proof, and remote GitHub interaction.
+
+#### Implementation Notes
+
+- Batch order: this batch reviewed `9ba22b8388237b4fb8451117f87c76be60e91ea6` after the prior story validation and produced the new final HEAD `a07f482a2b10bf44f8694c3d2862d3fda4bc3962`; another review is useful for that new committed HEAD, but this task does not create it.
+- Normal repair contribution: changed `server/src/copilot/reviewLauncher.ts` and `server/src/test/unit/copilot-review-launcher.test.ts`; committed as `a07f482a2b10bf44f8694c3d2862d3fda4bc3962` (`DEV-0000065 - Restrict Copilot review text events`).
+- The repair extracts trimmed, deduplicated text only from the recognized `assistant.message` envelope and retains the existing raw JSONL and `partial` normalization path. The adjacent status ternary was formatter-indented in the same file without behavioral change.
+- The normal focused unit wrapper passed twice with 17 tests; focused Prettier and ESLint checks passed; `git diff --check` passed before commit.
+- Stronger repair contribution: deliberately skipped. The normal-repair audit positively established that F-001 was resolved and no actionable survivor remained, so no stronger audit or stronger commit was applicable. This is a deliberate skip, not unavailable unresolved repair coverage.
+- The pre-existing modified `planning/0000065-users-can-exclude-planning-changes-from-copilot-reviews.md` was preserved outside the repair commit. Broader server, client, Compose, e2e, and parallel suites were not run; the batch remains partial for the previously recorded OpenCode coverage, contaminated Copilot semantic outputs, and unavailable Codex wrapper exit status.
+
+## Code Review Findings
+
+- Findings recorded: `August 1, 2026 at 1:41:57 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000065-rw-20260731T234732Z-319d1b28`
+- Review cycle: `0000065-rc-20260731T224611Z-68c360ab`
+- Reviewed HEAD: `a07f482a2b10bf44f8694c3d2862d3fda4bc3962`
+- Reviews attempted:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — completed with partial review coverage and one supported proof-gap finding; no actionable finding remained after materiality filtering.
+    - Input tokens: `3,856,646`
+    - Cached input tokens: `3,412,480`
+    - Output tokens: `47,309`
+
+### Accepted
+
+- None. No finding survived negative scope, positive authorization, and materiality as an actionable item.
+
+### Ignored for This Story
+
+#### 1. Required JSONL behavior is not proven by the launcher test
+
+- Finding ID or Review reference: `F-001` (materiality-filtered survivor)
+- Review harnesses:
+  - `review_artifacts_main [current_repository]` (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) — generated and corroborated the finding through its evidence, findings, visual, saturation, consolidation, output, and verification artifacts.
+- Simple description: The Copilot launcher passes `--output-format json`, while the story and consumer describe JSONL output. The focused fake-CLI test checks the selector and parser locally but does not independently prove the installed CLI's runtime format semantics.
+- Example: A configured Copilot review reaches the launcher and emits output using the selected `json` format; the retained evidence shows the pinned CLI help describes that selector as JSONL, but no live provider run demonstrates an incorrect format, parser failure, lost review text, false success, or incomplete normalized result. The possible failure scenario is therefore conditional and evidence-limited.
+- Why ignored: F-001 was technically supported and positively authorized as a narrow proof-contract concern, but materiality filtering found insufficient evidence of realistic reachability, meaningful practical impact, or value proportionate to changing completed launcher/test code. Current-HEAD package pinning and read-only CLI help support `json` as JSONL, and no contrary supported execution was retained. The issue is preserved as a complete materiality removal, not treated as invalid or silently discarded. Scope and authorization removed nothing, and no separate provider finding or unsupported remedy is being restored.
+
+The scope and authorization gates were applicable and completed with no removals. Materiality was applicable and removed the single survivor above. The batch remains partial because no substantive blind-spot report or live Copilot/provider execution was retained; this uncertainty was not used as a clean empty-set signal. The direct job and its usage categories are recorded above exactly once, with cached input kept separate from input.
+
 ### Task 18. Make Copilot review policy Markdown-editable
 
 - Repository Name: `codeInfo2`

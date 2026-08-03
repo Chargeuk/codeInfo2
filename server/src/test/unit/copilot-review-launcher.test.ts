@@ -973,6 +973,64 @@ test('force-kill cancellation waits for the child close event', async (t) => {
   assert.equal(result.exitStatus, 130);
 });
 
+test('cancellation signals the dedicated Copilot process group on supported platforms', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot);
+  const child = Object.assign(new EventEmitter(), {
+    pid: 43_210,
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
+    killCalls: [] as NodeJS.Signals[],
+    kill(signal: NodeJS.Signals) {
+      this.killCalls.push(signal);
+      return true;
+    },
+  });
+  const groupSignals: Array<{ pid: number; signal: NodeJS.Signals }> = [];
+  let spawnOptions!: Parameters<typeof import('node:child_process').spawn>[2];
+  const controller = new AbortController();
+  let childSpawned!: () => void;
+  const childSpawnedSignal = new Promise<void>((resolve) => {
+    childSpawned = resolve;
+  });
+  const execution = runCopilotReview(
+    launcherOptions(fixture, env, { signal: controller.signal }),
+    {
+      spawn: (_command, _args, options) => {
+        spawnOptions = options;
+        childSpawned();
+        return child as never;
+      },
+      killProcessGroup: (pid, signal) => {
+        groupSignals.push({ pid, signal });
+        return true;
+      },
+    },
+  );
+
+  await childSpawnedSignal;
+  controller.abort();
+  child.emit('close', null);
+  const result = await execution;
+
+  if (process.platform === 'win32') {
+    assert.equal(spawnOptions?.detached, false);
+    assert.deepEqual(child.killCalls, ['SIGTERM']);
+    assert.deepEqual(groupSignals, []);
+  } else {
+    assert.equal(spawnOptions?.detached, true);
+    assert.deepEqual(child.killCalls, []);
+    assert.deepEqual(groupSignals, [
+      { pid: 43_210, signal: 'SIGTERM' },
+      { pid: 43_210, signal: 'SIGKILL' },
+    ]);
+  }
+  assert.equal(result.status, 'cancelled');
+  assert.equal(result.exitStatus, 130);
+});
+
 test('CLI derives artifacts from semantic arguments and the assigned workspace', async (t) => {
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));

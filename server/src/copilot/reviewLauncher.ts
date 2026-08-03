@@ -82,6 +82,7 @@ export type CopilotReviewLauncherDeps = {
     endpoint: OpenAiCompatEndpointConfig,
     env: NodeJS.ProcessEnv,
   ) => Promise<string[]>;
+  killProcessGroup: (pid: number, signal: NodeJS.Signals) => boolean;
   now: () => Date;
 };
 
@@ -96,12 +97,14 @@ const defaultDeps: CopilotReviewLauncherDeps = {
         env,
       })
     ).map((model) => model.id),
+  killProcessGroup: (pid, signal) => process.kill(-pid, signal),
   now: () => new Date(),
 };
 
 const DEFAULT_COPILOT_REVIEW_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const COPILOT_TERMINATION_GRACE_MS = 5_000;
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
+const SUPPORTS_PROCESS_GROUPS = process.platform !== 'win32';
 
 export class CopilotReviewUnavailableError extends Error {
   constructor(message: string) {
@@ -580,6 +583,8 @@ const runProcess = async (params: {
     let settled = false;
     let child: SpawnedProcess;
     let terminationReason: 'aborted' | 'timeout' | undefined;
+    let terminationUsesProcessGroup = false;
+    let processGroupForceKilled = false;
     const timers: {
       forceKill?: NodeJS.Timeout;
       timeout?: NodeJS.Timeout;
@@ -589,6 +594,19 @@ const runProcess = async (params: {
       stderr: Buffer.concat(stderr).toString('utf8'),
     });
     const terminateForAbort = () => terminate('aborted');
+    const signalTerminationTarget = (signal: NodeJS.Signals): boolean => {
+      if (SUPPORTS_PROCESS_GROUPS && typeof child.pid === 'number') {
+        try {
+          params.deps.killProcessGroup(child.pid, signal);
+          return true;
+        } catch {
+          // Fall back to the direct child if its dedicated group is already gone
+          // or the current platform cannot signal it as expected.
+        }
+      }
+      child.kill(signal);
+      return false;
+    };
     const finish = (result: {
       launched: boolean;
       exitStatus: number;
@@ -606,10 +624,10 @@ const runProcess = async (params: {
     function terminate(reason: 'aborted' | 'timeout') {
       if (settled || terminationReason) return;
       terminationReason = reason;
-      child.kill('SIGTERM');
+      terminationUsesProcessGroup = signalTerminationTarget('SIGTERM');
       timers.forceKill = setTimeout(() => {
         if (settled) return;
-        child.kill('SIGKILL');
+        processGroupForceKilled = signalTerminationTarget('SIGKILL');
       }, COPILOT_TERMINATION_GRACE_MS);
       timers.forceKill.unref?.();
     }
@@ -627,6 +645,7 @@ const runProcess = async (params: {
       child = params.deps.spawn(params.cliPath, params.args, {
         cwd: params.cwd,
         env: params.env,
+        detached: SUPPORTS_PROCESS_GROUPS,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
     } catch {
@@ -654,6 +673,18 @@ const runProcess = async (params: {
       });
     });
     child.once('close', (code) => {
+      if (
+        terminationReason &&
+        terminationUsesProcessGroup &&
+        !processGroupForceKilled &&
+        typeof child.pid === 'number'
+      ) {
+        try {
+          params.deps.killProcessGroup(child.pid, 'SIGKILL');
+        } catch {
+          // The dedicated process group has already exited.
+        }
+      }
       const output = captured();
       const exitStatus =
         terminationReason === 'timeout'

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { normalizeOpenAiCompatEndpointId } from '../config/openaiCompatEndpoints.js';
+import { COPILOT_REVIEW_REASONING_EFFORTS } from './copilotReviewModels.js';
 import { hashFlowInput, normalizeFlowInput } from './flowInput.js';
 import {
   formatPreparedReviewContext,
@@ -16,6 +17,9 @@ import type { FlowJsonObject } from './types.js';
 
 const SAFE_PATH_SEGMENT = /[^A-Za-z0-9._-]+/gu;
 const COPILOT_REVIEW_SPEC_FILE = 'copilot-review-spec.json';
+const COPILOT_REVIEW_REASONING_EFFORT_SET = new Set<string>(
+  COPILOT_REVIEW_REASONING_EFFORTS,
+);
 const execFile = promisify(execFileCb);
 
 const safeSegment = (value: string) => {
@@ -271,7 +275,14 @@ const pinnedCopilotReviewSpec = (
     available: spec.available,
   };
   const reasoningEffort = optionalString('reasoningEffort');
-  if (reasoningEffort) pinned.reasoningEffort = reasoningEffort;
+  if (reasoningEffort) {
+    if (!COPILOT_REVIEW_REASONING_EFFORT_SET.has(reasoningEffort)) {
+      throw new Error(
+        `Copilot review job ${job.instanceId} has an invalid reasoningEffort.`,
+      );
+    }
+    pinned.reasoningEffort = reasoningEffort;
+  }
   for (const key of ['endpointLabel', 'endpointId', 'unavailableReason']) {
     const value = spec[key];
     if (value !== undefined) {

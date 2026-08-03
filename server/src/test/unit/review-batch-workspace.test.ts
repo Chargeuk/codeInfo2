@@ -233,6 +233,27 @@ test('review batch workspace gives every job immutable private input and pre-cre
       }),
       /missing endpointId for an available external model/u,
     );
+    const invalidReasoningJobs = structuredClone(jobs);
+    const invalidReasoningSpec =
+      invalidReasoningJobs[3]?.input?.copilot_review_spec;
+    if (
+      !invalidReasoningSpec ||
+      typeof invalidReasoningSpec !== 'object' ||
+      Array.isArray(invalidReasoningSpec)
+    ) {
+      throw new Error('Expected the external Copilot review fixture.');
+    }
+    invalidReasoningSpec.reasoningEffort = 'unexpected';
+    await assert.rejects(
+      prepareReviewBatchWorkspace({
+        snapshot: {
+          ...snapshot,
+          review_wave_id: '0000064-rw-invalid-copilot-reasoning',
+        },
+        jobs: invalidReasoningJobs,
+      }),
+      /invalid reasoningEffort/u,
+    );
     assert.match(
       await fs.readFile(result.currentBatchHandoff, 'utf8'),
       /Scheduled job directories/u,

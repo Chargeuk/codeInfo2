@@ -85,6 +85,7 @@ test('OpenAI-compatible proxy converts models into the Codex catalog shape', asy
         slug?: string;
     }) => entry.slug), ['alpha-model', 'beta-model']);
     assert.equal(response.body.models[0]?.shell_type, 'shell_command');
+    assert.notEqual(externalServer.lastConnectionHeader(), 'close');
 });
 test('OpenAI-compatible proxy resolves config-pinned endpoints without requiring a global env entry', async () => {
     const externalServer = await startExternalOpenAiCompatServer({

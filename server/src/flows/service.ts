@@ -7547,6 +7547,7 @@ async function runFlowUnlocked(params: {
   ): Promise<{
     status: TurnStatus;
     shouldBreak: boolean;
+    source?: 'ai' | 'script';
     failureKind?: 'execution' | 'invalid_response';
   }> => {
     const result = await runSharedDecisionStep({
@@ -7568,6 +7569,7 @@ async function runFlowUnlocked(params: {
       return {
         status: result.status,
         shouldBreak: false,
+        source: result.source,
         failureKind: result.failureKind ?? 'execution',
       };
     }
@@ -7576,6 +7578,7 @@ async function runFlowUnlocked(params: {
       return {
         status: 'failed',
         shouldBreak: false,
+        source: result.source,
         failureKind: 'invalid_response',
       };
     }
@@ -8189,49 +8192,19 @@ async function runFlowUnlocked(params: {
       markGitHubReviewCycleSkipped(warningMessage);
       return 'ok';
     }
-    const { title, body } = await buildGitHubReviewPullRequestContent({
-      repositoryFullName: context.value.repository.repositoryFullName,
-      branchName: context.value.repository.upstreamBranch,
-    });
-    const createResult = await createPullRequest({
+    const latestOpenPullRequest = await lookupLatestOpenPullRequest({
       repository: context.value.repository,
       token: context.value.token,
-      title,
-      body,
     });
-    const warningDiagnostics =
-      createResult.kind === 'ok'
-        ? createResult.lookupDiagnostics
-        : createResult.lookupDiagnostics.slice(0, -1);
-    for (const diagnostic of warningDiagnostics) {
-      const warningMessage = buildGitHubLookupRetryWarningMessage(diagnostic);
-      await appendGitHubStagePlanNote(warningMessage);
-      append({
-        level: 'warn',
-        message: 'flows.github.open_pr.lookup_retry_failed',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          flowName: params.flowName,
-          attemptNumber: diagnostic.attemptNumber,
-          waitMs: diagnostic.waitMs,
-          reason: diagnostic.reason,
-          detail: diagnostic.message,
-          stderr: diagnostic.stderr,
-          exitCode: diagnostic.exitCode,
-        },
-      });
-    }
-    if (createResult.kind !== 'ok') {
+    if (latestOpenPullRequest.kind !== 'ok') {
       const failureMessage = buildGitHubOpenPrFailureMessage({
         failure: {
-          reason: createResult.reason,
-          message: createResult.message,
-          stderr: createResult.stderr,
-          exitCode: createResult.exitCode,
+          reason: latestOpenPullRequest.reason,
+          message: latestOpenPullRequest.message,
+          stderr: latestOpenPullRequest.stderr,
+          exitCode: latestOpenPullRequest.exitCode,
         },
-        lookupDiagnostics: createResult.lookupDiagnostics,
-        createFailure: createResult.createFailure,
+        lookupDiagnostics: [],
       });
       await appendGitHubStagePlanNote(failureMessage);
       await emitGitHubStepWarning({
@@ -8241,43 +8214,102 @@ async function runFlowUnlocked(params: {
       markGitHubReviewCycleSkipped(failureMessage);
       return 'ok';
     }
-    if (createResult.createFailure) {
-      const recoveredCreateWarning = buildGitHubRecoveredCreateWarningMessage({
-        pullRequestNumber: createResult.value.number,
-        createFailure: createResult.createFailure,
+    let pullRequest = latestOpenPullRequest.value;
+    const reusingOpenPullRequest = Boolean(pullRequest);
+    if (!pullRequest) {
+      const { title, body } = await buildGitHubReviewPullRequestContent({
+        repositoryFullName: context.value.repository.repositoryFullName,
+        branchName: context.value.repository.upstreamBranch,
       });
-      await appendGitHubStagePlanNote(recoveredCreateWarning);
-      append({
-        level: 'warn',
-        message: 'flows.github.open_pr.create_recovered',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          flowName: params.flowName,
-          prNumber: createResult.value.number,
-          detail: recoveredCreateWarning,
-          reason: createResult.createFailure.reason,
-          stderr: createResult.createFailure.stderr,
-          exitCode: createResult.createFailure.exitCode,
-        },
+      const createResult = await createPullRequest({
+        repository: context.value.repository,
+        token: context.value.token,
+        title,
+        body,
       });
+      const warningDiagnostics =
+        createResult.kind === 'ok'
+          ? createResult.lookupDiagnostics
+          : createResult.lookupDiagnostics.slice(0, -1);
+      for (const diagnostic of warningDiagnostics) {
+        const warningMessage = buildGitHubLookupRetryWarningMessage(diagnostic);
+        await appendGitHubStagePlanNote(warningMessage);
+        append({
+          level: 'warn',
+          message: 'flows.github.open_pr.lookup_retry_failed',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            attemptNumber: diagnostic.attemptNumber,
+            waitMs: diagnostic.waitMs,
+            reason: diagnostic.reason,
+            detail: diagnostic.message,
+            stderr: diagnostic.stderr,
+            exitCode: diagnostic.exitCode,
+          },
+        });
+      }
+      if (createResult.kind !== 'ok') {
+        const failureMessage = buildGitHubOpenPrFailureMessage({
+          failure: {
+            reason: createResult.reason,
+            message: createResult.message,
+            stderr: createResult.stderr,
+            exitCode: createResult.exitCode,
+          },
+          lookupDiagnostics: createResult.lookupDiagnostics,
+          createFailure: createResult.createFailure,
+        });
+        await appendGitHubStagePlanNote(failureMessage);
+        await emitGitHubStepWarning({
+          instruction: 'GitHub open PR step',
+          message: failureMessage,
+        });
+        markGitHubReviewCycleSkipped(failureMessage);
+        return 'ok';
+      }
+      if (createResult.createFailure) {
+        const recoveredCreateWarning = buildGitHubRecoveredCreateWarningMessage({
+          pullRequestNumber: createResult.value.number,
+          createFailure: createResult.createFailure,
+        });
+        await appendGitHubStagePlanNote(recoveredCreateWarning);
+        append({
+          level: 'warn',
+          message: 'flows.github.open_pr.create_recovered',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            prNumber: createResult.value.number,
+            detail: recoveredCreateWarning,
+            reason: createResult.createFailure.reason,
+            stderr: createResult.createFailure.stderr,
+            exitCode: createResult.createFailure.exitCode,
+          },
+        });
+      }
+      pullRequest = createResult.value;
     }
     append({
       level: 'info',
-      message: 'flows.github.open_pr.created',
+      message: reusingOpenPullRequest
+        ? 'flows.github.open_pr.reused'
+        : 'flows.github.open_pr.created',
       timestamp: new Date().toISOString(),
       source: 'server',
       context: {
         flowName: params.flowName,
         repository: context.value.repository.repositoryFullName,
         branch: context.value.repository.upstreamBranch,
-        prNumber: createResult.value.number,
-        prUrl: createResult.value.url,
+        prNumber: pullRequest.number,
+        prUrl: pullRequest.url,
       },
     });
     activeGitHubReviewContext = {
       executionId: params.executionId,
-      prNumber: createResult.value.number,
+      prNumber: pullRequest.number,
       branchName: context.value.repository.upstreamBranch,
       phase: 'opened',
       retryAttempt: 0,
@@ -8287,7 +8319,7 @@ async function runFlowUnlocked(params: {
       executionId: params.executionId,
     });
     if (scratchOwnershipClaim.kind !== 'ok') {
-      const warningMessage = `GitHub review stage could not prepare scratch context after opening pull request #${String(createResult.value.number)}: ${scratchOwnershipClaim.message}`;
+      const warningMessage = `GitHub review stage could not prepare scratch context after selecting pull request #${String(pullRequest.number)}: ${scratchOwnershipClaim.message}`;
       await appendGitHubStagePlanNote(warningMessage);
       await emitGitHubStepWarning({
         instruction: 'GitHub open PR step',
@@ -8298,7 +8330,7 @@ async function runFlowUnlocked(params: {
     }
     activeGitHubReviewContext = {
       executionId: params.executionId,
-      prNumber: createResult.value.number,
+      prNumber: pullRequest.number,
       storyNumber: scratchOwnershipClaim.value.story_number,
       branchName: scratchOwnershipClaim.value.branch_name,
       selectorPath: buildGitHubReviewScratchPaths(
@@ -11379,7 +11411,7 @@ async function runFlowUnlocked(params: {
             agentType: command.agentType,
           },
         });
-        const { status, shouldBreak, failureKind } = await runBreakStep(
+        const { status, shouldBreak, source, failureKind } = await runBreakStep(
           step,
           command,
         );
@@ -11390,7 +11422,9 @@ async function runFlowUnlocked(params: {
           shouldBreak,
         });
         const shouldBreakAfterFailure =
-          status === 'failed' && step.breakOnFailure === true;
+          status === 'failed' &&
+          source !== 'script' &&
+          step.breakOnFailure === true;
         if (shouldBreakAfterFailure) {
           append({
             level: 'warn',
@@ -11424,7 +11458,9 @@ async function runFlowUnlocked(params: {
         if (shouldStopAfter(status)) {
           if (
             status === 'failed' &&
-            ((step.continueOnFailure && failureKind === 'execution') ||
+            ((source !== 'script' &&
+              step.continueOnFailure &&
+              failureKind === 'execution') ||
               (step.continueOnInvalidResponse &&
                 failureKind === 'invalid_response'))
           ) {

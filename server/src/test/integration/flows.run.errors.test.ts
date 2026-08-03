@@ -3343,7 +3343,7 @@ test('shared decision seam fails hard for extra-key script output', async () => 
   );
 });
 
-test('explicit decisionScript fails hard for timeout script output', async () => {
+test('explicit decisionScript failure remains hard despite legacy break recovery options', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
       await writeFlowFile({
@@ -3357,6 +3357,8 @@ test('explicit decisionScript fails hard for timeout script output', async () =>
             question: 'Run the timeout decision script.',
             decisionScript: 'flow-control/decision-timeout.py',
             breakOn: 'yes',
+            breakOnFailure: true,
+            continueOnFailure: true,
           },
         ],
       });

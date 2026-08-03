@@ -2272,3 +2272,48 @@ None. Do not run another chargeable provider review or manual Compose proof for 
 - Focused Prettier and ESLint then passed cleanly across both implementation modules, both focused test files, and the story plan.
 - The server build wrapper passed with zero warnings and requested `skip_log`; `git diff --check` also passed with no whitespace errors.
 - The scoped implementation and automated proof are complete in `1e8540a2`; this Task 24 record is carried by the follow-up planning commit.
+
+### Task 25. Isolate malformed external endpoints for Copilot reviews
+
+- Repository Name: `codeInfo2`
+- Affected Repositories: `current_repository` / `codeInfo2` only
+- Task Dependencies: `Task 24`
+- Task Status: `__done__`
+- Git Commits: `0c5aa5c5`
+
+#### Overview
+
+Keep valid explicitly selected external Copilot endpoints usable when unrelated endpoint-list entries are malformed. Preserve strict endpoint-list behavior for non-Copilot consumers, surface indexed secret-free warnings, and apply the same best-effort interpretation during batch preparation and the immediate pre-launch drift check.
+
+#### Subtasks
+
+1. [x] Add a focused best-effort endpoint-list resolver that isolates malformed entries and ambiguous duplicate labels without changing the existing strict resolver.
+2. [x] Use the best-effort resolver for Copilot batch availability while retaining visible secret-free configuration warnings.
+3. [x] Use the same resolver during external Copilot launch revalidation and resolve credentials without re-entering strict whole-list endpoint parsing.
+4. [x] Add focused regression coverage for strict compatibility, partial endpoint recovery, warning redaction, and successful pre-launch revalidation.
+
+#### Testing
+
+1. [x] Run the endpoint-parser, Copilot model, and Copilot group unit suites sequentially with server unit concurrency set to one.
+2. [x] Run the Copilot launcher unit suite sequentially with server unit concurrency set to one.
+3. [x] Run focused Prettier and ESLint checks for all changed TypeScript, test, and plan files.
+4. [x] Run `npm run build:summary:server` and `git diff --check`.
+
+#### Manual Testing Guidance
+
+None. Do not run chargeable provider reviews or manual Compose proof for this parser-isolation repair; deterministic fake discovery and launcher tests are sufficient. Parallel test wrappers remain out of scope.
+
+#### Implementation Notes
+
+- Task 25 addresses only malformed external endpoint isolation from the latest PR review; tracked default model selection and cross-platform test injection remain unchanged.
+- A new Copilot-oriented best-effort resolver skips malformed entries with indexed generic warnings, discards every entry sharing an ambiguous normalized label, and otherwise preserves deterministic endpoint ordering and duplicate-URL first-wins behavior; the existing strict resolver is unchanged.
+- Copilot availability now consumes the best-effort endpoint result and forwards every parser limitation through the existing `external_endpoint_configuration` warning channel while continuing discovery for valid selected endpoints.
+- External launch revalidation now reuses the same endpoint interpretation, then parses and attaches the existing key list separately so unrelated malformed endpoint entries cannot re-enter through the strict startup resolver; credential values remain child-process-only.
+- Focused tests now cover unchanged strict rejection, best-effort recovery and ambiguous-label isolation, visible secret-free batch warnings, continued external model availability, and a successful keyed launcher invocation despite an unrelated malformed endpoint entry.
+- The first endpoint-suite wrapper stopped during TypeScript build on two test-fixture typing errors; the group assertion was moved to expanded job input and the secret check now uses an explicit regular expression before rerunning.
+- The sequential endpoint-parser, Copilot model, and Copilot group suites then passed 22/22, 19/19, and 6/6 respectively with explicit concurrency one.
+- The first launcher run passed the new mixed-entry launch coverage but exposed one stale malformed-only assertion; it was updated from the former whole-list failure message to the precise selected-endpoint-absent result before rerunning.
+- The sequential Copilot launcher suite then passed 24/24, confirming the valid selected endpoint and selected key still launch while the unrelated malformed entry and all credential material remain absent from child and persisted artifacts.
+- The initial Prettier check identified four newly edited files requiring mechanical formatting; after applying it, focused Prettier and ESLint both passed cleanly across all changed implementation, test, and plan files.
+- The server build wrapper passed with zero warnings and requested `skip_log`; `git diff --check` passed without whitespace errors.
+- The scoped endpoint-isolation implementation and focused proof are complete in `0c5aa5c5`; this Task 25 record is carried by the follow-up planning commit.

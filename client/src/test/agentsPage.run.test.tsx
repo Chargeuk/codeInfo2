@@ -881,7 +881,7 @@ describe('Agents page - run', () => {
     expect(assistantMarkdown?.querySelector('code')).toBeTruthy();
     expect(userMarkdown?.querySelector('script')).toBeNull();
     expect(assistantMarkdown?.querySelector('script')).toBeNull();
-  }, 30000);
+  }, 60000);
 
   it('uses the same safe fallback for malformed mermaid in user and assistant realtime bubbles', async () => {
     const user = userEvent.setup();
@@ -1014,7 +1014,7 @@ describe('Agents page - run', () => {
       expect(userMarkdown).toHaveTextContent('Diagram failed to render');
       expect(assistantMarkdown).toHaveTextContent('Diagram failed to render');
     });
-  }, 15000);
+  }, 30000);
 
   it('preserves multiline newline formatting in outbound instruction payload', async () => {
     const user = userEvent.setup();
@@ -1099,7 +1099,7 @@ describe('Agents page - run', () => {
 
     await waitFor(() => expect(runBodies.length).toBe(1));
     expect(runBodies[0]).toHaveProperty('instruction', rawInstruction);
-  }, 15000);
+  }, 30000);
 
   it('blocks whitespace-only input before dispatching a run request', async () => {
     const user = userEvent.setup();

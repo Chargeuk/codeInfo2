@@ -742,10 +742,12 @@ test.describe.serial('Ingest flows', () => {
             message: 'waiting for seeded ingest to reach a completed root',
           },
         )
-        .toMatch(/^completed:/i);
+        .toBe('completed:none');
     } finally {
       await statusCtx.dispose();
     }
+
+    await page.getByRole('button', { name: 'Refresh' }).click();
 
     const row = page
       .getByRole('row', {
@@ -754,7 +756,9 @@ test.describe.serial('Ingest flows', () => {
       .first();
     await expect(row).toBeVisible({ timeout: 30_000 });
 
-    await row.getByRole('button', { name: /re-embed/i }).click();
+    const reembedButton = row.getByRole('button', { name: /re-embed/i });
+    await expect(reembedButton).toBeEnabled({ timeout: 30_000 });
+    await reembedButton.click();
     await waitForCompletion(page, new RegExp(fixtureName, 'i'));
     await expect(row.getByText(/^(completed|skipped)$/i)).toBeVisible({
       timeout: 120_000,

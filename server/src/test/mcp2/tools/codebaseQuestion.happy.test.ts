@@ -2248,15 +2248,11 @@ test('codebase_question keeps the requested provider and repairs the model there
           available: true,
           toolsAvailable: true,
           blockingStage: 'ready',
-          models: ['gpt-5-mini', 'copilot-gpt-5'],
+          models: ['gpt-5.4-mini'],
           modelsRaw: [
             {
-              id: 'gpt-5-mini',
-              name: 'GPT-5 Mini',
-            } as ModelInfo,
-            {
-              id: 'copilot-gpt-5',
-              name: 'Copilot GPT-5',
+              id: 'gpt-5.4-mini',
+              name: 'GPT-5.4 Mini',
             } as ModelInfo,
           ],
           authSource: 'env-token',
@@ -2265,15 +2261,15 @@ test('codebase_question keeps the requested provider and repairs the model there
     );
 
     const payload = JSON.parse(result.content[0].text);
-    assert.equal(payload.modelId, 'copilot-gpt-5');
-    assert.equal(calls[0]?.model, 'copilot-gpt-5');
+    assert.equal(payload.modelId, 'gpt-5.4-mini');
+    assert.equal(calls[0]?.model, 'gpt-5.4-mini');
     assert.equal(
       memoryConversations.get(payload.conversationId)?.provider,
       'copilot',
     );
     assert.equal(
       memoryConversations.get(payload.conversationId)?.model,
-      'copilot-gpt-5',
+      'gpt-5.4-mini',
     );
   } finally {
     if (originalHome === undefined) delete process.env.CODEINFO_COPILOT_HOME;

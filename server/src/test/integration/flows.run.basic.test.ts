@@ -24,6 +24,10 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { DEV_0000037_T01_REQUIRED_VERSION } from '../../config/codexSdkUpgrade.js';
+import type {
+  CopilotReviewLauncherOptions,
+  CopilotReviewLauncherResult,
+} from '../../copilot/reviewLauncher.js';
 import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
@@ -31,6 +35,8 @@ import {
 import {
   __getPersistedFreshRunRetryOwnershipCompletionForTests,
   __resetFreshRunRetryOwnershipCompletionForTests,
+  __resetFlowServiceDepsForTests,
+  __setFlowServiceDepsForTests,
   startFlowRun,
 } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
@@ -78,6 +84,181 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
   },
   counts: { files: 0, chunks: 0, embedded: 0 },
   lastError: null,
+});
+
+test('native Copilot flow step uses persisted inputs and waits for launcher completion', async () => {
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const temporaryRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'codeinfo-native-copilot-flow-'),
+  );
+  const flowsRoot = path.join(temporaryRoot, 'flows');
+  const workspace = path.join(temporaryRoot, 'review-job');
+  const inputDir = path.join(workspace, 'input');
+  const workDir = path.join(workspace, 'work');
+  const outputDir = path.join(workspace, 'output');
+  const verificationDir = path.join(workspace, 'verification');
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  let conversationId: string | undefined;
+
+  await Promise.all(
+    [inputDir, workDir, outputDir, verificationDir].map((directory) =>
+      fs.mkdir(directory, { recursive: true }),
+    ),
+  );
+  await writeFlowFile({
+    flowsRoot,
+    flowName: 'native-copilot-review',
+    steps: [
+      {
+        type: 'runCopilotReview',
+        label: 'Run native Copilot review',
+        markdownFile: 'copilot_review_instructions.md',
+      },
+    ],
+  });
+  const target = {
+    target_id: 'current_repository',
+    repo_alias: 'current_repository',
+    repo_root: repoRoot,
+    repository_id: 'repository-id',
+    branch: 'feature/0000065-review',
+    head_commit: 'b'.repeat(40),
+    comparison_base_commit: 'a'.repeat(40),
+    story_id: '0000065',
+    is_primary: true,
+  };
+  const spec = {
+    selector: 'openrouter::deepseek/deepseek-v4-flash',
+    mode: 'external',
+    modelId: 'deepseek/deepseek-v4-flash',
+    reasoningEffort: 'none',
+    stableId: 'external-openrouter-deepseek',
+    available: true,
+    endpointLabel: 'openrouter',
+    endpointId: 'https://openrouter.ai/api/v1',
+  };
+  const reviewWave = {
+    schema_version: 'codeinfo-review-targets/v1',
+    story_id: '0000065',
+    plan_path: 'planning/0000065-review.md',
+    branched_from: 'main',
+    plan_host_root: repoRoot,
+    review_wave_id: '0000065-rw-native-step',
+    targets_sha256: 'fixture',
+    targets: [target],
+    created_at: '2026-07-29T00:00:00.000Z',
+  };
+  const input = {
+    target,
+    review_wave: reviewWave,
+    copilot_review_spec: spec,
+    review_job: {
+      batch_id: reviewWave.review_wave_id,
+      instance_id: 'copilot-model:current_repository:copilot_review',
+      reviewer_flow: 'copilot_review',
+      target_id: target.target_id,
+      input_dir: inputDir,
+      job_dir: workspace,
+      work_dir: workDir,
+      output_dir: outputDir,
+      verification_dir: verificationDir,
+    },
+  };
+  await Promise.all([
+    fs.writeFile(
+      path.join(inputDir, 'copilot-review-spec.json'),
+      `${JSON.stringify(spec, null, 2)}\n`,
+      'utf8',
+    ),
+    fs.writeFile(
+      path.join(inputDir, 'review-target.md'),
+      '# Review target\n',
+      'utf8',
+    ),
+    fs.writeFile(
+      path.join(inputDir, 'story-context.md'),
+      '# Story context\n',
+      'utf8',
+    ),
+  ]);
+
+  let capturedOptions: CopilotReviewLauncherOptions | undefined;
+  let launchCalls = 0;
+  let finishLaunch: ((result: CopilotReviewLauncherResult) => void) | undefined;
+  const pendingLaunch = new Promise<CopilotReviewLauncherResult>((resolve) => {
+    finishLaunch = resolve;
+  });
+  __setFlowServiceDepsForTests({
+    runCopilotReview: async (options) => {
+      launchCalls += 1;
+      capturedOptions = options;
+      return pendingLaunch;
+    },
+  });
+  process.env.FLOWS_DIR = flowsRoot;
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+
+  try {
+    const started = await startFlowRun({
+      flowName: 'native-copilot-review',
+      source: 'REST',
+      working_folder: repoRoot,
+      input,
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: 'model',
+      }),
+    });
+    conversationId = started.conversationId;
+    await waitFor(() => Boolean(capturedOptions));
+
+    assert.equal(launchCalls, 1);
+    assert.equal(capturedOptions?.workspacePath, workspace);
+    assert.equal(capturedOptions?.repositoryPath, repoRoot);
+    assert.equal(capturedOptions?.modelId, spec.modelId);
+    assert.equal(capturedOptions?.signal?.aborted, false);
+    await delay(50);
+    assert.equal(
+      (memoryTurns.get(conversationId) ?? []).some(
+        (turn) => turn.role === 'assistant',
+      ),
+      false,
+    );
+
+    finishLaunch?.({
+      launched: true,
+      exitStatus: 0,
+      status: 'successful',
+      startedAt: '2026-07-29T00:00:00.000Z',
+      completedAt: '2026-07-29T00:00:01.000Z',
+    });
+    const turns = await waitForTurns(conversationId, (items) =>
+      items.some(
+        (turn) =>
+          turn.role === 'assistant' &&
+          turn.status === 'ok' &&
+          turn.content.includes('Copilot review status: successful'),
+      ),
+    );
+    assert.equal(turns.filter((turn) => turn.role === 'assistant').length, 1);
+  } finally {
+    cleanupMemory(conversationId);
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    if (previousCodexAgentsHome === undefined) {
+      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    } else {
+      process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
+    }
+    await fs.rm(temporaryRoot, { recursive: true, force: true });
+  }
 });
 
 class StreamingChat extends ChatInterface {
@@ -252,6 +433,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetFlowServiceDepsForTests();
   __resetFreshRunRetryOwnershipCompletionForTests();
   if (previousPreferredAgentsHome === undefined) {
     delete process.env.CODEINFO_AGENT_HOME;

@@ -689,8 +689,8 @@ test('copilot models route clamps unsupported configured defaults to the runtime
   const server = await startServer({
     copilotModels: [
       {
-        id: 'copilot-gpt-5',
-        name: 'Copilot GPT-5',
+        id: 'gpt-5.4-mini',
+        name: 'GPT-5.4 Mini',
         supportedReasoningEfforts: ['low', 'medium', 'high'],
         defaultReasoningEffort: 'medium',
       } as ModelInfo,

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCb } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -22,9 +23,7 @@ import {
   memoryTurns,
   recordMemoryTurn,
 } from '../../chat/memoryPersistence.js';
-import {
-  __resetProviderBootstrapStatusForTests,
-} from '../../config/runtimeConfig.js';
+import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
 import {
   getFlowConversationLifecycleStatus,
@@ -795,18 +794,19 @@ test('successful flow cleanup preserves the settlement auditor explicit incomple
       working_folder: repoDir,
       chatFactory: () =>
         new SubflowChat(25, async ({ message }) => {
-          if (!message.includes('record explicit incomplete settlement')) return;
-          const active = JSON.parse(await fs.readFile(activePath, 'utf8')) as Record<
-            string,
-            unknown
-          >;
+          if (!message.includes('record explicit incomplete settlement'))
+            return;
+          const active = JSON.parse(
+            await fs.readFile(activePath, 'utf8'),
+          ) as Record<string, unknown>;
           await fs.writeFile(
             activePath,
             JSON.stringify({
               ...active,
               status: 'incomplete',
               completed_at: '2026-07-21T12:05:00.000Z',
-              incomplete_reason: 'One flexible settlement artifact remained ambiguous.',
+              incomplete_reason:
+                'One flexible settlement artifact remained ambiguous.',
             }),
           );
         }),
@@ -896,10 +896,16 @@ test('an orphaned execution-owned review cycle cannot block a later best-effort 
     });
     await waitFor(() => executions.includes('parent continued after review'));
     await waitForAssistantStatus(result.conversationId, 'ok');
-    assert.equal(executions.includes('reviewer launched after orphaned cycle'), true);
+    assert.equal(
+      executions.includes('reviewer launched after orphaned cycle'),
+      true,
+    );
     assert.equal(executions.includes('parent continued after review'), true);
     const active = JSON.parse(
-      await fs.readFile(path.join(stateRoot, 'active-review-cycle.json'), 'utf8'),
+      await fs.readFile(
+        path.join(stateRoot, 'active-review-cycle.json'),
+        'utf8',
+      ),
     ) as Record<string, unknown>;
     assert.equal(active.schema_version, 'codeinfo-active-review-cycle/v2');
     assert.equal(active.status, 'incomplete');
@@ -1233,10 +1239,7 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
         }
       ).flow?.executionId,
     );
-    assert.equal(
-      childWaveIdentity?.instanceId,
-      'reviews:client:main-review',
-    );
+    assert.equal(childWaveIdentity?.instanceId, 'reviews:client:main-review');
     assert.equal(childWaveIdentity?.targetId, 'client');
     assert.equal(childWaveIdentity?.displayName, 'main-review [client]');
     assert.equal(typeof childWaveIdentity?.waveInvocationId, 'string');
@@ -1256,6 +1259,263 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
     ).flow?.subflowWaveProgress;
     assert.equal(finalProgress?.completed, 5);
   } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('prepared Copilot repository-model cells join the existing wave and persist deterministic values', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-copilot-review-wave-'),
+  );
+  process.env.FLOWS_DIR = tmpDir;
+  const previousModels = process.env.CODEINFO_COPILOT_REVIEW_MODELS;
+  const previousCli = process.env.CODEINFO_COPILOT_CLI_PATH;
+  process.env.CODEINFO_COPILOT_REVIEW_MODELS = 'missing-model|low';
+  process.env.CODEINFO_COPILOT_CLI_PATH = path.join(tmpDir, 'missing-copilot');
+  let releaseChildren: (() => void) | undefined;
+  const childGate = new Promise<void>((resolve) => {
+    releaseChildren = resolve;
+  });
+
+  try {
+    for (const flowName of ['existing-review', 'copilot_review']) {
+      await writeFlowFile({
+        tmpDir,
+        flowName,
+        steps: [llmStep(`slow child ${flowName}`)],
+      });
+    }
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'prepared-copilot-wave',
+      steps: [
+        {
+          type: 'prepareCopilotReviewGroups',
+          groupsFrom: 'review_groups',
+          targetsFrom: 'review_batch_targets.targets',
+          reviewWaveFrom: 'review_batch_targets',
+          outputKey: 'effective_review_groups',
+        },
+        {
+          type: 'subflowWave',
+          groupsFrom: 'effective_review_groups',
+        },
+      ],
+    });
+    const repositoryA = await fs.mkdtemp(path.join(tmpDir, 'repo-a-'));
+    const repositoryB = await fs.mkdtemp(path.join(tmpDir, 'repo-b-'));
+    await Promise.all(
+      [repositoryA, repositoryB].map((cwd) =>
+        execFile('git', ['init', '-b', 'main'], { cwd }),
+      ),
+    );
+    const targets = [
+      { target_id: 'repo-a', repo_root: repositoryA },
+      { target_id: 'repo-b', repo_root: repositoryB },
+    ];
+    const input = {
+      review_batch_targets: { targets },
+      review_groups: [
+        {
+          kind: 'matrix',
+          id: 'existing',
+          itemsFrom: 'review_batch_targets.targets',
+          itemName: 'target',
+          flowNames: ['existing-review'],
+          bindings: { input: { target: 'target' } },
+        },
+      ],
+    };
+    const parent = await startFlowRun({
+      flowName: 'prepared-copilot-wave',
+      source: 'REST',
+      input,
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repositoryA), buildRepoEntry(repositoryB)],
+        lockedModel: null,
+        lockedModelId: null,
+      }),
+      chatFactory: () => new SubflowChat(25, undefined, childGate),
+    });
+    let active: Record<string, unknown>[];
+    try {
+      active = await waitForActiveSubflowCount(parent.conversationId, 4);
+    } catch {
+      assert.fail(
+        JSON.stringify({
+          flags: memoryConversations.get(parent.conversationId)?.flags,
+          turns: memoryTurns.get(parent.conversationId),
+        }),
+      );
+    }
+    assert.deepEqual(
+      active.map((entry) => entry.instanceId).sort(),
+      [
+        'existing:repo-a:existing-review',
+        'existing:repo-b:existing-review',
+        active
+          .map((entry) => String(entry.instanceId))
+          .find((id) => id.includes(':repo-a:copilot_review')),
+        active
+          .map((entry) => String(entry.instanceId))
+          .find((id) => id.includes(':repo-b:copilot_review')),
+      ].sort(),
+    );
+    const persisted = (
+      memoryConversations.get(parent.conversationId)?.flags as {
+        flow?: {
+          values?: {
+            effective_review_groups?: Array<Record<string, unknown>>;
+          };
+          subflowWaveProgress?: { running?: number; completed?: number };
+        };
+      }
+    ).flow;
+    assert.equal(persisted?.values?.effective_review_groups?.length, 2);
+    const copilotGroup =
+      persisted?.values?.effective_review_groups?.find(
+        (group) => group.id !== 'existing',
+      ) ?? {};
+    assert.match(String(copilotGroup.id), /^copilot-/u);
+    assert.equal(
+      (
+        copilotGroup.bindings as {
+          inputValues?: {
+            copilot_review_spec?: { available?: boolean };
+          };
+        }
+      ).inputValues?.copilot_review_spec?.available,
+      false,
+    );
+    assert.equal(
+      (persisted?.subflowWaveProgress?.running ?? 0) +
+        (persisted?.subflowWaveProgress?.completed ?? 0),
+      4,
+    );
+    releaseChildren?.();
+    await waitForAssistantStatus(parent.conversationId, 'ok');
+    assert.equal(
+      findChildFlowConversations({
+        parentConversationId: parent.conversationId,
+        childFlowNames: ['existing-review', 'copilot_review'],
+      }).length,
+      4,
+    );
+  } finally {
+    releaseChildren?.();
+    if (previousModels === undefined) {
+      delete process.env.CODEINFO_COPILOT_REVIEW_MODELS;
+    } else {
+      process.env.CODEINFO_COPILOT_REVIEW_MODELS = previousModels;
+    }
+    if (previousCli === undefined) {
+      delete process.env.CODEINFO_COPILOT_CLI_PATH;
+    } else {
+      process.env.CODEINFO_COPILOT_CLI_PATH = previousCli;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('cancelling Copilot group preparation interrupts readiness before any child admission', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-copilot-review-prepare-cancel-'),
+  );
+  const previousModels = process.env.CODEINFO_COPILOT_REVIEW_MODELS;
+  const previousCli = process.env.CODEINFO_COPILOT_CLI_PATH;
+  const previousMarker = process.env.COPILOT_PREP_CANCEL_MARKER;
+  const marker = path.join(tmpDir, 'readiness-started');
+  const cli = path.join(tmpDir, 'blocking-copilot.sh');
+  process.env.FLOWS_DIR = tmpDir;
+  process.env.CODEINFO_COPILOT_REVIEW_MODELS = 'gpt-5.4|low';
+  process.env.CODEINFO_COPILOT_CLI_PATH = cli;
+  process.env.COPILOT_PREP_CANCEL_MARKER = marker;
+
+  try {
+    await fs.writeFile(
+      cli,
+      `#!/usr/bin/env bash
+set -euo pipefail
+printf 'started\n' > "$COPILOT_PREP_CANCEL_MARKER"
+trap 'exit 143' TERM
+while true; do sleep 0.05; done
+`,
+      { mode: 0o755 },
+    );
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'cancel-copilot-preparation',
+      steps: [
+        {
+          type: 'prepareCopilotReviewGroups',
+          groupsFrom: 'review_groups',
+          targetsFrom: 'review_batch_targets.targets',
+          reviewWaveFrom: 'review_batch_targets',
+          outputKey: 'effective_review_groups',
+        },
+      ],
+    });
+    let runToken: string | undefined;
+    const result = await startFlowRun({
+      flowName: 'cancel-copilot-preparation',
+      source: 'REST',
+      input: {
+        review_groups: [
+          {
+            kind: 'singleton',
+            id: 'existing',
+            flowName: 'existing-review',
+          },
+        ],
+        review_batch_targets: { targets: [] },
+      },
+      chatFactory: () => new SubflowChat(25),
+      onOwnershipReady: (ownership) => {
+        runToken = ownership.runToken;
+      },
+    });
+    try {
+      await waitFor(() => existsSync(marker));
+    } catch {
+      assert.fail(
+        JSON.stringify({
+          flags: memoryConversations.get(result.conversationId)?.flags,
+          turns: memoryTurns.get(result.conversationId),
+        }),
+      );
+    }
+    assert.ok(runToken);
+    registerPendingConversationCancel({
+      conversationId: result.conversationId,
+      runToken,
+    });
+    assert.equal(
+      abortInflight({
+        conversationId: result.conversationId,
+        inflightId: result.inflightId,
+      }).ok,
+      true,
+    );
+    const stopped = await waitForAssistantStatus(
+      result.conversationId,
+      'stopped',
+    );
+    assert.match(stopped?.content ?? '', /^Stopped/u);
+    const flow = (
+      memoryConversations.get(result.conversationId)?.flags as {
+        flow?: { values?: Record<string, unknown> };
+      }
+    ).flow;
+    assert.equal(flow?.values?.effective_review_groups, undefined);
+  } finally {
+    if (previousModels === undefined)
+      delete process.env.CODEINFO_COPILOT_REVIEW_MODELS;
+    else process.env.CODEINFO_COPILOT_REVIEW_MODELS = previousModels;
+    if (previousCli === undefined) delete process.env.CODEINFO_COPILOT_CLI_PATH;
+    else process.env.CODEINFO_COPILOT_CLI_PATH = previousCli;
+    if (previousMarker === undefined)
+      delete process.env.COPILOT_PREP_CANCEL_MARKER;
+    else process.env.COPILOT_PREP_CANCEL_MARKER = previousMarker;
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -1561,11 +1821,12 @@ test('repeated subflow wave titles show their loop iteration', async () => {
       chatFactory: () => new SubflowChat(25),
     });
     await waitForAssistantStatus(result.conversationId, 'ok');
-    await waitFor(() =>
-      findChildFlowConversations({
-        parentConversationId: result.conversationId,
-        childFlowNames: ['repeated-wave-child'],
-      }).length === 2,
+    await waitFor(
+      () =>
+        findChildFlowConversations({
+          parentConversationId: result.conversationId,
+          childFlowNames: ['repeated-wave-child'],
+        }).length === 2,
     );
 
     const titles = findChildFlowConversations({
@@ -1810,7 +2071,9 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
         (conversation) =>
           (conversation.flags as { flow?: { input?: unknown } }).flow?.input,
       )
-      .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+      .sort((left, right) =>
+        JSON.stringify(left).localeCompare(JSON.stringify(right)),
+      );
     assert.deepEqual(resumedLocalInputs, [
       { target: { id: 'a' } },
       { target: { id: 'b' } },
@@ -2414,9 +2677,10 @@ test('a review wave starts before an unavailable later loop controller is resolv
         }),
     });
 
-    await waitFor(() =>
-      executions.includes('review child work') &&
-      executions.includes('record review outcome'),
+    await waitFor(
+      () =>
+        executions.includes('review child work') &&
+        executions.includes('record review outcome'),
     );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
@@ -2482,9 +2746,10 @@ test('a malformed later review-loop decision still records the review outcome', 
         }),
     });
 
-    await waitFor(() =>
-      executions.includes('review child work') &&
-      executions.includes('record review outcome'),
+    await waitFor(
+      () =>
+        executions.includes('review child work') &&
+        executions.includes('record review outcome'),
     );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
@@ -2662,13 +2927,7 @@ test('review workspace records attempts for a configured reviewer with a non-rev
     assert.match(evidence, /Status: completed/u);
     await assert.rejects(
       fs.readdir(
-        path.join(
-          repoDir,
-          'codeInfoTmp',
-          'reviews',
-          reviewCycleId,
-          'attempts',
-        ),
+        path.join(repoDir, 'codeInfoTmp', 'reviews', reviewCycleId, 'attempts'),
       ),
       /ENOENT/u,
     );
@@ -3353,13 +3612,24 @@ test('pending parent stop prevents launching a new child subflow', async () => {
   try {
     await writeFlowFile({
       tmpDir,
-      flowName: 'child-never-started',
+      flowName: 'child-never-started-a',
+      steps: [llmStep('slow child')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'child-never-started-b',
       steps: [llmStep('slow child')],
     });
     await writeFlowFile({
       tmpDir,
       flowName: 'parent-stop-before-launch',
-      steps: [subflowStep('Run Child', 'child-never-started')],
+      steps: [
+        subflowStep(
+          'Run Children',
+          'child-never-started-a',
+          'child-never-started-b',
+        ),
+      ],
     });
 
     const result = await startFlowRun({
@@ -3383,7 +3653,11 @@ test('pending parent stop prevents launching a new child subflow', async () => {
 
     const childFlowConversations = Array.from(
       memoryConversations.values(),
-    ).filter((conversation) => conversation.flowName === 'child-never-started');
+    ).filter(
+      (conversation) =>
+        conversation.flowName === 'child-never-started-a' ||
+        conversation.flowName === 'child-never-started-b',
+    );
     assert.equal(childFlowConversations.length, 0);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });

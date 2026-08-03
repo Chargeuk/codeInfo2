@@ -474,6 +474,7 @@ describe('flow schema (v1)', () => {
   test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
       'flows/codex_review.json',
+      'flows/copilot_review.json',
       'flows/cross_repository_review.json',
       'flows/diagnostic_review_cycle.json',
       'flows/minor_review_fix_path.json',
@@ -502,6 +503,26 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('Copilot review flow uses one native service-owned launch step', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/copilot_review.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+
+    assert.deepEqual(parsed.steps, [
+      {
+        type: 'runCopilotReview',
+        label: 'Run Copilot Workspace Review',
+        markdownFile: 'copilot_review_instructions.md',
+      },
+    ]);
+    assert.equal(
+      parsed.steps?.some((step) => step.type === 'llm'),
+      false,
+    );
+  });
+
   test('review batch bounds optional filtering and repair while always finalizing', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/review_batch.json'),
@@ -516,7 +537,24 @@ describe('flow schema (v1)', () => {
     const repair = topLevel.find(
       (step) => step.label === 'Optional Review Repair',
     );
+    const copilotPreparation = topLevel.find(
+      (step) => step.type === 'prepareCopilotReviewGroups',
+    );
+    const reviewWave = topLevel.find((step) => step.type === 'subflowWave');
 
+    assert.deepEqual(copilotPreparation, {
+      type: 'prepareCopilotReviewGroups',
+      label: 'Prepare Copilot Review Matrix Groups',
+      groupsFrom: 'review_groups',
+      targetsFrom: 'review_batch_targets.targets',
+      reviewWaveFrom: 'review_batch_targets',
+      enabledFrom: 'copilot_reviews_enabled',
+      outputKey: 'effective_review_groups',
+    });
+    assert.equal(
+      reviewWave?.type === 'subflowWave' ? reviewWave.groupsFrom : undefined,
+      'effective_review_groups',
+    );
     assert.equal(filtering?.type, 'startLoop');
     assert.equal(filtering?.maxIterations, 1);
     assert.deepEqual(
@@ -600,7 +638,10 @@ describe('flow schema (v1)', () => {
     const artifacts = JSON.parse(artifactsRaw) as { steps?: FlowStep[] };
     const consolidator = artifacts.steps?.at(-1);
 
-    assert.equal(crossRepositoryReviewer?.label, 'Review Cross-Repository Contracts');
+    assert.equal(
+      crossRepositoryReviewer?.label,
+      'Review Cross-Repository Contracts',
+    );
     assert.equal(crossRepositoryReviewer?.agentType, 'review_agent_heavy');
     assert.equal(crossRepositoryReviewer?.continueOnFailure, undefined);
     assert.equal(consolidator?.label, 'Consolidate Multi-Agent Review');
@@ -1048,12 +1089,17 @@ describe('flow schema (v1)', () => {
     const serializedWave = JSON.stringify(evidenceWave);
 
     assert.equal(prepare?.reviewMode, 'diagnostic');
-    assert.equal(evidenceWave?.reviewWorkspace?.snapshotFrom, 'review_batch_targets');
+    assert.equal(
+      evidenceWave?.reviewWorkspace?.snapshotFrom,
+      'review_batch_targets',
+    );
     assert.doesNotMatch(serializedWave, /"flowName":"review_batch"/u);
     assert.equal(
       steps.some(
         (step) =>
-          step.type === 'llm' || step.type === 'reset' || step.type === 'reingest',
+          step.type === 'llm' ||
+          step.type === 'reset' ||
+          step.type === 'reingest',
       ),
       false,
     );
@@ -1304,12 +1350,17 @@ describe('flow schema (v1)', () => {
       const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
       const steps = flattenSteps(parsed.steps ?? []);
       const contextIndex = steps.findIndex(
-        (step) => step.label === 'Load coder current task context before proof repair',
+        (step) =>
+          step.label === 'Load coder current task context before proof repair',
       );
       assert.ok(contextIndex > 0, relativePath);
       const reset = steps[contextIndex - 1];
       const context = steps[contextIndex];
-      assert.equal(reset?.label, 'Reset coder before proof repair', relativePath);
+      assert.equal(
+        reset?.label,
+        'Reset coder before proof repair',
+        relativePath,
+      );
       assert.equal(reset?.type, 'reset', relativePath);
       assert.equal(reset?.agentType, 'coding_agent', relativePath);
       assert.equal(reset?.identifier, 'coder', relativePath);
@@ -1484,7 +1535,10 @@ describe('flow schema (v1)', () => {
       const storyLoop = (parsed.steps ?? []).find(
         (step) => step.label === 'Story Execution And Review Loop',
       );
-      assert.ok(storyLoop?.steps, `${relativePath} should define the story loop`);
+      assert.ok(
+        storyLoop?.steps,
+        `${relativePath} should define the story loop`,
+      );
 
       const labels = storyLoop.steps.map((step) => step.label);
       assertOrdered(
@@ -1912,18 +1966,12 @@ describe('flow schema (v1)', () => {
       'utf8',
     );
 
-    assert.match(
-      checkpointPrompt,
-      /This is a checkpoint only\./u,
-    );
+    assert.match(checkpointPrompt, /This is a checkpoint only\./u);
     assert.match(
       checkpointPrompt,
       /Do not implement any task or review finding\./u,
     );
-    assert.match(
-      checkpointPrompt,
-      /Do not change any task status, checkbox/u,
-    );
+    assert.match(checkpointPrompt, /Do not change any task status, checkbox/u);
     assert.match(
       checkpointPrompt,
       /If commit or push fails, report the failure and continue/u,
@@ -1944,14 +1992,11 @@ describe('flow schema (v1)', () => {
         `${flowFile} should have both mid-loop checkpoints`,
       );
       assert.ok(
-        checkpoints.every(
-          (step) => step.markdownFile === 'checkpoint_push.md',
-        ),
+        checkpoints.every((step) => step.markdownFile === 'checkpoint_push.md'),
         `${flowFile} should use the persistence-only checkpoint prompt`,
       );
       assert.equal(
-        rawSteps.filter((step) => step.markdownFile === 'final_push.md')
-          .length,
+        rawSteps.filter((step) => step.markdownFile === 'final_push.md').length,
         1,
         `${flowFile} should reserve final_push.md for true story closeout`,
       );

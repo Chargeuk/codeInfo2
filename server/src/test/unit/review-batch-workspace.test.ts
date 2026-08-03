@@ -123,14 +123,13 @@ test('review batch workspace gives every job immutable private input and pre-cre
         flowName: 'copilot_review',
         targetId: 'cross-repository',
         displayName:
-          'Copilot: openrouter/google/gemini-3.6-flash (minimal) [cross-repository]',
+          'Copilot: openrouter/google/gemini-3.6-flash (provider default) [cross-repository]',
         workingFolder: repoRoot,
         input: {
           copilot_review_spec: {
             selector: 'openrouter::google/gemini-3.6-flash',
             mode: 'external',
             modelId: 'google/gemini-3.6-flash',
-            reasoningEffort: 'minimal',
             endpointLabel: 'openrouter',
             endpointId: 'https://openrouter.test/api/v1',
             stableId: 'external-openrouter-google-gemini-3-6-flash-example',

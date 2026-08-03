@@ -34,7 +34,7 @@ export type CopilotReviewModelSpec = {
   selector: string;
   mode: 'native' | 'external';
   modelId: string;
-  reasoningEffort: CopilotReviewReasoningEffort;
+  reasoningEffort?: CopilotReviewReasoningEffort;
   endpointLabel?: string;
   stableId: string;
 };
@@ -134,27 +134,27 @@ export function parseCopilotReviewModels(
     }
 
     const pipeParts = entry.split('|');
-    if (pipeParts.length !== 2) {
+    if (pipeParts.length > 2) {
       warn(
         'invalid_delimiters',
-        'must contain exactly one "|" delimiter and was ignored',
+        'must contain at most one "|" delimiter and was ignored',
       );
       continue;
     }
     const rawSelector = pipeParts[0]?.trim() ?? '';
-    const rawEffort = pipeParts[1]?.trim() ?? '';
+    const rawEffort = pipeParts[1]?.trim();
     if (!rawSelector) {
       warn('missing_model', 'is missing a model and was ignored');
       continue;
     }
-    if (!rawEffort) {
+    if (pipeParts.length === 2 && !rawEffort) {
       warn(
         'missing_reasoning_effort',
         'is missing a reasoning effort and was ignored',
       );
       continue;
     }
-    if (!REASONING_EFFORT_SET.has(rawEffort)) {
+    if (rawEffort !== undefined && !REASONING_EFFORT_SET.has(rawEffort)) {
       warn(
         'unsupported_reasoning_effort',
         'uses an unsupported reasoning effort and was ignored',
@@ -221,7 +221,9 @@ export function parseCopilotReviewModels(
       selector,
       mode,
       modelId,
-      reasoningEffort: rawEffort as CopilotReviewReasoningEffort,
+      ...(rawEffort
+        ? { reasoningEffort: rawEffort as CopilotReviewReasoningEffort }
+        : {}),
       ...(endpointLabel ? { endpointLabel } : {}),
       stableId: stableModelId(mode, selector),
     });

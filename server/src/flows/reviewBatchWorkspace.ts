@@ -242,6 +242,16 @@ const pinnedCopilotReviewSpec = (
     }
     return value;
   };
+  const optionalString = (key: string): string | undefined => {
+    const value = spec[key];
+    if (value === undefined) return undefined;
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new Error(
+        `Copilot review job ${job.instanceId} has an invalid ${key}.`,
+      );
+    }
+    return value;
+  };
   const mode = requiredString('mode');
   if (mode !== 'native' && mode !== 'external') {
     throw new Error(
@@ -257,10 +267,11 @@ const pinnedCopilotReviewSpec = (
     selector: requiredString('selector'),
     mode,
     modelId: requiredString('modelId'),
-    reasoningEffort: requiredString('reasoningEffort'),
     stableId: requiredString('stableId'),
     available: spec.available,
   };
+  const reasoningEffort = optionalString('reasoningEffort');
+  if (reasoningEffort) pinned.reasoningEffort = reasoningEffort;
   for (const key of ['endpointLabel', 'endpointId', 'unavailableReason']) {
     const value = spec[key];
     if (value !== undefined) {

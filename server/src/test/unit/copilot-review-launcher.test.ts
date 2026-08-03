@@ -334,6 +334,32 @@ test('native launcher invokes local /review once with pinned full-access non-int
   });
 });
 
+test('provider-default launcher omits the reasoning flag and records null metadata', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot);
+  const options = launcherOptions(fixture, env);
+  delete options.reasoningEffort;
+
+  const result = await runCopilotReview(options);
+
+  assert.equal(result.status, 'successful');
+  const args = await nulArgs(String(env.FAKE_COPILOT_ARGS_FILE));
+  assert.equal(args.includes('--reasoning-effort'), false);
+  assert.equal(args.includes('--model'), true);
+  assertFullAccessArguments(args);
+  const [invocation, normalized] = await Promise.all(
+    [
+      fixture.outputPaths.invocationPath,
+      fixture.outputPaths.normalizedResultPath,
+    ].map(async (filePath) => JSON.parse(await fs.readFile(filePath, 'utf8'))),
+  );
+  assert.equal(invocation.reasoning_effort, null);
+  assert.equal(normalized.reasoning_effort, null);
+  assert.deepEqual(invocation.arguments, args);
+});
+
 test('external launcher exposes only the selected endpoint and key to the child', async (t) => {
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
@@ -992,6 +1018,52 @@ test('CLI derives artifacts from semantic arguments and the assigned workspace',
   );
   await Promise.all(
     artifactPaths(fixture).map((filePath) => fs.access(filePath)),
+  );
+});
+
+test('CLI accepts an omitted provider-default reasoning effort', async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const fakeCopilot = await makeFakeCopilot(fixture.root);
+  const env = fakeEnvironment(fixture, fakeCopilot);
+  const launcher = fileURLToPath(
+    new URL('../../copilot/reviewLauncherCli.js', import.meta.url),
+  );
+
+  execFileSync(
+    process.execPath,
+    [
+      launcher,
+      '--repository',
+      fixture.repo,
+      '--workspace',
+      fixture.workspace,
+      '--target-id',
+      'repository-a',
+      '--review-wave-id',
+      'review-wave-1',
+      '--job-instance-id',
+      'copilot-model:repository-a:copilot_review',
+      '--base',
+      fixture.base,
+      '--head',
+      fixture.head,
+      '--model',
+      'gpt-5.4',
+    ],
+    {
+      encoding: 'utf8',
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+
+  const args = await nulArgs(String(env.FAKE_COPILOT_ARGS_FILE));
+  assert.equal(args.includes('--reasoning-effort'), false);
+  assert.equal(
+    JSON.parse(await fs.readFile(fixture.outputPaths.invocationPath, 'utf8'))
+      .reasoning_effort,
+    null,
   );
 });
 

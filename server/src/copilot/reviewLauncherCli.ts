@@ -43,9 +43,13 @@ try {
       baseCommit: required('base'),
       headCommit: required('head'),
       modelId: required('model'),
-      reasoningEffort: required(
-        'reasoning-effort',
-      ) as CopilotReviewReasoningEffort,
+      ...(typeof parsed.values['reasoning-effort'] === 'string'
+        ? {
+            reasoningEffort: parsed.values[
+              'reasoning-effort'
+            ] as CopilotReviewReasoningEffort,
+          }
+        : {}),
       endpointLabel:
         typeof parsed.values['endpoint-label'] === 'string'
           ? parsed.values['endpoint-label']

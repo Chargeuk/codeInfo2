@@ -40,7 +40,7 @@ export type CopilotReviewLauncherOptions = {
   baseCommit: string;
   headCommit: string;
   modelId: string;
-  reasoningEffort: CopilotReviewReasoningEffort;
+  reasoningEffort?: CopilotReviewReasoningEffort;
   endpointLabel?: string;
   endpointId?: string;
   preflightUnavailableReason?: string;
@@ -323,17 +323,20 @@ export function buildCopilotReviewArguments(params: {
   repositoryPath: string;
   prompt: string;
   modelId: string;
-  reasoningEffort: CopilotReviewReasoningEffort;
+  reasoningEffort?: CopilotReviewReasoningEffort;
 }): string[] {
-  return [
+  const args = [
     '-C',
     params.repositoryPath,
     '--prompt',
     params.prompt,
     '--model',
     params.modelId,
-    '--reasoning-effort',
-    params.reasoningEffort,
+  ];
+  if (params.reasoningEffort) {
+    args.push('--reasoning-effort', params.reasoningEffort);
+  }
+  args.push(
     '--output-format',
     'json',
     '--no-ask-user',
@@ -344,7 +347,8 @@ export function buildCopilotReviewArguments(params: {
     '--disable-builtin-mcps',
     '--allow-all',
     `--secret-env-vars=${SECRET_ENVIRONMENT_NAMES.join(',')}`,
-  ];
+  );
+  return args;
 }
 
 const withoutProviderEnvironment = (
@@ -906,7 +910,7 @@ const writeArtifacts = async (params: {
           endpoint_label: params.options.endpointLabel ?? null,
           endpoint_id: params.options.endpointId ?? null,
           model_id: params.options.modelId,
-          reasoning_effort: params.options.reasoningEffort,
+          reasoning_effort: params.options.reasoningEffort ?? null,
           repository_path: params.options.repositoryPath,
           workspace_path: params.options.workspacePath,
           repository_target_id: params.options.targetId,
@@ -951,7 +955,7 @@ const writeArtifacts = async (params: {
           endpoint_label: params.options.endpointLabel ?? null,
           endpoint_id: params.options.endpointId ?? null,
           model_id: params.options.modelId,
-          reasoning_effort: params.options.reasoningEffort,
+          reasoning_effort: params.options.reasoningEffort ?? null,
           repository_path: params.options.repositoryPath,
           repository_target_id: params.options.targetId,
           review_wave_id: params.options.reviewWaveId,
@@ -1004,7 +1008,10 @@ export async function runCopilotReview(
         })
       : undefined,
   };
-  if (!SUPPORTED_REASONING.has(options.reasoningEffort)) {
+  if (
+    options.reasoningEffort !== undefined &&
+    !SUPPORTED_REASONING.has(options.reasoningEffort)
+  ) {
     throw new Error('reasoningEffort is unsupported.');
   }
   requireContainedOutputPaths(options.workspacePath, options.outputPaths);
@@ -1080,7 +1087,9 @@ export async function runCopilotReview(
       repositoryPath: verified.repositoryPath,
       prompt,
       modelId: options.modelId,
-      reasoningEffort: options.reasoningEffort,
+      ...(options.reasoningEffort
+        ? { reasoningEffort: options.reasoningEffort }
+        : {}),
     });
     processResult = await runProcess({
       cliPath: sourceEnv.CODEINFO_COPILOT_CLI_PATH?.trim() || 'copilot',

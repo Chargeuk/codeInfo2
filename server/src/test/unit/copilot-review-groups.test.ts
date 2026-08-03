@@ -33,7 +33,7 @@ test('two repositories and three Copilot models produce exactly six isolated sam
       reviewWaveFrom: 'review_batch_targets',
       env: {
         CODEINFO_COPILOT_REVIEW_MODELS:
-          'gpt-5.4|low,unsloth::gemini|minimal,other::flash|high',
+          'gpt-5.4,unsloth::gemini|minimal,other::flash|high',
         CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
           'Unsloth,https://unsloth.test/v1|completions;Other,https://other.test/v1|completions',
       },
@@ -93,6 +93,21 @@ test('two repositories and three Copilot models produce exactly six isolated sam
     );
     assert.equal(job.workingFolder, `/repos/${job.targetId?.slice(-1)}`);
   }
+  const providerDefaultJobs = copilotJobs.filter(
+    (job) =>
+      (job.input?.copilot_review_spec as { modelId?: string })?.modelId ===
+      'gpt-5.4',
+  );
+  assert.equal(providerDefaultJobs.length, 2);
+  assert.equal(
+    providerDefaultJobs.every(
+      (job) =>
+        job.displayName.startsWith('Copilot: gpt-5.4 (provider default)') &&
+        (job.input?.copilot_review_spec as { reasoningEffort?: string })
+          ?.reasoningEffort === undefined,
+    ),
+    true,
+  );
 });
 
 test('unavailable models remain one terminal coverage job per repository', async () => {
@@ -151,7 +166,7 @@ test('malformed and duplicate entries warn while every valid unique model is sch
       reviewWaveFrom: 'prepared',
       env: {
         CODEINFO_COPILOT_REVIEW_MODELS:
-          'gpt-5.4|low,bad,gpt-5.4|high,external::flash|minimal',
+          'gpt-5.4|low,bad|,gpt-5.4|high,external::flash|minimal',
         CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
           'External,https://external.test/v1|completions',
       },
@@ -172,7 +187,7 @@ test('malformed and duplicate entries warn while every valid unique model is sch
   assert.equal(prepared.copilotJobCount, 4);
   assert.deepEqual(
     prepared.configurationWarnings.map((warning) => warning.code),
-    ['invalid_delimiters', 'duplicate_selector'],
+    ['missing_reasoning_effort', 'duplicate_selector'],
   );
   const copilotGroups = prepared.effectiveReviewGroups.slice(1);
   assert.equal(

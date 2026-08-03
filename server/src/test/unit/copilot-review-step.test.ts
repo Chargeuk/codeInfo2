@@ -36,6 +36,7 @@ afterEach(async () => {
 const createFixture = async (params?: {
   mode?: 'native' | 'external';
   available?: boolean;
+  providerDefaultReasoning?: boolean;
 }) => {
   const repository = await fs.mkdtemp(
     path.join(os.tmpdir(), 'copilot-review-step-repository-'),
@@ -75,7 +76,7 @@ const createFixture = async (params?: {
     mode,
     modelId:
       mode === 'external' ? 'deepseek/deepseek-v4-flash' : 'kimi-k2.7-code',
-    reasoningEffort: 'none',
+    ...(params?.providerDefaultReasoning ? {} : { reasoningEffort: 'none' }),
     stableId:
       mode === 'external' ? 'external-openrouter-deepseek' : 'native-kimi',
     available,
@@ -171,6 +172,24 @@ test('external Copilot step derives every launcher input from the persisted chil
     ),
   );
   assert.match(instructions, /Pinned acceptance criteria/u);
+});
+
+test('external Copilot step preserves a provider-default reasoning setting', async () => {
+  const fixture = await createFixture({ providerDefaultReasoning: true });
+
+  const options = await prepareCopilotReviewLaunch(fixture.input, reviewStep, {
+    loadReviewPolicy,
+  });
+
+  assert.equal(options.reasoningEffort, undefined);
+  assert.equal(Object.hasOwn(options, 'reasoningEffort'), false);
+  assert.match(
+    await fs.readFile(
+      path.join(fixture.workDir, 'copilot-review-instructions.md'),
+      'utf8',
+    ),
+    /Reasoning effort: provider default \(no CLI override\)/u,
+  );
 });
 
 test('external Copilot step rejects a caller-selected workspace directory mismatch', async () => {

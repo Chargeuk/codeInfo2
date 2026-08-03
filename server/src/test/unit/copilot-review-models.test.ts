@@ -60,6 +60,24 @@ describe('Copilot review model configuration', () => {
     }
   });
 
+  test('accepts native and external provider-default entries without changing identity', () => {
+    const [nativeDefault, externalDefault] = parseCopilotReviewModels(
+      ' gpt-5.4 , OpenRouter :: deepseek/deepseek-v4-flash-0731 ',
+    );
+    const [nativeExplicit, externalExplicit] = parseCopilotReviewModels(
+      'gpt-5.4|high,openrouter::deepseek/deepseek-v4-flash-0731|none',
+    );
+
+    assert.equal(nativeDefault?.reasoningEffort, undefined);
+    assert.equal(externalDefault?.reasoningEffort, undefined);
+    assert.equal(nativeDefault?.stableId, nativeExplicit?.stableId);
+    assert.equal(externalDefault?.stableId, externalExplicit?.stableId);
+    assert.equal(
+      externalDefault?.selector,
+      'openrouter::deepseek/deepseek-v4-flash-0731',
+    );
+  });
+
   test('preserves exact model-id case and produces stable deterministic ids', () => {
     const first = parseCopilotReviewModels(
       'Native-Model|low,Endpoint::Exact/Model:Tag|minimal',
@@ -77,7 +95,7 @@ describe('Copilot review model configuration', () => {
   test('salvages valid entries, keeps the first duplicate, and warns for every discarded entry', () => {
     const warnings: Array<{ code: string; entryNumber: number }> = [];
     const specs = parseCopilotReviewModels(
-      'model-a|low,bad,model-a|high,Endpoint::model-b|minimal,,model-c|turbo,one::two::model|low',
+      'model-a|low,bad|,model-a|high,Endpoint::model-b|minimal,,model-c|turbo,one::two::model|low',
       { onWarning: (warning) => warnings.push(warning) },
     );
     assert.deepEqual(
@@ -93,7 +111,7 @@ describe('Copilot review model configuration', () => {
     assert.deepEqual(
       warnings.map(({ code, entryNumber }) => ({ code, entryNumber })),
       [
-        { code: 'invalid_delimiters', entryNumber: 2 },
+        { code: 'missing_reasoning_effort', entryNumber: 2 },
         { code: 'duplicate_selector', entryNumber: 3 },
         { code: 'empty_entry', entryNumber: 5 },
         { code: 'unsupported_reasoning_effort', entryNumber: 6 },
@@ -107,7 +125,6 @@ describe('Copilot review model configuration', () => {
     const warnings: string[] = [];
     const parsedMalformed = parseCopilotReviewModels(
       [
-        'model',
         '|low',
         'model|',
         `${secret}|turbo`,
@@ -119,9 +136,9 @@ describe('Copilot review model configuration', () => {
       { onWarning: (warning) => warnings.push(JSON.stringify(warning)) },
     );
     assert.deepEqual(parsedMalformed, []);
-    assert.equal(warnings.length, 8);
+    assert.equal(warnings.length, 7);
     assert.doesNotMatch(warnings.join('\n'), new RegExp(secret, 'u'));
-    const parsed = parseCopilotReviewModels('model|low');
+    const parsed = parseCopilotReviewModels('model,other|low');
     assert.doesNotMatch(JSON.stringify(parsed), /api[_-]?key|https?:\/\//iu);
   });
 });

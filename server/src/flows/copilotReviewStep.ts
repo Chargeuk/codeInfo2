@@ -124,12 +124,12 @@ const parseSpec = (
   if (mode !== 'native' && mode !== 'external') {
     throw new Error('copilot_review_spec.mode must be "native" or "external".');
   }
-  const reasoningEffort = requireString(
+  const reasoningEffort = optionalString(
     spec,
     'reasoningEffort',
     'copilot_review_spec',
   );
-  if (!REASONING_EFFORTS.has(reasoningEffort)) {
+  if (reasoningEffort && !REASONING_EFFORTS.has(reasoningEffort)) {
     throw new Error('copilot_review_spec.reasoningEffort is unsupported.');
   }
   const endpointLabel = optionalString(
@@ -163,7 +163,11 @@ const parseSpec = (
     selector: requireString(spec, 'selector', 'copilot_review_spec'),
     mode,
     modelId: requireString(spec, 'modelId', 'copilot_review_spec'),
-    reasoningEffort: reasoningEffort as CopilotReviewReasoningEffort,
+    ...(reasoningEffort
+      ? {
+          reasoningEffort: reasoningEffort as CopilotReviewReasoningEffort,
+        }
+      : {}),
     stableId: requireString(spec, 'stableId', 'copilot_review_spec'),
     available,
     ...(endpointLabel ? { endpointLabel } : {}),
@@ -298,7 +302,9 @@ const buildInstructions = (params: {
     `- Repository: \`${params.target.repo_root}\``,
     `- Range: \`${params.target.comparison_base_commit}...${params.target.head_commit}\``,
     `- Model: \`${params.spec.selector}\``,
-    `- Reasoning effort: \`${params.spec.reasoningEffort}\``,
+    params.spec.reasoningEffort
+      ? `- Reasoning effort: \`${params.spec.reasoningEffort}\``
+      : '- Reasoning effort: provider default (no CLI override)',
     '- Excluded path: `planning/**`',
     '',
     'Inspect implementation changes with:',
@@ -418,7 +424,7 @@ export async function prepareCopilotReviewLaunch(
     baseCommit: target.comparison_base_commit,
     headCommit: target.head_commit,
     modelId: spec.modelId,
-    reasoningEffort: spec.reasoningEffort,
+    ...(spec.reasoningEffort ? { reasoningEffort: spec.reasoningEffort } : {}),
     ...(spec.endpointLabel ? { endpointLabel: spec.endpointLabel } : {}),
     ...(spec.endpointId ? { endpointId: spec.endpointId } : {}),
   };

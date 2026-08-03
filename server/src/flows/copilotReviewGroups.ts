@@ -27,7 +27,7 @@ const displayLabel = (spec: ResolvedCopilotReviewSpec): string => {
     spec.mode === 'external'
       ? `${spec.endpointLabel}/${spec.modelId}`
       : spec.modelId;
-  return `Copilot: ${identity} (${spec.reasoningEffort})`;
+  return `Copilot: ${identity} (${spec.reasoningEffort ?? 'provider default'})`;
 };
 
 export async function prepareCopilotReviewGroups(

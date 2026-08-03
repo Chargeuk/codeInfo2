@@ -6,7 +6,7 @@ import { CopilotLifecycle } from '../chat/copilotLifecycle.js';
 import { resolveOpenAiCompatEndpointRuntimeState } from '../chat/openaiCompatModelDiscovery.js';
 import {
   normalizeOpenAiCompatEndpointLabelKey,
-  resolveOpenAiCompatEndpointConfigsFromList,
+  resolveOpenAiCompatEndpointConfigsBestEffortFromList,
   validateOpenAiCompatEndpointConfigForProvider,
   type OpenAiCompatEndpointConfig,
 } from '../config/openaiCompatEndpoints.js';
@@ -475,23 +475,18 @@ export async function resolveCopilotReviewModels(
     }
   }
   let endpointResolution:
-    | ReturnType<typeof resolveOpenAiCompatEndpointConfigsFromList>
+    | ReturnType<typeof resolveOpenAiCompatEndpointConfigsBestEffortFromList>
     | undefined;
-  let endpointConfigurationUnavailable = false;
   if (externalSpecs.length > 0) {
-    try {
-      endpointResolution = resolveOpenAiCompatEndpointConfigsFromList({
-        value: env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
-        pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    endpointResolution = resolveOpenAiCompatEndpointConfigsBestEffortFromList({
+      value: env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
+      pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+    });
+    for (const message of endpointResolution.warnings) {
+      options.onWarning?.({
+        code: 'external_endpoint_configuration',
+        message,
       });
-      for (const message of endpointResolution.warnings) {
-        options.onWarning?.({
-          code: 'external_endpoint_configuration',
-          message,
-        });
-      }
-    } catch {
-      endpointConfigurationUnavailable = true;
     }
   }
 
@@ -522,7 +517,7 @@ export async function resolveCopilotReviewModels(
       continue;
     }
 
-    if (endpointConfigurationUnavailable || !endpointResolution) {
+    if (!endpointResolution) {
       resolved.push(
         unavailable(
           spec,

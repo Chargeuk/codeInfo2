@@ -489,21 +489,56 @@ describe('Copilot review model availability', () => {
 
   test('malformed external endpoint configuration leaves external models visible and unavailable', async () => {
     const specs = parseCopilotReviewModels('unsloth::model|minimal');
+    const warnings: string[] = [];
     const [resolved] = await resolveCopilotReviewModels(specs, {
       env: {
         CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
           'malformed-secret-bearing-value',
       },
       deps: availableDeps(),
+      onWarning: (warning) => warnings.push(warning.message),
     });
     assert.equal(resolved?.available, false);
     assert.match(
       resolved?.unavailableReason ?? '',
-      /configuration could not be resolved/u,
+      /selected external endpoint is not configured/u,
     );
+    assert.equal(warnings.length, 1);
     assert.doesNotMatch(
-      JSON.stringify(resolved),
+      JSON.stringify({ resolved, warnings }),
       /malformed-secret-bearing-value/u,
+    );
+  });
+
+  test('malformed unrelated endpoint entries do not suppress a valid selected external model', async () => {
+    const secret = 'sk-malformed-endpoint-secret';
+    const specs = parseCopilotReviewModels('openrouter::model|minimal');
+    const warnings: string[] = [];
+    const [resolved] = await resolveCopilotReviewModels(specs, {
+      env: {
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: [
+          'OpenRouter,https://openrouter.test/v1|completions',
+          `malformed-${secret}`,
+          'Other,https://other.test/v1|responses',
+        ].join(';'),
+      },
+      deps: {
+        ...availableDeps(),
+        discoverExternal: async () => ({
+          available: true,
+          models: ['model'],
+        }),
+      },
+      onWarning: (warning) => warnings.push(warning.message),
+    });
+
+    assert.equal(resolved?.available, true);
+    assert.equal(resolved?.endpointId, 'https://openrouter.test/v1');
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0] ?? '', /\[2\].*malformed.*ignored/u);
+    assert.doesNotMatch(
+      JSON.stringify({ resolved, warnings }),
+      new RegExp(secret, 'u'),
     );
   });
 

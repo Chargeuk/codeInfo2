@@ -366,6 +366,7 @@ test('external launcher exposes only the selected endpoint and key to the child'
   const fakeCopilot = await makeFakeCopilot(fixture.root);
   const selectedSecret = 'key';
   const otherSecret = 'sk-other-secret';
+  const malformedEndpointSecret = 'sk-malformed-endpoint-secret';
   const env = fakeEnvironment(fixture, fakeCopilot, {
     COPILOT_HOME: path.join(fixture.root, 'ambient-copilot-home'),
     CODEINFO_COPILOT_HOME: path.join(fixture.root, 'native-copilot-home'),
@@ -376,8 +377,7 @@ test('external launcher exposes only the selected endpoint and key to the child'
     NODE_EXTRA_CA_CERTS: '/etc/ssl/certs/custom-corporate-ca.pem',
     CODEINFO_UNRELATED_AMBIENT_VALUE: 'must-not-cross-provider-boundary',
     SECRET_UNRELATED_AMBIENT_VALUE: 'ambient-secret',
-    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
-      'Other,https://other.test/v1|completions;Unsloth,https://selected.test/v1|completions',
+    CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: `Other,https://other.test/v1|completions;malformed-${malformedEndpointSecret};Unsloth,https://selected.test/v1|completions`,
     CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS: `Unsloth,${selectedSecret};Other,${otherSecret}`,
     FAKE_COPILOT_STDERR: `provider diagnostic ${selectedSecret}\n`,
   });
@@ -436,7 +436,10 @@ test('external launcher exposes only the selected endpoint and key to the child'
   ).join('\n');
   assert.doesNotMatch(
     persisted,
-    new RegExp(`${selectedSecret}|${otherSecret}`, 'u'),
+    new RegExp(
+      `${selectedSecret}|${otherSecret}|${malformedEndpointSecret}`,
+      'u',
+    ),
   );
   assert.doesNotMatch(persisted, /https:\/\/other\.test/u);
   assert.match(persisted, /provider diagnostic \[REDACTED\]/u);
@@ -731,7 +734,7 @@ test('malformed external configuration is unavailable without leaking raw config
   assert.doesNotMatch(persisted, new RegExp(secret, 'u'));
   assert.match(
     persisted,
-    /External endpoint configuration could not be resolved/u,
+    /selected external endpoint is no longer configured/u,
   );
 });
 

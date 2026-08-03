@@ -5,12 +5,13 @@ import { promisify } from 'node:util';
 
 import { fetchOpenAiCompatModels } from '../chat/openaiCompatAdapter.js';
 import {
+  attachOpenAiCompatEndpointKeys,
   normalizeOpenAiCompatEndpointId,
-  resolveOpenAiCompatEndpointConfigsFromList,
+  resolveOpenAiCompatEndpointConfigsBestEffortFromList,
+  resolveOpenAiCompatEndpointKeysFromList,
   validateOpenAiCompatEndpointConfigForProvider,
   type OpenAiCompatEndpointConfig,
 } from '../config/openaiCompatEndpoints.js';
-import { resolveExternalOpenAiCompatEndpoints } from '../config/startupEnv.js';
 import {
   COPILOT_REVIEW_REASONING_EFFORTS,
   type CopilotReviewReasoningEffort,
@@ -468,19 +469,10 @@ const resolveExternalLaunch = async (
   endpoint: OpenAiCompatEndpointConfig;
   apiKey?: string;
 }> => {
-  let endpointConfigs: ReturnType<
-    typeof resolveOpenAiCompatEndpointConfigsFromList
-  >;
-  try {
-    endpointConfigs = resolveOpenAiCompatEndpointConfigsFromList({
-      value: source.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
-      pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
-    });
-  } catch {
-    throw new CopilotReviewUnavailableError(
-      'External endpoint configuration could not be resolved before launch.',
-    );
-  }
+  const endpointConfigs = resolveOpenAiCompatEndpointConfigsBestEffortFromList({
+    value: source.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS,
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+  });
   const pinnedEndpoint = endpointConfigs.endpoints.find(
     (candidate) => candidate.authLookupKey === endpointLabel,
   );
@@ -495,14 +487,22 @@ const resolveExternalLaunch = async (
     );
   }
 
-  let resolution: ReturnType<typeof resolveExternalOpenAiCompatEndpoints>;
+  let endpointKeys: ReturnType<typeof resolveOpenAiCompatEndpointKeysFromList>;
   try {
-    resolution = resolveExternalOpenAiCompatEndpoints({ env: source });
+    endpointKeys = resolveOpenAiCompatEndpointKeysFromList({
+      value: source.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS,
+      pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS',
+    });
   } catch {
     throw new CopilotReviewUnavailableError(
       'External endpoint configuration could not be resolved before launch.',
     );
   }
+  const resolution = attachOpenAiCompatEndpointKeys({
+    endpoints: endpointConfigs.endpoints,
+    keys: endpointKeys.keys,
+    warnings: [...endpointConfigs.warnings, ...endpointKeys.warnings],
+  });
   const endpoint = resolution.endpoints.find(
     (candidate) =>
       candidate.authLookupKey === endpointLabel &&

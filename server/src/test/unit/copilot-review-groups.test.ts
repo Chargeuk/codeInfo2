@@ -221,7 +221,7 @@ test('endpoint parser warnings join the visible secret-free configuration warnin
       env: {
         CODEINFO_COPILOT_REVIEW_MODELS: 'openrouter::flash|minimal',
         CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
-          'OpenRouter,https://openrouter.test/v1|completions;Duplicate,https://openrouter.test/v1|completions',
+          'OpenRouter,https://openrouter.test/v1|completions;malformed-secret-bearing-value;Duplicate,https://openrouter.test/v1|completions',
       },
     },
     {
@@ -235,15 +235,35 @@ test('endpoint parser warnings join the visible secret-free configuration warnin
 
   assert.deepEqual(
     prepared.configurationWarnings.map((warning) => warning.code),
-    ['external_endpoint_configuration'],
+    ['external_endpoint_configuration', 'external_endpoint_configuration'],
   );
   assert.match(
     prepared.configurationWarnings[0]?.message ?? '',
+    /malformed.*ignored/u,
+  );
+  assert.match(
+    prepared.configurationWarnings[1]?.message ?? '',
     /keeping first entry/u,
   );
   assert.doesNotMatch(
     JSON.stringify(prepared.configurationWarnings),
     /api[_-]?key|secret/iu,
+  );
+  const copilotJobs = expandSubflowWaveJobs({
+    step: { type: 'subflowWave', groupsFrom: 'effective_review_groups' },
+    input: {
+      review_batch_targets: { targets },
+      effective_review_groups: prepared.effectiveReviewGroups,
+    },
+  }).filter((job) => job.flowName === 'copilot_review');
+  assert.equal(copilotJobs.length, 2);
+  assert.equal(
+    copilotJobs.every(
+      (job) =>
+        (job.input?.copilot_review_spec as { available?: unknown })
+          ?.available === true,
+    ),
+    true,
   );
 });
 

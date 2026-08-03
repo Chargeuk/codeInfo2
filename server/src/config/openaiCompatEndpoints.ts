@@ -26,10 +26,11 @@ export type OpenAiCompatEndpointListResolution = {
   warnings: string[];
 };
 
-export type OpenAiCompatEndpointAuthResolution = OpenAiCompatEndpointListResolution & {
-  apiKeysByAuthLookupKey: ReadonlyMap<string, string>;
-  apiKeysByEndpointId: ReadonlyMap<string, string>;
-};
+export type OpenAiCompatEndpointAuthResolution =
+  OpenAiCompatEndpointListResolution & {
+    apiKeysByAuthLookupKey: ReadonlyMap<string, string>;
+    apiKeysByEndpointId: ReadonlyMap<string, string>;
+  };
 
 export type OpenAiCompatEndpointKeyEntry = {
   authLookupKey: string;
@@ -49,10 +50,7 @@ const SUPPORTED_CAPABILITIES = new Set<OpenAiCompatEndpointCapability>(
   OPENAI_COMPAT_ENDPOINT_CAPABILITIES,
 );
 
-function makeInvalidEndpointError(
-  pathLabel: string,
-  message: string,
-): Error {
+function makeInvalidEndpointError(pathLabel: string, message: string): Error {
   return new Error(`${INVALID_PREFIX}: ${pathLabel}: ${message}`);
 }
 
@@ -161,7 +159,9 @@ function normalizeCapabilities(
     if (!trimmed) {
       continue;
     }
-    if (!SUPPORTED_CAPABILITIES.has(trimmed as OpenAiCompatEndpointCapability)) {
+    if (
+      !SUPPORTED_CAPABILITIES.has(trimmed as OpenAiCompatEndpointCapability)
+    ) {
       throw makeInvalidEndpointError(
         pathLabel,
         `unsupported capability "${trimmed}"`,
@@ -228,7 +228,8 @@ function parseOpenAiCompatEndpointListEntry(
   value: string,
   params: ParseEndpointPathLabel = {},
 ): OpenAiCompatEndpointConfig {
-  const pathLabel = params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS';
+  const pathLabel =
+    params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS';
   const trimmed = value.trim();
   if (!trimmed) {
     throw makeInvalidEndpointError(
@@ -272,7 +273,8 @@ export function resolveOpenAiCompatEndpointConfigsFromList(params: {
   value?: string;
   pathLabel?: string;
 }): OpenAiCompatEndpointListResolution {
-  const pathLabel = params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS';
+  const pathLabel =
+    params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS';
   const rawValue = params.value?.trim() ?? '';
   if (!rawValue) {
     return {
@@ -320,11 +322,86 @@ export function resolveOpenAiCompatEndpointConfigsFromList(params: {
   };
 }
 
+export function resolveOpenAiCompatEndpointConfigsBestEffortFromList(params: {
+  value?: string;
+  pathLabel?: string;
+}): OpenAiCompatEndpointListResolution {
+  const pathLabel =
+    params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS';
+  const rawValue = params.value?.trim() ?? '';
+  if (!rawValue) {
+    return {
+      endpoints: [],
+      warnings: [],
+    };
+  }
+
+  const warnings: string[] = [];
+  const parsedEntries: Array<{
+    endpoint: OpenAiCompatEndpointConfig;
+    entryNumber: number;
+  }> = [];
+  for (const [index, segment] of rawValue.split(';').entries()) {
+    const trimmed = segment.trim();
+    if (!trimmed) continue;
+    const entryNumber = index + 1;
+    try {
+      parsedEntries.push({
+        endpoint: parseOpenAiCompatEndpointListEntry(trimmed, {
+          pathLabel: `${pathLabel}[${entryNumber}]`,
+        }),
+        entryNumber,
+      });
+    } catch {
+      warnings.push(
+        `${pathLabel}[${entryNumber}] is malformed and was ignored`,
+      );
+    }
+  }
+
+  const labelCounts = new Map<string, number>();
+  for (const { endpoint } of parsedEntries) {
+    if (!endpoint.authLookupKey) continue;
+    labelCounts.set(
+      endpoint.authLookupKey,
+      (labelCounts.get(endpoint.authLookupKey) ?? 0) + 1,
+    );
+  }
+
+  const endpoints: OpenAiCompatEndpointConfig[] = [];
+  const seenEndpointIds = new Set<string>();
+  for (const { endpoint, entryNumber } of parsedEntries) {
+    if (
+      endpoint.authLookupKey &&
+      (labelCounts.get(endpoint.authLookupKey) ?? 0) > 1
+    ) {
+      warnings.push(
+        `${pathLabel}[${entryNumber}] has an ambiguous normalized endpoint label and was ignored`,
+      );
+      continue;
+    }
+    if (seenEndpointIds.has(endpoint.endpointId)) {
+      warnings.push(
+        `${pathLabel}[${entryNumber}] duplicates normalized endpoint ${endpoint.endpointId}; keeping first entry`,
+      );
+      continue;
+    }
+    seenEndpointIds.add(endpoint.endpointId);
+    endpoints.push(endpoint);
+  }
+
+  return {
+    endpoints,
+    warnings,
+  };
+}
+
 function parseOpenAiCompatEndpointKeyEntry(
   value: string,
   params: ParseEndpointPathLabel = {},
 ): OpenAiCompatEndpointKeyEntry {
-  const pathLabel = params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS';
+  const pathLabel =
+    params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS';
   const trimmed = value.trim();
   if (!trimmed) {
     throw makeInvalidEndpointError(pathLabel, 'expected <Label>,<raw key>');
@@ -354,7 +431,8 @@ export function resolveOpenAiCompatEndpointKeysFromList(params: {
   value?: string;
   pathLabel?: string;
 }): OpenAiCompatEndpointKeyListResolution {
-  const pathLabel = params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS';
+  const pathLabel =
+    params.pathLabel ?? 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS';
   const rawValue = params.value?.trim() ?? '';
   if (!rawValue) {
     return {
@@ -414,8 +492,10 @@ export function attachOpenAiCompatEndpointKeys(params: {
     apiKeysByEndpointId.set(endpoint.endpointId, apiKey);
     return {
       ...endpoint,
-      supportsBuiltInWebSearch:
-        apiKey.trim().toLowerCase().startsWith(UNSLOTH_API_KEY_PREFIX),
+      supportsBuiltInWebSearch: apiKey
+        .trim()
+        .toLowerCase()
+        .startsWith(UNSLOTH_API_KEY_PREFIX),
     };
   });
 
@@ -438,7 +518,10 @@ export function attachOpenAiCompatEndpointKeys(params: {
 }
 
 export function supportsOpenAiCompatBuiltInWebSearch(
-  endpoint?: Pick<OpenAiCompatEndpointConfig, 'supportsBuiltInWebSearch'> | null,
+  endpoint?: Pick<
+    OpenAiCompatEndpointConfig,
+    'supportsBuiltInWebSearch'
+  > | null,
 ): boolean {
   return endpoint?.supportsBuiltInWebSearch === true;
 }

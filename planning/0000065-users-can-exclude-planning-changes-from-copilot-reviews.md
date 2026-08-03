@@ -2137,7 +2137,7 @@ None. This follow-up changes bounded normalization, cleanup, diagnostics, and au
 ### Task 22. Record Review Fixes From Batch 0000065-rw-20260802T222934Z-4066b8cc
 
 - Repository Name: `codeInfo2`
-- Affected Repositories: `current_repository` / `codeInfo2` only (`/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`)
+- Affected Repositories: `current_repository` / `codeInfo2` only
 - Task Dependencies: `Task 21`
 - Task Status: `__done__`
 - Review Task Role: `completed_review_fixes`
@@ -2188,7 +2188,7 @@ None. The batch repair used focused sequential automated proof; provider login, 
 ### Task 23. Allow Copilot Reviews To Use Provider-Default Reasoning
 
 - Repository Name: `codeInfo2`
-- Affected Repositories: `current_repository` / `codeInfo2` only (`/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2`)
+- Affected Repositories: `current_repository` / `codeInfo2` only
 - Task Dependencies: `Task 22`
 - Task Status: `__done__`
 
@@ -2229,3 +2229,46 @@ None. Do not run another chargeable provider review or manual Compose proof for 
 - `npm run build:summary:server` passed cleanly with zero warnings and requested `skip_log`; the saved wrapper log was not opened.
 - `npm run compose:build:summary` passed both image items, confirmed the runtime assets were baked, and requested `skip_log`; the saved wrapper log was not opened.
 - Unstaged and staged diff checks passed. No client, parallel-wrapper, manual Compose, or additional chargeable provider testing was run, matching the task boundary.
+
+### Task 24. Address scoped Copilot process and input review findings
+
+- Repository Name: `codeInfo2`
+- Affected Repositories: `current_repository` / `codeInfo2` only
+- Task Dependencies: `Task 23`
+- Task Status: `__done__`
+- Git Commits: `1e8540a2`
+
+#### Overview
+
+Address the three accepted findings from the latest PR review without broadening cancellation policy or changing successful Copilot review execution. Isolate Copilot subprocesses for safe timeout and cancellation cleanup, validate optional reasoning effort at the immutable workspace boundary, and keep the plan portable.
+
+#### Subtasks
+
+1. [x] Launch Copilot in its own supported process group and terminate that group only after a genuine cancellation or timeout, retaining a safe direct-child fallback.
+2. [x] Validate a present pinned reasoning effort against the shared supported values while continuing to accept an omitted provider-default effort.
+3. [x] Remove the two workstation-specific absolute repository paths from Tasks 22 and 23.
+
+#### Testing
+
+1. [x] Run the Copilot launcher unit suite sequentially with server unit concurrency set to one.
+2. [x] Run the review-batch workspace unit suite sequentially with server unit concurrency set to one.
+3. [x] Run focused Prettier and ESLint checks for the changed TypeScript, test, and plan files.
+4. [x] Run `npm run build:summary:server` and `git diff --check`.
+
+#### Manual Testing Guidance
+
+None. Do not run another chargeable provider review or manual Compose proof for this focused repair; process and input behavior should be proved with controlled unit tests. Parallel test wrappers remain out of scope.
+
+#### Implementation Notes
+
+- Task 24 was added for the three accepted findings on the current PR head; the repeated review-heading comment and shared HTTP-discovery cancellation suggestion remain outside this scoped repair.
+- Copilot now starts in a dedicated process group on POSIX systems, group termination is limited to cancellation and timeout paths, and unsupported platforms or failed group signalling retain direct-child termination.
+- Immutable workspace preparation now checks a present reasoning effort against the shared Copilot enum; omitted provider-default effort remains valid and a malformed persisted value is rejected before pinning.
+- Tasks 22 and 23 now identify the current repository portably without retaining a workstation-specific absolute path.
+- The first focused launcher wrapper stopped at a definite-assignment error in the new test fixture; the fixture declaration was corrected before rerunning the same wrapper.
+- The sequential Copilot launcher suite passed 24/24 after that test-only correction, including dedicated-group signalling, direct-child fallback coverage, cancellation settlement, and timeout behavior.
+- The sequential review-batch workspace suite passed 3/3, proving omitted reasoning remains valid and an unsupported pinned effort is rejected before immutable input is written.
+- Focused Prettier passed immediately; the first ESLint pass identified one import-order warning in the workspace module, which was corrected before rerunning lint.
+- Focused Prettier and ESLint then passed cleanly across both implementation modules, both focused test files, and the story plan.
+- The server build wrapper passed with zero warnings and requested `skip_log`; `git diff --check` also passed with no whitespace errors.
+- The scoped implementation and automated proof are complete in `1e8540a2`; this Task 24 record is carried by the follow-up planning commit.

@@ -117,7 +117,7 @@ export type FlowResumeState = {
   subflowWaveProgress?: FlowSubflowWaveProgress;
   terminalOutcome?: 'not_applicable';
   runLifecycle?: {
-    status: 'running' | 'ok' | 'stopped' | 'failed' | 'orphaned';
+    status: 'running' | 'ok' | 'warning' | 'stopped' | 'failed' | 'orphaned';
     updatedAt: string;
   };
   codexReviewModelId?: string;

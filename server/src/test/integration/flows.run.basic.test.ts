@@ -43,6 +43,7 @@ import {
   __resetFreshRunRetryOwnershipCompletionForTests,
   __resetFlowServiceDepsForTests,
   __setFlowServiceDepsForTests,
+  getFlowRunStatus,
   startFlowRun,
 } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
@@ -2939,7 +2940,7 @@ test('github review open PR skips the cycle when gh pr create fails', async () =
   }
 });
 
-test('github review fetch without an open pull request publishes completed-with-warning while adjacent non-GitHub flows still complete with ok status', async () => {
+test('github review skips persist warning status directly and through a parent subflow while adjacent non-GitHub flows complete with ok status', async () => {
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-fetch-flow-'),
   );
@@ -3023,6 +3024,16 @@ test('github review fetch without an open pull request publishes completed-with-
         },
       ],
     });
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-warning-child',
+      steps: [{ type: 'github_fetch_reviews', label: 'Fetch reviews' }],
+    });
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-warning-parent',
+      steps: [{ type: 'subflow', flowNames: ['github-warning-child'] }],
+    });
 
     const warningConversationId = 'github-no-open-pr-conversation';
     await startFlowRun({
@@ -3049,6 +3060,37 @@ test('github review fetch without an open pull request publishes completed-with-
     assert.ok(warningTurn);
     assert.equal(warningTurn.status, 'warning');
     assert.match(warningTurn.content, /no latest open pull request/i);
+    await waitForConversationUnlocked(warningConversationId);
+    const directWarningStatus = await getFlowRunStatus(warningConversationId);
+    assert.equal(directWarningStatus?.status, 'warning');
+    assert.equal(directWarningStatus?.terminal, true);
+
+    const parentWarningConversationId = 'github-warning-parent-conversation';
+    await startFlowRun({
+      flowName: 'github-warning-parent',
+      conversationId: parentWarningConversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+    await waitForTurns(
+      parentWarningConversationId,
+      (turns) =>
+        turns.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
+        ),
+      4000,
+    );
+    await waitForConversationUnlocked(parentWarningConversationId);
+    const parentWarningStatus = await getFlowRunStatus(
+      parentWarningConversationId,
+    );
+    assert.equal(parentWarningStatus?.status, 'warning');
+    assert.equal(parentWarningStatus?.terminal, true);
 
     const okConversationId = 'github-adjacent-ok-conversation';
     await startFlowRun({

@@ -1642,7 +1642,7 @@ const parseFlowResumeState = (
     ? (() => {
         const status = flow.runLifecycle.status;
         const updatedAt = normalizeOptionalString(flow.runLifecycle.updatedAt);
-        return ['running', 'ok', 'stopped', 'failed', 'orphaned'].includes(
+        return ['running', 'ok', 'warning', 'stopped', 'failed', 'orphaned'].includes(
           String(status),
         ) && updatedAt
           ? {
@@ -3667,8 +3667,14 @@ export type FlowChildLifecycleStatus =
 
 const isTerminalFlowChildLifecycleStatus = (
   status: FlowChildLifecycleStatus,
-): status is Extract<FlowChildLifecycleStatus, 'ok' | 'failed' | 'stopped'> =>
-  status === 'ok' || status === 'failed' || status === 'stopped';
+): status is Extract<
+  FlowChildLifecycleStatus,
+  'ok' | 'warning' | 'failed' | 'stopped'
+> =>
+  status === 'ok' ||
+  status === 'warning' ||
+  status === 'failed' ||
+  status === 'stopped';
 
 const normalizeFlowChildTurnStatus = (
   status: TurnStatus | undefined,
@@ -5999,7 +6005,7 @@ async function runFlowUnlocked(params: {
   }) => void | Promise<void>;
   cleanupInflightFn?: typeof cleanupInflight;
   releaseConversationLockFn?: typeof releaseConversationLock;
-}): Promise<'ok' | 'paused' | 'stopped' | 'failed'> {
+}): Promise<'ok' | 'warning' | 'paused' | 'stopped' | 'failed'> {
   const agentByName = params.agentByName;
   const runtimeState = hydrateFlowAgentState(params.resumeState ?? null);
 
@@ -6080,6 +6086,8 @@ async function runFlowUnlocked(params: {
       }
     : undefined;
   let hasContinuedAfterFailure = activeWait?.continuedAfterFailure === true;
+  let hasPropagatedGitHubReviewWarning = false;
+  let hasTerminalGitHubReviewWarning = false;
   let activeGitHubReviewContext =
     (params.resumeState?.githubReviewContext ??
     params.resumeState?.wait?.githubReviewContext)
@@ -7411,7 +7419,11 @@ async function runFlowUnlocked(params: {
             'Script-backed flow decisions require a worked repository root.',
           errorCode: getScriptDecisionFailureCode(paramsForDecision.kind),
         });
-        return { status: 'failed', failureKind: 'execution' };
+        return {
+          status: 'failed',
+          source: 'script',
+          failureKind: 'execution',
+        };
       }
 
       normalizeActiveGitHubReviewScratchAuthority();
@@ -7437,7 +7449,11 @@ async function runFlowUnlocked(params: {
           message: execution.reason,
           errorCode: getScriptDecisionFailureCode(paramsForDecision.kind),
         });
-        return { status: 'failed', failureKind: 'execution' };
+        return {
+          status: 'failed',
+          source: 'script',
+          failureKind: 'execution',
+        };
       }
 
       const parsed = parseScriptFlowDecisionAnswer(
@@ -7456,7 +7472,11 @@ async function runFlowUnlocked(params: {
           message: `Script output failed decision parsing: ${parsed.message}`,
           errorCode: getScriptDecisionFailureCode(paramsForDecision.kind),
         });
-        return { status: 'failed', failureKind: 'execution' };
+        return {
+          status: 'failed',
+          source: 'script',
+          failureKind: 'execution',
+        };
       }
       return {
         status: 'ok',
@@ -7609,6 +7629,8 @@ async function runFlowUnlocked(params: {
   ): Promise<{
     status: TurnStatus;
     shouldContinue: boolean;
+    source?: 'ai' | 'script';
+    failureKind?: 'execution' | 'invalid_response';
   }> => {
     const result = await runSharedDecisionStep({
       kind: 'continue',
@@ -7620,11 +7642,21 @@ async function runFlowUnlocked(params: {
     });
 
     if (shouldStopAfter(result.status)) {
-      return { status: result.status, shouldContinue: false };
+      return {
+        status: result.status,
+        shouldContinue: false,
+        source: result.source,
+        failureKind: result.failureKind ?? 'execution',
+      };
     }
 
     if (!result.answer) {
-      return { status: 'failed', shouldContinue: false };
+      return {
+        status: 'failed',
+        shouldContinue: false,
+        source: result.source,
+        failureKind: 'invalid_response',
+      };
     }
 
     append({
@@ -7961,6 +7993,11 @@ async function runFlowUnlocked(params: {
     activeWait = undefined;
   };
 
+  const terminalGitHubReviewWarning = (): TurnStatus => {
+    hasTerminalGitHubReviewWarning = true;
+    return 'warning';
+  };
+
   const formatGitHubFailureDetail = (paramsForDetail: {
     message: string;
     stderr?: string;
@@ -8107,7 +8144,7 @@ async function runFlowUnlocked(params: {
       });
       if (activeGitHubReviewContext?.prNumber) {
         activeGitHubReviewContext.warningMessage = warningMessage;
-        return 'warning';
+        return terminalGitHubReviewWarning();
       }
       markGitHubReviewCycleSkipped(warningMessage);
       return 'ok';
@@ -8121,7 +8158,7 @@ async function runFlowUnlocked(params: {
       });
       if (activeGitHubReviewContext?.prNumber) {
         activeGitHubReviewContext.warningMessage = warningMessage;
-        return 'warning';
+        return terminalGitHubReviewWarning();
       }
       markGitHubReviewCycleSkipped(warningMessage);
       return 'ok';
@@ -8143,7 +8180,7 @@ async function runFlowUnlocked(params: {
           message: warningMessage,
         });
         activeGitHubReviewContext.warningMessage = warningMessage;
-        return 'warning';
+        return terminalGitHubReviewWarning();
       }
       activeGitHubReviewContext = {
         ...activeGitHubReviewContext,
@@ -8326,7 +8363,7 @@ async function runFlowUnlocked(params: {
         message: warningMessage,
       });
       activeGitHubReviewContext.warningMessage = warningMessage;
-      return 'warning';
+      return terminalGitHubReviewWarning();
     }
     activeGitHubReviewContext = {
       executionId: params.executionId,
@@ -8502,7 +8539,7 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub fetch reviews step',
         message: warningMessage,
       });
-      return 'warning';
+      return terminalGitHubReviewWarning();
     }
     const reviewArtifactResult = await fetchPullRequestReviews({
       repository: context.value.repository,
@@ -8649,7 +8686,7 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub close PR step',
         message: warningMessage,
       });
-      return 'warning';
+      return terminalGitHubReviewWarning();
     }
     if (context.kind !== 'ok') {
       await appendGitHubStagePlanNote(
@@ -8691,7 +8728,7 @@ async function runFlowUnlocked(params: {
         instruction: 'GitHub close PR step',
         message: warningMessage,
       });
-      return 'warning';
+      return terminalGitHubReviewWarning();
     }
     const closeResult = await closePullRequest({
       repository: context.value.repository,
@@ -8873,7 +8910,7 @@ async function runFlowUnlocked(params: {
         childRun: FlowActiveSubflow;
         status: Extract<
           FlowChildLifecycleStatus,
-          'ok' | 'failed' | 'stopped'
+          'ok' | 'warning' | 'failed' | 'stopped'
         >;
       }>
     > =>
@@ -9000,14 +9037,14 @@ async function runFlowUnlocked(params: {
       string,
       {
         title: string;
-        status: 'ok' | 'failed' | 'stopped' | 'not_applicable';
+        status: 'ok' | 'warning' | 'failed' | 'stopped' | 'not_applicable';
         reason?: string;
         conversationId?: string;
       }
     >();
     const recordChildOutcome = (params: {
       instanceId: string;
-      status: 'ok' | 'failed' | 'stopped' | 'not_applicable';
+      status: 'ok' | 'warning' | 'failed' | 'stopped' | 'not_applicable';
       reason?: string;
       conversationId?: string;
     }) => {
@@ -9035,6 +9072,8 @@ async function runFlowUnlocked(params: {
         const status = outcome
           ? outcome === 'ok'
             ? ('completed' as const)
+            : outcome === 'warning'
+              ? ('completed' as const)
             : outcome
           : runningInstances.has(job.instanceId)
             ? ('running' as const)
@@ -9519,7 +9558,7 @@ async function runFlowUnlocked(params: {
               status:
                 status === 'ok' && terminalOutcome === 'not_applicable'
                   ? 'not_applicable'
-                  : status === 'ok'
+                  : status === 'ok' || status === 'warning'
                     ? 'completed'
                     : status,
               conversationId: childRun.conversationId,
@@ -9622,6 +9661,9 @@ async function runFlowUnlocked(params: {
             parentStopRequested = true;
           }
           const terminalStatuses = childStatuses.map(({ status }) => status);
+          hasPropagatedGitHubReviewWarning ||= terminalStatuses.includes(
+            'warning',
+          );
           const everyChildSucceeded = terminalStatuses.every(
             (status): status is 'ok' => status === 'ok',
           );
@@ -9651,6 +9693,8 @@ async function runFlowUnlocked(params: {
                 stoppedChildTitles,
               };
             }
+          } else if (terminalStatuses.includes('warning')) {
+            terminalStatus = 'warning';
           } else {
             terminalStatus = 'ok';
           }
@@ -9709,8 +9753,12 @@ async function runFlowUnlocked(params: {
                 }
                 return buildSubflowSummaryText(
                   launchesMultipleChildren
-                    ? 'Subflow batch stop completed with warnings for'
-                    : 'Subflow stop completed with warnings for',
+                    ? hasPropagatedGitHubReviewWarning
+                      ? 'Completed subflows with warning'
+                      : 'Subflow batch stop completed with warnings for'
+                    : hasPropagatedGitHubReviewWarning
+                      ? 'Completed subflow with warning'
+                      : 'Subflow stop completed with warnings for',
                 );
               })()
             : nonOkChildCount === 0
@@ -9796,7 +9844,7 @@ async function runFlowUnlocked(params: {
               status:
                 status === 'ok' && terminalOutcome === 'not_applicable'
                   ? 'not_applicable'
-                  : status === 'ok'
+                  : status === 'ok' || status === 'warning'
                     ? 'completed'
                     : status,
               conversationId: childRun.conversationId,
@@ -11476,11 +11524,14 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          const recovery = await recoverGitHubReviewStepFailure(
-            status,
-            nextPath,
-            scopedGitHubRecovery,
-          );
+          const recovery =
+            source === 'script'
+              ? null
+              : await recoverGitHubReviewStepFailure(
+                  status,
+                  nextPath,
+                  scopedGitHubRecovery,
+                );
           if (recovery) return recovery;
           continue;
         }
@@ -11511,7 +11562,10 @@ async function runFlowUnlocked(params: {
             agentType: command.agentType,
           },
         });
-        const { status, shouldContinue } = await runContinueStep(step, command);
+        const { status, shouldContinue, source } = await runContinueStep(
+          step,
+          command,
+        );
         appendLoopContinueRuntimeDiagnostic('continue_step_completed', {
           stepPath: nextPath,
           stepIndex: command.stepIndex,
@@ -11520,11 +11574,14 @@ async function runFlowUnlocked(params: {
         });
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          const recovery = await recoverGitHubReviewStepFailure(
-            status,
-            nextPath,
-            scopedGitHubRecovery,
-          );
+          const recovery =
+            source === 'script'
+              ? null
+              : await recoverGitHubReviewStepFailure(
+                  status,
+                  nextPath,
+                  scopedGitHubRecovery,
+                );
           if (recovery) return recovery;
           continue;
         }
@@ -12238,13 +12295,17 @@ async function runFlowUnlocked(params: {
 
   const persistTerminalOutcomeBeforeCleanup = async (
     outcome: FlowStepOutcome,
-  ): Promise<'ok' | 'stopped' | 'failed'> => {
-    const normalizedOutcome: 'ok' | 'stopped' | 'failed' =
+  ): Promise<'ok' | 'warning' | 'stopped' | 'failed'> => {
+    const normalizedOutcome: 'ok' | 'warning' | 'stopped' | 'failed' =
       outcome === 'stopped'
         ? 'stopped'
         : outcome === 'failed'
           ? 'failed'
-          : 'ok';
+          : activeGitHubReviewContext?.phase === 'skipped' ||
+              hasTerminalGitHubReviewWarning ||
+              hasPropagatedGitHubReviewWarning
+            ? 'warning'
+            : 'ok';
     runLifecycle.status = normalizedOutcome;
     runLifecycle.updatedAt = new Date().toISOString();
     await persistRuntimeResumeState(lastCompletedStepPath);
@@ -13191,7 +13252,7 @@ export async function startFlowRun(
 
 export type FlowRunObservedStatus = {
   conversationId: string;
-  status: 'running' | 'ok' | 'stopped' | 'failed' | 'orphaned';
+  status: 'running' | 'ok' | 'warning' | 'stopped' | 'failed' | 'orphaned';
   terminal: boolean;
   terminalOutcome: FlowResumeState['terminalOutcome'] | null;
   reviewCycleStatus?: 'in_progress' | 'completed' | 'incomplete' | null;
@@ -13358,7 +13419,11 @@ export async function getFlowRunStatus(
   return {
     conversationId: normalizedConversationId,
     status,
-    terminal: status === 'ok' || status === 'stopped' || status === 'failed',
+    terminal:
+      status === 'ok' ||
+      status === 'warning' ||
+      status === 'stopped' ||
+      status === 'failed',
     terminalOutcome: resumeState?.terminalOutcome ?? null,
     reviewCycleStatus,
     executionId: resumeState?.executionId ?? null,

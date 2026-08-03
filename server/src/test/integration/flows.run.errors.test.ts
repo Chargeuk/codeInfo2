@@ -3386,6 +3386,50 @@ test('explicit decisionScript failure remains hard despite legacy break recovery
   );
 });
 
+test('implicit continue decisionScript failure remains hard', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'continue-timeout-flow',
+        steps: [
+          {
+            type: 'startLoop',
+            maxIterations: 1,
+            steps: [
+              {
+                type: 'continue',
+                question: 'flow-control/decision-timeout.py',
+                continueOn: 'yes',
+              },
+            ],
+          },
+        ],
+      });
+
+      const result = await supertest(baseUrl)
+        .post('/flows/continue-timeout-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      subscribeConversation(ws, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+        timeoutMs: 5000,
+      });
+      assert.equal(final.error?.code, 'CONTINUE_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /timed out/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
 test('script-backed if steps use the worked repository and remain terminal in GitHub recovery scopes', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {

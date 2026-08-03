@@ -10784,7 +10784,9 @@ async function runFlowUnlocked(params: {
         params.input ?? {},
         step,
         inflightSignal,
-        { runCopilotReview: flowServiceDeps.runCopilotReview },
+        {
+          runCopilotReview: getEffectiveFlowServiceDeps().runCopilotReview,
+        },
       );
       if (inflightSignal.aborted) {
         await emitStoppedFlowStep({

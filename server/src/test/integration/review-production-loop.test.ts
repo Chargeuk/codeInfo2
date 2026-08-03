@@ -807,6 +807,11 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     await fs.mkdir(path.join(repo, 'codeInfoStatus', 'flow-state'), {
       recursive: true,
     });
+    await fs.cp(
+      path.join(repositoryRoot, 'scripts'),
+      path.join(repo, 'scripts'),
+      { recursive: true },
+    );
     await fs.writeFile(path.join(repo, '.gitignore'), 'codeInfoTmp/\n');
     await fs.writeFile(path.join(repo, 'feature.txt'), 'initial\n');
     await execFile('git', ['init', '-b', 'main'], { cwd: secondaryRepo });
@@ -891,9 +896,15 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     };
     const repeatedWave = repeatedLoop.steps[0] as {
       groups: Array<{
-        bindings: { inputValues: { review_groups: unknown[] } };
+        bindings: {
+          inputValues: {
+            copilot_reviews_enabled?: boolean;
+            review_groups: unknown[];
+          };
+        };
       }>;
     };
+    repeatedWave.groups[0]!.bindings.inputValues.copilot_reviews_enabled = false;
     repeatedWave.groups[0]!.bindings.inputValues.review_groups = [
       {
         kind: 'matrix',
@@ -1043,7 +1054,22 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     const terminalStatus = await waitForTerminalFlowStatus(
       result.conversationId,
     );
-    assert.equal(terminalStatus, 'ok');
+    assert.equal(
+      terminalStatus,
+      'ok',
+      JSON.stringify({
+        probe,
+        flowFlags:
+          memoryConversations.get(result.conversationId)?.flags?.flow ?? null,
+        recentTurns: (memoryTurns.get(result.conversationId) ?? [])
+          .slice(-12)
+          .map((turn) => ({
+            role: turn.role,
+            status: turn.status,
+            content: turn.content,
+          })),
+      }),
+    );
 
     const fixedHead = await currentHead(repo);
     const fixedSecondaryHead = await currentHead(secondaryRepo);
@@ -1162,7 +1188,25 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
         lockedModelId: null,
       }),
     });
-    assert.equal(await waitForTerminalFlowStatus(reentry.conversationId), 'ok');
+    const reentryStatus = await waitForTerminalFlowStatus(
+      reentry.conversationId,
+    );
+    assert.equal(
+      reentryStatus,
+      'ok',
+      JSON.stringify({
+        probe,
+        flowFlags:
+          memoryConversations.get(reentry.conversationId)?.flags?.flow ?? null,
+        recentTurns: (memoryTurns.get(reentry.conversationId) ?? [])
+          .slice(-12)
+          .map((turn) => ({
+            role: turn.role,
+            status: turn.status,
+            content: turn.content,
+          })),
+      }),
+    );
     assert.equal(probe.implementationPasses, 1, JSON.stringify(probe));
 
     const completedPlan = await fs.readFile(path.join(repo, planPath), 'utf8');

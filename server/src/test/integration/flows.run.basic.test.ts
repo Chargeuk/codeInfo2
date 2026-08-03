@@ -62,6 +62,7 @@ import { withMockedMongoConversationPersistence } from '../support/conversationM
 import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js';
 import {
   enterTestEnvOverrides,
+  getScopedEnvValue,
   runWithTestEnvOverrides,
 } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
@@ -119,8 +120,10 @@ test('native Copilot flow step uses persisted inputs and waits for launcher comp
   const workDir = path.join(workspace, 'work');
   const outputDir = path.join(workspace, 'output');
   const verificationDir = path.join(workspace, 'verification');
-  const previousFlowsDir = process.env.FLOWS_DIR;
-  const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousFlowsDir = getScopedEnvValue('FLOWS_DIR');
+  const previousCodexAgentsHome = getScopedEnvValue(
+    'CODEINFO_CODEX_AGENT_HOME',
+  );
   let conversationId: string | undefined;
 
   await Promise.all(
@@ -218,8 +221,10 @@ test('native Copilot flow step uses persisted inputs and waits for launcher comp
       return pendingLaunch;
     },
   });
-  process.env.FLOWS_DIR = flowsRoot;
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  enterTestEnvOverrides({
+    FLOWS_DIR: flowsRoot,
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+  });
 
   try {
     const started = await startFlowRun({
@@ -266,16 +271,10 @@ test('native Copilot flow step uses persisted inputs and waits for launcher comp
     assert.equal(turns.filter((turn) => turn.role === 'assistant').length, 1);
   } finally {
     cleanupMemory(conversationId);
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
-    if (previousCodexAgentsHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
-    }
+    enterTestEnvOverrides({
+      FLOWS_DIR: previousFlowsDir,
+      CODEINFO_CODEX_AGENT_HOME: previousCodexAgentsHome,
+    });
     await fs.rm(temporaryRoot, { recursive: true, force: true });
   }
 });
@@ -2466,7 +2465,7 @@ test('github review skip publishes a warning, records a durable plan note, and p
   }
 });
 
-test('github review open PR skips the cycle when canonical post-create reconciliation fails', async () => {
+test('github review open PR keeps validated creation identity when immediate canonical reconciliation fails', async () => {
   const tempFlowsDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'github-open-pr-flow-'),
   );
@@ -2575,13 +2574,16 @@ test('github review open PR skips the cycle when canonical post-create reconcili
     const warningTurns = assistantTurns.filter(
       (turn) => turn.status === 'warning',
     );
-    assert.equal(warningTurns.length, 1);
+    assert.equal(warningTurns.length, 0);
     const retryLogs = query({
       text: 'flows.github.open_pr.lookup_retry_failed',
     }).filter(
       (entry) => entry.context?.flowName === 'github-open-pr-retry-failure',
     );
-    assert.deepEqual(retryLogs, []);
+    assert.deepEqual(
+      retryLogs.map((entry) => entry.context?.waitMs),
+      [0],
+    );
     assert.equal(lookupAttempts, 1);
 
     assert.equal(
@@ -2596,7 +2598,8 @@ test('github review open PR skips the cycle when canonical post-create reconcili
           };
         }
       | undefined;
-    assert.equal(flowState?.githubReviewContext?.prNumber, undefined);
+    assert.equal(flowState?.githubReviewContext?.prNumber, 206);
+    assert.equal(flowState?.githubReviewContext?.phase, 'opened');
 
     const planRaw = await fs.readFile(
       path.join(
@@ -2605,10 +2608,10 @@ test('github review open PR skips the cycle when canonical post-create reconcili
       ),
       'utf8',
     );
-    assert.match(planRaw, /GitHub review stage failed during PR open\./);
-    assert.doesNotMatch(
+    assert.doesNotMatch(planRaw, /GitHub review stage failed during PR open\./);
+    assert.match(
       planRaw,
-      /GitHub review stage warning during PR open lookup retry/,
+      /GitHub review stage warning during PR open lookup retry 1 after waiting 0s:/,
     );
     assert.match(planRaw, /stderr: lookup attempt 1 failed/i);
   } finally {

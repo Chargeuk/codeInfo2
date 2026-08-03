@@ -13097,9 +13097,11 @@ export async function startFlowRun(
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
-      completedSuccessfully = runOutcome === 'ok';
+      completedSuccessfully =
+        runOutcome === 'ok' || runOutcome === 'warning';
       failedTerminally =
         runOutcome !== 'ok' &&
+        runOutcome !== 'warning' &&
         runOutcome !== 'paused' &&
         runOutcome !== 'stopped';
       params.onStopUnwindCheckpoint?.({

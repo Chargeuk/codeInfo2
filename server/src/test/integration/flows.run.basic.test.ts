@@ -3065,6 +3065,40 @@ test('github review skips persist warning status directly and through a parent s
     assert.equal(directWarningStatus?.status, 'warning');
     assert.equal(directWarningStatus?.terminal, true);
 
+    const retryOwnershipId = 'github-warning-retry-ownership';
+    const retryOwnedWarning = await startFlowRun({
+      flowName: 'github-no-open-pr',
+      conversationId: 'github-warning-retry-owned-conversation',
+      retryOwnershipId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+    await waitForConversationUnlocked(retryOwnedWarning.conversationId);
+    assert.equal(
+      (await getFlowRunStatus(retryOwnedWarning.conversationId))?.status,
+      'warning',
+    );
+
+    const retryOwnedWarningReplay = await startFlowRun({
+      flowName: 'github-no-open-pr',
+      conversationId: 'github-warning-retry-owned-replay',
+      retryOwnershipId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+    assert.deepEqual(retryOwnedWarningReplay, retryOwnedWarning);
+    await waitForTurnCountToStay(retryOwnedWarning.conversationId, 2);
+
     const parentWarningConversationId = 'github-warning-parent-conversation';
     await startFlowRun({
       flowName: 'github-warning-parent',

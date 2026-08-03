@@ -1,16 +1,22 @@
 # Blind-spot challenge
 
-Reviewed HEAD: `519263f90f1326bd39934ed878d60864366b6b55`
+Reviewed HEAD: `a07f482a2b10bf44f8694c3d2862d3fda4bc3962`
+Comparison base: `4939ff83297aa78109ab3c58dae702e009db9ea7`
 
 ## Result
 
-No confirmed findings.
+No supported finding.
+
+## Disposition
+
+- The reported `json` versus JSONL mismatch is not supported. Installed Copilot CLI help defines `--output-format json` as JSONL with one JSON object per line, so the launcher argument, `copilot.stdout.jsonl` artifact, line parser, story contract, and [launcher unit proof](../../server/src/test/unit/copilot-review-launcher.test.ts) agree.
 
 ## Unsupported claim
 
-- `server/src/flows/service.ts:8165-8205` does not leave the conversation lock held when `persistFreshRunRetryOwnershipCompletion(...)` fails twice. The completion write is attempted in a two-iteration `try`/`catch`, but `releaseConversationLockFn(conversationId, runToken)` is called unconditionally afterward, and `clearFreshRunRetryOwnership(...)` is also still reached for retry-owned runs.
-- The repository already has a targeted regression test for this path at `server/src/test/integration/flows.run.errors.test.ts:2457-2490`. That test injects two completion-write failures, waits for the run to finish, and then verifies the lock/ownership behavior by starting a new run with the same retry ownership id.
+- The earlier claim that external Copilot launches inherit `COPILOT_HOME` is not supported by the current source.
+- In [the Copilot review launcher](../../server/src/copilot/reviewLauncher.ts), `buildExternalCopilotEnvironmentBaseline()` only copies keys from `EXTERNAL_COPILOT_BASELINE_ENVIRONMENT_KEYS`, and that allowlist does not include `COPILOT_HOME`.
+- `buildExternalCopilotReviewEnvironment()` only adds the selected provider URL, wire API, model, and optional API key at `:501-513`, so the previous leakage claim does not hold on this head.
 
 ## Residual uncertainty
 
-- No fresh full client/server/Cucumber/e2e suite, Compose lifecycle, lint, or format run was performed as part of this challenge. The conclusion above is based on direct source inspection plus the existing targeted integration test.
+- No live Copilot CLI run or full client/server/Cucumber/e2e suite was performed in this challenge.

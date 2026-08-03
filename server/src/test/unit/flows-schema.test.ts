@@ -477,6 +477,7 @@ describe('flow schema (v1)', () => {
   test('production review and implementation flows remain valid JSON and schema', async () => {
     const flowFiles = [
       'flows/codex_review.json',
+      'flows/copilot_review.json',
       'flows/cross_repository_review.json',
       'flows/diagnostic_review_cycle.json',
       'flows/minor_review_fix_path.json',
@@ -505,6 +506,26 @@ describe('flow schema (v1)', () => {
     }
   });
 
+  test('Copilot review flow uses one native service-owned launch step', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/copilot_review.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+
+    assert.deepEqual(parsed.steps, [
+      {
+        type: 'runCopilotReview',
+        label: 'Run Copilot Workspace Review',
+        markdownFile: 'copilot_review_instructions.md',
+      },
+    ]);
+    assert.equal(
+      parsed.steps?.some((step) => step.type === 'llm'),
+      false,
+    );
+  });
+
   test('review batch bounds optional filtering and repair while always finalizing', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/review_batch.json'),
@@ -519,7 +540,24 @@ describe('flow schema (v1)', () => {
     const repair = topLevel.find(
       (step) => step.label === 'Optional Review Repair',
     );
+    const copilotPreparation = topLevel.find(
+      (step) => step.type === 'prepareCopilotReviewGroups',
+    );
+    const reviewWave = topLevel.find((step) => step.type === 'subflowWave');
 
+    assert.deepEqual(copilotPreparation, {
+      type: 'prepareCopilotReviewGroups',
+      label: 'Prepare Copilot Review Matrix Groups',
+      groupsFrom: 'review_groups',
+      targetsFrom: 'review_batch_targets.targets',
+      reviewWaveFrom: 'review_batch_targets',
+      enabledFrom: 'copilot_reviews_enabled',
+      outputKey: 'effective_review_groups',
+    });
+    assert.equal(
+      reviewWave?.type === 'subflowWave' ? reviewWave.groupsFrom : undefined,
+      'effective_review_groups',
+    );
     assert.equal(filtering?.type, 'startLoop');
     assert.equal(filtering?.maxIterations, 1);
     assert.deepEqual(
@@ -1501,7 +1539,10 @@ describe('flow schema (v1)', () => {
       const storyLoop = (parsed.steps ?? []).find(
         (step) => step.label === 'Story Execution And Review Loop',
       );
-      assert.ok(storyLoop?.steps, `${relativePath} should define the story loop`);
+      assert.ok(
+        storyLoop?.steps,
+        `${relativePath} should define the story loop`,
+      );
 
       const labels = storyLoop.steps.map((step) => step.label);
       assertOrdered(

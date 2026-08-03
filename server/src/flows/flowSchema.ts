@@ -100,6 +100,22 @@ export type FlowPrepareReviewTargetsStep = {
   outputKey: string;
 };
 
+export type FlowPrepareCopilotReviewGroupsStep = {
+  type: 'prepareCopilotReviewGroups';
+  label?: string;
+  groupsFrom: string;
+  targetsFrom: string;
+  reviewWaveFrom: string;
+  enabledFrom?: string;
+  outputKey: string;
+};
+
+export type FlowRunCopilotReviewStep = {
+  type: 'runCopilotReview';
+  label?: string;
+  markdownFile: string;
+};
+
 export type FlowSubflowStep = {
   type: 'subflow';
   label?: string;
@@ -115,6 +131,7 @@ export type FlowSubflowWaveBindings = {
 export type FlowSubflowWaveMatrixGroup = {
   kind: 'matrix';
   id: string;
+  displayName?: string;
   itemsFrom: string;
   itemName: string;
   flowNames: string[];
@@ -185,6 +202,8 @@ export type FlowStep =
   | FlowResetStep
   | FlowInitializeReviewCycleStep
   | FlowPrepareReviewTargetsStep
+  | FlowPrepareCopilotReviewGroupsStep
+  | FlowRunCopilotReviewStep
   | FlowSubflowStep
   | FlowSubflowWaveStep
   | FlowReingestStep
@@ -390,6 +409,26 @@ const flowWaveBindingPath = z
   .trim()
   .regex(/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/u);
 
+const FlowPrepareCopilotReviewGroupsStepSchema = z
+  .object({
+    type: z.literal('prepareCopilotReviewGroups'),
+    label: trimmedNonEmptyString.optional(),
+    groupsFrom: flowWaveBindingPath,
+    targetsFrom: flowWaveBindingPath,
+    reviewWaveFrom: flowWaveBindingPath,
+    enabledFrom: flowWaveBindingPath.optional(),
+    outputKey: flowWaveIdentifier,
+  })
+  .strict();
+
+const FlowRunCopilotReviewStepSchema = z
+  .object({
+    type: z.literal('runCopilotReview'),
+    label: trimmedNonEmptyString.optional(),
+    markdownFile: trimmedNonEmptyString,
+  })
+  .strict();
+
 const FlowJsonValueSchema: z.ZodType<FlowJsonValue> = z.lazy(() =>
   z.union([
     z.string(),
@@ -413,6 +452,7 @@ const FlowSubflowWaveMatrixGroupSchema = z
   .object({
     kind: z.literal('matrix'),
     id: flowWaveIdentifier,
+    displayName: trimmedNonEmptyString.optional(),
     itemsFrom: flowWaveBindingPath,
     itemName: flowWaveIdentifier,
     flowNames: z.array(trimmedNonEmptyString).min(1),
@@ -586,6 +626,8 @@ function flowStepUnionSchema() {
     FlowResetStepSchema,
     FlowInitializeReviewCycleStepSchema,
     FlowPrepareReviewTargetsStepSchema,
+    FlowPrepareCopilotReviewGroupsStepSchema,
+    FlowRunCopilotReviewStepSchema,
     FlowSubflowStepSchema,
     FlowSubflowWaveStepSchema,
     FlowReingestSourceIdStepSchema,

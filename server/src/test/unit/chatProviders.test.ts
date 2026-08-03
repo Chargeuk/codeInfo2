@@ -1229,10 +1229,7 @@ test('providers route clamps unsupported Copilot config defaults to the runtime-
       authType: 'gh-cli',
       statusMessage: 'authenticated via gh',
     },
-    models: [
-      { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini' } as never,
-      { id: 'copilot-gpt-5', name: 'Copilot GPT-5' } as never,
-    ],
+    models: [{ id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini' } as never],
   });
   const server = await startServer({
     mcpAvailable: true,

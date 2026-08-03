@@ -5,6 +5,7 @@ import {
   attachOpenAiCompatEndpointKeys,
   normalizeOpenAiCompatEndpointLabelKey,
   parseOpenAiCompatEndpointConfig,
+  resolveOpenAiCompatEndpointConfigsBestEffortFromList,
   resolveOpenAiCompatEndpointConfigsFromList,
   resolveOpenAiCompatEndpointKeysFromList,
   supportsOpenAiCompatBuiltInWebSearch,
@@ -190,6 +191,40 @@ test('rejects duplicate normalized endpoint labels in the env list', () => {
       }),
     /duplicate normalized endpoint label "open-router"/,
   );
+});
+
+test('best-effort endpoint resolution isolates malformed and ambiguous entries without weakening strict parsing', () => {
+  const secret = 'sk-malformed-endpoint-secret';
+  const value = [
+    'OpenRouter,https://openrouter.test/v1|completions',
+    `malformed-${secret}`,
+    'Conflicting,https://first.test/v1|completions',
+    'conflicting,https://second.test/v1|completions',
+    'Other,https://other.test/v1|responses',
+  ].join(';');
+
+  assert.throws(
+    () =>
+      resolveOpenAiCompatEndpointConfigsFromList({
+        value,
+        pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+      }),
+    /RUNTIME_CONFIG_INVALID/u,
+  );
+
+  const resolved = resolveOpenAiCompatEndpointConfigsBestEffortFromList({
+    value,
+    pathLabel: 'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+  });
+  assert.deepEqual(
+    resolved.endpoints.map((endpoint) => endpoint.authLookupKey),
+    ['openrouter', 'other'],
+  );
+  assert.equal(resolved.warnings.length, 3);
+  assert.match(resolved.warnings[0] ?? '', /\[2\].*malformed.*ignored/u);
+  assert.match(resolved.warnings[1] ?? '', /\[3\].*ambiguous.*ignored/u);
+  assert.match(resolved.warnings[2] ?? '', /\[4\].*ambiguous.*ignored/u);
+  assert.doesNotMatch(JSON.stringify(resolved), new RegExp(secret, 'u'));
 });
 
 test('parses endpoint key entries using the same label normalization rules', () => {

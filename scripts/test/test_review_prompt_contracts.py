@@ -416,6 +416,35 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("work/review-usage/native-codex.md", codex_prompt)
         self.assertIn("Do not include this wrapper agent's own usage", codex_prompt)
 
+        copilot_flow = json.loads(read_text("flows/copilot_review.json"))
+        self.assertEqual(
+            copilot_flow["steps"],
+            [
+                {
+                    "type": "runCopilotReview",
+                    "label": "Run Copilot Workspace Review",
+                    "markdownFile": "copilot_review_instructions.md",
+                }
+            ],
+        )
+        copilot_policy = read_text(
+            "codeinfo_markdown/copilot_review_instructions.md"
+        )
+        copilot_step = read_text("server/src/flows/copilotReviewStep.ts")
+        copilot_launcher = read_text("server/src/copilot/reviewLauncher.ts")
+        self.assertIn("immutable scheduler-owned review input", copilot_step)
+        self.assertIn("Harness-owned review policy", copilot_step)
+        self.assertIn("Do not modify source files", copilot_policy)
+        self.assertIn("planning/**", copilot_policy)
+        self.assertIn("harness codeinfo_markdown directory", copilot_step)
+        self.assertIn("copilot-review-instructions.md", copilot_launcher)
+        self.assertIn("runCopilotReview(", copilot_step)
+        self.assertIn("signal", copilot_step)
+        self.assertIn("--no-remote-export", copilot_launcher)
+        self.assertIn("'--allow-all'", copilot_launcher)
+        self.assertIn("planning/**", copilot_launcher)
+        self.assertIn("Do not modify source files", copilot_launcher)
+
     def test_partial_reviewer_coverage_fails_forward_without_tasking(self) -> None:
         classify_text = read_text(
             "codeinfo_markdown/classify_review_disposition.md"

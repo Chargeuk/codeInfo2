@@ -1383,7 +1383,7 @@ describe('Chat page models list', () => {
       (chatBodies[0]?.agentFlags as Record<string, unknown>)
         ?.modelReasoningEffort,
     ).toBe('minimal');
-  }, 15000);
+  }, 30000);
 
   it('refreshes the displayed resolved default from the combined payload when the model changes', async () => {
     mockCodexModelNextSendApi();

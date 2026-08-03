@@ -5615,7 +5615,7 @@ Record the completed normal repair for the four authorized and material survivor
 - Repository Name: `Current Repository`
 - Review Task Role: `final_revalidation`
 - Task Dependencies: `Task 52` plus all earlier story work
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Cycle: `0000060-rc-20260729T013113Z-e703b6af`
 - Affected Repositories: `current_repository`
 - Review Scope: whole-story validation at `d2cc5471e5b87e4e31b1cc8a34c8b55ec4037a6d`, including the Batch 1 repair commit and all story-owned server, client, flow, script, test, Compose, and proof surfaces.
@@ -5655,14 +5655,14 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 Only runnable automated proof commands belong here, in this order:
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run build:summary:server`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
-6. [ ] `npm run compose:down`
-7. [ ] `npm run lint`
-8. [ ] `npm run format:check`
+1. [x] `npm run build:summary:client`
+2. [x] `npm run build:summary:server`
+3. [x] `npm run compose:build:summary`
+4. [x] `npm run compose:up`
+5. [x] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
+6. [x] `npm run compose:down`
+7. [x] `npm run lint`
+8. [x] `npm run format:check`
 
 Use the repository wrapper heartbeat and saved-log rules. If a story-caused failure is repaired, rerun every affected command and record the exact result in Implementation Notes. Do not mark a command complete without evidence.
 
@@ -5672,8 +5672,16 @@ Optional, checkbox-free manual proof may use the supported main Compose stack, s
 
 #### Implementation Notes
 
-- `npm run lint` passed with exit code 0; no story-caused lint issues required repair.
+- `npm run lint` was run and failed with 17 direct-`process.env` violations in the unchanged baseline file `server/src/test/integration/flows.run.subflow.test.ts`; the file has no story diff, so no story-caused repair was made.
 - `npm run format:check` passed with exit code 0; no story-caused formatting issues required repair.
+- `npm run build:summary:client` passed with exit code 0; the wrapper reported one existing chunk-size warning and no story-caused failure.
+- `npm run build:summary:server` passed with exit code 0; the wrapper reported a clean success with no warnings.
+- `npm run compose:build:summary` passed with exit code 0; both Compose image items passed and the wrapper reported a clean success.
+- `npm run compose:up` passed with exit code 0; the supported main stack reached healthy server and started client services.
+- `npm run test:summary:all:parallel` completed with server-unit 2,852/2,852, server-Cucumber 138/138, and e2e 78/78 passing; the client suite had one timeout in `chatPage.codexDefaults.test.tsx` (907/908), and the isolated test passed on rerun, so no story-caused repair was indicated. Full-suite and targeted logs: `test-results/client-tests-2026-08-03T17-09-26-839Z.log` and `test-results/client-tests-2026-08-03T17-27-29-967Z.log`.
+- `npm run compose:down` passed with exit code 0; the supported main stack containers and network were removed cleanly.
+- `npm run format:check` passed with exit code 0; all tracked files matched Prettier formatting.
+- Final validation ran at target HEAD `c17204ad4a18479f7bda48b3623a83aa16dad4cf`; no story-caused repair was needed. Optional live-provider, browser, and screenshot proof remained unavailable/non-blocking under the task guidance.
 Record the final target HEAD, every automated wrapper result, any story-caused repair and rerun, Compose startup and shutdown result, and honest limits including unavailable live-provider or browser proof. Keep this final task after Task 52 and after any genuinely open settlement work; no open settlement work is currently recommended.
 
 ## Code Review Findings

@@ -6288,8 +6288,8 @@ Final-task repair scope: the whole approved story is in scope for failures found
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
 6. [ ] `npm run compose:down`
-7. [ ] `npm run lint`
-8. [ ] `npm run format:check`
+7. [x] `npm run lint`
+8. [x] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -6299,4 +6299,5 @@ Optional, checkbox-free manual proof may use the supported main Compose stack th
 
 - Ran `npm run lint`; it reported the known 17 direct-`process.env` violations in untouched `server/src/test/integration/flows.run.subflow.test.ts`. No story-caused lint issue was identified, so no repair was made.
 - Ran `npm run format:check`; all tracked files passed Prettier validation, so no repair was made.
+- Audit normalization marked the matching Testing items complete from the immediately preceding implementation-pass evidence; the six build, Compose, and full-suite proof items remain open for automated validation. No production or test code changed in that pass, and no story-caused preserved-behavior regression was identified.
 - The final task must record the final target HEAD, every automated wrapper result, Compose startup and shutdown outcome, any story-caused repair and rerun, and honest limits such as the known baseline lint violations or unavailable live-provider/browser proof. It must not claim a clean closeout until every listed automated item is actually complete.

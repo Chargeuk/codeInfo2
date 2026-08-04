@@ -50,6 +50,17 @@ import {
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const createSlowChildControl = () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let markStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+  return { gate, markStarted, release, started };
+};
 const execFile = promisify(execFileCb);
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
@@ -3462,6 +3473,7 @@ test('subflow keeps the parent running when child flows reference each other rec
 
 test('stopping the parent flow stops the running child subflow', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-stop-'));
+  const slowChild = createSlowChildControl();
   enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
@@ -3481,7 +3493,14 @@ test('stopping the parent flow stops the running child subflow', async () => {
       flowName: 'parent-stop',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(250),
+      chatFactory: () =>
+        new SubflowChat(
+          250,
+          ({ message }) => {
+            if (message.includes('slow child')) slowChild.markStarted();
+          },
+          slowChild.gate,
+        ),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -3495,6 +3514,7 @@ test('stopping the parent flow stops the running child subflow', async () => {
       String(activeSubflow?.conversationId),
       'ok',
     );
+    await slowChild.started;
 
     registerPendingConversationCancel({
       conversationId: result.conversationId,
@@ -3507,6 +3527,7 @@ test('stopping the parent flow stops the running child subflow', async () => {
       'stopped',
     );
   } finally {
+    slowChild.release();
     await removeWritableTree(tmpDir);
   }
 });
@@ -3743,6 +3764,7 @@ test('resume reattaches to an already running child subflow instead of launching
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-'),
   );
+  const slowChild = createSlowChildControl();
   enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
@@ -3762,12 +3784,21 @@ test('resume reattaches to an already running child subflow instead of launching
       flowName: 'child-resume',
       customTitle: 'Resume Parent-Run Slow Child',
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () =>
+        new SubflowChat(
+          180,
+          ({ message }) => {
+            if (message.includes('slow child')) slowChild.markStarted();
+          },
+          slowChild.gate,
+        ),
       onOwnershipReady: ({ runToken }) => {
         childRunToken = runToken;
       },
     });
     assert.ok(childRunToken);
+    await slowChild.started;
+    assert.ok(getActiveRunOwnership(childStart.conversationId));
 
     const parentConversationId = 'resume-parent-conversation';
     const now = new Date();
@@ -3807,10 +3838,13 @@ test('resume reattaches to an already running child subflow instead of launching
       conversationId: parentConversationId,
       resumeStepPath: [],
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () => new SubflowChat(180, undefined, slowChild.gate),
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.ok(getActiveRunOwnership(childStart.conversationId));
+    slowChild.release();
     await waitForAssistantStatus(parentConversationId, 'ok');
 
     const childFlowConversations = Array.from(
@@ -3818,6 +3852,7 @@ test('resume reattaches to an already running child subflow instead of launching
     ).filter((conversation) => conversation.flowName === 'child-resume');
     assert.equal(childFlowConversations.length, 1);
   } finally {
+    slowChild.release();
     await removeWritableTree(tmpDir);
   }
 });
@@ -3826,6 +3861,7 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-legacy-'),
   );
+  const slowChild = createSlowChildControl();
   enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
@@ -3845,12 +3881,21 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
       flowName: 'child-resume-legacy',
       customTitle: 'Resume Parent-Run Slow Child',
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () =>
+        new SubflowChat(
+          180,
+          ({ message }) => {
+            if (message.includes('slow child')) slowChild.markStarted();
+          },
+          slowChild.gate,
+        ),
       onOwnershipReady: ({ runToken }) => {
         childRunToken = runToken;
       },
     });
     assert.ok(childRunToken);
+    await slowChild.started;
+    assert.ok(getActiveRunOwnership(childStart.conversationId));
 
     const parentConversationId = 'resume-parent-legacy-conversation';
     const now = new Date();
@@ -3888,10 +3933,13 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
       conversationId: parentConversationId,
       resumeStepPath: [],
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () => new SubflowChat(180, undefined, slowChild.gate),
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.ok(getActiveRunOwnership(childStart.conversationId));
+    slowChild.release();
     await waitForAssistantStatus(parentConversationId, 'ok');
 
     const childFlowConversations = Array.from(
@@ -3899,6 +3947,7 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
     ).filter((conversation) => conversation.flowName === 'child-resume-legacy');
     assert.equal(childFlowConversations.length, 1);
   } finally {
+    slowChild.release();
     await removeWritableTree(tmpDir);
   }
 });
@@ -3907,6 +3956,7 @@ test('resume reattaches to already running parallel child subflows instead of la
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-parallel-'),
   );
+  const slowChildren = createSlowChildControl();
   enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
@@ -3934,7 +3984,14 @@ test('resume reattaches to already running parallel child subflows instead of la
       flowName: 'child-resume-a',
       customTitle: 'Resume Parent-Run Slow Batch-child-resume-a',
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () =>
+        new SubflowChat(
+          180,
+          ({ message }) => {
+            if (message.includes('slow child')) slowChildren.markStarted();
+          },
+          slowChildren.gate,
+        ),
       onOwnershipReady: ({ runToken }) => {
         childRunTokenA = runToken;
       },
@@ -3943,13 +4000,23 @@ test('resume reattaches to already running parallel child subflows instead of la
       flowName: 'child-resume-b',
       customTitle: 'Resume Parent-Run Slow Batch-child-resume-b',
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () =>
+        new SubflowChat(
+          180,
+          ({ message }) => {
+            if (message.includes('slow child')) slowChildren.markStarted();
+          },
+          slowChildren.gate,
+        ),
       onOwnershipReady: ({ runToken }) => {
         childRunTokenB = runToken;
       },
     });
     assert.ok(childRunTokenA);
     assert.ok(childRunTokenB);
+    await slowChildren.started;
+    assert.ok(getActiveRunOwnership(childStartA.conversationId));
+    assert.ok(getActiveRunOwnership(childStartB.conversationId));
 
     const parentConversationId = 'resume-parent-parallel-conversation';
     const now = new Date();
@@ -3996,10 +4063,14 @@ test('resume reattaches to already running parallel child subflows instead of la
       conversationId: parentConversationId,
       resumeStepPath: [],
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () => new SubflowChat(180, undefined, slowChildren.gate),
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.ok(getActiveRunOwnership(childStartA.conversationId));
+    assert.ok(getActiveRunOwnership(childStartB.conversationId));
+    slowChildren.release();
     await waitForAssistantStatus(parentConversationId, 'ok');
 
     const childAConversations = Array.from(memoryConversations.values()).filter(
@@ -4011,6 +4082,7 @@ test('resume reattaches to already running parallel child subflows instead of la
     assert.equal(childAConversations.length, 1);
     assert.equal(childBConversations.length, 1);
   } finally {
+    slowChildren.release();
     await removeWritableTree(tmpDir);
   }
 });

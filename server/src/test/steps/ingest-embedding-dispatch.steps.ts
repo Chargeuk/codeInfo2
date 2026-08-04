@@ -11,7 +11,7 @@ import cors from 'cors';
 import express from 'express';
 import { clearLockedModel, clearRootsCollection, clearVectorsCollection, } from '../../ingest/chromaClient.js';
 import { __resetIngestJobsForTest, setIngestDeps, } from '../../ingest/ingestJob.js';
-import { query, resetStore } from '../../logStore.js';
+import { entryMatches, query, resetStore, subscribe } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { MockLMStudioClient, type MockScenario, releaseAllControlledEmbeddingCalls, releaseControlledEmbeddingCall, startMock, stopMock, waitForControlledEmbeddingCalls, } from '../support/mockLmStudioSdk.js';
@@ -20,6 +20,8 @@ let server: Server | null = null;
 let baseUrl = '';
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
+let capturedRuntimeLogs: ReturnType<typeof query> = [];
+let unsubscribeRuntimeLogs: (() => void) | null = null;
 Before({ tags: '@embedding-dispatch' }, async () => {
     setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
     setScopedTestEnvValue("NODE_ENV", 'test');
@@ -28,6 +30,10 @@ Before({ tags: '@embedding-dispatch' }, async () => {
     setScopedTestEnvValue("CODEINFO_INGEST_MAX_QUEUE_SIZE", '1');
     __resetIngestJobsForTest();
     resetStore();
+    capturedRuntimeLogs = [];
+    unsubscribeRuntimeLogs = subscribe((entry) => {
+        capturedRuntimeLogs.push(entry);
+    });
     const app = express();
     app.use(cors());
     app.use(express.json());
@@ -71,6 +77,9 @@ After({ tags: '@embedding-dispatch' }, async () => {
     }
     lastRunId = null;
     __resetIngestJobsForTest();
+    unsubscribeRuntimeLogs?.();
+    unsubscribeRuntimeLogs = null;
+    capturedRuntimeLogs = [];
     resetStore();
     await clearRootsCollection();
     await clearVectorsCollection();
@@ -145,6 +154,9 @@ Then('ingest embedding dispatch status for the last run becomes {string}', { tim
     assert.fail(`did not reach state ${state}`);
 });
 Then('ingest embedding dispatch logs include {string}', (marker: string) => {
-    const matches = query({ text: marker }, 50);
+    const matches = [
+        ...capturedRuntimeLogs.filter((entry) => entryMatches(entry, { text: marker })),
+        ...query({ text: marker }, 50),
+    ];
     assert.ok(matches.length > 0, `expected log marker ${marker}`);
 });

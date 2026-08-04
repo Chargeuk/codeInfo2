@@ -79,6 +79,18 @@ let activeFlowWorkingFolder: string | null = null;
 let activeListIngestedRepositories:
   | (() => Promise<ListReposResult>)
   | undefined;
+const resumeFlowRunWithHarnessDeps = async (params: {
+  flowName: string;
+  conversationId: string;
+  resumeStepPath: number[];
+  sourceId?: string;
+  source: 'REST' | 'MCP';
+}) =>
+  await startFlowRun({
+    ...params,
+    chatFactory: () => new MinimalChat(),
+    listIngestedRepositories: activeListIngestedRepositories,
+  });
 const flattenFlowSteps = (
   steps: Array<Record<string, unknown>>,
 ): Array<Record<string, unknown>> => {
@@ -722,6 +734,7 @@ Given('the GitHub review resumed runtime fixture is available', async () => {
     legacyCommentCount: 0,
   });
   __setFlowWaitResumeDepsForTests({
+    resumeFlowRun: resumeFlowRunWithHarnessDeps,
     scheduleWake: ({ onWake }) => {
       capturedWaitWake = onWake;
       return { cancel: () => {} };
@@ -805,6 +818,7 @@ Given(
 Given('the wait resume flow execution fixture is available', async () => {
   assert(tempDir, 'expected temporary flows directory');
   __setFlowWaitResumeDepsForTests({
+    resumeFlowRun: resumeFlowRunWithHarnessDeps,
     scheduleWake: ({ onWake }) => {
       capturedWaitWake = onWake;
       return { cancel: () => {} };

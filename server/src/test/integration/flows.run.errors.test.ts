@@ -2399,7 +2399,7 @@ test('same-process completed retryOwnershipId replay reuses the earlier fresh-ru
     });
 
     assert.deepEqual(replayResult, firstResult);
-    await delay(150);
+    await waitForConversationUnlocked(firstResult.conversationId);
     assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
   });
 });

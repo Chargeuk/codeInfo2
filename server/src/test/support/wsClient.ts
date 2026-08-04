@@ -107,11 +107,9 @@ export async function waitForEvent<T>(params: {
 
   const buffer = getBuffer(params.ws);
   const consumeBuffered = (): T | undefined => {
-    while (buffer.length) {
-      const next = buffer.shift();
-      if (params.predicate(next)) return next;
-    }
-    return undefined;
+    const matchingIndex = buffer.findIndex((event) => params.predicate(event));
+    if (matchingIndex < 0) return undefined;
+    return buffer.splice(matchingIndex, 1)[0] as T;
   };
 
   const already = consumeBuffered();

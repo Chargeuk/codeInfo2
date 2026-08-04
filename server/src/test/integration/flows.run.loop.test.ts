@@ -1020,31 +1020,6 @@ const waitForPredicate = async (
   throw new Error(message);
 };
 
-const expectNoTerminalFinal = async (
-  ws: WebSocket,
-  conversationId: string,
-  waitMs = 300,
-) => {
-  await assert.rejects(
-    () =>
-      waitForEvent({
-        ws,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return e.type === 'turn_final' && e.conversationId === conversationId;
-        },
-        timeoutMs: waitMs,
-      }),
-    /Timed out waiting for WebSocket event/,
-  );
-};
-
 test('flow loops until break answer matches breakOn', async () => {
   let outerBreakCount = 0;
   const scriptedMessages: string[] = [];
@@ -4441,7 +4416,16 @@ test('flow step retries to exhaustion and emits one terminal failure', async () 
 
         assert.equal(final.status, 'failed');
         assert.equal(outerBreakAttempts, 2);
-        await expectNoTerminalFinal(wsUrl, conversationId);
+        await waitForRuntimeCleanup(conversationId);
+        const terminalFailures = query(
+          { text: 'chat.ws.server_publish_turn_final' },
+          1000,
+        ).filter(
+          (entry) =>
+            entry.context?.conversationId === conversationId &&
+            entry.context?.status === 'failed',
+        );
+        assert.equal(terminalFailures.length, 1);
         await cleanupConversationRuntime(conversationId);
       },
     );

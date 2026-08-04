@@ -277,9 +277,13 @@ test.describe.serial('Chat tools citations', () => {
     await input.fill('What does main.txt say about the project?');
     await send.click();
 
+    await expect(page.getByTestId('status-chip')).toContainText('Complete', {
+      timeout: 20000,
+    });
     const toolToggle = page.getByTestId('tool-toggle');
     await toolToggle.waitFor({ timeout: 20000 });
     await toolToggle.click();
+    await expect(toolToggle).toHaveAttribute('aria-expanded', 'true');
 
     const pathLabel = `${firstResult.repo}/${firstResult.relPath}`;
     const hostSuffix = firstResult.hostPath ? ` (${firstResult.hostPath})` : '';

@@ -14,7 +14,7 @@ import mongoose from 'mongoose';
 import { clearLockedModel, clearRootsCollection, clearVectorsCollection, getRootsCollection, setLockedModel, } from '../../ingest/chromaClient.js';
 import { __resetIngestJobsForTest, __setJobInputForTest, __setStatusForTest, __setQueueRuntimeOpsForTest, __setRunProcessorForTest, __validateQueueReplayStartForTest, getStatus, isBusy, pumpIngestQueue, recoverIngestQueueOnStartup, setIngestDeps, } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
-import { query, resetStore } from '../../logStore.js';
+import { entryMatches, query, resetStore, subscribe } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { IngestQueueRequestModel } from '../../mongo/ingestQueueRequest.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
@@ -50,6 +50,8 @@ let queueRuntimeAttemptObserved: Promise<void> | null = null;
 let resolveQueueRuntimeAttemptObserved: (() => void) | null = null;
 let queueRuntimeStartObserved: Promise<void> | null = null;
 let resolveQueueRuntimeStartObserved: (() => void) | null = null;
+let capturedRuntimeLogs: ReturnType<typeof query> = [];
+let unsubscribeRuntimeLogs: (() => void) | null = null;
 const queueRuntimeTerminalWaiters = new Map<string, Promise<void>>();
 const queueRuntimeTerminalResolvers = new Map<string, () => void>();
 function resetQueueRuntimeObservationWaiters() {
@@ -149,6 +151,10 @@ Before(async () => {
         await IngestQueueRequestModel.deleteMany({}).exec();
     }
     resetStore();
+    capturedRuntimeLogs = [];
+    unsubscribeRuntimeLogs = subscribe((entry) => {
+        capturedRuntimeLogs.push(entry);
+    });
     setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", 'ws://localhost:1234');
     setScopedTestEnvValue("CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT", '1');
     setScopedTestEnvValue("CODEINFO_INGEST_MAX_QUEUE_SIZE", '1');
@@ -225,6 +231,9 @@ After(async () => {
     if (mongoose.connection.readyState === 1) {
         await IngestQueueRequestModel.deleteMany({}).exec();
     }
+    unsubscribeRuntimeLogs?.();
+    unsubscribeRuntimeLogs = null;
+    capturedRuntimeLogs = [];
     resetStore();
     await clearRootsCollection();
     await clearVectorsCollection();
@@ -601,7 +610,10 @@ When('ingest manage releases controlled embedding call {int}', (index: number) =
     releaseControlledEmbeddingCall(index);
 });
 Then('ingest manage logs include {string}', (marker: string) => {
-    const matches = query({ text: marker }, 50);
+    const matches = [
+        ...capturedRuntimeLogs.filter((entry) => entryMatches(entry, { text: marker })),
+        ...query({ text: marker }, 50),
+    ];
     assert.ok(matches.length > 0, `expected log marker ${marker}`);
 });
 Given('ingest manage root metadata exists for {string} with legacy model {string}', async (rootPath: string, model: string) => {

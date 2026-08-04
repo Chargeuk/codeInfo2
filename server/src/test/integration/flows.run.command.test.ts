@@ -3571,7 +3571,7 @@ test('cancellation during flow-owned command reingest stops later items and late
           items.some((turn) => turn.role === 'assistant' && turn.toolCalls),
         4000,
       );
-      await delay(150);
+      await waitForRuntimeCleanup(conversationId);
       assert.equal(
         turns.some((turn) => turn.role === 'assistant' && turn.toolCalls),
         true,
@@ -4561,7 +4561,7 @@ test('conversation-only stop prevents nested command handoff from starting', asy
     });
 
     assert.equal(final.status, 'stopped');
-    await delay(250);
+    await waitForRuntimeCleanup(conversationId);
 
     const flowConversation = memoryConversations.get(conversationId);
     const flowFlags = (flowConversation?.flags ?? {}) as {
@@ -4626,8 +4626,8 @@ test('no stale flow continuation resumes after confirmed stop', async () => {
       timeoutMs: 5000,
     });
 
+    await waitForRuntimeCleanup(conversationId);
     const turnCountAfterStop = memoryTurns.get(conversationId)?.length ?? 0;
-    await delay(300);
 
     const finals = events.filter(
       (event) =>

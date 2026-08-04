@@ -1168,7 +1168,7 @@ describe('Flows page run/resume controls', () => {
     const transcript = await screen.findByTestId('flows-transcript');
     await waitFor(
       () => expect(transcript).toHaveTextContent('Accepted flow answer'),
-      { timeout: 5000 },
+      { timeout: resolveClientTestTimeoutMs(5000) },
     );
     await waitFor(() =>
       expect(screen.getByTestId('conversation-error')).toBeInTheDocument(),

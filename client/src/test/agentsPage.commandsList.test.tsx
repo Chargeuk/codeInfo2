@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -52,7 +53,7 @@ async function openCommandSelector(user: ReturnType<typeof userEvent.setup>) {
         'none',
       );
     },
-    { timeout: 5000 },
+    { timeout: resolveClientTestTimeoutMs(5000) },
   );
   const commandSelect = screen.getByTestId('agent-command-trigger');
   await user.click(commandSelect);

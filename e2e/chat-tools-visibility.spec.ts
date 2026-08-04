@@ -429,10 +429,14 @@ test.describe('Chat tool visibility details', () => {
     await page.getByTestId('chat-input').fill('Show synthesized');
     await page.getByTestId('chat-send').click();
 
+    await expect(page.getByTestId('status-chip')).toContainText('Complete', {
+      timeout: 20000,
+    });
     const toolRow = page.getByTestId('tool-row');
     await expect(toolRow).toHaveCount(1, { timeout: 20000 });
     const toggle = page.getByTestId('tool-toggle');
     await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     const fileItem = page.getByTestId('tool-file-item').first();
     await expect(fileItem).toContainText('/data/repo/synth/file.txt');
     await expect(fileItem).toContainText('chunks 1');

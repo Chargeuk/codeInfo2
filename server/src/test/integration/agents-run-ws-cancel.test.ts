@@ -449,14 +449,13 @@ test('Duplicate stop requests for a normal agent run emit one terminal event', a
       sendJson(server.ws, { type: 'cancel_inflight', conversationId });
 
       await finalPromise;
-      await delay(200);
+      await waitForRuntimeCleanup(conversationId);
 
       const finalEvents = events.filter(
         (event) =>
           event.type === 'turn_final' && event.conversationId === conversationId,
       );
       assert.equal(finalEvents.length, 1);
-      await waitForRuntimeCleanup(conversationId);
     });
   } finally {
     await closeWs(server.ws);

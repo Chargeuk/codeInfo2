@@ -1149,6 +1149,59 @@ test('WS ingest_update seq increases on subsequent updates', async () => {
         await stopServer(server);
     }
 });
+test('concurrent WS waiters preserve unmatched buffered events', async () => {
+    const server = await startServer();
+    const baseUrl = `http://127.0.0.1:${server.port}`;
+    const ws = await connectWs({ baseUrl });
+    const runId = 'run-concurrent-waiters';
+    try {
+        sendJson(ws, { type: 'subscribe_ingest' });
+        await waitForEvent({
+            ws,
+            predicate: (payload): payload is { type: string } => typeof payload === 'object' &&
+                payload !== null &&
+                (payload as { type?: string }).type === 'ingest_snapshot',
+        });
+        const scanning = waitForEvent({
+            ws,
+            predicate: (payload): payload is { type: string; status: { state: string } } => typeof payload === 'object' &&
+                payload !== null &&
+                (payload as { type?: string; status?: { state?: string } }).type === 'ingest_update' &&
+                (payload as { status?: { state?: string } }).status?.state === 'scanning',
+        });
+        const embedding = waitForEvent({
+            ws,
+            predicate: (payload): payload is { type: string; status: { state: string } } => typeof payload === 'object' &&
+                payload !== null &&
+                (payload as { type?: string; status?: { state?: string } }).type === 'ingest_update' &&
+                (payload as { status?: { state?: string } }).status?.state === 'embedding',
+        });
+        __setStatusAndPublishForTest(runId, {
+            runId,
+            state: 'embedding',
+            counts: { files: 1, chunks: 1, embedded: 0 },
+            message: 'Embedding',
+            lastError: null,
+        });
+        __setStatusAndPublishForTest(runId, {
+            runId,
+            state: 'scanning',
+            counts: { files: 1, chunks: 0, embedded: 0 },
+            message: 'Scanning',
+            lastError: null,
+        });
+        const [scanningEvent, embeddingEvent] = await Promise.all([
+            scanning,
+            embedding,
+        ]);
+        assert.equal(scanningEvent.status.state, 'scanning');
+        assert.equal(embeddingEvent.status.state, 'embedding');
+    }
+    finally {
+        await closeWs(ws);
+        await stopServer(server);
+    }
+});
 test('WS unsubscribe_ingest stops ingest_update events', async () => {
     const server = await startServer();
     const baseUrl = `http://127.0.0.1:${server.port}`;

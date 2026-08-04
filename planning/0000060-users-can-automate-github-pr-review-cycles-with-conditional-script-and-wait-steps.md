@@ -6275,8 +6275,8 @@ Perform the one final whole-story automated validation after the three completed
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
-2. [ ] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+1. [x] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [x] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues.
 
 #### Testing
 
@@ -6297,4 +6297,6 @@ Optional, checkbox-free manual proof may use the supported main Compose stack th
 
 #### Implementation Notes
 
-The final task must record the final target HEAD, every automated wrapper result, Compose startup and shutdown outcome, any story-caused repair and rerun, and honest limits such as the known baseline lint violations or unavailable live-provider/browser proof. It must not claim a clean closeout until every listed automated item is actually complete.
+- Ran `npm run lint`; it reported the known 17 direct-`process.env` violations in untouched `server/src/test/integration/flows.run.subflow.test.ts`. No story-caused lint issue was identified, so no repair was made.
+- Ran `npm run format:check`; all tracked files passed Prettier validation, so no repair was made.
+- The final task must record the final target HEAD, every automated wrapper result, Compose startup and shutdown outcome, any story-caused repair and rerun, and honest limits such as the known baseline lint violations or unavailable live-provider/browser proof. It must not claim a clean closeout until every listed automated item is actually complete.

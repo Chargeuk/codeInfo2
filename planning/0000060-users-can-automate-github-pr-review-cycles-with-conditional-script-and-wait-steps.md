@@ -6282,10 +6282,10 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run build:summary:server`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
+1. [x] `npm run build:summary:client`
+2. [x] `npm run build:summary:server`
+3. [x] `npm run compose:build:summary`
+4. [x] `npm run compose:up`
 5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
 6. [ ] `npm run compose:down`
 7. [x] `npm run lint`
@@ -6297,6 +6297,10 @@ Optional, checkbox-free manual proof may use the supported main Compose stack th
 
 #### Implementation Notes
 
+- Ran `npm run build:summary:client`; client typecheck and Vite build passed. The wrapper reported one existing large-chunk warning, with no story-caused failure requiring repair.
+- Ran `npm run build:summary:server`; the server build passed cleanly with no warnings.
+- Ran `npm run compose:build:summary`; both Compose images built successfully, including the runtime-asset invariant.
+- Ran `npm run compose:up`; the supported main Compose stack started successfully and reached healthy server readiness.
 - Ran `npm run lint`; it reported the known 17 direct-`process.env` violations in untouched `server/src/test/integration/flows.run.subflow.test.ts`. No story-caused lint issue was identified, so no repair was made.
 - Ran `npm run format:check`; all tracked files passed Prettier validation, so no repair was made.
 - Audit normalization marked the matching Testing items complete from the immediately preceding implementation-pass evidence; the six build, Compose, and full-suite proof items remain open for automated validation. No production or test code changed in that pass, and no story-caused preserved-behavior regression was identified.

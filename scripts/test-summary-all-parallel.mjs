@@ -7,10 +7,11 @@ import {
   runCommand,
   runCommandsInParallel,
 } from './test-summary-parallel-runner.mjs';
+import { formatWorkerSummaryLine } from './test-parallelism.mjs';
 import {
-  allocateWeightedParallelBudget,
-  formatWorkerSummaryLine,
-} from './test-parallelism.mjs';
+  buildAllParallelEnvironment,
+  resolveAllParallelConfiguration,
+} from './test-summary-all-parallel-config.mjs';
 import {
   TEST_DOCKER_TARGETS,
   acquireTestDockerLock,
@@ -24,38 +25,24 @@ const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
 );
-const requestedServerUnitConcurrency = Number.parseInt(
-  process.env.CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY ?? '',
-  10,
-);
-const sharedParallelBudget = allocateWeightedParallelBudget({
-  budgetFraction: 0.6,
-  weights: {
-    client: 3,
-    e2e: 3,
-    'server:unit': 12,
-  },
-  reservedWorkers: {
-    'server:cucumber': 1,
-  },
-});
-const serverUnitConcurrency =
-  Number.isFinite(requestedServerUnitConcurrency) &&
-  requestedServerUnitConcurrency > 0
-    ? requestedServerUnitConcurrency
-    : sharedParallelBudget.workerCounts['server:unit'];
-const serverUnitConcurrencySource =
-  Number.isFinite(requestedServerUnitConcurrency) &&
-  requestedServerUnitConcurrency > 0
-    ? 'env-override'
-    : sharedParallelBudget.source;
-
 const args = process.argv.slice(2);
+const stressMode = args.includes('--stress');
+const sharedParallelBudget = resolveAllParallelConfiguration({
+  stress: stressMode,
+  serverUnitOverride: process.env.CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY,
+});
+const executionEnvironment = buildAllParallelEnvironment({
+  environment: process.env,
+  stress: stressMode,
+});
+const serverUnitConcurrency = sharedParallelBudget.workerCounts['server:unit'];
+const serverUnitConcurrencySource = sharedParallelBudget.serverUnitSource;
+
 if (args.includes('--help') || args.includes('-h')) {
   process.stdout.write(`test:summary:all:parallel
 Builds the reusable client, server, and e2e compose artifacts first, then runs the main summary test harnesses in parallel without rebuilding shared artifacts.
 
-Usage: node scripts/test-summary-all-parallel.mjs
+Usage: node scripts/test-summary-all-parallel.mjs [--stress]
 
 Flow:
   1. npm run build:summary:client
@@ -78,12 +65,18 @@ Shared worker budget:
     run and uses CODEINFO_TEST_TIMEOUT_MS=60000 beside client, cucumber, and e2e
   - set CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY to override the
     server:unit concurrency for stress or diagnosis runs
+
+Stress mode:
+  --stress preserves the normal client, cucumber, and e2e allocations, assigns
+  every otherwise-unused available core to server:unit, and enables
+  CODEINFO_TEST_RUNTIME_DIAGNOSTICS=1 for child commands. An explicit
+  CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY value takes precedence.
 `);
   process.exit(0);
 }
 
 console.log(
-  `[all:parallel] shared_budget=${sharedParallelBudget.budget} effective_budget=${sharedParallelBudget.effectiveBudget} available_cores=${sharedParallelBudget.availableCores} source=${sharedParallelBudget.source}`,
+  `[all:parallel] mode=${sharedParallelBudget.mode} shared_budget=${sharedParallelBudget.budget} effective_budget=${sharedParallelBudget.effectiveBudget} available_cores=${sharedParallelBudget.availableCores} source=${sharedParallelBudget.source}`,
 );
 console.log(
   `[all:parallel] reserved_budget=${sharedParallelBudget.reservedBudget} remaining_budget=${sharedParallelBudget.weightedBudget} available_cores=${sharedParallelBudget.availableCores} source=${sharedParallelBudget.source}`,
@@ -127,28 +120,28 @@ const prebuild = await runCommandsInParallel([
     cmd: 'npm',
     args: ['run', 'build:summary:client'],
     cwd: rootDir,
-    env: process.env,
+    env: executionEnvironment,
   },
   {
     label: 'build:server',
     cmd: 'npm',
     args: ['run', 'build:summary:server'],
     cwd: rootDir,
-    env: process.env,
+    env: executionEnvironment,
   },
   {
     label: 'compose:build',
     cmd: 'npm',
     args: ['run', 'compose:build:summary'],
     cwd: rootDir,
-    env: process.env,
+    env: executionEnvironment,
   },
   {
     label: 'compose:e2e:build',
     cmd: 'npm',
     args: ['run', 'compose:e2e:build:summary'],
     cwd: rootDir,
-    env: process.env,
+    env: executionEnvironment,
   },
 ]);
 
@@ -220,7 +213,7 @@ try {
         String(sharedParallelBudget.workerCounts.client),
       ],
       cwd: rootDir,
-      env: process.env,
+      env: executionEnvironment,
     },
     {
       label: 'server:unit',
@@ -228,7 +221,7 @@ try {
       args: ['run', 'test:summary:server:unit', '--', '--skip-build'],
       cwd: rootDir,
       env: {
-        ...process.env,
+        ...executionEnvironment,
         CODEINFO_SERVER_UNIT_CONCURRENCY: String(serverUnitConcurrency),
         CODEINFO_TEST_TIMEOUT_MS: '60000',
       },
@@ -244,7 +237,7 @@ try {
         '--reuse-compose',
       ],
       cwd: rootDir,
-      env: process.env,
+      env: executionEnvironment,
     },
     {
       label: 'e2e',
@@ -258,7 +251,7 @@ try {
       ],
       cwd: rootDir,
       env: {
-        ...process.env,
+        ...executionEnvironment,
         PLAYWRIGHT_WORKERS: String(sharedParallelBudget.workerCounts.e2e),
       },
     },

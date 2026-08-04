@@ -40,6 +40,7 @@ export const buildServerUnitWrapperEnv = (
     TS_NODE_LOG_ERROR: 'true',
     TS_NODE_FILES: 'true',
     TS_NODE_PROJECT: './tsconfig.json',
+    DISABLE_V8_COMPILE_CACHE: '1',
     NODE_OPTIONS:
       '--max-old-space-size=6144 --import ./scripts/register-ts-node-esm-loader.mjs --trace-uncaught --disable-warning=DEP0180',
   };

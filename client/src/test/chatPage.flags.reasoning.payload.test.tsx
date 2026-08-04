@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { setupChatWsHarness } from './support/mockChatWs';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -385,7 +386,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     await ensureAgentFlagsPanelExpanded();
     const resetSelect = await screen.findByTestId('reasoning-effort-select');
     await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
-  }, 30000);
+  }, resolveClientTestTimeoutMs(30000));
 
   it('emits only supported reasoning values and falls back to model default before send', async () => {
     const chatBodies: Record<string, unknown>[] = [];
@@ -441,7 +442,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     expect(
       (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
     ).toBe('minimal');
-  }, 30000);
+  }, resolveClientTestTimeoutMs(30000));
 
   it('keeps single-option capability models valid for UI and payload', async () => {
     const chatBodies: Record<string, unknown>[] = [];
@@ -676,7 +677,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       (secondPayload.agentFlags as Record<string, unknown>)
         ?.modelReasoningEffort,
     ).toBe('xhigh');
-  }, 30000);
+  }, resolveClientTestTimeoutMs(30000));
 
   it('clears hidden reasoning values from both the control and submitted draft when the selected model narrows support', async () => {
     const chatBodies: Record<string, unknown>[] = [];
@@ -743,7 +744,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     expect(
       (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
     ).toBe('minimal');
-  }, 15000);
+  }, resolveClientTestTimeoutMs(15000));
 
   it('sends non-standard runtime reasoning values when model capabilities allow them', async () => {
     const chatBodies: Record<string, unknown>[] = [];

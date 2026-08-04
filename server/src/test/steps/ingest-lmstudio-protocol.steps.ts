@@ -2,11 +2,12 @@ import '../support/chromaContainer.js';
 import '../support/mockLmStudioSdk.js';
 import type { Server } from 'http';
 import { After, Before, Given, Then, When, setDefaultTimeout, } from '@cucumber/cucumber';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
 import { MockLMStudioClient } from '../support/mockLmStudioSdk.js';
-setDefaultTimeout(30000);
+setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 // Note: other server features may start Docker/Testcontainers (Chroma); this probe itself does not.
 let server: Server | null = null;
 let baseUrl = '';

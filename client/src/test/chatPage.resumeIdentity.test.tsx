@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -224,7 +225,7 @@ describe('Chat page resumed execution identity', () => {
       conversationId: 'c1',
     });
     expect(chatBodies[0]).not.toHaveProperty('agentName');
-  }, 60000);
+  }, resolveClientTestTimeoutMs(60000));
 
   it('restores the endpoint identity when it is present on the saved conversation', async () => {
     const user = userEvent.setup();
@@ -410,7 +411,7 @@ describe('Chat page resumed execution identity', () => {
       model: 'gpt-5.1-codex-max',
       endpointId: 'https://alpha.example/alt/v1',
     });
-  }, 60000);
+  }, resolveClientTestTimeoutMs(60000));
 
   it('keeps the persisted endpoint identity when bootstrap selectedEndpointId points at a different endpoint', async () => {
     const user = userEvent.setup();
@@ -605,7 +606,7 @@ describe('Chat page resumed execution identity', () => {
       model: 'gpt-5.1-codex-max',
       endpointId: 'https://alpha.example/base/v1',
     });
-  }, 60000);
+  }, resolveClientTestTimeoutMs(60000));
 
   it('keeps the saved endpoint identity when the saved endpoint disappears but another endpoint still exposes the same raw model id', async () => {
     const user = userEvent.setup();
@@ -797,7 +798,7 @@ describe('Chat page resumed execution identity', () => {
       model: 'gpt-5.1-codex-max',
       endpointId: 'https://saved.example/v1',
     });
-  }, 60000);
+  }, resolveClientTestTimeoutMs(60000));
 
   it('restores the create-mode endpoint pair when returning from a resumed conversation to a fresh draft', async () => {
     const user = userEvent.setup();
@@ -1042,5 +1043,5 @@ describe('Chat page resumed execution identity', () => {
     expect(chatBodies[0]).not.toMatchObject({
       conversationId: 'c1',
     });
-  }, 60000);
+  }, resolveClientTestTimeoutMs(60000));
 });

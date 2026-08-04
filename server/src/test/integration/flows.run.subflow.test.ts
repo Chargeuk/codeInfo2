@@ -121,8 +121,17 @@ class SubflowChat extends ChatInterface {
     this.emit('thread', { type: 'thread', threadId: conversationId });
 
     if (message.includes('slow child')) {
-      if (this.slowChildGate) await this.slowChildGate;
-      else await delay(this.slowDelayMs);
+      if (this.slowChildGate) {
+        await new Promise<void>((resolve) => {
+          const finish = () => {
+            signal?.removeEventListener('abort', finish);
+            resolve();
+          };
+          signal?.addEventListener('abort', finish, { once: true });
+          void this.slowChildGate?.then(finish);
+          if (signal?.aborted) finish();
+        });
+      } else await delay(this.slowDelayMs);
       if (abortIfNeeded()) return;
     }
 
@@ -1882,6 +1891,10 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-stop-'),
   );
+  let releaseSlowChildren = () => {};
+  const slowChildrenGate = new Promise<void>((resolve) => {
+    releaseSlowChildren = resolve;
+  });
   enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
@@ -1922,7 +1935,7 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
       flowName: 'parent-wave-stop',
       source: 'REST',
       input: { targets: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] },
-      chatFactory: () => new SubflowChat(500),
+      chatFactory: () => new SubflowChat(500, undefined, slowChildrenGate),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -1981,6 +1994,7 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
       ),
     );
   } finally {
+    releaseSlowChildren();
     await removeWritableTree(tmpDir);
   }
 });
@@ -1989,6 +2003,10 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-cancel-resume-'),
   );
+  let releaseSlowChildren = () => {};
+  const slowChildrenGate = new Promise<void>((resolve) => {
+    releaseSlowChildren = resolve;
+  });
   enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
@@ -2030,7 +2048,7 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
       flowName: 'parent-wave-cancel-resume',
       source: 'REST',
       input,
-      chatFactory: () => new SubflowChat(500),
+      chatFactory: () => new SubflowChat(500, undefined, slowChildrenGate),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -2113,6 +2131,7 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
       { target: { id: 'b' } },
     ]);
   } finally {
+    releaseSlowChildren();
     await removeWritableTree(tmpDir);
   }
 });
@@ -3496,6 +3515,10 @@ test('stopping the parent flow stops every running child in a parallel subflow s
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stop-parallel-'),
   );
+  let releaseSlowChildren = () => {};
+  const slowChildrenGate = new Promise<void>((resolve) => {
+    releaseSlowChildren = resolve;
+  });
   enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
@@ -3520,7 +3543,7 @@ test('stopping the parent flow stops every running child in a parallel subflow s
       flowName: 'parent-stop-parallel',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(250),
+      chatFactory: () => new SubflowChat(250, undefined, slowChildrenGate),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -3561,6 +3584,7 @@ test('stopping the parent flow stops every running child in a parallel subflow s
       ),
     );
   } finally {
+    releaseSlowChildren();
     await removeWritableTree(tmpDir);
   }
 });
@@ -3590,6 +3614,10 @@ test('parent stop stays stopped even if the child reports ok after cancel', asyn
     const childGate = new Promise<void>((resolve) => {
       releaseChild = resolve;
     });
+    let markChildStarted!: () => void;
+    const childStarted = new Promise<void>((resolve) => {
+      markChildStarted = resolve;
+    });
     class CompletionAfterCancelChat extends ChatInterface {
       async execute(
         message: string,
@@ -3601,6 +3629,7 @@ test('parent stop stays stopped even if the child reports ok after cancel', asyn
         executions.push(message);
         childSignal = (flags as { signal?: AbortSignal }).signal;
         this.emit('thread', { type: 'thread', threadId: conversationId });
+        markChildStarted();
         await childGate;
         this.emit('final', { type: 'final', content: 'child ok' });
         this.emit('complete', { type: 'complete', threadId: conversationId });
@@ -3623,6 +3652,7 @@ test('parent stop stays stopped even if the child reports ok after cancel', asyn
     const activeSubflow = await waitForActiveSubflow(result.conversationId);
     assert.ok(activeSubflow);
     assert.ok(parentRunToken);
+    await childStarted;
 
     registerPendingConversationCancel({
       conversationId: result.conversationId,

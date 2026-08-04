@@ -5,6 +5,7 @@ import fs from 'fs/promises';
 import type { Server } from 'http';
 import path from 'path';
 import { After, Before, Given, Then, When, setDefaultTimeout, } from '@cucumber/cucumber';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { ChromaClient } from 'chromadb';
 import cors from 'cors';
@@ -26,7 +27,7 @@ type StatusBody = {
         embedded?: number;
     };
 };
-setDefaultTimeout(30000);
+setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 async function vectorsState() {
     const chromaUrl = process.env.CODEINFO_CHROMA_URL ?? 'http://localhost:8300';
     const normalized = chromaUrl.includes('://')

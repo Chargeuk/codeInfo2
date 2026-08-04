@@ -1896,6 +1896,11 @@ test('paused wait resumes the same execution after the authored delay using an e
 
   __setFlowWaitResumeDepsForTests({
     now: () => 1_700_000_000_000,
+    resumeFlowRun: async (params) =>
+      await startFlowRun({
+        ...params,
+        chatFactory: () => new TrackingChat(),
+      }),
     scheduleWake: ({ onWake }) => {
       wake = onWake;
       return { cancel: () => {} };

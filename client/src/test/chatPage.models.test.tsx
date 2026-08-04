@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -1006,7 +1007,7 @@ describe('Chat page models list', () => {
     ).toBeVisible();
     expect(within(gptOption).getByAltText(/openai logo/i)).toBeVisible();
     expect(within(claudeOption).getByAltText(/claude logo/i)).toBeVisible();
-  }, 30000);
+  }, resolveClientTestTimeoutMs(30000));
 
   it('groups model options by source first, preserves family sections within each source, and keeps a visible search filter', async () => {
     const user = userEvent.setup();
@@ -1330,7 +1331,7 @@ describe('Chat page models list', () => {
       ),
     );
     expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
-  }, 30000);
+  }, resolveClientTestTimeoutMs(30000));
 
   it('clears stale hidden reasoning draft values when the selected model changes', async () => {
     const { chatBodies } = mockCodexModelNextSendApi();
@@ -1383,7 +1384,7 @@ describe('Chat page models list', () => {
       (chatBodies[0]?.agentFlags as Record<string, unknown>)
         ?.modelReasoningEffort,
     ).toBe('minimal');
-  }, 30000);
+  }, resolveClientTestTimeoutMs(30000));
 
   it('refreshes the displayed resolved default from the combined payload when the model changes', async () => {
     mockCodexModelNextSendApi();

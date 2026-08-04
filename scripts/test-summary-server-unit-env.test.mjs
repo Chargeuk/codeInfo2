@@ -48,6 +48,7 @@ test('server unit summary wrapper uses repo-local agent roots while clearing inh
   assert.equal(wrapped.TS_NODE_LOG_ERROR, 'true');
   assert.equal(wrapped.TS_NODE_FILES, 'true');
   assert.equal(wrapped.TS_NODE_PROJECT, './tsconfig.json');
+  assert.equal(wrapped.DISABLE_V8_COMPILE_CACHE, '1');
   assert.match(wrapped.NODE_OPTIONS ?? '', /--max-old-space-size=6144/);
   assert.match(
     wrapped.NODE_OPTIONS ?? '',

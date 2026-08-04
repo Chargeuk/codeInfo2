@@ -78,5 +78,11 @@ export const buildAllParallelEnvironment = ({
   stress = false,
 } = {}) => ({
   ...environment,
-  ...(stress ? { CODEINFO_TEST_RUNTIME_DIAGNOSTICS: '1' } : {}),
+  ...(stress
+    ? {
+        CODEINFO_CLIENT_TEST_TIMEOUT_MS:
+          environment.CODEINFO_CLIENT_TEST_TIMEOUT_MS ?? '120000',
+        CODEINFO_TEST_RUNTIME_DIAGNOSTICS: '1',
+      }
+    : {}),
 });

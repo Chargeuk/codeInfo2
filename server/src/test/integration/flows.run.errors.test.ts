@@ -2439,9 +2439,13 @@ test('terminal fresh-run failure clears durable retry ownership before a later r
 
     const failedFlowFlags = (memoryConversations.get(firstResult.conversationId)
       ?.flags ?? {}) as {
-      flow?: { retryOwnershipPending?: unknown };
+      flow?: {
+        retryOwnershipPending?: unknown;
+        retryOwnershipCompletion?: unknown;
+      };
     };
     assert.equal(failedFlowFlags.flow?.retryOwnershipPending, undefined);
+    assert.equal(failedFlowFlags.flow?.retryOwnershipCompletion, undefined);
 
     const secondResult = await startFlowRun({
       flowName: 'retry-ownership-terminal-failure',
@@ -3026,7 +3030,7 @@ test('shared decision seam rejects an untracked in-root script entrypoint', asyn
           conversationId,
           source: 'REST',
           working_folder: tmpDir,
-      });
+        });
       assert.equal(result.status, 202);
 
       const final = await waitForFlowFinal({
@@ -3092,7 +3096,7 @@ test('shared decision seam rejects an in-root symlink to an untracked target', a
           conversationId,
           source: 'REST',
           working_folder: tmpDir,
-      });
+        });
       assert.equal(result.status, 202);
 
       const final = await waitForFlowFinal({

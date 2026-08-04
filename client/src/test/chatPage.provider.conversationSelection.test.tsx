@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -312,7 +313,7 @@ describe('Chat shared shell conversation selection', () => {
     );
 
     expect(cancelMessages).toHaveLength(0);
-  }, 15000);
+  }, resolveClientTestTimeoutMs(15000));
 
   it('shows only the selected conversation transcript and local state after switching', async () => {
     const { user } = await startDraftRun();
@@ -350,7 +351,7 @@ describe('Chat shared shell conversation selection', () => {
     expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
     expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument();
     expect(screen.getByTestId('chat-input')).toBeEnabled();
-  }, 15000);
+  }, resolveClientTestTimeoutMs(15000));
 
   it('does not send cancel_inflight when changing provider during an active run', async () => {
     const { user, draftConversationId } = await startDraftRun();
@@ -390,7 +391,7 @@ describe('Chat shared shell conversation selection', () => {
     expect(screen.getByTestId('chat-input')).toBeEnabled();
     expect(screen.queryByText('Hello inflight')).not.toBeInTheDocument();
     expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
-  }, 15000);
+  }, resolveClientTestTimeoutMs(15000));
 
   it('keeps resumed provider and model selectors read-only while a stored conversation is selected', async () => {
     const user = userEvent.setup();
@@ -428,7 +429,7 @@ describe('Chat shared shell conversation selection', () => {
       'true',
     );
     expect(screen.getByText('codex reply')).toBeInTheDocument();
-  }, 15000);
+  });
 
   it('restores the selected conversation over an unsent provider draft without merging hidden draft flags', async () => {
     const user = userEvent.setup();

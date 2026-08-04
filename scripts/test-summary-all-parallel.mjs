@@ -69,7 +69,8 @@ Shared worker budget:
 Stress mode:
   --stress preserves the normal client, cucumber, and e2e allocations, assigns
   every otherwise-unused available core to server:unit, and enables
-  CODEINFO_TEST_RUNTIME_DIAGNOSTICS=1 for child commands. An explicit
+  CODEINFO_TEST_RUNTIME_DIAGNOSTICS=1 for child commands. It also raises the
+  client test timeout to 120 seconds to accommodate CPU saturation. An explicit
   CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY value takes precedence.
 `);
   process.exit(0);

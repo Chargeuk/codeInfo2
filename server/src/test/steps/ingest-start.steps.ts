@@ -5,8 +5,9 @@ import fs from 'fs/promises';
 import type { Server } from 'http';
 import path from 'path';
 import { After, Before, Given, Then, When, setDefaultTimeout, } from '@cucumber/cucumber';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import type { LMStudioClient } from '@lmstudio/sdk';
-setDefaultTimeout(30000);
+setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 import cors from 'cors';
 import express from 'express';
 import { clearLockedModel, setLockedModel } from '../../ingest/chromaClient.js';
@@ -25,7 +26,7 @@ let response: {
 let lastRunId: string | null = null;
 let tempDir: string | null = null;
 Before(async () => {
-    setDefaultTimeout(30000);
+    setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
     setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", 'ws://localhost:1234');
     clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
     const app = express();

@@ -3,6 +3,7 @@ import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import type { Server } from 'http';
 import { After, Before, Given, Then, When, setDefaultTimeout, } from '@cucumber/cucumber';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
@@ -11,7 +12,7 @@ import { setIngestDeps } from '../../ingest/ingestJob.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import { MockLMStudioClient, startMock, stopMock, } from '../support/mockLmStudioSdk.js';
-setDefaultTimeout(30000);
+setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 let server: Server | null = null;
 let baseUrl = '';
 let response: {

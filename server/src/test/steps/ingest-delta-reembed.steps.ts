@@ -4,7 +4,7 @@ import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
 import path from 'path';
-import { After, Before, Given, Then, When, type DataTable, setDefaultTimeout, } from '@cucumber/cucumber';
+import { After, Before, Given, Then, When, type DataTable, } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type { Metadata } from 'chromadb';
 import cors from 'cors';
@@ -14,7 +14,7 @@ import { resolveConfig } from '../../ingest/config.js';
 import { discoverFiles } from '../../ingest/discovery.js';
 import { hashFile } from '../../ingest/hashing.js';
 import { setIngestDeps } from '../../ingest/ingestJob.js';
-import { query, resetStore } from '../../logStore.js';
+import { query, resetStore, subscribe } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { AstCoverageModel } from '../../mongo/astCoverage.js';
 import { disconnectMongo, isMongoConnected } from '../../mongo/connection.js';
@@ -43,6 +43,8 @@ const previousHashesByRelPath = new Map<string, string>();
 let rememberedVectorCount: number | null = null;
 let rememberedRunId: string | null = null;
 let rememberedAstCoverageTimestamp: string | null = null;
+let capturedRuntimeEntries: ReturnType<typeof query> = [];
+let unsubscribeRuntimeEntries: (() => void) | null = null;
 async function waitForIngestTerminalStateStability(poll: () => Promise<string>, options?: {
     timeoutMs?: number;
     intervalMs?: number;
@@ -106,8 +108,12 @@ async function vectorCountForRoot(root: string) {
     return raw.ids.length;
 }
 Before(async () => {
-    setDefaultTimeout(60000);
+    unsubscribeRuntimeEntries?.();
     resetStore();
+    capturedRuntimeEntries = [];
+    unsubscribeRuntimeEntries = subscribe((entry) => {
+        capturedRuntimeEntries.push(entry);
+    });
     setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", 'ws://localhost:1234');
     const app = express();
     app.use(cors());
@@ -145,7 +151,7 @@ Before(async () => {
         });
     });
 });
-After(async () => {
+After({ timeout: resolveConfiguredTestTimeoutMs(60000) }, async () => {
     stopMock();
     if (server) {
         await new Promise<void>((resolve) => server?.close(() => resolve()));
@@ -163,6 +169,9 @@ After(async () => {
     rememberedAstCoverageTimestamp = null;
     originalHashesByRelPath.clear();
     previousHashesByRelPath.clear();
+    unsubscribeRuntimeEntries?.();
+    unsubscribeRuntimeEntries = null;
+    capturedRuntimeEntries = [];
     resetStore();
     await clearRootsCollection();
     await clearVectorsCollection();
@@ -504,7 +513,10 @@ Then('ingest delta AST coverage timestamp for the delta repo should change', asy
 });
 Then('ingest delta runtime marker {string} should include mode {string}', (marker: string, expectedMode: string) => {
     assert(tempDir, 'temp dir missing');
-    const matches = query({ text: marker }, 50);
+    const matches = [
+        ...capturedRuntimeEntries.filter((entry) => entry.message.includes(marker)),
+        ...query({ text: marker }, 50),
+    ];
     assert(matches.length > 0, `missing marker ${marker}`);
     assert.ok(matches.some((entry) => entry.context?.root === tempDir &&
         entry.context?.mode === expectedMode), `missing ${marker} log with mode ${expectedMode}`);

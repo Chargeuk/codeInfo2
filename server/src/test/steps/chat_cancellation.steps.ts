@@ -282,6 +282,7 @@ Then('the late cancel returns cancel_ack and no second terminal event', async ()
                 e.conversationId === startResponse?.conversationId);
         },
         timeoutMs: 300,
+        useConfiguredTimeout: false,
     }));
 });
 Then('the websocket session remains open', async () => {

@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -243,5 +244,5 @@ describe('Chat page fresh-run context', () => {
       model: 'gpt-5.2',
     });
     expect(chatBodies[0]?.conversationId).not.toBe('c1');
-  }, 15000);
+  }, resolveClientTestTimeoutMs(15000));
 });

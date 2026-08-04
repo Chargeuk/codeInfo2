@@ -4,6 +4,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -377,7 +378,7 @@ describe('Codex compatibility defaults behavior', () => {
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
     expect(sandboxSelect).toHaveTextContent(/read-only/i);
     expect(approvalSelect).toHaveTextContent(/never/i);
-  }, 15000);
+  }, resolveClientTestTimeoutMs(15000));
 
   it('resets invalid reasoning effort after capability payload refresh', async () => {
     let codexModelsRequestCount = 0;
@@ -511,7 +512,7 @@ describe('Codex compatibility defaults behavior', () => {
       ),
     );
     expect(codexModelsRequestCount).toBeGreaterThanOrEqual(2);
-  }, 15000);
+  }, resolveClientTestTimeoutMs(15000));
 
   it('logs deterministic error for malformed empty supportedReasoningEfforts payload', async () => {
     mockCodexReady({

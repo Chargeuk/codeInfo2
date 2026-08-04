@@ -390,87 +390,89 @@ const withFlowServer = async (
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   const isolatedRoot = await createIsolatedCodeInfo2CommandRoot();
   try {
-    await withDeterministicCodexAvailabilityBootstrap(async () =>
-      await withIsolatedProviderHomeTestEnv(
-        {
-          prefix: 'flows-command-provider-homes-',
-          overrides: {
-            CODEINFO_AGENT_HOME: isolatedRoot.agentHome,
-            CODEINFO_CODEX_AGENT_HOME: isolatedRoot.agentHome,
-            FLOWS_DIR: tmpDir,
-            ...options?.envOverrides,
+    await withDeterministicCodexAvailabilityBootstrap(
+      async () =>
+        await withIsolatedProviderHomeTestEnv(
+          {
+            prefix: 'flows-command-provider-homes-',
+            overrides: {
+              CODEINFO_AGENT_HOME: isolatedRoot.agentHome,
+              CODEINFO_CODEX_AGENT_HOME: isolatedRoot.agentHome,
+              FLOWS_DIR: tmpDir,
+              ...options?.envOverrides,
+            },
           },
-        },
-        async () => {
-          resetStore();
+          async () => {
+            resetStore();
 
-          if (options?.listIngestedRepositories) {
-            __setAgentServiceDepsForTests({
-              listIngestedRepositories: () =>
-                options.listIngestedRepositories!(tmpDir),
-            });
-            __setMarkdownFileResolverDepsForTests({
-              listIngestedRepositories: () =>
-                options.listIngestedRepositories!(tmpDir),
-              ...(options.markdownReadFile
-                ? { readFile: options.markdownReadFile }
-                : {}),
-            });
-          }
-          if (options?.flowServiceDeps) {
-            __setFlowServiceDepsForTests(options.flowServiceDeps);
-          }
+            if (options?.listIngestedRepositories) {
+              __setAgentServiceDepsForTests({
+                listIngestedRepositories: () =>
+                  options.listIngestedRepositories!(tmpDir),
+              });
+              __setMarkdownFileResolverDepsForTests({
+                listIngestedRepositories: () =>
+                  options.listIngestedRepositories!(tmpDir),
+                ...(options.markdownReadFile
+                  ? { readFile: options.markdownReadFile }
+                  : {}),
+              });
+            }
+            if (options?.flowServiceDeps) {
+              __setFlowServiceDepsForTests(options.flowServiceDeps);
+            }
 
-          const app = express();
-          app.use(
-            bindCurrentTestOverrides(
-              createFlowsRunRouter({
-              startFlowRun: bindCurrentTestOverrides((params) =>
-                startFlowRun({
-                  ...params,
-                  chatFactory:
-                    options?.chatFactory ?? (() => new ScriptedChat()),
-                  ...(options?.listIngestedRepositories
-                    ? {
-                        listIngestedRepositories: () =>
-                          options.listIngestedRepositories!(tmpDir),
-                      }
-                    : {}),
-                })),
-              }),
-            ),
-          );
-
-          const httpServer = http.createServer(app);
-          const wsHandle = attachWs({ httpServer });
-          await new Promise<void>((resolve) =>
-            httpServer.listen(0, bindCurrentTestOverrides(resolve)),
-          );
-          const address = httpServer.address();
-          assert(address && typeof address === 'object');
-          const baseUrl = `http://127.0.0.1:${address.port}`;
-          const ws = await connectWs({ baseUrl });
-
-          try {
-            await task({
-              baseUrl,
-              wsUrl: ws,
-              tmpDir,
-              agentHome: isolatedRoot.agentHome,
-              codeInfo2Root: isolatedRoot.codeInfo2Root,
-            });
-          } finally {
-            __resetAgentServiceDepsForTests();
-            __resetMarkdownFileResolverDepsForTests();
-            __resetFlowServiceDepsForTests();
-            await closeWs(ws);
-            await wsHandle.close();
-            await new Promise<void>((resolve) =>
-              httpServer.close(bindCurrentTestOverrides(() => resolve())),
+            const app = express();
+            app.use(
+              bindCurrentTestOverrides(
+                createFlowsRunRouter({
+                  startFlowRun: bindCurrentTestOverrides((params) =>
+                    startFlowRun({
+                      ...params,
+                      chatFactory:
+                        options?.chatFactory ?? (() => new ScriptedChat()),
+                      ...(options?.listIngestedRepositories
+                        ? {
+                            listIngestedRepositories: () =>
+                              options.listIngestedRepositories!(tmpDir),
+                          }
+                        : {}),
+                    }),
+                  ),
+                }),
+              ),
             );
-          }
-        },
-      ),
+
+            const httpServer = http.createServer(app);
+            const wsHandle = attachWs({ httpServer });
+            await new Promise<void>((resolve) =>
+              httpServer.listen(0, bindCurrentTestOverrides(resolve)),
+            );
+            const address = httpServer.address();
+            assert(address && typeof address === 'object');
+            const baseUrl = `http://127.0.0.1:${address.port}`;
+            const ws = await connectWs({ baseUrl });
+
+            try {
+              await task({
+                baseUrl,
+                wsUrl: ws,
+                tmpDir,
+                agentHome: isolatedRoot.agentHome,
+                codeInfo2Root: isolatedRoot.codeInfo2Root,
+              });
+            } finally {
+              __resetAgentServiceDepsForTests();
+              __resetMarkdownFileResolverDepsForTests();
+              __resetFlowServiceDepsForTests();
+              await closeWs(ws);
+              await wsHandle.close();
+              await new Promise<void>((resolve) =>
+                httpServer.close(bindCurrentTestOverrides(() => resolve())),
+              );
+            }
+          },
+        ),
     );
   } finally {
     await fs.rm(isolatedRoot.codeInfo2Root, { recursive: true, force: true });
@@ -538,11 +540,15 @@ const waitForFlowFinal = async (params: {
       .find((turn) => turn.role === 'assistant');
   const getLatestTurnFinalLog = () =>
     query({ text: 'chat.ws.server_publish_turn_final' }, 120)
-      .filter((entry) => entry.context?.conversationId === params.conversationId)
+      .filter(
+        (entry) => entry.context?.conversationId === params.conversationId,
+      )
       .at(-1);
   const getRuntimeResolutionLogs = () =>
     query({ text: 'flows.test.runtime_resolution_' }, 200)
-      .filter((entry) => entry.context?.conversationId === params.conversationId)
+      .filter(
+        (entry) => entry.context?.conversationId === params.conversationId,
+      )
       .slice(-25)
       .map((entry) => ({
         message: entry.message,
@@ -597,7 +603,8 @@ const waitForFlowFinal = async (params: {
             })),
           runtimeLogs: query({ text: 'flows.test.' }, 300)
             .filter(
-              (entry) => entry.context?.conversationId === params.conversationId,
+              (entry) =>
+                entry.context?.conversationId === params.conversationId,
             )
             .slice(-25)
             .map((entry) => ({
@@ -642,9 +649,7 @@ const waitForFlowFinal = async (params: {
         `latestAssistantTurn=${JSON.stringify(
           (() => {
             const turn = getLatestAssistantTurn();
-            return turn
-              ? { status: turn.status, content: turn.content }
-              : null;
+            return turn ? { status: turn.status, content: turn.content } : null;
           })(),
         )}`,
         `latestTurnFinalLog=${JSON.stringify(
@@ -683,8 +688,7 @@ const waitForFlowToolEvent = async (params: {
   const getAssistantToolCalls = () =>
     [...(memoryTurns.get(params.conversationId) ?? [])]
       .reverse()
-      .find((turn) => turn.role === 'assistant')
-      ?.toolCalls as
+      .find((turn) => turn.role === 'assistant')?.toolCalls as
       | {
           calls?: Array<{
             callId?: string;
@@ -697,7 +701,9 @@ const waitForFlowToolEvent = async (params: {
       | undefined;
   const getLatestToolEventLog = () =>
     query({ text: 'chat.stream.tool_event' }, 160)
-      .filter((entry) => entry.context?.conversationId === params.conversationId)
+      .filter(
+        (entry) => entry.context?.conversationId === params.conversationId,
+      )
       .at(-1);
   const buildPersistedEvent = () => {
     const matchingCall = getAssistantToolCalls()?.calls?.find((toolCall) =>
@@ -779,7 +785,8 @@ const waitForFlowToolEvent = async (params: {
             })),
           toolEventLogs: query({ text: 'chat.stream.tool_event' }, 300)
             .filter(
-              (entry) => entry.context?.conversationId === params.conversationId,
+              (entry) =>
+                entry.context?.conversationId === params.conversationId,
             )
             .slice(-25)
             .map((entry) => ({
@@ -788,7 +795,8 @@ const waitForFlowToolEvent = async (params: {
             })),
           runtimeLogs: query({ text: 'flows.test.' }, 300)
             .filter(
-              (entry) => entry.context?.conversationId === params.conversationId,
+              (entry) =>
+                entry.context?.conversationId === params.conversationId,
             )
             .slice(-25)
             .map((entry) => ({
@@ -825,13 +833,15 @@ const describeFlowRuntimeState = (conversationId: string) =>
     inflightId: getInflight(conversationId)?.inflightId ?? null,
     ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
     conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
-    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
-      role: turn.role,
-      status: turn.status,
-      content: turn.content,
-      command: turn.command,
-      runtime: turn.runtime,
-    })),
+    recentTurns: (memoryTurns.get(conversationId) ?? [])
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+        command: turn.command,
+        runtime: turn.runtime,
+      })),
   });
 
 const describeCommandRetryDiagnosticState = (conversationId: string) => {
@@ -1146,14 +1156,19 @@ test('github PR open generates reviewer-facing title and body from active story 
       }
       if (
         args[0] === 'api' &&
-        args.includes(
-          'repos/example/repo/pulls?state=open&head=example:feature%2F0000060-demo&sort=created&direction=desc&per_page=100',
-        )
+        args[1]?.startsWith('repos/example/repo/pulls?')
       ) {
         return {
           exitCode: 0,
+          stdout: '[]',
+          stderr: '',
+        };
+      }
+      if (args[0] === 'api' && args[1] === 'repos/example/repo/pulls/45') {
+        return {
+          exitCode: 0,
           stdout:
-            '[[{"number":45,"html_url":"https://github.com/example/repo/pull/45","head":{"ref":"feature/0000060-demo"},"base":{"ref":"main"},"user":{"login":"review-author"},"created_at":"2026-06-24T12:00:00Z","title":"Story review"}]]',
+            '{"number":45,"state":"open","html_url":"https://github.com/example/repo/pull/45","head":{"ref":"feature/0000060-demo"},"base":{"ref":"main"},"user":{"login":"review-author"},"created_at":"2026-06-24T12:00:00Z","title":"Story review"}',
           stderr: '',
         };
       }
@@ -1179,7 +1194,9 @@ test('github PR open generates reviewer-facing title and body from active story 
       await withTimeout(
         (async () => {
           while (
-            !seenCommands.some((args) => args[0] === 'pr' && args[1] === 'create')
+            !seenCommands.some(
+              (args) => args[0] === 'pr' && args[1] === 'create',
+            )
           ) {
             await delay(20);
           }
@@ -1522,7 +1539,9 @@ test('flow-owned commands fall back through markdown repositories after a same-s
           },
         ],
       });
-      repos.push(buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }));
+      repos.push(
+        buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+      );
 
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
       await supertest(baseUrl)
@@ -1970,48 +1989,51 @@ test('command resolution dedupes duplicate working and local codeinfo2 repositor
     });
     assert.equal(await pathExists(realRepoCommandPath), false);
 
-    await withFlowServer(async ({ baseUrl, wsUrl, tmpDir }) => {
-      const conversationId = 'task2-dedupe-working-codeinfo2';
-      await fs.writeFile(
-        path.join(tmpDir, 'task2-dedupe-working-codeinfo2.json'),
-        JSON.stringify(makeFlowCommand({ commandName })),
-      );
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      await supertest(baseUrl)
-        .post('/flows/task2-dedupe-working-codeinfo2/run')
-        .send({
-          conversationId,
-          working_folder: isolatedRoot.codeInfo2Root,
-        })
-        .expect(202);
+    await withFlowServer(
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'task2-dedupe-working-codeinfo2';
+        await fs.writeFile(
+          path.join(tmpDir, 'task2-dedupe-working-codeinfo2.json'),
+          JSON.stringify(makeFlowCommand({ commandName })),
+        );
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await supertest(baseUrl)
+          .post('/flows/task2-dedupe-working-codeinfo2/run')
+          .send({
+            conversationId,
+            working_folder: isolatedRoot.codeInfo2Root,
+          })
+          .expect(202);
 
-      await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
-      const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
-      const selectedLog = logs.find(
-        (entry) => entry.context?.decision === 'selected',
-      );
-      const candidateRepositories = Array.isArray(
-        selectedLog?.context?.candidateRepositories,
-      )
-        ? (selectedLog.context.candidateRepositories as Array<{
-            sourceId: string;
-            slot: string;
-          }>)
-        : [];
-      const matchingCandidates =
-        candidateRepositories.filter(
-          (item) =>
-            item.sourceId === path.resolve(isolatedRoot.codeInfo2Root),
-        ) ?? [];
-      assert.equal(matchingCandidates.length, 1);
-      assert.equal(matchingCandidates[0]?.slot, 'working_repository');
-      cleanupMemory(conversationId);
-    }, {
-      envOverrides: {
-        CODEINFO_AGENT_HOME: isolatedRoot.agentHome,
-        CODEINFO_CODEX_AGENT_HOME: isolatedRoot.agentHome,
+        await waitForFlowFinal({ ws: wsUrl, conversationId, status: 'ok' });
+        const logs = query({ text: 'DEV_0000040_T11_FLOW_RESOLUTION_ORDER' });
+        const selectedLog = logs.find(
+          (entry) => entry.context?.decision === 'selected',
+        );
+        const candidateRepositories = Array.isArray(
+          selectedLog?.context?.candidateRepositories,
+        )
+          ? (selectedLog.context.candidateRepositories as Array<{
+              sourceId: string;
+              slot: string;
+            }>)
+          : [];
+        const matchingCandidates =
+          candidateRepositories.filter(
+            (item) =>
+              item.sourceId === path.resolve(isolatedRoot.codeInfo2Root),
+          ) ?? [];
+        assert.equal(matchingCandidates.length, 1);
+        assert.equal(matchingCandidates[0]?.slot, 'working_repository');
+        cleanupMemory(conversationId);
       },
-    });
+      {
+        envOverrides: {
+          CODEINFO_AGENT_HOME: isolatedRoot.agentHome,
+          CODEINFO_CODEX_AGENT_HOME: isolatedRoot.agentHome,
+        },
+      },
+    );
   } finally {
     await fs.rm(isolatedRoot.codeInfo2Root, { recursive: true, force: true });
   }
@@ -2267,72 +2289,69 @@ test('flow command-step retries and direct-command retries remain unchanged afte
   const repos: RepoEntry[] = [];
   const flowAttempts = { count: 0 };
   const directAttempts = { count: 0 };
-  await runWithTestEnvOverrides(
-    { FLOW_AND_COMMAND_RETRIES: '2' },
-    async () => {
-      await withFlowServer(
-        async ({ baseUrl, wsUrl, tmpDir }) => {
-          const sourceRoot = path.join(tmpDir, 'repo-command-retry-shared');
-          const commandName = 'task6_retry_markdown';
-          const flowConversationId = 'flow-command-retry-shared';
-          const directConversationId = 'direct-command-retry-shared';
-          await writeRepoFlow({
-            repoRoot: sourceRoot,
-            flowName: 'repo-command-retry-shared',
-            commandName,
-          });
-          await writeRepoCommand({
-            repoRoot: sourceRoot,
-            commandName,
-            items: [{ type: 'message', role: 'user', markdownFile: 'retry.md' }],
-          });
-          await writeMarkdownFile({
-            repoRoot: sourceRoot,
-            relativePath: 'retry.md',
-            content: 'retry markdown item',
-          });
-          repos.push(
-            buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
-          );
+  await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '2' }, async () => {
+    await withFlowServer(
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const sourceRoot = path.join(tmpDir, 'repo-command-retry-shared');
+        const commandName = 'task6_retry_markdown';
+        const flowConversationId = 'flow-command-retry-shared';
+        const directConversationId = 'direct-command-retry-shared';
+        await writeRepoFlow({
+          repoRoot: sourceRoot,
+          flowName: 'repo-command-retry-shared',
+          commandName,
+        });
+        await writeRepoCommand({
+          repoRoot: sourceRoot,
+          commandName,
+          items: [{ type: 'message', role: 'user', markdownFile: 'retry.md' }],
+        });
+        await writeMarkdownFile({
+          repoRoot: sourceRoot,
+          relativePath: 'retry.md',
+          content: 'retry markdown item',
+        });
+        repos.push(
+          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        );
 
-          sendJson(wsUrl, {
-            type: 'subscribe_conversation',
-            conversationId: flowConversationId,
-          });
-          await supertest(baseUrl)
-            .post('/flows/repo-command-retry-shared/run')
-            .send({ conversationId: flowConversationId, sourceId: sourceRoot })
-            .expect(202);
+        sendJson(wsUrl, {
+          type: 'subscribe_conversation',
+          conversationId: flowConversationId,
+        });
+        await supertest(baseUrl)
+          .post('/flows/repo-command-retry-shared/run')
+          .send({ conversationId: flowConversationId, sourceId: sourceRoot })
+          .expect(202);
 
-          await waitForFlowFinal({
-            ws: wsUrl,
-            conversationId: flowConversationId,
-            status: 'ok',
-            timeoutMs: 6000,
-          });
-          assert.equal(flowAttempts.count, 2);
+        await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId: flowConversationId,
+          status: 'ok',
+          timeoutMs: 6000,
+        });
+        assert.equal(flowAttempts.count, 2);
 
-          await bindCurrentTestOverrides(runAgentCommand)({
-            agentName: 'planning_agent',
-            commandName,
-            conversationId: directConversationId,
-            sourceId: sourceRoot,
-            source: 'REST',
-            chatFactory: () => new FlakyOnceChat(directAttempts),
-          });
-          assert.equal(directAttempts.count, 2);
-          cleanupMemory(flowConversationId, directConversationId);
-        },
-        {
-          listIngestedRepositories: async () => ({
-            repos,
-            lockedModelId: null,
-          }),
-          chatFactory: () => new FlakyOnceChat(flowAttempts),
-        },
-      );
-    },
-  );
+        await bindCurrentTestOverrides(runAgentCommand)({
+          agentName: 'planning_agent',
+          commandName,
+          conversationId: directConversationId,
+          sourceId: sourceRoot,
+          source: 'REST',
+          chatFactory: () => new FlakyOnceChat(directAttempts),
+        });
+        assert.equal(directAttempts.count, 2);
+        cleanupMemory(flowConversationId, directConversationId);
+      },
+      {
+        listIngestedRepositories: async () => ({
+          repos,
+          lockedModelId: null,
+        }),
+        chatFactory: () => new FlakyOnceChat(flowAttempts),
+      },
+    );
+  });
 });
 
 test('flow-owned commands can execute reingest items', async () => {
@@ -3610,123 +3629,113 @@ test('cancellation during flow-owned command reingest stops later items and late
 test('flow-owned command message retries remain intact after adding reingest support', async () => {
   const flowAttempts = { count: 0 };
   const repos: RepoEntry[] = [];
-  await runWithTestEnvOverrides(
-    { FLOW_AND_COMMAND_RETRIES: '2' },
-    async () => {
-      await withFlowServer(
-        async ({ baseUrl, wsUrl, tmpDir }) => {
-          const sourceRoot = path.join(tmpDir, 'repo-command-retry-task11');
-          const commandName = 'task11_message_retry';
-          const conversationId = 'flow-command-retry-task11';
-          await writeRepoFlow({
-            repoRoot: sourceRoot,
-            flowName: 'repo-command-retry-task11',
-            commandName,
-          });
-          await writeRepoCommand({
-            repoRoot: sourceRoot,
-            commandName,
-            items: [{ type: 'message', role: 'user', content: ['retry me'] }],
-          });
-          repos.push(
-            buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
-          );
+  await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '2' }, async () => {
+    await withFlowServer(
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const sourceRoot = path.join(tmpDir, 'repo-command-retry-task11');
+        const commandName = 'task11_message_retry';
+        const conversationId = 'flow-command-retry-task11';
+        await writeRepoFlow({
+          repoRoot: sourceRoot,
+          flowName: 'repo-command-retry-task11',
+          commandName,
+        });
+        await writeRepoCommand({
+          repoRoot: sourceRoot,
+          commandName,
+          items: [{ type: 'message', role: 'user', content: ['retry me'] }],
+        });
+        repos.push(
+          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        );
 
-          sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-          await supertest(baseUrl)
-            .post('/flows/repo-command-retry-task11/run')
-            .send({ conversationId, sourceId: sourceRoot })
-            .expect(202);
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await supertest(baseUrl)
+          .post('/flows/repo-command-retry-task11/run')
+          .send({ conversationId, sourceId: sourceRoot })
+          .expect(202);
 
-          await waitForFlowFinal({
-            ws: wsUrl,
-            conversationId,
-            status: 'ok',
-            timeoutMs: 6000,
-          });
-          assert.equal(flowAttempts.count, 2);
-          cleanupMemory(conversationId);
-        },
-        {
-          listIngestedRepositories: async () => ({
-            repos,
-            lockedModelId: null,
-          }),
-          chatFactory: () => new FlakyOnceChat(flowAttempts),
-        },
-      );
-    },
-  );
+        await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId,
+          status: 'ok',
+          timeoutMs: 6000,
+        });
+        assert.equal(flowAttempts.count, 2);
+        cleanupMemory(conversationId);
+      },
+      {
+        listIngestedRepositories: async () => ({
+          repos,
+          lockedModelId: null,
+        }),
+        chatFactory: () => new FlakyOnceChat(flowAttempts),
+      },
+    );
+  });
 });
 
 test('flow-owned command reingest items stay single-attempt while later message items can retry', async () => {
   const flowAttempts = { count: 0 };
   let reingestCalls = 0;
   const repos: RepoEntry[] = [];
-  await runWithTestEnvOverrides(
-    { FLOW_AND_COMMAND_RETRIES: '2' },
-    async () => {
-      await withFlowServer(
-        async ({ baseUrl, wsUrl, tmpDir }) => {
-          const sourceRoot = path.join(tmpDir, 'repo-command-reingest-retry');
-          const commandName = 'task11_reingest_then_retry';
-          const conversationId = 'flow-command-reingest-retry';
-          await writeRepoFlow({
-            repoRoot: sourceRoot,
-            flowName: 'repo-command-reingest-retry',
-            commandName,
-          });
-          await writeRepoCommand({
-            repoRoot: sourceRoot,
-            commandName,
-            items: [
-              { type: 'reingest', sourceId: '/repo/source-a' },
-              {
-                type: 'message',
-                role: 'user',
-                content: ['retry after reingest'],
-              },
-            ],
-          });
-          repos.push(
-            buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
-          );
-
-          sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-          await supertest(baseUrl)
-            .post('/flows/repo-command-reingest-retry/run')
-            .send({ conversationId, sourceId: sourceRoot })
-            .expect(202);
-
-          await waitForTurns(
-            conversationId,
-            (items) => items.length >= 4,
-            12000,
-          );
-          assert.equal(reingestCalls, 1);
-          assert.equal(flowAttempts.count, 2);
-          cleanupMemory(conversationId);
-        },
-        {
-          listIngestedRepositories: async () => ({
-            repos,
-            lockedModelId: null,
-          }),
-          chatFactory: () => new FlakyOnceChat(flowAttempts),
-          flowServiceDeps: {
-            runReingestRepository: async () => {
-              reingestCalls += 1;
-              return {
-                ok: true,
-                value: buildReingestSuccess(),
-              };
+  await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '2' }, async () => {
+    await withFlowServer(
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const sourceRoot = path.join(tmpDir, 'repo-command-reingest-retry');
+        const commandName = 'task11_reingest_then_retry';
+        const conversationId = 'flow-command-reingest-retry';
+        await writeRepoFlow({
+          repoRoot: sourceRoot,
+          flowName: 'repo-command-reingest-retry',
+          commandName,
+        });
+        await writeRepoCommand({
+          repoRoot: sourceRoot,
+          commandName,
+          items: [
+            { type: 'reingest', sourceId: '/repo/source-a' },
+            {
+              type: 'message',
+              role: 'user',
+              content: ['retry after reingest'],
             },
-            createCallId: () => 'call-flow-retry',
+          ],
+        });
+        repos.push(
+          buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
+        );
+
+        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await supertest(baseUrl)
+          .post('/flows/repo-command-reingest-retry/run')
+          .send({ conversationId, sourceId: sourceRoot })
+          .expect(202);
+
+        await waitForTurns(conversationId, (items) => items.length >= 4, 12000);
+        assert.equal(reingestCalls, 1);
+        assert.equal(flowAttempts.count, 2);
+        cleanupMemory(conversationId);
+      },
+      {
+        listIngestedRepositories: async () => ({
+          repos,
+          lockedModelId: null,
+        }),
+        chatFactory: () => new FlakyOnceChat(flowAttempts),
+        flowServiceDeps: {
+          runReingestRepository: async () => {
+            reingestCalls += 1;
+            return {
+              ok: true,
+              value: buildReingestSuccess(),
+            };
           },
+          createCallId: () => 'call-flow-retry',
         },
-      );
-    },
-  );
+      },
+    );
+  });
 
   const logs = query(
     { text: 'DEV-0000045:T11:flow_command_reingest_recorded' },
@@ -4286,80 +4295,79 @@ test('invalid command steps return 400 invalid_request', async () => {
 
 test('command-load failures are retried and then fail deterministically', async () => {
   const commandName = 'task5_retry_temp_command';
-  await runWithTestEnvOverrides(
-    { FLOW_AND_COMMAND_RETRIES: '2' },
-    async () => {
-      await withFlowServer(async ({ baseUrl, wsUrl, tmpDir, agentHome }) => {
-        const commandPath = path.join(
-          agentHome,
-          'planning_agent',
-          'commands',
-          `${commandName}.json`,
-        );
-        await fs.writeFile(
-          commandPath,
-          JSON.stringify({
-            Description: 'Temporary command for Task 5 retry test',
-            items: [{ type: 'message', role: 'user', content: ['temporary step'] }],
-          }),
-        );
-        const conversationId = 'flow-command-missing-retry-conv';
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-
-        const retryFlow = {
-          description: 'Retry missing command',
-          steps: [
-            {
-              type: 'llm',
-              agentType: 'planning_agent',
-              identifier: 'prep',
-              messages: [{ role: 'user', content: ['__delay:300::prep'] }],
-            },
-            {
-              type: 'command',
-              agentType: 'planning_agent',
-              identifier: 'missing-command',
-              commandName,
-            },
+  await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '2' }, async () => {
+    await withFlowServer(async ({ baseUrl, wsUrl, tmpDir, agentHome }) => {
+      const commandPath = path.join(
+        agentHome,
+        'planning_agent',
+        'commands',
+        `${commandName}.json`,
+      );
+      await fs.writeFile(
+        commandPath,
+        JSON.stringify({
+          Description: 'Temporary command for Task 5 retry test',
+          items: [
+            { type: 'message', role: 'user', content: ['temporary step'] },
           ],
-        };
-        await fs.writeFile(
-          path.join(tmpDir, 'command-missing-retry.json'),
-          JSON.stringify(retryFlow, null, 2),
-        );
+        }),
+      );
+      const conversationId = 'flow-command-missing-retry-conv';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
 
-        await supertest(baseUrl)
-          .post('/flows/command-missing-retry/run')
-          .send({ conversationId })
-          .expect(202);
-        await delay(50);
-        await fs.rm(commandPath, { force: true });
+      const retryFlow = {
+        description: 'Retry missing command',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'planning_agent',
+            identifier: 'prep',
+            messages: [{ role: 'user', content: ['__delay:300::prep'] }],
+          },
+          {
+            type: 'command',
+            agentType: 'planning_agent',
+            identifier: 'missing-command',
+            commandName,
+          },
+        ],
+      };
+      await fs.writeFile(
+        path.join(tmpDir, 'command-missing-retry.json'),
+        JSON.stringify(retryFlow, null, 2),
+      );
 
-        const final = await waitForFlowFinal({
-          ws: wsUrl,
-          conversationId,
-          status: 'failed',
-          timeoutMs: 10000,
-          describe: () => describeCommandRetryDiagnosticState(conversationId),
-        });
+      await supertest(baseUrl)
+        .post('/flows/command-missing-retry/run')
+        .send({ conversationId })
+        .expect(202);
+      await delay(50);
+      await fs.rm(commandPath, { force: true });
 
-        assert.equal(final.status, 'failed');
-        const turns = await waitForTurns(
-          conversationId,
-          (items) =>
-            items.filter((turn) => turn.role === 'assistant').length >= 1,
-          6000,
-          () => describeCommandRetryDiagnosticState(conversationId),
-        );
-        const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
-        assert.equal(assistantTurns.length, 2);
-
-        memoryConversations.delete(conversationId);
-        memoryTurns.delete(conversationId);
-        await fs.rm(commandPath, { force: true });
+      const final = await waitForFlowFinal({
+        ws: wsUrl,
+        conversationId,
+        status: 'failed',
+        timeoutMs: 10000,
+        describe: () => describeCommandRetryDiagnosticState(conversationId),
       });
-    },
-  );
+
+      assert.equal(final.status, 'failed');
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.filter((turn) => turn.role === 'assistant').length >= 1,
+        6000,
+        () => describeCommandRetryDiagnosticState(conversationId),
+      );
+      const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+      assert.equal(assistantTurns.length, 2);
+
+      memoryConversations.delete(conversationId);
+      memoryTurns.delete(conversationId);
+      await fs.rm(commandPath, { force: true });
+    });
+  });
 });
 
 test('recordReviewUsage writes only opted-in LLM usage categories', async () => {

@@ -10,6 +10,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -435,7 +436,7 @@ describe('Chat page new conversation control', () => {
       ),
     );
     expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
-  }, 15000);
+  }, resolveClientTestTimeoutMs(15000));
 
   it('clears restored model state after an explicit new-conversation reset before a fresh model change sends', async () => {
     const user = userEvent.setup();

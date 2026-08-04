@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -279,7 +280,7 @@ describe('Codex sandbox flag payloads', () => {
     expect((codexBody.agentFlags as Record<string, unknown>)?.sandboxMode).toBe(
       'danger-full-access',
     );
-  }, 15000);
+  }, resolveClientTestTimeoutMs(15000));
 
   it('sends fallback Codex flags and omits unsupported reasoning when defaults are missing', async () => {
     const chatBodies: Record<string, unknown>[] = [];

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -255,7 +256,7 @@ describe('Chat transcript viewport height fill', () => {
     const height700 = transcript.getBoundingClientRect().height;
     expect(height700).toBeGreaterThan(height480);
     harness.restore();
-  }, 60000);
+  }, resolveClientTestTimeoutMs(60000));
 
   it('ignores a late measurement callback for a removed row without crashing the transcript', async () => {
     const harness = installTranscriptMeasurementHarness();

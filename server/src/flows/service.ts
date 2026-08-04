@@ -1642,9 +1642,14 @@ const parseFlowResumeState = (
     ? (() => {
         const status = flow.runLifecycle.status;
         const updatedAt = normalizeOptionalString(flow.runLifecycle.updatedAt);
-        return ['running', 'ok', 'warning', 'stopped', 'failed', 'orphaned'].includes(
-          String(status),
-        ) && updatedAt
+        return [
+          'running',
+          'ok',
+          'warning',
+          'stopped',
+          'failed',
+          'orphaned',
+        ].includes(String(status)) && updatedAt
           ? {
               status: status as NonNullable<
                 FlowResumeState['runLifecycle']
@@ -7984,8 +7989,7 @@ async function runFlowUnlocked(params: {
   const markGitHubReviewCycleSkipped = (warningMessage: string) => {
     activeGitHubReviewContext = {
       ...activeGitHubReviewContext,
-      executionId:
-        activeGitHubReviewContext?.executionId ?? params.executionId,
+      executionId: activeGitHubReviewContext?.executionId ?? params.executionId,
       phase: 'skipped',
       retryAttempt: activeGitHubReviewContext?.retryAttempt ?? 0,
       warningMessage,
@@ -8307,10 +8311,12 @@ async function runFlowUnlocked(params: {
         return 'ok';
       }
       if (createResult.createFailure) {
-        const recoveredCreateWarning = buildGitHubRecoveredCreateWarningMessage({
-          pullRequestNumber: createResult.value.number,
-          createFailure: createResult.createFailure,
-        });
+        const recoveredCreateWarning = buildGitHubRecoveredCreateWarningMessage(
+          {
+            pullRequestNumber: createResult.value.number,
+            createFailure: createResult.createFailure,
+          },
+        );
         await appendGitHubStagePlanNote(recoveredCreateWarning);
         append({
           level: 'warn',
@@ -9074,7 +9080,7 @@ async function runFlowUnlocked(params: {
             ? ('completed' as const)
             : outcome === 'warning'
               ? ('completed' as const)
-            : outcome
+              : outcome
           : runningInstances.has(job.instanceId)
             ? ('running' as const)
             : ('pending' as const);
@@ -9661,9 +9667,8 @@ async function runFlowUnlocked(params: {
             parentStopRequested = true;
           }
           const terminalStatuses = childStatuses.map(({ status }) => status);
-          hasPropagatedGitHubReviewWarning ||= terminalStatuses.includes(
-            'warning',
-          );
+          hasPropagatedGitHubReviewWarning ||=
+            terminalStatuses.includes('warning');
           const everyChildSucceeded = terminalStatuses.every(
             (status): status is 'ok' => status === 'ok',
           );
@@ -11524,14 +11529,12 @@ async function runFlowUnlocked(params: {
             detail: `status=${status} step=${command.stepIndex}`,
           });
           await persistRuntimeResumeState(lastCompletedStepPath);
-          const recovery =
-            source === 'script'
-              ? null
-              : await recoverGitHubReviewStepFailure(
-                  status,
-                  nextPath,
-                  scopedGitHubRecovery,
-                );
+          if (source === 'script') return status;
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+            scopedGitHubRecovery,
+          );
           if (recovery) return recovery;
           continue;
         }
@@ -11574,14 +11577,12 @@ async function runFlowUnlocked(params: {
         });
         if (shouldStopAfter(status)) {
           await persistRuntimeResumeState(lastCompletedStepPath);
-          const recovery =
-            source === 'script'
-              ? null
-              : await recoverGitHubReviewStepFailure(
-                  status,
-                  nextPath,
-                  scopedGitHubRecovery,
-                );
+          if (source === 'script') return status;
+          const recovery = await recoverGitHubReviewStepFailure(
+            status,
+            nextPath,
+            scopedGitHubRecovery,
+          );
           if (recovery) return recovery;
           continue;
         }
@@ -13097,8 +13098,7 @@ export async function startFlowRun(
         cleanupInflightFn: params.cleanupInflightFn,
         releaseConversationLockFn: params.releaseConversationLockFn,
       });
-      completedSuccessfully =
-        runOutcome === 'ok' || runOutcome === 'warning';
+      completedSuccessfully = runOutcome === 'ok' || runOutcome === 'warning';
       failedTerminally =
         runOutcome !== 'ok' &&
         runOutcome !== 'warning' &&
@@ -13205,7 +13205,6 @@ export async function startFlowRun(
           );
         }
       }
-      released = releaseConversationLockFn(conversationId, runToken);
       if (retryOwnershipId && !resumeStepPath) {
         clearFreshRunRetryOwnership({
           flowName,
@@ -13214,6 +13213,7 @@ export async function startFlowRun(
           expectedRunToken: runToken,
         });
       }
+      released = releaseConversationLockFn(conversationId, runToken);
       params.onStopUnwindCheckpoint?.({
         checkpoint: 'startFlowRun.async.finally.exit',
         conversationId,

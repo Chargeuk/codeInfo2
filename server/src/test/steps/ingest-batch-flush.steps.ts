@@ -5,6 +5,7 @@ import fs from 'fs/promises';
 import type { Server } from 'http';
 import path from 'path';
 import { After, Before, Given, Then, When, setDefaultTimeout, } from '@cucumber/cucumber';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
@@ -21,7 +22,7 @@ let tempDir: string | null = null;
 let lastRunId: string | null = null;
 let previousLmStudioUrl: string | undefined;
 let previousFlushEvery: string | undefined;
-setDefaultTimeout(30000);
+setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 async function startTestServer() {
     previousLmStudioUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
     previousFlushEvery = process.env.CODEINFO_INGEST_FLUSH_EVERY;

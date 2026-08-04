@@ -10,6 +10,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 const mockFetch = jest.fn<typeof fetch>();
 beforeAll(() => {
   global.fetch = mockFetch;
@@ -208,7 +209,11 @@ function emitInflightSnapshot(payload: {
   });
 }
 async function selectFirstConversation() {
-  const rows = await screen.findAllByTestId('conversation-row');
+  const rows = await screen.findAllByTestId(
+    'conversation-row',
+    undefined,
+    { timeout: resolveClientTestTimeoutMs(5000) },
+  );
   await userEvent.click(rows[0]);
 }
 async function openFlowInfoSurface() {

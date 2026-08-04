@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { memo } from 'react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 const transcriptRenderSpy = jest.fn();
@@ -108,5 +109,5 @@ describe('Agents page input isolation', () => {
 
     expect(input).toHaveValue('abc');
     expect(transcriptRenderSpy).toHaveBeenCalledTimes(renderCountBeforeTyping);
-  }, 60000);
+  }, resolveClientTestTimeoutMs(60000));
 });

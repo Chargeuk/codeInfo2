@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -881,7 +882,7 @@ describe('Agents page - run', () => {
     expect(assistantMarkdown?.querySelector('code')).toBeTruthy();
     expect(userMarkdown?.querySelector('script')).toBeNull();
     expect(assistantMarkdown?.querySelector('script')).toBeNull();
-  }, 60000);
+  }, resolveClientTestTimeoutMs(60000));
 
   it('uses the same safe fallback for malformed mermaid in user and assistant realtime bubbles', async () => {
     const user = userEvent.setup();
@@ -1014,7 +1015,7 @@ describe('Agents page - run', () => {
       expect(userMarkdown).toHaveTextContent('Diagram failed to render');
       expect(assistantMarkdown).toHaveTextContent('Diagram failed to render');
     });
-  }, 30000);
+  }, resolveClientTestTimeoutMs(30000));
 
   it('preserves multiline newline formatting in outbound instruction payload', async () => {
     const user = userEvent.setup();
@@ -1099,7 +1100,7 @@ describe('Agents page - run', () => {
 
     await waitFor(() => expect(runBodies.length).toBe(1));
     expect(runBodies[0]).toHaveProperty('instruction', rawInstruction);
-  }, 30000);
+  }, resolveClientTestTimeoutMs(30000));
 
   it('blocks whitespace-only input before dispatching a run request', async () => {
     const user = userEvent.setup();

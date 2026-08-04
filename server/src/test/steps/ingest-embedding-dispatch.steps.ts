@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import type { Server } from 'node:http';
 import path from 'node:path';
 import { After, Before, Given, Then, When, setDefaultTimeout, } from '@cucumber/cucumber';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
@@ -20,7 +21,7 @@ let baseUrl = '';
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
 Before({ tags: '@embedding-dispatch' }, async () => {
-    setDefaultTimeout(30000);
+    setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
     setScopedTestEnvValue("NODE_ENV", 'test');
     setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", 'ws://localhost:1234');
     setScopedTestEnvValue("CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT", '2');

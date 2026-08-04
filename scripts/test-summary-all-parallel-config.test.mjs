@@ -87,8 +87,23 @@ test('stress environment enables runtime diagnostics without losing inherited va
   });
 
   assert.deepEqual(environment, {
+    CODEINFO_CLIENT_TEST_TIMEOUT_MS: '120000',
     CODEINFO_TEST_RUNTIME_DIAGNOSTICS: '1',
     KEEP_ME: 'yes',
+  });
+});
+
+test('stress environment preserves an explicit client timeout', () => {
+  const environment = buildAllParallelEnvironment({
+    environment: {
+      CODEINFO_CLIENT_TEST_TIMEOUT_MS: '90000',
+    },
+    stress: true,
+  });
+
+  assert.deepEqual(environment, {
+    CODEINFO_CLIENT_TEST_TIMEOUT_MS: '90000',
+    CODEINFO_TEST_RUNTIME_DIAGNOSTICS: '1',
   });
 });
 

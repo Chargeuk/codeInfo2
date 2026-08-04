@@ -828,11 +828,19 @@ test.describe('Chat tool visibility details', () => {
     await page.getByTestId('chat-input').fill('Show params');
     await page.getByTestId('chat-send').click();
 
+    await expect(page.getByTestId('status-chip')).toContainText('Complete', {
+      timeout: 10000,
+    });
+
     const toggle = page.getByTestId('tool-toggle');
     await toggle.click();
 
     const paramsAccordion = page.getByTestId('tool-params-accordion');
     await paramsAccordion.getByRole('button').click();
+    await expect(paramsAccordion.getByRole('button')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     await expect(paramsAccordion).toContainText('"query": "alpha info"');
     await expect(paramsAccordion).toContainText('"limit": 3');
   });

@@ -94,11 +94,16 @@ export async function waitForEvent<T>(params: {
   ws: WebSocket;
   predicate: (event: unknown) => event is T;
   timeoutMs?: number;
+  useConfiguredTimeout?: boolean;
   describe?: () => string;
   inspectCurrent?: () => string;
   describeEvent?: (event: unknown) => string;
 }): Promise<T> {
-  const timeoutMs = resolveConfiguredTestTimeoutMs(params.timeoutMs ?? 2000);
+  const requestedTimeoutMs = params.timeoutMs ?? 2000;
+  const timeoutMs =
+    params.useConfiguredTimeout === false
+      ? requestedTimeoutMs
+      : resolveConfiguredTestTimeoutMs(requestedTimeoutMs);
 
   const buffer = getBuffer(params.ws);
   const consumeBuffered = (): T | undefined => {

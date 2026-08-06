@@ -4,8 +4,14 @@ import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
 import path from 'path';
-import { After, Before, Given, Then, When, setDefaultTimeout, } from '@cucumber/cucumber';
-import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+import {
+  After,
+  Before,
+  Given,
+  Then,
+  When,
+  setDefaultTimeout,
+} from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 import cors from 'cors';
@@ -15,148 +21,187 @@ import { setIngestDeps } from '../../ingest/ingestJob.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { createLogsRouter } from '../../routes/logs.js';
-import { MockLMStudioClient, type MockScenario, startMock, stopMock, } from '../support/mockLmStudioSdk.js';
+import {
+  MockLMStudioClient,
+  type MockScenario,
+  startMock,
+  stopMock,
+} from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
+import {
+  resolveConfiguredPollAttempts,
+  resolveConfiguredTestTimeoutMs,
+} from '../support/testTimeouts.js';
 let server: Server | null = null;
 let baseUrl = '';
 let response: {
-    status: number;
-    body: unknown;
+  status: number;
+  body: unknown;
 } | null = null;
 let lastRunId: string | null = null;
 let tempDir: string | null = null;
 Before(async () => {
-    setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
-    setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", 'ws://localhost:1234');
-    clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
-    const app = express();
-    app.use(cors());
-    app.use(express.json());
-    app.use(createRequestLogger());
-    app.use((req, res, next) => {
-        const requestId = (req as unknown as {
-            id?: string;
-        }).id;
-        if (requestId)
-            res.locals.requestId = requestId;
-        next();
+  setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
+  const app = express();
+  app.use(cors());
+  app.use(express.json());
+  app.use(createRequestLogger());
+  app.use((req, res, next) => {
+    const requestId = (
+      req as unknown as {
+        id?: string;
+      }
+    ).id;
+    if (requestId) res.locals.requestId = requestId;
+    next();
+  });
+  setIngestDeps({
+    lmClientFactory: () =>
+      new MockLMStudioClient() as unknown as LMStudioClient,
+    baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
+  });
+  app.use(
+    '/',
+    createIngestStartRouter({
+      clientFactory: () =>
+        new MockLMStudioClient() as unknown as LMStudioClient,
+    }),
+  );
+  app.use('/logs', createLogsRouter());
+  await new Promise<void>((resolve) => {
+    const listener = app.listen(0, () => {
+      server = listener;
+      const address = listener.address();
+      if (!address || typeof address === 'string') {
+        throw new Error('Unable to start test server');
+      }
+      baseUrl = `http://localhost:${address.port}`;
+      resolve();
     });
-    setIngestDeps({
-        lmClientFactory: () => new MockLMStudioClient() as unknown as LMStudioClient,
-        baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
-    });
-    app.use('/', createIngestStartRouter({
-        clientFactory: () => new MockLMStudioClient() as unknown as LMStudioClient,
-    }));
-    app.use('/logs', createLogsRouter());
-    await new Promise<void>((resolve) => {
-        const listener = app.listen(0, () => {
-            server = listener;
-            const address = listener.address();
-            if (!address || typeof address === 'string') {
-                throw new Error('Unable to start test server');
-            }
-            baseUrl = `http://localhost:${address.port}`;
-            resolve();
-        });
-    });
+  });
 });
 After(async () => {
-    stopMock();
-    if (server) {
-        await new Promise<void>((resolve) => server?.close(() => resolve()));
-        server = null;
-    }
-    if (tempDir) {
-        await fs.rm(tempDir, { recursive: true, force: true });
-        tempDir = null;
-    }
-    clearScopedTestEnvValue("CODEINFO_CODEX_WORKDIR");
-    await clearLockedModel();
+  stopMock();
+  if (server) {
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
+    server = null;
+  }
+  if (tempDir) {
+    await fs.rm(tempDir, { recursive: true, force: true });
+    tempDir = null;
+  }
+  clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
+  await clearLockedModel();
 });
 Given('chroma stub is empty', async () => {
-    await clearLockedModel();
+  await clearLockedModel();
 });
 Given('chroma stub locked to {string}', async (modelId: string) => {
-    await setLockedModel(modelId);
+  await setLockedModel(modelId);
 });
 Given('ingest start models scenario {string}', (name: string) => {
-    startMock({ scenario: name as MockScenario });
+  startMock({ scenario: name as MockScenario });
 });
 Given('configured queueable workdir is {string}', (configuredRoot: string) => {
-    setScopedTestEnvValue("CODEINFO_CODEX_WORKDIR", configuredRoot);
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', configuredRoot);
 });
-Given('temp repo with file {string} containing {string}', async (rel: string, content: string) => {
+Given(
+  'temp repo with file {string} containing {string}',
+  async (rel: string, content: string) => {
     tempDir = await createTempRepoRoot('ingest-start-');
     const filePath = path.join(tempDir, rel);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content);
-});
+  },
+);
 When('I POST ingest start with model {string}', async (model: string) => {
+  if (!tempDir) {
+    tempDir = await createTempRepoRoot('ingest-start-');
+  }
+  const res = await fetch(`${baseUrl}/ingest/start`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path: tempDir, name: 'tmp', model }),
+  });
+  response = { status: res.status, body: await res.json() };
+  if (response.status === 202) {
+    lastRunId =
+      (
+        response.body as {
+          runId?: string;
+        }
+      ).runId ?? null;
+  }
+});
+When(
+  'I POST ingest start with model {string} and dryRun',
+  async (model: string) => {
     if (!tempDir) {
-        tempDir = await createTempRepoRoot('ingest-start-');
+      tempDir = await createTempRepoRoot('ingest-start-');
     }
     const res = await fetch(`${baseUrl}/ingest/start`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ path: tempDir, name: 'tmp', model }),
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: tempDir, name: 'tmp', model, dryRun: true }),
     });
     response = { status: res.status, body: await res.json() };
     if (response.status === 202) {
-        lastRunId = (response.body as {
+      lastRunId =
+        (
+          response.body as {
             runId?: string;
-        }).runId ?? null;
+          }
+        ).runId ?? null;
     }
-});
-When('I POST ingest start with model {string} and dryRun', async (model: string) => {
-    if (!tempDir) {
-        tempDir = await createTempRepoRoot('ingest-start-');
-    }
-    const res = await fetch(`${baseUrl}/ingest/start`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ path: tempDir, name: 'tmp', model, dryRun: true }),
-    });
-    response = { status: res.status, body: await res.json() };
-    if (response.status === 202) {
-        lastRunId = (response.body as {
-            runId?: string;
-        }).runId ?? null;
-    }
-});
+  },
+);
 Then('the ingest start status code is {int}', (status: number) => {
-    assert(response, 'expected response');
-    assert.equal(response.status, status);
+  assert(response, 'expected response');
+  assert.equal(response.status, status);
 });
 Then('the ingest start error code is {string}', (code: string) => {
-    assert(response, 'expected response');
-    assert.equal((response.body as {
+  assert(response, 'expected response');
+  assert.equal(
+    (
+      response.body as {
         code?: string;
-    } | null)?.code, code);
+      } | null
+    )?.code,
+    code,
+  );
 });
 Then('the ingest start error message is {string}', (message: string) => {
-    assert(response, 'expected response');
-    assert.equal((response.body as {
+  assert(response, 'expected response');
+  assert.equal(
+    (
+      response.body as {
         message?: string;
-    } | null)?.message, message);
+      } | null
+    )?.message,
+    message,
+  );
 });
-Then('ingest status for the last run becomes {string}', async (state: string) => {
+Then(
+  'ingest status for the last run becomes {string}',
+  async (state: string) => {
     assert(lastRunId, 'runId missing');
-    for (let i = 0; i < 60; i += 1) {
-        const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
-        const body = await res.json();
-        if (body.state === state)
-            return;
-        if (body.state === 'error' && state !== 'error') {
-            throw new Error(`Run ended in error: ${body.lastError}`);
-        }
-        await new Promise((r) => setTimeout(r, 100));
+    for (let i = 0; i < resolveConfiguredPollAttempts(60, 100); i += 1) {
+      const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
+      const body = await res.json();
+      if (body.state === state) return;
+      if (body.state === 'error' && state !== 'error') {
+        throw new Error(`Run ended in error: ${body.lastError}`);
+      }
+      await new Promise((r) => setTimeout(r, 100));
     }
     assert.fail(`did not reach state ${state}`);
-});
+  },
+);
 Then('ingest status embedded count is {int}', async (expected: number) => {
-    assert(lastRunId, 'runId missing');
-    const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
-    const body = await res.json();
-    assert.equal(body.counts.embedded, expected);
+  assert(lastRunId, 'runId missing');
+  const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
+  const body = await res.json();
+  assert.equal(body.counts.embedded, expected);
 });

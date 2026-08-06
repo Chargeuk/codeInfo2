@@ -209,11 +209,9 @@ function emitInflightSnapshot(payload: {
   });
 }
 async function selectFirstConversation() {
-  const rows = await screen.findAllByTestId(
-    'conversation-row',
-    undefined,
-    { timeout: resolveClientTestTimeoutMs(5000) },
-  );
+  const rows = await screen.findAllByTestId('conversation-row', undefined, {
+    timeout: resolveClientTestTimeoutMs(5000),
+  });
   await userEvent.click(rows[0]);
 }
 async function openFlowInfoSurface() {
@@ -1669,19 +1667,19 @@ describe('Flows page run/resume controls', () => {
       await waitFor(() =>
         expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
       );
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
         content: 'Run step one',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
         delta: 'First step answer',
       });
       expect(await screen.findByText('First step answer')).toBeInTheDocument();
       expect(screen.queryByTestId('citations-toggle')).not.toBeInTheDocument();
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-2',
         content: 'Run step two',
@@ -1696,17 +1694,17 @@ describe('Flows page run/resume controls', () => {
           return record.message === 'flows.page.live_transcript_retained';
         }),
       ).toBeUndefined();
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
         content: 'Run step one replay',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
         delta: ' hidden',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: 'flow-1',
         inflightId: 'flow-step-2',
         delta: 'Second step live',
@@ -1759,28 +1757,28 @@ describe('Flows page run/resume controls', () => {
     await waitFor(() =>
       expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
     );
-    harness.emitUserTurn({
+    await harness.emitUserTurn({
       conversationId: 'flow-1',
       inflightId: 'flow-step-1',
       content: 'Run step one',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: 'flow-1',
       inflightId: 'flow-step-1',
       delta: 'First step answer',
     });
     expect(await screen.findByText('First step answer')).toBeInTheDocument();
-    harness.emitUserTurn({
+    await harness.emitUserTurn({
       conversationId: 'flow-1',
       inflightId: 'flow-step-2',
       content: 'Run step two',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: 'flow-1',
       inflightId: 'flow-step-2',
       delta: 'Second step',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: 'flow-1',
       inflightId: 'flow-step-2',
       delta: ' still streaming',
@@ -2059,28 +2057,28 @@ describe('Flows page run/resume controls', () => {
       await waitFor(() =>
         expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
       );
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
         content: 'Run step one',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
         delta: 'First step answer',
       });
       expect(await screen.findByText('First step answer')).toBeInTheDocument();
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-2',
         content: 'Run silent step two',
       });
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-3',
         content: 'Run step three',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: 'flow-1',
         inflightId: 'flow-step-3',
         delta: 'Third step answer',
@@ -2088,12 +2086,12 @@ describe('Flows page run/resume controls', () => {
       expect(
         (await screen.findAllByText('Third step answer')).length,
       ).toBeGreaterThan(0);
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-4',
         content: 'Run step four',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: 'flow-1',
         inflightId: 'flow-step-4',
         delta: 'Fourth step answer',
@@ -2143,38 +2141,38 @@ describe('Flows page run/resume controls', () => {
       await waitFor(() =>
         expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
       );
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
         content: 'Run step one',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
         delta: 'First step answer',
       });
       expect(await screen.findByText('First step answer')).toBeInTheDocument();
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-2',
         content: 'Run step two',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: 'flow-1',
         inflightId: 'flow-step-2',
         delta: 'Second step answer',
       });
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-1',
         content: 'Run step one replay',
       });
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId: 'flow-1',
         inflightId: 'flow-step-3',
         content: 'Run step three',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: 'flow-1',
         inflightId: 'flow-step-3',
         delta: 'Third step answer',
@@ -2477,8 +2475,8 @@ describe('Flows page run/resume controls', () => {
     render(<RouterProvider router={router} />);
     await waitForFlowTitle('Flow: daily');
     await selectFirstConversation();
-    act(() => {
-      harness.emitInflightSnapshot({
+    await act(async () => {
+      await harness.emitInflightSnapshot({
         conversationId: 'flow-1',
         inflightId: 'flow-inflight-1',
       });
@@ -2572,8 +2570,8 @@ describe('Flows page run/resume controls', () => {
     expect(await screen.findByTestId('flow-working-folder')).toHaveValue(
       '/repos/flow',
     );
-    act(() => {
-      harness.emitSidebarUpsert({
+    await act(async () => {
+      await harness.emitSidebarUpsert({
         conversationId: 'flow-1',
         title: 'Flow: daily',
         provider: 'codex',

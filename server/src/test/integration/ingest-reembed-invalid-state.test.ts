@@ -14,7 +14,7 @@ import {
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
   waitForQueueManagedTerminalStatus,
-  waitForNextTurn,
+  waitForIngestRuntimeIdle,
 } from '../unit/ingest-queue-runtime.helpers.js';
 
 installQueueRuntimeTestHooks();
@@ -321,8 +321,7 @@ test('deferred queue replay keeps the immediate INVALID_REEMBED_STATE contract w
       started.requestId!,
       1_000,
     );
-    await waitForNextTurn();
-    await waitForNextTurn();
+    await waitForIngestRuntimeIdle();
 
     assert.equal(terminal.state, 'error');
     assert.equal(terminal.lastError, 'INVALID_REEMBED_STATE');

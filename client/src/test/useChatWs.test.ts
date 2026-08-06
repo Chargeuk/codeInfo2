@@ -5,6 +5,7 @@ import type {
   WebSocketMockInstance,
   WebSocketMockRegistry,
 } from './support/mockWebSocket';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 function wsRegistry(): WebSocketMockRegistry {
   const registry = (
@@ -238,7 +239,9 @@ describe('useChatWs', () => {
       first.close();
     });
 
-    await waitFor(() => expect(refresh).toHaveBeenCalled(), { timeout: 2000 });
+    await waitFor(() => expect(refresh).toHaveBeenCalled(), {
+      timeout: resolveClientTestTimeoutMs(2000),
+    });
 
     const resubscribeCount = getSentMessages().filter(
       (msg) =>
@@ -502,20 +505,25 @@ describe('useChatWs', () => {
 
     expect(socket.sent).toHaveLength(0);
 
-    act(() => {
-      socket.close();
-    });
+    jest.useFakeTimers();
+    try {
+      act(() => {
+        socket.close();
+        jest.advanceTimersByTime(400);
+      });
+      await Promise.resolve();
 
-    await new Promise((resolve) => setTimeout(resolve, 400));
-
-    expect(refresh).not.toHaveBeenCalled();
-    expect(
-      getSentMessages().some(
-        (msg) =>
-          msg.type === 'subscribe_sidebar' ||
-          msg.type === 'subscribe_conversation',
-      ),
-    ).toBe(false);
-    expect(wsRegistry().instances).toHaveLength(initialInstances);
+      expect(refresh).not.toHaveBeenCalled();
+      expect(
+        getSentMessages().some(
+          (msg) =>
+            msg.type === 'subscribe_sidebar' ||
+            msg.type === 'subscribe_conversation',
+        ),
+      ).toBe(false);
+      expect(wsRegistry().instances).toHaveLength(initialInstances);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

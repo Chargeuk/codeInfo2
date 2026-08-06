@@ -281,9 +281,9 @@ Then('ingest delta vector count for the delta repo should be unchanged', async (
     const after = await vectorCountForRoot(tempDir);
     assert.equal(after, rememberedVectorCount);
 });
-Then('ingest delta status for the last run becomes {string}', { timeout: 60000 }, async (state: string) => {
+Then('ingest delta status for the last run becomes {string}', { timeout: resolveConfiguredTestTimeoutMs(60000) }, async (state: string) => {
     assert(lastRunId, 'runId missing');
-    const deadline = Date.now() + 55000;
+    const deadline = Date.now() + resolveConfiguredTestTimeoutMs(55000);
     while (Date.now() < deadline) {
         const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
         const body = (await res.json()) as {

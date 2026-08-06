@@ -11,6 +11,7 @@ import {
   __setQueueRuntimeOpsForTest,
   __setRunProcessorForTest,
   __setRunSchedulerForTest,
+  __waitForIngestRuntimeIdleForTest,
   setIngestDeps,
   waitForQueueRequestTerminalStatus,
 } from '../../ingest/ingestJob.js';
@@ -26,10 +27,8 @@ import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 
-export function waitForNextTurn() {
-  return new Promise<void>((resolve) => {
-    setImmediate(resolve);
-  });
+export async function waitForIngestRuntimeIdle() {
+  await __waitForIngestRuntimeIdleForTest();
 }
 
 export async function waitForQueueManagedTerminalResult(

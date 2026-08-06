@@ -3,15 +3,17 @@ import nodeTest from 'node:test';
 
 import request from 'supertest';
 
+import { getInflight } from '../../chat/inflightRegistry.js';
 import { getMemoryTurns } from '../../chat/memoryPersistence.js';
 import {
   beginScopedTestEnvIsolation,
   endScopedTestEnvIsolation,
 } from '../support/processEnvIsolation.js';
+import { waitForTestCondition } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 import { startCopilotChatServer } from './support/copilotChatHarness.js';
@@ -34,10 +36,14 @@ const test = (name: string, fn: () => Promise<void> | void) =>
   });
 
 test('copilot chat shares the stop path and settles the inflight run cleanly', async () => {
+  let releaseSendGate!: () => void;
+  const sendGate = new Promise<void>((resolve) => {
+    releaseSendGate = resolve;
+  });
   const server = await startCopilotChatServer({
     scenario: {
       name: 'copilot-chat-stop',
-      sendDelayMs: 250,
+      sendGate,
     },
     withWs: true,
   });
@@ -46,7 +52,7 @@ test('copilot chat shares the stop path and settles the inflight run cleanly', a
 
   try {
     const conversationId = 'copilot-stop-conversation';
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
 
     const response = await request(server.httpServer).post('/chat').send({
       provider: 'copilot',
@@ -57,7 +63,30 @@ test('copilot chat shares the stop path and settles the inflight run cleanly', a
 
     assert.equal(response.status, 202);
     const inflightId = response.body.inflightId as string;
-    sendJson(ws, { type: 'cancel_inflight', conversationId, inflightId });
+    await waitForTestCondition(
+      () => server.harness.getState().lastSendAndWaitPrompt !== undefined,
+      { description: 'Copilot sendAndWait to enter the test gate' },
+    );
+    const inflightSignal = getInflight(conversationId)?.abortController.signal;
+    assert.ok(inflightSignal);
+    const abortObserved = new Promise<void>((resolve) => {
+      if (inflightSignal.aborted) {
+        resolve();
+        return;
+      }
+      inflightSignal.addEventListener('abort', () => resolve(), { once: true });
+    });
+    ws.send(
+      JSON.stringify({
+        protocolVersion: 'v1',
+        type: 'cancel_inflight',
+        conversationId,
+        inflightId,
+        requestId: 'copilot-stop-request',
+      }),
+    );
+    await abortObserved;
+    releaseSendGate();
 
     const finalEvent = await waitForEvent({
       ws,
@@ -79,6 +108,7 @@ test('copilot chat shares the stop path and settles the inflight run cleanly', a
     assert.equal(assistantTurn?.status, 'stopped');
     assert.ok(server.harness.getState().stopCount >= stopCountBeforeRun + 1);
   } finally {
+    releaseSendGate();
     await closeWs(ws);
     await server.stop();
   }
@@ -97,7 +127,7 @@ test('copilot chat failure still tears the runtime down before leaving the run f
 
   try {
     const conversationId = 'copilot-failure-conversation';
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
 
     const response = await request(server.httpServer).post('/chat').send({
       provider: 'copilot',

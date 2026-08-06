@@ -45,6 +45,7 @@ import {
   enterTestEnvOverrides,
   getScopedEnvValue,
 } from '../support/testEnvOverrideScope.js';
+import { resolveConfiguredPollAttempts } from '../support/testTimeouts.js';
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'repo',
@@ -561,7 +562,11 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
     assert.equal(res.body.status, 'started');
 
     let childConversationId: string | undefined;
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       childConversationId = (
         memoryConversations.get('flow-child-working-folder')?.flags?.flow as
           | { agentConversations?: Record<string, string> }
@@ -653,7 +658,11 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       if (calls.length >= 1) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
@@ -729,7 +738,11 @@ test('flow-owned llm steps default to the shared execution root when working_fol
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       if (calls.length >= 1) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
@@ -886,7 +899,11 @@ test('validated working_folder also drives dedicated flow reingest target workin
       .expect(202);
 
     assert.equal(res.body.status, 'started');
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       const turns = memoryTurns.get('flow-working-folder-reingest') ?? [];
       if (turns.length >= 2) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -978,7 +995,11 @@ test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', 
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 200; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(200, 20);
+      attempt += 1
+    ) {
       if (calls.length >= 1) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
@@ -1107,7 +1128,11 @@ test('flow-owned Copilot agent steps forward CODEINFO_ROOT into the Copilot runt
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       if (capturedOptions.length >= 1) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
@@ -1174,7 +1199,11 @@ test('break steps inherit CODEINFO_ROOT and the selected working_folder', async 
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       const breakCalls = calls.filter((call) =>
         call.message.includes('Answer with JSON only:'),
       );

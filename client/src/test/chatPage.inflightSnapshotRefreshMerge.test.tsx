@@ -102,7 +102,7 @@ test('hydrates inflight snapshot from turns refresh and continues streaming', as
   expect(screen.getAllByTestId('chat-bubble').length).toBeGreaterThanOrEqual(2);
 
   await act(async () => {
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: 'c1',
       inflightId: 'i1',
       delta: ' + delta',

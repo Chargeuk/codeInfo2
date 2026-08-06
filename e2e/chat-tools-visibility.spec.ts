@@ -1,6 +1,7 @@
 import { mkdirSync } from 'fs';
 import { expect, test, type Page } from '@playwright/test';
 import { installMockChatWs, type MockChatWsServer } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 
@@ -11,7 +12,7 @@ const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
 type ToolEvent = Record<string, unknown>;
 
-function sendLegacyStreamEvent(
+async function sendLegacyStreamEvent(
   mockWs: MockChatWsServer,
   args: { conversationId: string; inflightId: string },
   event: ToolEvent,
@@ -20,7 +21,7 @@ function sendLegacyStreamEvent(
   if (type === 'token') {
     const delta = typeof event.content === 'string' ? event.content : '';
     if (delta) {
-      mockWs.sendAssistantDelta({
+      await mockWs.sendAssistantDelta({
         conversationId: args.conversationId,
         inflightId: args.inflightId,
         delta,
@@ -37,7 +38,7 @@ function sendLegacyStreamEvent(
           ? event.toolCallId
           : 'call-1';
     const name = typeof event.name === 'string' ? event.name : undefined;
-    mockWs.sendToolEvent({
+    await mockWs.sendToolEvent({
       conversationId: args.conversationId,
       inflightId: args.inflightId,
       event: {
@@ -55,7 +56,7 @@ function sendLegacyStreamEvent(
       | { role?: string; content?: unknown }
       | undefined;
     if (message?.role === 'assistant' && typeof message.content === 'string') {
-      mockWs.sendAssistantDelta({
+      await mockWs.sendAssistantDelta({
         conversationId: args.conversationId,
         inflightId: args.inflightId,
         delta: message.content,
@@ -148,11 +149,15 @@ async function mockChatStream(
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    events.forEach((event) =>
-      sendLegacyStreamEvent(mockWs, { conversationId, inflightId }, event),
-    );
-    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    for (const event of events) {
+      await sendLegacyStreamEvent(
+        mockWs,
+        { conversationId, inflightId },
+        event,
+      );
+    }
+    await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
 }
 
@@ -276,7 +281,9 @@ test.describe('Chat tool visibility details', () => {
     await expect(page.getByTestId('status-chip')).toContainText('Complete');
 
     const toolRows = page.getByTestId('tool-row');
-    await expect(toolRows).toHaveCount(2, { timeout: 20000 });
+    await expect(toolRows).toHaveCount(2, {
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
 
     // Closed by default
     const firstToggle = page.getByTestId('tool-toggle').first();
@@ -322,7 +329,6 @@ test.describe('Chat tool visibility details', () => {
   }) => {
     const mockWs = await installMockChatWs(page);
     await mockChatModels(page);
-
     const events: ToolEvent[] = [
       { type: 'token', content: 'Starting search', roundIndex: 0 },
       {
@@ -365,7 +371,9 @@ test.describe('Chat tool visibility details', () => {
     await page.getByTestId('chat-send').click();
 
     const summary = page.getByTestId('tool-call-summary');
-    await expect(summary).toContainText('Failed', { timeout: 20000 });
+    await expect(summary).toContainText('Failed', {
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
 
     const toggle = page.getByTestId('tool-toggle');
     await toggle.click();
@@ -430,10 +438,12 @@ test.describe('Chat tool visibility details', () => {
     await page.getByTestId('chat-send').click();
 
     await expect(page.getByTestId('status-chip')).toContainText('Complete', {
-      timeout: 20000,
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
     });
     const toolRow = page.getByTestId('tool-row');
-    await expect(toolRow).toHaveCount(1, { timeout: 20000 });
+    await expect(toolRow).toHaveCount(1, {
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     const toggle = page.getByTestId('tool-toggle');
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -482,7 +492,7 @@ test.describe('Chat tool visibility details', () => {
 
     await page.goto(`${baseUrl}/chat`);
     await expect(page.getByTestId('model-select')).toBeEnabled({
-      timeout: 20000,
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
     });
     await page.getByTestId('chat-input').fill('Check tools');
     await page.getByTestId('chat-send').click();
@@ -490,7 +500,7 @@ test.describe('Chat tool visibility details', () => {
     await expect(page.getByText('No tools shown')).toBeVisible();
     await expect(page.getByTestId('citations-toggle')).toHaveCount(0);
     await expect(page.getByTestId('tool-row')).toHaveCount(0, {
-      timeout: 20000,
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
     });
   });
 
@@ -545,7 +555,7 @@ test.describe('Chat tool visibility details', () => {
 
     await expect(page.getByTestId('tool-call-summary')).toContainText(
       'VectorSearch',
-      { timeout: 20000 },
+      { timeout: resolveConfiguredE2eTimeoutMs(20000) },
     );
     await expect(
       page.getByText(/raw chunk text that should not show as assistant/i),
@@ -633,7 +643,9 @@ test.describe('Chat tool visibility details', () => {
     await page.getByTestId('chat-send').click();
 
     const toolRow = page.getByTestId('tool-row');
-    await expect(toolRow).toHaveCount(1, { timeout: 20000 });
+    await expect(toolRow).toHaveCount(1, {
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
   });
 
   test('thinking spinner tracks idle gaps but ignores tool-only waits', async ({
@@ -641,43 +653,19 @@ test.describe('Chat tool visibility details', () => {
   }) => {
     const mockWs = await installMockChatWs(page);
     await mockChatModels(page);
+    const fixedTime = new Date('2026-08-04T12:00:00.000Z');
+    await page.clock.install({ time: fixedTime });
 
-    const events: Array<{ delay: number; event: ToolEvent }> = [
-      {
-        delay: 1200,
-        event: { type: 'token', content: 'First reply' },
-      },
-      {
-        delay: 1500,
-        event: {
-          type: 'tool-request',
-          callId: 'gap-tool',
-          name: 'VectorSearch',
-        },
-      },
-      {
-        delay: 2600,
-        event: {
-          type: 'tool-result',
-          callId: 'gap-tool',
-          name: 'VectorSearch',
-          result: { files: [], results: [] },
-        },
-      },
-      {
-        delay: 3800,
-        event: { type: 'token', content: 'Second reply' },
-      },
-      {
-        delay: 3900,
-        event: {
-          type: 'final',
-          message: { role: 'assistant', content: 'Second reply' },
-          roundIndex: 0,
-        },
-      },
-      { delay: 4000, event: { type: 'complete' } },
-    ];
+    let markStreamReady!: (value: {
+      conversationId: string;
+      inflightId: string;
+    }) => void;
+    const streamReady = new Promise<{
+      conversationId: string;
+      inflightId: string;
+    }>((resolve) => {
+      markStreamReady = resolve;
+    });
 
     await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
@@ -701,39 +689,60 @@ test.describe('Chat tool visibility details', () => {
       });
 
       await mockWs.waitForConversationSubscription(conversationId);
-      mockWs.sendInflightSnapshot({ conversationId, inflightId });
-
-      const maxDelay = Math.max(...events.map((e) => e.delay), 0);
-      events.forEach(({ delay, event }) => {
-        setTimeout(() => {
-          sendLegacyStreamEvent(mockWs, { conversationId, inflightId }, event);
-        }, delay);
-      });
-      setTimeout(() => {
-        mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
-      }, maxDelay + 50);
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      markStreamReady({ conversationId, inflightId });
     });
 
     await page.goto(`${baseUrl}/chat`);
+    const browserNow = await page.evaluate(() => Date.now());
+    await page.clock.pauseAt(browserNow + 1000);
 
     await page.getByTestId('chat-input').fill('Spinner flow');
     await page.getByTestId('chat-send').click();
 
     const thinking = page.getByTestId('thinking-placeholder');
+    const stream = await streamReady;
 
-    await page.waitForTimeout(1100);
+    await page.clock.runFor(1100);
     await expect(thinking).toBeVisible();
 
-    await page.waitForTimeout(400);
+    await mockWs.sendAssistantDelta({
+      ...stream,
+      delta: 'First reply',
+    });
+    await expect(page.getByText('First reply')).toBeVisible();
     await expect(thinking).toHaveCount(0);
 
-    // During tool-only wait (no new assistant text), spinner stays off.
-    await page.waitForTimeout(1600);
+    await mockWs.sendToolEvent({
+      ...stream,
+      event: {
+        type: 'tool-request',
+        callId: 'gap-tool',
+        name: 'VectorSearch',
+      },
+    });
+    await expect(page.getByTestId('tool-row')).toHaveCount(1);
+    await page.clock.runFor(1100);
     await expect(thinking).toHaveCount(0);
 
-    await page.waitForTimeout(900);
+    await mockWs.sendToolEvent({
+      ...stream,
+      event: {
+        type: 'tool-result',
+        callId: 'gap-tool',
+        name: 'VectorSearch',
+        result: { files: [], results: [] },
+      },
+    });
+    await page.clock.runFor(500);
+    await expect(thinking).toHaveCount(0);
+    await mockWs.sendAssistantDelta({
+      ...stream,
+      delta: 'Second reply',
+    });
     await expect(page.getByText('Second reply')).toBeVisible();
     await expect(thinking).toHaveCount(0);
+    await mockWs.sendFinal({ ...stream, status: 'ok' });
   });
 
   test('status chip stays processing until tool-result arrives after complete', async ({
@@ -795,7 +804,9 @@ test.describe('Chat tool visibility details', () => {
 
     const statusChip = page.getByTestId('status-chip');
     await expect(statusChip).toBeVisible();
-    await expect(statusChip).toContainText('Complete', { timeout: 10000 });
+    await expect(statusChip).toContainText('Complete', {
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
+    });
   });
 
   test('parameters accordion reveals JSON when opened', async ({ page }) => {
@@ -833,7 +844,7 @@ test.describe('Chat tool visibility details', () => {
     await page.getByTestId('chat-send').click();
 
     await expect(page.getByTestId('status-chip')).toContainText('Complete', {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
     });
 
     const toggle = page.getByTestId('tool-toggle');

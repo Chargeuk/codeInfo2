@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -124,28 +125,32 @@ function mockCodexReady() {
 }
 
 describe('Codex network access flag defaults', () => {
-  it('shows the Codex flags panel with network access enabled by default', async () => {
-    mockCodexReady();
+  it(
+    'shows the Codex flags panel with network access enabled by default',
+    async () => {
+      mockCodexReady();
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await waitForInteractiveCombobox(providerSelect);
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      const codexOption = await screen.findByRole('option', {
+        name: /openai codex/i,
+      });
+      await userEvent.click(codexOption);
 
-    await ensureAgentFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
-    const sandboxPanel = await screen.findByTestId('agent-flags-panel');
-    expect(sandboxPanel).toBeInTheDocument();
+      const sandboxPanel = await screen.findByTestId('agent-flags-panel');
+      expect(sandboxPanel).toBeInTheDocument();
 
-    const networkSwitch = await screen.findByTestId('network-access-switch');
-    await waitFor(() => expect(networkSwitch).toBeChecked());
-  }, 30_000);
+      const networkSwitch = await screen.findByTestId('network-access-switch');
+      await waitFor(() => expect(networkSwitch).toBeChecked());
+    },
+    resolveClientTestTimeoutMs(30_000),
+  );
 });

@@ -5,6 +5,7 @@ import {
   mockModels,
   chatErrorEventFixture,
 } from '@codeinfo2/common';
+import { resolveConfiguredTestTimeoutMs } from './testTimeouts.js';
 
 export type MockScenario =
   | 'many'
@@ -14,6 +15,7 @@ export type MockScenario =
   | 'chat-fixture'
   | 'chat-error'
   | 'chat-stream'
+  | 'chat-cancel-gated'
   | 'chat-tools';
 
 let scenario: MockScenario = 'many';
@@ -218,6 +220,21 @@ function createPrediction(events: unknown[]) {
           opts?.onRoundStart?.(roundIndex);
           state.roundStartCount += 1;
           currentRound = roundIndex;
+          if (
+            scenario === 'chat-cancel-gated' &&
+            state.emittedEventCount === 1 &&
+            !state.cancelled
+          ) {
+            await new Promise<void>((resolve) => {
+              if (!opts?.signal || opts.signal.aborted) {
+                resolve();
+                return;
+              }
+              opts.signal.addEventListener('abort', () => resolve(), {
+                once: true,
+              });
+            });
+          }
         }
       } finally {
         opts?.signal?.removeEventListener('abort', listener);
@@ -249,10 +266,12 @@ export function getControlledEmbeddingWaiterCount() {
 
 export async function waitForControlledEmbeddingCalls(
   count: number,
-  timeoutMs = 5000,
+  timeoutMs?: number,
 ) {
+  const resolvedTimeoutMs = timeoutMs ?? resolveConfiguredTestTimeoutMs(5_000);
   if (controlledEmbeddingCalls.length >= count) return;
   let waiter: (() => void) | null = null;
+  let timeoutHandle: NodeJS.Timeout | undefined;
   try {
     await Promise.race([
       new Promise<void>((resolve) => {
@@ -263,13 +282,18 @@ export async function waitForControlledEmbeddingCalls(
         };
         controlledEmbeddingWaiters.push(waiter);
       }),
-      delay(timeoutMs).then(() => {
-        throw new Error(
-          `Timed out waiting for ${count} controlled embedding call(s)`,
-        );
+      new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(
+            new Error(
+              `Timed out waiting for ${count} controlled embedding call(s)`,
+            ),
+          );
+        }, resolvedTimeoutMs);
       }),
     ]);
   } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
     if (waiter) {
       controlledEmbeddingWaiters = controlledEmbeddingWaiters.filter(
         (candidate) => candidate !== waiter,
@@ -456,7 +480,9 @@ export class MockLMStudioClient {
             throw new Error('lmstudio unavailable');
           }
           const events =
-            scenario === 'chat-fixture' || scenario === 'chat-stream'
+            scenario === 'chat-fixture' ||
+            scenario === 'chat-stream' ||
+            scenario === 'chat-cancel-gated'
               ? chatSseEventsFixture
               : scenario === 'chat-tools'
                 ? chatToolEventsFixture

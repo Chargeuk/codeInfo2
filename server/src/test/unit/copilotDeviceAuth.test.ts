@@ -373,8 +373,6 @@ describe('POST /copilot/device-auth unit behavior', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.state, 'verification_ready');
 
-    await new Promise((resolve) => setImmediate(resolve));
-
     const second = await supertest(app).post('/copilot/device-auth').send({});
 
     assert.equal(second.status, 200);
@@ -407,8 +405,6 @@ describe('POST /copilot/device-auth unit behavior', () => {
       .send({});
     assert.equal(pendingFirst.status, 200);
     assert.equal(pendingFirst.body.userCode, 'PENDING-CODE');
-
-    await new Promise((resolve) => setImmediate(resolve));
 
     const pendingSecond = await supertest(pendingApp)
       .post('/copilot/device-auth')
@@ -456,8 +452,6 @@ describe('POST /copilot/device-auth unit behavior', () => {
     assert.equal(retryFirst.status, 200);
     assert.equal(retryFirst.body.userCode, 'EXPIRED-OLD');
 
-    await new Promise((resolve) => setImmediate(resolve));
-
     const retrySecond = await supertest(retryApp)
       .post('/copilot/device-auth')
       .send({});
@@ -491,8 +485,6 @@ describe('POST /copilot/device-auth unit behavior', () => {
       .send({});
     assert.equal(first.status, 200);
     assert.equal(first.body.state, 'verification_ready');
-
-    await new Promise((resolve) => setImmediate(resolve));
 
     const second = await supertest(pendingApp)
       .post('/copilot/device-auth')

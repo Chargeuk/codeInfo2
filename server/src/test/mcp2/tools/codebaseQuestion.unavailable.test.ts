@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -12,6 +11,7 @@ import { handleRpc } from '../../../mcp2/router.js';
 import { __deleteCodebaseQuestionMemoryConversationForTests, __setCodebaseQuestionMemoryConversationForTests, runCodebaseQuestion, } from '../../../mcp2/tools/codebaseQuestion.js';
 import type { Conversation } from '../../../mongo/conversation.js';
 import { setWorkingFolderStatForTests } from '../../../workingFolders/state.js';
+import { closeHttpServer, waitForHttpServerPort } from '../../support/httpServer.js';
 type ThreadEvent = {
     type: string;
     item?: Record<string, unknown>;
@@ -132,7 +132,7 @@ test('codebase_question fails on the selected explicit Codex provider when Codex
     resetStore();
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const payload = {
             jsonrpc: '2.0',
@@ -167,7 +167,7 @@ test('codebase_question fails on the selected explicit Codex provider when Codex
     }
     finally {
         restoreProviderEnv(snapshot);
-        server.close();
+        await closeHttpServer(server);
         await tempHome.cleanup();
     }
 });

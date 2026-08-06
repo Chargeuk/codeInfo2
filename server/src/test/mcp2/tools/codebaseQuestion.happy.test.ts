@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach, mock } from 'node:test';
@@ -28,7 +27,9 @@ import { ConversationModel } from '../../../mongo/conversation.js';
 import { withConversationMetaNotFoundFixture } from '../../support/conversationMetaNotFoundFixture.js';
 import { withMockedMongoConversationPersistence } from '../../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../../support/externalOpenAiCompatServer.js';
+import { waitForHttpServerPort } from '../../support/httpServer.js';
 import { createMockCopilotSdkHarness, createSessionIdleEvent, } from '../../support/mockCopilotSdk.js';
+import { waitForTestCondition } from '../../support/testTimeouts.js';
 const ENV_KEYS = [
     'CODEINFO_CHAT_DEFAULT_PROVIDER',
     'CODEINFO_CHAT_DEFAULT_MODEL',
@@ -253,9 +254,9 @@ class DivergentReplayCodex extends MockCodex {
         return this.createThread();
     }
     async waitForRunStart() {
-        while (!this.waitForStartPromise) {
-            await new Promise<void>((resolve) => setImmediate(resolve));
-        }
+        await waitForTestCondition(() => this.waitForStartPromise !== null, {
+            description: 'divergent replay Codex run to start',
+        });
         await this.waitForStartPromise;
     }
     releaseRun() {
@@ -376,9 +377,9 @@ class BlockingReplayClaimChat extends ChatInterface {
     private resolveStarted: (() => void) | null = null;
     private releaseCurrentRun: (() => void) | null = null;
     async waitForRunStart() {
-        while (!this.waitForStartPromise) {
-            await new Promise<void>((resolve) => setImmediate(resolve));
-        }
+        await waitForTestCondition(() => this.waitForStartPromise !== null, {
+            description: 'blocking replay claim chat run to start',
+        });
         await this.waitForStartPromise;
     }
     releaseRun() {
@@ -462,7 +463,7 @@ async function runCodebaseQuestion(args: Record<string, unknown>, deps?: Paramet
     }
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson(port, {
             jsonrpc: '2.0',
@@ -508,7 +509,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     setScopedTestEnvValue("Codex_network_access_enabled", 'false');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const firstCall = await postJson(port, {
             jsonrpc: '2.0',
@@ -1551,7 +1552,7 @@ test('codebase_question stops before chat construction when persisted metadata r
             run: async ({ conversations, capturedUpdates }) => {
                 const server = http.createServer(handleRpc);
                 server.listen(0);
-                const { port } = server.address() as AddressInfo;
+                const port = await waitForHttpServerPort(server);
                 try {
                     setToolDeps({
                         clientFactory: makeLmStudioClientFactory(),
@@ -1635,7 +1636,7 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
     setScopedTestEnvValue("Codex_network_access_enabled", 'false');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const firstCallPromise = postJson(port, {
             jsonrpc: '2.0',
@@ -1747,7 +1748,7 @@ test('codebase_question fresh Codex runs keep one canonical conversation and per
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson(port, {
             jsonrpc: '2.0',
@@ -2067,7 +2068,7 @@ test('codebase_question returns an empty answer segment when no answer emitted',
     setCodexHomes(tempHome.codexHome);
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson(port, {
             jsonrpc: '2.0',
@@ -2114,7 +2115,7 @@ test('codebase_question logs structured MCP and Codex diagnostics when startup f
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson(port, {
             jsonrpc: '2.0',
@@ -2191,7 +2192,7 @@ test('codebase_question preserves a concrete streamed provider error over a late
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson(port, {
             jsonrpc: '2.0',
@@ -2295,7 +2296,7 @@ test('codebase_question marker emits the shared warning_count and warnings field
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const result = await postJson(port, {
             jsonrpc: '2.0',
@@ -2382,7 +2383,7 @@ test('codebase_question keeps an explicit request model override over the chat-c
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const result = await postJson(port, {
             jsonrpc: '2.0',
@@ -2446,7 +2447,7 @@ test('codebase_question keeps inherited base runtime settings in the resolved Co
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson(port, {
             jsonrpc: '2.0',
@@ -2532,7 +2533,7 @@ test('codebase_question pins omitted-provider Codex runs to the saved conversati
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson(port, {
             jsonrpc: '2.0',
@@ -2708,7 +2709,7 @@ test('codebase_question keeps the saved execution identity authoritative over co
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson(port, {
             jsonrpc: '2.0',
@@ -2809,7 +2810,7 @@ test('codebase_question receives the same inherited overlaid Context7 definition
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson(port, {
             jsonrpc: '2.0',
@@ -2876,7 +2877,7 @@ test('codebase_question overlays CODEINFO_CONTEXT7_API_KEY onto inherited no-key
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson(port, {
             jsonrpc: '2.0',

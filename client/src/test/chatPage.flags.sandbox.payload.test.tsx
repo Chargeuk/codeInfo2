@@ -199,88 +199,92 @@ describe('Codex sandbox flag payloads', () => {
     );
   });
 
-  it('omits sandbox flag for LM Studio and includes chosen value for Codex', async () => {
-    const chatBodies: Record<string, unknown>[] = [];
-    mockProvidersWithBodies(chatBodies);
+  it(
+    'omits sandbox flag for LM Studio and includes chosen value for Codex',
+    async () => {
+      const chatBodies: Record<string, unknown>[] = [];
+      mockProvidersWithBodies(chatBodies);
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
+      const input = await screen.findByTestId('chat-input');
+      const sendButton = await screen.findByTestId('chat-send');
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
 
-    await waitFor(() =>
-      expect(providerSelect).not.toHaveAttribute('aria-disabled', 'true'),
-    );
-    await userEvent.click(providerSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /^LM Studio$/i }),
-    );
+      await waitFor(() =>
+        expect(providerSelect).not.toHaveAttribute('aria-disabled', 'true'),
+      );
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /^LM Studio$/i }),
+      );
 
-    await waitFor(() => expect(input).toBeEnabled());
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Hello LM');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      await waitFor(() => expect(input).toBeEnabled());
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Hello LM');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-    const lmBody = chatBodies[0];
-    expect(lmBody.provider).toBe('lmstudio');
-    expect(lmBody).not.toHaveProperty('sandboxMode');
+      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+      const lmBody = chatBodies[0];
+      expect(lmBody.provider).toBe('lmstudio');
+      expect(lmBody).not.toHaveProperty('sandboxMode');
 
-    const newConversationButton = screen.getByRole('button', {
-      name: /new conversation/i,
-    });
-    await act(async () => {
-      await userEvent.click(newConversationButton);
-    });
+      const newConversationButton = screen.getByRole('button', {
+        name: /new conversation/i,
+      });
+      await act(async () => {
+        await userEvent.click(newConversationButton);
+      });
 
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
+      await userEvent.click(providerSelect);
+      const codexOption = await screen.findByRole('option', {
+        name: /openai codex/i,
+      });
+      await userEvent.click(codexOption);
 
-    await ensureAgentFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
-    const sandboxSelect = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    await waitFor(() =>
-      expect(sandboxSelect).not.toHaveAttribute('aria-disabled', 'true'),
-    );
-    await userEvent.click(sandboxSelect);
-    const dangerOption = await screen.findByRole('option', {
-      name: /danger full access/i,
-    });
-    await userEvent.click(dangerOption);
+      const sandboxSelect = await screen.findByRole('combobox', {
+        name: /sandbox mode/i,
+      });
+      await waitFor(() =>
+        expect(sandboxSelect).not.toHaveAttribute('aria-disabled', 'true'),
+      );
+      await userEvent.click(sandboxSelect);
+      const dangerOption = await screen.findByRole('option', {
+        name: /danger full access/i,
+      });
+      await userEvent.click(dangerOption);
 
-    const modelSelect = await screen.findByRole('combobox', {
-      name: /model/i,
-    });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
-    );
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await waitFor(() =>
+        expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
+      );
 
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Hello Codex');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Hello Codex');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
-    const codexBody = chatBodies[1];
-    expect(codexBody.provider).toBe('codex');
-    expect((codexBody.agentFlags as Record<string, unknown>)?.sandboxMode).toBe(
-      'danger-full-access',
-    );
-  }, resolveClientTestTimeoutMs(15000));
+      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
+      const codexBody = chatBodies[1];
+      expect(codexBody.provider).toBe('codex');
+      expect(
+        (codexBody.agentFlags as Record<string, unknown>)?.sandboxMode,
+      ).toBe('danger-full-access');
+    },
+    resolveClientTestTimeoutMs(15000),
+  );
 
   it('sends fallback Codex flags and omits unsupported reasoning when defaults are missing', async () => {
     const chatBodies: Record<string, unknown>[] = [];

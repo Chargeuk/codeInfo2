@@ -101,9 +101,6 @@ const waitFor = async (
   );
 };
 
-const flushWakeBoundary = async () =>
-  await new Promise<void>((resolve) => setImmediate(resolve));
-
 const withResumeAgentRuntime = async (
   params: {
     agentsHome: string;
@@ -126,8 +123,7 @@ const withResumeAgentRuntime = async (
         ...(params.compatEndpoint === undefined
           ? {}
           : {
-              CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS:
-                `${params.compatEndpoint}|responses`,
+              CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: `${params.compatEndpoint}|responses`,
             }),
       },
     },
@@ -149,13 +145,15 @@ const getAssistantTurnCount = (conversationId: string) =>
 const describeConversationState = (conversationId: string) =>
   JSON.stringify({
     flags: memoryConversations.get(conversationId)?.flags ?? null,
-    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
-      role: turn.role,
-      status: turn.status,
-      content: turn.content,
-      provider: turn.provider,
-      model: turn.model,
-    })),
+    recentTurns: (memoryTurns.get(conversationId) ?? [])
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+        provider: turn.provider,
+        model: turn.model,
+      })),
   });
 
 const describeRelevantResumeRuntimeLogs = (conversationId: string) =>
@@ -1989,6 +1987,10 @@ test('cancelled wait does not emit a later resume side effect when the persisted
   const conversationId = 'flow-wait-resume-cancel';
   const captured: string[] = [];
   let wake: (() => Promise<void>) | null = null;
+  let resolveWakeCompleted!: () => void;
+  const wakeCompleted = new Promise<void>((resolve) => {
+    resolveWakeCompleted = resolve;
+  });
 
   class TrackingChat extends ChatInterface {
     async execute(
@@ -2013,9 +2015,9 @@ test('cancelled wait does not emit a later resume side effect when the persisted
     scheduleWake: ({ onWake }) => {
       wake = async () => {
         onWake();
-        await flushWakeBoundary();
+        await wakeCompleted;
       };
-      return { cancel: () => {} };
+      return { cancel: resolveWakeCompleted };
     },
   });
 
@@ -2054,9 +2056,11 @@ test('cancelled wait does not emit a later resume side effect when the persisted
           flags: {
             ...(conversation.flags ?? {}),
             flow: {
-              ...(((conversation.flags ?? {}) as {
-                flow?: Record<string, unknown>;
-              }).flow ?? {}),
+              ...((
+                (conversation.flags ?? {}) as {
+                  flow?: Record<string, unknown>;
+                }
+              ).flow ?? {}),
               wait: undefined,
             },
           },
@@ -2142,22 +2146,25 @@ test('paused repository-backed waits keep the original sourceId and retryOwnersh
             }),
           });
 
-          await waitFor(() => captured.length === 1, 10000, 50, () =>
-            JSON.stringify({
-              phase: 'waiting_for_first_execute',
-              captured,
-              state: JSON.parse(describeConversationState(conversationId)),
-              runtimeLogs: JSON.parse(
-                describeRelevantResumeRuntimeLogs(conversationId),
-              ),
-            }),
+          await waitFor(
+            () => captured.length === 1,
+            10000,
+            50,
+            () =>
+              JSON.stringify({
+                phase: 'waiting_for_first_execute',
+                captured,
+                state: JSON.parse(describeConversationState(conversationId)),
+                runtimeLogs: JSON.parse(
+                  describeRelevantResumeRuntimeLogs(conversationId),
+                ),
+              }),
           );
           const executionId = getFlowExecutionId(conversationId);
           await waitFor(
             () => {
-              const flags = (
-                memoryConversations.get(conversationId)?.flags ?? {}
-              ) as {
+              const flags = (memoryConversations.get(conversationId)?.flags ??
+                {}) as {
                 flow?: { wait?: { sourceId?: string; stepPath?: number[] } };
               };
               return (

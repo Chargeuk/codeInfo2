@@ -8,9 +8,11 @@ import request from 'supertest';
 import { resetStore } from '../../logStore.js';
 import { createLogsRouter } from '../../routes/logs.js';
 import { attachWs } from '../../ws/server.js';
-import { closeWs, connectWs, sendJson } from '../support/wsClient.js';
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+import {
+  subscribeConversationAndWaitReady,
+  closeWs,
+  connectWs,
+} from '../support/wsClient.js';
 
 test('WS lifecycle logs are queryable via GET /logs', async () => {
   resetStore();
@@ -27,11 +29,10 @@ test('WS lifecycle logs are queryable via GET /logs', async () => {
 
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, {
-      type: 'subscribe_conversation',
+    await subscribeConversationAndWaitReady({
+      ws: ws,
       conversationId: 'log-conv-1',
     });
-    await delay(25);
 
     const res = await request(httpServer)
       .get('/logs')

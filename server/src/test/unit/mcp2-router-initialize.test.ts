@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import serverPackage from '../../../package.json' with { type: 'json' };
 import { handleRpc } from '../../mcp2/router.js';
+import { closeHttpServer, waitForHttpServerPort } from '../support/httpServer.js';
 async function postJson(port: number, body: unknown) {
     const response = await fetch(`http://127.0.0.1:${port}`, {
         method: 'POST',
@@ -15,7 +15,7 @@ async function postJson(port: number, body: unknown) {
 test('initialize returns protocolVersion, capabilities, and serverInfo', async () => {
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const payload = { jsonrpc: '2.0', id: 99, method: 'initialize' };
         const body = await postJson(port, payload);
@@ -29,7 +29,7 @@ test('initialize returns protocolVersion, capabilities, and serverInfo', async (
         });
     }
     finally {
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('initialize still returns capabilities when Codex is unavailable', async () => {
@@ -37,7 +37,7 @@ test('initialize still returns capabilities when Codex is unavailable', async ()
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'false');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const payload = { jsonrpc: '2.0', id: 100, method: 'initialize' };
         const body = await postJson(port, payload);
@@ -48,6 +48,6 @@ test('initialize still returns capabilities when Codex is unavailable', async ()
     }
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
-        server.close();
+        await closeHttpServer(server);
     }
 });

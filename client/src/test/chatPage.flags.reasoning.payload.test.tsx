@@ -300,149 +300,161 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     ).toEqual(['Minimal']);
   });
 
-  it('omits reasoning effort for LM Studio, forwards selected value for Codex, and resets to default', async () => {
-    const chatBodies: Record<string, unknown>[] = [];
-    mockProvidersWithBodies(chatBodies);
+  it(
+    'omits reasoning effort for LM Studio, forwards selected value for Codex, and resets to default',
+    async () => {
+      const chatBodies: Record<string, unknown>[] = [];
+      mockProvidersWithBodies(chatBodies);
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
+      const input = await screen.findByTestId('chat-input');
+      const sendButton = await screen.findByTestId('chat-send');
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
 
-    await waitForInteractiveCombobox(providerSelect);
-    await userEvent.click(providerSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /^LM Studio$/i }),
-    );
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /^LM Studio$/i }),
+      );
 
-    await waitFor(() => expect(input).toBeEnabled());
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Hello LM');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      await waitFor(() => expect(input).toBeEnabled());
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Hello LM');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-    const lmBody = chatBodies[0];
-    expect(lmBody.provider).toBe('lmstudio');
-    expect(lmBody).not.toHaveProperty('modelReasoningEffort');
+      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+      const lmBody = chatBodies[0];
+      expect(lmBody.provider).toBe('lmstudio');
+      expect(lmBody).not.toHaveProperty('modelReasoningEffort');
 
-    const newConversationButton = screen.getByRole('button', {
-      name: /new conversation/i,
-    });
-    await act(async () => {
-      await userEvent.click(newConversationButton);
-    });
+      const newConversationButton = screen.getByRole('button', {
+        name: /new conversation/i,
+      });
+      await act(async () => {
+        await userEvent.click(newConversationButton);
+      });
 
-    await waitForInteractiveCombobox(providerSelect);
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      const codexOption = await screen.findByRole('option', {
+        name: /openai codex/i,
+      });
+      await userEvent.click(codexOption);
 
-    await ensureAgentFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
-    const modelSelect = await screen.findByRole('combobox', {
-      name: /model/i,
-    });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
-    );
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await waitFor(() =>
+        expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
+      );
 
-    const reasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
-    await userEvent.click(reasoningSelect);
-    const xhighOption = await screen.findByRole('option', {
-      name: /xhigh/i,
-    });
-    await userEvent.click(xhighOption);
+      const reasoningSelect = await screen.findByRole('combobox', {
+        name: /reasoning effort/i,
+      });
+      await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
+      await userEvent.click(reasoningSelect);
+      const xhighOption = await screen.findByRole('option', {
+        name: /xhigh/i,
+      });
+      await userEvent.click(xhighOption);
 
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Hello Codex');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Hello Codex');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
-    const codexBody = chatBodies[1];
-    expect(codexBody.provider).toBe('codex');
-    expect(
-      (codexBody.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
-    ).toBe('xhigh');
+      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
+      const codexBody = chatBodies[1];
+      expect(codexBody.provider).toBe('codex');
+      expect(
+        (codexBody.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
+      ).toBe('xhigh');
 
-    await act(async () => {
-      await userEvent.click(newConversationButton);
-    });
+      await act(async () => {
+        await userEvent.click(newConversationButton);
+      });
 
-    await ensureAgentFlagsPanelExpanded();
-    const resetSelect = await screen.findByTestId('reasoning-effort-select');
-    await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
-  }, resolveClientTestTimeoutMs(30000));
+      await ensureAgentFlagsPanelExpanded();
+      const resetSelect = await screen.findByTestId('reasoning-effort-select');
+      await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
+    },
+    resolveClientTestTimeoutMs(30000),
+  );
 
-  it('emits only supported reasoning values and falls back to model default before send', async () => {
-    const chatBodies: Record<string, unknown>[] = [];
-    mockProvidersWithBodies(chatBodies);
+  it(
+    'emits only supported reasoning values and falls back to model default before send',
+    async () => {
+      const chatBodies: Record<string, unknown>[] = [];
+      mockProvidersWithBodies(chatBodies);
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await waitForInteractiveCombobox(providerSelect);
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      const codexOption = await screen.findByRole('option', {
+        name: /openai codex/i,
+      });
+      await userEvent.click(codexOption);
 
-    await ensureAgentFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
-    const reasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    await userEvent.click(reasoningSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /xhigh/i }),
-    );
+      const reasoningSelect = await screen.findByRole('combobox', {
+        name: /reasoning effort/i,
+      });
+      await userEvent.click(reasoningSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /xhigh/i }),
+      );
 
-    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
-    await waitFor(() =>
-      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
-    );
-    await userEvent.click(modelSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /gpt-5.2/i }),
-    );
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await waitFor(() =>
+        expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+      );
+      await userEvent.click(modelSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /gpt-5.2/i }),
+      );
+      await waitFor(() =>
+        expect(reasoningSelect).toHaveTextContent(/minimal/i),
+      );
 
-    const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
-    await waitFor(() => expect(input).toBeEnabled());
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Validate fallback payload');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      const input = await screen.findByTestId('chat-input');
+      const sendButton = await screen.findByTestId('chat-send');
+      await waitFor(() => expect(input).toBeEnabled());
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Validate fallback payload');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-    const payload = chatBodies.at(-1) ?? {};
-    expect(payload.provider).toBe('codex');
-    expect(payload.model).toBe('gpt-5.2');
-    expect(
-      (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
-    ).toBe('minimal');
-  }, resolveClientTestTimeoutMs(30000));
+      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+      const payload = chatBodies.at(-1) ?? {};
+      expect(payload.provider).toBe('codex');
+      expect(payload.model).toBe('gpt-5.2');
+      expect(
+        (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
+      ).toBe('minimal');
+    },
+    resolveClientTestTimeoutMs(30000),
+  );
 
   it('keeps single-option capability models valid for UI and payload', async () => {
     const chatBodies: Record<string, unknown>[] = [];
@@ -501,250 +513,266 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     ).toBe('minimal');
   });
 
-  it('keeps same-conversation Agent Flag edits on the current conversation when only reasoning changes', async () => {
-    const harness = setupChatWsHarness({
-      mockFetch,
-      providers: {
-        providers: [
-          {
+  it(
+    'keeps same-conversation Agent Flag edits on the current conversation when only reasoning changes',
+    async () => {
+      const harness = setupChatWsHarness({
+        mockFetch,
+        providers: {
+          providers: [
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+        },
+        models: {
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          providerInfo: {
             id: 'codex',
             label: 'OpenAI Codex',
             available: true,
             toolsAvailable: true,
+            agentFlags: [
+              {
+                key: 'sandboxMode',
+                label: 'Sandbox Mode',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'workspace-write',
+                resolvedDefault: 'workspace-write',
+                supportedValues: [
+                  { value: 'workspace-write', label: 'Workspace write' },
+                  { value: 'read-only', label: 'Read-only' },
+                  {
+                    value: 'danger-full-access',
+                    label: 'Danger full access',
+                  },
+                ],
+              },
+              {
+                key: 'approvalPolicy',
+                label: 'Approval Policy',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'on-request',
+                resolvedDefault: 'on-request',
+                supportedValues: [
+                  { value: 'never', label: 'Never (auto-approve)' },
+                  { value: 'on-request', label: 'On request' },
+                  { value: 'untrusted', label: 'Untrusted' },
+                ],
+              },
+              {
+                key: 'modelReasoningEffort',
+                label: 'Reasoning Effort',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'high',
+                resolvedDefault: 'high',
+                supportedValues: [
+                  { value: 'high', label: 'High' },
+                  { value: 'xhigh', label: 'Xhigh' },
+                ],
+              },
+              {
+                key: 'networkAccessEnabled',
+                label: 'Network Access',
+                controlType: 'boolean',
+                editable: true,
+                seedDefault: true,
+                resolvedDefault: true,
+              },
+              {
+                key: 'webSearchMode',
+                label: 'Web Search',
+                controlType: 'select',
+                editable: true,
+                seedDefault: 'live',
+                resolvedDefault: 'live',
+                supportedValues: [
+                  { value: 'disabled', label: 'Disabled' },
+                  { value: 'cached', label: 'Cached' },
+                  { value: 'live', label: 'Live' },
+                ],
+              },
+            ],
           },
-        ],
-      },
-      models: {
-        provider: 'codex',
-        available: true,
-        toolsAvailable: true,
-        providerInfo: {
-          id: 'codex',
-          label: 'OpenAI Codex',
-          available: true,
-          toolsAvailable: true,
-          agentFlags: [
+          codexDefaults: {
+            sandboxMode: 'workspace-write',
+            approvalPolicy: 'on-failure',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: true,
+          },
+          codexWarnings: [],
+          models: [
             {
-              key: 'sandboxMode',
-              label: 'Sandbox Mode',
-              controlType: 'select',
-              editable: true,
-              seedDefault: 'workspace-write',
-              resolvedDefault: 'workspace-write',
-              supportedValues: [
-                { value: 'workspace-write', label: 'Workspace write' },
-                { value: 'read-only', label: 'Read-only' },
-                {
-                  value: 'danger-full-access',
-                  label: 'Danger full access',
-                },
-              ],
-            },
-            {
-              key: 'approvalPolicy',
-              label: 'Approval Policy',
-              controlType: 'select',
-              editable: true,
-              seedDefault: 'on-request',
-              resolvedDefault: 'on-request',
-              supportedValues: [
-                { value: 'never', label: 'Never (auto-approve)' },
-                { value: 'on-request', label: 'On request' },
-                { value: 'untrusted', label: 'Untrusted' },
-              ],
-            },
-            {
-              key: 'modelReasoningEffort',
-              label: 'Reasoning Effort',
-              controlType: 'select',
-              editable: true,
-              seedDefault: 'high',
-              resolvedDefault: 'high',
-              supportedValues: [
-                { value: 'high', label: 'High' },
-                { value: 'xhigh', label: 'Xhigh' },
-              ],
-            },
-            {
-              key: 'networkAccessEnabled',
-              label: 'Network Access',
-              controlType: 'boolean',
-              editable: true,
-              seedDefault: true,
-              resolvedDefault: true,
-            },
-            {
-              key: 'webSearchMode',
-              label: 'Web Search',
-              controlType: 'select',
-              editable: true,
-              seedDefault: 'live',
-              resolvedDefault: 'live',
-              supportedValues: [
-                { value: 'disabled', label: 'Disabled' },
-                { value: 'cached', label: 'Cached' },
-                { value: 'live', label: 'Live' },
-              ],
+              key: 'gpt-5.1-codex-max',
+              displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+              supportedReasoningEfforts: ['high', 'xhigh'],
+              defaultReasoningEffort: 'high',
             },
           ],
         },
-        codexDefaults: {
-          sandboxMode: 'workspace-write',
-          approvalPolicy: 'on-failure',
-          modelReasoningEffort: 'high',
-          networkAccessEnabled: true,
-          webSearchEnabled: true,
-        },
-        codexWarnings: [],
-        models: [
-          {
-            key: 'gpt-5.1-codex-max',
-            displayName: 'gpt-5.1-codex-max',
-            type: 'codex',
-            supportedReasoningEfforts: ['high', 'xhigh'],
-            defaultReasoningEffort: 'high',
-          },
-        ],
-      },
-    });
+      });
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    await ensureAgentFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
-    const modelSelect = await screen.findByRole('combobox', {
-      name: /model/i,
-    });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent(/gpt-5.1-codex-max/i),
-    );
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await waitFor(() =>
+        expect(modelSelect).toHaveTextContent(/gpt-5.1-codex-max/i),
+      );
 
-    const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
-    await waitFor(() => expect(input).toBeEnabled());
-    input.focus();
-    await userEvent.clear(input);
-    await userEvent.type(input, 'keep codex running');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      const input = await screen.findByTestId('chat-input');
+      const sendButton = await screen.findByTestId('chat-send');
+      await waitFor(() => expect(input).toBeEnabled());
+      input.focus();
+      await userEvent.clear(input);
+      await userEvent.type(input, 'keep codex running');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    await waitFor(() =>
-      expect(harness.chatBodies.length).toBeGreaterThanOrEqual(1),
-    );
-    const firstPayload = harness.chatBodies[0] ?? {};
-    const conversationId = harness.getConversationId();
-    const inflightId = harness.getInflightId() ?? 'i1';
-    expect(conversationId).toBeTruthy();
-    harness.emitInflightSnapshot({
-      conversationId: conversationId!,
-      inflightId,
-      assistantText: '',
-    });
-    harness.emitFinal({
-      conversationId: conversationId!,
-      inflightId,
-      status: 'ok',
-    });
-    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
+      await waitFor(() =>
+        expect(harness.chatBodies.length).toBeGreaterThanOrEqual(1),
+      );
+      const firstPayload = harness.chatBodies[0] ?? {};
+      const conversationId = harness.getConversationId();
+      const inflightId = harness.getInflightId() ?? 'i1';
+      expect(conversationId).toBeTruthy();
+      await harness.emitInflightSnapshot({
+        conversationId: conversationId!,
+        inflightId,
+        assistantText: '',
+      });
+      await harness.emitFinal({
+        conversationId: conversationId!,
+        inflightId,
+        status: 'ok',
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('chat-send')).toBeEnabled(),
+      );
 
-    const reasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
-    await userEvent.click(reasoningSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /xhigh/i }),
-    );
+      const reasoningSelect = await screen.findByRole('combobox', {
+        name: /reasoning effort/i,
+      });
+      await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
+      await userEvent.click(reasoningSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /xhigh/i }),
+      );
 
-    await userEvent.clear(input);
-    await userEvent.type(input, 'keep the same conversation');
-    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(screen.getByTestId('chat-send'));
-    });
+      await userEvent.clear(input);
+      await userEvent.type(input, 'keep the same conversation');
+      await waitFor(() =>
+        expect(screen.getByTestId('chat-send')).toBeEnabled(),
+      );
+      await act(async () => {
+        await userEvent.click(screen.getByTestId('chat-send'));
+      });
 
-    await waitFor(() =>
-      expect(harness.chatBodies.length).toBeGreaterThanOrEqual(2),
-    );
-    const secondPayload = harness.chatBodies[1] ?? {};
-    expect(secondPayload.provider).toBe('codex');
-    expect(secondPayload.model).toBe('gpt-5.1-codex-max');
-    expect(secondPayload.conversationId).toBe(firstPayload.conversationId);
-    expect(
-      (secondPayload.agentFlags as Record<string, unknown>)
-        ?.modelReasoningEffort,
-    ).toBe('xhigh');
-  }, resolveClientTestTimeoutMs(30000));
+      await waitFor(() =>
+        expect(harness.chatBodies.length).toBeGreaterThanOrEqual(2),
+      );
+      const secondPayload = harness.chatBodies[1] ?? {};
+      expect(secondPayload.provider).toBe('codex');
+      expect(secondPayload.model).toBe('gpt-5.1-codex-max');
+      expect(secondPayload.conversationId).toBe(firstPayload.conversationId);
+      expect(
+        (secondPayload.agentFlags as Record<string, unknown>)
+          ?.modelReasoningEffort,
+      ).toBe('xhigh');
+    },
+    resolveClientTestTimeoutMs(30000),
+  );
 
-  it('clears hidden reasoning values from both the control and submitted draft when the selected model narrows support', async () => {
-    const chatBodies: Record<string, unknown>[] = [];
-    mockProvidersWithBodies(chatBodies);
+  it(
+    'clears hidden reasoning values from both the control and submitted draft when the selected model narrows support',
+    async () => {
+      const chatBodies: Record<string, unknown>[] = [];
+      mockProvidersWithBodies(chatBodies);
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await waitForInteractiveCombobox(providerSelect);
-    await userEvent.click(providerSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /openai codex/i }),
-    );
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /openai codex/i }),
+      );
 
-    await ensureAgentFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
-    const reasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    await userEvent.click(reasoningSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /xhigh/i }),
-    );
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/xhigh/i));
+      const reasoningSelect = await screen.findByRole('combobox', {
+        name: /reasoning effort/i,
+      });
+      await userEvent.click(reasoningSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /xhigh/i }),
+      );
+      await waitFor(() => expect(reasoningSelect).toHaveTextContent(/xhigh/i));
 
-    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
-    await waitFor(() =>
-      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
-    );
-    await userEvent.click(modelSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /gpt-5.2/i }),
-    );
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await waitFor(() =>
+        expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+      );
+      await userEvent.click(modelSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /gpt-5.2/i }),
+      );
 
-    const narrowedReasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    await waitFor(() =>
-      expect(narrowedReasoningSelect).toHaveTextContent(/minimal/i),
-    );
-    await userEvent.click(narrowedReasoningSelect);
-    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(1));
-    await userEvent.click(
-      await screen.findByRole('option', { name: /minimal/i }),
-    );
-    expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
+      const narrowedReasoningSelect = await screen.findByRole('combobox', {
+        name: /reasoning effort/i,
+      });
+      await waitFor(() =>
+        expect(narrowedReasoningSelect).toHaveTextContent(/minimal/i),
+      );
+      await userEvent.click(narrowedReasoningSelect);
+      await waitFor(() =>
+        expect(screen.getAllByRole('option')).toHaveLength(1),
+      );
+      await userEvent.click(
+        await screen.findByRole('option', { name: /minimal/i }),
+      );
+      expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
 
-    const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
-    await waitFor(() => expect(input).toBeEnabled());
-    input.focus();
-    await userEvent.clear(input);
-    await userEvent.type(input, 'submit narrowed reasoning');
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      const input = await screen.findByTestId('chat-input');
+      const sendButton = await screen.findByTestId('chat-send');
+      await waitFor(() => expect(input).toBeEnabled());
+      input.focus();
+      await userEvent.clear(input);
+      await userEvent.type(input, 'submit narrowed reasoning');
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-    const payload = chatBodies.at(-1) ?? {};
-    expect(payload.model).toBe('gpt-5.2');
-    expect(
-      (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
-    ).toBe('minimal');
-  }, resolveClientTestTimeoutMs(15000));
+      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+      const payload = chatBodies.at(-1) ?? {};
+      expect(payload.model).toBe('gpt-5.2');
+      expect(
+        (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
+      ).toBe('minimal');
+    },
+    resolveClientTestTimeoutMs(15000),
+  );
 
   it('sends non-standard runtime reasoning values when model capabilities allow them', async () => {
     const chatBodies: Record<string, unknown>[] = [];

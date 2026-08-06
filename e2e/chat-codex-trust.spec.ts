@@ -1,6 +1,7 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -167,14 +168,14 @@ test('Codex chat succeeds without trust error when working directory is handled'
       });
 
       await mockWs.waitForConversationSubscription(conversationId);
-      mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
 
-      mockWs.sendAssistantDelta({
+      await mockWs.sendAssistantDelta({
         conversationId,
         inflightId,
         delta: 'Hello from Codex',
       });
-      mockWs.sendFinal({
+      await mockWs.sendFinal({
         conversationId,
         inflightId,
         status: 'ok',
@@ -214,7 +215,9 @@ test('Codex chat succeeds without trust error when working directory is handled'
     '[data-testid="chat-bubble"][data-kind="error"]',
   );
 
-  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
+  await expect(providerSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await providerSelect.click();
   await page.getByRole('option', { name: /OpenAI Codex/i }).click();
 
@@ -227,10 +230,12 @@ test('Codex chat succeeds without trust error when working directory is handled'
     // Mock path no longer emits the legacy trust error frame; it should go straight
     // to a successful reply when the working directory is handled.
     await expect(assistantBubble.first()).toHaveText(/Hello from Codex/i, {
-      timeout: 20000,
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
     });
   } else {
-    await expect(assistantBubble.first()).toHaveText(/.+/, { timeout: 20000 });
+    await expect(assistantBubble.first()).toHaveText(/.+/, {
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
   }
 
   await expect(errorBubble.filter({ hasText: trustErrorText })).toHaveCount(0);

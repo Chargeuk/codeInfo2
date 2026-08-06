@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react';
+import { resolveClientTestTimeoutMs } from './testTimeouts';
 import { createTestUser, type TestUserEvent } from './userEvent';
 
 export async function ensureCodexFlagsPanelExpanded(
@@ -8,7 +9,7 @@ export async function ensureCodexFlagsPanelExpanded(
     () => {
       expect(screen.getByTestId('agent-flags-panel')).toBeInTheDocument();
     },
-    { timeout: 5000 },
+    { timeout: resolveClientTestTimeoutMs(5_000) },
   );
   const getSummaryButton = () =>
     within(screen.getByTestId('agent-flags-panel')).getByRole('button');
@@ -24,6 +25,6 @@ export async function ensureCodexFlagsPanelExpanded(
         throw new Error('Expected Agent Flags panel to be expanded');
       }
     },
-    { timeout: 5000 },
+    { timeout: resolveClientTestTimeoutMs(5_000) },
   );
 }

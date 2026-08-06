@@ -78,8 +78,17 @@ async function lockDownRuntimeArtifacts(runtimeHome: string) {
   await fs.chmod(path.join(runtimeHome, 'session-state'), 0o000);
 }
 
-function buildApp(deps?: Parameters<typeof createCopilotDeviceAuthRouter>[0]) {
+function buildApp(
+  deps?: Parameters<typeof createCopilotDeviceAuthRouter>[0],
+  onDeviceAuthRequest?: () => void,
+) {
   const app = express();
+  if (onDeviceAuthRequest) {
+    app.use('/copilot/device-auth', (_req, _res, next) => {
+      onDeviceAuthRequest();
+      next();
+    });
+  }
   app.use('/copilot', createCopilotDeviceAuthRouter(deps));
   return app;
 }
@@ -281,7 +290,6 @@ describe('POST /copilot/device-auth integration behavior', () => {
     const first = await supertest(app).post('/copilot/device-auth').send({});
     assert.equal(first.status, 200);
     assert.equal(first.body.state, 'verification_ready');
-    await new Promise((resolve) => setImmediate(resolve));
 
     const second = await supertest(app).post('/copilot/device-auth').send({});
     assert.equal(second.status, 200);
@@ -340,8 +348,6 @@ describe('POST /copilot/device-auth integration behavior', () => {
     assert.equal(first.status, 200);
     assert.equal(first.body.state, 'verification_ready');
     assert.equal(first.body.userCode, 'ABCD-EFGH');
-
-    await new Promise((resolve) => setImmediate(resolve));
 
     const second = await supertest(app).post('/copilot/device-auth').send({});
     assert.equal(second.status, 200);
@@ -560,13 +566,25 @@ describe('POST /copilot/device-auth integration behavior', () => {
   });
 
   test('concurrent auth-start requests share one single-flight attempt', async () => {
+    let markRunStarted!: () => void;
+    const runStarted = new Promise<void>((resolve) => {
+      markRunStarted = resolve;
+    });
     let resolveRun!: (value: CopilotDeviceAuthResultWithCompletion) => void;
     const runPromise = new Promise<CopilotDeviceAuthResultWithCompletion>(
       (resolve) => {
         resolveRun = resolve;
       },
     );
-    const runCopilotDeviceAuth = mock.fn(async () => runPromise);
+    const runCopilotDeviceAuth = mock.fn(async () => {
+      markRunStarted();
+      return runPromise;
+    });
+    let requestCount = 0;
+    let markSecondRequestEntered!: () => void;
+    const secondRequestEntered = new Promise<void>((resolve) => {
+      markSecondRequestEntered = resolve;
+    });
     const app = buildApp(
       depsFromHarness(
         createMockCopilotDeviceAuthHarness(createVerificationReadyScenario()),
@@ -574,12 +592,22 @@ describe('POST /copilot/device-auth integration behavior', () => {
           runCopilotDeviceAuth,
         },
       ),
+      () => {
+        requestCount += 1;
+        if (requestCount === 2) markSecondRequestEntered();
+      },
     );
 
-    const reqA = supertest(app).post('/copilot/device-auth').send({});
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    const reqB = supertest(app).post('/copilot/device-auth').send({});
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    const reqA = supertest(app)
+      .post('/copilot/device-auth')
+      .send({})
+      .then((response) => response);
+    await runStarted;
+    const reqB = supertest(app)
+      .post('/copilot/device-auth')
+      .send({})
+      .then((response) => response);
+    await secondRequestEntered;
 
     resolveRun(
       toDeviceAuthResult({
@@ -595,10 +623,10 @@ describe('POST /copilot/device-auth integration behavior', () => {
     const [resA, resB] = await Promise.all([reqA, reqB]);
     assert.equal(resA.status, 200);
     assert.equal(resB.status, 200);
-    assert.deepEqual(
-      [resA.body.state, resB.body.state].sort(),
-      ['completion_pending', 'verification_ready'],
-    );
+    assert.deepEqual([resA.body.state, resB.body.state].sort(), [
+      'completion_pending',
+      'verification_ready',
+    ]);
     for (const response of [resA, resB]) {
       assert.equal(response.body.provider, 'copilot');
       assert.equal(

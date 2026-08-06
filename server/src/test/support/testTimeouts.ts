@@ -22,3 +22,34 @@ export function resolveConfiguredTestTimeoutMs(timeoutMs: number): number {
 
   return Math.max(timeoutMs, configured);
 }
+
+export function resolveConfiguredPollAttempts(
+  defaultAttempts: number,
+  intervalMs: number,
+): number {
+  return Math.ceil(
+    resolveConfiguredTestTimeoutMs(defaultAttempts * intervalMs) / intervalMs,
+  );
+}
+
+export async function waitForTestCondition(
+  predicate: () => boolean | Promise<boolean>,
+  options: {
+    timeoutMs?: number;
+    intervalMs?: number;
+    description: string;
+  },
+): Promise<void> {
+  const timeoutMs = resolveConfiguredTestTimeoutMs(options.timeoutMs ?? 2000);
+  const intervalMs = options.intervalMs ?? 10;
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (await predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  throw new Error(
+    `Timed out waiting for ${options.description} after ${timeoutMs}ms`,
+  );
+}

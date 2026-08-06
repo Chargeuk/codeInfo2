@@ -287,71 +287,83 @@ async function selectProvider(
 }
 
 describe('Chat shared shell conversation selection', () => {
-  it('does not send cancel_inflight when switching conversations during an active run', async () => {
-    const { user, draftConversationId } = await startDraftRun();
+  it(
+    'does not send cancel_inflight when switching conversations during an active run',
+    async () => {
+      const { user, draftConversationId } = await startDraftRun();
 
-    const codexRowTitle = screen.getByText('Codex conversation');
-    const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
-    if (!codexRow) {
-      throw new Error('Codex conversation row not found');
-    }
+      const codexRowTitle = screen.getByText('Codex conversation');
+      const codexRow = codexRowTitle.closest(
+        '[data-testid="conversation-row"]',
+      );
+      if (!codexRow) {
+        throw new Error('Codex conversation row not found');
+      }
 
-    await act(async () => {
-      await user.click(codexRow);
-    });
+      await act(async () => {
+        await user.click(codexRow);
+      });
 
-    await waitFor(() =>
-      expect(screen.getByTestId('provider-select')).toHaveTextContent(
-        /OpenAI Codex/i,
-      ),
-    );
+      await waitFor(() =>
+        expect(screen.getByTestId('provider-select')).toHaveTextContent(
+          /OpenAI Codex/i,
+        ),
+      );
 
-    const cancelMessages = getWsMessages().filter(
-      (msg) =>
-        msg.type === 'cancel_inflight' &&
-        msg.conversationId === draftConversationId,
-    );
+      const cancelMessages = getWsMessages().filter(
+        (msg) =>
+          msg.type === 'cancel_inflight' &&
+          msg.conversationId === draftConversationId,
+      );
 
-    expect(cancelMessages).toHaveLength(0);
-  }, resolveClientTestTimeoutMs(15000));
+      expect(cancelMessages).toHaveLength(0);
+    },
+    resolveClientTestTimeoutMs(15000),
+  );
 
-  it('shows only the selected conversation transcript and local state after switching', async () => {
-    const { user } = await startDraftRun();
+  it(
+    'shows only the selected conversation transcript and local state after switching',
+    async () => {
+      const { user } = await startDraftRun();
 
-    expect(screen.getByText('Hello inflight')).toBeInTheDocument();
-    expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
+      expect(screen.getByText('Hello inflight')).toBeInTheDocument();
+      expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
 
-    const codexRowTitle = screen.getByText('Codex conversation');
-    const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
-    if (!codexRow) {
-      throw new Error('Codex conversation row not found');
-    }
+      const codexRowTitle = screen.getByText('Codex conversation');
+      const codexRow = codexRowTitle.closest(
+        '[data-testid="conversation-row"]',
+      );
+      if (!codexRow) {
+        throw new Error('Codex conversation row not found');
+      }
 
-    await act(async () => {
-      await user.click(codexRow);
-    });
+      await act(async () => {
+        await user.click(codexRow);
+      });
 
-    await waitFor(() =>
-      expect(screen.getByTestId('provider-select')).toHaveTextContent(
-        /OpenAI Codex/i,
-      ),
-    );
+      await waitFor(() =>
+        expect(screen.getByTestId('provider-select')).toHaveTextContent(
+          /OpenAI Codex/i,
+        ),
+      );
 
-    const transcript = await screen.findByTestId('chat-transcript');
-    const userTurn = within(transcript).getByText('hello codex');
-    const assistantTurn = within(transcript).getByText('codex reply');
-    expect(
-      userTurn.compareDocumentPosition(assistantTurn) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(within(transcript).getByText('codex reply')).toBeInTheDocument();
-    expect(
-      within(transcript).queryByText('Hello inflight'),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
-    expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument();
-    expect(screen.getByTestId('chat-input')).toBeEnabled();
-  }, resolveClientTestTimeoutMs(15000));
+      const transcript = await screen.findByTestId('chat-transcript');
+      const userTurn = within(transcript).getByText('hello codex');
+      const assistantTurn = within(transcript).getByText('codex reply');
+      expect(
+        userTurn.compareDocumentPosition(assistantTurn) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(within(transcript).getByText('codex reply')).toBeInTheDocument();
+      expect(
+        within(transcript).queryByText('Hello inflight'),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument();
+      expect(screen.getByTestId('chat-input')).toBeEnabled();
+    },
+    resolveClientTestTimeoutMs(15000),
+  );
 
   it('does not send cancel_inflight when changing provider during an active run', async () => {
     const { user, draftConversationId } = await startDraftRun();
@@ -373,25 +385,31 @@ describe('Chat shared shell conversation selection', () => {
     expect(cancelMessages).toHaveLength(0);
   });
 
-  it('keeps the provider selector enabled for the visible next-send view', async () => {
-    const { user } = await startDraftRun();
+  it(
+    'keeps the provider selector enabled for the visible next-send view',
+    async () => {
+      const { user } = await startDraftRun();
 
-    const providerSelect = screen.getByRole('combobox', { name: /provider/i });
-    expect(providerSelect).toBeEnabled();
+      const providerSelect = screen.getByRole('combobox', {
+        name: /provider/i,
+      });
+      expect(providerSelect).toBeEnabled();
 
-    await selectProvider(user, /openai codex/i);
+      await selectProvider(user, /openai codex/i);
 
-    await waitFor(() =>
-      expect(screen.getByTestId('provider-select')).toHaveTextContent(
-        /OpenAI Codex/i,
-      ),
-    );
+      await waitFor(() =>
+        expect(screen.getByTestId('provider-select')).toHaveTextContent(
+          /OpenAI Codex/i,
+        ),
+      );
 
-    expect(screen.getByRole('combobox', { name: /provider/i })).toBeEnabled();
-    expect(screen.getByTestId('chat-input')).toBeEnabled();
-    expect(screen.queryByText('Hello inflight')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
-  }, resolveClientTestTimeoutMs(15000));
+      expect(screen.getByRole('combobox', { name: /provider/i })).toBeEnabled();
+      expect(screen.getByTestId('chat-input')).toBeEnabled();
+      expect(screen.queryByText('Hello inflight')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
+    },
+    resolveClientTestTimeoutMs(15000),
+  );
 
   it('keeps resumed provider and model selectors read-only while a stored conversation is selected', async () => {
     const user = userEvent.setup();

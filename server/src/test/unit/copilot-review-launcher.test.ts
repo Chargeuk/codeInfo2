@@ -952,6 +952,7 @@ test('abort during external setup returns cancelled without spawning Copilot', a
 });
 
 test('force-kill cancellation waits for the child close event', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
   const fakeCopilot = await makeFakeCopilot(fixture.root);
@@ -986,7 +987,7 @@ test('force-kill cancellation waits for the child close event', async (t) => {
 
   await childSpawnedSignal;
   controller.abort();
-  await new Promise<void>((resolve) => setTimeout(resolve, 5_100));
+  t.mock.timers.tick(5_000);
 
   assert.deepEqual(child.killCalls, ['SIGTERM', 'SIGKILL']);
   assert.equal(settled, false);

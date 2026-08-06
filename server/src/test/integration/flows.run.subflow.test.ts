@@ -3842,7 +3842,6 @@ test('resume reattaches to an already running child subflow instead of launching
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    await new Promise<void>((resolve) => setImmediate(resolve));
     assert.ok(getActiveRunOwnership(childStart.conversationId));
     slowChild.release();
     await waitForAssistantStatus(parentConversationId, 'ok');
@@ -3937,7 +3936,6 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    await new Promise<void>((resolve) => setImmediate(resolve));
     assert.ok(getActiveRunOwnership(childStart.conversationId));
     slowChild.release();
     await waitForAssistantStatus(parentConversationId, 'ok');
@@ -4067,7 +4065,6 @@ test('resume reattaches to already running parallel child subflows instead of la
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
-    await new Promise<void>((resolve) => setImmediate(resolve));
     assert.ok(getActiveRunOwnership(childStartA.conversationId));
     assert.ok(getActiveRunOwnership(childStartB.conversationId));
     slowChildren.release();

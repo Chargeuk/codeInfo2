@@ -138,13 +138,13 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: 'Answer',
       assistantThink: 'Thinking...\nSecond line',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',
@@ -182,23 +182,23 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: 'Answer',
       assistantThink: '',
     });
-    harness.emitAnalysisDelta({
+    await harness.emitAnalysisDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Reasoning part A...',
     });
-    harness.emitAnalysisDelta({
+    await harness.emitAnalysisDelta({
       conversationId: conversationId!,
       inflightId,
       delta: '\n\nNew block',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',
@@ -254,13 +254,17 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
       await user.click(rowOne);
     });
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: 'c1',
       inflightId: 'i1',
       assistantText: 'Answer One',
       assistantThink: 'Reasoning One',
     });
-    harness.emitFinal({ conversationId: 'c1', inflightId: 'i1', status: 'ok' });
+    await harness.emitFinal({
+      conversationId: 'c1',
+      inflightId: 'i1',
+      status: 'ok',
+    });
 
     await user.click(await screen.findByTestId('think-toggle'));
     expect(await screen.findByTestId('think-content')).toBeVisible();
@@ -275,13 +279,17 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
       await user.click(rowTwo);
     });
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: 'c2',
       inflightId: 'i2',
       assistantText: 'Answer Two',
       assistantThink: 'Reasoning Two',
     });
-    harness.emitFinal({ conversationId: 'c2', inflightId: 'i2', status: 'ok' });
+    await harness.emitFinal({
+      conversationId: 'c2',
+      inflightId: 'i2',
+      status: 'ok',
+    });
 
     const secondToggle = await screen.findByTestId('think-toggle');
     expect(secondToggle).toHaveAttribute('aria-expanded', 'false');

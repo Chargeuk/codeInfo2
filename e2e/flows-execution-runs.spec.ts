@@ -4,6 +4,7 @@ import {
   validateRequestedWorkingFolder,
 } from '../server/src/workingFolders/state';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiUrl = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -222,32 +223,36 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(baseUrl);
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await page.getByRole('button', { name: /open menu/i }).click();
   await expect(
     page.getByTestId('workspace-mobile-app-menu-overlay'),
-  ).toBeVisible({ timeout: 20000 });
+  ).toBeVisible({ timeout: resolveConfiguredE2eTimeoutMs(20000) });
   await page
     .getByTestId('workspace-mobile-app-menu-overlay')
     .getByRole('link', { name: 'Flows' })
     .click();
   await expect(page).toHaveURL(/\/flows$/);
-  await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
+  await expect(page.getByTestId('flow-run')).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
 
   await page.getByTestId('flow-run').click();
   await expect
     .poll(() => runBodies.length, {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message: 'Expected first fresh run to be recorded',
     })
     .toBe(1);
-  await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
+  await expect(page.getByTestId('flow-run')).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
 
   await page.getByTestId('flow-run').click();
   await expect
     .poll(() => flowRows.length, {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message: 'Expected retry ownership replay to settle on one visible run',
     })
     .toBe(1);
@@ -258,7 +263,7 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
   await page.getByTestId('conversation-drawer-toggle').click();
   await expect(
     page.getByTestId('workspace-mobile-conversations-overlay'),
-  ).toBeVisible({ timeout: 20000 });
+  ).toBeVisible({ timeout: resolveConfiguredE2eTimeoutMs(20000) });
   await page
     .locator('[data-testid="conversation-row"]')
     .filter({ hasText: 'Flow: echo' })
@@ -267,14 +272,14 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
   await page.getByLabel('Close conversations').click();
   await expect(
     page.getByTestId('workspace-mobile-conversations-overlay'),
-  ).toBeHidden({ timeout: 20000 });
+  ).toBeHidden({ timeout: resolveConfiguredE2eTimeoutMs(20000) });
   await expect(page.getByTestId('flow-run')).toBeEnabled({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await page.getByTestId('flow-run').click();
   await expect
     .poll(() => runBodies.length, {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message: 'Expected resume request to be recorded',
     })
     .toBe(3);
@@ -283,12 +288,12 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
   await page.goto(`${baseUrl}/flows`);
   await expect(page).toHaveURL(/\/flows$/);
   await expect(page.getByTestId('flow-run')).toBeEnabled({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await page.getByTestId('flow-run').click();
   await expect
     .poll(() => flowRows.length, {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message: 'Expected later fresh run to appear independently',
     })
     .toBe(2);
@@ -417,10 +422,14 @@ test('flows expose wave progress and target-aware repeated child identity in the
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${baseUrl}/flows`);
-  await expect(page.getByTestId('flow-run')).toBeEnabled({ timeout: 20000 });
+  await expect(page.getByTestId('flow-run')).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await page.getByTestId('conversation-drawer-toggle').click();
   const overlay = page.getByTestId('workspace-mobile-conversations-overlay');
-  await expect(overlay).toBeVisible({ timeout: 20000 });
+  await expect(overlay).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await expect(overlay.getByText('Wave 7/7')).toBeVisible();
   await expect(
     overlay
@@ -544,7 +553,9 @@ test('flows warning rendering and disabled run guard stay visible at the browser
   });
 
   await page.goto(`${baseUrl}/flows`);
-  await expect(page.getByTestId('flow-info')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('flow-info')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
 
   await page.getByTestId('flow-info').click();
 
@@ -715,7 +726,7 @@ test('flows let operators select the GitHub review variant without mutating the 
   await page.getByTestId('flow-run').click();
   await expect
     .poll(() => runBodies.length, {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message: 'Expected the selected GitHub review variant flow to start',
     })
     .toBe(1);
@@ -805,9 +816,13 @@ test('flows composer footer controls use upward desktop popovers and centered mo
     const trigger = page.getByTestId(triggerTestId);
     await trigger.click();
     const popover = page.getByTestId(popoverTestId);
-    await expect(popover).toBeVisible({ timeout: 20000 });
+    await expect(popover).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     const content = page.getByTestId(contentTestId);
-    await expect(content).toBeVisible({ timeout: 20000 });
+    await expect(content).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
 
     const triggerBox = await trigger.boundingBox();
     const popoverBox = await content.boundingBox();
@@ -819,7 +834,9 @@ test('flows composer footer controls use upward desktop popovers and centered mo
     ).toBeLessThanOrEqual((triggerBox?.y ?? 0) + 12);
 
     await page.keyboard.press('Escape');
-    await expect(popover).toBeHidden({ timeout: 20000 });
+    await expect(popover).toBeHidden({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
   };
 
   const expectCenteredMobileDialog = async (
@@ -830,7 +847,9 @@ test('flows composer footer controls use upward desktop popovers and centered mo
     const trigger = page.getByTestId(triggerTestId);
     await trigger.click();
     const dialog = page.getByTestId(dialogTestId);
-    await expect(dialog).toBeVisible({ timeout: 20000 });
+    await expect(dialog).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await expect(
       dialog.getByRole('heading', { name: heading, exact: true }),
     ).toBeVisible();
@@ -850,12 +869,16 @@ test('flows composer footer controls use upward desktop popovers and centered mo
     expect(dialogBox?.width ?? 0).toBeGreaterThan(280);
 
     await dialog.getByRole('button', { name: 'Close' }).last().click();
-    await expect(dialog).toBeHidden({ timeout: 20000 });
+    await expect(dialog).toBeHidden({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
   };
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${baseUrl}/flows`);
-  await expect(page.getByTestId('flow-info')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('flow-info')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await expect(page.getByTestId('flow-select-trigger')).toContainText('daily');
 
   await expectDesktopPopoverAboveTrigger(
@@ -876,7 +899,9 @@ test('flows composer footer controls use upward desktop popovers and centered mo
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${baseUrl}/flows`);
-  await expect(page.getByTestId('flow-info')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('flow-info')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
 
   await expectCenteredMobileDialog('flow-info', 'flow-info-dialog', 'Info');
   await expectCenteredMobileDialog(
@@ -1051,7 +1076,7 @@ test('flows existing-conversation working-folder picker applies a local reposito
   await page.goto(`${baseUrl}/flows`);
   await expect(page.getByTestId('flow-title-trigger')).toContainText(
     'Flow: daily',
-    { timeout: 20000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(20000) },
   );
   await page.locator('[data-testid="conversation-row"]').first().click();
 
@@ -1062,7 +1087,7 @@ test('flows existing-conversation working-folder picker applies a local reposito
   await page.getByTestId('flow-working-folder-trigger').click();
   await expect(
     page.getByRole('dialog', { name: 'Choose folder…' }),
-  ).toBeVisible({ timeout: 20000 });
+  ).toBeVisible({ timeout: resolveConfiguredE2eTimeoutMs(20000) });
   await page.getByRole('button', { name: 'child' }).click();
   await page.getByRole('button', { name: 'Use this folder' }).click();
 
@@ -1221,7 +1246,9 @@ test('flows existing conversations open at the newest visible content and preser
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${baseUrl}/flows`);
-  await expect(page.getByTestId('flow-run')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId('flow-run')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await page.getByTestId('conversation-row').first().click();
 
   const transcript = page.getByTestId('flows-transcript');

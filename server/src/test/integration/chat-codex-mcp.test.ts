@@ -34,9 +34,9 @@ import {
   endScopedTestEnvIsolation,
 } from '../support/processEnvIsolation.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 class MockThread {
@@ -295,8 +295,8 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, {
-      type: 'subscribe_conversation',
+    await subscribeConversationAndWaitReady({
+      ws: ws,
       conversationId: 'thread-mcp',
     });
     // Start WS waits before triggering the HTTP request to avoid missing early frames.
@@ -508,7 +508,7 @@ test('codex tool requests fall back to tool name when Codex omits name field', a
   const ws = await connectWs({ baseUrl });
   try {
     const conversationId = 'thread-mcp-omit-name';
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const toolRequestPromise = waitForEvent({
       ws,
       predicate: (

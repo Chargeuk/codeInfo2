@@ -7,6 +7,7 @@ import {
   logPlaywrightCopilotScenarioRegistration,
 } from './support/copilotFakeScenario';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 type ChatModel = { key: string; displayName: string; type?: string };
 
@@ -85,7 +86,9 @@ const pickChatModel = (models: ChatModel[]) => {
 
 async function selectProvider(page: Page, providerName: string) {
   const providerSelect = page.getByRole('combobox', { name: /Provider/i });
-  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
+  await expect(providerSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await providerSelect.click();
   await page.getByRole('option', { name: providerName, exact: false }).click();
   await expect(providerSelect).toHaveText(new RegExp(providerName, 'i'));
@@ -93,11 +96,13 @@ async function selectProvider(page: Page, providerName: string) {
 
 async function selectModel(page: Page, modelName: string) {
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
-  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await expect(modelSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await modelSelect.click();
   await page.getByRole('option', { name: modelName, exact: false }).click();
   await expect(modelSelect).toHaveText(new RegExp(modelName, 'i'), {
-    timeout: 5000,
+    timeout: resolveConfiguredE2eTimeoutMs(5000),
   });
 }
 
@@ -196,18 +201,18 @@ test('chat streams end-to-end', async ({ page }) => {
       });
 
       await mockWs.waitForConversationSubscription(conversationId);
-      mockWs.sendInflightSnapshot({ conversationId, inflightId });
-      mockWs.sendAssistantDelta({
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      await mockWs.sendAssistantDelta({
         conversationId,
         inflightId,
         delta: 'Hi there ',
       });
-      mockWs.sendAnalysisDelta({
+      await mockWs.sendAnalysisDelta({
         conversationId,
         inflightId,
         delta: 'mock trace',
       });
-      mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+      await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
     });
     models = mockModels;
   } else {
@@ -237,7 +242,9 @@ test('chat streams end-to-end', async ({ page }) => {
   await page.goto(`${baseUrl}/chat`);
 
   const providerSelect = page.getByRole('combobox', { name: /Provider/i });
-  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
+  await expect(providerSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   if (useMockChat) {
     const selectedProviderText =
       (await providerSelect.textContent())?.trim() ?? '';
@@ -245,13 +252,15 @@ test('chat streams end-to-end', async ({ page }) => {
       await providerSelect.click();
       await page.getByRole('option', { name: 'LM Studio' }).click();
       await expect(providerSelect).toHaveText(/LM Studio/, {
-        timeout: 5000,
+        timeout: resolveConfiguredE2eTimeoutMs(5000),
       });
     }
   }
 
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
-  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await expect(modelSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   if (useMockChat) {
     await expect
       .poll(
@@ -259,7 +268,7 @@ test('chat streams end-to-end', async ({ page }) => {
           const text = (await modelSelect.textContent())?.trim() ?? '';
           return text.includes(selectedModel.displayName);
         },
-        { timeout: 20000 },
+        { timeout: resolveConfiguredE2eTimeoutMs(20000) },
       )
       .toBeTruthy();
   } else {
@@ -276,13 +285,17 @@ test('chat streams end-to-end', async ({ page }) => {
         exact: false,
       });
       try {
-        await option.first().click({ timeout: 5000 });
+        await option
+          .first()
+          .click({ timeout: resolveConfiguredE2eTimeoutMs(5000) });
       } catch {
-        await menuItem.first().click({ timeout: 5000 });
+        await menuItem
+          .first()
+          .click({ timeout: resolveConfiguredE2eTimeoutMs(5000) });
       }
     }
     await expect(modelSelect).toHaveText(selectedModel.displayName, {
-      timeout: 5000,
+      timeout: resolveConfiguredE2eTimeoutMs(5000),
     });
   }
 
@@ -306,15 +319,21 @@ test('chat streams end-to-end', async ({ page }) => {
   await send.click();
 
   try {
-    await expect(assistantBubbles.first()).toHaveText(/.+/, { timeout: 20000 });
+    await expect(assistantBubbles.first()).toHaveText(/.+/, {
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await expect(assistantBubbles.first()).toHaveAttribute(
       'data-kind',
       'normal',
     );
     await expect(errorBubbles).toHaveCount(0);
     if (await responding.count()) {
-      await expect(responding).toBeVisible({ timeout: 20000 });
-      await expect(responding).not.toBeVisible({ timeout: 20000 });
+      await expect(responding).toBeVisible({
+        timeout: resolveConfiguredE2eTimeoutMs(20000),
+      });
+      await expect(responding).not.toBeVisible({
+        timeout: resolveConfiguredE2eTimeoutMs(20000),
+      });
     }
 
     if (useMockChat) {
@@ -365,7 +384,9 @@ test('chat streams end-to-end', async ({ page }) => {
 
     await input.fill('Second follow-up from e2e');
     await send.click();
-    await expect(assistantBubbles.nth(1)).toHaveText(/.+/, { timeout: 20000 });
+    await expect(assistantBubbles.nth(1)).toHaveText(/.+/, {
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await expect(errorBubbles).toHaveCount(0);
   } finally {
     await page.screenshot({
@@ -492,7 +513,7 @@ test('copilot happy-path send uses the Copilot provider contract end to end', as
 
   await expect(page.getByTestId('chat-transcript')).toContainText(
     'Hello from fake Copilot',
-    { timeout: 20000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(20000) },
   );
 });
 
@@ -656,7 +677,7 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
 
   await expect(page.getByTestId('chat-transcript')).toContainText(
     'Hello from endpoint-backed send',
-    { timeout: 20000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(20000) },
   );
 });
 
@@ -848,7 +869,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
     },
   );
   await expect(historyConversationRow).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await historyConversationRow.click();
   await expect(
@@ -912,7 +933,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
 
   await expect(page.getByTestId('chat-transcript')).toContainText(
     'Fresh mobile endpoint reply',
-    { timeout: 20000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(20000) },
   );
 });
 
@@ -1003,7 +1024,7 @@ test('chat no longer exposes re-authenticate inside the workspace surface', asyn
 
   await expect(page.getByRole('combobox', { name: /Provider/i })).toHaveText(
     /OpenAI Codex/i,
-    { timeout: 20000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(20000) },
   );
   await expect(
     page.getByRole('button', { name: /^Re-authenticate$/i }),
@@ -1084,19 +1105,21 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    mockWs.sendAssistantDelta({
+    await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    await mockWs.sendAssistantDelta({
       conversationId,
       inflightId,
       delta: 'ack',
     });
-    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
 
   await page.goto(`${baseUrl}/chat`);
 
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
-  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await expect(modelSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await modelSelect.click();
   await page.getByRole('option', { name: 'Mock Model 1' }).click();
   await expect
@@ -1105,7 +1128,7 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
         const text = (await modelSelect.textContent())?.trim() ?? '';
         return text.includes('Mock Model 1');
       },
-      { timeout: 20000 },
+      { timeout: resolveConfiguredE2eTimeoutMs(20000) },
     )
     .toBeTruthy();
 
@@ -1128,7 +1151,7 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
 
   await expect
     .poll(() => chatBodies.length, {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message:
         'Expected exactly one follow-up chat POST request after blocked whitespace submit',
     })
@@ -1211,9 +1234,13 @@ test('chat renders user markdown list/code with same structure as assistant mark
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    mockWs.sendAssistantDelta({ conversationId, inflightId, delta: message });
-    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    await mockWs.sendAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: message,
+    });
+    await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
 
   await page.goto(`${baseUrl}/chat`);
@@ -1237,10 +1264,10 @@ test('chat renders user markdown list/code with same structure as assistant mark
   const assistantMarkdown = page.getByTestId('assistant-markdown').first();
 
   await expect(userMarkdown.getByRole('listitem')).toHaveCount(2, {
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await expect(assistantMarkdown.getByRole('listitem')).toHaveCount(2, {
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await expect(userMarkdown.locator('pre code')).toContainText(
     'const total = 2;',
@@ -1325,7 +1352,9 @@ test('chat provider/model selects work on small viewport', async ({ page }) => {
   await page.goto(`${baseUrl}/chat`);
 
   const providerSelect = page.getByRole('combobox', { name: /Provider/i });
-  await expect(providerSelect).toBeVisible({ timeout: 20000 });
+  await expect(providerSelect).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await providerSelect.click();
   const providerOption = page.getByRole('option').first();
   const providerMenuItem = page.getByRole('menuitem').first();
@@ -1337,7 +1366,9 @@ test('chat provider/model selects work on small viewport', async ({ page }) => {
   await page.keyboard.press('Escape');
 
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
-  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await expect(modelSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await modelSelect.click();
 
   const option = page.getByRole('option', {
@@ -1359,7 +1390,7 @@ test('chat provider/model selects work on small viewport', async ({ page }) => {
         const text = (await modelSelect.textContent())?.trim() ?? '';
         return text.includes(selectedModel.displayName);
       },
-      { timeout: 5000 },
+      { timeout: resolveConfiguredE2eTimeoutMs(5000) },
     )
     .toBeTruthy();
 });

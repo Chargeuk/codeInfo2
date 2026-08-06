@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -9,6 +8,7 @@ import { query, resetStore } from '../../../logStore.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import { validateParams } from '../../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
+import { waitForHttpServerPort } from '../../support/httpServer.js';
 const makeLmStudioClientFactory = () => () => ({
     system: {
         listDownloadedModels: async () => [],
@@ -97,7 +97,7 @@ test('codebase_question validation returns -32602 when question is missing', asy
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const payload = {
             jsonrpc: '2.0',
@@ -134,7 +134,7 @@ test('codebase_question emits field-specific warning fields when falling back to
     setScopedTestEnvValue("Codex_web_search_enabled", 'false');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     setToolDeps({
         clientFactory: makeLmStudioClientFactory(),
         codexFactory: makeCodexFactory,
@@ -186,7 +186,7 @@ test('codebase_question validation rejects invalid provider values deterministic
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',
@@ -255,7 +255,7 @@ test('codebase_question validation rejects replayId without conversationId befor
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',
@@ -294,7 +294,7 @@ test('codebase_question validation rejects malformed replayId characters before 
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',

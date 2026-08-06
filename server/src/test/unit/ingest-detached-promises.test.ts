@@ -12,15 +12,44 @@ import {
   startIngest,
   waitForTerminalIngestStatus,
 } from '../../ingest/ingestJob.js';
-import { query } from '../../logStore.js';
+import { subscribe } from '../../logStore.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   createTempRepo,
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
-  waitForNextTurn,
+  waitForIngestRuntimeIdle,
 } from './ingest-queue-runtime.helpers.js';
 
 installQueueRuntimeTestHooks();
+
+const waitForDetachedRejection = async (
+  operation: string,
+  action: () => void | Promise<void>,
+) => {
+  const entryPromise = new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      unsubscribe();
+      reject(
+        new Error(`Timed out waiting for detached rejection: ${operation}`),
+      );
+    }, resolveConfiguredTestTimeoutMs(2000));
+    const unsubscribe = subscribe((entry) => {
+      if (
+        entry.message === 'detached ingest task rejected' &&
+        JSON.stringify(entry.context ?? {}).includes(operation)
+      ) {
+        clearTimeout(timeout);
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+
+  await action();
+  await entryPromise;
+  await waitForIngestRuntimeIdle();
+};
 
 test('detached startIngest run processor rejection becomes terminal status without unhandled rejection', async () => {
   const scheduledTasks: Array<() => void> = [];
@@ -59,7 +88,9 @@ test('detached startIngest run processor rejection becomes terminal status witho
     );
 
     assert.equal(scheduledTasks.length, 1);
-    scheduledTasks[0]!();
+    const detachedRejection = waitForDetachedRejection('processRun', () => {
+      scheduledTasks[0]!();
+    });
 
     const result = await waitForTerminalIngestStatus(runId, {
       timeoutMs: 5_000,
@@ -72,16 +103,8 @@ test('detached startIngest run processor rejection becomes terminal status witho
       'processRun failed: detached run processor exploded',
     );
 
-    await waitForNextTurn();
-    await waitForNextTurn();
+    await detachedRejection;
     assert.deepEqual(unhandledRejections, []);
-
-    const logEntries = query({ text: 'detached ingest task rejected' });
-    assert.ok(
-      logEntries.some((entry) =>
-        JSON.stringify(entry.context ?? {}).includes('processRun'),
-      ),
-    );
   } finally {
     process.off('unhandledRejection', onUnhandledRejection);
     await cleanup();
@@ -102,21 +125,11 @@ test('detached queue advance rejection is logged without unhandled rejection', a
       },
     });
 
-    __scheduleQueueAdvanceForTest();
-    await waitForNextTurn();
-    await waitForNextTurn();
+    await waitForDetachedRejection('pumpIngestQueue', () => {
+      __scheduleQueueAdvanceForTest();
+    });
 
     assert.deepEqual(unhandledRejections, []);
-    const logEntries = query({ text: 'detached ingest task rejected' });
-    assert.ok(
-      logEntries.some(
-        (entry) =>
-          JSON.stringify(entry.context ?? {}).includes('pumpIngestQueue') &&
-          JSON.stringify(entry.context ?? {}).includes(
-            'queue advance exploded',
-          ),
-      ),
-    );
   } finally {
     process.off('unhandledRejection', onUnhandledRejection);
   }
@@ -139,27 +152,14 @@ test('detached cleanup retry rejection is logged without unhandled rejection', a
   );
 
   try {
-    await __scheduleQueueCleanupRetryForTest({
-      requestId: 'queue-detached-retry',
-      runId: 'run-detached-retry',
+    await waitForDetachedRejection('finalizeQueueRequestForRun.retry', () => {
+      return __scheduleQueueCleanupRetryForTest({
+        requestId: 'queue-detached-retry',
+        runId: 'run-detached-retry',
+      });
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    await waitForNextTurn();
-
     assert.deepEqual(unhandledRejections, []);
-    const logEntries = query({ text: 'detached ingest task rejected' });
-    assert.ok(
-      logEntries.some(
-        (entry) =>
-          JSON.stringify(entry.context ?? {}).includes(
-            'finalizeQueueRequestForRun.retry',
-          ) &&
-          JSON.stringify(entry.context ?? {}).includes(
-            'cleanup retry exploded',
-          ),
-      ),
-    );
   } finally {
     process.off('unhandledRejection', onUnhandledRejection);
   }

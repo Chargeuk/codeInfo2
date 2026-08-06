@@ -84,30 +84,38 @@ function mockAgentsFetch() {
 }
 
 describe('Agents page input isolation', () => {
-  it('does not rerender the transcript pane while typing when transcript data is unchanged', async () => {
-    mockAgentsFetch();
-    const user = userEvent.setup();
-    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+  it(
+    'does not rerender the transcript pane while typing when transcript data is unchanged',
+    async () => {
+      mockAgentsFetch();
+      const user = userEvent.setup();
+      const router = createMemoryRouter(routes, {
+        initialEntries: ['/agents'],
+      });
 
-    render(<RouterProvider router={router} />);
+      render(<RouterProvider router={router} />);
 
-    await screen.findByTestId('mock-agents-transcript-pane');
-    await screen.findByTestId('agent-input');
+      await screen.findByTestId('mock-agents-transcript-pane');
+      await screen.findByTestId('agent-input');
 
-    await waitFor(() => {
-      const registry = (
-        globalThis as unknown as {
-          __wsMock?: { last: () => { readyState: number } | null };
-        }
-      ).__wsMock;
-      expect(registry?.last()?.readyState).toBe(1);
-    });
+      await waitFor(() => {
+        const registry = (
+          globalThis as unknown as {
+            __wsMock?: { last: () => { readyState: number } | null };
+          }
+        ).__wsMock;
+        expect(registry?.last()?.readyState).toBe(1);
+      });
 
-    const renderCountBeforeTyping = transcriptRenderSpy.mock.calls.length;
-    const input = screen.getByTestId('agent-input');
-    await user.type(input, 'abc');
+      const renderCountBeforeTyping = transcriptRenderSpy.mock.calls.length;
+      const input = screen.getByTestId('agent-input');
+      await user.type(input, 'abc');
 
-    expect(input).toHaveValue('abc');
-    expect(transcriptRenderSpy).toHaveBeenCalledTimes(renderCountBeforeTyping);
-  }, resolveClientTestTimeoutMs(60000));
+      expect(input).toHaveValue('abc');
+      expect(transcriptRenderSpy).toHaveBeenCalledTimes(
+        renderCountBeforeTyping,
+      );
+    },
+    resolveClientTestTimeoutMs(60000),
+  );
 });

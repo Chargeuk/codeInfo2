@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
@@ -14,6 +13,7 @@ import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 import { getCodexDetection, setCodexDetection, } from '../../providers/codexRegistry.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { waitForHttpServerPort } from '../support/httpServer.js';
 async function withTempCodexHome(chatToml: string): Promise<{
     codexHome: string;
     cleanup: () => Promise<void>;
@@ -380,7 +380,7 @@ test('MCP JSON-RPC error shape remains stable for invalid params', async () => {
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson<JsonRpcErrorResponse>(port, {
             jsonrpc: '2.0',
@@ -426,7 +426,7 @@ test('MCP JSON-RPC returns a typed tool error when chat runtime config resolutio
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const response = await postJson<JsonRpcErrorResponse>(port, {
             jsonrpc: '2.0',

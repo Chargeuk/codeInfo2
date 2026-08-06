@@ -1006,7 +1006,7 @@ describe('Chat sidebar WS upserts (ChatPage)', () => {
 
     await screen.findByTestId('conversation-empty');
 
-    harness.emitSidebarUpsert({
+    await harness.emitSidebarUpsert({
       conversationId: 'agent-1',
       title: 'Agent conversation',
       provider: 'codex',

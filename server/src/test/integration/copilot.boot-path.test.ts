@@ -22,9 +22,9 @@ import {
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 const envSnapshot = new Map<string, string | undefined>();
@@ -248,10 +248,7 @@ test('named happy-path fake Copilot scenario boots the higher-level stack end to
     const ws = await connectWs({ baseUrl: server.baseUrl });
     try {
       const conversationId = 'task16-boot-happy-path';
-      sendJson(ws, {
-        type: 'subscribe_conversation',
-        conversationId,
-      });
+      await subscribeConversationAndWaitReady({ ws: ws, conversationId });
       const start = await request(server.httpServer).post('/chat').send({
         provider: 'copilot',
         model: 'copilot-gpt-5',

@@ -63,9 +63,9 @@ import {
 } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 
@@ -645,8 +645,8 @@ const waitForFlowFinal = async (params: {
   }
 };
 
-const subscribeConversation = (ws: WebSocket, conversationId: string) => {
-  sendJson(ws, { type: 'subscribe_conversation', conversationId });
+const subscribeConversation = async (ws: WebSocket, conversationId: string) => {
+  await subscribeConversationAndWaitReady({ ws: ws, conversationId });
 };
 
 const startSubscribedFlowRun = async (
@@ -654,7 +654,7 @@ const startSubscribedFlowRun = async (
   params: Parameters<typeof startFlowRun>[0],
 ) => {
   const conversationId = params.conversationId ?? randomUUID();
-  subscribeConversation(ws, conversationId);
+  await subscribeConversation(ws, conversationId);
   return await startFlowRun({ ...params, conversationId });
 };
 
@@ -943,7 +943,7 @@ test('later markdown-backed llm failures preserve AGENT_NOT_FOUND after flow sta
       },
     });
 
-    subscribeConversation(ws, conversationId);
+    await subscribeConversation(ws, conversationId);
 
     const response = await supertest(baseUrl)
       .post(`/flows/${flowName}/run`)
@@ -1026,7 +1026,7 @@ test('continueOnFailure lets a later llm step run after a terminal llm failure',
       ],
     });
 
-    subscribeConversation(ws, conversationId);
+    await subscribeConversation(ws, conversationId);
     await supertest(baseUrl)
       .post(`/flows/${flowName}/run`)
       .send({ conversationId })
@@ -1165,7 +1165,7 @@ test('dedicated flow reingest terminal error remains non-fatal to later steps', 
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -1207,7 +1207,7 @@ test('dedicated flow reingest terminal cancelled remains non-fatal to later step
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -1242,7 +1242,7 @@ test('accepted skipped outcomes stay on the public completed path for dedicated 
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -2311,13 +2311,12 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
       memoryConversations.set = originalSet;
     }
 
-    const retryResult = await startFlowRun({
+    const retryResult = await startSubscribedFlowRun(ws, {
       flowName: 'retry-ownership-persist-fails',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, retryResult.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: retryResult.conversationId,
@@ -2340,14 +2339,12 @@ test('in-flight retryOwnershipId dedupe returns the same fresh-run launch while 
       steps: [makeLlmStep()],
     });
 
-    const firstResult = await startFlowRun({
+    const firstResult = await startSubscribedFlowRun(ws, {
       flowName: 'retry-ownership-inflight-dedupe',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       chatFactory: () => new DelayedMinimalChat(100),
     });
-    subscribeConversation(ws, firstResult.conversationId);
-
     const secondResult = await startFlowRun({
       flowName: 'retry-ownership-inflight-dedupe',
       source: 'REST',
@@ -2377,13 +2374,12 @@ test('same-process completed retryOwnershipId replay reuses the earlier fresh-ru
       steps: [makeLlmStep()],
     });
 
-    const firstResult = await startFlowRun({
+    const firstResult = await startSubscribedFlowRun(ws, {
       flowName: 'retry-ownership-post-complete-replay',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, firstResult.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: firstResult.conversationId,
@@ -2490,13 +2486,12 @@ test('terminal retry completion write failures still release the lock and active
     }) as typeof memoryConversations.set;
 
     try {
-      const firstResult = await startFlowRun({
+      const firstResult = await startSubscribedFlowRun(ws, {
         flowName: 'retry-completion-persist-terminal-failure',
         source: 'REST',
         retryOwnershipId,
         chatFactory: () => new MinimalChat(),
       });
-      subscribeConversation(ws, firstResult.conversationId);
       await waitForFlowFinal({
         ws,
         conversationId: firstResult.conversationId,
@@ -2507,14 +2502,13 @@ test('terminal retry completion write failures still release the lock and active
 
       __resetFreshRunRetryOwnershipCompletionForTests();
       memoryConversations.set = originalSet;
-      const retryResult = await startFlowRun({
+      const retryResult = await startSubscribedFlowRun(ws, {
         flowName: 'retry-completion-persist-terminal-failure',
         source: 'REST',
         retryOwnershipId,
         chatFactory: () => new MinimalChat(),
       });
       assert.notEqual(retryResult.conversationId, firstResult.conversationId);
-      subscribeConversation(ws, retryResult.conversationId);
       await waitForFlowFinal({
         ws,
         conversationId: retryResult.conversationId,
@@ -2535,14 +2529,13 @@ test('completed retryOwnershipId replay rejects a contradictory fresh-run launch
     });
 
     const acceptedTitle = 'Accepted Replay Launch';
-    const firstResult = await startFlowRun({
+    const firstResult = await startSubscribedFlowRun(ws, {
       flowName: 'retry-ownership-contradiction',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       customTitle: acceptedTitle,
       chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, firstResult.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: firstResult.conversationId,
@@ -2577,7 +2570,7 @@ test('distinct retryOwnershipId values still launch a fresh run after the earlie
 
     const firstConversationId = 'retry-ownership-new-request-first';
     const secondConversationId = 'retry-ownership-new-request-second';
-    subscribeConversation(ws, firstConversationId);
+    await subscribeConversation(ws, firstConversationId);
     const firstResult = await startFlowRun({
       flowName: 'retry-ownership-new-request',
       conversationId: firstConversationId,
@@ -2593,7 +2586,7 @@ test('distinct retryOwnershipId values still launch a fresh run after the earlie
     });
     await waitForConversationUnlocked(firstResult.conversationId);
 
-    subscribeConversation(ws, secondConversationId);
+    await subscribeConversation(ws, secondConversationId);
     const secondResult = await startFlowRun({
       flowName: 'retry-ownership-new-request',
       conversationId: secondConversationId,
@@ -2650,7 +2643,7 @@ test('stop during the blocking wait keeps later flow steps from executing', asyn
         });
       },
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
 
     resolveRun({ ok: true, value: buildReingestSuccess() });
 
@@ -2696,7 +2689,7 @@ test('timeout terminal results stay structured as nested dedicated flow reingest
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -2735,7 +2728,7 @@ test('missing-run terminal results stay structured as nested dedicated flow rein
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -2773,7 +2766,7 @@ test('unknown terminal results stay structured as nested dedicated flow reingest
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -2978,7 +2971,7 @@ test('shared decision seam fails hard for missing script file', async () => {
       });
 
       const conversationId = randomUUID();
-      subscribeConversation(ws, conversationId);
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/missing-script-flow/run')
         .send({
@@ -3023,7 +3016,7 @@ test('shared decision seam rejects an untracked in-root script entrypoint', asyn
       });
 
       const conversationId = randomUUID();
-      subscribeConversation(ws, conversationId);
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/untracked-script-flow/run')
         .send({
@@ -3089,7 +3082,7 @@ test('shared decision seam rejects an in-root symlink to an untracked target', a
       });
 
       const conversationId = randomUUID();
-      subscribeConversation(ws, conversationId);
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/tracked-symlink-untracked-target-flow/run')
         .send({
@@ -3160,7 +3153,7 @@ test('shared decision seam rejects script symlinks that escape the worked reposi
         });
 
         const conversationId = randomUUID();
-        subscribeConversation(ws, conversationId);
+        await subscribeConversation(ws, conversationId);
         const result = await supertest(baseUrl)
           .post('/flows/symlink-escape-flow/run')
           .send({
@@ -3205,16 +3198,17 @@ test('shared decision seam fails hard for malformed JSON output', async () => {
         ],
       });
 
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/malformed-json-flow/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
         });
       assert.equal(result.status, 202);
-
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
+      assert.equal(result.body.conversationId, conversationId);
       const final = await waitForFlowFinal({
         ws,
         conversationId,
@@ -3247,16 +3241,17 @@ test('shared decision seam fails hard for non-zero exit code', async () => {
         ],
       });
 
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/nonzero-exit-flow/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
         });
       assert.equal(result.status, 202);
-
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
+      assert.equal(result.body.conversationId, conversationId);
       const final = await waitForFlowFinal({
         ws,
         conversationId,
@@ -3286,16 +3281,17 @@ test('shared decision seam fails hard for invalid answer values', async () => {
         ],
       });
 
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/invalid-answer-flow/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
         });
       assert.equal(result.status, 202);
-
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
+      assert.equal(result.body.conversationId, conversationId);
       const final = await waitForFlowFinal({
         ws,
         conversationId,
@@ -3325,16 +3321,17 @@ test('shared decision seam fails hard for extra-key script output', async () => 
         ],
       });
 
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/extra-keys-flow/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
         });
       assert.equal(result.status, 202);
-
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
+      assert.equal(result.body.conversationId, conversationId);
       const final = await waitForFlowFinal({
         ws,
         conversationId,
@@ -3367,16 +3364,17 @@ test('explicit decisionScript failure remains hard despite legacy break recovery
         ],
       });
 
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/timeout-flow/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
         });
       assert.equal(result.status, 202);
-
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
+      assert.equal(result.body.conversationId, conversationId);
       const final = await waitForFlowFinal({
         ws,
         conversationId,
@@ -3411,16 +3409,17 @@ test('implicit continue decisionScript failure remains hard', async () => {
         ],
       });
 
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/continue-timeout-flow/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
         });
       assert.equal(result.status, 202);
-
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
+      assert.equal(result.body.conversationId, conversationId);
       const final = await waitForFlowFinal({
         ws,
         conversationId,
@@ -3451,16 +3450,17 @@ test('script-backed if steps use the worked repository and remain terminal in Gi
         ],
       });
 
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/implicit-harness-decision-script/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
         });
       assert.equal(result.status, 202);
-
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
+      assert.equal(result.body.conversationId, conversationId);
       const final = await waitForFlowFinal({
         ws,
         conversationId,
@@ -3490,16 +3490,17 @@ test('shared decision seam fails hard when script output exceeds its limit', asy
         ],
       });
 
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
       const result = await supertest(baseUrl)
         .post('/flows/output-limit-flow/run')
         .send({
+          conversationId,
           source: 'REST',
           working_folder: tmpDir,
         });
       assert.equal(result.status, 202);
-
-      const conversationId = result.body.conversationId;
-      subscribeConversation(ws, conversationId);
+      assert.equal(result.body.conversationId, conversationId);
       const final = await waitForFlowFinal({
         ws,
         conversationId,
@@ -3583,6 +3584,7 @@ test('wait wake does not resume after the flow has already reached a terminal st
       const conversationId = 'wait-terminal-guard-conversation';
       const captured: string[] = [];
       let wake: (() => void) | null = null;
+      let waitCancelled = false;
 
       class TrackingChat extends ChatInterface {
         async execute(
@@ -3609,7 +3611,11 @@ test('wait wake does not resume after the flow has already reached a terminal st
       __setFlowWaitResumeDepsForTests({
         scheduleWake: ({ onWake }) => {
           wake = onWake;
-          return { cancel: () => {} };
+          return {
+            cancel: () => {
+              waitCancelled = true;
+            },
+          };
         },
       });
 
@@ -3640,7 +3646,7 @@ test('wait wake does not resume after the flow has already reached a terminal st
 
       assert.ok(wake, 'expected wait wake callback to be captured');
       (wake as () => void)();
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await waitFor(() => waitCancelled);
       assert.equal(
         captured.length,
         1,

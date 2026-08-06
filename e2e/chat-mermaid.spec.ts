@@ -1,6 +1,7 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
@@ -110,13 +111,13 @@ test('renders mermaid diagrams safely for assistant and user bubbles', async ({
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    mockWs.sendAssistantDelta({
+    await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    await mockWs.sendAssistantDelta({
       conversationId,
       inflightId,
       delta: mermaidMessage,
     });
-    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
 
   await page.goto(`${baseUrl}/chat`);
@@ -129,8 +130,12 @@ test('renders mermaid diagrams safely for assistant and user bubbles', async ({
 
   const assistantBubble = page.getByTestId('assistant-markdown').first();
   const userBubble = page.getByTestId('user-markdown').first();
-  await expect(userBubble.locator('svg')).toBeVisible({ timeout: 20000 });
-  await expect(assistantBubble.locator('svg')).toBeVisible({ timeout: 20000 });
+  await expect(userBubble.locator('svg')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
+  await expect(assistantBubble.locator('svg')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await expect(userBubble.locator('script')).toHaveCount(0);
   await expect(assistantBubble.locator('script')).toHaveCount(0);
 
@@ -205,13 +210,13 @@ test('shows safe fallback for malformed user mermaid input', async ({
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    mockWs.sendAssistantDelta({
+    await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    await mockWs.sendAssistantDelta({
       conversationId,
       inflightId,
       delta: 'Received malformed mermaid.',
     });
-    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
 
   await page.goto(`${baseUrl}/chat`);
@@ -223,6 +228,6 @@ test('shows safe fallback for malformed user mermaid input', async ({
 
   const userBubble = page.getByTestId('user-markdown').first();
   await expect(userBubble).toContainText('Diagram failed to render', {
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
 });

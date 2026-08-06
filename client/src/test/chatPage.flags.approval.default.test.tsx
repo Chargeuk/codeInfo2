@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -124,27 +125,33 @@ function mockCodexReady() {
 }
 
 describe('Codex approval policy flag defaults', () => {
-  it('shows approval policy select defaulting to on-request after compatibility normalization', async () => {
-    mockCodexReady();
+  it(
+    'shows approval policy select defaulting to on-request after compatibility normalization',
+    async () => {
+      mockCodexReady();
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await waitForInteractiveCombobox(providerSelect);
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      const codexOption = await screen.findByRole('option', {
+        name: /openai codex/i,
+      });
+      await userEvent.click(codexOption);
 
-    await ensureAgentFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
-    const approvalSelect = await screen.findByTestId('approval-policy-select');
-    await waitFor(() =>
-      expect(approvalSelect).toHaveTextContent(/on request/i),
-    );
-  }, 30_000);
+      const approvalSelect = await screen.findByTestId(
+        'approval-policy-select',
+      );
+      await waitFor(() =>
+        expect(approvalSelect).toHaveTextContent(/on request/i),
+      );
+    },
+    resolveClientTestTimeoutMs(30_000),
+  );
 });

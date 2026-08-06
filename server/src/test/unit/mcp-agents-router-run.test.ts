@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import { releaseConversationLock, tryAcquireConversationLock, } from '../../agents/runLock.js';
 import { handleAgentsRpc } from '../../mcpAgents/router.js';
 import { resetToolDeps, setToolDeps } from '../../mcpAgents/tools.js';
+import { closeHttpServer, waitForHttpServerPort } from '../support/httpServer.js';
 async function postJson(port: number, body: unknown) {
     const response = await fetch(`http://127.0.0.1:${port}`, {
         method: 'POST',
@@ -24,7 +24,7 @@ async function postRaw(port: number, body: unknown) {
 test('tools/list does not emit keepalive preamble bytes', async () => {
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const raw = await postRaw(port, {
             jsonrpc: '2.0',
@@ -40,13 +40,13 @@ test('tools/list does not emit keepalive preamble bytes', async () => {
         assert.equal(Array.isArray(body.result.tools), true);
     }
     finally {
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call emits keepalive preamble before JSON payload', async () => {
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const raw = await postRaw(port, {
             jsonrpc: '2.0',
@@ -63,7 +63,7 @@ test('tools/call emits keepalive preamble before JSON payload', async () => {
         assert.ok(body.result.content);
     }
     finally {
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call run_agent_instruction returns JSON text content with answer-only segments', async () => {
@@ -90,7 +90,7 @@ test('tools/call run_agent_instruction returns JSON text content with answer-onl
     });
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',
@@ -127,7 +127,7 @@ test('tools/call run_agent_instruction returns JSON text content with answer-onl
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
         resetToolDeps();
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call run_agent_instruction keeps launch warnings in the MCP payload', async () => {
@@ -148,7 +148,7 @@ test('tools/call run_agent_instruction keeps launch warnings in the MCP payload'
     });
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',
@@ -173,7 +173,7 @@ test('tools/call run_agent_instruction keeps launch warnings in the MCP payload'
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
         resetToolDeps();
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call run_agent_instruction returns stable JSON-RPC error for RUN_IN_PROGRESS', async () => {
@@ -182,7 +182,7 @@ test('tools/call run_agent_instruction returns stable JSON-RPC error for RUN_IN_
     assert.equal(tryAcquireConversationLock('c1'), true);
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',
@@ -205,7 +205,7 @@ test('tools/call run_agent_instruction returns stable JSON-RPC error for RUN_IN_
     finally {
         releaseConversationLock('c1');
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call run_agent_instruction aborts tool call on disconnect (AbortSignal propagation)', async () => {
@@ -245,7 +245,7 @@ test('tools/call run_agent_instruction aborts tool call on disconnect (AbortSign
     });
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const url = `http://127.0.0.1:${port}`;
         const controller = new AbortController();
@@ -273,7 +273,7 @@ test('tools/call run_agent_instruction aborts tool call on disconnect (AbortSign
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
         resetToolDeps();
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call run_command aborts tool call on disconnect (AbortSignal propagation)', async () => {
@@ -313,7 +313,7 @@ test('tools/call run_command aborts tool call on disconnect (AbortSignal propaga
     });
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const url = `http://127.0.0.1:${port}`;
         const controller = new AbortController();
@@ -344,7 +344,7 @@ test('tools/call run_command aborts tool call on disconnect (AbortSignal propaga
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
         resetToolDeps();
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call run_command maps unknown sourceId to InvalidParams error', async () => {
@@ -357,7 +357,7 @@ test('tools/call run_command maps unknown sourceId to InvalidParams error', asyn
     });
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',
@@ -379,7 +379,7 @@ test('tools/call run_command maps unknown sourceId to InvalidParams error', asyn
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
         resetToolDeps();
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call run_command runs local commands when sourceId is omitted', async () => {
@@ -402,7 +402,7 @@ test('tools/call run_command runs local commands when sourceId is omitted', asyn
     });
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',
@@ -428,7 +428,7 @@ test('tools/call run_command runs local commands when sourceId is omitted', asyn
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
         resetToolDeps();
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call run_command maps missing ingested command file to InvalidParams error', async () => {
@@ -441,7 +441,7 @@ test('tools/call run_command maps missing ingested command file to InvalidParams
     });
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',
@@ -463,7 +463,7 @@ test('tools/call run_command maps missing ingested command file to InvalidParams
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
         resetToolDeps();
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call run_command forwards sourceId when provided', async () => {
@@ -486,7 +486,7 @@ test('tools/call run_command forwards sourceId when provided', async () => {
     });
     const server = http.createServer(handleAgentsRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',
@@ -511,6 +511,6 @@ test('tools/call run_command forwards sourceId when provided', async () => {
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
         resetToolDeps();
-        server.close();
+        await closeHttpServer(server);
     }
 });

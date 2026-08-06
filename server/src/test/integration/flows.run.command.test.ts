@@ -54,6 +54,7 @@ import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
   sendJson,
@@ -1054,7 +1055,7 @@ test('command steps execute agent command items', async () => {
 
   await withFlowServer(async ({ baseUrl, wsUrl }) => {
     const conversationId = 'flow-command-conv-1';
-    sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
     await supertest(baseUrl)
       .post('/flows/command-step/run')
@@ -1261,7 +1262,7 @@ test('flow-owned commands execute one markdown-backed message item', async () =>
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-single-markdown/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -1333,7 +1334,7 @@ test('flow-owned commands preserve order across multiple markdown-backed message
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-multi-markdown/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -1396,7 +1397,7 @@ test('flow-owned commands keep inline content behavior when mixed with markdown-
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-mixed-items/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -1467,7 +1468,7 @@ test('flow-owned commands use the parent flow repository before markdown fallbac
           buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
         );
 
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
           .post('/flows/repo-command-same-source-markdown/run')
           .send({ conversationId, sourceId: sourceRoot })
@@ -1543,7 +1544,7 @@ test('flow-owned commands fall back through markdown repositories after a same-s
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-markdown-fallback/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -1621,7 +1622,7 @@ test('local codeinfo2 flows resolve commands from the selected working repositor
           buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
         );
 
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
           .post('/flows/task2-local-flow-working-repo-first/run')
           .send({
@@ -1732,7 +1733,7 @@ test('cross-repo flow-owned commands execute from codeinfo_agents before codex_a
         buildRepoEntry({ containerPath: sourceRoot, id: 'Owner Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/task2-codeinfo-agents-precedence/run')
         .send({
@@ -1803,7 +1804,7 @@ test('cross-repo flows resolve commands from the selected working repository bef
         buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/task2-cross-repo-working-repo-first/run')
         .send({
@@ -1877,7 +1878,7 @@ test('command resolution skips the working slot cleanly when no working reposito
         buildRepoEntry({ containerPath: otherRoot, id: 'Other Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/task2-missing-working-repo/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -1931,7 +1932,7 @@ test('command resolution dedupes duplicate working and owner repositories', asyn
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/task2-dedupe-working-owner/run')
         .send({
@@ -1996,7 +1997,7 @@ test('command resolution dedupes duplicate working and local codeinfo2 repositor
           path.join(tmpDir, 'task2-dedupe-working-codeinfo2.json'),
           JSON.stringify(makeFlowCommand({ commandName })),
         );
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
           .post('/flows/task2-dedupe-working-codeinfo2/run')
           .send({
@@ -2067,7 +2068,7 @@ test('flow-owned command turns persist lookupSummary runtime metadata', async ()
         buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/task2-runtime-lookup-summary/run')
         .send({
@@ -2156,7 +2157,7 @@ test('flow-owned commands fail fast when a higher-priority markdown file is unre
           buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
         );
 
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
           .post('/flows/repo-command-markdown-unreadable/run')
           .send({ conversationId, sourceId: sourceRoot })
@@ -2233,8 +2234,8 @@ test('flow-owned command message execution matches the direct-command path for t
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, {
-        type: 'subscribe_conversation',
+      await subscribeConversationAndWaitReady({
+        ws: wsUrl,
         conversationId: flowConversationId,
       });
       await supertest(baseUrl)
@@ -2315,8 +2316,8 @@ test('flow command-step retries and direct-command retries remain unchanged afte
           buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
         );
 
-        sendJson(wsUrl, {
-          type: 'subscribe_conversation',
+        await subscribeConversationAndWaitReady({
+          ws: wsUrl,
           conversationId: flowConversationId,
         });
         await supertest(baseUrl)
@@ -2375,7 +2376,7 @@ test('flow-owned commands can execute reingest items', async () => {
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-reingest-basic/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -2447,7 +2448,7 @@ test('top-level flow target working reuses the selected repository path and pres
         buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-flow-working/run')
         .send({
@@ -2546,7 +2547,7 @@ test('top-level flow target working propagates wait-time queue-read outage as re
         buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-flow-working-wait-outage/run')
         .send({
@@ -2613,7 +2614,7 @@ test('top-level flow target working receives the structured OPENAI_MODEL_UNAVAIL
         buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-flow-working-openai-outage/run')
         .send({
@@ -2726,7 +2727,7 @@ test('top-level flow target plan_scope keeps working-first and handoff order', a
           ),
         );
 
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
           .post('/flows/repo-flow-plan-scope/run')
           .send({
@@ -2843,7 +2844,7 @@ test('flow-owned command target working reuses the selected working repository p
         buildRepoEntry({ containerPath: workingRoot, id: 'Working Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-working/run')
         .send({
@@ -2921,7 +2922,7 @@ test('top-level flow target working fails fast when there is no owning repositor
         }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/flow-working-missing-owner/run')
         .send({ conversationId })
@@ -3024,7 +3025,7 @@ test('flow-owned command target plan_scope preserves degraded-startup diagnostic
           }),
         );
 
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         const toolEventPromise = waitForFlowToolEvent({
           ws: wsUrl,
           conversationId,
@@ -3228,7 +3229,7 @@ test('flow-owned command reingest results publish live tool_event updates', asyn
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-reingest-live/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -3291,7 +3292,7 @@ test('flow-owned command reingest results persist through assistant toolCalls st
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-reingest-persisted/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -3378,7 +3379,7 @@ test('repeated flow-owned command reingest items keep distinct callIds', async (
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-reingest-double/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -3462,7 +3463,7 @@ test('flow-owned commands preserve ordering across reingest, markdown, and inlin
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-reingest-mixed/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -3546,7 +3547,7 @@ test('cancellation during flow-owned command reingest stops later items and late
         buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
       );
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post(`/flows/${flowName}/run`)
         .send({ conversationId, sourceId: sourceRoot })
@@ -3649,7 +3650,7 @@ test('flow-owned command message retries remain intact after adding reingest sup
           buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
         );
 
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
           .post('/flows/repo-command-retry-task11/run')
           .send({ conversationId, sourceId: sourceRoot })
@@ -3706,7 +3707,7 @@ test('flow-owned command reingest items stay single-attempt while later message 
           buildRepoEntry({ containerPath: sourceRoot, id: 'Source Repo' }),
         );
 
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
           .post('/flows/repo-command-reingest-retry/run')
           .send({ conversationId, sourceId: sourceRoot })
@@ -3787,7 +3788,7 @@ test('RED: repository flow should resolve same-source command before fallback or
       );
 
       const conversationId = 'flow-command-source-order-red';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/repo-command/run')
@@ -3847,7 +3848,7 @@ test('same-source missing command falls back to codeInfo2 repository', async () 
         );
 
         const conversationId = 'flow-command-codeinfo2-fallback';
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
         await supertest(baseUrl)
           .post('/flows/repo-command-codeinfo2/run')
@@ -3926,7 +3927,7 @@ test('other repositories preserve caller-supplied order instead of sorting by la
       );
 
       const conversationId = 'flow-command-other-order';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/repo-command-other-order/run')
@@ -4119,7 +4120,7 @@ test('other-repo ordering preserves caller order even when sourceLabel has white
       );
 
       const conversationId = 'flow-command-trim-order';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-trim-label/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -4177,7 +4178,7 @@ test('other-repo ordering preserves caller order when sourceLabel falls back to 
       );
 
       const conversationId = 'flow-command-basename-order';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-basename-label/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -4238,7 +4239,7 @@ test('other-repo ordering preserves caller order when labels only differ by case
       );
 
       const conversationId = 'flow-command-path-tie-order';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/repo-command-path-tie/run')
         .send({ conversationId, sourceId: sourceRoot })
@@ -4295,78 +4296,111 @@ test('invalid command steps return 400 invalid_request', async () => {
 
 test('command-load failures are retried and then fail deterministically', async () => {
   const commandName = 'task5_retry_temp_command';
+  let signalPrepStarted!: () => void;
+  let releasePrep!: () => void;
+  const prepStarted = new Promise<void>((resolve) => {
+    signalPrepStarted = resolve;
+  });
+  const prepRelease = new Promise<void>((resolve) => {
+    releasePrep = resolve;
+  });
+
+  class GatedPrepChat extends ChatInterface {
+    async execute(
+      _message: string,
+      _flags: Record<string, unknown>,
+      conversationId: string,
+      _model: string,
+    ) {
+      void _message;
+      void _flags;
+      void _model;
+      signalPrepStarted();
+      await prepRelease;
+      this.emit('thread', { type: 'thread', threadId: conversationId });
+      this.emit('final', { type: 'final', content: 'prep' });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+    }
+  }
+
   await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '2' }, async () => {
-    await withFlowServer(async ({ baseUrl, wsUrl, tmpDir, agentHome }) => {
-      const commandPath = path.join(
-        agentHome,
-        'planning_agent',
-        'commands',
-        `${commandName}.json`,
-      );
-      await fs.writeFile(
-        commandPath,
-        JSON.stringify({
-          Description: 'Temporary command for Task 5 retry test',
-          items: [
-            { type: 'message', role: 'user', content: ['temporary step'] },
+    await withFlowServer(
+      async ({ baseUrl, wsUrl, tmpDir, agentHome }) => {
+        const commandPath = path.join(
+          agentHome,
+          'planning_agent',
+          'commands',
+          `${commandName}.json`,
+        );
+        await fs.writeFile(
+          commandPath,
+          JSON.stringify({
+            Description: 'Temporary command for Task 5 retry test',
+            items: [
+              { type: 'message', role: 'user', content: ['temporary step'] },
+            ],
+          }),
+        );
+        const conversationId = 'flow-command-missing-retry-conv';
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+
+        const retryFlow = {
+          description: 'Retry missing command',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'prep',
+              messages: [{ role: 'user', content: ['__delay:300::prep'] }],
+            },
+            {
+              type: 'command',
+              agentType: 'planning_agent',
+              identifier: 'missing-command',
+              commandName,
+            },
           ],
-        }),
-      );
-      const conversationId = 'flow-command-missing-retry-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        };
+        await fs.writeFile(
+          path.join(tmpDir, 'command-missing-retry.json'),
+          JSON.stringify(retryFlow, null, 2),
+        );
 
-      const retryFlow = {
-        description: 'Retry missing command',
-        steps: [
-          {
-            type: 'llm',
-            agentType: 'planning_agent',
-            identifier: 'prep',
-            messages: [{ role: 'user', content: ['__delay:300::prep'] }],
-          },
-          {
-            type: 'command',
-            agentType: 'planning_agent',
-            identifier: 'missing-command',
-            commandName,
-          },
-        ],
-      };
-      await fs.writeFile(
-        path.join(tmpDir, 'command-missing-retry.json'),
-        JSON.stringify(retryFlow, null, 2),
-      );
+        await supertest(baseUrl)
+          .post('/flows/command-missing-retry/run')
+          .send({ conversationId })
+          .expect(202);
+        await prepStarted;
+        await fs.rm(commandPath, { force: true });
+        releasePrep();
 
-      await supertest(baseUrl)
-        .post('/flows/command-missing-retry/run')
-        .send({ conversationId })
-        .expect(202);
-      await delay(50);
-      await fs.rm(commandPath, { force: true });
+        const final = await waitForFlowFinal({
+          ws: wsUrl,
+          conversationId,
+          status: 'failed',
+          timeoutMs: 10000,
+          describe: () => describeCommandRetryDiagnosticState(conversationId),
+        });
 
-      const final = await waitForFlowFinal({
-        ws: wsUrl,
-        conversationId,
-        status: 'failed',
-        timeoutMs: 10000,
-        describe: () => describeCommandRetryDiagnosticState(conversationId),
-      });
+        assert.equal(final.status, 'failed');
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.filter((turn) => turn.role === 'assistant').length >= 1,
+          6000,
+          () => describeCommandRetryDiagnosticState(conversationId),
+        );
+        const assistantTurns = turns.filter(
+          (turn) => turn.role === 'assistant',
+        );
+        assert.equal(assistantTurns.length, 2);
 
-      assert.equal(final.status, 'failed');
-      const turns = await waitForTurns(
-        conversationId,
-        (items) =>
-          items.filter((turn) => turn.role === 'assistant').length >= 1,
-        6000,
-        () => describeCommandRetryDiagnosticState(conversationId),
-      );
-      const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
-      assert.equal(assistantTurns.length, 2);
-
-      memoryConversations.delete(conversationId);
-      memoryTurns.delete(conversationId);
-      await fs.rm(commandPath, { force: true });
-    });
+        memoryConversations.delete(conversationId);
+        memoryTurns.delete(conversationId);
+        await fs.rm(commandPath, { force: true });
+      },
+      { chatFactory: () => new GatedPrepChat() },
+    );
   });
 });
 
@@ -4401,7 +4435,7 @@ test('recordReviewUsage writes only opted-in LLM usage categories', async () => 
           ],
         }),
       );
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await startFlowRun({
         flowName,
@@ -4537,7 +4571,7 @@ test('conversation-only stop prevents nested command handoff from starting', asy
         ],
       }),
     );
-    sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
     const startedPromise = startFlowRun({
       flowName,
@@ -4582,7 +4616,7 @@ test('conversation-only stop prevents nested command handoff from starting', asy
 test('no stale flow continuation resumes after confirmed stop', async () => {
   await withFlowServer(async ({ wsUrl }) => {
     const conversationId = 'flow-command-stop-no-resume';
-    sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
     const events: Array<{ type?: string; conversationId?: string }> = [];
     wsUrl.on('message', (raw) => {
@@ -4651,7 +4685,7 @@ test('stop-near-complete flow aligns final status with persisted turns and emits
   await withFlowServer(async ({ wsUrl }) => {
     wsRef = wsUrl;
     const conversationId = 'flow-command-stop-near-complete';
-    sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
     const startedPromise = startFlowRun({
       flowName: 'command-step',

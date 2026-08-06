@@ -61,6 +61,7 @@ import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
   peekBufferedEvents,
@@ -70,6 +71,13 @@ import {
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const waitForAbort = async (signal?: AbortSignal) => {
+  assert.ok(signal, 'expected flow run AbortSignal');
+  if (signal.aborted) return;
+  await new Promise<void>((resolve) => {
+    signal.addEventListener('abort', () => resolve(), { once: true });
+  });
+};
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
@@ -160,8 +168,9 @@ const closeFlowHarness = async (params: {
     );
   } catch {
     try {
+      const forcedClose = waitForClose(params.ws, 500);
       params.ws.terminate();
-      await waitForClose(params.ws, 500);
+      await forcedClose;
     } catch {
       // Ignore forced-close failures and continue draining the server.
     }
@@ -216,6 +225,11 @@ class ScriptedChat extends ChatInterface {
     this.options.onExecute?.({ message, flags, conversationId });
     this.emit('thread', { type: 'thread', threadId: conversationId });
     const rawResponse = this.responder(message);
+    if (rawResponse === '__wait_for_abort__') {
+      await waitForAbort(signal);
+      this.emit('error', { type: 'error', message: 'aborted' });
+      return;
+    }
     const delayedMatch = rawResponse.match(/^__delay:(\d+)::([\s\S]*)$/);
     if (delayedMatch) {
       try {
@@ -828,6 +842,12 @@ const waitForLoopTerminalOutcome = async (params: {
     2000,
     Math.min(5000, params.timeoutMs ?? 4000),
   );
+  const alreadyPersisted = getPersistedLoopTerminalOutcome(
+    params.conversationId,
+  );
+  if (alreadyPersisted && expectedStatuses.includes(alreadyPersisted.status)) {
+    return alreadyPersisted;
+  }
   try {
     const final = await waitForEvent({
       ws: params.ws,
@@ -1039,7 +1059,7 @@ test('flow loops until break answer matches breakOn', async () => {
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-1';
       const customTitle = 'Loop Custom Title';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
@@ -1179,42 +1199,36 @@ test('github review complete corpus scratch replacement stays authoritative befo
     );
     const reviewCount = 205;
     const commentCount = 205;
-    const reviews = Array.from(
-      { length: reviewCount },
-      (_, index) => ({
-        id: 3000 + index + 1,
-        user: { login: `reviewer-${String(index + 1)}` },
-        body:
-          index === 0
-            ? 'Fresh complete review entry one.'
-            : index === reviewCount - 1
-              ? 'Fresh complete review entry final.'
-              : `Fresh complete review entry ${String(index + 1)}.`,
-        state: 'COMMENTED',
-        submitted_at: new Date(
-          Date.UTC(2026, 5, 24, 10, 0, index + 1),
-        ).toISOString(),
-      }),
-    );
-    const reviewComments = Array.from(
-      { length: commentCount },
-      (_, index) => ({
-        id: 4000 + index + 1,
-        pull_request_review_id: 3000 + index + 1,
-        user: { login: `inline-reviewer-${String(index + 1)}` },
-        body:
-          index === 0
-            ? 'Fresh complete inline entry one.'
-            : index === commentCount - 1
-              ? 'Fresh complete inline entry final.'
-              : `Fresh complete inline entry ${String(index + 1)}.`,
-        path: 'server/src/flows/githubReview.ts',
-        line: index + 1,
-        created_at: new Date(
-          Date.UTC(2026, 5, 24, 11, 0, index + 1),
-        ).toISOString(),
-      }),
-    );
+    const reviews = Array.from({ length: reviewCount }, (_, index) => ({
+      id: 3000 + index + 1,
+      user: { login: `reviewer-${String(index + 1)}` },
+      body:
+        index === 0
+          ? 'Fresh complete review entry one.'
+          : index === reviewCount - 1
+            ? 'Fresh complete review entry final.'
+            : `Fresh complete review entry ${String(index + 1)}.`,
+      state: 'COMMENTED',
+      submitted_at: new Date(
+        Date.UTC(2026, 5, 24, 10, 0, index + 1),
+      ).toISOString(),
+    }));
+    const reviewComments = Array.from({ length: commentCount }, (_, index) => ({
+      id: 4000 + index + 1,
+      pull_request_review_id: 3000 + index + 1,
+      user: { login: `inline-reviewer-${String(index + 1)}` },
+      body:
+        index === 0
+          ? 'Fresh complete inline entry one.'
+          : index === commentCount - 1
+            ? 'Fresh complete inline entry final.'
+            : `Fresh complete inline entry ${String(index + 1)}.`,
+      path: 'server/src/flows/githubReview.ts',
+      line: index + 1,
+      created_at: new Date(
+        Date.UTC(2026, 5, 24, 11, 0, index + 1),
+      ).toISOString(),
+    }));
     await fs.writeFile(
       rawArtifactPath,
       JSON.stringify(
@@ -1262,14 +1276,8 @@ test('github review complete corpus scratch replacement stays authoritative befo
       ),
       'utf8',
     );
-    assert.equal(
-      updatedHandoff.filtered_review_count,
-      reviewCount,
-    );
-    assert.equal(
-      updatedHandoff.filtered_review_comment_count,
-      commentCount,
-    );
+    assert.equal(updatedHandoff.filtered_review_count, reviewCount);
+    assert.equal(updatedHandoff.filtered_review_comment_count, commentCount);
     assert.match(
       updatedHandoff.external_review_input_file ?? '',
       /0000060-github-review-exec-1-external-review-input\.md$/,
@@ -1434,7 +1442,7 @@ test('github review runtime keeps clean-cycle reachable before untaken findings 
         assert.equal(result.status, 202);
 
         const conversationId = result.body.conversationId;
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         const turns = await waitForTurns(
           conversationId,
           (items) =>
@@ -1533,7 +1541,7 @@ test('github review runtime keeps findings-present reachable before untaken clea
         assert.equal(result.status, 202);
 
         const conversationId = result.body.conversationId;
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         const turns = await waitForTurns(
           conversationId,
           (items) =>
@@ -1638,7 +1646,7 @@ test('github review runtime resumes through repaired wait and review handoff sta
         assert.equal(result.status, 202);
 
         const conversationId = result.body.conversationId;
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await waitForPredicate(
           () => {
             const flowState = (memoryConversations.get(conversationId)?.flags ??
@@ -1777,7 +1785,7 @@ test('github review runtime re-derives canonical execution-scoped handoff author
         assert.equal(result.status, 202);
 
         const conversationId = result.body.conversationId;
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await waitForPredicate(
           () => {
             const flowState = (memoryConversations.get(conversationId)?.flags ??
@@ -2044,7 +2052,7 @@ test('github review runtime keeps the newer execution selector authoritative aft
       },
       async ({ baseUrl, wsUrl, tmpDir }) => {
         const conversationId = 'github-review-runtime-conv';
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
         await fs.writeFile(
           path.join(tmpDir, 'github-review-runtime.json'),
@@ -2135,7 +2143,7 @@ test('github review runtime keeps the newer execution selector authoritative aft
           | undefined;
         let externalInput = '';
         const started = Date.now();
-        while (Date.now() - started < 4000) {
+        while (Date.now() - started < resolveConfiguredTestTimeoutMs(4000)) {
           try {
             const parsed = await readGitHubReviewScratch({
               handoffPath: selectorPath,
@@ -2271,7 +2279,7 @@ test('github review runtime records producer-side token loader failures as skip 
       () => 'ok',
       async ({ baseUrl, wsUrl, tmpDir }) => {
         const conversationId = 'github-review-runtime-token-loader-failure';
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
         await fs.writeFile(
           path.join(tmpDir, 'github-review-runtime-token-loader-failure.json'),
@@ -2516,7 +2524,7 @@ test('github review resume keeps execution-scoped fetch and close authority even
       () => 'ok',
       async ({ baseUrl, wsUrl, tmpDir }) => {
         const conversationId = 'github-review-resume-authority-conv';
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
         memoryConversations.set(conversationId, {
           _id: conversationId,
@@ -2594,7 +2602,7 @@ test('github review resume keeps execution-scoped fetch and close authority even
           .expect(202);
 
         const started = Date.now();
-        while (Date.now() - started < 4000) {
+        while (Date.now() - started < resolveConfiguredTestTimeoutMs(4000)) {
           const currentHandoff = await readGitHubReviewScratch({
             handoffPath: oldHandoffPath,
             expectedExecutionId: 'exec-old',
@@ -2804,7 +2812,7 @@ test('github review fetch failure rejects a persisted and resumed PR identity mi
       () => 'ok',
       async ({ baseUrl, wsUrl, tmpDir }) => {
         const conversationId = 'github-review-resume-mismatch-conv';
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
         memoryConversations.set(conversationId, {
           _id: conversationId,
@@ -2902,7 +2910,7 @@ test('github review fetch failure rejects a persisted and resumed PR identity mi
           ).length,
           1,
         );
-        await delay(50);
+        await waitForRuntimeCleanup(conversationId);
         const retryWait = (
           (memoryConversations.get(conversationId)?.flags ?? {}) as {
             flow?: { wait?: { kind?: string; stepPath?: number[] } };
@@ -3062,7 +3070,7 @@ test('github review resume verifies the exact resumed PR when the execution-scop
       () => 'ok',
       async ({ baseUrl, wsUrl, tmpDir }) => {
         const conversationId = 'github-review-resume-missing-handoff-conv';
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
         memoryConversations.set(conversationId, {
           _id: conversationId,
@@ -3162,7 +3170,7 @@ test('github review resume verifies the exact resumed PR when the execution-scop
         );
 
         const started = Date.now();
-        while (Date.now() - started < 4000) {
+        while (Date.now() - started < resolveConfiguredTestTimeoutMs(4000)) {
           const currentHandoff = await readGitHubReviewScratch({
             handoffPath,
             expectedExecutionId: 'exec-missing',
@@ -3224,7 +3232,7 @@ test('continue step skips remaining iteration steps and starts the next iteratio
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-continue-conv-1';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
@@ -3381,7 +3389,7 @@ test('continue resume starts the next iteration instead of replaying skipped ste
         updatedAt: new Date(),
       });
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
@@ -3557,7 +3565,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         updatedAt: new Date(),
       });
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       const firstRun = await supertest(baseUrl)
         .post('/flows/loop-continue/run')
@@ -3804,7 +3812,7 @@ test('continue step fails on invalid JSON response', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-continue-invalid-json';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
@@ -3849,7 +3857,7 @@ test('continue step recovers from wrapper output containing json fence', async (
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-continue-wrapper-json';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
@@ -3924,7 +3932,7 @@ test('continue step fails with INVALID_CONTINUE_RESPONSE when wrappers contain n
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-continue-wrapper-invalid';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
@@ -3969,7 +3977,7 @@ test('continue step fails on invalid answer value', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-continue-invalid-answer';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
@@ -4010,7 +4018,7 @@ test('break step fails on invalid JSON response', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-invalid-json';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
@@ -4048,7 +4056,7 @@ test('break step recovers from wrapper output containing json fence', async () =
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-wrapper-json';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
@@ -4081,7 +4089,7 @@ test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no vali
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-wrapper-invalid';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
@@ -4119,7 +4127,7 @@ test('break step fails on invalid answer value', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-invalid-answer';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
@@ -4144,7 +4152,7 @@ test('flow step persists per-agent transcript', async () => {
     () => 'Flow agent response',
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-agent-single-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/llm-basic/run')
@@ -4189,7 +4197,7 @@ test('flow agent transcripts stay isolated by agent', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-agent-multi-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/multi-agent/run')
@@ -4252,7 +4260,7 @@ test('flow conversation remains merged with command metadata', async () => {
     (message) => `${message} response`,
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-agent-merged-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/multi-agent/run')
@@ -4296,7 +4304,7 @@ test('failed flow step persists to agent conversation', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-agent-failed-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
@@ -4350,7 +4358,7 @@ test('flow step retries transient failures and eventually succeeds', async () =>
       },
       async ({ baseUrl, wsUrl }) => {
         const conversationId = 'flow-loop-retry-success';
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
           .post('/flows/loop-break/run')
           .send({ conversationId })
@@ -4401,7 +4409,7 @@ test('flow step retries to exhaustion and emits one terminal failure', async () 
       },
       async ({ baseUrl, wsUrl }) => {
         const conversationId = 'flow-loop-retry-exhausted';
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
           .post('/flows/loop-break/run')
           .send({ conversationId })
@@ -4577,7 +4585,7 @@ test('aborted flow step is not retried', async () => {
         return 'ok';
       },
       async ({ baseUrl, wsUrl }) => {
-        sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         try {
           const response = await supertest(baseUrl)
             .post('/flows/llm-basic/run')
@@ -4684,13 +4692,13 @@ test('startup-race conversation-only stop still terminalizes a flow as stopped',
   await withFlowServer(
     (message) => {
       if (message.includes('Say hello from a flow step.')) {
-        return '__delay:1000::Flow agent response';
+        return '__wait_for_abort__';
       }
       return 'ok';
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-startup-stop-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       try {
         await supertest(baseUrl)
           .post('/flows/llm-basic/run')
@@ -4720,13 +4728,13 @@ test('duplicate flow stop requests emit one terminal stopped event', async () =>
   await withFlowServer(
     (message) => {
       if (message.includes('Say hello from a flow step.')) {
-        return '__delay:1000::Flow agent response';
+        return '__wait_for_abort__';
       }
       return 'ok';
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-duplicate-stop-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       wsUrl.on('message', (raw) => {
         const parsed = JSON.parse(String(raw)) as {
@@ -4768,17 +4776,18 @@ test('duplicate flow stop requests emit one terminal stopped event', async () =>
 });
 
 test('flow stop cleanup fallback still releases runtime state', async () => {
+  let blockFirstRun = true;
   await withFlowServer(
     (message) => {
       if (message.includes('Say hello from a flow step.')) {
-        return '__delay:1000::Flow agent response';
+        return blockFirstRun ? '__wait_for_abort__' : 'Flow agent response';
       }
       return 'ok';
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-cleanup-fallback-conv';
       let secondConversationId: string | undefined;
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       try {
         const firstRun = await supertest(baseUrl)
           .post('/flows/llm-basic/run')
@@ -4788,13 +4797,12 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
 
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-        const stopOutcome =
-          (await waitForLoopTerminalOutcome({
-            ws: wsUrl,
-            conversationId,
-            expectedStatus: 'stopped',
-            timeoutMs: 5000,
-          }).catch(() => null)) ?? null;
+        const stopOutcome = await waitForLoopTerminalOutcome({
+          ws: wsUrl,
+          conversationId,
+          expectedStatus: 'stopped',
+          timeoutMs: 5000,
+        });
 
         await waitForRuntimeCleanup(conversationId, 8000, () =>
           JSON.stringify({
@@ -4811,18 +4819,17 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
           }),
         );
 
-        if (stopOutcome) {
-          assert.equal(stopOutcome.status, 'stopped');
-        }
+        assert.equal(stopOutcome.status, 'stopped');
 
+        blockFirstRun = false;
         const secondRun = await supertest(baseUrl)
           .post('/flows/llm-basic/run')
           .send({ conversationId })
           .expect(202);
         secondConversationId = secondRun.body.conversationId as string;
         assert.notEqual(secondConversationId, conversationId);
-        sendJson(wsUrl, {
-          type: 'subscribe_conversation',
+        await subscribeConversationAndWaitReady({
+          ws: wsUrl,
           conversationId: secondConversationId,
         });
 
@@ -5005,7 +5012,7 @@ test('flow stop during a looped flow prevents later iterations from continuing',
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-stop-boundary-conv';
       stopWs = wsUrl;
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       try {
         await supertest(baseUrl)
           .post('/flows/loop-break/run')
@@ -5180,7 +5187,7 @@ test('parallel subflow batch stop reports mixed child outcomes instead of a clea
   await withFlowServer(
     (message) => {
       if (message.includes('slow child')) {
-        return '__delay:1000::ok';
+        return '__wait_for_abort__';
       }
       return 'ok';
     },
@@ -5218,7 +5225,7 @@ test('parallel subflow batch stop reports mixed child outcomes instead of a clea
       ]);
 
       const conversationId = 'flow-subflow-mixed-stop-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await supertest(baseUrl)
         .post('/flows/parent-mixed-subflow-stop/run')
         .send({ conversationId, customTitle: 'Parent Review' })
@@ -5372,7 +5379,7 @@ test('shared decision seam follows valid script-driven if branch through happy p
       assert.equal(result.status, 202);
 
       const conversationId = result.body.conversationId;
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await waitForLoopTerminalOutcome({
         ws: wsUrl,
         conversationId,
@@ -5476,7 +5483,7 @@ test('shared decision seam follows valid script-driven break branch through happ
       assert.equal(result.status, 202);
 
       const conversationId = result.body.conversationId;
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await waitForLoopTerminalOutcome({
         ws: wsUrl,
         conversationId,
@@ -5595,7 +5602,7 @@ test('shared decision seam follows valid script-driven continue branch through h
       assert.equal(result.status, 202);
 
       const conversationId = result.body.conversationId;
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       await waitForLoopTerminalOutcome({
         ws: wsUrl,
         conversationId,

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
@@ -198,8 +199,8 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    mockWs.sendToolEvent({
+    await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    await mockWs.sendToolEvent({
       conversationId,
       inflightId,
       event: {
@@ -208,7 +209,7 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
         name: 'ListIngestedRepositories',
       },
     });
-    mockWs.sendToolEvent({
+    await mockWs.sendToolEvent({
       conversationId,
       inflightId,
       event: {
@@ -219,7 +220,7 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
         result: { repos },
       },
     });
-    mockWs.sendToolEvent({
+    await mockWs.sendToolEvent({
       conversationId,
       inflightId,
       event: {
@@ -228,7 +229,7 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
         name: 'VectorSearch',
       },
     });
-    mockWs.sendToolEvent({
+    await mockWs.sendToolEvent({
       conversationId,
       inflightId,
       event: {
@@ -243,12 +244,12 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
         },
       },
     });
-    mockWs.sendAssistantDelta({
+    await mockWs.sendAssistantDelta({
       conversationId,
       inflightId,
       delta: 'Here are your repos.',
     });
-    mockWs.sendFinal({
+    await mockWs.sendFinal({
       conversationId,
       inflightId,
       status: 'ok',
@@ -263,7 +264,9 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
   const input = page.getByTestId('chat-input');
   const send = page.getByTestId('chat-send');
 
-  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
+  await expect(providerSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await providerSelect.click();
   await page.getByRole('option', { name: /OpenAI Codex/i }).click();
 
@@ -271,8 +274,13 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
 
   const agentFlagsPanel = page.locator('[data-testid="agent-flags-panel"]');
   if (await agentFlagsPanel.count()) {
-    await expect(agentFlagsPanel.first()).toBeVisible({ timeout: 20000 });
-    const agentFlagsToggle = agentFlagsPanel.first().locator('[aria-expanded]').first();
+    await expect(agentFlagsPanel.first()).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
+    const agentFlagsToggle = agentFlagsPanel
+      .first()
+      .locator('[aria-expanded]')
+      .first();
     if ((await agentFlagsToggle.getAttribute('aria-expanded')) === 'true') {
       await agentFlagsToggle.click();
     }
@@ -285,7 +293,7 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
     '[data-testid="chat-bubble"][data-role="assistant"][data-kind="normal"]',
   );
   await expect(assistantBubble.first()).toContainText('Here are your repos', {
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
 
   // Expand citations to verify content is present

@@ -167,96 +167,103 @@ describe('Chat transcript viewport height fill', () => {
     harness.restore();
   });
 
-  it('keeps transcript height non-negative with tall controls (Codex flags expanded)', async () => {
-    const harness = installTranscriptMeasurementHarness();
-    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
-      const target = typeof url === 'string' ? url : url.toString();
-      if (target.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ mongoConnected: true }),
-        }) as unknown as Response;
-      }
-      if (target.includes('/conversations')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [], nextCursor: null }),
-        }) as unknown as Response;
-      }
-      if (target.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            providers: [
-              {
-                id: 'codex',
-                label: 'OpenAI Codex',
-                available: true,
-                toolsAvailable: true,
+  it(
+    'keeps transcript height non-negative with tall controls (Codex flags expanded)',
+    async () => {
+      const harness = installTranscriptMeasurementHarness();
+      mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          }) as unknown as Response;
+        }
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [], nextCursor: null }),
+          }) as unknown as Response;
+        }
+        if (target.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              providers: [
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+        if (target.includes('/chat/models')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'codex',
+              available: true,
+              toolsAvailable: true,
+              codexDefaults: {
+                sandboxMode: 'workspace-write',
+                approvalPolicy: 'on-failure',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchEnabled: true,
               },
-            ],
-          }),
-        }) as unknown as Response;
-      }
-      if (target.includes('/chat/models')) {
+              codexWarnings: [],
+              models: [
+                {
+                  key: 'c1',
+                  displayName: 'Codex Model',
+                  type: 'codex',
+                  supportedReasoningEfforts: ['high'],
+                  defaultReasoningEffort: 'high',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({
-            provider: 'codex',
-            available: true,
-            toolsAvailable: true,
-            codexDefaults: {
-              sandboxMode: 'workspace-write',
-              approvalPolicy: 'on-failure',
-              modelReasoningEffort: 'high',
-              networkAccessEnabled: true,
-              webSearchEnabled: true,
-            },
-            codexWarnings: [],
-            models: [
-              {
-                key: 'c1',
-                displayName: 'Codex Model',
-                type: 'codex',
-                supportedReasoningEfforts: ['high'],
-                defaultReasoningEffort: 'high',
-              },
-            ],
-          }),
+          json: async () => ({}),
         }) as unknown as Response;
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as unknown as Response;
-    });
+      });
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    await ensureAgentFlagsPanelExpanded();
-    await screen.findByTestId('chat-transcript');
+      await ensureAgentFlagsPanelExpanded();
+      await screen.findByTestId('chat-transcript');
 
-    setViewportHeight(480);
-    const { transcript, updateMetrics } = installTranscriptHeightMock(harness, {
-      controlsHeight: 460,
-    });
-    const height480 = transcript.getBoundingClientRect().height;
+      setViewportHeight(480);
+      const { transcript, updateMetrics } = installTranscriptHeightMock(
+        harness,
+        {
+          controlsHeight: 460,
+        },
+      );
+      const height480 = transcript.getBoundingClientRect().height;
 
-    expect(height480).toBeGreaterThanOrEqual(0);
-    expect(transcript.style.overflowY).toBe('auto');
+      expect(height480).toBeGreaterThanOrEqual(0);
+      expect(transcript.style.overflowY).toBe('auto');
 
-    setViewportHeight(700);
-    updateMetrics();
-    const height700 = transcript.getBoundingClientRect().height;
-    expect(height700).toBeGreaterThan(height480);
-    harness.restore();
-  }, resolveClientTestTimeoutMs(60000));
+      setViewportHeight(700);
+      updateMetrics();
+      const height700 = transcript.getBoundingClientRect().height;
+      expect(height700).toBeGreaterThan(height480);
+      harness.restore();
+    },
+    resolveClientTestTimeoutMs(60000),
+  );
 
   it('ignores a late measurement callback for a removed row without crashing the transcript', async () => {
     const harness = installTranscriptMeasurementHarness();

@@ -279,13 +279,13 @@ describe('Chat shared shell transcript wrapping', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
     });
 
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -337,13 +337,13 @@ describe('Chat shared shell transcript wrapping', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
     });
 
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -388,18 +388,18 @@ describe('Chat shared shell transcript wrapping', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
     });
 
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: `\n\n\`\`\`ts\n${'e'.repeat(700)}\n\`\`\`\n`,
     });
-    harness.emitFinal({ conversationId: conversationId!, inflightId });
+    await harness.emitFinal({ conversationId: conversationId!, inflightId });
 
     await waitFor(() => {
       const markdown = screen.getByTestId('assistant-markdown');
@@ -677,13 +677,13 @@ describe('Chat shared shell layout alignment', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
     });
 
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {

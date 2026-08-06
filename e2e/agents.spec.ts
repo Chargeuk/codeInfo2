@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page, Route } from '@playwright/test';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiUrl = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -65,10 +66,12 @@ const routeAgentsApis = async (
   const resolvedOptions = Array.isArray(commandRunBodiesOrOptions)
     ? options
     : commandRunBodiesOrOptions;
-  const scopedConversations = (resolvedOptions?.conversations ?? []).map((item) => ({
-    agentName: 'coding_agent',
-    ...item,
-  }));
+  const scopedConversations = (resolvedOptions?.conversations ?? []).map(
+    (item) => ({
+      agentName: 'coding_agent',
+      ...item,
+    }),
+  );
 
   await page.route('**/*', async (route: Route) => {
     const req = route.request();
@@ -132,7 +135,8 @@ const routeAgentsApis = async (
 
     if (path.startsWith('/conversations/') && path.endsWith('/turns')) {
       const conversationId = path.split('/')[2] ?? '';
-      const items = resolvedOptions?.turnsByConversationId?.[conversationId] ?? [];
+      const items =
+        resolvedOptions?.turnsByConversationId?.[conversationId] ?? [];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -216,8 +220,12 @@ test('agents preserves raw outbound payload and blocks whitespace-only submit', 
   await page.goto(`${baseUrl}/agents`);
 
   const agentSelect = page.getByTestId('agent-select-trigger');
-  await expect(agentSelect).toBeVisible({ timeout: 20000 });
-  await expect(agentSelect).toContainText('coding_agent', { timeout: 20000 });
+  await expect(agentSelect).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
+  await expect(agentSelect).toContainText('coding_agent', {
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
 
   const input = page.getByTestId('agent-input');
   const send = page.getByTestId('agent-send');
@@ -229,7 +237,7 @@ test('agents preserves raw outbound payload and blocks whitespace-only submit', 
 
   await expect
     .poll(() => runBodies.length, {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message: 'Expected one agents run POST request for valid payload',
     })
     .toBe(1);
@@ -285,7 +293,8 @@ test('agents composer popovers open upward on desktop and centered on mobile', a
   expect(infoTriggerBox).not.toBeNull();
   expect(infoPopoverBox).not.toBeNull();
   expect(
-    ((infoPopoverBox?.y ?? 0) + (infoPopoverBox?.height ?? 0)) -
+    (infoPopoverBox?.y ?? 0) +
+      (infoPopoverBox?.height ?? 0) -
       (infoTriggerBox?.y ?? 0),
   ).toBeLessThan(2);
   await page.keyboard.press('Escape');
@@ -300,7 +309,8 @@ test('agents composer popovers open upward on desktop and centered on mobile', a
   expect(agentTriggerBox).not.toBeNull();
   expect(agentPopoverBox).not.toBeNull();
   expect(
-    ((agentPopoverBox?.y ?? 0) + (agentPopoverBox?.height ?? 0)) -
+    (agentPopoverBox?.y ?? 0) +
+      (agentPopoverBox?.height ?? 0) -
       (agentTriggerBox?.y ?? 0),
   ).toBeLessThan(2);
   await page.keyboard.press('Escape');
@@ -315,7 +325,8 @@ test('agents composer popovers open upward on desktop and centered on mobile', a
   expect(commandTriggerBox).not.toBeNull();
   expect(commandPopoverBox).not.toBeNull();
   expect(
-    ((commandPopoverBox?.y ?? 0) + (commandPopoverBox?.height ?? 0)) -
+    (commandPopoverBox?.y ?? 0) +
+      (commandPopoverBox?.height ?? 0) -
       (commandTriggerBox?.y ?? 0),
   ).toBeLessThan(2);
 
@@ -324,12 +335,15 @@ test('agents composer popovers open upward on desktop and centered on mobile', a
   const stepPopover = page.getByTestId('agent-step-popover');
   const stepPopoverSurface = stepPopover.locator('.MuiPaper-root').last();
   await expect(stepPopoverSurface).toBeVisible();
-  const stepTriggerBox = await page.getByTestId('agent-step-trigger').boundingBox();
+  const stepTriggerBox = await page
+    .getByTestId('agent-step-trigger')
+    .boundingBox();
   const stepPopoverBox = await stepPopoverSurface.boundingBox();
   expect(stepTriggerBox).not.toBeNull();
   expect(stepPopoverBox).not.toBeNull();
   expect(
-    ((stepPopoverBox?.y ?? 0) + (stepPopoverBox?.height ?? 0)) -
+    (stepPopoverBox?.y ?? 0) +
+      (stepPopoverBox?.height ?? 0) -
       (stepTriggerBox?.y ?? 0),
   ).toBeLessThan(2);
 
@@ -346,7 +360,9 @@ test('agents composer popovers open upward on desktop and centered on mobile', a
   expect(viewport).not.toBeNull();
   expect(
     Math.abs(
-      (dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - (viewport?.width ?? 0) / 2,
+      (dialogBox?.x ?? 0) +
+        (dialogBox?.width ?? 0) / 2 -
+        (viewport?.width ?? 0) / 2,
     ),
   ).toBeLessThan(80);
 
@@ -358,8 +374,9 @@ test('agents composer popovers open upward on desktop and centered on mobile', a
 
   await expect
     .poll(() => commandRunBodies.length, {
-      timeout: 10000,
-      message: 'Expected one command run POST request from the shared send button',
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
+      message:
+        'Expected one command run POST request from the shared send button',
     })
     .toBe(1);
   expect(commandRunBodies[0]).toMatchObject({
@@ -527,7 +544,10 @@ test('agents keeps instruction input responsive while a long transcript is visib
           const element = node as HTMLDivElement;
           return element.scrollHeight > element.clientHeight;
         }),
-      { timeout: 10000, message: 'Expected the long transcript to scroll' },
+      {
+        timeout: resolveConfiguredE2eTimeoutMs(10000),
+        message: 'Expected the long transcript to scroll',
+      },
     )
     .toBe(true);
 
@@ -635,7 +655,9 @@ test('agents warning timing and disabled-state guard stay visible at the browser
     }
 
     if (path === '/agents/coding_agent/commands/run' && method === 'POST') {
-      commandRunBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
+      commandRunBodies.push(
+        (req.postDataJSON?.() ?? {}) as Record<string, unknown>,
+      );
       await route.fulfill({
         status: 202,
         contentType: 'application/json',
@@ -675,7 +697,9 @@ test('agents warning timing and disabled-state guard stay visible at the browser
   const sendButton = page.getByTestId('agent-send');
   const commandSelect = page.getByRole('combobox', { name: 'Command' });
 
-  await expect(infoButton).toBeVisible({ timeout: 20000 });
+  await expect(infoButton).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await expect(
     page.getByText(/unsupported provider "not-a-provider"/i),
   ).toHaveCount(0);

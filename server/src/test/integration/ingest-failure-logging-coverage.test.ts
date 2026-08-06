@@ -9,6 +9,7 @@ import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { createLogsRouter } from '../../routes/logs.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 function createApp() {
     const app = express();
     app.use(express.json());
@@ -116,6 +117,10 @@ test('ingest route failure coverage emits structured warn/error entries via /log
             entry.context?.surface === 'ingest/roots' &&
             entry.context?.code === 'INGEST_ROOTS_LOOKUP_FAILED'));
         const streamBody = await new Promise<string>((resolve, reject) => {
+            const finish = (body: string) => {
+                clearTimeout(timeoutHandle);
+                resolve(body);
+            };
             const req = http.get(`${baseUrl}/logs/stream?text=${encodeURIComponent('DEV-0000036:T17:ingest_provider_failure')}`);
             req.on('response', (res) => {
                 let body = '';
@@ -125,16 +130,16 @@ test('ingest route failure coverage emits structured warn/error entries via /log
                     if (body.includes('"surface":"ingest/start"') &&
                         body.includes('"surface":"ingest/reembed"')) {
                         req.destroy();
-                        resolve(body);
+                        finish(body);
                     }
                 });
                 res.on('error', reject);
             });
             req.on('error', reject);
-            setTimeout(() => {
+            const timeoutHandle = setTimeout(() => {
                 req.destroy();
-                resolve('');
-            }, 1000);
+                finish('');
+            }, resolveConfiguredTestTimeoutMs(1000));
         });
         assert.ok(streamBody.includes('DEV-0000036:T17:ingest_provider_failure'));
         assert.ok(streamBody.includes('"surface":"ingest/start"'));

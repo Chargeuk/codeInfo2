@@ -47,6 +47,7 @@ import {
 import { enterTestOverrideScope } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
   sendJson,
@@ -281,39 +282,58 @@ async function waitForCodexDetectionReady(timeoutMs = 4000) {
     `Timed out waiting for Codex detection readiness: ${JSON.stringify(getCodexDetection())}`,
   );
 }
-async function waitForNoSecondFinal(params: {
+function observeTurnFinals(params: {
   ws: Awaited<ReturnType<typeof connectWs>>;
   conversationId: string;
-  inflightId: string;
-  timeoutMs?: number;
-}): Promise<boolean> {
-  try {
-    await waitForEvent({
-      ws: params.ws,
-      predicate: (event: unknown): event is unknown => {
-        const e = event as {
-          type?: string;
-          conversationId?: string;
-          inflightId?: string;
-        };
-        return (
-          e.type === 'turn_final' &&
-          e.conversationId === params.conversationId &&
-          e.inflightId === params.inflightId
-        );
-      },
-      timeoutMs: params.timeoutMs ?? 300,
-    });
-    return false;
-  } catch (error) {
+  inflightId?: string;
+}) {
+  const finals: unknown[] = [];
+  const onMessage = (raw: unknown) => {
+    const event = JSON.parse(String(raw)) as {
+      type?: string;
+      conversationId?: string;
+      inflightId?: string;
+    };
     if (
-      error instanceof Error &&
-      error.message.includes('Timed out waiting for WebSocket event')
+      event.type === 'turn_final' &&
+      event.conversationId === params.conversationId &&
+      (params.inflightId === undefined ||
+        event.inflightId === params.inflightId)
     ) {
-      return true;
+      finals.push(event);
     }
-    throw error;
-  }
+  };
+  params.ws.on('message', onMessage);
+  return {
+    finals,
+    stop: () => params.ws.off('message', onMessage),
+  };
+}
+async function waitForNoopCancelAck(params: {
+  ws: Awaited<ReturnType<typeof connectWs>>;
+  conversationId: string;
+}) {
+  const { requestId } = sendJson(params.ws, {
+    type: 'cancel_inflight',
+    conversationId: params.conversationId,
+  });
+  const ack = await waitForEvent({
+    ws: params.ws,
+    predicate: (
+      event: unknown,
+    ): event is { type: 'cancel_ack'; requestId: string; result: string } => {
+      const candidate = event as {
+        type?: string;
+        requestId?: string;
+        result?: string;
+      };
+      return (
+        candidate.type === 'cancel_ack' && candidate.requestId === requestId
+      );
+    },
+    timeoutMs: 5000,
+  });
+  assert.equal(ack.result, 'noop');
 }
 test('codex chat streams token/final/complete with thread id', async () => {
   assert.equal(
@@ -342,8 +362,8 @@ test('codex chat streams token/final/complete with thread id', async () => {
   const ws = await connectWs({ baseUrl });
   try {
     // Subscribe before starting so the run-start snapshot is broadcast.
-    sendJson(ws, {
-      type: 'subscribe_conversation',
+    await subscribeConversationAndWaitReady({
+      ws: ws,
       conversationId: 'thread-abc',
     });
     // Start waits before triggering the HTTP request to avoid missing early frames.
@@ -905,7 +925,7 @@ test('codex stream preserves nested subprocess cause details when runStreamed th
   const ws = await connectWs({ baseUrl });
   const conversationId = 'thread-throwing-cause';
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const response = await request(httpServer)
       .post('/chat')
       .send(buildCodexBody({ conversationId }))
@@ -949,7 +969,7 @@ test('codex stream preserves nested subprocess cause details when runStreamed th
     );
   } finally {
     await closeWs(ws);
-    wsHandle.close();
+    await wsHandle.close();
     await new Promise<void>((resolve, reject) =>
       httpServer.close((err) => (err ? reject(err) : resolve())),
     );
@@ -1032,8 +1052,9 @@ test('codex stream publishes one terminal event per turn for tool-interleaved no
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'thread-nonprefix';
+  const finalObserver = observeTurnFinals({ ws, conversationId });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const response = await request(httpServer)
       .post('/chat')
       .send(buildCodexBody({ conversationId }))
@@ -1061,14 +1082,10 @@ test('codex stream publishes one terminal event per turn for tool-interleaved no
       timeoutMs: 5000,
     });
     assert.equal(final.status, 'ok');
-    const noSecondFinal = await waitForNoSecondFinal({
-      ws,
-      conversationId,
-      inflightId,
-      timeoutMs: 350,
-    });
-    assert.equal(noSecondFinal, true);
+    await waitForNoopCancelAck({ ws, conversationId });
+    assert.equal(finalObserver.finals.length, 1);
   } finally {
+    finalObserver.stop();
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
@@ -1132,8 +1149,9 @@ test('failed codex turns publish one terminal assistant state', async () => {
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'thread-failed';
+  const finalObserver = observeTurnFinals({ ws, conversationId });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const response = await request(httpServer)
       .post('/chat')
       .send(buildCodexBody({ conversationId }))
@@ -1161,14 +1179,10 @@ test('failed codex turns publish one terminal assistant state', async () => {
       timeoutMs: 5000,
     });
     assert.equal(final.status, 'failed');
-    const noSecondFinal = await waitForNoSecondFinal({
-      ws,
-      conversationId,
-      inflightId,
-      timeoutMs: 350,
-    });
-    assert.equal(noSecondFinal, true);
+    await waitForNoopCancelAck({ ws, conversationId });
+    assert.equal(finalObserver.finals.length, 1);
   } finally {
+    finalObserver.stop();
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));

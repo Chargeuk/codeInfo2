@@ -2103,110 +2103,111 @@ gh api --paginate --slurp repos/Chargeuk/codeInfo2/pulls?state=open&head=Chargeu
 exitCode: 1
 stderr: unknown flag: --slurp
 
-Usage:  gh api <endpoint> [flags]
+Usage: gh api <endpoint> [flags]
 
 Flags:
-      --cache duration        Cache the response, e.g. "3600s", "60m", "1h"
-  -F, --field key=value       Add a typed parameter in key=value format
-  -H, --header key:value      Add a HTTP request header in key:value format
-      --hostname string       The GitHub hostname for the request (default "github.com")
-  -i, --include               Include HTTP response status line and headers in the output
-      --input file            The file to use as body for the HTTP request (use "-" to read from standard input)
-  -q, --jq string             Query to select values from the response using jq syntax
-  -X, --method string         The HTTP method for the request (default "GET")
-      --paginate              Make additional HTTP requests to fetch all pages of results
-  -p, --preview names         GitHub API preview names to request (without the "-preview" suffix)
-  -f, --raw-field key=value   Add a string parameter in key=value format
-      --silent                Do not print the response body
-  -t, --template string       Format JSON output using a Go template; see "gh help formatting"
+--cache duration Cache the response, e.g. "3600s", "60m", "1h"
+-F, --field key=value Add a typed parameter in key=value format
+-H, --header key:value Add a HTTP request header in key:value format
+--hostname string The GitHub hostname for the request (default "github.com")
+-i, --include Include HTTP response status line and headers in the output
+--input file The file to use as body for the HTTP request (use "-" to read from standard input)
+-q, --jq string Query to select values from the response using jq syntax
+-X, --method string The HTTP method for the request (default "GET")
+--paginate Make additional HTTP requests to fetch all pages of results
+-p, --preview names GitHub API preview names to request (without the "-preview" suffix)
+-f, --raw-field key=value Add a string parameter in key=value format
+--silent Do not print the response body
+-t, --template string Format JSON output using a Go template; see "gh help formatting"
 
 Lookup retry warning 2 after 60s:
 gh api --paginate --slurp repos/Chargeuk/codeInfo2/pulls?state=open&head=Chargeuk:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps&sort=created&direction=desc&per_page=100 failed
 exitCode: 1
 stderr: unknown flag: --slurp
 
-Usage:  gh api <endpoint> [flags]
+Usage: gh api <endpoint> [flags]
 
 Flags:
-      --cache duration        Cache the response, e.g. "3600s", "60m", "1h"
-  -F, --field key=value       Add a typed parameter in key=value format
-  -H, --header key:value      Add a HTTP request header in key:value format
-      --hostname string       The GitHub hostname for the request (default "github.com")
-  -i, --include               Include HTTP response status line and headers in the output
-      --input file            The file to use as body for the HTTP request (use "-" to read from standard input)
-  -q, --jq string             Query to select values from the response using jq syntax
-  -X, --method string         The HTTP method for the request (default "GET")
-      --paginate              Make additional HTTP requests to fetch all pages of results
-  -p, --preview names         GitHub API preview names to request (without the "-preview" suffix)
-  -f, --raw-field key=value   Add a string parameter in key=value format
-      --silent                Do not print the response body
-  -t, --template string       Format JSON output using a Go template; see "gh help formatting"
+--cache duration Cache the response, e.g. "3600s", "60m", "1h"
+-F, --field key=value Add a typed parameter in key=value format
+-H, --header key:value Add a HTTP request header in key:value format
+--hostname string The GitHub hostname for the request (default "github.com")
+-i, --include Include HTTP response status line and headers in the output
+--input file The file to use as body for the HTTP request (use "-" to read from standard input)
+-q, --jq string Query to select values from the response using jq syntax
+-X, --method string The HTTP method for the request (default "GET")
+--paginate Make additional HTTP requests to fetch all pages of results
+-p, --preview names GitHub API preview names to request (without the "-preview" suffix)
+-f, --raw-field key=value Add a string parameter in key=value format
+--silent Do not print the response body
+-t, --template string Format JSON output using a Go template; see "gh help formatting"
 
 Lookup retry warning 3 after 90s:
 gh api --paginate --slurp repos/Chargeuk/codeInfo2/pulls?state=open&head=Chargeuk:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps&sort=created&direction=desc&per_page=100 failed
 exitCode: 1
 stderr: unknown flag: --slurp
 
-Usage:  gh api <endpoint> [flags]
+Usage: gh api <endpoint> [flags]
 
 Flags:
-      --cache duration        Cache the response, e.g. "3600s", "60m", "1h"
-  -F, --field key=value       Add a typed parameter in key=value format
-  -H, --header key:value      Add a HTTP request header in key:value format
-      --hostname string       The GitHub hostname for the request (default "github.com")
-  -i, --include               Include HTTP response status line and headers in the output
-      --input file            The file to use as body for the HTTP request (use "-" to read from standard input)
-  -q, --jq string             Query to select values from the response using jq syntax
-  -X, --method string         The HTTP method for the request (default "GET")
-      --paginate              Make additional HTTP requests to fetch all pages of results
-  -p, --preview names         GitHub API preview names to request (without the "-preview" suffix)
-  -f, --raw-field key=value   Add a string parameter in key=value format
-      --silent                Do not print the response body
-  -t, --template string       Format JSON output using a Go template; see "gh help formatting"
+--cache duration Cache the response, e.g. "3600s", "60m", "1h"
+-F, --field key=value Add a typed parameter in key=value format
+-H, --header key:value Add a HTTP request header in key:value format
+--hostname string The GitHub hostname for the request (default "github.com")
+-i, --include Include HTTP response status line and headers in the output
+--input file The file to use as body for the HTTP request (use "-" to read from standard input)
+-q, --jq string Query to select values from the response using jq syntax
+-X, --method string The HTTP method for the request (default "GET")
+--paginate Make additional HTTP requests to fetch all pages of results
+-p, --preview names GitHub API preview names to request (without the "-preview" suffix)
+-f, --raw-field key=value Add a string parameter in key=value format
+--silent Do not print the response body
+-t, --template string Format JSON output using a Go template; see "gh help formatting"
 
 Lookup retry warning 4 after 120s:
 gh api --paginate --slurp repos/Chargeuk/codeInfo2/pulls?state=open&head=Chargeuk:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps&sort=created&direction=desc&per_page=100 failed
 exitCode: 1
 stderr: unknown flag: --slurp
 
-Usage:  gh api <endpoint> [flags]
+Usage: gh api <endpoint> [flags]
 
 Flags:
-      --cache duration        Cache the response, e.g. "3600s", "60m", "1h"
-  -F, --field key=value       Add a typed parameter in key=value format
-  -H, --header key:value      Add a HTTP request header in key:value format
-      --hostname string       The GitHub hostname for the request (default "github.com")
-  -i, --include               Include HTTP response status line and headers in the output
-      --input file            The file to use as body for the HTTP request (use "-" to read from standard input)
-  -q, --jq string             Query to select values from the response using jq syntax
-  -X, --method string         The HTTP method for the request (default "GET")
-      --paginate              Make additional HTTP requests to fetch all pages of results
-  -p, --preview names         GitHub API preview names to request (without the "-preview" suffix)
-  -f, --raw-field key=value   Add a string parameter in key=value format
-      --silent                Do not print the response body
-  -t, --template string       Format JSON output using a Go template; see "gh help formatting"
+--cache duration Cache the response, e.g. "3600s", "60m", "1h"
+-F, --field key=value Add a typed parameter in key=value format
+-H, --header key:value Add a HTTP request header in key:value format
+--hostname string The GitHub hostname for the request (default "github.com")
+-i, --include Include HTTP response status line and headers in the output
+--input file The file to use as body for the HTTP request (use "-" to read from standard input)
+-q, --jq string Query to select values from the response using jq syntax
+-X, --method string The HTTP method for the request (default "GET")
+--paginate Make additional HTTP requests to fetch all pages of results
+-p, --preview names GitHub API preview names to request (without the "-preview" suffix)
+-f, --raw-field key=value Add a string parameter in key=value format
+--silent Do not print the response body
+-t, --template string Format JSON output using a Go template; see "gh help formatting"
 
 Final lookup failure 5 after 150s:
 gh api --paginate --slurp repos/Chargeuk/codeInfo2/pulls?state=open&head=Chargeuk:feature%2F0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps&sort=created&direction=desc&per_page=100 failed
 exitCode: 1
 stderr: unknown flag: --slurp
 
-Usage:  gh api <endpoint> [flags]
+Usage: gh api <endpoint> [flags]
 
 Flags:
-      --cache duration        Cache the response, e.g. "3600s", "60m", "1h"
-  -F, --field key=value       Add a typed parameter in key=value format
-  -H, --header key:value      Add a HTTP request header in key:value format
-      --hostname string       The GitHub hostname for the request (default "github.com")
-  -i, --include               Include HTTP response status line and headers in the output
-      --input file            The file to use as body for the HTTP request (use "-" to read from standard input)
-  -q, --jq string             Query to select values from the response using jq syntax
-  -X, --method string         The HTTP method for the request (default "GET")
-      --paginate              Make additional HTTP requests to fetch all pages of results
-  -p, --preview names         GitHub API preview names to request (without the "-preview" suffix)
-  -f, --raw-field key=value   Add a string parameter in key=value format
-      --silent                Do not print the response body
-  -t, --template string       Format JSON output using a Go template; see "gh help formatting"
+--cache duration Cache the response, e.g. "3600s", "60m", "1h"
+-F, --field key=value Add a typed parameter in key=value format
+-H, --header key:value Add a HTTP request header in key:value format
+--hostname string The GitHub hostname for the request (default "github.com")
+-i, --include Include HTTP response status line and headers in the output
+--input file The file to use as body for the HTTP request (use "-" to read from standard input)
+-q, --jq string Query to select values from the response using jq syntax
+-X, --method string The HTTP method for the request (default "GET")
+--paginate Make additional HTTP requests to fetch all pages of results
+-p, --preview names GitHub API preview names to request (without the "-preview" suffix)
+-f, --raw-field key=value Add a string parameter in key=value format
+--silent Do not print the response body
+-t, --template string Format JSON output using a Go template; see "gh help formatting"
+
 ### Task 23. Preserve GitHub open-PR diagnostics and retry latest-open-PR reconciliation after create
 
 - Repository Name: `Current Repository`
@@ -2589,6 +2590,7 @@ Keep this task's automated proof compact and seam-local. The broader server buil
 - `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` passed with `11/11`, and `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts` passed with `37/37`.
 - Proof audit re-read the bound Task 27 plan section, confirmed the selector-bound task still matched the page-local accumulation repair in `server/src/flows/githubReview.ts` and the focused wrapper results, found no live blocker via `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 27`, and closed the task because both checklist sections were already honestly complete on disk.
 - Manual testing skipped for the Task 27 live bounded GitHub review-fetch surface. Tried: restarted the stale supported main stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, proved `http://localhost:5010/health`, `http://localhost:5001`, and `GET /flows`, then inspected `CODEINFO_HOST_INGEST_DIR=/home/dan/code` for a dedicated sandbox worked repository before attempting a live GitHub review run. Observed: the fresh stack exposed `implement_next_plan_github_review` and `implement_next_plan_github_review_test` only for `/data/codeInfo2`, the ingest root itself is not a git repository, and the only real git repository under that ingest root is this active `codeInfo2` checkout with no separate sandbox repo available for an honest large-corpus review cycle. Why fuller proof was not possible: Task 27's owned live proof surface depends on a separate sandbox worked repository under the ingest root, current Story 60 guidance explicitly says not to substitute the active `codeInfo2` checkout just to force a run, and no provider-free bounded-corpus fixture exists on the supported main stack.
+
 ### Task 28. Revalidate review pass `0000060-20260629T141234Z-d9a9011b` after review-cycle `0000060-rc-20260629T162154Z-89df94b1` task-up repairs
 
 - Repository Name: `Current Repository`
@@ -2692,7 +2694,7 @@ This is the one final revalidation owner for review cycle `0000060-rc-20260629T1
 - Proof audit re-read the bound Task 28 plan section, confirmed the broad wrapper reruns, paused-wait barrier repair, and formatting follow-up all matched current `HEAD`, found no live blocker via `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 28`, and closed the final revalidation task because every implementation and automated-proof checklist item was already honestly complete on disk.
 - Manual testing ran as full-story closeout proof because Task 28 is the final story task: restarted the stale supported main stack with `npm run compose:down`, `npm run compose:build`, and `npm run compose:up`, passed `npm run test:summary:host-network:main`, captured fresh `/flows` proof plus supporting health/catalog artifacts under `codeInfoTmp/manual-testing/0000060/28/`, and then returned the main stack to its prior stopped state with `npm run compose:down`. The retained final-state screenshots are `proof-01-flows-desktop.png` and `proof-02-flows-left-panel.png`, which should supersede earlier Story 60 `/flows` screenshots for the surfaces re-covered here. The visible `/flows` page reopened an older `echo` conversation whose historical transcript contains expired Codex-auth failures, and the only browser-side request issue was an expected aborted turns fetch during the page's conversation reset path; those observations did not invalidate Task 28's closeout proof, so no additional subtasks were needed.
 - Resumed GitHub review execution expected persisted pull request #210, but the resumed execution context carried #211. Checking the latest open pull request for Chargeuk/codeInfo2 on branch feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.
-Adopting newer pull request #211 because it is later than the persisted expected pull request #210 on the same branch.
+  Adopting newer pull request #211 because it is later than the persisted expected pull request #210 on the same branch.
 
 ## Code Review Findings
 
@@ -2767,6 +2769,7 @@ This task must preserve Story 60's approved resumed GitHub review behavior while
 - `npm run lint` completed cleanly for the Task 29 repair surface, and `npm run format:check` completed cleanly with `All matched files use Prettier code style!`.
 - Automated-proof audit re-read the bound Task 29 section, confirmed the targeted helper proof, focused server runtime proof, lint, and format checks all matched commit `03a61f848f703e3fd60f15b4b0ac1ce069415c09`, found no live blocker via `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 29`, and closed the task because both implementation and automated proof were already honestly complete on disk.
 - Manual testing skipped for the resumed persisted-wait-state handoff-authority ordering surface. Tried: restarted the supported main stack, passed `npm run test:summary:host-network:main`, inspected `GET /flows` and `GET /flows/implement_next_plan_github_review_test?sourceId=/data/codeInfo2`, and manually ran `scripts/flow_control/check_github_review_has_reviewer_feedback.py` against canonical, foreign, and malformed execution-scoped handoff files. Observed: the main stack started and shut down cleanly and the helper seam proved canonical success plus foreign-path rejection, but the live flow catalog exposed only generic review flows and no checked-in manual launcher for seeding a resumed wait state with a foreign persisted handoff path before helper launch. Why fuller proof was not possible: Task 29's runtime-ordering boundary is only exposed through the focused automated resumed-runtime proof, and the supported manual surfaces do not provide a checked-in way to author, corrupt, and resume that persisted wait-state boundary without inventing a harness.
+
 ### Task 30. Revalidate review pass `0000060-20260630T011157Z-0ca69c71` after review-cycle `0000060-rc-20260630T021700Z-fd13875d` task-up repairs
 
 - Repository Name: `Current Repository`
@@ -2851,7 +2854,7 @@ There are no inline-resolved minor findings recorded for this review cycle today
 - Automated-proof audit re-read the bound Task 30 section, confirmed the final-owner PR summary refresh plus all ten repository-supported broad proof steps matched current `HEAD` and commit `96257069`, found no live blocker via `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number 30`, and closed the task because both the implementation-prep work and the full automated revalidation were already honestly complete on disk.
 - Manual testing ran as a full-story proof pass because Task 30 is the final task: restarted the supported main stack from unknown provenance, passed `npm run test:summary:host-network:main`, captured `/health`, `/flows`, and `/flows/implement_next_plan_github_review_test?sourceId=/data/codeInfo2`, and manually re-proved the repaired helper seam with canonical success plus foreign-path and malformed-canonical rejection artifacts under `codeInfoTmp/manual-testing/0000060/30/`; browser screenshots were not required or attempted because Task 30's own exit criteria keep browser and e2e proof non-applicable for this backend-only review-created block, no earlier screenshots were superseded, live GitHub-review proof was intentionally not required because this task's accepted broad proof path is the supported main-stack smoke plus repository-backed helper evidence, and no additional subtasks were needed.
 - Resumed GitHub review execution expected persisted pull request #211, but the resumed execution context carried #212. Checking the latest open pull request for Chargeuk/codeInfo2 on branch feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.
-Adopting newer pull request #212 because it is later than the persisted expected pull request #211 on the same branch.
+  Adopting newer pull request #212 because it is later than the persisted expected pull request #211 on the same branch.
 - Post-merge broad-proof stabilization repaired one deterministic saved-conversation provider or model pinning regression in `server/src/mcp2/tools/codebaseQuestion.ts` plus `server/src/chat/providerExecution.ts`, and then widened only the narrow server integration wait budgets that were timing out under shared load instead of changing the underlying runtime contracts those tests prove.
 - Shared all-suite validation initially kept failing only in rotating `server:unit` timeout proofs, so the batch wrapper in `scripts/test-summary-all-parallel.mjs` was temporarily made more conservative while the harness investigation isolated whether the failures came from missed helper wiring or from deeper runtime issues.
 - Follow-up timeout-harness work wired the remaining server integration polling helpers into the shared `CODEINFO_TEST_TIMEOUT_MS` contract, then restored `server:unit` parallelism in `scripts/test-summary-all-parallel.mjs` with a capped worker count of `4` and a larger all-suite-only absolute wait budget of `60000`; `npm run test:summary:all:parallel` then passed cleanly with `client 900/900`, `server:unit 2535/2535`, `server:cucumber 133/133`, and `e2e 77/77`.
@@ -5682,7 +5685,7 @@ Optional, checkbox-free manual proof may use the supported main Compose stack, s
 - `npm run compose:down` passed with exit code 0; the supported main stack containers and network were removed cleanly.
 - `npm run format:check` passed with exit code 0; all tracked files matched Prettier formatting.
 - Final validation ran at target HEAD `c17204ad4a18479f7bda48b3623a83aa16dad4cf`; no story-caused repair was needed. Optional live-provider, browser, and screenshot proof remained unavailable/non-blocking under the task guidance.
-Record the final target HEAD, every automated wrapper result, any story-caused repair and rerun, Compose startup and shutdown result, and honest limits including unavailable live-provider or browser proof. Keep this final task after Task 52 and after any genuinely open settlement work; no open settlement work is currently recommended.
+  Record the final target HEAD, every automated wrapper result, any story-caused repair and rerun, Compose startup and shutdown result, and honest limits including unavailable live-provider or browser proof. Keep this final task after Task 52 and after any genuinely open settlement work; no open settlement work is currently recommended.
 
 ## Code Review Findings
 
@@ -6253,7 +6256,7 @@ Record the completed normal repair for the sole authorized and material survivor
 - Repository Name: `Current Repository`
 - Review Task Role: `final_revalidation`
 - Task Dependencies: `Task 56` plus all earlier story work
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Cycle: `0000060-rc-20260803T173218Z-5e6e55c6`
 - Review Batches: `0000060-rw-20260803T173219Z-a7501ad8`, `0000060-rw-20260803T190817Z-e676d83d`, `0000060-rw-20260803T212328Z-0d2fb9e7`, and `0000060-rw-20260803T223701Z-c042b1d5`
 - Affected Repositories: `current_repository`
@@ -6286,8 +6289,8 @@ Final-task repair scope: the whole approved story is in scope for failures found
 2. [x] `npm run build:summary:server`
 3. [x] `npm run compose:build:summary`
 4. [x] `npm run compose:up`
-5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
-6. [ ] `npm run compose:down`
+5. [x] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts.
+6. [x] `npm run compose:down`
 7. [x] `npm run lint`
 8. [x] `npm run format:check`
 
@@ -6305,3 +6308,17 @@ Optional, checkbox-free manual proof may use the supported main Compose stack th
 - Ran `npm run format:check`; all tracked files passed Prettier validation, so no repair was made.
 - Audit normalization marked the matching Testing items complete from the immediately preceding implementation-pass evidence; the six build, Compose, and full-suite proof items remain open for automated validation. No production or test code changed in that pass, and no story-caused preserved-behavior regression was identified.
 - The final task must record the final target HEAD, every automated wrapper result, Compose startup and shutdown outcome, any story-caused repair and rerun, and honest limits such as the known baseline lint violations or unavailable live-provider/browser proof. It must not claim a clean closeout until every listed automated item is actually complete.
+- Hardened the remaining stress-sensitive tests by adding acknowledged conversation subscriptions, listener-before-close ordering, observable completion barriers, stress-scaled poll budgets, gated E2E stream phases, and non-evicting per-socket event history. Individual client, server, Cucumber, and E2E proofs passed after correcting the chat spinner implementation to clear stale thinking state on assistant and tool activity.
+- Ran `npm run test:summary:all:stress` with the 16-core allocation of client 2, server unit 12, Cucumber 1, and Playwright 1. All 3,990 tests passed together: client 911/911, server unit 2,863/2,863, Cucumber 138/138, and e2e 78/78; the harness also removed its isolated Cucumber and e2e infrastructure cleanly.
+- A follow-up race audit hardened the remaining test-only check-then-subscribe, real-time timer, fixed polling-budget, one-turn scheduling, fire-and-forget server-close, and E2E subscription-order assumptions. The affected Node files passed individually (157/157), followed by standalone Cucumber (138/138) and E2E (78/78); after one diagnostic Codex device-auth failure exposed an incomplete request-entry gate, the gate was made observable and the file passed 18/18. The final `npm run test:summary:all:stress` rerun passed 3,990/3,990 with client 911/911 in 457.948s, server unit 2,863/2,863 in 546.726s, Cucumber 138/138 in 93.064s, and E2E 78/78 in 395.805s, and both isolated infrastructures were removed cleanly.
+- Replaced the final audited one-turn completion guesses in device-auth, ingest-queue, provider-dispatch, and flow-resume tests with explicit call-count, processor-start, scheduler-cancel, or persisted-state barriers, and made the remaining Cucumber and E2E polling deadlines honor `CODEINFO_TEST_TIMEOUT_MS`. The affected Node files passed individually (195/195), standalone Cucumber passed 138/138, and the two affected E2E files passed 13/13; an initial resume-identity proof exposed that an optional diagnostic log was disabled, so the test now waits for the scheduler handle's actual cancellation callback and passes 19/19. The final `npm run test:summary:all:stress` proof passed all 3,990 tests together with client 911/911 in 371.383s, server unit 2,863/2,863 in 453.918s, Cucumber 138/138 in 87.375s, and E2E 78/78 in 324.971s, followed by clean removal of both isolated infrastructures.
+- Completed the final stress-race cleanup by tracking ingest scheduler and detached-task completion, subscribing before flow requests, consulting persisted loop outcomes before late WebSocket waits, awaiting every affected mock WebSocket send and server close, applying the stress timeout policy to fixed Playwright deadlines, and bounding MCP run-start gates. The server build passed, all 14 affected server files passed independently (196/196), and standalone E2E passed 78/78. The final `npm run test:summary:all:stress` proof passed all 3,990 tests together with client 911/911 in 344.821s, server unit 2,863/2,863 in 425.831s, Cucumber 138/138 in 78.861s, and E2E 78/78 in 307.883s; both isolated infrastructures were removed cleanly. The client prebuild's only warning was the existing Vite large-chunk advisory, with no typecheck, build, or test failure.
+- Implemented the next whole-test race-audit repairs: eight fast flow failures now subscribe before their HTTP launch, raw WebSocket publications install their waiter first, negative client WebSocket assertions can await delivery, MCP disconnect tests wait for actual handler entry, client/server poll budgets honor stress configuration, and all 51 immediate ephemeral-port reads now await server readiness through one shared helper. Individual and combined proof remain pending.
+- Proved the audit repairs independently: client typecheck passed, the nine affected client files passed 33/33, all 21 affected server Node files passed 254/254 after a clean server build, and the two controlled-embedding Cucumber features passed 3/3 with clean isolated-infrastructure teardown. No targeted repair was required; combined stress proof remains pending.
+- Ran the combined `npm run test:summary:all:stress` proof with client 2, server-unit 12, Cucumber 1, and Playwright 1. All 3,990 tests passed: client 911/911 in 334.650s, server unit 2,863/2,863 in 418.526s, Cucumber 138/138 in 77.322s, and E2E 78/78 in 296.929s; both isolated test infrastructures were removed cleanly. The prebuilds and Compose builds also passed, with only the existing client large-chunk warning.
+- Final formatting validation passed after mechanically applying Prettier to the 19 modified client test files it identified, and targeted ESLint passed across every file changed by this audit. The repository-wide lint command still reports only pre-existing scope outside this audit: five direct client test environment mutations, seventeen direct environment mutations in `flows.run.subflow.test.ts`, and three older import-order warnings in ingest step files.
+- Repaired the final residual stress risks by awaiting all asynchronous client WebSocket harness emissions, subscribing six retry-ownership launches before execution, replacing a timeout-length cancellation observation with the ingest-runtime-idle barrier, pre-arming forced WebSocket close observation, and removing an obsolete post-acknowledgement sleep. Client typecheck passed; the 13 affected client suites passed 126/126 after correcting one fake-timer emission handshake, and the four affected server files passed independently with 54/54, 15/15, 40/40, and 19/19 tests. Targeted ESLint and formatting validation passed. The combined stress proof passed 3,990/3,990 with client 911/911 in 379.208s, server unit 2,863/2,863 in 455.720s, Cucumber 138/138 in 75.536s, and E2E 78/78 in 335.315s; both isolated infrastructures were removed cleanly.
+- Replaced the remaining fixed-duration cancellation windows with abort-aware provider gates across chat, agent, Copilot, flow, and Cucumber tests; made previously optional stopped-terminal assertions mandatory; replaced negative duplicate-terminal timeouts with an ordered no-op acknowledgement barrier; cleared losing controlled-embedding timeout handles; and made the shared WebSocket close helper safe after an already-observed close. Individual and combined proof are pending.
+- Proved the latest repairs independently after a clean server build: the eight affected Node files passed 157/157 and the targeted chat-cancellation Cucumber feature passed 4/4 with clean isolated-infrastructure teardown. The Copilot proof initially exposed that active-inflight cancellation has no immediate acknowledgement, so it now pre-arms observation of the actual inflight abort signal before sending stop and releases its provider gate only after cancellation is observed; its rerun passed 2/2. Targeted ESLint, Prettier, and `git diff --check` also passed; combined stress proof remains pending.
+- Ran the stronger combined `npm run test:summary:all:stress` proof with the 16-core allocation of client 2, server-unit 12, Cucumber 1, and Playwright 1. All 3,990 tests passed together: client 911/911 in 383.476s, server unit 2,863/2,863 in 470.822s, Cucumber 138/138 in 85.805s, and E2E 78/78 in 332.722s; reusable builds passed, the client retained only its existing large-chunk warning, and both isolated infrastructures were removed cleanly.
+- Ran `npm run compose:down`; the supported main Compose stack stopped cleanly and its containers and `codeinfo2_internal` network were removed. With every subtask and testing item complete, Task 57 is done.

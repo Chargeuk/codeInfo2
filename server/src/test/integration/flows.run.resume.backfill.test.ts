@@ -47,18 +47,22 @@ const waitFor = async (
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
   throw new Error(
-    describe ? `Timed out waiting for predicate | ${describe()}` : 'Timed out waiting for predicate',
+    describe
+      ? `Timed out waiting for predicate | ${describe()}`
+      : 'Timed out waiting for predicate',
   );
 };
 
 const describeResumeBackfillState = (conversationId: string): string =>
   JSON.stringify({
     conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
-    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
-      role: turn.role,
-      status: turn.status,
-      content: turn.content,
-    })),
+    recentTurns: (memoryTurns.get(conversationId) ?? [])
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+      })),
     runtimeLogs: query({ text: 'flows.test.' }, 80)
       .filter(
         (entry) =>
@@ -894,17 +898,23 @@ test('startup recovery re-registers persisted waits through the normal startup p
         50,
         () => describeResumeBackfillState(conversationId),
       );
-      await waitFor(() => {
-        const flags = (memoryConversations.get(conversationId)?.flags ?? {}) as {
-          flow?: { wait?: { stepPath?: number[]; resumeAt?: number } };
-        };
-        return (
-          Array.isArray(flags.flow?.wait?.stepPath) &&
-          flags.flow?.wait?.stepPath?.length === 1 &&
-          flags.flow?.wait?.stepPath?.[0] === 1 &&
-          typeof flags.flow?.wait?.resumeAt === 'number'
-        );
-      }, 10000, 50, () => describeResumeBackfillState(conversationId));
+      await waitFor(
+        () => {
+          const flags = (memoryConversations.get(conversationId)?.flags ??
+            {}) as {
+            flow?: { wait?: { stepPath?: number[]; resumeAt?: number } };
+          };
+          return (
+            Array.isArray(flags.flow?.wait?.stepPath) &&
+            flags.flow?.wait?.stepPath?.length === 1 &&
+            flags.flow?.wait?.stepPath?.[0] === 1 &&
+            typeof flags.flow?.wait?.resumeAt === 'number'
+          );
+        },
+        10000,
+        50,
+        () => describeResumeBackfillState(conversationId),
+      );
       await waitFor(
         () => getActiveRunOwnership(conversationId) === null,
         10000,
@@ -1027,9 +1037,10 @@ test('persisted waits resume the originally selected conditional branch without 
         25,
         () => describeResumeBackfillState(conversationId),
       );
-      assert.deepEqual(getPersistedWaitState(conversationId)?.stepPath, [
-        0, 0, 0,
-      ]);
+      assert.deepEqual(
+        getPersistedWaitState(conversationId)?.stepPath,
+        [0, 0, 0],
+      );
 
       await fs.rm(path.join(tmpDir, 'scripts', 'select-then.py'));
       const wake = wakes.shift();
@@ -1153,7 +1164,10 @@ test('missing GitHub review setup records a warning and continues later flow ste
           await listSingleRepository(tmpDir),
       });
       await waitFor(
-        () => captured.some((message) => message.startsWith('Continued after review')),
+        () =>
+          captured.some((message) =>
+            message.startsWith('Continued after review'),
+          ),
         10000,
         25,
         () => describeResumeBackfillState(conversationId),
@@ -1337,7 +1351,10 @@ test('exhausted nested GitHub review recovery skips the marked review branch', a
                     agentType: 'coding_agent',
                     identifier: 'resume-test',
                     messages: [
-                      { role: 'user', content: ['Review sibling must not run'] },
+                      {
+                        role: 'user',
+                        content: ['Review sibling must not run'],
+                      },
                     ],
                   },
                 ],
@@ -1435,17 +1452,22 @@ test('exhausted nested GitHub review recovery skips the marked review branch', a
           await listSingleRepository(tmpDir),
       });
       await waitFor(
-        () => captured.some((message) => message.startsWith('After review scope')),
+        () =>
+          captured.some((message) => message.startsWith('After review scope')),
         10000,
         25,
         () => describeResumeBackfillState(conversationId),
       );
       assert.equal(
-        captured.some((message) => message.startsWith('Review sibling must not run')),
+        captured.some((message) =>
+          message.startsWith('Review sibling must not run'),
+        ),
         false,
       );
       assert.equal(
-        captured.some((message) => message.startsWith('Review tail must not run')),
+        captured.some((message) =>
+          message.startsWith('Review tail must not run'),
+        ),
         false,
       );
       const flow = memoryConversations.get(conversationId)?.flags?.flow as
@@ -1790,7 +1812,12 @@ test('wake-time run ownership collision does not restore wait state after the ac
       assert.ok(initialWake, 'expected captured wake callback');
       initialWake();
 
-      await new Promise((resolve) => setImmediate(resolve));
+      await waitFor(
+        () => getPersistedWaitState(conversationId) === undefined,
+        10000,
+        25,
+        () => describeResumeBackfillState(conversationId),
+      );
       assert.equal(wakes.length, 0);
       assert.equal(getPersistedWaitState(conversationId), undefined);
       const flowState = memoryConversations.get(conversationId)?.flags?.flow as
@@ -1891,12 +1918,14 @@ test('an older contested wake cannot cancel a newer persisted wait scheduler', a
 
       scheduled[0]?.onWake();
       await waitFor(
-        () => scheduled.length === 2,
+        () =>
+          scheduled.length === 2 &&
+          scheduled[0]?.cancelled === true &&
+          scheduled[1]?.cancelled === false,
         10000,
         25,
         () => describeResumeBackfillState(conversationId),
       );
-      await new Promise((resolve) => setImmediate(resolve));
 
       assert.equal(scheduled.length, 2);
       assert.equal(scheduled[0]?.cancelled, true);

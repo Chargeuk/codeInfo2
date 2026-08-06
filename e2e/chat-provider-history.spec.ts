@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { logPlaywrightCopilotScenarioRegistration } from './support/copilotFakeScenario';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -118,7 +119,7 @@ test('resumed chat history rehydrates the stored provider before showing turns',
 
   await page.goto(`${baseUrl}/chat`);
   await hideMcpOverlay(page);
-  await page.waitForTimeout(500);
+  await expect(page.getByTestId('conversation-refresh')).toBeVisible();
 
   const apiData = await page.evaluate(async (apiUrl) => {
     const res = await fetch(`${apiUrl}/conversations?limit=5`);
@@ -133,7 +134,9 @@ test('resumed chat history rehydrates the stored provider before showing turns',
   );
   console.log('conversation rows found', rowTexts);
 
-  await expect(page.getByText(codexTitle)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(codexTitle)).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(15000),
+  });
 
   // Click the Codex conversation.
   const turnsResponsePromise = page.waitForResponse(
@@ -279,7 +282,9 @@ test('cross-provider history selection keeps Copilot pinned in the selector and 
   const conversationRow = page.locator('[data-testid="conversation-row"]', {
     hasText: copilotConversation.title,
   });
-  await expect(conversationRow).toBeVisible({ timeout: 20000 });
+  await expect(conversationRow).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await conversationRow.click();
 
   await expect(page.getByTestId('provider-select')).toContainText(
@@ -435,7 +440,7 @@ test('fresh chat after selecting history ignores restored resume-only provider s
     },
   );
   await expect(historyConversationRow).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await historyConversationRow.click();
   await expect(page.getByTestId('provider-select')).toContainText(/LM Studio/i);
@@ -454,7 +459,7 @@ test('fresh chat after selecting history ignores restored resume-only provider s
 
   await expect
     .poll(() => chatBodies.length, {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message: 'Expected fresh chat submission to be sent',
     })
     .toBe(1);
@@ -658,7 +663,7 @@ test('mobile endpoint-backed history selection through the conversations overlay
     },
   );
   await expect(historyConversationRow).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await historyConversationRow.click();
   await expect(
@@ -868,7 +873,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
     },
   );
   await expect(historyConversationRow).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await historyConversationRow.click();
   await expect(

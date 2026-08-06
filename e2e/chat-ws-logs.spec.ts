@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 type ChatModel = { key: string; displayName: string; type?: string };
 
@@ -89,7 +90,9 @@ test('Logs page shows chat WS client log lines after transcript events', async (
   await page.goto(`${baseUrl}/chat`);
 
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
-  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await expect(modelSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await modelSelect.click();
   await page.getByRole('option', { name: 'Mock Model 1' }).click();
 
@@ -100,7 +103,7 @@ test('Logs page shows chat WS client log lines after transcript events', async (
     '[data-testid="chat-bubble"][data-role="assistant"]',
   );
   await expect(assistantBubbles.first()).toHaveText(/Hello from WS logs e2e/i, {
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
 
   await page.goto(`${baseUrl}/logs`);
@@ -108,14 +111,14 @@ test('Logs page shows chat WS client log lines after transcript events', async (
 
   const table = page.getByRole('table', { name: 'Logs table' });
   await expect(table.getByText('chat.ws.client_connect').first()).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await expect(
     table.getByText('chat.ws.client_snapshot_received').first(),
-  ).toBeVisible({ timeout: 20000 });
+  ).toBeVisible({ timeout: resolveConfiguredE2eTimeoutMs(20000) });
   await expect(
     table.getByText('chat.ws.client_final_received').first(),
   ).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
 });

@@ -1,6 +1,7 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 
@@ -53,6 +54,7 @@ test('renders Codex thought process when analysis frames stream', async ({
   page,
 }) => {
   const mockWs = await installMockChatWs(page);
+  let streamPromise: Promise<void> | null = null;
 
   await page.route('**/chat/providers', (route) =>
     route.fulfill({
@@ -147,24 +149,22 @@ test('renders Codex thought process when analysis frames stream', async ({
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    setTimeout(() => {
-      mockWs.sendAnalysisDelta({
+    streamPromise = (async () => {
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      await mockWs.sendAnalysisDelta({
         conversationId,
         inflightId,
         delta: 'Codex thinking.',
       });
-    }, 0);
-    setTimeout(() => {
-      mockWs.sendAssistantDelta({
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await mockWs.sendAssistantDelta({
         conversationId,
         inflightId,
         delta: 'Final',
       });
-    }, 800);
-    setTimeout(() => {
-      mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
-    }, 1500);
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    })();
   });
 
   await page.goto(`${baseUrl}/chat`);
@@ -177,8 +177,13 @@ test('renders Codex thought process when analysis frames stream', async ({
 
   const agentFlagsPanel = page.locator('[data-testid="agent-flags-panel"]');
   if (await agentFlagsPanel.count()) {
-    await expect(agentFlagsPanel.first()).toBeVisible({ timeout: 20000 });
-    const agentFlagsToggle = agentFlagsPanel.first().locator('[aria-expanded]').first();
+    await expect(agentFlagsPanel.first()).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
+    const agentFlagsToggle = agentFlagsPanel
+      .first()
+      .locator('[aria-expanded]')
+      .first();
     if ((await agentFlagsToggle.getAttribute('aria-expanded')) === 'true') {
       await agentFlagsToggle.click();
     }
@@ -186,15 +191,22 @@ test('renders Codex thought process when analysis frames stream', async ({
 
   const input = page.getByTestId('chat-input');
   await input.fill('Show reasoning');
-  await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 10000 });
+  await expect(page.getByTestId('chat-send')).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
+  });
   await page.getByTestId('chat-send').click();
 
   await expect(page.getByTestId('think-toggle')).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await expect(page.getByTestId('status-chip')).toHaveText(/Complete/i, {
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
+
+  if (!streamPromise) {
+    throw new Error('Expected the mocked Codex reasoning stream to start');
+  }
+  await streamPromise;
 
   await page.getByTestId('think-toggle').scrollIntoViewIfNeeded();
   await page.getByTestId('think-toggle').click();
@@ -202,7 +214,7 @@ test('renders Codex thought process when analysis frames stream', async ({
     'Codex thinking.',
   );
   await expect(page.getByTestId('think-spinner')).toBeHidden({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
 
   mkdirSync('test-results/screenshots', { recursive: true });

@@ -29,6 +29,7 @@ import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
   sendJson,
@@ -36,6 +37,13 @@ import {
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const waitForAbort = async (signal?: AbortSignal) => {
+  assert.ok(signal, 'expected agent run AbortSignal');
+  if (signal.aborted) return;
+  await new Promise<void>((resolve) => {
+    signal.addEventListener('abort', () => resolve(), { once: true });
+  });
+};
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../../',
@@ -76,7 +84,7 @@ async function waitForRuntimeCleanup(
   );
 }
 
-class SlowStreamingChat extends ChatInterface {
+class AbortGatedChat extends ChatInterface {
   async execute(
     _message: string,
     flags: Record<string, unknown>,
@@ -87,22 +95,10 @@ class SlowStreamingChat extends ChatInterface {
     void _model;
 
     const signal = (flags as { signal?: AbortSignal }).signal;
-    const abortIfNeeded = () => {
-      if (!signal?.aborted) return false;
-      this.emit('error', { type: 'error', message: 'aborted' });
-      return true;
-    };
-
     this.emit('thread', { type: 'thread', threadId: conversationId });
-
-    for (const chunk of ['Hel', 'lo', ' ', 'wor', 'ld', '!']) {
-      await delay(75);
-      if (abortIfNeeded()) return;
-      this.emit('token', { type: 'token', content: chunk });
-    }
-
-    this.emit('final', { type: 'final', content: 'Hello world!' });
-    this.emit('complete', { type: 'complete', threadId: conversationId });
+    this.emit('token', { type: 'token', content: 'Hel' });
+    await waitForAbort(signal);
+    this.emit('error', { type: 'error', message: 'aborted' });
   }
 }
 
@@ -176,7 +172,7 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
         ...providerHomes.envOverrides,
       },
       async () => {
-        sendJson(ws, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: ws, conversationId });
 
         const deltaPromise = waitForEvent({
           ws,
@@ -235,7 +231,7 @@ test('Agents cancel_inflight publishes turn_final status stopped and run resolve
           mustExist: false,
           source: 'REST',
           inflightId,
-          chatFactory: () => new SlowStreamingChat(),
+          chatFactory: () => new AbortGatedChat(),
         });
 
         await deltaPromise;
@@ -268,7 +264,10 @@ test('cancelling an in-flight direct agent run does not rewrite the stored execu
 
   try {
     await runWithTestEnvOverrides(server.envOverrides, async () => {
-      sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({
+        ws: server.ws,
+        conversationId,
+      });
 
       const deltaPromise = waitForEvent({
         ws: server.ws,
@@ -313,7 +312,7 @@ test('cancelling an in-flight direct agent run does not rewrite the stored execu
         mustExist: false,
         source: 'REST',
         inflightId: 'agents-ws-cancel-identity-inflight-1',
-        chatFactory: () => new SlowStreamingChat(),
+        chatFactory: () => new AbortGatedChat(),
       });
 
       await deltaPromise;
@@ -345,7 +344,10 @@ test('Agents startup-race conversation-only stop finishes a normal run as stoppe
 
   try {
     await runWithTestEnvOverrides(server.envOverrides, async () => {
-      sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({
+        ws: server.ws,
+        conversationId,
+      });
 
       const finalPromise = waitForEvent({
         ws: server.ws,
@@ -377,7 +379,7 @@ test('Agents startup-race conversation-only stop finishes a normal run as stoppe
         instruction: 'Hello',
         conversationId,
         source: 'REST',
-        chatFactory: () => new SlowStreamingChat(),
+        chatFactory: () => new AbortGatedChat(),
       });
 
       sendJson(server.ws, {
@@ -412,7 +414,10 @@ test('Duplicate stop requests for a normal agent run emit one terminal event', a
 
   try {
     await runWithTestEnvOverrides(server.envOverrides, async () => {
-      sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({
+        ws: server.ws,
+        conversationId,
+      });
 
       const finalPromise = waitForEvent({
         ws: server.ws,
@@ -442,7 +447,7 @@ test('Duplicate stop requests for a normal agent run emit one terminal event', a
         instruction: 'Hello',
         conversationId,
         source: 'REST',
-        chatFactory: () => new SlowStreamingChat(),
+        chatFactory: () => new AbortGatedChat(),
       });
 
       sendJson(server.ws, { type: 'cancel_inflight', conversationId });
@@ -453,7 +458,8 @@ test('Duplicate stop requests for a normal agent run emit one terminal event', a
 
       const finalEvents = events.filter(
         (event) =>
-          event.type === 'turn_final' && event.conversationId === conversationId,
+          event.type === 'turn_final' &&
+          event.conversationId === conversationId,
       );
       assert.equal(finalEvents.length, 1);
     });
@@ -473,7 +479,10 @@ test('Normal agent stop cleanup fallback still releases runtime state', async ()
 
   try {
     await runWithTestEnvOverrides(server.envOverrides, async () => {
-      sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({
+        ws: server.ws,
+        conversationId,
+      });
 
       const finalPromise = waitForEvent({
         ws: server.ws,
@@ -503,7 +512,7 @@ test('Normal agent stop cleanup fallback still releases runtime state', async ()
         instruction: 'Hello',
         conversationId,
         source: 'REST',
-        chatFactory: () => new SlowStreamingChat(),
+        chatFactory: () => new AbortGatedChat(),
         cleanupInflightFn: ({ conversationId: cleanupConversationId }) => {
           if (cleanupConversationId === conversationId) {
             throw new Error('forced cleanup failure');
@@ -513,7 +522,10 @@ test('Normal agent stop cleanup fallback still releases runtime state', async ()
 
       const waitForInflight = async () => {
         const startedAt = Date.now();
-        while (Date.now() - startedAt < 15_000) {
+        while (
+          Date.now() - startedAt <
+          resolveConfiguredTestTimeoutMs(15_000)
+        ) {
           const inflight = getInflight(conversationId);
           if (inflight?.inflightId === started.inflightId) return;
           await delay(25);
@@ -543,7 +555,10 @@ test('A new normal agent run can start on the same conversation after confirmed 
 
   try {
     await runWithTestEnvOverrides(server.envOverrides, async () => {
-      sendJson(server.ws, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({
+        ws: server.ws,
+        conversationId,
+      });
 
       const firstFinalPromise = waitForEvent({
         ws: server.ws,
@@ -566,33 +581,56 @@ test('A new normal agent run can start on the same conversation after confirmed 
           );
         },
         timeoutMs: 15_000,
-      }).catch(() => null);
+      });
 
       await startAgentInstruction({
         agentName: 'coding_agent',
         instruction: 'Hello',
         conversationId,
         source: 'REST',
-        chatFactory: () => new SlowStreamingChat(),
+        chatFactory: () => new AbortGatedChat(),
       });
 
       sendJson(server.ws, { type: 'cancel_inflight', conversationId });
       const firstFinal = await firstFinalPromise;
       await waitForRuntimeCleanup(conversationId);
-      if (firstFinal) {
-        assert.equal(firstFinal.status, 'stopped');
-      }
+      assert.equal(firstFinal.status, 'stopped');
+
+      const secondFinalPromise = waitForEvent({
+        ws: server.ws,
+        predicate: (
+          event: unknown,
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          conversationId: string;
+        } => {
+          const e = event as {
+            type?: string;
+            status?: string;
+            conversationId?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'stopped'
+          );
+        },
+        timeoutMs: 15_000,
+      });
 
       const secondRun = await startAgentInstruction({
         agentName: 'coding_agent',
         instruction: 'Hello again',
         conversationId,
         source: 'REST',
-        chatFactory: () => new SlowStreamingChat(),
+        chatFactory: () => new AbortGatedChat(),
       });
 
       assert.equal(secondRun.conversationId, conversationId);
       sendJson(server.ws, { type: 'cancel_inflight', conversationId });
+      const secondFinal = await secondFinalPromise;
+      assert.equal(secondFinal.status, 'stopped');
       await waitForRuntimeCleanup(conversationId);
     });
   } finally {

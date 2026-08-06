@@ -109,7 +109,7 @@ describe('Chat page stop control', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
@@ -193,7 +193,7 @@ describe('Chat page stop control', () => {
       );
     });
 
-    harness.emitCancelAck({
+    await harness.emitCancelAck({
       conversationId: conversationId!,
       requestId,
       result: 'noop',
@@ -373,12 +373,12 @@ describe('Chat page stop control', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Partial reply',
@@ -388,7 +388,7 @@ describe('Chat page stop control', () => {
       await user.click(await screen.findByTestId('chat-stop'));
     });
 
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'stopped',
@@ -541,7 +541,7 @@ describe('Chat page stop control', () => {
     expect(screen.getByTestId('chat-stop')).toBeDisabled();
     expect(screen.getByTestId('status-chip')).toHaveTextContent('Working');
 
-    harness.emitCancelAck({
+    await harness.emitCancelAck({
       conversationId: 'c1',
       requestId,
       result: 'noop',
@@ -590,12 +590,12 @@ describe('Chat page stop control', () => {
     const conversationId = harness.getConversationId();
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId: 'i1',
       assistantText: '',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId: 'i1',
       status: 'ok',
@@ -606,12 +606,12 @@ describe('Chat page stop control', () => {
     await startChatTurn(user, 'Second run');
     await waitFor(() => expect(harness.chatBodies.length).toBe(2));
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId: 'i2',
       assistantText: '',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId: 'i1',
       status: 'failed',

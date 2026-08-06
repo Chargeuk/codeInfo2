@@ -30,9 +30,9 @@ import { attachWs } from '../../ws/server.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 class CapturingChat extends ChatInterface {
@@ -542,10 +542,7 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
         },
       }),
     });
-    sendJson(ws, {
-      type: 'subscribe_conversation',
-      conversationId,
-    });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const finalPromise = waitForEvent({
       ws,
       predicate: (
@@ -668,10 +665,7 @@ test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reinges
         },
       }),
     });
-    sendJson(ws, {
-      type: 'subscribe_conversation',
-      conversationId,
-    });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const finalPromise = waitForEvent({
       ws,
       predicate: (
@@ -1565,10 +1559,7 @@ test('direct command target plan_scope publishes success with warnings, continue
       },
       createCallId: () => 'call-plan-scope-success',
     });
-    sendJson(ws, {
-      type: 'subscribe_conversation',
-      conversationId,
-    });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const finalPromise = waitForEvent({
       ws,
       predicate: (

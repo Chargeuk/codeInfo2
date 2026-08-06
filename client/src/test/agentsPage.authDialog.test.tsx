@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -32,192 +33,204 @@ const routes = [
 ];
 
 describe('Agents page auth dialog', () => {
-  it('keeps the info summary free of re-authenticate actions when Codex is unavailable', async () => {
-    const user = userEvent.setup();
+  it(
+    'keeps the info summary free of re-authenticate actions when Codex is unavailable',
+    async () => {
+      const user = userEvent.setup();
 
-    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
-      const href = typeof url === 'string' ? url : url.toString();
-      if (href.includes('/health')) {
+      mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              providers: [
+                {
+                  id: 'lmstudio',
+                  label: 'LM Studio',
+                  available: true,
+                  toolsAvailable: true,
+                },
+                {
+                  id: 'copilot',
+                  label: 'GitHub Copilot',
+                  available: false,
+                  toolsAvailable: false,
+                  reason: 'GitHub login required',
+                },
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: false,
+                  toolsAvailable: false,
+                  reason: 'Missing auth.json in /app/codex',
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'codex',
+              available: false,
+              toolsAvailable: false,
+              models: [{ key: 'model', displayName: 'Model', type: 'codex' }],
+            }),
+          }) as unknown as Response;
+        }
+        if (
+          href.includes('/agents') &&
+          !href.includes('/commands') &&
+          !href.includes('/run')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'a1' }] }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/agents/') && href.includes('/commands')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ commands: [] }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [], nextCursor: null }),
+          }) as unknown as Response;
+        }
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ mongoConnected: true }),
+          json: async () => ({}),
         }) as unknown as Response;
-      }
-      if (href.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            providers: [
-              {
-                id: 'lmstudio',
-                label: 'LM Studio',
-                available: true,
-                toolsAvailable: true,
-              },
-              {
-                id: 'copilot',
-                label: 'GitHub Copilot',
-                available: false,
-                toolsAvailable: false,
-                reason: 'GitHub login required',
-              },
-              {
-                id: 'codex',
-                label: 'OpenAI Codex',
-                available: false,
-                toolsAvailable: false,
-                reason: 'Missing auth.json in /app/codex',
-              },
-            ],
-          }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/chat/models')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            provider: 'codex',
-            available: false,
-            toolsAvailable: false,
-            models: [{ key: 'model', displayName: 'Model', type: 'codex' }],
-          }),
-        }) as unknown as Response;
-      }
-      if (
-        href.includes('/agents') &&
-        !href.includes('/commands') &&
-        !href.includes('/run')
-      ) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ agents: [{ name: 'a1' }] }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/agents/') && href.includes('/commands')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ commands: [] }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/conversations')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [], nextCursor: null }),
-        }) as unknown as Response;
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as unknown as Response;
-    });
+      });
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, {
+        initialEntries: ['/agents'],
+      });
+      render(<RouterProvider router={router} />);
 
-    await user.click(await screen.findByTestId('agent-info'));
-    expect(
-      screen.queryByRole('button', { name: /re-authenticate/i }),
-    ).not.toBeInTheDocument();
-  }, 30_000);
+      await user.click(await screen.findByTestId('agent-info'));
+      expect(
+        screen.queryByRole('button', { name: /re-authenticate/i }),
+      ).not.toBeInTheDocument();
+    },
+    resolveClientTestTimeoutMs(30_000),
+  );
 
-  it('keeps the info summary free of re-authenticate actions when Codex is available', async () => {
-    const user = userEvent.setup();
+  it(
+    'keeps the info summary free of re-authenticate actions when Codex is available',
+    async () => {
+      const user = userEvent.setup();
 
-    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
-      const href = typeof url === 'string' ? url : url.toString();
-      if (href.includes('/health')) {
+      mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              providers: [
+                {
+                  id: 'lmstudio',
+                  label: 'LM Studio',
+                  available: true,
+                  toolsAvailable: true,
+                },
+                {
+                  id: 'copilot',
+                  label: 'GitHub Copilot',
+                  available: false,
+                  toolsAvailable: false,
+                  reason: 'GitHub login required',
+                },
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'codex',
+              available: true,
+              toolsAvailable: true,
+              models: [{ key: 'model', displayName: 'Model', type: 'codex' }],
+            }),
+          }) as unknown as Response;
+        }
+        if (
+          href.includes('/agents') &&
+          !href.includes('/commands') &&
+          !href.includes('/run')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'a1' }] }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/agents/') && href.includes('/commands')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ commands: [] }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [], nextCursor: null }),
+          }) as unknown as Response;
+        }
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ mongoConnected: true }),
+          json: async () => ({}),
         }) as unknown as Response;
-      }
-      if (href.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            providers: [
-              {
-                id: 'lmstudio',
-                label: 'LM Studio',
-                available: true,
-                toolsAvailable: true,
-              },
-              {
-                id: 'copilot',
-                label: 'GitHub Copilot',
-                available: false,
-                toolsAvailable: false,
-                reason: 'GitHub login required',
-              },
-              {
-                id: 'codex',
-                label: 'OpenAI Codex',
-                available: true,
-                toolsAvailable: true,
-              },
-            ],
-          }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/chat/models')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            provider: 'codex',
-            available: true,
-            toolsAvailable: true,
-            models: [{ key: 'model', displayName: 'Model', type: 'codex' }],
-          }),
-        }) as unknown as Response;
-      }
-      if (
-        href.includes('/agents') &&
-        !href.includes('/commands') &&
-        !href.includes('/run')
-      ) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ agents: [{ name: 'a1' }] }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/agents/') && href.includes('/commands')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ commands: [] }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/conversations')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [], nextCursor: null }),
-        }) as unknown as Response;
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as unknown as Response;
-    });
+      });
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, {
+        initialEntries: ['/agents'],
+      });
+      render(<RouterProvider router={router} />);
 
-    await user.click(await screen.findByTestId('agent-info'));
-    expect(
-      screen.queryByRole('button', { name: /re-authenticate/i }),
-    ).not.toBeInTheDocument();
-  }, 30_000);
+      await user.click(await screen.findByTestId('agent-info'));
+      expect(
+        screen.queryByRole('button', { name: /re-authenticate/i }),
+      ).not.toBeInTheDocument();
+    },
+    resolveClientTestTimeoutMs(30_000),
+  );
 });

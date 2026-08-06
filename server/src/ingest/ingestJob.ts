@@ -260,8 +260,34 @@ let queueRequestTerminalStatusTtlOverrideMs: number | null = null;
 let queueRequestTerminalStatusNowForTestMs: number | null = null;
 let finalizeQueueRequestForRunForTest: FinalizeQueueRequestForRunFn | null =
   null;
+const pendingDefaultRunSchedulerTasks = new Set<Promise<void>>();
+const pendingDetachedIngestTasks = new Set<Promise<unknown>>();
+
+function trackPendingTask<T>(pending: Set<Promise<T>>, task: Promise<T>) {
+  pending.add(task);
+  void task.then(
+    () => pending.delete(task),
+    () => pending.delete(task),
+  );
+}
+
 const defaultRunScheduler: RunScheduler = (task) => {
-  setImmediate(task);
+  const scheduled = new Promise<void>((resolve, reject) => {
+    setImmediate(() => {
+      try {
+        task();
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+  trackPendingTask(pendingDefaultRunSchedulerTasks, scheduled);
+  void scheduled.catch((error) => {
+    logWarning('scheduled ingest task rejected before launch', {
+      error: normalizeDetachedTaskErrorMessage(error),
+    });
+  });
 };
 let runScheduler: RunScheduler = defaultRunScheduler;
 const defaultQueueRuntimeOps: QueueRuntimeOps = {
@@ -560,6 +586,7 @@ function launchDetachedIngestTask(
       context.task,
       error,
     );
+    trackPendingTask(pendingDetachedIngestTasks, recovery);
     void recovery.catch((recoveryError) => {
       logWarning('detached ingest rejection recovery failed', {
         task: context.task,
@@ -570,6 +597,7 @@ function launchDetachedIngestTask(
     });
     return;
   }
+  trackPendingTask(pendingDetachedIngestTasks, launched);
   void launched.catch((error) => {
     const requestId =
       context.requestId ??
@@ -590,6 +618,7 @@ function launchDetachedIngestTask(
       context.task,
       error,
     );
+    trackPendingTask(pendingDetachedIngestTasks, recovery);
     void recovery.catch((recoveryError) => {
       logWarning('detached ingest rejection recovery failed', {
         task: context.task,
@@ -3622,6 +3651,23 @@ export function __setRunSchedulerForTest(scheduler: RunScheduler | null) {
   runScheduler = scheduler ?? defaultRunScheduler;
 }
 
+export async function __waitForIngestRuntimeIdleForTest() {
+  if (!isTestNodeEnv()) {
+    throw new Error(
+      '__waitForIngestRuntimeIdleForTest is only available in test mode',
+    );
+  }
+  while (
+    pendingDefaultRunSchedulerTasks.size > 0 ||
+    pendingDetachedIngestTasks.size > 0
+  ) {
+    await Promise.allSettled([
+      ...pendingDefaultRunSchedulerTasks,
+      ...pendingDetachedIngestTasks,
+    ]);
+  }
+}
+
 export function __setQueueRuntimeOpsForTest(
   overrides: Partial<QueueRuntimeOps> | null,
 ) {
@@ -3726,6 +3772,8 @@ export function __resetIngestJobsForTest() {
   }
   queueCleanupRetryTimers.clear();
   queueCleanupRetryAttempts.clear();
+  pendingDefaultRunSchedulerTasks.clear();
+  pendingDetachedIngestTasks.clear();
   beforeTerminalStatusPublishHook = null;
   runProcessor = null;
   runScheduler = defaultRunScheduler;

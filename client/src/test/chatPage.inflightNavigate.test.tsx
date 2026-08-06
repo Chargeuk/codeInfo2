@@ -489,7 +489,7 @@ test('navigating away/back during inflight keeps persisted history + inflight', 
   expect(assistantTextsAfter.join('\n')).toContain('Snapshot partial');
 
   await act(async () => {
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: 'c1',
       inflightId: 'i1',
       delta: ' + delta',
@@ -592,7 +592,7 @@ test('hidden-conversation inflight snapshots do not overwrite the visible draft 
     expect(visibleConversationId).not.toBe('c1');
 
     await act(async () => {
-      harness.emitInflightSnapshot({
+      await harness.emitInflightSnapshot({
         conversationId: 'c1',
         inflightId: 'i1',
         assistantText: 'Hidden late snapshot',

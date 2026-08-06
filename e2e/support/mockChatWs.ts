@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import type { WebSocketRoute } from 'playwright-core';
+import { resolveConfiguredE2eTimeoutMs } from './testTimeouts';
 
 type WsSentMessage = {
   type?: string;
@@ -61,8 +62,9 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
 
   const waitForRoute = async () => {
     const startedAt = Date.now();
+    const timeoutMs = resolveConfiguredE2eTimeoutMs(5000);
     while (!routeRef) {
-      if (Date.now() - startedAt > 5000) {
+      if (Date.now() - startedAt > timeoutMs) {
         throw new Error('Timed out waiting for WebSocketRoute to attach');
       }
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -76,6 +78,29 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
     if (!waiters) return;
     subscriptionWaiters.delete(conversationId);
     waiters.forEach((resolve) => resolve());
+  };
+
+  const waitForConversationSubscription = async (conversationId: string) => {
+    const id = String(conversationId);
+    if (subscribedConversationIds.has(id)) return;
+
+    await new Promise<void>((resolve, reject) => {
+      const timeoutMs = resolveConfiguredE2eTimeoutMs(5000);
+      const timer = setTimeout(() => {
+        reject(
+          new Error(
+            `Timed out waiting for subscription to ${id} after ${timeoutMs}ms`,
+          ),
+        );
+      }, timeoutMs);
+
+      const waiters = subscriptionWaiters.get(id) ?? [];
+      waiters.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+      subscriptionWaiters.set(id, waiters);
+    });
   };
 
   // Only WebSockets created after this call will be routed. Call this before page.goto().
@@ -112,6 +137,7 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
     conversationId: string,
     payload: Record<string, unknown>,
   ) => {
+    await waitForConversationSubscription(conversationId);
     const ws = await waitForRoute();
     ws.send(JSON.stringify(withProtocol({ conversationId, ...payload })));
   };
@@ -124,23 +150,7 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
   };
 
   return {
-    waitForConversationSubscription: async (conversationId: string) => {
-      const id = String(conversationId);
-      if (subscribedConversationIds.has(id)) return;
-
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          reject(new Error(`Timed out waiting for subscription to ${id}`));
-        }, 5000);
-
-        const waiters = subscriptionWaiters.get(id) ?? [];
-        waiters.push(() => {
-          clearTimeout(timer);
-          resolve();
-        });
-        subscriptionWaiters.set(id, waiters);
-      });
-    },
+    waitForConversationSubscription,
 
     getLastCancel: () => lastCancel,
 

@@ -40,9 +40,8 @@ class MockResponse extends EventEmitter {
   }
 }
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-test('start emits whitespace-only bytes and stops on sendJson', async () => {
+test('start emits whitespace-only bytes and stops on sendJson', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
   const res = new MockResponse();
   const keepAlive = createKeepAliveController({
     res,
@@ -56,7 +55,7 @@ test('start emits whitespace-only bytes and stops on sendJson', async () => {
   });
 
   keepAlive.start();
-  await wait(14);
+  t.mock.timers.tick(10);
   keepAlive.sendJson({ ok: true });
 
   assert.equal(keepAlive.isRunning(), false);
@@ -68,7 +67,8 @@ test('start emits whitespace-only bytes and stops on sendJson', async () => {
   );
 });
 
-test('close stops timer and prevents additional writes', async () => {
+test('close stops timer and prevents additional writes', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
   const res = new MockResponse();
   const keepAlive = createKeepAliveController({
     res,
@@ -81,16 +81,17 @@ test('close stops timer and prevents additional writes', async () => {
   });
 
   keepAlive.start();
-  await wait(8);
+  t.mock.timers.tick(5);
   const writesBeforeClose = res.writes.length;
   res.emit('close');
-  await wait(16);
+  t.mock.timers.tick(20);
 
   assert.equal(keepAlive.isRunning(), false);
   assert.equal(res.writes.length, writesBeforeClose);
 });
 
-test('response end before next tick does not write after end', async () => {
+test('response end before next tick does not write after end', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
   const res = new MockResponse();
   const keepAlive = createKeepAliveController({
     res,
@@ -105,13 +106,14 @@ test('response end before next tick does not write after end', async () => {
   keepAlive.start();
   res.end(JSON.stringify({ ok: true }));
   const writesAtEnd = res.writes.length;
-  await wait(15);
+  t.mock.timers.tick(15);
 
   assert.equal(keepAlive.isRunning(), false);
   assert.equal(res.writes.length, writesAtEnd);
 });
 
-test('heartbeat ticks continue while a blocking operation is in progress', async () => {
+test('heartbeat ticks continue while a blocking operation is in progress', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
   const res = new MockResponse();
   const keepAlive = createKeepAliveController({
     res,
@@ -125,7 +127,7 @@ test('heartbeat ticks continue while a blocking operation is in progress', async
   });
 
   keepAlive.start();
-  await wait(22);
+  t.mock.timers.tick(20);
   keepAlive.sendJson({ status: 'completed' });
 
   // Initial flush + at least one heartbeat tick must have occurred.

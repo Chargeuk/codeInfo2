@@ -2,9 +2,14 @@ import crypto from 'node:crypto';
 
 import WebSocket, { type RawData } from 'ws';
 
+import { query, subscribe } from '../../logStore.js';
 import { resolveConfiguredTestTimeoutMs } from './testTimeouts.js';
 
 const bufferedEventsBySocket = new WeakMap<WebSocket, unknown[]>();
+const closeResultsBySocket = new WeakMap<
+  WebSocket,
+  { code: number; reason: string }
+>();
 
 function getBuffer(ws: WebSocket): unknown[] {
   const existing = bufferedEventsBySocket.get(ws);
@@ -34,10 +39,15 @@ export async function connectWs(params: {
     const text = rawDataToString(raw);
     try {
       buffer.push(JSON.parse(text));
-      if (buffer.length > 500) buffer.splice(0, buffer.length - 500);
     } catch {
       // ignore malformed payloads
     }
+  });
+  ws.once('close', (code, rawReason) => {
+    closeResultsBySocket.set(ws, {
+      code,
+      reason: rawReason.toString(),
+    });
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -86,6 +96,59 @@ export function sendJson(
   return { requestId };
 }
 
+export async function subscribeConversationAndWaitReady(params: {
+  ws: WebSocket;
+  conversationId: string;
+  timeoutMs?: number;
+}): Promise<void> {
+  const requestId = crypto.randomUUID();
+  const timeoutMs = resolveConfiguredTestTimeoutMs(params.timeoutMs ?? 2000);
+  const isReady = () =>
+    query({ text: requestId }).some(
+      (entry) =>
+        entry.message === 'chat.ws.subscribe_conversation' &&
+        entry.requestId === requestId &&
+        entry.context?.conversationId === params.conversationId,
+    );
+
+  if (isReady()) return;
+
+  await new Promise<void>((resolve, reject) => {
+    let unsubscribe = () => {};
+    const timeout = setTimeout(() => {
+      unsubscribe();
+      reject(
+        new Error(
+          `Timed out waiting for conversation subscription ${params.conversationId}`,
+        ),
+      );
+    }, timeoutMs);
+    const finish = () => {
+      clearTimeout(timeout);
+      unsubscribe();
+      resolve();
+    };
+
+    unsubscribe = subscribe((entry) => {
+      if (
+        entry.message === 'chat.ws.subscribe_conversation' &&
+        entry.requestId === requestId &&
+        entry.context?.conversationId === params.conversationId
+      ) {
+        finish();
+      }
+    });
+
+    sendJson(params.ws, {
+      type: 'subscribe_conversation',
+      conversationId: params.conversationId,
+      requestId,
+    });
+
+    if (isReady()) finish();
+  });
+}
+
 export function peekBufferedEvents(ws: WebSocket): unknown[] {
   return [...getBuffer(ws)];
 }
@@ -121,7 +184,9 @@ export async function waitForEvent<T>(params: {
       const recentEvents = peekBufferedEvents(params.ws)
         .slice(-12)
         .map((event) =>
-          params.describeEvent ? params.describeEvent(event) : JSON.stringify(event),
+          params.describeEvent
+            ? params.describeEvent(event)
+            : JSON.stringify(event),
         );
       reject(
         new Error(
@@ -182,12 +247,13 @@ export async function closeWs(ws: WebSocket, timeoutMs = 2000): Promise<void> {
     return;
   }
 
+  const closePromise = waitForClose(ws, resolvedTimeoutMs);
   try {
     ws.close();
   } catch {
     // ignore
   }
-  await waitForClose(ws, resolvedTimeoutMs);
+  await closePromise;
   bufferedEventsBySocket.delete(ws);
 }
 
@@ -196,15 +262,30 @@ export function waitForClose(
   timeoutMs = 2000,
 ): Promise<{ code: number; reason: string }> {
   const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
+  const alreadyClosed = closeResultsBySocket.get(ws);
+  if (alreadyClosed) return Promise.resolve(alreadyClosed);
+  if (ws.readyState === WebSocket.CLOSED) {
+    return Promise.resolve({ code: 1005, reason: '' });
+  }
   return new Promise((resolve, reject) => {
+    const onClose = (code: number, rawReason: Buffer) => {
+      cleanup();
+      resolve({ code, reason: rawReason.toString() });
+    };
+    const cleanup = () => {
+      clearTimeout(timeout);
+      ws.off('close', onClose);
+    };
     const timeout = setTimeout(() => {
-      ws.removeAllListeners('close');
+      cleanup();
       reject(new Error('Timed out waiting for WebSocket close'));
     }, resolvedTimeoutMs);
 
-    ws.once('close', (code, rawReason) => {
-      clearTimeout(timeout);
-      resolve({ code, reason: rawReason.toString() });
-    });
+    ws.once('close', onClose);
+    const closedAfterRegistration = closeResultsBySocket.get(ws);
+    if (closedAfterRegistration) {
+      cleanup();
+      resolve(closedAfterRegistration);
+    }
   });
 }

@@ -31,7 +31,10 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
-import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+import {
+  resolveConfiguredPollAttempts,
+  resolveConfiguredTestTimeoutMs,
+} from '../support/testTimeouts.js';
 
 const execFile = promisify(execFileCallback);
 class MinimalChat extends ChatInterface {
@@ -135,14 +138,22 @@ const flattenFlowSteps = (
 };
 const waitForConversation = async (conversationId: string) => {
   if (shouldUseMemoryPersistence()) {
-    for (let attempt = 0; attempt < 80; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(80, 50);
+      attempt += 1
+    ) {
       const conversation = memoryConversations.get(conversationId);
       if (conversation) return conversation;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     assert.fail(`Timed out waiting for memory conversation ${conversationId}`);
   }
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < resolveConfiguredPollAttempts(80, 50);
+    attempt += 1
+  ) {
     const conversation = await ConversationModel.findById(conversationId)
       .lean()
       .exec();
@@ -162,7 +173,11 @@ const getStoredExecutionId = async (conversationId: string) => {
   return flowFlags.flow?.executionId as string;
 };
 const getStoredChildConversationId = async (conversationId: string) => {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < resolveConfiguredPollAttempts(80, 50);
+    attempt += 1
+  ) {
     const conversation = await waitForConversation(conversationId);
     const flowFlags = (conversation.flags ?? {}) as {
       flow?: {
@@ -1138,7 +1153,11 @@ Then(
     const conversationId = String(lastResponse.body.conversationId ?? '');
     assert(conversationId, 'expected started conversation id');
     const expectedStepPath = expectedPath.split('.').map(Number);
-    for (let attempt = 0; attempt < 80; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(80, 50);
+      attempt += 1
+    ) {
       const conversation = await waitForConversation(conversationId);
       const waitState = (
         (conversation.flags ?? {}) as {
@@ -1173,7 +1192,11 @@ Then('the active flow conversation clears its persisted wait', async () => {
   assert(lastResponse, 'expected flow execution response');
   const conversationId = String(lastResponse.body.conversationId ?? '');
   assert(conversationId, 'expected started conversation id');
-  for (let attempt = 0; attempt < 240; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < resolveConfiguredPollAttempts(240, 50);
+    attempt += 1
+  ) {
     const conversation = await waitForConversation(conversationId);
     const waitState = (
       (conversation.flags ?? {}) as {

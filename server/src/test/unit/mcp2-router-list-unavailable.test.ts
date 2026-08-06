@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { handleRpc } from '../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
+import { closeHttpServer, waitForHttpServerPort } from '../support/httpServer.js';
 async function postJson(port: number, body: unknown) {
     const response = await fetch(`http://127.0.0.1:${port}`, {
         method: 'POST',
@@ -18,7 +18,7 @@ test('tools/list remains available when Codex is unavailable', async () => {
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'false');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const payload = { jsonrpc: '2.0', id: 1, method: 'tools/list' };
         const body = await postJson(port, payload);
@@ -28,7 +28,7 @@ test('tools/list remains available when Codex is unavailable', async () => {
     }
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call(codebase_question) is not globally pre-blocked when Codex is unavailable', async () => {
@@ -64,7 +64,7 @@ test('tools/call(codebase_question) is not globally pre-blocked when Codex is un
     });
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const body = await postJson(port, {
             jsonrpc: '2.0',
@@ -91,7 +91,7 @@ test('tools/call(codebase_question) is not globally pre-blocked when Codex is un
         else {
             setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", originalLmBaseUrl);
         }
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('resources/list and resources/listTemplates return empty arrays', async () => {
@@ -99,7 +99,7 @@ test('resources/list and resources/listTemplates return empty arrays', async () 
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'false');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const listPayload = { jsonrpc: '2.0', id: 2, method: 'resources/list' };
         const templatesPayload = {
@@ -114,6 +114,6 @@ test('resources/list and resources/listTemplates return empty arrays', async () 
     }
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
-        server.close();
+        await closeHttpServer(server);
     }
 });

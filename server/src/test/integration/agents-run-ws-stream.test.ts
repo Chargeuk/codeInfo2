@@ -34,9 +34,9 @@ import {
 } from '../support/mockCopilotSdk.js';
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 
@@ -165,7 +165,7 @@ test('Agents runs publish WS transcript events while the run is in progress', as
         CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
       },
       async () => {
-        sendJson(ws, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: ws, conversationId });
 
         // Start WS waits before triggering the HTTP request to avoid missing early frames.
         const userTurnPromise = waitForEvent({
@@ -454,7 +454,9 @@ test('direct Copilot agent runs forward envOverrides into the Copilot runtime en
         );
         assert.equal(capturedOptions[0]?.env?.COPILOT_HOME, copilotHome);
         assert.deepEqual(
-          getMcpServerKeys(harness.getState().lastCreateSessionConfig?.mcpServers),
+          getMcpServerKeys(
+            harness.getState().lastCreateSessionConfig?.mcpServers,
+          ),
           ['code_info'],
         );
         assert.deepEqual(
@@ -782,7 +784,7 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
         CODEINFO_CODEX_HOME: tempCodexHome,
       },
       async () => {
-        sendJson(ws, { type: 'subscribe_conversation', conversationId });
+        await subscribeConversationAndWaitReady({ ws: ws, conversationId });
         const snapshotPromise = waitForEvent({
           ws,
           predicate: (

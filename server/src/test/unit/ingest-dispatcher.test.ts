@@ -8,6 +8,7 @@ import {
 } from '../../ingest/providers/index.js';
 import type { ProviderEmbeddingModel } from '../../ingest/providers/types.js';
 import type { IngestConfig } from '../../ingest/types.js';
+import { waitForTestCondition } from '../support/testTimeouts.js';
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -17,12 +18,6 @@ function createDeferred<T>() {
     reject = nextReject;
   });
   return { promise, resolve, reject };
-}
-
-function waitForNextTurn() {
-  return new Promise<void>((resolve) => {
-    setImmediate(resolve);
-  });
 }
 
 function baseConfig(overrides?: Partial<IngestConfig>): IngestConfig {
@@ -111,7 +106,9 @@ test('dispatcher queue cap stays owned by embeddingDispatcher and refills freed 
     true,
   ]);
 
-  await waitForNextTurn();
+  await waitForTestCondition(() => requests.length === 2, {
+    description: 'both embedding dispatcher slots to be occupied',
+  });
   assert.equal(requests.length, 2, 'expected two requests to fill both slots');
   assert.deepEqual(dispatcher.snapshot(), {
     queueDepth: 1,
@@ -120,19 +117,16 @@ test('dispatcher queue cap stays owned by embeddingDispatcher and refills freed 
     dispatchCount: 2,
   });
 
-  let fourthResolved = false;
-  void blockedFourth.then(() => {
-    fourthResolved = true;
-  });
-  await waitForNextTurn();
   assert.equal(
-    fourthResolved,
-    false,
-    'expected fourth enqueue to wait while queue is full',
+    dispatcher.snapshot().queueDepth,
+    1,
+    'expected fourth enqueue to remain backpressured while queue is full',
   );
 
   requests[0]?.deferred.resolve([[0.1]]);
-  await waitForNextTurn();
+  await waitForTestCondition(() => requests.length === 3, {
+    description: 'queued embedding request to enter the freed slot',
+  });
   assert.equal(
     requests.length,
     3,
@@ -147,7 +141,9 @@ test('dispatcher queue cap stays owned by embeddingDispatcher and refills freed 
   await blockedFourth;
   requests[1]?.deferred.resolve([[0.2]]);
   requests[2]?.deferred.resolve([[0.3]]);
-  await waitForNextTurn();
+  await waitForTestCondition(() => requests.length === 4, {
+    description: 'backpressured embedding request to dispatch',
+  });
   assert.equal(
     requests.length,
     4,
@@ -163,6 +159,8 @@ test('dispatcher queue cap stays owned by embeddingDispatcher and refills freed 
 });
 
 test('dispatcher preserves deterministic persistence order when batched results complete out of order', async () => {
+  const twoDispatchesStarted = createDeferred<void>();
+  const secondCompletionObserved = createDeferred<void>();
   const requests: Array<{
     texts: string[];
     deferred: ReturnType<typeof createDeferred<number[][]>>;
@@ -177,6 +175,7 @@ test('dispatcher preserves deterministic persistence order when batched results 
     async embedBatch(texts) {
       const deferred = createDeferred<number[][]>();
       requests.push({ texts, deferred });
+      if (requests.length === 2) twoDispatchesStarted.resolve();
       return deferred.promise;
     },
     async countTokens(text) {
@@ -219,6 +218,9 @@ test('dispatcher preserves deterministic persistence order when batched results 
         });
       }
       flushReady();
+      if (results.some((result) => result.sequence === 2)) {
+        secondCompletionObserved.resolve();
+      }
     },
     onLateResultIgnored: () => {},
   });
@@ -242,7 +244,7 @@ test('dispatcher preserves deterministic persistence order when batched results 
   ]);
   dispatcher.completeProduction();
 
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await twoDispatchesStarted.promise;
   assert.equal(
     requests.length,
     2,
@@ -251,7 +253,7 @@ test('dispatcher preserves deterministic persistence order when batched results 
   assert.deepEqual(requests[0]?.texts, ['alpha', 'beta']);
 
   requests[1]?.deferred.resolve([[0.3]]);
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await secondCompletionObserved.promise;
   assert.deepEqual(
     persisted,
     [],
@@ -266,6 +268,7 @@ test('dispatcher preserves deterministic persistence order when batched results 
 
 test('cancel after production completes with queued work does not deadlock waitForIdle', async () => {
   const firstRequest = createDeferred<number[][]>();
+  const dispatchStarted = createDeferred<void>();
   let cancelled = false;
   const model: ProviderEmbeddingModel = {
     modelKey: 'test-cancel-terminal-state',
@@ -275,6 +278,7 @@ test('cancel after production completes with queued work does not deadlock waitF
       return [0.1];
     },
     async embedBatch() {
+      dispatchStarted.resolve();
       return firstRequest.promise;
     },
     async countTokens(text) {
@@ -308,7 +312,7 @@ test('cancel after production completes with queued work does not deadlock waitF
   });
   dispatcher.completeProduction();
 
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await dispatchStarted.promise;
   assert.deepEqual(dispatcher.snapshot(), {
     queueDepth: 1,
     inFlight: 1,
@@ -328,6 +332,7 @@ test('cancel after production completes with queued work does not deadlock waitF
 
 test('cancel suppresses wrapped OpenAI aborted errors from in-flight work', async () => {
   const request = createDeferred<number[][]>();
+  const dispatchStarted = createDeferred<void>();
   let cancelled = false;
   const dispatcher = createEmbeddingDispatcher({
     model: {
@@ -338,6 +343,7 @@ test('cancel suppresses wrapped OpenAI aborted errors from in-flight work', asyn
         return [0.1];
       },
       async embedBatch() {
+        dispatchStarted.resolve();
         return request.promise;
       },
       async countTokens(text) {
@@ -358,7 +364,7 @@ test('cancel suppresses wrapped OpenAI aborted errors from in-flight work', asyn
 
   await dispatcher.enqueue({ sequence: 0, text: 'alpha', meta: null });
   dispatcher.completeProduction();
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await dispatchStarted.promise;
 
   cancelled = true;
   const waitForIdle = dispatcher.waitForIdle();
@@ -376,6 +382,7 @@ test('cancel suppresses wrapped OpenAI aborted errors from in-flight work', asyn
 
 test('cancel suppresses wrapped LM Studio aborted errors from in-flight work', async () => {
   const request = createDeferred<number[][]>();
+  const dispatchStarted = createDeferred<void>();
   let cancelled = false;
   const dispatcher = createEmbeddingDispatcher({
     model: {
@@ -386,6 +393,7 @@ test('cancel suppresses wrapped LM Studio aborted errors from in-flight work', a
         return [0.1];
       },
       async embedBatch() {
+        dispatchStarted.resolve();
         return request.promise;
       },
       async countTokens(text) {
@@ -406,7 +414,7 @@ test('cancel suppresses wrapped LM Studio aborted errors from in-flight work', a
 
   await dispatcher.enqueue({ sequence: 0, text: 'alpha', meta: null });
   dispatcher.completeProduction();
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await dispatchStarted.promise;
 
   cancelled = true;
   const waitForIdle = dispatcher.waitForIdle();
@@ -553,8 +561,6 @@ test('dispatcher onDispatch rejection becomes terminal without unhandled rejecti
       async () => dispatcher.waitForIdle(),
       /dispatch hook exploded/,
     );
-    await waitForNextTurn();
-    await waitForNextTurn();
     assert.deepEqual(unhandledRejections, []);
   } finally {
     process.off('unhandledRejection', onUnhandledRejection);

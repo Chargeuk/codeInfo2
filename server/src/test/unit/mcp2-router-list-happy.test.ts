@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import { handleRpc } from '../../mcp2/router.js';
+import { closeHttpServer, waitForHttpServerPort } from '../support/httpServer.js';
 async function postJson(port: number, body: unknown) {
     const response = await fetch(`http://127.0.0.1:${port}`, {
         method: 'POST',
@@ -24,7 +24,7 @@ test('tools/list returns tool definitions when Codex is available', async () => 
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const payload = { jsonrpc: '2.0', id: 10, method: 'tools/list' };
         const body = await postJson(port, payload);
@@ -61,7 +61,7 @@ test('tools/list returns tool definitions when Codex is available', async () => 
     }
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/list does not emit keepalive preamble bytes', async () => {
@@ -69,7 +69,7 @@ test('tools/list does not emit keepalive preamble bytes', async () => {
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const payload = { jsonrpc: '2.0', id: 20, method: 'tools/list' };
         const raw = await postRaw(port, payload);
@@ -85,13 +85,13 @@ test('tools/list does not emit keepalive preamble bytes', async () => {
     }
     finally {
         setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", original);
-        server.close();
+        await closeHttpServer(server);
     }
 });
 test('tools/call emits keepalive preamble before JSON payload', async () => {
     const server = http.createServer(handleRpc);
     server.listen(0);
-    const { port } = server.address() as AddressInfo;
+    const port = await waitForHttpServerPort(server);
     try {
         const raw = await postRaw(port, {
             jsonrpc: '2.0',
@@ -108,6 +108,6 @@ test('tools/call emits keepalive preamble before JSON payload', async () => {
         assert.equal(body.error.code, -32601);
     }
     finally {
-        server.close();
+        await closeHttpServer(server);
     }
 });

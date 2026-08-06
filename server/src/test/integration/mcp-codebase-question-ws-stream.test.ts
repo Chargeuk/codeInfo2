@@ -33,12 +33,13 @@ import { createConversationsRouter } from '../../routes/conversations.js';
 import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { socketsSubscribedToConversation } from '../../ws/registry.js';
 import { attachWs } from '../../ws/server.js';
+import { closeHttpServer } from '../support/httpServer.js';
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -428,9 +429,7 @@ class BlockingReplayClaimStreamingChat extends ChatInterface {
   private resolveStarted: (() => void) | null = null;
   private releaseCurrentRun: (() => void) | null = null;
   async waitForRunStart() {
-    while (!this.waitForStartPromise) {
-      await new Promise<void>((resolve) => setImmediate(resolve));
-    }
+    await waitForCondition(() => this.waitForStartPromise !== null);
     await this.waitForStartPromise;
   }
   releaseRun() {
@@ -514,8 +513,7 @@ test('MCP codebase_question publishes WS transcript events while in progress', a
   const conversationId = 'mcp-ws-conv-1';
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await delay(25);
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 1,
@@ -631,7 +629,7 @@ test('explicit-provider MCP codebase_question websocket runs receive the shared 
   const conversationId = 'mcp-ws-runtime-explicit';
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     await waitForCondition(
       () => socketsSubscribedToConversation(conversationId).length > 0,
       15000,
@@ -696,8 +694,8 @@ test('explicit-provider MCP codebase_question websocket runs receive the shared 
     await closeWs(ws);
     await wsHandle.close();
     resetToolDeps();
-    mcpServer.close();
-    wsHttp.close();
+    await closeHttpServer(mcpServer);
+    await closeHttpServer(wsHttp);
   }
 });
 test('explicit-provider MCP codebase_question restores a saved host-path working folder through the mounted repository bridge', async () => {
@@ -759,7 +757,7 @@ test('explicit-provider MCP codebase_question restores a saved host-path working
   } as never);
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 103,
@@ -821,8 +819,8 @@ test('explicit-provider MCP codebase_question restores a saved host-path working
     await closeWs(ws);
     await wsHandle.close();
     resetToolDeps();
-    mcpServer.close();
-    wsHttp.close();
+    await closeHttpServer(mcpServer);
+    await closeHttpServer(wsHttp);
   }
 });
 test('explicit-provider MCP codebase_question accepts a mounted selected-repository selector on the LM Studio websocket path', async () => {
@@ -889,7 +887,7 @@ test('explicit-provider MCP codebase_question accepts a mounted selected-reposit
   } as never);
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 106,
@@ -961,8 +959,8 @@ test('explicit-provider MCP codebase_question accepts a mounted selected-reposit
     await closeWs(ws);
     await wsHandle.close();
     resetToolDeps();
-    mcpServer.close();
-    wsHttp.close();
+    await closeHttpServer(mcpServer);
+    await closeHttpServer(wsHttp);
   }
 });
 test('story57 explicit-provider LM Studio MCP codebase_question keeps the saved provider and repairs the omitted model on that provider when needed', async () => {
@@ -1041,7 +1039,7 @@ test('story57 explicit-provider LM Studio MCP codebase_question keeps the saved 
   } as never);
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 107,
@@ -1109,8 +1107,8 @@ test('story57 explicit-provider LM Studio MCP codebase_question keeps the saved 
     await closeWs(ws);
     await wsHandle.close();
     resetToolDeps();
-    mcpServer.close();
-    wsHttp.close();
+    await closeHttpServer(mcpServer);
+    await closeHttpServer(wsHttp);
   }
 });
 test('omitted-provider MCP codebase_question websocket runs receive the same shared execution context', async () => {
@@ -1142,7 +1140,7 @@ test('omitted-provider MCP codebase_question websocket runs receive the same sha
   const conversationId = 'mcp-ws-runtime-omitted';
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     await waitForCondition(
       () => socketsSubscribedToConversation(conversationId).length > 0,
     );
@@ -1208,8 +1206,8 @@ test('omitted-provider MCP codebase_question websocket runs receive the same sha
     await closeWs(ws);
     await wsHandle.close();
     resetToolDeps();
-    mcpServer.close();
-    wsHttp.close();
+    await closeHttpServer(mcpServer);
+    await closeHttpServer(wsHttp);
   }
 });
 test('omitted-provider MCP codebase_question reuses the saved Codex thread identity on follow-up runs', async () => {
@@ -1264,7 +1262,7 @@ test('omitted-provider MCP codebase_question reuses the saved Codex thread ident
   const mcpAddr = mcpServer.address() as AddressInfo;
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 104,
@@ -1363,8 +1361,8 @@ test('omitted-provider MCP codebase_question reuses the saved Codex thread ident
     await closeWs(ws);
     await wsHandle.close();
     resetToolDeps();
-    mcpServer.close();
-    wsHttp.close();
+    await closeHttpServer(mcpServer);
+    await closeHttpServer(wsHttp);
   }
 });
 test('omitted-provider MCP codebase_question fresh runs persist a successful assistant turn on the saved conversation id', async () => {
@@ -1404,7 +1402,7 @@ test('omitted-provider MCP codebase_question fresh runs persist a successful ass
   const mcpAddr = mcpServer.address() as AddressInfo;
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 105,
@@ -1506,8 +1504,8 @@ test('omitted-provider MCP codebase_question fresh runs persist a successful ass
     await closeWs(ws);
     await wsHandle.close();
     resetToolDeps();
-    mcpServer.close();
-    wsHttp.close();
+    await closeHttpServer(mcpServer);
+    await closeHttpServer(wsHttp);
   }
 });
 test('omitted-provider MCP codebase_question keeps the saved Codex model on fresh selected-repository conversations', async () => {
@@ -1575,7 +1573,7 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
   const mcpAddr = mcpServer.address() as AddressInfo;
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     await waitForCondition(
       () => socketsSubscribedToConversation(conversationId).length > 0,
     );
@@ -1708,8 +1706,8 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
     await closeWs(ws);
     await wsHandle.close();
     resetToolDeps();
-    mcpServer.close();
-    wsHttp.close();
+    await closeHttpServer(mcpServer);
+    await closeHttpServer(wsHttp);
   }
 });
 test('omitted-provider MCP codebase_question records the first Codex thread after the working-folder edit route saves a mounted selected repository', async () => {
@@ -1811,7 +1809,7 @@ test('omitted-provider MCP codebase_question records the first Codex thread afte
             memoryConversations.get(conversationId)?.flags?.workingFolder,
             mountedPath,
           );
-          sendJson(ws, { type: 'subscribe_conversation', conversationId });
+          await subscribeConversationAndWaitReady({ ws: ws, conversationId });
           await waitForCondition(
             () => socketsSubscribedToConversation(conversationId).length > 0,
             15000,
@@ -1902,9 +1900,9 @@ test('omitted-provider MCP codebase_question records the first Codex thread afte
           await closeWs(ws);
           await wsHandle.close();
           resetToolDeps();
-          mcpServer.close();
-          conversationsHttp.close();
-          wsHttp.close();
+          await closeHttpServer(mcpServer);
+          await closeHttpServer(conversationsHttp);
+          await closeHttpServer(wsHttp);
         }
       },
     );
@@ -1938,7 +1936,7 @@ test('MCP codebase_question keeps Copilot provider parity on the streamed websoc
   const conversationId = 'mcp-ws-copilot-conv-1';
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 2,
@@ -2044,7 +2042,7 @@ test('MCP codebase_question keeps Copilot provider parity after startup re-norma
   const conversationId = 'mcp-ws-copilot-repaired-seed';
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const toolCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 3,
@@ -2173,8 +2171,8 @@ test('saved Copilot and LM Studio conversations keep the stored provider and rep
           });
           const ws = await connectWs({ baseUrl });
           try {
-            sendJson(ws, {
-              type: 'subscribe_conversation',
+            await subscribeConversationAndWaitReady({
+              ws: ws,
               conversationId: testCase.conversationId,
             });
             await waitForCondition(
@@ -2303,7 +2301,7 @@ test('MCP codebase_question exposes one deterministic in-progress replay claiman
   const replayId = 'logical-retry-1';
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const firstCallPromise = postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 41,
@@ -2475,7 +2473,7 @@ test('MCP codebase_question completed replay survives a completed-cache clear wh
   const replayId = 'durable-replay-1';
   const ws = await connectWs({ baseUrl });
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const firstResponse = await postJson(mcpAddr.port, {
       jsonrpc: '2.0',
       id: 51,

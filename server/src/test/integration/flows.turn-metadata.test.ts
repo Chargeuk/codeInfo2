@@ -33,9 +33,9 @@ import { enterTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 
@@ -64,13 +64,15 @@ async function waitForCondition(
 const describeConversationState = (conversationId: string): string =>
   JSON.stringify({
     flags: memoryConversations.get(conversationId)?.flags ?? null,
-    recentTurns: (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
-      role: turn.role,
-      status: turn.status,
-      content: turn.content,
-      command: turn.command,
-      runtime: turn.runtime,
-    })),
+    recentTurns: (memoryTurns.get(conversationId) ?? [])
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+        command: turn.command,
+        runtime: turn.runtime,
+      })),
   });
 
 let providerHomes: Awaited<
@@ -92,6 +94,10 @@ afterEach(async () => {
 });
 
 class SlowChat extends ChatInterface {
+  constructor(private readonly releaseGate?: Promise<void>) {
+    super();
+  }
+
   async execute(
     _message: string,
     _flags: Record<string, unknown>,
@@ -102,7 +108,7 @@ class SlowChat extends ChatInterface {
     void _model;
     this.emit('thread', { type: 'thread', threadId: conversationId });
     this.emit('token', { type: 'token', content: 'Hi' });
-    await delay(1500);
+    await this.releaseGate;
     this.emit('final', { type: 'final', content: 'Hello flow' });
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
@@ -182,6 +188,10 @@ test('flow turns include command metadata in snapshots and history', async () =>
   const continueInFlowScope = bindCurrentTestOverrides(
     (_req: unknown, _res: unknown, next: () => void) => next(),
   );
+  let releaseSlowChat!: () => void;
+  const slowChatGate = new Promise<void>((resolve) => {
+    releaseSlowChat = resolve;
+  });
 
   const app = express();
   app.use((req, res, next) => continueInFlowScope(req, res, next));
@@ -190,7 +200,7 @@ test('flow turns include command metadata in snapshots and history', async () =>
       startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
-          chatFactory: () => new SlowChat(),
+          chatFactory: () => new SlowChat(slowChatGate),
         }),
       ),
     }),
@@ -230,6 +240,7 @@ test('flow turns include command metadata in snapshots and history', async () =>
   const wsSnapshot = await connectWs({ baseUrl });
 
   try {
+    await subscribeConversationAndWaitReady({ ws: wsSnapshot, conversationId });
     await supertest(baseUrl)
       .post('/flows/flow-metadata/run')
       .send({ conversationId })
@@ -246,7 +257,7 @@ test('flow turns include command metadata in snapshots and history', async () =>
         }),
     );
 
-    sendJson(wsSnapshot, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: wsSnapshot, conversationId });
 
     const snapshot = await waitForEvent({
       ws: wsSnapshot,
@@ -272,6 +283,7 @@ test('flow turns include command metadata in snapshots and history', async () =>
     });
 
     assert.deepEqual(snapshot.inflight.command, expectedCommand);
+    releaseSlowChat();
 
     await waitForCondition(
       () => {
@@ -296,6 +308,7 @@ test('flow turns include command metadata in snapshots and history', async () =>
     assert.deepEqual(items[0].command, expectedCommand);
     assert.deepEqual(items[1].command, expectedCommand);
   } finally {
+    releaseSlowChat();
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     await closeWs(wsSnapshot);

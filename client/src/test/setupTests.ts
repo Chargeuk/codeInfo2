@@ -18,12 +18,12 @@ import {
   installClientTestEnvGlobals,
   installClientTestProcessEnvIsolation,
 } from './support/processEnvIsolation';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 // The full stress harness deliberately saturates the host with server workers.
-// Keep Testing Library's polling budget aligned with the existing explicit
-// five-second waits so scheduled React effects are not limited by its one-second
-// default while the test host is under that load.
-configure({ asyncUtilTimeout: 5_000 });
+// Keep Testing Library's polling budget aligned with the stress harness so
+// scheduled React effects are not constrained by a smaller fixed deadline.
+configure({ asyncUtilTimeout: resolveClientTestTimeoutMs(5_000) });
 
 // React 19 uses this global to decide whether it should warn about act().
 // In Jest + JSDOM the check is sensitive to where the flag is attached.

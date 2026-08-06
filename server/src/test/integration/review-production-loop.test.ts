@@ -36,6 +36,7 @@ import {
   getScopedEnvValue,
   getScopedProcessEnv,
 } from '../support/testEnvOverrideScope.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const execFile = promisify(execFileCallback);
 const repositoryRoot = path.resolve(
@@ -743,7 +744,7 @@ class ProductionReviewChat extends ChatInterface {
 
 const waitForTerminalFlowStatus = async (conversationId: string) => {
   const started = Date.now();
-  while (Date.now() - started < 30_000) {
+  while (Date.now() - started < resolveConfiguredTestTimeoutMs(30_000)) {
     const conversation = memoryConversations.get(conversationId);
     const flow = conversation?.flags?.flow as
       | { runLifecycle?: { status?: string } }

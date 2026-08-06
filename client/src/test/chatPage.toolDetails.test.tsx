@@ -61,11 +61,11 @@ describe('Chat tool details rendering (WS transcript events)', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
     });
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -75,7 +75,7 @@ describe('Chat tool details rendering (WS transcript events)', () => {
         parameters: { query: 'hello', limit: 5 },
       },
     });
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -106,12 +106,12 @@ describe('Chat tool details rendering (WS transcript events)', () => {
         },
       },
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Answer',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',
@@ -152,11 +152,11 @@ describe('Chat tool details rendering (WS transcript events)', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
     });
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -166,7 +166,7 @@ describe('Chat tool details rendering (WS transcript events)', () => {
         parameters: { query: 'oops' },
       },
     });
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -213,11 +213,11 @@ describe('Chat tool details rendering (WS transcript events)', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
     });
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -227,7 +227,7 @@ describe('Chat tool details rendering (WS transcript events)', () => {
         parameters: { query: 'hello', limit: 5 },
       },
     });
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -243,12 +243,12 @@ describe('Chat tool details rendering (WS transcript events)', () => {
         },
       },
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Answer',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',
@@ -285,11 +285,11 @@ describe('Chat tool details rendering (WS transcript events)', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
     });
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -310,12 +310,12 @@ describe('Chat tool details rendering (WS transcript events)', () => {
         },
       },
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'done',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',

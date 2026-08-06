@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -144,120 +145,126 @@ describe('Agents page - turn hydration', () => {
     });
   });
 
-  it('hydrates user markdown with the same sanitization and mermaid fallback behavior as assistant', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
-      const target = typeof url === 'string' ? url : url.toString();
+  it(
+    'hydrates user markdown with the same sanitization and mermaid fallback behavior as assistant',
+    async () => {
+      mockFetch.mockImplementation((url: RequestInfo | URL) => {
+        const target = typeof url === 'string' ? url : url.toString();
 
-      if (target.includes('/health')) {
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations') && !target.includes('/turns')) {
+          const hasAgentParam = target.includes('agentName=coding_agent');
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: hasAgentParam
+                ? [
+                    {
+                      conversationId: 'c1',
+                      title: 'Markdown parity',
+                      provider: 'codex',
+                      model: 'gpt',
+                      lastMessageAt: '2025-01-01T00:00:00.000Z',
+                    },
+                  ]
+                : [],
+            }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations/c1/turns')) {
+          const markdown = [
+            'List:',
+            '- one',
+            '- two',
+            '',
+            '`inline`',
+            '',
+            "<script>alert('x')</script>",
+            '',
+            '```mermaid',
+            'this is not valid mermaid syntax',
+            '```',
+          ].join('\n');
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: [
+                {
+                  conversationId: 'c1',
+                  role: 'assistant',
+                  content: markdown,
+                  model: 'gpt-5.1-codex-max',
+                  provider: 'codex',
+                  status: 'ok',
+                  createdAt: '2025-01-01T00:00:03.000Z',
+                },
+                {
+                  conversationId: 'c1',
+                  role: 'user',
+                  content: markdown,
+                  model: 'gpt-5.1-codex-max',
+                  provider: 'codex',
+                  status: 'ok',
+                  createdAt: '2025-01-01T00:00:02.000Z',
+                },
+              ],
+            }),
+          } as Response);
+        }
+
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ mongoConnected: true }),
+          json: async () => ({}),
         } as Response);
-      }
+      });
 
-      if (target.includes('/agents') && !target.includes('/run')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ agents: [{ name: 'coding_agent' }] }),
-        } as Response);
-      }
+      const router = createMemoryRouter(routes, {
+        initialEntries: ['/agents'],
+      });
+      render(<RouterProvider router={router} />);
 
-      if (target.includes('/conversations') && !target.includes('/turns')) {
-        const hasAgentParam = target.includes('agentName=coding_agent');
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            items: hasAgentParam
-              ? [
-                  {
-                    conversationId: 'c1',
-                    title: 'Markdown parity',
-                    provider: 'codex',
-                    model: 'gpt',
-                    lastMessageAt: '2025-01-01T00:00:00.000Z',
-                  },
-                ]
-              : [],
-          }),
-        } as Response);
-      }
+      const row = await screen.findByTestId('conversation-row');
+      await act(async () => {
+        await userEvent.click(row);
+      });
 
-      if (target.includes('/conversations/c1/turns')) {
-        const markdown = [
-          'List:',
-          '- one',
-          '- two',
-          '',
-          '`inline`',
-          '',
-          "<script>alert('x')</script>",
-          '',
-          '```mermaid',
-          'this is not valid mermaid syntax',
-          '```',
-        ].join('\n');
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            items: [
-              {
-                conversationId: 'c1',
-                role: 'assistant',
-                content: markdown,
-                model: 'gpt-5.1-codex-max',
-                provider: 'codex',
-                status: 'ok',
-                createdAt: '2025-01-01T00:00:03.000Z',
-              },
-              {
-                conversationId: 'c1',
-                role: 'user',
-                content: markdown,
-                model: 'gpt-5.1-codex-max',
-                provider: 'codex',
-                status: 'ok',
-                createdAt: '2025-01-01T00:00:02.000Z',
-              },
-            ],
-          }),
-        } as Response);
-      }
+      const userMarkdown = await screen.findByTestId('agents-user-markdown');
+      const assistantMarkdown = await screen.findByTestId('assistant-markdown');
+      expect(screen.getAllByTestId('agents-user-markdown')).toHaveLength(1);
+      expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(1);
 
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      } as Response);
-    });
+      expect(userMarkdown.querySelectorAll('li')).toHaveLength(
+        assistantMarkdown.querySelectorAll('li').length,
+      );
+      expect(userMarkdown.querySelector('code')).toBeTruthy();
+      expect(assistantMarkdown.querySelector('code')).toBeTruthy();
+      expect(userMarkdown.querySelector('script')).toBeNull();
+      expect(assistantMarkdown.querySelector('script')).toBeNull();
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
-    render(<RouterProvider router={router} />);
-
-    const row = await screen.findByTestId('conversation-row');
-    await act(async () => {
-      await userEvent.click(row);
-    });
-
-    const userMarkdown = await screen.findByTestId('agents-user-markdown');
-    const assistantMarkdown = await screen.findByTestId('assistant-markdown');
-    expect(screen.getAllByTestId('agents-user-markdown')).toHaveLength(1);
-    expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(1);
-
-    expect(userMarkdown.querySelectorAll('li')).toHaveLength(
-      assistantMarkdown.querySelectorAll('li').length,
-    );
-    expect(userMarkdown.querySelector('code')).toBeTruthy();
-    expect(assistantMarkdown.querySelector('code')).toBeTruthy();
-    expect(userMarkdown.querySelector('script')).toBeNull();
-    expect(assistantMarkdown.querySelector('script')).toBeNull();
-
-    await waitFor(() => {
-      expect(userMarkdown).toHaveTextContent('Diagram failed to render');
-      expect(assistantMarkdown).toHaveTextContent('Diagram failed to render');
-    });
-  }, 30_000);
+      await waitFor(() => {
+        expect(userMarkdown).toHaveTextContent('Diagram failed to render');
+        expect(assistantMarkdown).toHaveTextContent('Diagram failed to render');
+      });
+    },
+    resolveClientTestTimeoutMs(30_000),
+  );
 });

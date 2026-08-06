@@ -69,9 +69,9 @@ import {
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 
@@ -246,7 +246,6 @@ test('native Copilot flow step uses persisted inputs and waits for launcher comp
     assert.equal(capturedOptions?.repositoryPath, repoRoot);
     assert.equal(capturedOptions?.modelId, spec.modelId);
     assert.equal(capturedOptions?.signal?.aborted, false);
-    await delay(50);
     assert.equal(
       (memoryTurns.get(conversationId) ?? []).some(
         (turn) => turn.role === 'assistant',
@@ -490,28 +489,6 @@ const withScopedAgentRuntime = async (
       __resetAgentServiceDepsForTests();
     }
   });
-
-const waitForTurnCountToStay = async (
-  conversationId: string,
-  expectedCount: number,
-  quietWindowMs = 150,
-  timeoutMs = 4000,
-) => {
-  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
-  const started = Date.now();
-  while (Date.now() - started < resolvedTimeoutMs) {
-    const initialCount = (memoryTurns.get(conversationId) ?? []).length;
-    if (initialCount === expectedCount) {
-      await delay(quietWindowMs);
-      const finalCount = (memoryTurns.get(conversationId) ?? []).length;
-      if (finalCount === expectedCount) {
-        return;
-      }
-    }
-    await delay(20);
-  }
-  throw new Error('Timed out waiting for flow turn count to stay stable');
-};
 
 const waitForConversationUnlocked = async (
   conversationId: string,
@@ -977,7 +954,7 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
   const customTitle = 'Custom Flow Title';
 
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
 
     const res = await supertest(baseUrl)
       .post('/flows/llm-basic/run')
@@ -1623,7 +1600,7 @@ test('retryOwnershipPending replay distinguishes still running, finished, and ac
       chatFactory: () => new InstantChat(),
     });
     assert.deepEqual(replayAfterCompletion, firstResult);
-    await waitForTurnCountToStay(firstResult.conversationId, 2);
+    assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
 
     const firstConversation = memoryConversations.get(
       firstResult.conversationId,
@@ -2739,7 +2716,9 @@ test('github review open PR reuses the latest existing pull request before creat
     await writeFlowFile({
       flowsRoot: tempFlowsDir,
       flowName: 'github-open-pr-existing',
-      steps: [{ type: 'github_open_pr', label: 'Open GitHub Review Pull Request' }],
+      steps: [
+        { type: 'github_open_pr', label: 'Open GitHub Review Pull Request' },
+      ],
     });
     await startFlowRun({
       flowName: 'github-open-pr-existing',
@@ -3097,7 +3076,10 @@ test('github review skips persist warning status directly and through a parent s
       }),
     });
     assert.deepEqual(retryOwnedWarningReplay, retryOwnedWarning);
-    await waitForTurnCountToStay(retryOwnedWarning.conversationId, 2);
+    assert.equal(
+      (memoryTurns.get(retryOwnedWarning.conversationId) ?? []).length,
+      2,
+    );
 
     const parentWarningConversationId = 'github-warning-parent-conversation';
     await startFlowRun({

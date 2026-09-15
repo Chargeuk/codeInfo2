@@ -39,7 +39,7 @@
     "jsdom": "29.1.1",
     "jsonc-parser": "3.3.1",
     "mongoose": "9.0.1",
-    "openai": "6.24.0",
+    "openai": "7.15.0",
     "pino": "10.1.0",
     "pino-http": "11.0.0",
     "pino-roll": "4.0.0",
@@ -52,7 +52,7 @@
     "tree-sitter-python": "0.23.3",
     "tree-sitter-rust": "0.23.1",
     "tree-sitter-typescript": "0.23.2",
-    "ws": "8.18.3",
+    "ws": "8.21.3",
     "zod": "3.25.76"
   },
   "devDependencies": {

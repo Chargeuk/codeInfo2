@@ -14,12 +14,14 @@ import {
   clearBootstrapTestEnvValue,
   setBootstrapTestEnvValue,
 } from './processEnvIsolation.js';
+import { resolveConfiguredTestTimeoutMs } from './testTimeouts.js';
 
 let container: StartedTestContainer | null = null;
 let containerPromise: Promise<StartedTestContainer> | null = null;
 let stopping = false;
 const localMongoImage = process.env.CODEINFO_LOCAL_MONGO_IMAGE ?? 'mongo:8.2.9';
 const mongoBootstrapRetryDelaysMs = [0, 500, 1_000];
+const containerTimeoutMs = resolveConfiguredTestTimeoutMs(120_000);
 
 if (process.env.TESTCONTAINERS_RYUK_DISABLED === undefined) {
   setBootstrapTestEnvValue('TESTCONTAINERS_RYUK_DISABLED', 'true');
@@ -85,7 +87,7 @@ async function ensureMongoContainer() {
     const started = await new GenericContainer(localMongoImage)
       .withExposedPorts(27017)
       .withWaitStrategy(Wait.forLogMessage(/Waiting for connections/))
-      .withStartupTimeout(120_000)
+      .withStartupTimeout(containerTimeoutMs)
       .start();
     container = started;
     return started;

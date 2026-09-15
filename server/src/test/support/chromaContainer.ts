@@ -14,11 +14,13 @@ import {
   clearBootstrapTestEnvValue,
   setBootstrapTestEnvValue,
 } from './processEnvIsolation.js';
+import { resolveConfiguredTestTimeoutMs } from './testTimeouts.js';
 
 let environment: StartedDockerComposeEnvironment | null = null;
 let envPromise: Promise<StartedDockerComposeEnvironment | null> | null = null;
 let activeChromaUrl: string | null = null;
 let stopping = false;
+const containerTimeoutMs = resolveConfiguredTestTimeoutMs(120_000);
 
 if (process.env.TESTCONTAINERS_RYUK_DISABLED === undefined) {
   setBootstrapTestEnvValue('TESTCONTAINERS_RYUK_DISABLED', 'true');
@@ -30,7 +32,7 @@ if (process.env.TESTCONTAINERS_HOST_OVERRIDE === undefined) {
   );
 }
 
-setDefaultTimeout(120_000);
+setDefaultTimeout(containerTimeoutMs);
 
 async function hasReachableExternalChroma(baseUrl: string) {
   try {
@@ -99,7 +101,7 @@ async function ensureContainer() {
         'chroma-cucumber',
         Wait.forHttp('/api/v2/heartbeat', 8000).forStatusCode(200),
       )
-      .withStartupTimeout(120_000)
+      .withStartupTimeout(containerTimeoutMs)
       .up();
 
     console.log(
@@ -151,13 +153,13 @@ async function ensureContainer() {
   return envPromise;
 }
 
-Before({ timeout: 120_000 }, async () => {
+Before({ timeout: containerTimeoutMs }, async () => {
   await ensureContainer();
   await clearVectorsCollection();
   await clearRootsCollection();
 });
 
-AfterAll({ timeout: 120_000 }, async () => {
+AfterAll({ timeout: containerTimeoutMs }, async () => {
   console.log(
     `[chroma-compose] AfterAll invoked pid=${process.pid} stopping=${stopping} env=${environment ? 'set' : 'null'}`,
   );

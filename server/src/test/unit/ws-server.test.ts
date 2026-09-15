@@ -800,9 +800,13 @@ test('WS conversation-only cancel emits no invalid-target final while an agent c
       source: 'REST',
       runAgentInstructionUnlocked: async (params) => {
         started?.();
-        params.signal?.addEventListener('abort', () => resolveAbortWait?.(), {
-          once: true,
-        });
+        if (params.signal?.aborted) {
+          resolveAbortWait?.();
+        } else {
+          params.signal?.addEventListener('abort', () => resolveAbortWait?.(), {
+            once: true,
+          });
+        }
         await abortObserved;
         return { modelId: 'm1' };
       },

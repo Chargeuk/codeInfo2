@@ -70,8 +70,10 @@ Stress mode:
   --stress preserves the normal client, cucumber, and e2e allocations, assigns
   every otherwise-unused available core to server:unit, and enables
   CODEINFO_TEST_RUNTIME_DIAGNOSTICS=1 for child commands. It also raises the
-  client test timeout to 120 seconds to accommodate CPU saturation. An explicit
-  CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY value takes precedence.
+  client test timeout to 120 seconds and the shared server, Cucumber, and e2e
+  timeout floor to 60 seconds to accommodate CPU saturation. Explicit timeout
+  environment values and CODEINFO_ALL_PARALLEL_SERVER_UNIT_CONCURRENCY take
+  precedence.
 `);
   process.exit(0);
 }
@@ -224,7 +226,8 @@ try {
       env: {
         ...executionEnvironment,
         CODEINFO_SERVER_UNIT_CONCURRENCY: String(serverUnitConcurrency),
-        CODEINFO_TEST_TIMEOUT_MS: '60000',
+        CODEINFO_TEST_TIMEOUT_MS:
+          executionEnvironment.CODEINFO_TEST_TIMEOUT_MS ?? '60000',
       },
     },
     {

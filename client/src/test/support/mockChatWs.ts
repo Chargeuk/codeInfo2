@@ -204,7 +204,6 @@ export function setupChatWsHarness(params: {
   };
 
   const emit = async (event: HarnessEvent): Promise<void> => {
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
     const withProtocol = { protocolVersion: 'v1', ...event };
     const handler =
       typeof window !== 'undefined'

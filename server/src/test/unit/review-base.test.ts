@@ -8,7 +8,6 @@ import {
   prepareReviewBase,
   readPreparedReviewBase,
 } from '../../flows/reviewBase.js';
-import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const HEAD_SHA = 'd30c1246d30c1246d30c1246d30c1246d30c1246';
 const BASE_SHA = 'a10ca1b2a10ca1b2a10ca1b2a10ca1b2a10ca1b2';
@@ -1124,6 +1123,10 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
 
     const controller = new AbortController();
     let fetchSignal: AbortSignal | undefined;
+    let markFetchStarted!: () => void;
+    const fetchStarted = new Promise<void>((resolve) => {
+      markFetchStarted = resolve;
+    });
     const execFile = async (
       file: string,
       args: readonly string[],
@@ -1145,6 +1148,7 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
           };
         case 'fetch --prune origin':
           fetchSignal = options?.signal;
+          markFetchStarted();
           return await new Promise<{ stdout: string; stderr: string }>(
             (_resolve, reject) => {
               options?.signal?.addEventListener(
@@ -1179,10 +1183,7 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
         now: () => new Date('2026-07-05T16:32:00.000Z'),
       },
     );
-    const deadline = Date.now() + resolveConfiguredTestTimeoutMs(1000);
-    while (!fetchSignal && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
+    await fetchStarted;
     assert.equal(fetchSignal, controller.signal);
     controller.abort();
 

@@ -82,6 +82,8 @@ export const buildAllParallelEnvironment = ({
     ? {
         CODEINFO_CLIENT_TEST_TIMEOUT_MS:
           environment.CODEINFO_CLIENT_TEST_TIMEOUT_MS ?? '120000',
+        CODEINFO_TEST_TIMEOUT_MS:
+          environment.CODEINFO_TEST_TIMEOUT_MS ?? '60000',
         CODEINFO_TEST_RUNTIME_DIAGNOSTICS: '1',
       }
     : {}),

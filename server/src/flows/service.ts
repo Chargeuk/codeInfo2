@@ -8137,7 +8137,43 @@ async function runFlowUnlocked(params: {
     return lines.join('\n\n');
   };
 
-  const resolveGitHubStepContext = async () => {
+  const runGitHubStep = async (paramsForStep: {
+    instruction: string;
+    run: (signal: AbortSignal) => Promise<TurnStatus>;
+  }): Promise<TurnStatus> => {
+    const inflightState = createInflight({
+      conversationId: params.conversationId,
+      inflightId: stepInflightId,
+      provider: params.providerId,
+      model: params.modelId,
+      source: params.source,
+    });
+    const signal = inflightState.abortController.signal;
+    try {
+      const status = await paramsForStep.run(signal);
+      if (!signal.aborted) return status;
+    } catch (error) {
+      if (
+        !(
+          signal.aborted ||
+          (error instanceof Error && error.name === 'AbortError')
+        )
+      ) {
+        throw error;
+      }
+    }
+    await emitStoppedFlowStep({
+      flowConversationId: params.conversationId,
+      inflightId: stepInflightId,
+      instruction: paramsForStep.instruction,
+      modelId: params.modelId,
+      providerId: params.providerId,
+      source: params.source,
+    });
+    return 'stopped';
+  };
+
+  const resolveGitHubStepContext = async (signal?: AbortSignal) => {
     const workingRepositoryRoot =
       params.repositoryContext.workingRepositoryPath;
     if (!workingRepositoryRoot) {
@@ -8156,6 +8192,7 @@ async function runFlowUnlocked(params: {
     }
     const repositoryResult = await resolveGitHubRepositoryState({
       workingRepositoryRoot,
+      signal,
     });
     if (repositoryResult.kind !== 'ok') {
       return repositoryResult;
@@ -8169,276 +8206,288 @@ async function runFlowUnlocked(params: {
     };
   };
 
-  const runGitHubOpenPrStep = async (): Promise<TurnStatus> => {
-    const context = await resolveGitHubStepContext();
-    if (context.kind === 'skip') {
-      const warningMessage = `GitHub review stage skipped during PR open: ${context.message}`;
-      await appendGitHubStagePlanNote(warningMessage);
-      append({
-        level: 'warn',
-        message: 'flows.github.open_pr.skipped',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          flowName: params.flowName,
-          reason: context.reason,
-          detail: context.message,
-        },
-      });
-      await emitGitHubStepWarning({
-        instruction: 'GitHub open PR step',
-        message: warningMessage,
-      });
-      if (activeGitHubReviewContext?.prNumber) {
-        activeGitHubReviewContext.warningMessage = warningMessage;
-        return terminalGitHubReviewWarning();
-      }
-      markGitHubReviewCycleSkipped(warningMessage);
-      return 'ok';
-    }
-    if (context.kind !== 'ok') {
-      const warningMessage = `GitHub review stage skipped during PR open after setup failed: ${context.message}`;
-      await appendGitHubStagePlanNote(warningMessage);
-      await emitGitHubStepWarning({
-        instruction: 'GitHub open PR step',
-        message: warningMessage,
-      });
-      if (activeGitHubReviewContext?.prNumber) {
-        activeGitHubReviewContext.warningMessage = warningMessage;
-        return terminalGitHubReviewWarning();
-      }
-      markGitHubReviewCycleSkipped(warningMessage);
-      return 'ok';
-    }
-    if (
-      activeGitHubReviewContext?.phase === 'opened' &&
-      typeof activeGitHubReviewContext.prNumber === 'number' &&
-      !activeGitHubReviewContext.storyNumber
-    ) {
-      const scratchOwnershipClaim = await prepareGitHubReviewScratchOwnership({
-        repository: context.value.repository,
-        executionId: params.executionId,
-      });
-      if (scratchOwnershipClaim.kind !== 'ok') {
-        const warningMessage = `GitHub review stage could not prepare scratch context for pull request #${String(activeGitHubReviewContext.prNumber)}: ${scratchOwnershipClaim.message}`;
-        await appendGitHubStagePlanNote(warningMessage);
-        await emitGitHubStepWarning({
-          instruction: 'GitHub open PR step',
-          message: warningMessage,
+  const runGitHubOpenPrStep = async (): Promise<TurnStatus> =>
+    await runGitHubStep({
+      instruction: 'GitHub open PR step',
+      run: async (signal) => {
+        const context = await resolveGitHubStepContext(signal);
+        if (context.kind === 'skip') {
+          const warningMessage = `GitHub review stage skipped during PR open: ${context.message}`;
+          await appendGitHubStagePlanNote(warningMessage);
+          append({
+            level: 'warn',
+            message: 'flows.github.open_pr.skipped',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              flowName: params.flowName,
+              reason: context.reason,
+              detail: context.message,
+            },
+          });
+          await emitGitHubStepWarning({
+            instruction: 'GitHub open PR step',
+            message: warningMessage,
+          });
+          if (activeGitHubReviewContext?.prNumber) {
+            activeGitHubReviewContext.warningMessage = warningMessage;
+            return terminalGitHubReviewWarning();
+          }
+          markGitHubReviewCycleSkipped(warningMessage);
+          return 'ok';
+        }
+        if (context.kind !== 'ok') {
+          const warningMessage = `GitHub review stage skipped during PR open after setup failed: ${context.message}`;
+          await appendGitHubStagePlanNote(warningMessage);
+          await emitGitHubStepWarning({
+            instruction: 'GitHub open PR step',
+            message: warningMessage,
+          });
+          if (activeGitHubReviewContext?.prNumber) {
+            activeGitHubReviewContext.warningMessage = warningMessage;
+            return terminalGitHubReviewWarning();
+          }
+          markGitHubReviewCycleSkipped(warningMessage);
+          return 'ok';
+        }
+        if (
+          activeGitHubReviewContext?.phase === 'opened' &&
+          typeof activeGitHubReviewContext.prNumber === 'number' &&
+          !activeGitHubReviewContext.storyNumber
+        ) {
+          const scratchOwnershipClaim =
+            await prepareGitHubReviewScratchOwnership({
+              repository: context.value.repository,
+              executionId: params.executionId,
+            });
+          if (scratchOwnershipClaim.kind !== 'ok') {
+            const warningMessage = `GitHub review stage could not prepare scratch context for pull request #${String(activeGitHubReviewContext.prNumber)}: ${scratchOwnershipClaim.message}`;
+            await appendGitHubStagePlanNote(warningMessage);
+            await emitGitHubStepWarning({
+              instruction: 'GitHub open PR step',
+              message: warningMessage,
+            });
+            activeGitHubReviewContext.warningMessage = warningMessage;
+            return terminalGitHubReviewWarning();
+          }
+          activeGitHubReviewContext = {
+            ...activeGitHubReviewContext,
+            storyNumber: scratchOwnershipClaim.value.story_number,
+            branchName: scratchOwnershipClaim.value.branch_name,
+            selectorPath: buildGitHubReviewScratchPaths(
+              context.value.repository.workingRepositoryRoot,
+              scratchOwnershipClaim.value.story_number,
+            ).selectorPath,
+            handoffPath: scratchOwnershipClaim.value.handoff_path,
+            retryAttempt: 0,
+          };
+          return 'ok';
+        }
+        const pushResult = await pushBranchToExistingUpstream({
+          repository: context.value.repository,
+          signal,
         });
-        activeGitHubReviewContext.warningMessage = warningMessage;
-        return terminalGitHubReviewWarning();
-      }
-      activeGitHubReviewContext = {
-        ...activeGitHubReviewContext,
-        storyNumber: scratchOwnershipClaim.value.story_number,
-        branchName: scratchOwnershipClaim.value.branch_name,
-        selectorPath: buildGitHubReviewScratchPaths(
-          context.value.repository.workingRepositoryRoot,
-          scratchOwnershipClaim.value.story_number,
-        ).selectorPath,
-        handoffPath: scratchOwnershipClaim.value.handoff_path,
-        retryAttempt: 0,
-      };
-      return 'ok';
-    }
-    const pushResult = await pushBranchToExistingUpstream({
-      repository: context.value.repository,
-    });
-    if (pushResult.kind === 'skip') {
-      const warningMessage = `GitHub review stage skipped during PR open: ${pushResult.message}`;
-      await appendGitHubStagePlanNote(warningMessage);
-      append({
-        level: 'warn',
-        message: 'flows.github.open_pr.skipped',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          flowName: params.flowName,
-          reason: pushResult.reason,
-          detail: pushResult.message,
-        },
-      });
-      await emitGitHubStepWarning({
-        instruction: 'GitHub open PR step',
-        message: warningMessage,
-      });
-      markGitHubReviewCycleSkipped(warningMessage);
-      return 'ok';
-    }
-    if (pushResult.kind !== 'ok') {
-      const warningMessage = `GitHub review stage skipped during PR open after branch push failed: ${pushResult.message}`;
-      await appendGitHubStagePlanNote(warningMessage);
-      await emitGitHubStepWarning({
-        instruction: 'GitHub open PR step',
-        message: warningMessage,
-      });
-      markGitHubReviewCycleSkipped(warningMessage);
-      return 'ok';
-    }
-    const latestOpenPullRequest = await lookupLatestOpenPullRequest({
-      repository: context.value.repository,
-      token: context.value.token,
-    });
-    if (latestOpenPullRequest.kind !== 'ok') {
-      const failureMessage = buildGitHubOpenPrFailureMessage({
-        failure: {
-          reason: latestOpenPullRequest.reason,
-          message: latestOpenPullRequest.message,
-          stderr: latestOpenPullRequest.stderr,
-          exitCode: latestOpenPullRequest.exitCode,
-        },
-        lookupDiagnostics: [],
-      });
-      await appendGitHubStagePlanNote(failureMessage);
-      await emitGitHubStepWarning({
-        instruction: 'GitHub open PR step',
-        message: failureMessage,
-      });
-      markGitHubReviewCycleSkipped(failureMessage);
-      return 'ok';
-    }
-    let pullRequest = latestOpenPullRequest.value;
-    const reusingOpenPullRequest = Boolean(pullRequest);
-    if (!pullRequest) {
-      const { title, body } = await buildGitHubReviewPullRequestContent({
-        repositoryFullName: context.value.repository.repositoryFullName,
-        branchName: context.value.repository.upstreamBranch,
-      });
-      const createResult = await createPullRequest({
-        repository: context.value.repository,
-        token: context.value.token,
-        title,
-        body,
-      });
-      const warningDiagnostics =
-        createResult.kind === 'ok'
-          ? createResult.lookupDiagnostics
-          : createResult.lookupDiagnostics.slice(0, -1);
-      for (const diagnostic of warningDiagnostics) {
-        const warningMessage = buildGitHubLookupRetryWarningMessage(diagnostic);
-        await appendGitHubStagePlanNote(warningMessage);
+        if (pushResult.kind === 'skip') {
+          const warningMessage = `GitHub review stage skipped during PR open: ${pushResult.message}`;
+          await appendGitHubStagePlanNote(warningMessage);
+          append({
+            level: 'warn',
+            message: 'flows.github.open_pr.skipped',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              flowName: params.flowName,
+              reason: pushResult.reason,
+              detail: pushResult.message,
+            },
+          });
+          await emitGitHubStepWarning({
+            instruction: 'GitHub open PR step',
+            message: warningMessage,
+          });
+          markGitHubReviewCycleSkipped(warningMessage);
+          return 'ok';
+        }
+        if (pushResult.kind !== 'ok') {
+          const warningMessage = `GitHub review stage skipped during PR open after branch push failed: ${pushResult.message}`;
+          await appendGitHubStagePlanNote(warningMessage);
+          await emitGitHubStepWarning({
+            instruction: 'GitHub open PR step',
+            message: warningMessage,
+          });
+          markGitHubReviewCycleSkipped(warningMessage);
+          return 'ok';
+        }
+        const latestOpenPullRequest = await lookupLatestOpenPullRequest({
+          repository: context.value.repository,
+          token: context.value.token,
+          signal,
+        });
+        if (latestOpenPullRequest.kind !== 'ok') {
+          const failureMessage = buildGitHubOpenPrFailureMessage({
+            failure: {
+              reason: latestOpenPullRequest.reason,
+              message: latestOpenPullRequest.message,
+              stderr: latestOpenPullRequest.stderr,
+              exitCode: latestOpenPullRequest.exitCode,
+            },
+            lookupDiagnostics: [],
+          });
+          await appendGitHubStagePlanNote(failureMessage);
+          await emitGitHubStepWarning({
+            instruction: 'GitHub open PR step',
+            message: failureMessage,
+          });
+          markGitHubReviewCycleSkipped(failureMessage);
+          return 'ok';
+        }
+        let pullRequest = latestOpenPullRequest.value;
+        const reusingOpenPullRequest = Boolean(pullRequest);
+        if (!pullRequest) {
+          const { title, body } = await buildGitHubReviewPullRequestContent({
+            repositoryFullName: context.value.repository.repositoryFullName,
+            branchName: context.value.repository.upstreamBranch,
+          });
+          const createResult = await createPullRequest({
+            repository: context.value.repository,
+            token: context.value.token,
+            title,
+            body,
+            signal,
+          });
+          const warningDiagnostics =
+            createResult.kind === 'ok'
+              ? createResult.lookupDiagnostics
+              : createResult.lookupDiagnostics.slice(0, -1);
+          for (const diagnostic of warningDiagnostics) {
+            const warningMessage =
+              buildGitHubLookupRetryWarningMessage(diagnostic);
+            await appendGitHubStagePlanNote(warningMessage);
+            append({
+              level: 'warn',
+              message: 'flows.github.open_pr.lookup_retry_failed',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              context: {
+                flowName: params.flowName,
+                attemptNumber: diagnostic.attemptNumber,
+                waitMs: diagnostic.waitMs,
+                reason: diagnostic.reason,
+                detail: diagnostic.message,
+                stderr: diagnostic.stderr,
+                exitCode: diagnostic.exitCode,
+              },
+            });
+          }
+          if (createResult.kind !== 'ok') {
+            const failureMessage = buildGitHubOpenPrFailureMessage({
+              failure: {
+                reason: createResult.reason,
+                message: createResult.message,
+                stderr: createResult.stderr,
+                exitCode: createResult.exitCode,
+              },
+              lookupDiagnostics: createResult.lookupDiagnostics,
+              createFailure: createResult.createFailure,
+            });
+            await appendGitHubStagePlanNote(failureMessage);
+            await emitGitHubStepWarning({
+              instruction: 'GitHub open PR step',
+              message: failureMessage,
+            });
+            markGitHubReviewCycleSkipped(failureMessage);
+            return 'ok';
+          }
+          if (createResult.createFailure) {
+            const recoveredCreateWarning =
+              buildGitHubRecoveredCreateWarningMessage({
+                pullRequestNumber: createResult.value.number,
+                createFailure: createResult.createFailure,
+              });
+            await appendGitHubStagePlanNote(recoveredCreateWarning);
+            append({
+              level: 'warn',
+              message: 'flows.github.open_pr.create_recovered',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              context: {
+                flowName: params.flowName,
+                prNumber: createResult.value.number,
+                detail: recoveredCreateWarning,
+                reason: createResult.createFailure.reason,
+                stderr: createResult.createFailure.stderr,
+                exitCode: createResult.createFailure.exitCode,
+              },
+            });
+          }
+          pullRequest = createResult.value;
+        }
         append({
-          level: 'warn',
-          message: 'flows.github.open_pr.lookup_retry_failed',
+          level: 'info',
+          message: reusingOpenPullRequest
+            ? 'flows.github.open_pr.reused'
+            : 'flows.github.open_pr.created',
           timestamp: new Date().toISOString(),
           source: 'server',
           context: {
             flowName: params.flowName,
-            attemptNumber: diagnostic.attemptNumber,
-            waitMs: diagnostic.waitMs,
-            reason: diagnostic.reason,
-            detail: diagnostic.message,
-            stderr: diagnostic.stderr,
-            exitCode: diagnostic.exitCode,
+            repository: context.value.repository.repositoryFullName,
+            branch: context.value.repository.upstreamBranch,
+            prNumber: pullRequest.number,
+            prUrl: pullRequest.url,
           },
         });
-      }
-      if (createResult.kind !== 'ok') {
-        const failureMessage = buildGitHubOpenPrFailureMessage({
-          failure: {
-            reason: createResult.reason,
-            message: createResult.message,
-            stderr: createResult.stderr,
-            exitCode: createResult.exitCode,
-          },
-          lookupDiagnostics: createResult.lookupDiagnostics,
-          createFailure: createResult.createFailure,
-        });
-        await appendGitHubStagePlanNote(failureMessage);
-        await emitGitHubStepWarning({
-          instruction: 'GitHub open PR step',
-          message: failureMessage,
-        });
-        markGitHubReviewCycleSkipped(failureMessage);
-        return 'ok';
-      }
-      if (createResult.createFailure) {
-        const recoveredCreateWarning = buildGitHubRecoveredCreateWarningMessage(
+        activeGitHubReviewContext = {
+          executionId: params.executionId,
+          prNumber: pullRequest.number,
+          branchName: context.value.repository.upstreamBranch,
+          phase: 'opened',
+          retryAttempt: 0,
+        };
+        const scratchOwnershipClaim = await prepareGitHubReviewScratchOwnership(
           {
-            pullRequestNumber: createResult.value.number,
-            createFailure: createResult.createFailure,
+            repository: context.value.repository,
+            executionId: params.executionId,
           },
         );
-        await appendGitHubStagePlanNote(recoveredCreateWarning);
-        append({
-          level: 'warn',
-          message: 'flows.github.open_pr.create_recovered',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            flowName: params.flowName,
-            prNumber: createResult.value.number,
-            detail: recoveredCreateWarning,
-            reason: createResult.createFailure.reason,
-            stderr: createResult.createFailure.stderr,
-            exitCode: createResult.createFailure.exitCode,
-          },
-        });
-      }
-      pullRequest = createResult.value;
-    }
-    append({
-      level: 'info',
-      message: reusingOpenPullRequest
-        ? 'flows.github.open_pr.reused'
-        : 'flows.github.open_pr.created',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      context: {
-        flowName: params.flowName,
-        repository: context.value.repository.repositoryFullName,
-        branch: context.value.repository.upstreamBranch,
-        prNumber: pullRequest.number,
-        prUrl: pullRequest.url,
+        if (scratchOwnershipClaim.kind !== 'ok') {
+          const warningMessage = `GitHub review stage could not prepare scratch context after selecting pull request #${String(pullRequest.number)}: ${scratchOwnershipClaim.message}`;
+          await appendGitHubStagePlanNote(warningMessage);
+          await emitGitHubStepWarning({
+            instruction: 'GitHub open PR step',
+            message: warningMessage,
+          });
+          activeGitHubReviewContext.warningMessage = warningMessage;
+          return terminalGitHubReviewWarning();
+        }
+        activeGitHubReviewContext = {
+          executionId: params.executionId,
+          prNumber: pullRequest.number,
+          storyNumber: scratchOwnershipClaim.value.story_number,
+          branchName: scratchOwnershipClaim.value.branch_name,
+          selectorPath: buildGitHubReviewScratchPaths(
+            context.value.repository.workingRepositoryRoot,
+            scratchOwnershipClaim.value.story_number,
+          ).selectorPath,
+          handoffPath: scratchOwnershipClaim.value.handoff_path,
+          phase: 'opened',
+          selectorPublicationPending: true,
+          retryAttempt: 0,
+        };
+        return 'ok';
       },
     });
-    activeGitHubReviewContext = {
-      executionId: params.executionId,
-      prNumber: pullRequest.number,
-      branchName: context.value.repository.upstreamBranch,
-      phase: 'opened',
-      retryAttempt: 0,
-    };
-    const scratchOwnershipClaim = await prepareGitHubReviewScratchOwnership({
-      repository: context.value.repository,
-      executionId: params.executionId,
-    });
-    if (scratchOwnershipClaim.kind !== 'ok') {
-      const warningMessage = `GitHub review stage could not prepare scratch context after selecting pull request #${String(pullRequest.number)}: ${scratchOwnershipClaim.message}`;
-      await appendGitHubStagePlanNote(warningMessage);
-      await emitGitHubStepWarning({
-        instruction: 'GitHub open PR step',
-        message: warningMessage,
-      });
-      activeGitHubReviewContext.warningMessage = warningMessage;
-      return terminalGitHubReviewWarning();
-    }
-    activeGitHubReviewContext = {
-      executionId: params.executionId,
-      prNumber: pullRequest.number,
-      storyNumber: scratchOwnershipClaim.value.story_number,
-      branchName: scratchOwnershipClaim.value.branch_name,
-      selectorPath: buildGitHubReviewScratchPaths(
-        context.value.repository.workingRepositoryRoot,
-        scratchOwnershipClaim.value.story_number,
-      ).selectorPath,
-      handoffPath: scratchOwnershipClaim.value.handoff_path,
-      phase: 'opened',
-      selectorPublicationPending: true,
-      retryAttempt: 0,
-    };
-    return 'ok';
-  };
 
   const resolveExecutionScopedGitHubReviewPullRequest = async (params: {
     repository: GitHubRepositoryState;
     token: string;
+    signal?: AbortSignal;
   }) => {
     if (!activeGitHubReviewContext?.executionId) {
       const latestOpenPullRequest = await lookupLatestOpenPullRequest({
         repository: params.repository,
         token: params.token,
+        signal: params.signal,
       });
       if (latestOpenPullRequest.kind !== 'ok') {
         return {
@@ -8502,6 +8551,7 @@ async function runFlowUnlocked(params: {
       handoffPath: canonicalScratchPaths.value.handoffPath,
       resumedPullRequestNumber: activeGitHubReviewContext.prNumber,
       expectPersistedHandoff: activeGitHubReviewContext.phase === 'fetched',
+      signal: params.signal,
     });
     if (reconciled.kind !== 'ok') {
       return reconciled;
@@ -8514,302 +8564,317 @@ async function runFlowUnlocked(params: {
     return reconciled;
   };
 
-  const runGitHubFetchReviewsStep = async (): Promise<TurnStatus> => {
-    if (activeGitHubReviewContext?.phase === 'skipped') return 'ok';
-    const context = await resolveGitHubStepContext();
-    if (context.kind === 'skip') {
-      const warningMessage = `GitHub review stage skipped during review fetch: ${context.message}`;
-      await appendGitHubStagePlanNote(warningMessage);
-      append({
-        level: 'warn',
-        message: 'flows.github.fetch_reviews.skipped',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          flowName: params.flowName,
-          reason: context.reason,
-          detail: context.message,
-        },
-      });
-      await emitGitHubStepWarning({
-        instruction: 'GitHub fetch reviews step',
-        message: warningMessage,
-      });
-      markGitHubReviewCycleSkipped(warningMessage);
-      return 'ok';
-    }
-    if (context.kind !== 'ok') {
-      const warningMessage = `GitHub review stage skipped during review fetch after setup failed: ${context.message}`;
-      await appendGitHubStagePlanNote(warningMessage);
-      await emitGitHubStepWarning({
-        instruction: 'GitHub fetch reviews step',
-        message: warningMessage,
-      });
-      markGitHubReviewCycleSkipped(warningMessage);
-      return 'ok';
-    }
-    const pullRequestResult =
-      await resolveExecutionScopedGitHubReviewPullRequest({
-        repository: context.value.repository,
-        token: context.value.token,
-      });
-    await emitGitHubStepWarnings({
+  const runGitHubFetchReviewsStep = async (): Promise<TurnStatus> =>
+    await runGitHubStep({
       instruction: 'GitHub fetch reviews step',
-      warnings: [...pullRequestResult.warnings],
-      logMessage: 'flows.github.fetch_reviews.execution_pr_reconciled',
-    });
-    if (pullRequestResult.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during review fetch: ${pullRequestResult.message}`,
-      );
-      await emitGitHubStepFailure({
-        instruction: 'GitHub fetch reviews step',
-        message: pullRequestResult.message,
-        errorCode: pullRequestResult.reason,
-      });
-      return 'failed';
-    }
-    if (!pullRequestResult.value) {
-      const warningMessage =
-        'GitHub review stage stopped before review fetch because no latest open pull request was available for the current branch.';
-      await appendGitHubStagePlanNote(warningMessage);
-      append({
-        level: 'info',
-        message: 'flows.github.fetch_reviews.no_open_pr',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          flowName: params.flowName,
-          repository: context.value.repository.repositoryFullName,
-          branch: context.value.repository.upstreamBranch,
-        },
-      });
-      await emitGitHubStepWarning({
-        instruction: 'GitHub fetch reviews step',
-        message: warningMessage,
-      });
-      return terminalGitHubReviewWarning();
-    }
-    const reviewArtifactResult = await fetchPullRequestReviews({
-      repository: context.value.repository,
-      token: context.value.token,
-      pullRequest: pullRequestResult.value,
-    });
-    if (reviewArtifactResult.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during review fetch: ${reviewArtifactResult.message}`,
-      );
-      await emitGitHubStepFailure({
-        instruction: 'GitHub fetch reviews step',
-        message: reviewArtifactResult.message,
-        errorCode: reviewArtifactResult.reason,
-      });
-      return 'failed';
-    }
-    const scratchWriteResult = await writeGitHubReviewScratch({
-      repository: context.value.repository,
-      executionId: params.executionId,
-      pullRequest: pullRequestResult.value,
-      artifact: reviewArtifactResult.value,
-      preserveForeignSelectorOwnership: Boolean(
-        activeGitHubReviewContext?.executionId,
-      ),
-      replaceForeignSelectorOwnership:
-        activeGitHubReviewContext?.selectorPublicationPending === true,
-    });
-    if (scratchWriteResult.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during review fetch: ${scratchWriteResult.message}`,
-      );
-      await emitGitHubStepFailure({
-        instruction: 'GitHub fetch reviews step',
-        message: scratchWriteResult.message,
-        errorCode: scratchWriteResult.reason,
-      });
-      return 'failed';
-    }
-    const canonicalScratchPaths = resolveCanonicalGitHubReviewScratchPaths({
-      workingRepositoryRoot: context.value.repository.workingRepositoryRoot,
-      storyNumber: scratchWriteResult.value.story_number,
-      executionId: scratchWriteResult.value.execution_id,
-      ...(activeGitHubReviewContext?.selectorPath
-        ? { selectorPath: activeGitHubReviewContext.selectorPath }
-        : {}),
-      ...(activeGitHubReviewContext?.handoffPath
-        ? { handoffPath: activeGitHubReviewContext.handoffPath }
-        : {}),
-    });
-    if (canonicalScratchPaths.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during review fetch: ${canonicalScratchPaths.message}`,
-      );
-      await emitGitHubStepFailure({
-        instruction: 'GitHub fetch reviews step',
-        message: canonicalScratchPaths.message,
-        errorCode: canonicalScratchPaths.reason,
-      });
-      return 'failed';
-    }
-    const handoffPath = canonicalScratchPaths.value.handoffPath;
-    const handoffReadResult = await readGitHubReviewScratch({
-      handoffPath,
-      expectedExecutionId:
-        activeGitHubReviewContext?.executionId ?? params.executionId,
-    });
-    if (handoffReadResult.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during review fetch: ${handoffReadResult.message}`,
-      );
-      await emitGitHubStepFailure({
-        instruction: 'GitHub fetch reviews step',
-        message: handoffReadResult.message,
-        errorCode: handoffReadResult.reason,
-      });
-      return 'failed';
-    }
-    activeGitHubReviewContext = {
-      executionId: handoffReadResult.value.execution_id,
-      prNumber: pullRequestResult.value.number,
-      storyNumber: handoffReadResult.value.story_number,
-      branchName: handoffReadResult.value.branch_name,
-      selectorPath: canonicalScratchPaths.value.selectorPath,
-      handoffPath,
-      phase: 'fetched',
-      retryAttempt: 0,
-    };
-    const materializedReviewInput = await materializeGitHubExternalReviewInput({
-      handoff: handoffReadResult.value,
-    });
-    if (materializedReviewInput.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during review fetch: ${materializedReviewInput.message}`,
-      );
-      await emitGitHubStepFailure({
-        instruction: 'GitHub fetch reviews step',
-        message: materializedReviewInput.message,
-        errorCode: materializedReviewInput.reason,
-      });
-      return 'failed';
-    }
-    append({
-      level: 'info',
-      message: 'flows.github.fetch_reviews.recorded',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      context: {
-        flowName: params.flowName,
-        repository: context.value.repository.repositoryFullName,
-        branch: context.value.repository.upstreamBranch,
-        prNumber: pullRequestResult.value.number,
-        reviewCount: reviewArtifactResult.value.reviews.length,
-        reviewCommentCount: reviewArtifactResult.value.reviewComments.length,
-        handoffPath: activeGitHubReviewContext?.handoffPath ?? handoffPath,
-        rawReviewArtifactPath:
-          scratchWriteResult.value.raw_review_artifact_path,
-        externalReviewInputPath:
-          materializedReviewInput.value.externalReviewInputPath,
-        filteredFeedbackCount: materializedReviewInput.value.feedback.length,
+      run: async (signal) => {
+        if (activeGitHubReviewContext?.phase === 'skipped') return 'ok';
+        const context = await resolveGitHubStepContext(signal);
+        if (context.kind === 'skip') {
+          const warningMessage = `GitHub review stage skipped during review fetch: ${context.message}`;
+          await appendGitHubStagePlanNote(warningMessage);
+          append({
+            level: 'warn',
+            message: 'flows.github.fetch_reviews.skipped',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              flowName: params.flowName,
+              reason: context.reason,
+              detail: context.message,
+            },
+          });
+          await emitGitHubStepWarning({
+            instruction: 'GitHub fetch reviews step',
+            message: warningMessage,
+          });
+          markGitHubReviewCycleSkipped(warningMessage);
+          return 'ok';
+        }
+        if (context.kind !== 'ok') {
+          const warningMessage = `GitHub review stage skipped during review fetch after setup failed: ${context.message}`;
+          await appendGitHubStagePlanNote(warningMessage);
+          await emitGitHubStepWarning({
+            instruction: 'GitHub fetch reviews step',
+            message: warningMessage,
+          });
+          markGitHubReviewCycleSkipped(warningMessage);
+          return 'ok';
+        }
+        const pullRequestResult =
+          await resolveExecutionScopedGitHubReviewPullRequest({
+            repository: context.value.repository,
+            token: context.value.token,
+            signal,
+          });
+        await emitGitHubStepWarnings({
+          instruction: 'GitHub fetch reviews step',
+          warnings: [...pullRequestResult.warnings],
+          logMessage: 'flows.github.fetch_reviews.execution_pr_reconciled',
+        });
+        if (pullRequestResult.kind !== 'ok') {
+          await appendGitHubStagePlanNote(
+            `GitHub review stage failed during review fetch: ${pullRequestResult.message}`,
+          );
+          await emitGitHubStepFailure({
+            instruction: 'GitHub fetch reviews step',
+            message: pullRequestResult.message,
+            errorCode: pullRequestResult.reason,
+          });
+          return 'failed';
+        }
+        if (!pullRequestResult.value) {
+          const warningMessage =
+            'GitHub review stage stopped before review fetch because no latest open pull request was available for the current branch.';
+          await appendGitHubStagePlanNote(warningMessage);
+          append({
+            level: 'info',
+            message: 'flows.github.fetch_reviews.no_open_pr',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              flowName: params.flowName,
+              repository: context.value.repository.repositoryFullName,
+              branch: context.value.repository.upstreamBranch,
+            },
+          });
+          await emitGitHubStepWarning({
+            instruction: 'GitHub fetch reviews step',
+            message: warningMessage,
+          });
+          return terminalGitHubReviewWarning();
+        }
+        const reviewArtifactResult = await fetchPullRequestReviews({
+          repository: context.value.repository,
+          token: context.value.token,
+          pullRequest: pullRequestResult.value,
+          signal,
+        });
+        if (reviewArtifactResult.kind !== 'ok') {
+          await appendGitHubStagePlanNote(
+            `GitHub review stage failed during review fetch: ${reviewArtifactResult.message}`,
+          );
+          await emitGitHubStepFailure({
+            instruction: 'GitHub fetch reviews step',
+            message: reviewArtifactResult.message,
+            errorCode: reviewArtifactResult.reason,
+          });
+          return 'failed';
+        }
+        const scratchWriteResult = await writeGitHubReviewScratch({
+          repository: context.value.repository,
+          executionId: params.executionId,
+          pullRequest: pullRequestResult.value,
+          artifact: reviewArtifactResult.value,
+          preserveForeignSelectorOwnership: Boolean(
+            activeGitHubReviewContext?.executionId,
+          ),
+          replaceForeignSelectorOwnership:
+            activeGitHubReviewContext?.selectorPublicationPending === true,
+        });
+        if (scratchWriteResult.kind !== 'ok') {
+          await appendGitHubStagePlanNote(
+            `GitHub review stage failed during review fetch: ${scratchWriteResult.message}`,
+          );
+          await emitGitHubStepFailure({
+            instruction: 'GitHub fetch reviews step',
+            message: scratchWriteResult.message,
+            errorCode: scratchWriteResult.reason,
+          });
+          return 'failed';
+        }
+        const canonicalScratchPaths = resolveCanonicalGitHubReviewScratchPaths({
+          workingRepositoryRoot: context.value.repository.workingRepositoryRoot,
+          storyNumber: scratchWriteResult.value.story_number,
+          executionId: scratchWriteResult.value.execution_id,
+          ...(activeGitHubReviewContext?.selectorPath
+            ? { selectorPath: activeGitHubReviewContext.selectorPath }
+            : {}),
+          ...(activeGitHubReviewContext?.handoffPath
+            ? { handoffPath: activeGitHubReviewContext.handoffPath }
+            : {}),
+        });
+        if (canonicalScratchPaths.kind !== 'ok') {
+          await appendGitHubStagePlanNote(
+            `GitHub review stage failed during review fetch: ${canonicalScratchPaths.message}`,
+          );
+          await emitGitHubStepFailure({
+            instruction: 'GitHub fetch reviews step',
+            message: canonicalScratchPaths.message,
+            errorCode: canonicalScratchPaths.reason,
+          });
+          return 'failed';
+        }
+        const handoffPath = canonicalScratchPaths.value.handoffPath;
+        const handoffReadResult = await readGitHubReviewScratch({
+          handoffPath,
+          expectedExecutionId:
+            activeGitHubReviewContext?.executionId ?? params.executionId,
+        });
+        if (handoffReadResult.kind !== 'ok') {
+          await appendGitHubStagePlanNote(
+            `GitHub review stage failed during review fetch: ${handoffReadResult.message}`,
+          );
+          await emitGitHubStepFailure({
+            instruction: 'GitHub fetch reviews step',
+            message: handoffReadResult.message,
+            errorCode: handoffReadResult.reason,
+          });
+          return 'failed';
+        }
+        activeGitHubReviewContext = {
+          executionId: handoffReadResult.value.execution_id,
+          prNumber: pullRequestResult.value.number,
+          storyNumber: handoffReadResult.value.story_number,
+          branchName: handoffReadResult.value.branch_name,
+          selectorPath: canonicalScratchPaths.value.selectorPath,
+          handoffPath,
+          phase: 'fetched',
+          retryAttempt: 0,
+        };
+        const materializedReviewInput =
+          await materializeGitHubExternalReviewInput({
+            handoff: handoffReadResult.value,
+          });
+        if (materializedReviewInput.kind !== 'ok') {
+          await appendGitHubStagePlanNote(
+            `GitHub review stage failed during review fetch: ${materializedReviewInput.message}`,
+          );
+          await emitGitHubStepFailure({
+            instruction: 'GitHub fetch reviews step',
+            message: materializedReviewInput.message,
+            errorCode: materializedReviewInput.reason,
+          });
+          return 'failed';
+        }
+        append({
+          level: 'info',
+          message: 'flows.github.fetch_reviews.recorded',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            repository: context.value.repository.repositoryFullName,
+            branch: context.value.repository.upstreamBranch,
+            prNumber: pullRequestResult.value.number,
+            reviewCount: reviewArtifactResult.value.reviews.length,
+            reviewCommentCount:
+              reviewArtifactResult.value.reviewComments.length,
+            handoffPath: activeGitHubReviewContext?.handoffPath ?? handoffPath,
+            rawReviewArtifactPath:
+              scratchWriteResult.value.raw_review_artifact_path,
+            externalReviewInputPath:
+              materializedReviewInput.value.externalReviewInputPath,
+            filteredFeedbackCount:
+              materializedReviewInput.value.feedback.length,
+          },
+        });
+        return 'ok';
       },
     });
-    return 'ok';
-  };
 
-  const runGitHubClosePrStep = async (): Promise<TurnStatus> => {
-    if (activeGitHubReviewContext?.phase === 'skipped') return 'ok';
-    const context = await resolveGitHubStepContext();
-    if (context.kind === 'skip') {
-      const warningMessage = `GitHub review stage skipped during PR close: ${context.message}`;
-      await appendGitHubStagePlanNote(warningMessage);
-      append({
-        level: 'warn',
-        message: 'flows.github.close_pr.skipped',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        context: {
-          flowName: params.flowName,
-          reason: context.reason,
-          detail: context.message,
-        },
-      });
-      await emitGitHubStepWarning({
-        instruction: 'GitHub close PR step',
-        message: warningMessage,
-      });
-      return terminalGitHubReviewWarning();
-    }
-    if (context.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during PR close: ${context.message}`,
-      );
-      await emitGitHubStepFailure({
-        instruction: 'GitHub close PR step',
-        message: context.message,
-        errorCode: context.reason,
-      });
-      return 'failed';
-    }
-    const pullRequestResult =
-      await resolveExecutionScopedGitHubReviewPullRequest({
-        repository: context.value.repository,
-        token: context.value.token,
-      });
-    await emitGitHubStepWarnings({
+  const runGitHubClosePrStep = async (): Promise<TurnStatus> =>
+    await runGitHubStep({
       instruction: 'GitHub close PR step',
-      warnings: [...pullRequestResult.warnings],
-      logMessage: 'flows.github.close_pr.execution_pr_reconciled',
-    });
-    if (pullRequestResult.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during PR close: ${pullRequestResult.message}`,
-      );
-      await emitGitHubStepFailure({
-        instruction: 'GitHub close PR step',
-        message: pullRequestResult.message,
-        errorCode: pullRequestResult.reason,
-      });
-      return 'failed';
-    }
-    if (!pullRequestResult.value) {
-      const warningMessage =
-        'GitHub review stage stopped before PR close because no latest open pull request was available for the current branch.';
-      await appendGitHubStagePlanNote(warningMessage);
-      await emitGitHubStepWarning({
-        instruction: 'GitHub close PR step',
-        message: warningMessage,
-      });
-      return terminalGitHubReviewWarning();
-    }
-    const closeResult = await closePullRequest({
-      repository: context.value.repository,
-      token: context.value.token,
-      pullRequest: pullRequestResult.value,
-    });
-    if (closeResult.kind !== 'ok') {
-      await appendGitHubStagePlanNote(
-        `GitHub review stage failed during PR close: ${closeResult.message}`,
-      );
-      await emitGitHubStepFailure({
-        instruction: 'GitHub close PR step',
-        message: closeResult.message,
-        errorCode: closeResult.reason,
-      });
-      return 'failed';
-    }
-    append({
-      level: 'info',
-      message: 'flows.github.close_pr.closed',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      context: {
-        flowName: params.flowName,
-        repository: context.value.repository.repositoryFullName,
-        branch: context.value.repository.upstreamBranch,
-        prNumber: pullRequestResult.value.number,
+      run: async (signal) => {
+        if (activeGitHubReviewContext?.phase === 'skipped') return 'ok';
+        const context = await resolveGitHubStepContext(signal);
+        if (context.kind === 'skip') {
+          const warningMessage = `GitHub review stage skipped during PR close: ${context.message}`;
+          await appendGitHubStagePlanNote(warningMessage);
+          append({
+            level: 'warn',
+            message: 'flows.github.close_pr.skipped',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              flowName: params.flowName,
+              reason: context.reason,
+              detail: context.message,
+            },
+          });
+          await emitGitHubStepWarning({
+            instruction: 'GitHub close PR step',
+            message: warningMessage,
+          });
+          return terminalGitHubReviewWarning();
+        }
+        if (context.kind !== 'ok') {
+          await appendGitHubStagePlanNote(
+            `GitHub review stage failed during PR close: ${context.message}`,
+          );
+          await emitGitHubStepFailure({
+            instruction: 'GitHub close PR step',
+            message: context.message,
+            errorCode: context.reason,
+          });
+          return 'failed';
+        }
+        const pullRequestResult =
+          await resolveExecutionScopedGitHubReviewPullRequest({
+            repository: context.value.repository,
+            token: context.value.token,
+            signal,
+          });
+        await emitGitHubStepWarnings({
+          instruction: 'GitHub close PR step',
+          warnings: [...pullRequestResult.warnings],
+          logMessage: 'flows.github.close_pr.execution_pr_reconciled',
+        });
+        if (pullRequestResult.kind !== 'ok') {
+          await appendGitHubStagePlanNote(
+            `GitHub review stage failed during PR close: ${pullRequestResult.message}`,
+          );
+          await emitGitHubStepFailure({
+            instruction: 'GitHub close PR step',
+            message: pullRequestResult.message,
+            errorCode: pullRequestResult.reason,
+          });
+          return 'failed';
+        }
+        if (!pullRequestResult.value) {
+          const warningMessage =
+            'GitHub review stage stopped before PR close because no latest open pull request was available for the current branch.';
+          await appendGitHubStagePlanNote(warningMessage);
+          await emitGitHubStepWarning({
+            instruction: 'GitHub close PR step',
+            message: warningMessage,
+          });
+          return terminalGitHubReviewWarning();
+        }
+        const closeResult = await closePullRequest({
+          repository: context.value.repository,
+          token: context.value.token,
+          pullRequest: pullRequestResult.value,
+          signal,
+        });
+        if (closeResult.kind !== 'ok') {
+          await appendGitHubStagePlanNote(
+            `GitHub review stage failed during PR close: ${closeResult.message}`,
+          );
+          await emitGitHubStepFailure({
+            instruction: 'GitHub close PR step',
+            message: closeResult.message,
+            errorCode: closeResult.reason,
+          });
+          return 'failed';
+        }
+        append({
+          level: 'info',
+          message: 'flows.github.close_pr.closed',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            flowName: params.flowName,
+            repository: context.value.repository.repositoryFullName,
+            branch: context.value.repository.upstreamBranch,
+            prNumber: pullRequestResult.value.number,
+          },
+        });
+        activeGitHubReviewContext = undefined;
+        return 'ok';
       },
     });
-    activeGitHubReviewContext = undefined;
-    return 'ok';
-  };
 
   const getActiveSubflowsForStep = (stepPath: number[]) => {
     const stepPathKey = getStepPathKey(stepPath);

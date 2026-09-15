@@ -440,6 +440,109 @@ describe('GET /flows', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
+  test('GET /flows disables conditional flows when either executable branch references an unavailable command', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+    const runtimeRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-runtime-'),
+    );
+
+    try {
+      await writeAgentConfig({
+        repoRoot: runtimeRoot,
+        rootDirName: 'codeinfo_agents',
+        agentName: 'planning_agent',
+      });
+      for (const [flowName, branch] of [
+        ['if-then-missing-command', 'then'],
+        ['if-else-missing-command', 'else'],
+      ] as const) {
+        await writeRawFlowFile(
+          tmpDir,
+          flowName,
+          JSON.stringify({
+            description: 'Conditional command availability fixture',
+            steps: [
+              {
+                type: 'if',
+                condition: 'review condition',
+                agentType: 'planning_agent',
+                identifier: 'conditional-decision',
+                then:
+                  branch === 'then'
+                    ? [
+                        {
+                          type: 'command',
+                          agentType: 'planning_agent',
+                          identifier: 'missing-then-command',
+                          commandName: 'missing_then_command',
+                        },
+                      ]
+                    : [
+                        {
+                          type: 'llm',
+                          agentType: 'planning_agent',
+                          identifier: 'available-then-branch',
+                          messages: [
+                            { role: 'user', content: ['available branch'] },
+                          ],
+                        },
+                      ],
+                else:
+                  branch === 'else'
+                    ? [
+                        {
+                          type: 'command',
+                          agentType: 'planning_agent',
+                          identifier: 'missing-else-command',
+                          commandName: 'missing_else_command',
+                        },
+                      ]
+                    : [
+                        {
+                          type: 'llm',
+                          agentType: 'planning_agent',
+                          identifier: 'available-else-branch',
+                          messages: [
+                            { role: 'user', content: ['available branch'] },
+                          ],
+                        },
+                      ],
+              },
+            ],
+          }),
+        );
+      }
+
+      await withAgentHomes(
+        {
+          preferred: path.join(runtimeRoot, 'codeinfo_agents'),
+          legacy: path.join(runtimeRoot, 'codex_agents'),
+        },
+        async () => {
+          await withFlowsDir(tmpDir, async () => {
+            const response = await supertest(buildApp()).get('/flows');
+            assert.equal(response.status, 200);
+            for (const flowName of [
+              'if-then-missing-command',
+              'if-else-missing-command',
+            ]) {
+              const listed = response.body.flows.find(
+                (flow: { name: string }) => flow.name === flowName,
+              );
+              assert.ok(listed);
+              assert.equal(listed.disabled, true);
+              assert.match(String(listed.error ?? ''), /not found/u);
+            }
+          });
+        },
+      );
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+      await fs.rm(runtimeRoot, { recursive: true, force: true });
+    }
+  });
+
   test('GET /flows keeps unsafe subflow names listable and surfaces a warning', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));

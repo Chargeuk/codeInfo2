@@ -200,6 +200,50 @@ test('GitHub child-process env is scoped and does not mutate the base environmen
   assert.notEqual(childEnv, baseEnv);
 });
 
+test('GitHub command adapter forwards cancellation and preserves an aborted command outcome', async () => {
+  const tempRepo = await createTempRepo();
+  const controller = new AbortController();
+  let markCommandStarted: (() => void) | undefined;
+  const commandStarted = new Promise<void>((resolve) => {
+    markCommandStarted = resolve;
+  });
+
+  try {
+    __setGitHubReviewDepsForTests({
+      runCommand: async ({ signal }) => {
+        assert.equal(signal, controller.signal);
+        markCommandStarted?.();
+        return await new Promise((_resolve, reject) => {
+          const rejectAbort = () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            reject(error);
+          };
+          if (signal?.aborted) {
+            rejectAbort();
+            return;
+          }
+          signal?.addEventListener('abort', rejectAbort, { once: true });
+          if (signal?.aborted) rejectAbort();
+        });
+      },
+    });
+
+    const result = pushBranchToExistingUpstream({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      signal: controller.signal,
+    });
+    await commandStarted;
+    controller.abort();
+    await assert.rejects(
+      result,
+      (error: unknown) => error instanceof Error && error.name === 'AbortError',
+    );
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
 test('repository-state resolution reads current branch, upstream remote, and story-owned base branch from the plan handoff', async () => {
   const tempRepo = await createTempRepo();
   try {

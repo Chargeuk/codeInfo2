@@ -237,6 +237,7 @@ type GitHubReviewDeps = {
     command: string;
     args: string[];
     env?: NodeJS.ProcessEnv;
+    signal?: AbortSignal;
   }) => Promise<CommandResult>;
   stat: (targetPath: string) => Promise<{ isDirectory: () => boolean }>;
   nowIso: () => string;
@@ -262,11 +263,35 @@ const defaultGitHubReviewDeps: GitHubReviewDeps = {
   },
   runCommand: async (params) =>
     await new Promise<CommandResult>((resolve, reject) => {
+      if (params.signal?.aborted) {
+        const error = new Error('GitHub command was aborted.');
+        error.name = 'AbortError';
+        reject(error);
+        return;
+      }
       const child = spawn(params.command, params.args, {
         cwd: params.cwd,
         env: params.env,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
+      let settled = false;
+      let abortError: Error | undefined;
+      const onAbort = () => {
+        abortError = new Error('GitHub command was aborted.');
+        abortError.name = 'AbortError';
+        child.kill();
+      };
+      const cleanup = () => {
+        params.signal?.removeEventListener('abort', onAbort);
+      };
+      const settle = (complete: () => void) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        complete();
+      };
+      params.signal?.addEventListener('abort', onAbort, { once: true });
+      if (params.signal?.aborted) onAbort();
       const stdoutChunks: string[] = [];
       const stderrChunks: string[] = [];
       child.stdout?.setEncoding('utf8');
@@ -277,12 +302,21 @@ const defaultGitHubReviewDeps: GitHubReviewDeps = {
       child.stderr?.on('data', (chunk: string) => {
         stderrChunks.push(chunk);
       });
-      child.on('error', reject);
+      child.on('error', (error) => {
+        if (abortError) return;
+        settle(() => reject(error));
+      });
       child.on('close', (exitCode) => {
-        resolve({
-          exitCode,
-          stdout: stdoutChunks.join(''),
-          stderr: stderrChunks.join(''),
+        settle(() => {
+          if (abortError) {
+            reject(abortError);
+            return;
+          }
+          resolve({
+            exitCode,
+            stdout: stdoutChunks.join(''),
+            stderr: stderrChunks.join(''),
+          });
         });
       });
     }),
@@ -462,6 +496,7 @@ const fetchPaginatedEntries = async <T>(params: {
   token: string;
   endpoint: string;
   normalize: (entry: unknown) => T | null;
+  signal?: AbortSignal;
 }): Promise<GitHubStepOutcome<T[]>> => {
   const perPage = 100;
   let page = 1;
@@ -477,6 +512,7 @@ const fetchPaginatedEntries = async <T>(params: {
       workingRepositoryRoot: params.workingRepositoryRoot,
       token: params.token,
       args: ['api', endpoint],
+      signal: params.signal,
     });
     if (result.kind !== 'ok') return result as GitHubStepOutcome<T[]>;
     const parsedPage = parseJson<unknown>(
@@ -789,12 +825,14 @@ export const buildGitHubChildProcessEnv = (params: {
 const runGitCommand = async (params: {
   workingRepositoryRoot: string;
   args: string[];
+  signal?: AbortSignal;
 }): Promise<GitHubStepOutcome<CommandResult>> => {
   try {
     const result = await githubReviewDeps.runCommand({
       cwd: params.workingRepositoryRoot,
       command: 'git',
       args: params.args,
+      signal: params.signal,
     });
     if (result.exitCode !== 0) {
       return {
@@ -807,6 +845,7 @@ const runGitCommand = async (params: {
     }
     return { kind: 'ok', value: result };
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw error;
     return {
       kind: 'error',
       reason: 'GIT_COMMAND_FAILED',
@@ -820,6 +859,7 @@ const runGitHubCli = async (params: {
   workingRepositoryRoot: string;
   args: string[];
   token: string;
+  signal?: AbortSignal;
 }): Promise<GitHubStepOutcome<CommandResult>> => {
   try {
     const result = await githubReviewDeps.runCommand({
@@ -827,6 +867,7 @@ const runGitHubCli = async (params: {
       command: 'gh',
       args: params.args,
       env: buildGitHubChildProcessEnv({ token: params.token }),
+      signal: params.signal,
     });
     if (result.exitCode !== 0) {
       return {
@@ -839,6 +880,7 @@ const runGitHubCli = async (params: {
     }
     return { kind: 'ok', value: result };
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw error;
     const code = (error as NodeJS.ErrnoException | undefined)?.code;
     if (code === 'ENOENT') {
       return {
@@ -860,6 +902,7 @@ const runGitHubCli = async (params: {
 
 export const resolveGitHubRepositoryState = async (params: {
   workingRepositoryRoot: string;
+  signal?: AbortSignal;
 }): Promise<GitHubStepOutcome<GitHubRepositoryState>> => {
   const planContextResult = await readCurrentPlanContext(
     params.workingRepositoryRoot,
@@ -876,6 +919,7 @@ export const resolveGitHubRepositoryState = async (params: {
   const branchResult = await runGitCommand({
     workingRepositoryRoot: params.workingRepositoryRoot,
     args: ['branch', '--show-current'],
+    signal: params.signal,
   });
   if (branchResult.kind !== 'ok') return branchResult;
   const currentBranch = branchResult.value.stdout.trim();
@@ -890,12 +934,14 @@ export const resolveGitHubRepositoryState = async (params: {
   const headResult = await runGitCommand({
     workingRepositoryRoot: params.workingRepositoryRoot,
     args: ['rev-parse', 'HEAD'],
+    signal: params.signal,
   });
   if (headResult.kind !== 'ok') return headResult;
 
   const upstreamResult = await runGitCommand({
     workingRepositoryRoot: params.workingRepositoryRoot,
     args: ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'],
+    signal: params.signal,
   });
   if (upstreamResult.kind !== 'ok') {
     return {
@@ -923,6 +969,7 @@ export const resolveGitHubRepositoryState = async (params: {
   const remoteUrlResult = await runGitCommand({
     workingRepositoryRoot: params.workingRepositoryRoot,
     args: ['remote', 'get-url', upstreamRemote],
+    signal: params.signal,
   });
   if (remoteUrlResult.kind !== 'ok') return remoteUrlResult;
   const remoteUrl = remoteUrlResult.value.stdout.trim();
@@ -966,6 +1013,7 @@ export const resolveGitHubRepositoryState = async (params: {
 
 export const pushBranchToExistingUpstream = async (params: {
   repository: GitHubRepositoryState;
+  signal?: AbortSignal;
 }): Promise<GitHubStepOutcome<null>> => {
   const result = await runGitCommand({
     workingRepositoryRoot: params.repository.workingRepositoryRoot,
@@ -974,6 +1022,7 @@ export const pushBranchToExistingUpstream = async (params: {
       params.repository.upstreamRemote,
       `HEAD:${params.repository.upstreamBranch}`,
     ],
+    signal: params.signal,
   });
   if (result.kind !== 'ok') {
     return {
@@ -1057,6 +1106,7 @@ const normalizePullRequestIdentity = (
 export const lookupLatestOpenPullRequest = async (params: {
   repository: GitHubRepositoryState;
   token: string;
+  signal?: AbortSignal;
 }): Promise<GitHubStepOutcome<GitHubPullRequestIdentity | null>> => {
   const endpoint = `repos/${params.repository.repositoryFullName}/pulls?state=open&head=${params.repository.repositoryOwner}:${encodeURIComponent(params.repository.upstreamBranch)}&sort=created&direction=desc`;
   const perPage = 100;
@@ -1074,6 +1124,7 @@ export const lookupLatestOpenPullRequest = async (params: {
       workingRepositoryRoot: params.repository.workingRepositoryRoot,
       token: params.token,
       args: ['api', pagedEndpoint],
+      signal: params.signal,
     });
     if (result.kind !== 'ok') return result;
     const parsed = parseJson<unknown>(
@@ -1101,6 +1152,7 @@ export const lookupLatestOpenPullRequest = async (params: {
         repository: params.repository,
         token: params.token,
         pullRequestNumber: latestPullRequest.number,
+        signal: params.signal,
       });
     }
     page += 1;
@@ -1112,6 +1164,7 @@ export const createPullRequest = async (params: {
   token: string;
   title: string;
   body: string;
+  signal?: AbortSignal;
 }): Promise<GitHubCreatePullRequestResult> => {
   const createResult = await runGitHubCli({
     workingRepositoryRoot: params.repository.workingRepositoryRoot,
@@ -1130,6 +1183,7 @@ export const createPullRequest = async (params: {
       '--base',
       params.repository.baseBranch,
     ],
+    signal: params.signal,
   });
   if (createResult.kind !== 'ok') {
     return {
@@ -1187,6 +1241,7 @@ export const createPullRequest = async (params: {
     repository: params.repository,
     token: params.token,
     pullRequestNumber: createdPullRequestNumber,
+    signal: params.signal,
   });
   if (lookedUp.kind !== 'ok') {
     return {
@@ -1324,6 +1379,7 @@ export const fetchPullRequestReviews = async (params: {
   repository: GitHubRepositoryState;
   token: string;
   pullRequest: GitHubPullRequestIdentity;
+  signal?: AbortSignal;
 }): Promise<GitHubStepOutcome<GitHubReviewArtifact>> => {
   const reviewsEndpoint = `repos/${params.repository.repositoryFullName}/pulls/${params.pullRequest.number}/reviews`;
   const reviewCommentsEndpoint = `repos/${params.repository.repositoryFullName}/pulls/${params.pullRequest.number}/comments`;
@@ -1333,12 +1389,14 @@ export const fetchPullRequestReviews = async (params: {
       token: params.token,
       endpoint: reviewsEndpoint,
       normalize: normalizeReviewSubmission,
+      signal: params.signal,
     }),
     fetchPaginatedEntries({
       workingRepositoryRoot: params.repository.workingRepositoryRoot,
       token: params.token,
       endpoint: reviewCommentsEndpoint,
       normalize: normalizeInlineReviewComment,
+      signal: params.signal,
     }),
   ]);
   if (reviewsResult.kind !== 'ok') return reviewsResult;
@@ -1362,6 +1420,7 @@ export const closePullRequest = async (params: {
   repository: GitHubRepositoryState;
   token: string;
   pullRequest: GitHubPullRequestIdentity;
+  signal?: AbortSignal;
 }): Promise<GitHubStepOutcome<null>> => {
   const result = await runGitHubCli({
     workingRepositoryRoot: params.repository.workingRepositoryRoot,
@@ -1373,6 +1432,7 @@ export const closePullRequest = async (params: {
       '--repo',
       params.repository.repositoryFullName,
     ],
+    signal: params.signal,
   });
   if (result.kind !== 'ok') return result as GitHubStepOutcome<null>;
   return { kind: 'ok', value: null };
@@ -2424,12 +2484,14 @@ export const lookupPullRequestByNumber = async (params: {
   repository: GitHubRepositoryState;
   token: string;
   pullRequestNumber: number;
+  signal?: AbortSignal;
 }): Promise<GitHubStepOutcome<GitHubPullRequestIdentity>> => {
   const endpoint = `repos/${params.repository.repositoryFullName}/pulls/${String(params.pullRequestNumber)}`;
   const result = await runGitHubCli({
     workingRepositoryRoot: params.repository.workingRepositoryRoot,
     token: params.token,
     args: ['api', endpoint],
+    signal: params.signal,
   });
   if (result.kind !== 'ok') {
     return result as GitHubStepOutcome<GitHubPullRequestIdentity>;
@@ -2472,6 +2534,7 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
   handoffPath: string;
   resumedPullRequestNumber: number;
   expectPersistedHandoff?: boolean;
+  signal?: AbortSignal;
 }): Promise<GitHubResumedPullRequestResolution> => {
   const persistedHandoff = await readGitHubReviewScratch({
     handoffPath: params.handoffPath,
@@ -2490,6 +2553,7 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
       repository: params.repository,
       token: params.token,
       pullRequestNumber: params.resumedPullRequestNumber,
+      signal: params.signal,
     });
     if (resumedPullRequest.kind !== 'ok') {
       return {

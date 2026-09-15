@@ -673,6 +673,24 @@ const collectCommandSteps = (params: {
       );
       continue;
     }
+    if (step.type === 'if') {
+      collected.push(
+        ...collectCommandSteps({
+          flowName: params.flowName,
+          steps: step.then,
+          flowsDir: params.flowsDir,
+        }),
+      );
+      if (step.else) {
+        collected.push(
+          ...collectCommandSteps({
+            flowName: params.flowName,
+            steps: step.else,
+            flowsDir: params.flowsDir,
+          }),
+        );
+      }
+    }
   }
 
   return collected;

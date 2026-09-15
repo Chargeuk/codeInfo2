@@ -45,6 +45,7 @@ import {
   __setFlowServiceDepsForTests,
   getFlowRunStatus,
   startFlowRun,
+  stopFlowRun,
 } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { query } from '../../logStore.js';
@@ -2438,6 +2439,107 @@ test('github review skip publishes a warning, records a durable plan note, and p
       | undefined;
     assert.deepEqual(flowState?.wait?.stepPath, [1]);
   } finally {
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('Stop cancels a stalled GitHub PR command and preserves the stopped flow outcome', async () => {
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-open-pr-stop-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
+  const conversationId = 'github-open-pr-stop';
+  let markPushStarted: (() => void) | undefined;
+  const pushStarted = new Promise<void>((resolve) => {
+    markPushStarted = resolve;
+  });
+
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-open-pr-stop',
+      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+    });
+    __setGitHubReviewDepsForTests({
+      runCommand: async ({ command, args, signal }) => {
+        if (command !== 'git') {
+          throw new Error(`Unexpected command: ${command}`);
+        }
+        const joined = args.join(' ');
+        if (joined === 'branch --show-current') {
+          return {
+            exitCode: 0,
+            stdout:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'rev-parse HEAD') {
+          return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+        }
+        if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+          return {
+            exitCode: 0,
+            stdout:
+              'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'remote get-url origin') {
+          return {
+            exitCode: 0,
+            stdout: 'https://github.com/test-owner/test-repo.git\n',
+            stderr: '',
+          };
+        }
+        if (
+          joined ===
+          'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+        ) {
+          markPushStarted?.();
+          return await new Promise((_resolve, reject) => {
+            const rejectAbort = () => {
+              const error = new Error('aborted');
+              error.name = 'AbortError';
+              reject(error);
+            };
+            if (signal?.aborted) {
+              rejectAbort();
+              return;
+            }
+            signal?.addEventListener('abort', rejectAbort, { once: true });
+            if (signal?.aborted) rejectAbort();
+          });
+        }
+        throw new Error(`Unexpected git command: ${joined}`);
+      },
+    });
+
+    await startFlowRun({
+      flowName: 'github-open-pr-stop',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+    await pushStarted;
+
+    assert.equal(await stopFlowRun(conversationId), true);
+    await waitForConversationUnlocked(conversationId);
+    assert.equal((await getFlowRunStatus(conversationId))?.status, 'stopped');
+  } finally {
+    __resetGitHubReviewDepsForTests();
     await fs.rm(tempFlowsDir, { recursive: true, force: true });
     await fs.rm(repoRoot, { recursive: true, force: true });
   }

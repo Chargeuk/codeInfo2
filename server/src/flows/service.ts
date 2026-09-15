@@ -1877,6 +1877,49 @@ const clearPersistedWaitStateIfPresent = async (conversationId: string) => {
   });
 };
 
+const isMatchingFlowWait = (
+  candidate: FlowWaitState,
+  expected: Pick<FlowWaitState, 'executionId' | 'resumeAt' | 'stepPath'>,
+) =>
+  candidate.executionId === expected.executionId &&
+  candidate.resumeAt === expected.resumeAt &&
+  getStepPathKey(candidate.stepPath) === getStepPathKey(expected.stepPath);
+
+const stopPersistedWaitIfMatches = async (params: {
+  conversationId: string;
+  wait: Pick<FlowWaitState, 'executionId' | 'resumeAt' | 'stepPath'>;
+}): Promise<boolean> => {
+  const conversation = await getConversation(params.conversationId);
+  const persistedState = parseFlowResumeState(
+    isRecord(conversation?.flags)
+      ? (conversation.flags as Record<string, unknown>)
+      : undefined,
+  );
+  if (!conversation || !persistedState?.wait) return false;
+  if (!isMatchingFlowWait(persistedState.wait, params.wait)) return false;
+
+  clearScheduledFlowWaitIfMatches(params.conversationId, params.wait);
+  const stoppedState: FlowResumeState = {
+    ...persistedState,
+    runLifecycle: { status: 'stopped', updatedAt: new Date().toISOString() },
+  };
+  delete stoppedState.wait;
+  if (shouldUseMemoryPersistence()) {
+    updateMemoryConversationMeta(params.conversationId, {
+      flags: {
+        ...(conversation.flags ?? {}),
+        flow: stoppedState,
+      },
+    });
+    return true;
+  }
+  await updateConversationFlowState({
+    conversationId: params.conversationId,
+    flow: stoppedState,
+  });
+  return true;
+};
+
 const getFlowChildExecutionId = (
   conversation: Conversation | null | undefined,
 ): string | null => {
@@ -13445,11 +13488,34 @@ export async function stopFlowRun(conversationId: string): Promise<boolean> {
   const conversation = await getConversation(normalizedConversationId);
   if (!conversation?.flowName?.trim()) return false;
   const ownership = getActiveRunOwnership(normalizedConversationId);
-  if (!ownership) return false;
-  registerPendingConversationCancel({
-    conversationId: normalizedConversationId,
-    runToken: ownership.runToken,
-  });
-  abortInflightByConversation(normalizedConversationId);
-  return true;
+  if (ownership) {
+    registerPendingConversationCancel({
+      conversationId: normalizedConversationId,
+      runToken: ownership.runToken,
+    });
+    abortInflightByConversation(normalizedConversationId);
+    return true;
+  }
+
+  const persistedState = parseFlowResumeState(
+    isRecord(conversation.flags)
+      ? (conversation.flags as Record<string, unknown>)
+      : undefined,
+  );
+  const persistedWait = persistedState?.wait;
+  if (!persistedWait || !tryAcquireConversationLock(normalizedConversationId)) {
+    return false;
+  }
+  const pausedOwnership = getActiveRunOwnership(normalizedConversationId);
+  try {
+    return await stopPersistedWaitIfMatches({
+      conversationId: normalizedConversationId,
+      wait: persistedWait,
+    });
+  } finally {
+    releaseConversationLock(
+      normalizedConversationId,
+      pausedOwnership?.runToken,
+    );
+  }
 }

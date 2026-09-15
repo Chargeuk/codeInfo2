@@ -1157,17 +1157,18 @@ export const createPullRequest = async (params: {
       parsedUrl.search ||
       parsedUrl.hash ||
       pathSegments.length !== 4 ||
-      !expectedPath.every(
-        (segment, index) =>
-          index < 2
-            ? pathSegments[index].toLowerCase() === segment.toLowerCase()
-            : pathSegments[index] === segment,
+      !expectedPath.every((segment, index) =>
+        index < 2
+          ? pathSegments[index].toLowerCase() === segment.toLowerCase()
+          : pathSegments[index] === segment,
       ) ||
       !Number.isSafeInteger(parsedNumber) ||
       parsedNumber <= 0 ||
       String(parsedNumber) !== pathSegments[3]
     ) {
-      throw new Error('The create command did not print the expected pull request URL.');
+      throw new Error(
+        'The create command did not print the expected pull request URL.',
+      );
     }
     createdPullRequestNumber = parsedNumber;
   } catch (error) {
@@ -1189,13 +1190,7 @@ export const createPullRequest = async (params: {
   });
   if (lookedUp.kind !== 'ok') {
     return {
-      kind: 'ok',
-      value: {
-        number: createdPullRequestNumber,
-        url: createdUrl,
-        headRefName: params.repository.upstreamBranch,
-        baseRefName: params.repository.baseBranch,
-      },
+      ...lookedUp,
       lookupDiagnostics: [
         {
           reason: lookedUp.reason,

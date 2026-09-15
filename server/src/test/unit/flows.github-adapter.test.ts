@@ -288,7 +288,10 @@ test('repository-state resolution reports missing story-owned base branch and up
   const tempRepo = await createTempRepo();
   try {
     await fs.writeFile(
-      path.join(tempRepo.repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
+      path.join(
+        tempRepo.repoRoot,
+        'codeInfoStatus/flow-state/current-plan.json',
+      ),
       JSON.stringify(
         {
           plan_path:
@@ -522,14 +525,19 @@ test('GitHub PR creation uses the remote upstream branch when its local name dif
     const createArgs = seenArgs.find(
       (args) => args[0] === 'pr' && args[1] === 'create',
     );
-    assert.equal(createArgs?.[createArgs.indexOf('--head') + 1], 'feature/remote-review');
-    assert.ok(seenArgs.some((args) => args.at(-1) === 'repos/example/repo/pulls/45'));
+    assert.equal(
+      createArgs?.[createArgs.indexOf('--head') + 1],
+      'feature/remote-review',
+    );
+    assert.ok(
+      seenArgs.some((args) => args.at(-1) === 'repos/example/repo/pulls/45'),
+    );
   } finally {
     await tempRepo.cleanup();
   }
 });
 
-test('GitHub PR creation preserves validated success when immediate metadata reconciliation fails', async () => {
+test('GitHub PR creation reports an immediate metadata reconciliation failure', async () => {
   const tempRepo = await createTempRepo();
   try {
     __setGitHubReviewDepsForTests({
@@ -561,14 +569,11 @@ test('GitHub PR creation preserves validated success when immediate metadata rec
     });
 
     assert.deepEqual(created, {
-      kind: 'ok',
-      value: {
-        number: 45,
-        url: 'https://github.com/example/repo/pull/45',
-        headRefName:
-          'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
-        baseRefName: 'main',
-      },
+      kind: 'error',
+      reason: 'GITHUB_CLI_FAILED',
+      message: 'gh api repos/example/repo/pulls/45 failed',
+      stderr: 'temporary GitHub API failure',
+      exitCode: 1,
       lookupDiagnostics: [
         {
           reason: 'GITHUB_CLI_FAILED',
@@ -706,8 +711,9 @@ test('post-create reconciliation uses the PR number printed by gh instead of the
           };
         }
         const page = Number(
-          new URL(`https://example.test/${endpoint}`).searchParams.get('page') ??
-            '1',
+          new URL(`https://example.test/${endpoint}`).searchParams.get(
+            'page',
+          ) ?? '1',
         );
         return {
           exitCode: 0,
@@ -756,8 +762,9 @@ test('post-create reconciliation uses the PR number printed by gh instead of the
         }
         const endpoint = params.args.at(-1) ?? '';
         const page = Number(
-          new URL(`https://example.test/${endpoint}`).searchParams.get('page') ??
-            '1',
+          new URL(`https://example.test/${endpoint}`).searchParams.get(
+            'page',
+          ) ?? '1',
         );
         return {
           exitCode: 0,
@@ -1331,7 +1338,9 @@ test('review fetch preserves the complete paginated producer corpus', async () =
         const endpoint = params.args.at(-1) ?? '';
         if (endpoint.includes('/reviews?')) {
           const page = Number(
-            new URL(`https://example.test/${endpoint}`).searchParams.get('page'),
+            new URL(`https://example.test/${endpoint}`).searchParams.get(
+              'page',
+            ),
           );
           return {
             exitCode: 0,
@@ -1341,7 +1350,9 @@ test('review fetch preserves the complete paginated producer corpus', async () =
         }
         if (endpoint.includes('/comments?')) {
           const page = Number(
-            new URL(`https://example.test/${endpoint}`).searchParams.get('page'),
+            new URL(`https://example.test/${endpoint}`).searchParams.get(
+              'page',
+            ),
           );
           return {
             exitCode: 0,
@@ -1375,22 +1386,20 @@ test('review fetch preserves the complete paginated producer corpus', async () =
     assert.deepEqual(
       seenArgs
         .filter((args) => (args.at(-1) ?? '').includes('/reviews?'))
-        .map(
-          (args) =>
-            new URL(`https://example.test/${args.at(-1) ?? ''}`).searchParams.get(
-              'page',
-            ),
+        .map((args) =>
+          new URL(`https://example.test/${args.at(-1) ?? ''}`).searchParams.get(
+            'page',
+          ),
         ),
       ['1', '2', '3'],
     );
     assert.deepEqual(
       seenArgs
         .filter((args) => (args.at(-1) ?? '').includes('/comments?'))
-        .map(
-          (args) =>
-            new URL(`https://example.test/${args.at(-1) ?? ''}`).searchParams.get(
-              'page',
-            ),
+        .map((args) =>
+          new URL(`https://example.test/${args.at(-1) ?? ''}`).searchParams.get(
+            'page',
+          ),
         ),
       ['1', '2', '3'],
     );

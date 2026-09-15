@@ -31,7 +31,7 @@ import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
-import { startFlowRun } from '../../flows/service.js';
+import { startFlowRun, stopFlowRun } from '../../flows/service.js';
 import {
   __resetFreshRunRetryOwnershipCompletionForTests,
   __resetFlowServiceDepsForTests,
@@ -1135,6 +1135,57 @@ test('continueOnFailure does not strand a following persisted authored wait', as
           turn.role === 'user' && turn.content.includes('after persisted wait'),
       ),
     );
+  });
+});
+
+test('stop cancels a persisted authored wait after active ownership is released', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl }) => {
+    const conversationId = 'flow-stop-persisted-authored-wait';
+    const flowName = 'stop-persisted-authored-wait';
+    let scheduledWaitCancelled = false;
+
+    __setFlowWaitResumeDepsForTests({
+      scheduleWake: () => ({
+        cancel: () => {
+          scheduledWaitCancelled = true;
+        },
+      }),
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName,
+      steps: [
+        { type: 'wait', seconds: 60 },
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          messages: [{ role: 'user', content: ['must not run after stop'] }],
+        },
+      ],
+    });
+
+    await supertest(baseUrl)
+      .post(`/flows/${flowName}/run`)
+      .send({ conversationId })
+      .expect(202);
+    await waitFor(() =>
+      Boolean(
+        (
+          memoryConversations.get(conversationId)?.flags?.flow as
+            | { wait?: unknown }
+            | undefined
+        )?.wait,
+      ),
+    );
+
+    assert.equal(await stopFlowRun(conversationId), true);
+    assert.equal(scheduledWaitCancelled, true);
+    const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+      | { wait?: unknown; runLifecycle?: { status?: string } }
+      | undefined;
+    assert.equal(flowState?.wait, undefined);
+    assert.equal(flowState?.runLifecycle?.status, 'stopped');
   });
 });
 

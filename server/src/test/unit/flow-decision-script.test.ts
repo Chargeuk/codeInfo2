@@ -122,10 +122,7 @@ test('checked-in repository entrypoint contract', async () => {
     );
     fs.mkdirSync(flowControlRoot, { recursive: true });
     const scriptPath = path.join(flowControlRoot, 'check_working_folder.py');
-    fs.writeFileSync(
-      scriptPath,
-      'import os\nprint(os.getcwd())\n',
-    );
+    fs.writeFileSync(scriptPath, 'import os\nprint(os.getcwd())\n');
     initializeRepository(scriptRepositoryRoot, scriptPath);
     const result = await executeFlowDecisionScript({
       workingFolder,
@@ -169,7 +166,51 @@ test('checked-in repository entrypoint contract', async () => {
       reason:
         'Script file must be checked in: scripts/flow_control/check_symlink.py',
     });
+  } finally {
+    fs.rmSync(scriptRepositoryRoot, { recursive: true, force: true });
+    fs.rmSync(workingFolder, { recursive: true, force: true });
+  }
+});
 
+test('checked-in script preflight uses the runtime decision timeout', async () => {
+  const scriptRepositoryRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'flow-script-repository-'),
+  );
+  const workingFolder = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'flow-working-repository-'),
+  );
+  try {
+    const flowControlRoot = path.join(
+      scriptRepositoryRoot,
+      'scripts',
+      'flow_control',
+    );
+    fs.mkdirSync(flowControlRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(flowControlRoot, 'check_complete.py'),
+      'print("yes")\n',
+    );
+    const preflightCalls: Array<{
+      timeout: number | undefined;
+      killSignal: 'SIGKILL' | undefined;
+    }> = [];
+
+    const result = await executeFlowDecisionScript({
+      workingFolder,
+      scriptRepositoryRoot,
+      decisionScript: 'scripts/flow_control/check_complete.py',
+      timeoutMs: 25,
+      execFile: async (_file, _args, options) => {
+        preflightCalls.push({
+          timeout: options.timeout,
+          killSignal: options.killSignal,
+        });
+        return { stdout: '', stderr: '' };
+      },
+    });
+
+    assert.deepEqual(result, { ok: true, stdout: 'yes' });
+    assert.deepEqual(preflightCalls, [{ timeout: 25, killSignal: 'SIGKILL' }]);
   } finally {
     fs.rmSync(scriptRepositoryRoot, { recursive: true, force: true });
     fs.rmSync(workingFolder, { recursive: true, force: true });

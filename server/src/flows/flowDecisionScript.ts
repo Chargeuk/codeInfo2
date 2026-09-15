@@ -106,6 +106,7 @@ export const executeFlowDecisionScript = async (params: {
   decisionScript: string;
   timeoutMs: number;
   env?: NodeJS.ProcessEnv;
+  execFile?: ExecFile;
 }): Promise<FlowDecisionScriptExecutionResult> => {
   let workingFolder: string;
   let repositoryRoot: string;
@@ -159,7 +160,7 @@ export const executeFlowDecisionScript = async (params: {
 
   const relativeScriptPath = path.relative(repositoryRoot, scriptPath);
   try {
-    await execFile(
+    await (params.execFile ?? execFile)(
       'git',
       [
         '-C',
@@ -174,6 +175,8 @@ export const executeFlowDecisionScript = async (params: {
         env: process.env,
         encoding: 'utf8',
         maxBuffer: 1024 * 1024,
+        timeout: params.timeoutMs,
+        killSignal: 'SIGKILL',
       },
     );
   } catch {

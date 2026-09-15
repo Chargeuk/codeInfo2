@@ -888,14 +888,17 @@ test('WS explicit cancel for an active command-step inflight stops the command r
           });
           startedStepOne?.();
           await new Promise<void>((resolve) => {
-            params.signal?.addEventListener(
-              'abort',
-              () => {
-                cleanupInflight({ conversationId });
-                resolve();
-              },
-              { once: true },
-            );
+            const finishAbort = () => {
+              cleanupInflight({ conversationId });
+              resolve();
+            };
+            if (params.signal?.aborted) {
+              finishAbort();
+              return;
+            }
+            params.signal?.addEventListener('abort', finishAbort, {
+              once: true,
+            });
           });
         }
         return { modelId: 'm1' };

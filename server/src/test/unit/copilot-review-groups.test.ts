@@ -283,15 +283,16 @@ test('group preparation forwards cancellation to model discovery', async () => {
       checkCli: async (_env, signal) => {
         receivedSignal = signal;
         return new Promise<boolean>((_resolve, reject) => {
-          signal?.addEventListener(
-            'abort',
-            () => {
-              const error = new Error('cancelled');
-              error.name = 'AbortError';
-              reject(error);
-            },
-            { once: true },
-          );
+          const rejectAbort = () => {
+            const error = new Error('cancelled');
+            error.name = 'AbortError';
+            reject(error);
+          };
+          if (signal?.aborted) {
+            rejectAbort();
+            return;
+          }
+          signal?.addEventListener('abort', rejectAbort, { once: true });
         });
       },
     },

@@ -1151,15 +1151,18 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
           markFetchStarted();
           return await new Promise<{ stdout: string; stderr: string }>(
             (_resolve, reject) => {
-              options?.signal?.addEventListener(
-                'abort',
-                () => {
-                  const error = new Error('aborted');
-                  error.name = 'AbortError';
-                  reject(error);
-                },
-                { once: true },
-              );
+              const rejectAbort = () => {
+                const error = new Error('aborted');
+                error.name = 'AbortError';
+                reject(error);
+              };
+              if (options?.signal?.aborted) {
+                rejectAbort();
+                return;
+              }
+              options?.signal?.addEventListener('abort', rejectAbort, {
+                once: true,
+              });
             },
           );
         default:

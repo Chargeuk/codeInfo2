@@ -222,6 +222,40 @@ Shortcut:
 - Wrapper logs are the source of full diagnostic detail.
 - When a task requires running the full automated test suite across client, server, and e2e surfaces, use `npm run test:summary:all:parallel` as the required all-tests wrapper.
 
+### Parallel-Safe Test Authoring
+
+- Observe asynchronous results before triggering the operation that can produce them. Create event, response, abort, or completion waiters before sending a request, publishing a message, clicking an action, or starting the background work.
+- For server WebSocket tests, use `connectWs`, `subscribeConversationAndWaitReady`, `waitForEvent`, `waitForClose`, and `closeWs` from `server/src/test/support/wsClient.ts`. Do not attach a raw WebSocket listener after sending a message unless an earlier listener is already buffering every relevant event.
+- Prefer deterministic readiness boundaries such as deferred promises, explicit gates, emitted events, or observable state. Do not use `sleep`, `delay`, or `setTimeout` merely to give work time to finish before an assertion.
+- When polling is unavoidable, use `waitForTestCondition` from `server/src/test/support/testTimeouts.ts`, or an equivalent surface-specific bounded helper, with a useful failure description and a configured timeout. Fixed delays are permitted only for deliberate mock pacing, retry simulation, or timeout behavior, never as the correctness boundary.
+- Prove that something has not happened by holding execution at a known deterministic gate and inspecting state there. Do not sleep for an arbitrary interval and then make a negative assertion.
+- Cancellation-aware test doubles must handle an already-aborted signal before waiting, register abort listeners with `{ once: true }`, and clean up non-one-shot listeners. If an asynchronous boundary can occur between checking and registration, use an idempotent completion handler and recheck the signal after registration.
+- Do not introduce unscoped shared mutable state. Use the scoped test environment and override helpers instead of direct `process.env` mutation, and restore mocked globals such as `console`, `Date.now`, `fetch`, provider singletons, and dependency overrides in `finally` or cleanup hooks.
+- Isolate external resources. Prefer port `0` for test servers, `fs.mkdtemp` or the provider-home harness for filesystem state, and unique test-owned identities for Compose projects, databases, collections, and similar shared resources.
+- Await all asynchronous cleanup. Sockets, servers, timers, child processes, temporary directories, subscriptions, client pools, registry entries, and intentionally detached promises must be owned by the test and settled in `finally`, `afterEach`, or `afterAll`; do not rely on process exit.
+- Route timeouts through `resolveConfiguredTestTimeoutMs`, `resolveClientTestTimeoutMs`, or `resolveConfiguredE2eTimeoutMs` as appropriate. Do not introduce short hard-coded timeout assumptions that become invalid under CPU saturation.
+- Run the smallest applicable summary wrapper first. New or changed concurrency-sensitive tests must then be validated with `npm run test:summary:all:stress`; passing repeatedly in isolation is not sufficient proof of parallel safety.
+
+Safe event-ordering pattern:
+
+```ts
+const resultPromise = waitForEvent({
+  ws,
+  predicate,
+  describe: () => 'expected result event',
+});
+sendJson(ws, request);
+const result = await resultPromise;
+```
+
+Prohibited timing-dependent pattern:
+
+```ts
+sendJson(ws, request);
+await delay(100);
+expect(result).toBeDefined();
+```
+
 ### Test Wrappers
 
 - `npm run test:summary:client` runs the client test suite with compact summary output. Full log: `test-results/client-tests-<timestamp>.log`. JSON: `test-results/client-tests-<timestamp>.json`.
@@ -230,6 +264,7 @@ Shortcut:
 - `npm run test:summary:e2e` runs the e2e flow with setup, build, tests, and teardown. Full log: `logs/test-summaries/e2e-tests-latest.log`.
 - `npm run test:summary:server:parallel` builds the server workspace once, then runs the server unit and cucumber wrappers in parallel with `--skip-build`.
 - `npm run test:summary:all:parallel` builds reusable client, server, and e2e compose artifacts first, then runs the client, server unit, server cucumber, and e2e wrappers in parallel with shared-build skip flags.
+- `npm run test:summary:all:stress` uses the same allocation as the parallel wrapper, then assigns otherwise-unused cores to the server unit suite to expose timing and isolation defects under higher concurrency.
 - `npm run test:summary:client:parallel` is a convenience validation path that runs `build:summary:client` and then `test:summary:client`; it belongs to the parallel workflow family even though it is not a multi-harness fan-out by itself.
 - These wrappers do not have a fixed failure time budget.
 - As long as a wrapper continues to emit healthy `agent_action: wait` heartbeats at least about every 2 minutes and shows ongoing progress such as growing `log_size_bytes`, you must keep waiting no matter how long the run takes.

@@ -27,7 +27,7 @@ test('server unit watchdog ignores nested TAP plans when outer progress continue
     cmd: process.execPath,
     args: [
       '-e',
-      "console.log('1..0'); setTimeout(() => console.log('ok 1 - outer progress'), 5); setTimeout(() => process.exit(0), 80);",
+      "console.log('1..0'); console.log('ok 1 - outer progress'); setTimeout(() => process.exit(0), 80);",
     ],
     logStream: new PassThrough(),
     semanticProgressPatterns: [/^ok \d+ - /],

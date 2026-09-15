@@ -6,11 +6,21 @@ import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
+const createGate = () => {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+};
+
 test('collapses reasoning while streaming Harmony channels', async ({
   page,
 }) => {
   const mockWs = await installMockChatWs(page);
   let streamPromise: Promise<void> | null = null;
+  const assistantGate = createGate();
+  const finalGate = createGate();
 
   await page.route('**/chat/providers*', (route) =>
     route.fulfill({
@@ -80,19 +90,18 @@ test('collapses reasoning while streaming Harmony channels', async ({
         inflightId,
         delta: 'Need answer: Neil Armstrong.',
       });
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await assistantGate.promise;
       await mockWs.sendAnalysisDelta({
         conversationId,
         inflightId,
         delta: ' Continue analysis.',
       });
-      await new Promise((resolve) => setTimeout(resolve, 1000));
       await mockWs.sendAssistantDelta({
         conversationId,
         inflightId,
         delta: 'He was the first person on the Moon.',
       });
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await finalGate.promise;
       await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
     })();
   });
@@ -108,9 +117,16 @@ test('collapses reasoning while streaming Harmony channels', async ({
   await expect(page.getByTestId('think-toggle')).toBeVisible({
     timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
+  await expect(page.getByTestId('think-spinner')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
+
+  assistantGate.release();
   await expect(
     page.getByText('He was the first person on the Moon.'),
   ).toBeVisible({ timeout: resolveConfiguredE2eTimeoutMs(20000) });
+
+  finalGate.release();
   await expect(page.getByTestId('think-spinner')).not.toBeVisible({
     timeout: resolveConfiguredE2eTimeoutMs(20000),
   });

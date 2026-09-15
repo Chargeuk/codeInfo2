@@ -4445,10 +4445,23 @@ test('scoped deterministic Codex overrides stay isolated across concurrent runti
     repoRoot,
     'codeinfo_agents/coding_agent/config.toml',
   );
+  let markSuccessReady!: () => void;
+  let markUnavailableReady!: () => void;
+  let releaseBoth!: () => void;
+  const successReady = new Promise<void>((resolve) => {
+    markSuccessReady = resolve;
+  });
+  const unavailableReady = new Promise<void>((resolve) => {
+    markUnavailableReady = resolve;
+  });
+  const bothReady = new Promise<void>((resolve) => {
+    releaseBoth = resolve;
+  });
 
-  const [successProviderId] = await Promise.all([
+  const concurrentWork = Promise.all([
     withDeterministicCodexAvailabilityBootstrap(async () => {
-      await delay(25);
+      markSuccessReady();
+      await bothReady;
       const result = await prepareFlowOwnedAgentExecution({
         agentName: 'coding_agent',
         configPath,
@@ -4464,7 +4477,8 @@ test('scoped deterministic Codex overrides stay isolated across concurrent runti
         configPresent: true,
         reason: 'Missing auth.json',
       });
-      await delay(10);
+      markUnavailableReady();
+      await bothReady;
       await assert.rejects(
         async () =>
           prepareFlowOwnedAgentExecution({
@@ -4482,6 +4496,15 @@ test('scoped deterministic Codex overrides stay isolated across concurrent runti
       );
     }),
   ]);
+
+  await withTimeout(
+    Promise.all([successReady, unavailableReady]),
+    1000,
+    'Timed out waiting for concurrent Codex overrides to become ready',
+  );
+  releaseBoth();
+
+  const [successProviderId] = await concurrentWork;
 
   assert.equal(successProviderId, 'codex');
 });

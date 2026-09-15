@@ -5,6 +5,14 @@ import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 
+const createGate = () => {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+};
+
 const codexProviderInfo = {
   id: 'codex',
   label: 'OpenAI Codex',
@@ -55,6 +63,8 @@ test('renders Codex thought process when analysis frames stream', async ({
 }) => {
   const mockWs = await installMockChatWs(page);
   let streamPromise: Promise<void> | null = null;
+  const assistantGate = createGate();
+  const finalGate = createGate();
 
   await page.route('**/chat/providers', (route) =>
     route.fulfill({
@@ -156,13 +166,13 @@ test('renders Codex thought process when analysis frames stream', async ({
         inflightId,
         delta: 'Codex thinking.',
       });
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await assistantGate.promise;
       await mockWs.sendAssistantDelta({
         conversationId,
         inflightId,
         delta: 'Final',
       });
-      await new Promise((resolve) => setTimeout(resolve, 700));
+      await finalGate.promise;
       await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
     })();
   });
@@ -199,6 +209,16 @@ test('renders Codex thought process when analysis frames stream', async ({
   await expect(page.getByTestId('think-toggle')).toBeVisible({
     timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
+  await expect(page.getByTestId('think-spinner')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
+
+  assistantGate.release();
+  await expect(page.getByText('Final')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
+
+  finalGate.release();
   await expect(page.getByTestId('status-chip')).toHaveText(/Complete/i, {
     timeout: resolveConfiguredE2eTimeoutMs(20000),
   });

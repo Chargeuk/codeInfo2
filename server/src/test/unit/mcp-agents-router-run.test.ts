@@ -138,7 +138,7 @@ test('tools/call run_agent_instruction keeps launch warnings in the MCP payload'
             agentName: 'coding_agent',
             conversationId: 'c-warning',
             providerId: 'codex',
-            modelId: 'gpt-5.3-codex',
+            modelId: 'gpt-5.6-luna',
             segments: [{ type: 'answer', text: 'ok' }],
             warnings: [
                 'Agent config requested unsupported provider "bad-provider".',

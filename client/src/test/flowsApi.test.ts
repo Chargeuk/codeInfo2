@@ -199,7 +199,7 @@ describe('Flows API helpers', () => {
             conversationId: 'c1',
             inflightId: 'i1',
             providerId: 'lmstudio',
-            modelId: 'gpt-5.2-codex',
+            modelId: 'gpt-5.6-terra',
             warnings: ['Primary provider unavailable, fell back to lmstudio.'],
         }, { status: 202 }));
         const result = await runFlow({ flowName: 'daily' });
@@ -217,7 +217,7 @@ describe('Flows API helpers', () => {
             conversationId: 'c1',
             inflightId: 'i1',
             providerId: 'lmstudio',
-            modelId: 'gpt-5.2-codex',
+            modelId: 'gpt-5.6-terra',
             warnings: ['Primary provider unavailable, fell back to lmstudio.'],
         });
     });

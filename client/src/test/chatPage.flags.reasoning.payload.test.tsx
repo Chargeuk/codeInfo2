@@ -55,15 +55,15 @@ function mockProvidersWithBodies(
       : (options?.codexDefaults ?? defaultCodexDefaults);
   const codexModels = options?.codexModels ?? [
     {
-      key: 'gpt-5.1-codex-max',
-      displayName: 'gpt-5.1-codex-max',
+      key: 'gpt-5.6-luna',
+      displayName: 'gpt-5.6-luna',
       type: 'codex',
       supportedReasoningEfforts: ['high', 'xhigh'],
       defaultReasoningEffort: 'high',
     },
     {
-      key: 'gpt-5.2',
-      displayName: 'gpt-5.2',
+      key: 'gpt-5.6-terra',
+      displayName: 'gpt-5.6-terra',
       type: 'codex',
       supportedReasoningEfforts: ['minimal'],
       defaultReasoningEffort: 'minimal',
@@ -289,7 +289,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     });
     await waitForInteractiveCombobox(modelSelect);
     await userEvent.click(modelSelect);
-    const gpt52Option = await screen.findByRole('option', { name: /gpt-5.2/i });
+    const gpt52Option = await screen.findByRole('option', { name: /gpt-5.6-terra/i });
     await userEvent.click(gpt52Option);
 
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
@@ -354,7 +354,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
         name: /model/i,
       });
       await waitFor(() =>
-        expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
+        expect(modelSelect).toHaveTextContent('gpt-5.6-luna'),
       );
 
       const reasoningSelect = await screen.findByRole('combobox', {
@@ -429,7 +429,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       );
       await userEvent.click(modelSelect);
       await userEvent.click(
-        await screen.findByRole('option', { name: /gpt-5.2/i }),
+        await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
       );
       await waitFor(() =>
         expect(reasoningSelect).toHaveTextContent(/minimal/i),
@@ -448,7 +448,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
       const payload = chatBodies.at(-1) ?? {};
       expect(payload.provider).toBe('codex');
-      expect(payload.model).toBe('gpt-5.2');
+      expect(payload.model).toBe('gpt-5.6-terra');
       expect(
         (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
       ).toBe('minimal');
@@ -461,8 +461,8 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     mockProvidersWithBodies(chatBodies, {
       codexModels: [
         {
-          key: 'gpt-5.2',
-          displayName: 'gpt-5.2',
+          key: 'gpt-5.6-terra',
+          displayName: 'gpt-5.6-terra',
           type: 'codex',
           supportedReasoningEfforts: ['minimal'],
           defaultReasoningEffort: 'minimal',
@@ -612,8 +612,8 @@ describe('Codex model reasoning Agent Flag payloads', () => {
           codexWarnings: [],
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               supportedReasoningEfforts: ['high', 'xhigh'],
               defaultReasoningEffort: 'high',
@@ -631,7 +631,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
         name: /model/i,
       });
       await waitFor(() =>
-        expect(modelSelect).toHaveTextContent(/gpt-5.1-codex-max/i),
+        expect(modelSelect).toHaveTextContent(/gpt-5.6-luna/i),
       );
 
       const input = await screen.findByTestId('chat-input');
@@ -689,7 +689,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       );
       const secondPayload = harness.chatBodies[1] ?? {};
       expect(secondPayload.provider).toBe('codex');
-      expect(secondPayload.model).toBe('gpt-5.1-codex-max');
+      expect(secondPayload.model).toBe('gpt-5.6-luna');
       expect(secondPayload.conversationId).toBe(firstPayload.conversationId);
       expect(
         (secondPayload.agentFlags as Record<string, unknown>)
@@ -736,7 +736,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       );
       await userEvent.click(modelSelect);
       await userEvent.click(
-        await screen.findByRole('option', { name: /gpt-5.2/i }),
+        await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
       );
 
       const narrowedReasoningSelect = await screen.findByRole('combobox', {
@@ -766,7 +766,7 @@ describe('Codex model reasoning Agent Flag payloads', () => {
 
       await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
       const payload = chatBodies.at(-1) ?? {};
-      expect(payload.model).toBe('gpt-5.2');
+      expect(payload.model).toBe('gpt-5.6-terra');
       expect(
         (payload.agentFlags as Record<string, unknown>)?.modelReasoningEffort,
       ).toBe('minimal');
@@ -786,8 +786,8 @@ describe('Codex model reasoning Agent Flag payloads', () => {
       },
       codexModels: [
         {
-          key: 'gpt-5.3-experimental',
-          displayName: 'gpt-5.3-experimental',
+          key: 'gpt-5.6-experimental',
+          displayName: 'gpt-5.6-experimental',
           type: 'codex',
           supportedReasoningEfforts: ['turbo-max'],
           defaultReasoningEffort: 'turbo-max',

@@ -154,7 +154,7 @@ Before(async () => {
   });
   await fs.writeFile(
     path.join(tempCodexHomeForScenario, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   setScopedTestEnvValue('CODEINFO_CODEX_HOME', tempCodexHomeForScenario);

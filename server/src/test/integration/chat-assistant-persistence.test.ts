@@ -121,7 +121,7 @@ describe('assistant persistence via ChatInterface base', () => {
     test('Codex path persists assistant with tool calls once', async () => {
         const chat = new ChatInterfaceCodex(() => new MockCodexClient());
         const conversationId = 'persist-codex-1';
-        await chat.run('Hello', { provider: 'codex', source: 'REST' }, conversationId, 'gpt-5.1-codex-max');
+        await chat.run('Hello', { provider: 'codex', source: 'REST' }, conversationId, 'gpt-5.6-luna');
         const turns = (memoryTurns.get(conversationId) ?? []) as Turn[];
         assert.equal(turns.length, 2);
         const assistant = turns[1] as Turn;

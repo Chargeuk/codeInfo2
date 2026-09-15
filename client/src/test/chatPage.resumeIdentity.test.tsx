@@ -125,7 +125,7 @@ describe('Chat page resumed execution identity', () => {
                   },
                 ],
                 selectedProvider: 'codex',
-                selectedModel: 'gpt-5.1-codex-max',
+                selectedModel: 'gpt-5.6-luna',
               }),
             }) as unknown as Response;
           }
@@ -143,8 +143,8 @@ describe('Chat page resumed execution identity', () => {
                 toolsAvailable: true,
                 models: [
                   {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'gpt-5.6-luna',
                     type: 'codex',
                   },
                 ],
@@ -267,7 +267,7 @@ describe('Chat page resumed execution identity', () => {
                     conversationId: 'c1',
                     title: 'Historic endpoint conversation',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     lastMessageAt: '2025-01-01T00:00:03.000Z',
                     archived: false,
                     flags: { endpointId: 'https://alpha.example/alt/v1' },
@@ -289,7 +289,7 @@ describe('Chat page resumed execution identity', () => {
                     role: 'user',
                     content: 'Earlier prompt',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     status: 'ok',
                     createdAt: '2025-01-01T00:00:00.000Z',
                   },
@@ -298,7 +298,7 @@ describe('Chat page resumed execution identity', () => {
                     role: 'assistant',
                     content: 'Earlier reply',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     status: 'ok',
                     createdAt: '2025-01-01T00:00:01.000Z',
                   },
@@ -327,7 +327,7 @@ describe('Chat page resumed execution identity', () => {
                   },
                 ],
                 selectedProvider: 'codex',
-                selectedModel: 'gpt-5.1-codex-max',
+                selectedModel: 'gpt-5.6-luna',
                 selectedEndpointId: 'https://alpha.example/alt/v1',
               }),
             }) as unknown as Response;
@@ -346,8 +346,8 @@ describe('Chat page resumed execution identity', () => {
                 toolsAvailable: true,
                 models: [
                   {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'gpt-5.6-luna',
                     type: 'codex',
                     endpointId: 'https://alpha.example/alt/v1',
                   },
@@ -403,7 +403,7 @@ describe('Chat page resumed execution identity', () => {
 
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-5\.1-codex-max/i,
+          /gpt-5\.6-luna/i,
         ),
       );
       expect(screen.getByTestId('model-select')).not.toHaveTextContent(
@@ -421,7 +421,7 @@ describe('Chat page resumed execution identity', () => {
       await waitFor(() => expect(chatBodies).toHaveLength(1));
       expect(chatBodies[0]).toMatchObject({
         provider: 'codex',
-        model: 'gpt-5.1-codex-max',
+        model: 'gpt-5.6-luna',
         endpointId: 'https://alpha.example/alt/v1',
       });
     },
@@ -460,7 +460,7 @@ describe('Chat page resumed execution identity', () => {
                     conversationId: 'c1',
                     title: 'Historic endpoint conversation',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     lastMessageAt: '2025-01-01T00:00:03.000Z',
                     archived: false,
                     flags: { endpointId: 'https://alpha.example/base/v1' },
@@ -482,7 +482,7 @@ describe('Chat page resumed execution identity', () => {
                     role: 'user',
                     content: 'Earlier prompt',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     status: 'ok',
                     createdAt: '2025-01-01T00:00:00.000Z',
                   },
@@ -491,7 +491,7 @@ describe('Chat page resumed execution identity', () => {
                     role: 'assistant',
                     content: 'Earlier reply',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     status: 'ok',
                     createdAt: '2025-01-01T00:00:01.000Z',
                   },
@@ -520,7 +520,7 @@ describe('Chat page resumed execution identity', () => {
                   },
                 ],
                 selectedProvider: 'codex',
-                selectedModel: 'gpt-5.2',
+                selectedModel: 'gpt-5.6-terra',
                 selectedEndpointId: 'https://alpha.example/alt/v1',
               }),
             }) as unknown as Response;
@@ -539,20 +539,20 @@ describe('Chat page resumed execution identity', () => {
                 toolsAvailable: true,
                 models: [
                   {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'gpt-5.6-luna',
                     type: 'codex',
                     endpointId: 'https://alpha.example/base/v1',
                   },
                   {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'gpt-5.6-luna',
                     type: 'codex',
                     endpointId: 'https://alpha.example/alt/v1',
                   },
                   {
-                    key: 'gpt-5.2',
-                    displayName: 'gpt-5.2',
+                    key: 'gpt-5.6-terra',
+                    displayName: 'gpt-5.6-terra',
                     type: 'codex',
                     endpointId: 'https://alpha.example/alt/v1',
                   },
@@ -608,7 +608,7 @@ describe('Chat page resumed execution identity', () => {
 
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-5\.1-codex-max \(alpha\.example \/ base\)/i,
+          /gpt-5\.6-luna \(alpha\.example \/ base\)/i,
         ),
       );
 
@@ -623,7 +623,7 @@ describe('Chat page resumed execution identity', () => {
       await waitFor(() => expect(chatBodies).toHaveLength(1));
       expect(chatBodies[0]).toMatchObject({
         provider: 'codex',
-        model: 'gpt-5.1-codex-max',
+        model: 'gpt-5.6-luna',
         endpointId: 'https://alpha.example/base/v1',
       });
     },
@@ -662,7 +662,7 @@ describe('Chat page resumed execution identity', () => {
                     conversationId: 'c1',
                     title: 'Historic endpoint conversation',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     lastMessageAt: '2025-01-01T00:00:03.000Z',
                     archived: false,
                     flags: { endpointId: 'https://saved.example/v1' },
@@ -684,7 +684,7 @@ describe('Chat page resumed execution identity', () => {
                     role: 'user',
                     content: 'Earlier prompt',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     status: 'ok',
                     createdAt: '2025-01-01T00:00:00.000Z',
                   },
@@ -693,7 +693,7 @@ describe('Chat page resumed execution identity', () => {
                     role: 'assistant',
                     content: 'Earlier reply',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     status: 'ok',
                     createdAt: '2025-01-01T00:00:01.000Z',
                   },
@@ -722,7 +722,7 @@ describe('Chat page resumed execution identity', () => {
                   },
                 ],
                 selectedProvider: 'codex',
-                selectedModel: 'gpt-5.2',
+                selectedModel: 'gpt-5.6-terra',
                 selectedEndpointId: 'https://alpha.example/alt/v1',
               }),
             }) as unknown as Response;
@@ -741,14 +741,14 @@ describe('Chat page resumed execution identity', () => {
                 toolsAvailable: true,
                 models: [
                   {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'gpt-5.6-luna',
                     type: 'codex',
                     endpointId: 'https://alpha.example/alt/v1',
                   },
                   {
-                    key: 'gpt-5.2',
-                    displayName: 'gpt-5.2',
+                    key: 'gpt-5.6-terra',
+                    displayName: 'gpt-5.6-terra',
                     type: 'codex',
                     endpointId: 'https://alpha.example/alt/v1',
                   },
@@ -804,7 +804,7 @@ describe('Chat page resumed execution identity', () => {
 
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-5\.1-codex-max/i,
+          /gpt-5\.6-luna/i,
         ),
       );
       expect(screen.getByTestId('model-select')).not.toHaveTextContent(
@@ -822,7 +822,7 @@ describe('Chat page resumed execution identity', () => {
       await waitFor(() => expect(chatBodies).toHaveLength(1));
       expect(chatBodies[0]).toMatchObject({
         provider: 'codex',
-        model: 'gpt-5.1-codex-max',
+        model: 'gpt-5.6-luna',
         endpointId: 'https://saved.example/v1',
       });
     },
@@ -855,7 +855,7 @@ describe('Chat page resumed execution identity', () => {
                     conversationId: 'c1',
                     title: 'Historic Codex conversation',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     lastMessageAt: '2025-01-01T00:00:03.000Z',
                     archived: false,
                   },
@@ -872,7 +872,7 @@ describe('Chat page resumed execution identity', () => {
                     role: 'user',
                     content: 'Earlier prompt',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     status: 'ok',
                     createdAt: '2025-01-01T00:00:00.000Z',
                   },
@@ -881,7 +881,7 @@ describe('Chat page resumed execution identity', () => {
                     role: 'assistant',
                     content: 'Earlier reply',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     status: 'ok',
                     createdAt: '2025-01-01T00:00:01.000Z',
                   },
@@ -906,7 +906,7 @@ describe('Chat page resumed execution identity', () => {
                   },
                 ],
                 selectedProvider: 'codex',
-                selectedModel: 'gpt-5.2',
+                selectedModel: 'gpt-5.6-terra',
                 selectedEndpointId: 'https://alpha.example/alt/v1',
               });
             }
@@ -924,30 +924,30 @@ describe('Chat page resumed execution identity', () => {
                   label: 'OpenAI Codex',
                   available: true,
                   toolsAvailable: true,
-                  defaultModel: 'gpt-5.2',
+                  defaultModel: 'gpt-5.6-terra',
                 },
                 models: [
                   {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'gpt-5.6-luna',
                     type: 'codex',
                     endpointId: 'https://alpha.example/base/v1',
                   },
                   {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'gpt-5.6-luna',
                     type: 'codex',
                     endpointId: 'https://alpha.example/alt/v1',
                   },
                   {
-                    key: 'gpt-5.2',
-                    displayName: 'gpt-5.2',
+                    key: 'gpt-5.6-terra',
+                    displayName: 'gpt-5.6-terra',
                     type: 'codex',
                     endpointId: 'https://alpha.example/base/v1',
                   },
                   {
-                    key: 'gpt-5.2',
-                    displayName: 'gpt-5.2',
+                    key: 'gpt-5.6-terra',
+                    displayName: 'gpt-5.6-terra',
                     type: 'codex',
                     endpointId: 'https://alpha.example/alt/v1',
                   },
@@ -1006,7 +1006,7 @@ describe('Chat page resumed execution identity', () => {
       );
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-5\.2 \(alpha\.example \/ alt\)/i,
+          /gpt-5\.6-terra \(alpha\.example \/ alt\)/i,
         ),
       );
 
@@ -1019,7 +1019,7 @@ describe('Chat page resumed execution identity', () => {
       );
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
+          /gpt-5\.6-luna \(alpha\.example \/ alt\)/i,
         ),
       );
       expect(
@@ -1050,7 +1050,7 @@ describe('Chat page resumed execution identity', () => {
       );
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-5\.2 \(alpha\.example \/ alt\)/i,
+          /gpt-5\.6-terra \(alpha\.example \/ alt\)/i,
         ),
       );
       expect(
@@ -1068,7 +1068,7 @@ describe('Chat page resumed execution identity', () => {
       await waitFor(() => expect(chatBodies).toHaveLength(1));
       expect(chatBodies[0]).toMatchObject({
         provider: 'codex',
-        model: 'gpt-5.2',
+        model: 'gpt-5.6-terra',
       });
       expect(chatBodies[0]).not.toMatchObject({
         conversationId: 'c1',

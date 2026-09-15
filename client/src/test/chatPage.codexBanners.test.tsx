@@ -94,8 +94,8 @@ describe('Chat Codex banners', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],
@@ -306,8 +306,8 @@ describe('Chat Codex banners', () => {
             codexWarnings: ['Invalid Codex_reasoning_effort env value'],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],
@@ -422,8 +422,8 @@ describe('Chat Codex banners', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],
@@ -530,8 +530,8 @@ describe('Chat Codex banners', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],

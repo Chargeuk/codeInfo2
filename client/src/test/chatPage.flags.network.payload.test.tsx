@@ -77,15 +77,15 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
                 supportedReasoningEfforts: ['medium', 'high'],
                 defaultReasoningEffort: 'medium',
               },
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 supportedReasoningEfforts: ['minimal'],
                 defaultReasoningEffort: 'minimal',
@@ -190,7 +190,7 @@ describe('Codex network access flag payloads', () => {
       name: /model/i,
     });
     await waitFor(() =>
-      expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
+      expect(modelSelect).toHaveTextContent('gpt-5.6-luna'),
     );
 
     await user.clear(input);

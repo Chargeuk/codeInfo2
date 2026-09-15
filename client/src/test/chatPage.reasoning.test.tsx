@@ -324,8 +324,8 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
         codexWarnings: [],
         models: [
           {
-            key: 'gpt-5.2-codex',
-            displayName: 'gpt-5.2-codex',
+            key: 'gpt-5.6-terra',
+            displayName: 'gpt-5.6-terra',
             type: 'codex',
             supportedReasoningEfforts: ['unsupported-runtime-value'],
             defaultReasoningEffort: 'unsupported-runtime-value',

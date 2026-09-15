@@ -497,7 +497,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     });
     const tempHome = await withTempCodexHome({
         chatToml: [
-            'model = "gpt-5.3-codex-spark"',
+            'model = "gpt-5.6-luna"',
             'sandbox_mode = "workspace-write"',
             'approval_policy = "on-request"',
             'model_reasoning_effort = "minimal"',
@@ -594,13 +594,13 @@ test('codebase_question reuses saved selected-repository metadata when provider 
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_PROVIDER", 'codex');
     const tempHome = await withTempCodexHome({
-        chatToml: 'model = "gpt-5.3-codex"\n',
+        chatToml: 'model = "gpt-5.6-luna"\n',
     });
     setCodexHomes(tempHome.codexHome);
     __setCodebaseQuestionMemoryConversationForTests({
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.3-codex',
+        model: 'gpt-5.6-luna',
         title: 'Saved MCP conversation',
         source: 'MCP',
         flags: { workingFolder: repoRoot },
@@ -671,13 +671,13 @@ test('codebase_question restores a saved host path before local mount lookup whe
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_PROVIDER", 'codex');
     const tempHome = await withTempCodexHome({
-        chatToml: 'model = "gpt-5.3-codex"\n',
+        chatToml: 'model = "gpt-5.6-luna"\n',
     });
     setCodexHomes(tempHome.codexHome);
     __setCodebaseQuestionMemoryConversationForTests({
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.3-codex',
+        model: 'gpt-5.6-luna',
         title: 'Saved host-path conversation',
         source: 'MCP',
         flags: { workingFolder: missingHostPath },
@@ -787,7 +787,7 @@ test('codebase_question forwards CODEINFO_ROOT into the Codex runtime environmen
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     const expectedRepoRoot = resolveAgentHomeEnv().codeInfoRoot;
     const tempHome = await withTempCodexHome({
-        chatToml: 'model = "gpt-5.3-codex"\n',
+        chatToml: 'model = "gpt-5.6-luna"\n',
     });
     setCodexHomes(tempHome.codexHome);
     let capturedOptions: CodexOptions | undefined;
@@ -1328,13 +1328,13 @@ test('codebase_question replays a completed retry before later setup can fail af
     const conversationId = 'mcp-replay-late-fastpath-1';
     const replayId = 'late-fastpath-1';
     const tempHome = await withTempCodexHome({
-        chatToml: 'model = "gpt-5.3-codex-spark"\n',
+        chatToml: 'model = "gpt-5.6-luna"\n',
     });
     setCodexHomes(tempHome.codexHome);
     __setCodebaseQuestionMemoryConversationForTests({
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.3-codex-spark',
+        model: 'gpt-5.6-luna',
         title: 'Late replay winner',
         source: 'MCP',
         flags: {},
@@ -1350,7 +1350,7 @@ test('codebase_question replays a completed retry before later setup can fail af
             conversationId,
             replayId,
             provider: 'codex',
-            model: 'gpt-5.3-codex-spark',
+            model: 'gpt-5.6-luna',
         }, {
             listIngestedRepositoriesFn: async () => {
                 if (!persistedReplay) {
@@ -1359,7 +1359,7 @@ test('codebase_question replays a completed retry before later setup can fail af
                         conversationId,
                         role: 'user',
                         content: 'persisted replay request',
-                        model: 'gpt-5.3-codex-spark',
+                        model: 'gpt-5.6-luna',
                         provider: 'codex',
                         source: 'MCP',
                         toolCalls: null,
@@ -1377,7 +1377,7 @@ test('codebase_question replays a completed retry before later setup can fail af
                         conversationId,
                         role: 'assistant',
                         content: 'Persisted late replay answer',
-                        model: 'gpt-5.3-codex-spark',
+                        model: 'gpt-5.6-luna',
                         provider: 'codex',
                         source: 'MCP',
                         toolCalls: null,
@@ -1403,7 +1403,7 @@ test('codebase_question replays a completed retry before later setup can fail af
         });
         const replayPayload = JSON.parse(replayResult.content[0].text);
         assert.equal(replayPayload.conversationId, conversationId);
-        assert.equal(replayPayload.modelId, 'gpt-5.3-codex-spark');
+        assert.equal(replayPayload.modelId, 'gpt-5.6-luna');
         assert.deepEqual(replayPayload.segments, [
             {
                 type: 'answer',
@@ -1444,7 +1444,7 @@ test('codebase_question stops before chat construction when persisted metadata r
     const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     const tempHome = await withTempCodexHome({
-        chatToml: 'model = "gpt-5.3-codex-spark"\n',
+        chatToml: 'model = "gpt-5.6-luna"\n',
     });
     setCodexHomes(tempHome.codexHome);
     try {
@@ -1453,7 +1453,7 @@ test('codebase_question stops before chat construction when persisted metadata r
                 {
                     _id: conversationId,
                     provider: 'codex',
-                    model: 'gpt-5.3-codex-spark',
+                    model: 'gpt-5.6-luna',
                     title: 'Saved MCP conversation',
                     source: 'MCP',
                     flags: {},
@@ -1482,7 +1482,7 @@ test('codebase_question stops before chat construction when persisted metadata r
                         question: 'Retry exhausted codebase question',
                         conversationId,
                         provider: 'codex',
-                        model: 'gpt-5.3-codex-spark',
+                        model: 'gpt-5.6-luna',
                     }, {
                         chatFactory: () => {
                             throw new Error('codebase question should not build chat after metadata exhaustion');
@@ -1494,7 +1494,7 @@ test('codebase_question stops before chat construction when persisted metadata r
                     }), (error: unknown) => error instanceof assert.AssertionError &&
                         /response\.result/.test(error.message));
                     assert.equal(conversations.get(conversationId)?.provider, 'codex');
-                    assert.equal(conversations.get(conversationId)?.model, 'gpt-5.3-codex-spark');
+                    assert.equal(conversations.get(conversationId)?.model, 'gpt-5.6-luna');
                 }
                 finally {
                     resetToolDeps();
@@ -1532,7 +1532,7 @@ test('codebase_question stops before chat construction when persisted metadata r
     const conversationId = 'mcp-metadata-not-found';
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     const tempHome = await withTempCodexHome({
-        chatToml: 'model = "gpt-5.3-codex-spark"\n',
+        chatToml: 'model = "gpt-5.6-luna"\n',
     });
     setCodexHomes(tempHome.codexHome);
     try {
@@ -1540,7 +1540,7 @@ test('codebase_question stops before chat construction when persisted metadata r
             seedConversation: {
                 _id: conversationId,
                 provider: 'codex',
-                model: 'gpt-5.3-codex-spark',
+                model: 'gpt-5.6-luna',
                 title: 'Saved MCP conversation',
                 source: 'MCP',
                 flags: {},
@@ -1574,7 +1574,7 @@ test('codebase_question stops before chat construction when persisted metadata r
                                 question: 'Missing conversation codebase question',
                                 conversationId,
                                 provider: 'codex',
-                                model: 'gpt-5.3-codex-spark',
+                                model: 'gpt-5.6-luna',
                             },
                         },
                     });
@@ -1624,7 +1624,7 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
     });
     const tempHome = await withTempCodexHome({
         chatToml: [
-            'model = "gpt-5.3-codex-spark"',
+            'model = "gpt-5.6-luna"',
             'sandbox_mode = "workspace-write"',
             'approval_policy = "on-request"',
             'model_reasoning_effort = "minimal"',
@@ -2505,18 +2505,18 @@ test('codebase_question pins omitted-provider Codex runs to the saved conversati
     const originalDefaultModel = process.env.CODEINFO_CHAT_DEFAULT_MODEL;
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_PROVIDER", 'codex');
-    setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_MODEL", 'gpt-5.1-codex-max');
+    setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_MODEL", 'gpt-5.6-luna');
     resetStore();
     const capturingChat = new CapturingChat();
     const tempHome = await withTempCodexHome({
-        chatToml: 'model = "gpt-5.1-codex-max"\n',
+        chatToml: 'model = "gpt-5.6-luna"\n',
     });
     setCodexHomes(tempHome.codexHome);
     const conversationId = 'saved-codex-model-pin';
     __setCodebaseQuestionMemoryConversationForTests({
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.3-codex',
+        model: 'gpt-5.6-terra',
         title: 'Saved Codex model pin conversation',
         source: 'MCP',
         lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
@@ -2557,8 +2557,8 @@ test('codebase_question pins omitted-provider Codex runs to the saved conversati
         }).result
             .content[0].text);
         const runtimeConfig = capturingChat.lastFlags?.runtimeConfig as Record<string, unknown> | undefined;
-        assert.equal(payload.modelId, 'gpt-5.3-codex');
-        assert.equal(runtimeConfig?.model, 'gpt-5.3-codex');
+        assert.equal(payload.modelId, 'gpt-5.6-terra');
+        assert.equal(runtimeConfig?.model, 'gpt-5.6-terra');
         assert.equal((capturingChat.lastFlags as {
             provider?: string;
             threadId?: unknown;
@@ -2673,10 +2673,10 @@ test('codebase_question keeps the saved execution identity authoritative over co
         model: string;
     }> = [];
     const conversationId = 'saved-codex-identity-pin';
-    const savedModel = 'gpt-5.3-codex';
+    const savedModel = 'gpt-5.6-terra';
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'true');
     setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_PROVIDER", 'codex');
-    setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_MODEL", 'gpt-5.1-codex-max');
+    setScopedTestEnvValue("CODEINFO_CHAT_DEFAULT_MODEL", 'gpt-5.6-luna');
     const tempHome = await withTempCodexHome({
         chatToml: `model = "${savedModel}"\n`,
     });

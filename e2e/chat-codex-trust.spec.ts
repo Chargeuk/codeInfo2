@@ -117,8 +117,8 @@ test('Codex chat succeeds without trust error when working directory is handled'
           models: isCodex
             ? [
                 {
-                  key: 'gpt-5.1',
-                  displayName: 'gpt-5.1',
+                  key: 'gpt-5.6-luna',
+                  displayName: 'gpt-5.6-luna',
                   type: 'codex',
                 },
               ]

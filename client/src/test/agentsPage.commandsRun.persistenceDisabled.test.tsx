@@ -133,7 +133,7 @@ describe('Agents page - command execute disabled when persistence unavailable', 
                 agentName: 'a1',
                 commandName: 'improve_plan',
                 conversationId: 'conv-1',
-                modelId: 'gpt-5.3-codex',
+                modelId: 'gpt-5.6-luna',
               }),
             } as Response);
           }

@@ -286,8 +286,8 @@ describe('Chat page new conversation control', () => {
                 codexWarnings: [],
                 models: [
                   {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'gpt-5.6-luna',
                     type: 'codex',
                     supportedReasoningEfforts: ['high'],
                     defaultReasoningEffort: 'high',
@@ -306,7 +306,7 @@ describe('Chat page new conversation control', () => {
                     conversationId: 'persisted-codex-conversation',
                     role: 'user',
                     content: 'Earlier prompt',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     provider: 'codex',
                     toolCalls: null,
                     status: 'ok',
@@ -316,7 +316,7 @@ describe('Chat page new conversation control', () => {
                     conversationId: 'persisted-codex-conversation',
                     role: 'assistant',
                     content: 'Earlier reply',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     provider: 'codex',
                     toolCalls: null,
                     status: 'ok',
@@ -336,7 +336,7 @@ describe('Chat page new conversation control', () => {
                     conversationId: 'persisted-codex-conversation',
                     title: 'Persisted Codex conversation',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     source: 'REST',
                     lastMessageAt: '2025-01-01T00:00:03.000Z',
                     archived: false,
@@ -490,15 +490,15 @@ describe('Chat page new conversation control', () => {
               codexWarnings: [],
               models: [
                 {
-                  key: 'gpt-5.1-codex-max',
-                  displayName: 'gpt-5.1-codex-max',
+                  key: 'gpt-5.6-luna',
+                  displayName: 'gpt-5.6-luna',
                   type: 'codex',
                   supportedReasoningEfforts: ['high'],
                   defaultReasoningEffort: 'high',
                 },
                 {
-                  key: 'gpt-5.2',
-                  displayName: 'gpt-5.2',
+                  key: 'gpt-5.6-terra',
+                  displayName: 'gpt-5.6-terra',
                   type: 'codex',
                   supportedReasoningEfforts: ['minimal'],
                   defaultReasoningEffort: 'minimal',
@@ -517,7 +517,7 @@ describe('Chat page new conversation control', () => {
                   conversationId: 'persisted-codex-conversation',
                   role: 'user',
                   content: 'Earlier prompt',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   provider: 'codex',
                   toolCalls: null,
                   status: 'ok',
@@ -527,7 +527,7 @@ describe('Chat page new conversation control', () => {
                   conversationId: 'persisted-codex-conversation',
                   role: 'assistant',
                   content: 'Earlier reply',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   provider: 'codex',
                   toolCalls: null,
                   status: 'ok',
@@ -547,7 +547,7 @@ describe('Chat page new conversation control', () => {
                   conversationId: 'persisted-codex-conversation',
                   title: 'Persisted Codex conversation',
                   provider: 'codex',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   source: 'REST',
                   lastMessageAt: '2025-01-01T00:00:03.000Z',
                   archived: false,
@@ -618,10 +618,10 @@ describe('Chat page new conversation control', () => {
       expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
     );
     await user.click(modelSelect);
-    await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+    await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
 
     await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.2/i),
+      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.6-terra/i),
     );
 
     const input = await screen.findByTestId('chat-input');
@@ -632,7 +632,7 @@ describe('Chat page new conversation control', () => {
 
     await waitFor(() => expect(chatBodies).toHaveLength(1));
     expect(chatBodies[0]?.provider).toBe('codex');
-    expect(chatBodies[0]?.model).toBe('gpt-5.2');
+    expect(chatBodies[0]?.model).toBe('gpt-5.6-terra');
     expect(chatBodies[0]?.conversationId).not.toBe(
       'persisted-codex-conversation',
     );

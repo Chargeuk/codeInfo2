@@ -133,7 +133,7 @@ test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex 
   assert.match(manualTestingIgnore, /^\*\*\/auth\.json$/mu);
 });
 
-test('source heavy and maximum review agents share the review boundary while retaining distinct model tiers', () => {
+test('source heavy and maximum review agents share the review boundary while retaining Sol and Astra model tiers', () => {
   const heavyConfig = readRepoFile(
     'codeinfo_agents/review_agent_heavy/config.toml',
   );
@@ -153,9 +153,9 @@ test('source heavy and maximum review agents share the review boundary while ret
     'codeinfo_agents/review_agent_max/commands/code_review_findings.json',
   );
 
-  assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
+  assert.match(heavyConfig, /model = "gpt-5\.6-sol"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
-  assert.match(maxConfig, /model = "gpt-5\.6-sol"/u);
+  assert.match(maxConfig, /model = "gpt-6-astra"/u);
   assert.match(maxConfig, /model_reasoning_effort = "high"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);

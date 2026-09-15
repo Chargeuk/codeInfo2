@@ -159,7 +159,7 @@ const routeAgentsApis = async (
               ? payload.conversationId
               : 'c1',
           inflightId: 'i2',
-          modelId: 'gpt-5.3-codex',
+          modelId: 'gpt-5.6-luna',
         }),
       });
       return;
@@ -179,7 +179,7 @@ const routeAgentsApis = async (
               ? payload.conversationId
               : 'c1',
           inflightId: 'i1',
-          modelId: 'gpt-5.3-codex',
+          modelId: 'gpt-5.6-luna',
         }),
       });
       return;
@@ -410,7 +410,7 @@ test('agents hydrated user markdown matches assistant list/code/mermaid renderin
         conversationId: 'c1',
         title: 'Markdown parity',
         provider: 'codex',
-        model: 'gpt-5.3-codex',
+        model: 'gpt-5.6-luna',
         lastMessageAt: '2025-01-01T00:00:00.000Z',
       },
     ],
@@ -471,7 +471,7 @@ test('agents malformed mermaid input uses safe fallback for user and assistant b
         conversationId: 'c1',
         title: 'Malformed mermaid',
         provider: 'codex',
-        model: 'gpt-5.3-codex',
+        model: 'gpt-5.6-luna',
         lastMessageAt: '2025-01-01T00:00:00.000Z',
       },
     ],
@@ -521,7 +521,7 @@ test('agents keeps instruction input responsive while a long transcript is visib
         conversationId,
         title: 'Long transcript responsiveness',
         provider: 'codex',
-        model: 'gpt-5.3-codex',
+        model: 'gpt-5.6-luna',
         lastMessageAt: '2025-01-01T00:00:30.000Z',
       },
     ],
@@ -666,7 +666,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
           agentName: 'coding_agent',
           conversationId: 'c1',
           inflightId: 'i2',
-          modelId: 'gpt-5.3-codex',
+          modelId: 'gpt-5.6-luna',
         }),
       });
       return;
@@ -682,7 +682,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
           agentName: 'coding_agent',
           conversationId: 'c1',
           inflightId: 'i1',
-          modelId: 'gpt-5.3-codex',
+          modelId: 'gpt-5.6-luna',
         }),
       });
       return;

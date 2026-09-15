@@ -40,7 +40,7 @@ describe('ChatInterfaceCodex workingDirectoryOverride', () => {
                 useConfigDefaults: true,
                 workingDirectoryOverride: '/tmp/override',
                 skipPersistence: true,
-            }, 'conv-override', 'gpt-5.1-codex-max');
+            }, 'conv-override', 'gpt-5.6-luna');
         }
         finally {
             setScopedTestEnvValue("CODEX_WORKDIR", originalWorkdir);
@@ -81,7 +81,7 @@ describe('ChatInterfaceCodex workingDirectoryOverride', () => {
             useConfigDefaults: true,
             envOverrides: { CODEINFO_ROOT: '/tmp/codeinfo-root' },
             skipPersistence: true,
-        }, 'conv-env', 'gpt-5.1-codex-max');
+        }, 'conv-env', 'gpt-5.6-luna');
         assert(captured.options);
         assert.equal((captured.options as {
             env?: NodeJS.ProcessEnv;

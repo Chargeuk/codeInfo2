@@ -119,7 +119,7 @@ test('POST /chat includes runtime config warnings from resolveChatRuntimeConfig'
     tempDirs.push(root);
     const codexHome = path.join(root, 'codex');
     await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
-    await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), ['model = "gpt-5.3-codex"', 'approval_policy = "on-failure"', ''].join('\n'), 'utf8');
+    await fs.writeFile(path.join(codexHome, 'chat', 'config.toml'), ['model = "gpt-5.6-luna"', 'approval_policy = "on-failure"', ''].join('\n'), 'utf8');
     setEnv('CODEX_HOME', codexHome);
     const app = express();
     app.use(express.json());

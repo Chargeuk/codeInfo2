@@ -306,7 +306,7 @@ test('pending cancel is consumed once for the bound run and cannot be applied tw
     conversationId,
     inflightId,
     provider: 'codex',
-    model: 'gpt-5.3-codex',
+    model: 'gpt-5.6-luna',
     source: 'REST',
   });
   const registered = registerPendingConversationCancel({
@@ -1111,7 +1111,7 @@ test('stale inflight updates are ignored and do not mutate active transcript sta
     conversationId,
     inflightId: 'active',
     provider: 'codex',
-    model: 'gpt-5.3-codex',
+    model: 'gpt-5.6-luna',
     source: 'REST',
   });
   const appendResult = appendAssistantDelta({

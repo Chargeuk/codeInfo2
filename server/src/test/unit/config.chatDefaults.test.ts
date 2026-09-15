@@ -64,7 +64,7 @@ test('same-provider model repair keeps the requested provider when that provider
     requestedModel: 'gpt-5.6-sol',
     codex: {
       available: true,
-      models: ['gpt-5.1-codex-max', 'gpt-5.3-codex-spark'],
+      models: ['gpt-5.6-luna', 'gpt-5.6-terra'],
       reason: undefined,
     },
     copilot: {
@@ -79,7 +79,7 @@ test('same-provider model repair keeps the requested provider when that provider
     },
   });
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.1-codex-max');
+  assert.equal(result.executionModel, 'gpt-5.6-luna');
   assert.equal(result.fallbackApplied, false);
   assert.equal(result.decision, 'selected');
 });
@@ -140,12 +140,12 @@ test('endpoint-aware selection keeps the configured endpoint when the requested 
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: true,
-      models: ['gpt-5.6-sol', 'gpt-5.1-codex-max'],
+      models: ['gpt-5.6-sol', 'gpt-5.6-luna'],
       reason: undefined,
     },
     codex: {
       available: true,
-      models: ['gpt-5.1-codex-max'],
+      models: ['gpt-5.6-luna'],
       reason: undefined,
     },
     copilot: {
@@ -177,12 +177,12 @@ test('endpoint-aware selection fails closed when the provider bootstrap is degra
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: true,
-      models: ['gpt-5.6-sol', 'gpt-5.1-codex-max'],
+      models: ['gpt-5.6-sol', 'gpt-5.6-luna'],
       reason: undefined,
     },
     codex: {
       available: false,
-      models: ['gpt-5.1-codex-max'],
+      models: ['gpt-5.6-luna'],
       reason: 'codex bootstrap degraded',
       unavailableKind: 'bootstrap',
     },
@@ -213,12 +213,12 @@ test('endpoint-aware selection repairs to the first selectable model on the same
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: true,
-      models: ['gpt-5.1-codex-max', 'gpt-5.3-codex-spark'],
+      models: ['gpt-5.6-luna', 'gpt-5.6-terra'],
       reason: undefined,
     },
     codex: {
       available: true,
-      models: ['gpt-5.1-codex-max'],
+      models: ['gpt-5.6-luna'],
       reason: undefined,
     },
     copilot: {
@@ -233,7 +233,7 @@ test('endpoint-aware selection repairs to the first selectable model on the same
     },
   });
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.1-codex-max');
+  assert.equal(result.executionModel, 'gpt-5.6-luna');
   assert.equal(result.executionPath, 'same_endpoint_repair');
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'selected');
@@ -251,7 +251,7 @@ test('endpoint-aware selection falls back to the same provider native path befor
     },
     codex: {
       available: true,
-      models: ['gpt-5.1-codex-max', 'gpt-5.3-codex-spark'],
+      models: ['gpt-5.6-luna', 'gpt-5.6-terra'],
       reason: undefined,
     },
     copilot: {
@@ -266,7 +266,7 @@ test('endpoint-aware selection falls back to the same provider native path befor
     },
   });
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.1-codex-max');
+  assert.equal(result.executionModel, 'gpt-5.6-luna');
   assert.equal(result.executionPath, 'same_provider_native_fallback');
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'fallback');
@@ -318,7 +318,7 @@ test('endpoint-aware selection can fail in place when a pinned endpoint becomes 
     failInPlaceOnEndpointUnavailable: true,
     codex: {
       available: true,
-      models: ['gpt-5.1-codex-max', 'gpt-5.3-codex-spark'],
+      models: ['gpt-5.6-luna', 'gpt-5.6-terra'],
       reason: undefined,
     },
     copilot: {
@@ -378,7 +378,7 @@ test('defaults applied marker payload includes the resolved runtime path', () =>
     surface: '/chat',
     requestedProvider: 'codex',
     requestedModel: 'gpt-5.6-sol',
-    resolvedModel: 'gpt-5.1-codex-max',
+    resolvedModel: 'gpt-5.6-luna',
     modelSource: 'request',
     runtimePath: 'same_provider_native_fallback',
     warnings: ['endpoint unavailable'],

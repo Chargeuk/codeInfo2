@@ -188,7 +188,7 @@ test('completed replay requests stay INFLIGHT_ALREADY_COMPLETED after completed-
     assert.equal(replayAfterCacheClear.body.code, 'INFLIGHT_ALREADY_COMPLETED');
     const contradictoryReplay = await request(app).post('/chat').send({
         provider: 'codex',
-        model: 'gpt-5.1-codex-max',
+        model: 'gpt-5.6-luna',
         conversationId,
         inflightId,
         message: 'mutate the stored conversation',
@@ -450,7 +450,7 @@ test('inflight snapshot returns command metadata when present', async () => {
         conversationId: 'c1',
         inflightId: 'i1',
         provider: 'codex',
-        model: 'gpt-5.1-codex-max',
+        model: 'gpt-5.6-luna',
         source: 'REST',
         command: { name: 'improve_plan', stepIndex: 2, totalSteps: 6 },
         userTurn: {
@@ -483,7 +483,7 @@ test('persisted turns preserve absolute command metadata for startStep-offset ru
             conversationId: 'c-offset',
             role: 'assistant',
             content: 'offset result',
-            model: 'gpt-5.1-codex-max',
+            model: 'gpt-5.6-luna',
             provider: 'codex',
             source: 'REST',
             toolCalls: null,
@@ -496,7 +496,7 @@ test('persisted turns preserve absolute command metadata for startStep-offset ru
             conversationId: 'c-offset',
             role: 'user',
             content: 'offset input',
-            model: 'gpt-5.1-codex-max',
+            model: 'gpt-5.6-luna',
             provider: 'codex',
             source: 'REST',
             toolCalls: null,
@@ -528,7 +528,7 @@ test('inflight snapshot omits command metadata when absent', async () => {
         conversationId: 'c1',
         inflightId: 'i1',
         provider: 'codex',
-        model: 'gpt-5.1-codex-max',
+        model: 'gpt-5.6-luna',
         source: 'REST',
         userTurn: {
             content: 'run command',

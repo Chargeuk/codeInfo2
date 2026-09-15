@@ -41,7 +41,7 @@ const ensureSeededProviderHomes = () => {
   ensureFile(
     path.join(codexHome, 'chat', 'config.toml'),
     [
-      'model = "gpt-5.3-codex"',
+      'model = "gpt-5.6-luna"',
       'approval_policy = "never"',
       'sandbox_mode = "danger-full-access"',
       '',

@@ -107,7 +107,7 @@ export const mockModelsResponse: ChatModelsResponse = {
       toolsAvailable: false,
       endpointOnly: false,
       reason: 'not detected',
-      defaultModel: 'gpt-5.3-codex-spark',
+      defaultModel: 'gpt-5.6-luna',
       defaultModelSource: 'config',
       warnings: [],
       agentFlags: [],

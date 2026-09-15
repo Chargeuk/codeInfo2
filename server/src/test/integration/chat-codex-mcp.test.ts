@@ -209,7 +209,7 @@ const test = (name: string, fn: () => Promise<void> | void) =>
     );
     await fs.writeFile(
       path.join(tempCodexHomeForTest, 'chat', 'config.toml'),
-      'model = "gpt-5.1-codex-max"\n',
+      'model = "gpt-5.6-luna"\n',
       'utf8',
     );
     setScopedTestEnvValue('CODEX_HOME', tempCodexHomeForTest);
@@ -266,7 +266,7 @@ const test = (name: string, fn: () => Promise<void> | void) =>
 let conversationCounter = 0;
 const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
   provider: 'codex',
-  model: 'gpt-5.1-codex-max',
+  model: 'gpt-5.6-luna',
   conversationId: `conv-codex-${++conversationCounter}`,
   message: 'Find the index file',
   ...overrides,
@@ -1017,7 +1017,7 @@ test('explicit codex requests fail instead of silently falling back and do not m
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.3-codex',
+    model: 'gpt-5.6-luna',
     title: 'existing',
     source: 'REST',
     flags: { threadId: 'thread-stale' },
@@ -1060,7 +1060,7 @@ test('explicit codex requests fail instead of silently falling back and do not m
       .post('/chat')
       .send({
         provider: 'codex',
-        model: 'gpt-5.3-codex',
+        model: 'gpt-5.6-luna',
         conversationId,
         message: 'hi',
       })
@@ -1069,7 +1069,7 @@ test('explicit codex requests fail instead of silently falling back and do not m
     const stored = memoryConversations.get(conversationId);
     assert.ok(stored);
     assert.equal(stored?.provider, 'codex');
-    assert.equal(stored?.model, 'gpt-5.3-codex');
+    assert.equal(stored?.model, 'gpt-5.6-luna');
     assert.equal(stored?.flags?.threadId, 'thread-stale');
   } finally {
     setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', originalBaseUrl);

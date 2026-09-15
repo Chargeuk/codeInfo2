@@ -87,13 +87,13 @@ describe('Chat page fresh-run context', () => {
                 toolsAvailable: true,
                 models: [
                   {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'gpt-5.6-luna',
                     type: 'codex',
                   },
                   {
-                    key: 'gpt-5.2',
-                    displayName: 'gpt-5.2',
+                    key: 'gpt-5.6-terra',
+                    displayName: 'gpt-5.6-terra',
                     type: 'codex',
                   },
                 ],
@@ -236,11 +236,11 @@ describe('Chat page fresh-run context', () => {
         expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
       );
       await user.click(modelSelect);
-      await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+      await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
 
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-5.2/i,
+          /gpt-5.6-terra/i,
         ),
       );
 
@@ -252,7 +252,7 @@ describe('Chat page fresh-run context', () => {
       await waitFor(() => expect(chatBodies).toHaveLength(1));
       expect(chatBodies[0]).toMatchObject({
         provider: 'codex',
-        model: 'gpt-5.2',
+        model: 'gpt-5.6-terra',
       });
       expect(chatBodies[0]?.conversationId).not.toBe('c1');
     },

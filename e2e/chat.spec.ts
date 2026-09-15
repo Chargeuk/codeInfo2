@@ -549,7 +549,7 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
           },
         ],
         selectedProvider: 'codex',
-        selectedModel: 'gpt-5.1-codex-max',
+        selectedModel: 'gpt-5.6-luna',
         selectedEndpointId: 'https://alpha.example/base/v1',
       }),
     }),
@@ -571,19 +571,19 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
             label: 'OpenAI Codex',
             available: true,
             toolsAvailable: true,
-            defaultModel: 'gpt-5.2',
+            defaultModel: 'gpt-5.6-terra',
             defaultModelSource: 'config',
           },
           models: [
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
               endpointId: 'https://alpha.example/base/v1',
             },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
               endpointId: 'https://alpha.example/alt/v1',
             },
@@ -662,7 +662,7 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.2 \(alpha\.example \/ base\)/i,
+    /gpt-5\.6-terra \(alpha\.example \/ base\)/i,
   );
 
   await page
@@ -672,7 +672,7 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
 
   await expect.poll(() => chatBodies.length).toBe(1);
   expect(chatBodies[0]?.provider).toBe('codex');
-  expect(chatBodies[0]?.model).toBe('gpt-5.2');
+  expect(chatBodies[0]?.model).toBe('gpt-5.6-terra');
   expect(chatBodies[0]?.endpointId).toBe('https://alpha.example/base/v1');
 
   await expect(page.getByTestId('chat-transcript')).toContainText(
@@ -714,7 +714,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
           },
         ],
         selectedProvider: 'codex',
-        selectedModel: 'gpt-5.2',
+        selectedModel: 'gpt-5.6-terra',
         selectedEndpointId: 'https://alpha.example/base/v1',
       }),
     }),
@@ -736,20 +736,20 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
             label: 'OpenAI Codex',
             available: true,
             toolsAvailable: true,
-            defaultModel: 'gpt-5.1-codex-max',
+            defaultModel: 'gpt-5.6-luna',
             defaultModelSource: 'config',
           },
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/base/v1',
               supportedReasoningEfforts: ['medium', 'high'],
             },
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/alt/v1',
               supportedReasoningEfforts: ['medium', 'high'],
@@ -780,7 +780,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
             conversationId: 'endpoint-history-conversation',
             title: 'Endpoint history conversation',
             provider: 'codex',
-            model: 'gpt-5.1-codex-max',
+            model: 'gpt-5.6-luna',
             source: 'REST',
             lastMessageAt: '2025-01-01T00:00:00.000Z',
             archived: false,
@@ -804,7 +804,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
               role: 'user',
               content: 'Earlier prompt',
               provider: 'codex',
-              model: 'gpt-5.1-codex-max',
+              model: 'gpt-5.6-luna',
               status: 'ok',
               createdAt: '2025-01-01T00:00:00.000Z',
             },
@@ -813,7 +813,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
               role: 'assistant',
               content: 'Earlier reply',
               provider: 'codex',
-              model: 'gpt-5.1-codex-max',
+              model: 'gpt-5.6-luna',
               status: 'ok',
               createdAt: '2025-01-01T00:00:01.000Z',
             },
@@ -879,7 +879,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
+    /gpt-5\.6-luna \(alpha\.example \/ alt\)/i,
   );
 
   await page.getByRole('button', { name: /new conversation/i }).click();
@@ -887,7 +887,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.1-codex-max \(alpha\.example \/ base\)/i,
+    /gpt-5\.6-luna \(alpha\.example \/ base\)/i,
   );
 
   await page.getByTestId('provider-select').click();
@@ -915,7 +915,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
   ).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.1-codex-max \(alpha\.example \/ base\)/i,
+    /gpt-5\.6-luna \(alpha\.example \/ base\)/i,
   );
 
   await page
@@ -925,7 +925,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
 
   await expect.poll(() => chatBodies.length).toBe(1);
   expect(chatBodies[0]?.provider).toBe('codex');
-  expect(chatBodies[0]?.model).toBe('gpt-5.1-codex-max');
+  expect(chatBodies[0]?.model).toBe('gpt-5.6-luna');
   expect(chatBodies[0]?.endpointId).toBe('https://alpha.example/base/v1');
   expect(chatBodies[0]?.conversationId).not.toBe(
     'endpoint-history-conversation',
@@ -986,8 +986,8 @@ test('chat no longer exposes re-authenticate inside the workspace surface', asyn
           toolsAvailable: true,
           models: [
             {
-              key: 'gpt-5-codex',
-              displayName: 'GPT-5 Codex',
+              key: 'gpt-5.6-luna',
+              displayName: 'GPT-5.6 Luna',
               type: 'codex',
             },
           ],
@@ -1584,8 +1584,8 @@ test('mobile chat composer keeps one compact footer row and a centered model dia
           models: [
             { key: 'auto', displayName: 'Auto', type: 'copilot' },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'copilot',
             },
             {
@@ -1688,7 +1688,7 @@ test('mobile chat composer keeps one compact footer row and a centered model dia
   ).toBeVisible();
   await expect(
     dialog
-      .getByRole('option', { name: /gpt-5\.2/i })
+      .getByRole('option', { name: /gpt-5\.6-terra/i })
       .locator('img[alt=\"OpenAI logo\"]'),
   ).toBeVisible();
   await expect(

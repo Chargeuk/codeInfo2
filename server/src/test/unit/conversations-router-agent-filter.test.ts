@@ -17,7 +17,7 @@ function buildApp(deps: Parameters<typeof createConversationsRouter>[0]) {
 const baseConversation = {
     _id: 'conv-working-folder',
     provider: 'codex' as const,
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Conversation',
     source: 'REST' as const,
     lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
@@ -204,7 +204,7 @@ test('GET /conversations surfaces operational working-folder diagnostics without
                 {
                     conversationId: 'conv-working-folder',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     title: 'Conversation',
                     source: 'REST',
                     lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),

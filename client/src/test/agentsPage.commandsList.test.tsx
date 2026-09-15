@@ -530,7 +530,7 @@ describe('Agents page - commands list', () => {
             agentName: 'a1',
             commandName: 'improve_plan',
             conversationId: 'c1',
-            modelId: 'gpt-5.3-codex',
+            modelId: 'gpt-5.6-luna',
           },
           { status: 202 },
         );
@@ -833,7 +833,7 @@ describe('Agents page - commands list', () => {
               agentName: 'a1',
               commandName: 'bad',
               conversationId: 'c1',
-              modelId: 'gpt-5.3-codex',
+              modelId: 'gpt-5.6-luna',
             },
             { status: 202 },
           );

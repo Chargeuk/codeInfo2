@@ -93,7 +93,7 @@ test('MCP chat persists conversation/turn with source MCP when persistence is av
         const result = await runCodebaseQuestion({
             question: 'Hello world?',
             provider: 'codex',
-            model: 'gpt-5.1-codex-max',
+            model: 'gpt-5.6-luna',
         }, {
             codexFactory: () => ({
                 startThread: () => ({

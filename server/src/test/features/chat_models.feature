@@ -37,8 +37,8 @@ Feature: Chat models endpoint
     When I request chat models for provider "codex"
     Then the chat models response status code is 200
     And the chat models response provider is "codex"
-    And the chat models list includes model "gpt-5.1-codex-max"
-    And the chat models response includes model "gpt-5.1-codex-max" on endpoint "discovered endpoint"
+    And the chat models list includes model "gpt-5.6-luna"
+    And the chat models response includes model "gpt-5.6-luna" on endpoint "discovered endpoint"
     And the chat models response includes provider-neutral providers metadata
 
   Scenario: Native-normalized Codex default clears stale selected endpoint
@@ -64,8 +64,8 @@ Feature: Chat models endpoint
     When I request chat models for provider "codex"
     Then the chat models response status code is 200
     And the chat models response provider is "codex"
-    And the chat models list includes model "gpt-5.2"
-    And the chat models response includes model "gpt-5.2" on endpoint "pinned endpoint"
+    And the chat models list includes model "gpt-5.6-terra"
+    And the chat models response includes model "gpt-5.6-terra" on endpoint "pinned endpoint"
     And the chat models response selected endpoint is "pinned endpoint"
     And the chat models response includes provider-neutral providers metadata
 

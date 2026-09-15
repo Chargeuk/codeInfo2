@@ -82,7 +82,7 @@ describe('Agents page - run', () => {
                   conversationId: 'c1',
                   title: 'Agent conversation',
                   provider: 'codex',
-                  model: 'gpt-5.2',
+                  model: 'gpt-5.6-terra',
                   lastMessageAt: '2025-01-01T00:00:00.000Z',
                   archived: false,
                 },
@@ -177,7 +177,7 @@ describe('Agents page - run', () => {
                   ? runBodies.at(-1)?.conversationId
                   : 'c1',
               inflightId: 'start-i1',
-              modelId: 'gpt-5.1-codex-max',
+              modelId: 'gpt-5.6-luna',
             }),
           } as Response);
         }
@@ -311,7 +311,7 @@ describe('Agents page - run', () => {
                   ? runBodies.at(-1)?.conversationId
                   : 'c1',
               inflightId: 'start-i1',
-              modelId: 'gpt-5.1-codex-max',
+              modelId: 'gpt-5.6-luna',
             }),
           } as Response);
         }
@@ -503,7 +503,7 @@ describe('Agents page - run', () => {
             conversationId: 'c1',
             role: 'user',
             content: 'Run alpha',
-            model: 'gpt-5.1-codex-max',
+            model: 'gpt-5.6-luna',
             provider: 'codex',
             status: 'ok',
             createdAt: '2025-01-01T00:00:00.000Z',
@@ -513,7 +513,7 @@ describe('Agents page - run', () => {
             conversationId: 'c1',
             role: 'assistant',
             content: 'Alpha answer',
-            model: 'gpt-5.1-codex-max',
+            model: 'gpt-5.6-luna',
             provider: 'codex',
             status: 'ok',
             createdAt: '2025-01-01T00:00:01.000Z',
@@ -562,7 +562,7 @@ describe('Agents page - run', () => {
                   conversationId: 'c1',
                   title: 'Agent conversation 1',
                   provider: 'codex',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   lastMessageAt: '2025-01-01T00:00:01.000Z',
                   archived: false,
                 },
@@ -570,7 +570,7 @@ describe('Agents page - run', () => {
                   conversationId: 'c2',
                   title: 'Agent conversation 2',
                   provider: 'codex',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   lastMessageAt: '2025-01-01T00:00:02.000Z',
                   archived: false,
                 },
@@ -686,7 +686,7 @@ describe('Agents page - run', () => {
                   ? runBodies.at(-1)?.conversationId
                   : 'c1',
               inflightId: 'start-i1',
-              modelId: 'gpt-5.1-codex-max',
+              modelId: 'gpt-5.6-luna',
             }),
           } as Response);
         }
@@ -773,7 +773,7 @@ describe('Agents page - run', () => {
                     ? runBodies.at(-1)?.conversationId
                     : 'c1',
                 inflightId: 'start-i1',
-                modelId: 'gpt-5.1-codex-max',
+                modelId: 'gpt-5.6-luna',
               }),
             } as Response);
           }
@@ -944,7 +944,7 @@ describe('Agents page - run', () => {
                     ? runBodies.at(-1)?.conversationId
                     : 'c1',
                 inflightId: 'start-i1',
-                modelId: 'gpt-5.1-codex-max',
+                modelId: 'gpt-5.6-luna',
               }),
             } as Response);
           }
@@ -1087,7 +1087,7 @@ describe('Agents page - run', () => {
                     ? runBodies.at(-1)?.conversationId
                     : 'c1',
                 inflightId: 'start-i1',
-                modelId: 'gpt-5.1-codex-max',
+                modelId: 'gpt-5.6-luna',
               }),
             } as Response);
           }
@@ -1178,7 +1178,7 @@ describe('Agents page - run', () => {
                   ? runBodies.at(-1)?.conversationId
                   : 'c1',
               inflightId: 'start-i1',
-              modelId: 'gpt-5.1-codex-max',
+              modelId: 'gpt-5.6-luna',
             }),
           } as Response);
         }
@@ -1264,7 +1264,7 @@ describe('Agents page - run', () => {
               agentName: 'coding_agent',
               conversationId: 'c1',
               inflightId: 'i1',
-              modelId: 'gpt-5.3-codex',
+              modelId: 'gpt-5.6-luna',
             }),
           } as Response);
         }
@@ -1331,7 +1331,7 @@ describe('Agents page - run', () => {
                   conversationId: 'c-existing',
                   title: 'Existing conversation',
                   provider: 'codex',
-                  model: 'gpt-5.3-codex',
+                  model: 'gpt-5.6-luna',
                   lastMessageAt: '2025-01-01T00:00:00.000Z',
                   archived: false,
                 },
@@ -1356,7 +1356,7 @@ describe('Agents page - run', () => {
                   ? body.conversationId
                   : 'fallback-cid',
               inflightId: 'i1',
-              modelId: 'gpt-5.3-codex',
+              modelId: 'gpt-5.6-luna',
             }),
           } as Response);
         }
@@ -1475,7 +1475,7 @@ describe('Agents page - run', () => {
           agentName: 'coding_agent',
           conversationId: 'c1',
           inflightId: 'i1',
-          modelId: 'gpt-5.3-codex',
+          modelId: 'gpt-5.6-luna',
         }),
         {
           status: 202,

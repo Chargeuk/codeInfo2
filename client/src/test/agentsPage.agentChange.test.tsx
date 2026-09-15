@@ -319,7 +319,7 @@ describe('Agents page - agent change', () => {
               agentName: 'a1',
               conversationId: a1ConversationId ?? 'c1',
               inflightId: 'i1',
-              modelId: 'gpt-5.1-codex-max',
+              modelId: 'gpt-5.6-luna',
             }),
           } as Response);
         }
@@ -336,7 +336,7 @@ describe('Agents page - agent change', () => {
               agentName: 'a2',
               conversationId: 'new-convo',
               inflightId: 'i2',
-              modelId: 'gpt-5.1-codex-max',
+              modelId: 'gpt-5.6-luna',
             }),
           } as Response);
         }

@@ -260,7 +260,7 @@ test('POST /flows/:flowName/run passes codexReviewModelId through to startFlowRu
           conversationId: 'flow-codex-review',
           inflightId: 'flow-codex-review-inflight',
           providerId: 'codex',
-          modelId: 'gpt-5.4',
+          modelId: 'gpt-5.6-luna',
         };
       },
     }),
@@ -268,10 +268,10 @@ test('POST /flows/:flowName/run passes codexReviewModelId through to startFlowRu
 
   const res = await supertest(app)
     .post('/flows/codex_review/run')
-    .send({ codexReviewModelId: 'gpt-5.4' });
+    .send({ codexReviewModelId: 'gpt-5.6-luna' });
 
   assert.equal(res.status, 202);
-  assert.equal(capturedModelId, 'gpt-5.4');
+  assert.equal(capturedModelId, 'gpt-5.6-luna');
 });
 
 test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE message', async () => {
@@ -319,7 +319,7 @@ test('a stale saved path yields to a newer saved working folder before a flow re
   memoryConversations.set('flow-stale-restore', {
     _id: 'flow-stale-restore',
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
@@ -406,7 +406,7 @@ test('a fresh run from an older flow conversation does not inherit its stale sav
   memoryConversations.set('flow-stale-rerun', {
     _id: 'flow-stale-rerun',
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
@@ -470,7 +470,7 @@ test('a fresh run still starts a replacement conversation when the older selecte
   memoryConversations.set('flow-stale-log', {
     _id: 'flow-stale-log',
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',

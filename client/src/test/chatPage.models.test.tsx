@@ -171,15 +171,15 @@ function mockCodexModelNextSendApi() {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
                 supportedReasoningEfforts: ['high', 'xhigh'],
                 defaultReasoningEffort: 'high',
               },
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 supportedReasoningEfforts: ['minimal'],
                 defaultReasoningEffort: 'minimal',
@@ -198,7 +198,7 @@ function mockCodexModelNextSendApi() {
                 conversationId: 'draft-conversation',
                 role: 'user',
                 content: 'Earlier prompt',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 provider: 'codex',
                 toolCalls: null,
                 status: 'ok',
@@ -208,7 +208,7 @@ function mockCodexModelNextSendApi() {
                 conversationId: 'draft-conversation',
                 role: 'assistant',
                 content: 'Earlier reply',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 provider: 'codex',
                 toolCalls: null,
                 status: 'ok',
@@ -243,7 +243,7 @@ function mockCodexModelNextSendApi() {
                 conversationId: 'draft-conversation',
                 title: 'Draft conversation',
                 provider: 'codex',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 source: 'REST',
                 lastMessageAt: '2025-01-01T00:00:03.000Z',
                 archived: false,
@@ -614,8 +614,8 @@ describe('Chat page models list', () => {
             toolsAvailable: true,
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],
@@ -635,7 +635,7 @@ describe('Chat page models list', () => {
     });
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5.1-codex-max/i,
+        /gpt-5.6-luna/i,
       ),
     );
 
@@ -675,7 +675,7 @@ describe('Chat page models list', () => {
               },
             ],
             selectedProvider: 'codex',
-            selectedModel: 'gpt-5.2',
+            selectedModel: 'gpt-5.6-terra',
             selectedEndpointId: 'https://alpha.example/base/v1',
           });
         }
@@ -689,18 +689,18 @@ describe('Chat page models list', () => {
               label: 'OpenAI Codex',
               available: true,
               toolsAvailable: true,
-              defaultModel: 'gpt-5.2',
+              defaultModel: 'gpt-5.6-terra',
             },
             models: [
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 endpointId: 'https://alpha.example/base/v1',
               },
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 endpointId: 'https://alpha.example/alt/v1',
               },
@@ -718,7 +718,7 @@ describe('Chat page models list', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.2 \(alpha\.example \/ base\)/i,
+        /gpt-5\.6-terra \(alpha\.example \/ base\)/i,
       ),
     );
 
@@ -729,10 +729,10 @@ describe('Chat page models list', () => {
     await user.click(modelSelect);
 
     const baseOption = screen.getByRole('option', {
-      name: /gpt-5\.2 \(alpha\.example \/ base\)/i,
+      name: /gpt-5\.6-terra \(alpha\.example \/ base\)/i,
     });
     const altOption = screen.getByRole('option', {
-      name: /gpt-5\.2 \(alpha\.example \/ alt\)/i,
+      name: /gpt-5\.6-terra \(alpha\.example \/ alt\)/i,
     });
     expect(baseOption).toHaveAttribute('aria-selected', 'true');
     expect(altOption).toHaveAttribute('aria-selected', 'false');
@@ -741,7 +741,7 @@ describe('Chat page models list', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.2 \(alpha\.example \/ alt\)/i,
+        /gpt-5\.6-terra \(alpha\.example \/ alt\)/i,
       ),
     );
 
@@ -753,10 +753,10 @@ describe('Chat page models list', () => {
     );
     await user.click(refreshedModelSelect);
     const refreshedBaseOption = screen.getByRole('option', {
-      name: /gpt-5\.2 \(alpha\.example \/ base\)/i,
+      name: /gpt-5\.6-terra \(alpha\.example \/ base\)/i,
     });
     const refreshedAltOption = screen.getByRole('option', {
-      name: /gpt-5\.2 \(alpha\.example \/ alt\)/i,
+      name: /gpt-5\.6-terra \(alpha\.example \/ alt\)/i,
     });
     expect(refreshedBaseOption).toHaveAttribute('aria-selected', 'false');
     expect(refreshedAltOption).toHaveAttribute('aria-selected', 'true');
@@ -878,15 +878,15 @@ describe('Chat page models list', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
                 supportedReasoningEfforts: ['minimal', 'high', 'xhigh'],
                 defaultReasoningEffort: 'minimal',
               },
               {
-                key: 'gpt-5.2-codex',
-                displayName: 'gpt-5.2-codex',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 supportedReasoningEfforts: ['minimal'],
                 defaultReasoningEffort: 'minimal',
@@ -925,7 +925,7 @@ describe('Chat page models list', () => {
     );
     await userEvent.click(modelSelect);
     await userEvent.click(
-      await screen.findByRole('option', { name: /gpt-5.2-codex/i }),
+      await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
     );
 
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
@@ -968,8 +968,8 @@ describe('Chat page models list', () => {
               models: [
                 { key: 'auto', displayName: 'Auto', type: 'copilot' },
                 {
-                  key: 'gpt-5.2',
-                  displayName: 'gpt-5.2',
+                  key: 'gpt-5.6-terra',
+                  displayName: 'gpt-5.6-terra',
                   type: 'copilot',
                 },
                 {
@@ -1000,7 +1000,7 @@ describe('Chat page models list', () => {
 
       const autoOption = await screen.findByRole('option', { name: /^auto$/i });
       const gptOption = await screen.findByRole('option', {
-        name: /gpt-5\.2/i,
+        name: /gpt-5\.6-terra/i,
       });
       const claudeOption = await screen.findByRole('option', {
         name: /claude sonnet 4\.6/i,
@@ -1054,8 +1054,8 @@ describe('Chat page models list', () => {
                 type: 'copilot',
               },
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'copilot',
               },
               {
@@ -1149,7 +1149,7 @@ describe('Chat page models list', () => {
     expect(optionNames).toEqual([
       'Claude Sonnet 4.6',
       'Auto',
-      'gpt-5.2',
+      'gpt-5.6-terra',
       'OpenRouter / moonshotai/kimi-k2.6',
       'OpenRouter / moonshotai/kimi-k2.7-code',
       'OpenRouter / nvidia/nemotron-3-super-120b-a12b',
@@ -1215,8 +1215,8 @@ describe('Chat page models list', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.3-experimental',
-                displayName: 'gpt-5.3-experimental',
+                key: 'gpt-5.6-experimental',
+                displayName: 'gpt-5.6-experimental',
                 type: 'codex',
                 supportedReasoningEfforts: ['turbo-max'],
                 defaultReasoningEffort: 'turbo-max',
@@ -1260,7 +1260,7 @@ describe('Chat page models list', () => {
       name: /model/i,
     });
     await waitFor(() =>
-      expect(modelSelect).toHaveTextContent(/gpt-5.1-codex-max/i),
+      expect(modelSelect).toHaveTextContent(/gpt-5.6-luna/i),
     );
     const input = await screen.findByTestId('chat-input');
     await user.type(input, 'Keep this run going');
@@ -1274,10 +1274,10 @@ describe('Chat page models list', () => {
       expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
     );
     await user.click(modelSelect);
-    await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+    await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
 
     await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.2/i),
+      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.6-terra/i),
     );
 
     const cancelMessages = getWsMessages().filter(
@@ -1302,7 +1302,7 @@ describe('Chat page models list', () => {
         name: /model/i,
       });
       await waitFor(() =>
-        expect(modelSelect).toHaveTextContent(/gpt-5.1-codex-max/i),
+        expect(modelSelect).toHaveTextContent(/gpt-5.6-luna/i),
       );
       const input = await screen.findByTestId('chat-input');
       await user.type(input, 'Start with the default model');
@@ -1311,17 +1311,17 @@ describe('Chat page models list', () => {
       });
 
       await waitFor(() => expect(chatBodies).toHaveLength(1));
-      expect(chatBodies[0]?.model).toBe('gpt-5.1-codex-max');
+      expect(chatBodies[0]?.model).toBe('gpt-5.6-luna');
 
       await waitFor(() =>
         expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
       );
       await user.click(modelSelect);
-      await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+      await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
 
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-5.2/i,
+          /gpt-5.6-terra/i,
         ),
       );
 
@@ -1334,13 +1334,13 @@ describe('Chat page models list', () => {
       });
 
       await waitFor(() => expect(chatBodies).toHaveLength(2));
-      expect(chatBodies[1]?.model).toBe('gpt-5.2');
+      expect(chatBodies[1]?.model).toBe('gpt-5.6-terra');
 
       await user.click(await screen.findByTestId('conversation-row'));
 
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-5.1-codex-max/i,
+          /gpt-5.6-luna/i,
         ),
       );
       expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
@@ -1374,7 +1374,7 @@ describe('Chat page models list', () => {
         expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
       );
       await user.click(modelSelect);
-      await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+      await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
 
       const narrowedReasoningSelect = await screen.findByRole('combobox', {
         name: /reasoning effort/i,
@@ -1400,7 +1400,7 @@ describe('Chat page models list', () => {
       });
 
       await waitFor(() => expect(chatBodies).toHaveLength(1));
-      expect(chatBodies[0]?.model).toBe('gpt-5.2');
+      expect(chatBodies[0]?.model).toBe('gpt-5.6-terra');
       expect(
         (chatBodies[0]?.agentFlags as Record<string, unknown>)
           ?.modelReasoningEffort,
@@ -1432,7 +1432,7 @@ describe('Chat page models list', () => {
       expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
     );
     await user.click(modelSelect);
-    await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+    await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
 
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
   });

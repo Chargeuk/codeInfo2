@@ -47,7 +47,7 @@ test('callTool run_command keeps launch warnings in the MCP payload', async () =
         commandName: 'improve_plan',
         conversationId: 'c-warning',
         providerId: 'codex',
-        modelId: 'gpt-5.3-codex',
+        modelId: 'gpt-5.6-luna',
         warnings: [
           'Provider "copilot" is unavailable: copilot unavailable.',
           'Agent will use fallback provider "codex" because "copilot" cannot execute.',

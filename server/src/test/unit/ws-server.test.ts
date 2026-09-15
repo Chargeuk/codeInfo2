@@ -282,7 +282,7 @@ test('WS conversation edit save emits conversation_upsert with updated flags.wor
   memoryConversations.set('conv-edit-save', {
     _id: 'conv-edit-save',
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Title',
     source: 'REST',
     lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
@@ -339,7 +339,7 @@ test('WS conversation edit clear emits conversation_upsert with cleared flags.wo
   memoryConversations.set('conv-edit-clear', {
     _id: 'conv-edit-clear',
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Title',
     source: 'REST',
     lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
@@ -948,7 +948,7 @@ test('WS conversation-only cancel keeps pending stop across aborted inflight cle
       conversationId,
       inflightId,
       provider: 'codex',
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-luna',
       source: 'REST',
     });
     await subscribeConversationAndWaitReady({ ws: ws, conversationId });

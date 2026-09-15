@@ -114,7 +114,7 @@ async function withTempCodexHome() {
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    ['model = "gpt-5.3-codex"', 'sandbox_mode = "danger-full-access"'].join(
+    ['model = "gpt-5.6-luna"', 'sandbox_mode = "danger-full-access"'].join(
       '\n',
     ) + '\n',
     'utf8',
@@ -1230,7 +1230,7 @@ test('omitted-provider MCP codebase_question reuses the saved Codex thread ident
   setMemoryConversation({
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.3-codex',
+    model: 'gpt-5.6-luna',
     title: 'Saved Codex follow-up conversation',
     source: 'MCP',
     lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
@@ -1516,7 +1516,7 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
   }> = [];
   const conversationId = 'mcp-ws-codex-fresh-saved-selected-repo';
   const providerThreadId = 'codex-thread-fresh-saved-789';
-  const savedModel = 'gpt-5.3-codex';
+  const savedModel = 'gpt-5.6-terra';
   const selectedRepo = '/data/story55-manual-proof/queued-repo';
   const advertisedHostPath =
     '/home/d_a_s/code/story55-manual-proof/queued-repo';
@@ -1529,7 +1529,7 @@ test('omitted-provider MCP codebase_question keeps the saved Codex model on fres
   const originalCodeInfoCodeWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
   const tempCodexHome = await withTempCodexHome();
   setScopedTestEnvValue('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
-  setScopedTestEnvValue('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.1-codex-max');
+  setScopedTestEnvValue('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.6-luna');
   setScopedTestEnvValue('MCP_FORCE_CODEX_AVAILABLE', 'true');
   setScopedTestEnvValue('CODEX_HOME', tempCodexHome.codexHome);
   setScopedTestEnvValue('CODEINFO_CODEX_HOME', tempCodexHome.codexHome);
@@ -1718,7 +1718,7 @@ test('omitted-provider MCP codebase_question records the first Codex thread afte
   }> = [];
   const conversationId = 'mcp-ws-codex-route-selected-repo';
   const providerThreadId = 'codex-thread-route-selected-901';
-  const savedModel = 'gpt-5.3-codex';
+  const savedModel = 'gpt-5.6-terra';
   const advertisedHostPath =
     '/home/d_a_s/code/story55-manual-proof/queued-repo';
   const mountedPath = '/data/story55-manual-proof/queued-repo';
@@ -1727,7 +1727,7 @@ test('omitted-provider MCP codebase_question records the first Codex thread afte
     await runWithTestEnvOverrides(
       {
         CODEINFO_CHAT_DEFAULT_PROVIDER: 'codex',
-        CODEINFO_CHAT_DEFAULT_MODEL: 'gpt-5.1-codex-max',
+        CODEINFO_CHAT_DEFAULT_MODEL: 'gpt-5.6-luna',
         CODEINFO_HOST_INGEST_DIR: '/home/d_a_s/code',
         CODEINFO_CODEX_WORKDIR: '/data',
         MCP_FORCE_CODEX_AVAILABLE: 'true',

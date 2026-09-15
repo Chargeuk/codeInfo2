@@ -110,7 +110,7 @@ function makeFlowConversation(overrides?: {
     conversationId: 'flow-conversation-1',
     title: overrides?.title ?? 'MT19 Copy Proof mt19-1779370180455',
     provider: 'codex',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
     source: 'REST',
     lastMessageAt: '2026-05-21T13:29:00.000Z',
     archived: false,

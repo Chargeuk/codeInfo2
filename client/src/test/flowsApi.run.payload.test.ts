@@ -12,7 +12,7 @@ beforeEach(() => {
         conversationId: 'c1',
         inflightId: 'i1',
         providerId: 'codex',
-        modelId: 'gpt-5.2-codex',
+        modelId: 'gpt-5.6-terra',
     }, { status: 202 }));
 });
 const { runFlow } = await import('../api/flows');

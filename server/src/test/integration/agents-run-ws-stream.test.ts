@@ -737,7 +737,7 @@ test('startStep > 1 keeps absolute command metadata in websocket events', async 
     path.join(agentHome, 'config.toml'),
     [
       'codeinfo_provider = "codex"',
-      'model = "gpt-5.3-codex"',
+      'model = "gpt-5.6-luna"',
       'approval_policy = "never"',
     ].join('\n'),
     'utf8',

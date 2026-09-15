@@ -357,7 +357,7 @@ test('startFlowRun backfills legacy executionId on resume', async () => {
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -428,7 +428,7 @@ test('startFlowRun backfills legacy child executionId on resume', async () => {
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -451,7 +451,7 @@ test('startFlowRun backfills legacy child executionId on resume', async () => {
   memoryConversations.set(childConversationId, {
     _id: childConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -505,7 +505,7 @@ test('startFlowRun keeps legacy parent and child execution backfills side-effect
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-dual-agent',
     flowName: 'resume-dual-agent',
     source: 'REST',
@@ -528,7 +528,7 @@ test('startFlowRun keeps legacy parent and child execution backfills side-effect
   memoryConversations.set(firstChildConversationId, {
     _id: firstChildConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-dual-agent (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -541,7 +541,7 @@ test('startFlowRun keeps legacy parent and child execution backfills side-effect
   memoryConversations.set(secondChildConversationId, {
     _id: secondChildConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-dual-agent (resume-test-2)',
     agentName: 'planning_agent',
     source: 'REST',
@@ -586,7 +586,7 @@ test('startFlowRun keeps legacy parent and child execution backfills side-effect
           _id: secondChildConversationId,
         }),
         provider: 'codex',
-        model: 'gpt-5.2-codex',
+        model: 'gpt-5.6-terra',
         title: 'Flow: resume-dual-agent (resume-test-2)',
         agentName: 'coding_agent',
         source: 'REST',
@@ -647,7 +647,7 @@ test('startFlowRun validates each resumed child once and only backfills missing 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-dual-agent',
     flowName: 'resume-dual-agent',
     source: 'REST',
@@ -671,7 +671,7 @@ test('startFlowRun validates each resumed child once and only backfills missing 
   memoryConversations.set(firstChildConversationId, {
     _id: firstChildConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-dual-agent (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -688,7 +688,7 @@ test('startFlowRun validates each resumed child once and only backfills missing 
   memoryConversations.set(secondChildConversationId, {
     _id: secondChildConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-dual-agent (resume-test-2)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -769,7 +769,7 @@ test('startFlowRun leaves a fresher child execution id intact when it appears af
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -792,7 +792,7 @@ test('startFlowRun leaves a fresher child execution id intact when it appears af
   memoryConversations.set(childConversationId, {
     _id: childConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -1104,7 +1104,7 @@ test('missing GitHub review setup records a warning and continues later flow ste
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: github-recovery-exhausted',
     flowName: 'github-recovery-exhausted',
     source: 'REST',
@@ -1236,7 +1236,7 @@ test('ordinary failures after GitHub review do not acquire review retry ownershi
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: github-recovery-boundary',
     flowName: 'github-recovery-boundary',
     source: 'REST',
@@ -1389,7 +1389,7 @@ test('exhausted nested GitHub review recovery skips the marked review branch', a
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: github-recovery-scope',
     flowName: 'github-recovery-scope',
     source: 'REST',
@@ -1514,7 +1514,7 @@ test('a different failed GitHub close step starts with a fresh recovery budget',
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: github-recovery-new-step',
     flowName: 'github-recovery-new-step',
     source: 'REST',
@@ -1619,7 +1619,7 @@ test('a recovered GitHub review step clears its retry count and stale warning', 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: github-recovery-cleared',
     flowName: 'github-recovery-cleared',
     source: 'REST',
@@ -2083,7 +2083,7 @@ test('startup recovery does not re-register malformed persisted wait state with 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: wait-resume',
     flowName: 'wait-resume',
     source: 'REST',
@@ -2137,7 +2137,7 @@ test('startup recovery re-registers a first-step GitHub review retry with an emp
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: review-retry-from-start',
     flowName: 'review-retry-from-start',
     source: 'REST',
@@ -2196,7 +2196,7 @@ test('startup recovery returns a degraded result instead of throwing when wait r
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: wait-resume',
     flowName: 'wait-resume',
     source: 'REST',

@@ -118,7 +118,7 @@ function restoreProviderEnv(snapshot: ProviderEnvSnapshot) {
 }
 test('codebase_question fails on the selected explicit Codex provider when Codex is unavailable', async () => {
     const snapshot = snapshotProviderEnv();
-    const tempHome = await withTempCodexHome('model = "gpt-5.3-codex"\n');
+    const tempHome = await withTempCodexHome('model = "gpt-5.6-luna"\n');
     setScopedTestEnvValue("MCP_FORCE_CODEX_AVAILABLE", 'false');
     setScopedTestEnvValue("CODEX_HOME", tempHome.codexHome);
     setScopedTestEnvValue("CODEINFO_CODEX_HOME", tempHome.codexHome);
@@ -263,7 +263,7 @@ test('codebase_question allows same-provider native fallback for explicit Codex 
 test('codebase_question still falls back when provider resolution is omitted and the preferred provider is unavailable', async () => {
     const snapshot = snapshotProviderEnv();
     const tempHome = await withTempCopilotHome(['model = "copilot-default-model"', 'tool_access = "off"', ''].join('\n'));
-    const tempCodexHome = await withTempCodexHome('model = "gpt-5.3-codex"\n');
+    const tempCodexHome = await withTempCodexHome('model = "gpt-5.6-luna"\n');
     setScopedTestEnvValue("CODEINFO_COPILOT_HOME", tempHome.copilotHome);
     setScopedTestEnvValue("CODEX_HOME", tempCodexHome.codexHome);
     setScopedTestEnvValue("CODEINFO_CODEX_HOME", tempCodexHome.codexHome);

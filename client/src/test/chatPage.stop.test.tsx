@@ -225,7 +225,7 @@ describe('Chat page stop control', () => {
             conversationId: 'c2',
             title: 'Conversation two',
             provider: 'codex',
-            model: 'gpt-5-codex',
+            model: 'gpt-5.6-luna',
             lastMessageAt: '2025-01-02T00:00:00.000Z',
             archived: false,
           },

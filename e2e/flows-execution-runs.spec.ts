@@ -32,7 +32,7 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
       conversationId: 'agent-plain-1',
       title: 'Ordinary planner conversation',
       provider: 'codex',
-      model: 'gpt-5.2',
+      model: 'gpt-5.6-terra',
       source: 'REST',
       lastMessageAt: '2025-01-01T00:00:00.000Z',
       archived: false,
@@ -157,7 +157,7 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
             conversationId: freshConversationId,
             inflightId: `flow-inflight-${runIndex}`,
             providerId: 'codex',
-            modelId: 'gpt-5.2',
+            modelId: 'gpt-5.6-terra',
           }),
         });
         return;
@@ -170,7 +170,7 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
           conversationId: replayConversationId,
           title: 'Flow: echo',
           provider: 'codex',
-          model: 'gpt-5.2',
+          model: 'gpt-5.6-terra',
           source: 'REST',
           lastMessageAt: timestamp,
           archived: false,
@@ -187,7 +187,7 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
           conversationId: freshConversationId,
           title: 'Flow: echo',
           provider: 'codex',
-          model: 'gpt-5.2',
+          model: 'gpt-5.6-terra',
           source: 'REST',
           lastMessageAt: timestamp,
           archived: false,
@@ -211,7 +211,7 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
             runIndex === 2 ? replayConversationId : freshConversationId,
           inflightId: `flow-inflight-${runIndex}`,
           providerId: 'codex',
-          modelId: 'gpt-5.2',
+          modelId: 'gpt-5.6-terra',
         }),
       });
       return;
@@ -314,7 +314,7 @@ test('flows expose wave progress and target-aware repeated child identity in the
       conversationId: 'wave-parent',
       title: 'Flow: story-review',
       provider: 'codex',
-      model: 'gpt-5.2',
+      model: 'gpt-5.6-terra',
       source: 'REST',
       lastMessageAt: '2025-01-03T00:00:00.000Z',
       archived: false,
@@ -337,7 +337,7 @@ test('flows expose wave progress and target-aware repeated child identity in the
       conversationId: `wave-child-${index}`,
       title: `Story Review-Artifact Review [${targetId}]`,
       provider: 'codex',
-      model: 'gpt-5.2',
+      model: 'gpt-5.6-terra',
       source: 'REST',
       lastMessageAt: `2025-01-0${index + 1}T00:00:00.000Z`,
       archived: false,
@@ -543,7 +543,7 @@ test('flows warning rendering and disabled run guard stay visible at the browser
           conversationId: 'flow-1',
           inflightId: 'i1',
           providerId: 'codex',
-          modelId: 'gpt-5.2',
+          modelId: 'gpt-5.6-terra',
         }),
       });
       return;
@@ -683,7 +683,7 @@ test('flows let operators select the GitHub review variant without mutating the 
           conversationId: 'github-run',
           inflightId: 'github-inflight',
           providerId: 'codex',
-          modelId: 'gpt-5.2',
+          modelId: 'gpt-5.6-terra',
         }),
       });
       return;
@@ -701,7 +701,7 @@ test('flows let operators select the GitHub review variant without mutating the 
           conversationId: 'default-run',
           inflightId: 'default-inflight',
           providerId: 'codex',
-          modelId: 'gpt-5.2',
+          modelId: 'gpt-5.6-terra',
         }),
       });
       return;
@@ -983,7 +983,7 @@ test('flows existing-conversation working-folder picker applies a local reposito
               conversationId: 'flow-1',
               title: 'Flow: daily',
               provider: 'codex',
-              model: 'gpt-5.2',
+              model: 'gpt-5.6-terra',
               source: 'REST',
               lastMessageAt: '2025-01-01T00:00:00.000Z',
               archived: false,
@@ -1041,7 +1041,7 @@ test('flows existing-conversation working-folder picker applies a local reposito
               conversationId: 'flow-1',
               title: 'Flow: daily',
               provider: 'codex',
-              model: 'gpt-5.2',
+              model: 'gpt-5.6-terra',
               source: 'REST',
               archived: false,
               flowName: 'daily',

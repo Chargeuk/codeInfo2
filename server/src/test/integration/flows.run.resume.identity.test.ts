@@ -371,7 +371,7 @@ test('startFlowRun resumes after resumeStepPath from legitimate server-owned per
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: originalTitle,
     flowName: 'resume-basic',
     source: 'REST',
@@ -394,7 +394,7 @@ test('startFlowRun resumes after resumeStepPath from legitimate server-owned per
   memoryConversations.set(childConversationId, {
     _id: childConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -525,7 +525,7 @@ test('startFlowRun keeps resumed child execution pinned to the saved provider an
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -548,7 +548,7 @@ test('startFlowRun keeps resumed child execution pinned to the saved provider an
   memoryConversations.set(childConversationId, {
     _id: childConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -579,17 +579,17 @@ test('startFlowRun keeps resumed child execution pinned to the saved provider an
         });
 
         await waitFor(() => capturedModels.length === 1, 15000);
-        assert.deepEqual(capturedModels, ['gpt-5.2-codex']);
+        assert.deepEqual(capturedModels, ['gpt-5.6-terra']);
         assert.equal(
           memoryConversations.get(childConversationId)?.provider,
           'codex',
         );
         assert.equal(
           memoryConversations.get(childConversationId)?.model,
-          'gpt-5.2-codex',
+          'gpt-5.6-terra',
         );
         const childTurns = memoryTurns.get(childConversationId) ?? [];
-        assert.equal(childTurns.at(-1)?.model, 'gpt-5.2-codex');
+        assert.equal(childTurns.at(-1)?.model, 'gpt-5.6-terra');
         assert.equal(childTurns.at(-1)?.provider, 'codex');
       },
     );
@@ -640,7 +640,7 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
       path.join(agentHome, 'config.toml'),
       [
         'codeinfo_provider = "codex"',
-        'model = "gpt-5.2-codex"',
+        'model = "gpt-5.6-terra"',
         `codeinfo_openai_endpoint = "${endpointId}|responses"`,
         '',
       ].join('\n'),
@@ -650,7 +650,7 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
     await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
     await fs.writeFile(
       path.join(codexHome, 'chat', 'config.toml'),
-      'model = "gpt-5.2-codex"\n',
+      'model = "gpt-5.6-terra"\n',
       'utf8',
     );
 
@@ -669,7 +669,7 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
             {
               _id: conversationId,
               provider: 'codex',
-              model: 'gpt-5.2-codex',
+              model: 'gpt-5.6-terra',
               title: 'Flow: resume-basic',
               flowName: 'resume-basic',
               source: 'REST',
@@ -701,7 +701,7 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
             {
               _id: childConversationId,
               provider: 'codex',
-              model: 'gpt-5.2-codex',
+              model: 'gpt-5.6-terra',
               title: 'Flow: resume-basic (resume-test)',
               agentName: 'coding_agent',
               source: 'REST',
@@ -758,7 +758,7 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
             );
             assert.equal(
               conversations.get(childConversationId)?.model,
-              'gpt-5.2-codex',
+              'gpt-5.6-terra',
             );
           },
         });
@@ -1464,7 +1464,7 @@ test('startFlowRun derives resumed runtime identity from the remaining step set 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
     title: 'Flow: resume-dual-identity',
     flowName: 'resume-dual-identity',
     source: 'REST',
@@ -1565,7 +1565,7 @@ test('startFlowRun ignores stale fresh-run retry ownership while resuming a flow
         const seededFlowConversation: Conversation = {
           _id: conversationId,
           provider: 'codex',
-          model: 'gpt-5.2-codex',
+          model: 'gpt-5.6-terra',
           title: 'Flow: resume-basic',
           flowName: 'resume-basic',
           source: 'REST',
@@ -1588,7 +1588,7 @@ test('startFlowRun ignores stale fresh-run retry ownership while resuming a flow
         const seededChildConversation: Conversation = {
           _id: childConversationId,
           provider: 'codex',
-          model: 'gpt-5.2-codex',
+          model: 'gpt-5.6-terra',
           title: 'Flow: resume-basic (resume-test)',
           agentName: 'coding_agent',
           source: 'REST',
@@ -1684,7 +1684,7 @@ test('startFlowRun keeps the parent requestedProviderId authoritative over weake
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -1708,7 +1708,7 @@ test('startFlowRun keeps the parent requestedProviderId authoritative over weake
   memoryConversations.set(childConversationId, {
     _id: childConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -1786,7 +1786,7 @@ test('startFlowRun ignores stale parent flow metadata on an ordinary conversatio
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Ordinary conversation',
     source: 'REST',
     flags: {
@@ -2275,7 +2275,7 @@ test('POST /flows/:flowName/run rejects agent mismatch', async () => {
   memoryConversations.set(flowConversationId, {
     _id: flowConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -2298,7 +2298,7 @@ test('POST /flows/:flowName/run rejects agent mismatch', async () => {
   memoryConversations.set(agentConversationId, {
     _id: agentConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Agent: mismatch',
     agentName: 'planning_agent',
     source: 'REST',
@@ -2343,7 +2343,7 @@ test('POST /flows/:flowName/run rejects conflicting child execution marker', asy
   memoryConversations.set(flowConversationId, {
     _id: flowConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -2366,7 +2366,7 @@ test('POST /flows/:flowName/run rejects conflicting child execution marker', asy
   memoryConversations.set(agentConversationId, {
     _id: agentConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Agent: conflicting-child',
     agentName: 'coding_agent',
     source: 'REST',
@@ -2414,7 +2414,7 @@ test('POST /flows/:flowName/run rejects missing child conversation mapping', asy
   memoryConversations.set(flowConversationId, {
     _id: flowConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',

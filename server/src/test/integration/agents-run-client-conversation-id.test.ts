@@ -455,7 +455,7 @@ test('direct agent execution uses the shared execution root when no working fold
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
-    ['model = "gpt-5.3-codex"', 'approval_policy = "never"'].join('\n'),
+    ['model = "gpt-5.6-luna"', 'approval_policy = "never"'].join('\n'),
     'utf8',
   );
   await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
@@ -644,7 +644,7 @@ test('direct agent start stops before completion when persisted metadata retries
         {
           _id: conversationId,
           provider: 'codex',
-          model: 'gpt-5.3-codex',
+          model: 'gpt-5.6-luna',
           title: 'Saved continuation',
           agentName: 'coding_agent',
           source: 'REST',
@@ -677,7 +677,7 @@ test('direct agent start stops before completion when persisted metadata retries
         );
         assert.equal(builtChat, false);
         assert.equal(conversations.get(conversationId)?.provider, 'codex');
-        assert.equal(conversations.get(conversationId)?.model, 'gpt-5.3-codex');
+        assert.equal(conversations.get(conversationId)?.model, 'gpt-5.6-luna');
       },
     });
   } finally {
@@ -690,7 +690,7 @@ test('direct agent start stops before completion when persisted metadata reports
     seedConversation: {
       _id: conversationId,
       provider: 'codex',
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-luna',
       title: 'Saved continuation',
       agentName: 'coding_agent',
       source: 'REST',
@@ -742,7 +742,7 @@ test('runAgentCommand stops before the first synthetic turn persistence when per
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
-    ['model = "gpt-5.3-codex"', 'approval_policy = "never"'].join('\n'),
+    ['model = "gpt-5.6-luna"', 'approval_policy = "never"'].join('\n'),
     'utf8',
   );
   await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
@@ -774,7 +774,7 @@ test('runAgentCommand stops before the first synthetic turn persistence when per
         {
           _id: conversationId,
           provider: 'codex',
-          model: 'gpt-5.3-codex',
+          model: 'gpt-5.6-luna',
           title: 'Saved command continuation',
           agentName: 'coding_agent',
           source: 'REST',
@@ -802,7 +802,7 @@ test('runAgentCommand stops before the first synthetic turn persistence when per
             error.message === 'agent conversation metadata update exhausted',
         );
         assert.equal(conversations.get(conversationId)?.provider, 'codex');
-        assert.equal(conversations.get(conversationId)?.model, 'gpt-5.3-codex');
+        assert.equal(conversations.get(conversationId)?.model, 'gpt-5.6-luna');
       },
     });
   } finally {
@@ -1547,7 +1547,7 @@ test('Agents runs fail when agent config contains invalid supported key types (r
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
-    ['model = "gpt-5.1-codex-max"', 'approval_policy = 42'].join('\n'),
+    ['model = "gpt-5.6-sol"', 'approval_policy = 42'].join('\n'),
     'utf8',
   );
   setScopedTestEnvValue('CODEINFO_AGENT_HOME', tmpAgentsHome);
@@ -1656,7 +1656,7 @@ test('Agents run uses shared-home Codex options and agent runtime config behavio
     const runtimeConfig = toRuntimeConfigSnapshot(flags);
     assert.equal(flags.useConfigDefaults, true);
     assert.equal(result.providerId, 'codex');
-    assert.equal(result.modelId, 'gpt-5.3-codex');
+    assert.equal(result.modelId, 'gpt-5.6-sol');
     assert.deepEqual(runtimeConfig, {
       approval_policy: 'never',
       model: result.modelId,
@@ -1748,7 +1748,7 @@ test('Agents command run uses same runtime config source and emits deterministic
     const runtimeConfig = toRuntimeConfigSnapshot(flags);
     assert.equal(flags.useConfigDefaults, true);
     assert.equal(result.providerId, 'codex');
-    assert.equal(result.modelId, 'gpt-5.3-codex');
+    assert.equal(result.modelId, 'gpt-5.6-sol');
     assert.deepEqual(runtimeConfig, {
       approval_policy: 'never',
       model: result.modelId,
@@ -1962,7 +1962,7 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(baselineFlags);
     assert.equal(baselineFlags.useConfigDefaults, true);
     assert.equal(restResult.providerId, 'codex');
-    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.equal(restResult.modelId, 'gpt-5.6-sol');
     assert.deepEqual(baselineRuntimeConfig, {
       approval_policy: 'never',
       model: restResult.modelId,
@@ -2492,7 +2492,7 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
     const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
     const restRuntimeConfig = toRuntimeConfigSnapshot(restFlagsSnapshot);
     assert.equal(restResult.providerId, 'codex');
-    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.equal(restResult.modelId, 'gpt-5.6-sol');
     assert.equal(restFlagsSnapshot.useConfigDefaults, true);
     assert.equal(
       (
@@ -2697,7 +2697,7 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
     const restFlagsSnapshot = restFlags.at(-1) as Record<string, unknown>;
     const restRuntimeConfig = toRuntimeConfigSnapshot(restFlagsSnapshot);
     assert.equal(restResult.providerId, 'codex');
-    assert.equal(restResult.modelId, 'gpt-5.3-codex');
+    assert.equal(restResult.modelId, 'gpt-5.6-sol');
     assert.equal(restFlagsSnapshot.useConfigDefaults, true);
     assert.equal(
       (
@@ -2794,7 +2794,7 @@ test('Task 19 preserves fallback runtime warnings on successful direct agent run
   await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(tempCodexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   await fs.writeFile(path.join(tempCopilotHome, 'config.toml'), '', 'utf8');
@@ -2824,7 +2824,7 @@ test('Task 19 preserves fallback runtime warnings on successful direct agent run
       },
       models: [
         {
-          model: 'gpt-5.3-codex',
+          model: 'gpt-5.6-luna',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -2898,7 +2898,7 @@ test('Task 26 keeps availability warnings on the initial direct agent run-start 
   await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(tempCodexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   await fs.writeFile(path.join(tempCopilotHome, 'config.toml'), '', 'utf8');
@@ -2928,7 +2928,7 @@ test('Task 26 keeps availability warnings on the initial direct agent run-start 
       },
       models: [
         {
-          model: 'gpt-5.3-codex',
+          model: 'gpt-5.6-luna',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -3022,7 +3022,7 @@ test('direct agent run falls back before provider runtime load when the requeste
   await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(tempCodexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   await fs.writeFile(
@@ -3051,7 +3051,7 @@ test('direct agent run falls back before provider runtime load when the requeste
       },
       models: [
         {
-          model: 'gpt-5.3-codex',
+          model: 'gpt-5.6-luna',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -3165,7 +3165,7 @@ test('provider-independent agent config failures still fail clearly instead of s
   await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(tempCodexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   setScopedTestEnvValue('CODEINFO_AGENT_HOME', tempAgentsHome);
@@ -3233,7 +3233,7 @@ test('Task 28 direct continuation restores the saved requested-provider identity
   await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(tempCodexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   setScopedTestEnvValue('CODEINFO_AGENT_HOME', tempAgentsHome);
@@ -3256,7 +3256,7 @@ test('Task 28 direct continuation restores the saved requested-provider identity
       },
       models: [
         {
-          model: 'gpt-5.3-codex',
+          model: 'gpt-5.6-luna',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -3281,7 +3281,7 @@ test('Task 28 direct continuation restores the saved requested-provider identity
     const seededConversation: Conversation = {
       _id: conversationId,
       provider: 'codex',
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-luna',
       title: 'Saved continuation',
       agentName: 'coding_agent',
       source: 'REST',
@@ -3327,7 +3327,7 @@ test('Task 9 resumes a direct-agent conversation with the saved endpoint when th
   const previousCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const externalServer = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.2-codex'],
+    models: ['gpt-5.6-terra'],
   });
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -3343,7 +3343,7 @@ test('Task 9 resumes a direct-agent conversation with the saved endpoint when th
     path.join(agentHome, 'config.toml'),
     [
       'codeinfo_provider = "codex"',
-      'model = "gpt-5.2-codex"',
+      'model = "gpt-5.6-terra"',
       `codeinfo_openai_endpoint = "${endpointId}|responses"`,
       '',
     ].join('\n'),
@@ -3353,7 +3353,7 @@ test('Task 9 resumes a direct-agent conversation with the saved endpoint when th
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.2-codex"\n',
+    'model = "gpt-5.6-terra"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -3388,7 +3388,7 @@ test('Task 9 resumes a direct-agent conversation with the saved endpoint when th
       },
       models: [
         {
-          model: 'gpt-5.2-codex',
+          model: 'gpt-5.6-terra',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -3421,7 +3421,7 @@ test('Task 9 resumes a direct-agent conversation with the saved endpoint when th
     memoryConversations.set(conversationId, {
       _id: conversationId,
       provider: 'codex',
-      model: 'gpt-5.2-codex',
+      model: 'gpt-5.6-terra',
       title: 'Saved endpoint direct-agent conversation',
       agentName: 'coding_agent',
       source: 'REST',
@@ -3439,7 +3439,7 @@ test('Task 9 resumes a direct-agent conversation with the saved endpoint when th
       chatFactory: () => new MinimalChat(),
     });
     assert.equal(result.providerId, 'codex');
-    assert.equal(result.modelId, 'gpt-5.2-codex');
+    assert.equal(result.modelId, 'gpt-5.6-terra');
     assert.equal(
       memoryConversations.get(conversationId)?.flags?.endpointId,
       endpointId,
@@ -3447,7 +3447,7 @@ test('Task 9 resumes a direct-agent conversation with the saved endpoint when th
     assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
     assert.equal(
       memoryConversations.get(conversationId)?.model,
-      'gpt-5.2-codex',
+      'gpt-5.6-terra',
     );
   } finally {
     __resetAgentServiceDepsForTests();
@@ -3531,7 +3531,7 @@ test('direct Copilot agent runs carry the configured external endpoint through t
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.2-codex"\n',
+    'model = "gpt-5.6-terra"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -3570,7 +3570,7 @@ test('direct Copilot agent runs carry the configured external endpoint through t
       },
       models: [
         {
-          model: 'gpt-5.2-codex',
+          model: 'gpt-5.6-terra',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -3712,7 +3712,7 @@ test('direct Codex agent runs keep the endpoint-backed configured model instead 
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.2-codex"\n',
+    'model = "gpt-5.6-terra"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -3751,7 +3751,7 @@ test('direct Codex agent runs keep the endpoint-backed configured model instead 
       },
       models: [
         {
-          model: 'gpt-5.2-codex',
+          model: 'gpt-5.6-terra',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -3860,7 +3860,7 @@ test('Task 15 blocks a direct-agent endpoint-backed run when codex bootstrap is 
   const previousCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const externalServer = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.2-codex'],
+    models: ['gpt-5.6-terra'],
   });
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -3876,7 +3876,7 @@ test('Task 15 blocks a direct-agent endpoint-backed run when codex bootstrap is 
     path.join(agentHome, 'config.toml'),
     [
       'codeinfo_provider = "codex"',
-      'model = "gpt-5.2-codex"',
+      'model = "gpt-5.6-terra"',
       `codeinfo_openai_endpoint = "${endpointId}|responses"`,
       '',
     ].join('\n'),
@@ -3886,7 +3886,7 @@ test('Task 15 blocks a direct-agent endpoint-backed run when codex bootstrap is 
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.2-codex"\n',
+    'model = "gpt-5.6-terra"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -3921,7 +3921,7 @@ test('Task 15 blocks a direct-agent endpoint-backed run when codex bootstrap is 
       },
       models: [
         {
-          model: 'gpt-5.2-codex',
+          model: 'gpt-5.6-terra',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -3958,7 +3958,7 @@ test('Task 15 blocks a direct-agent endpoint-backed run when codex bootstrap is 
     memoryConversations.set(conversationId, {
       _id: conversationId,
       provider: 'codex',
-      model: 'gpt-5.2-codex',
+      model: 'gpt-5.6-terra',
       title: 'Saved endpoint direct-agent conversation',
       agentName: 'coding_agent',
       source: 'REST',
@@ -3996,7 +3996,7 @@ test('Task 15 blocks a direct-agent endpoint-backed run when codex bootstrap is 
     assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
     assert.equal(
       memoryConversations.get(conversationId)?.model,
-      'gpt-5.2-codex',
+      'gpt-5.6-terra',
     );
   } finally {
     __resetAgentServiceDepsForTests();
@@ -4221,7 +4221,7 @@ test('Task 9 clears a stale saved Codex thread before direct-agent endpoint acti
   const previousCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const externalServer = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.2-codex'],
+    models: ['gpt-5.6-terra'],
   });
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -4237,7 +4237,7 @@ test('Task 9 clears a stale saved Codex thread before direct-agent endpoint acti
     path.join(agentHome, 'config.toml'),
     [
       'codeinfo_provider = "codex"',
-      'model = "gpt-5.2-codex"',
+      'model = "gpt-5.6-terra"',
       `codeinfo_openai_endpoint = "${endpointId}|responses"`,
       '',
     ].join('\n'),
@@ -4247,7 +4247,7 @@ test('Task 9 clears a stale saved Codex thread before direct-agent endpoint acti
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.2-codex"\n',
+    'model = "gpt-5.6-terra"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -4282,7 +4282,7 @@ test('Task 9 clears a stale saved Codex thread before direct-agent endpoint acti
       },
       models: [
         {
-          model: 'gpt-5.2-codex',
+          model: 'gpt-5.6-terra',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -4329,7 +4329,7 @@ test('Task 9 clears a stale saved Codex thread before direct-agent endpoint acti
     memoryConversations.set(conversationId, {
       _id: conversationId,
       provider: 'codex',
-      model: 'gpt-5.2-codex',
+      model: 'gpt-5.6-terra',
       title: 'Saved direct-agent conversation without endpoint identity',
       agentName: 'coding_agent',
       source: 'REST',
@@ -4363,7 +4363,7 @@ test('Task 9 clears a stale saved Codex thread before direct-agent endpoint acti
     assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
     assert.equal(
       memoryConversations.get(conversationId)?.model,
-      'gpt-5.2-codex',
+      'gpt-5.6-terra',
     );
   } finally {
     __resetAgentServiceDepsForTests();
@@ -4419,7 +4419,7 @@ test('Task 9 rejects resumed direct-agent endpoint drift without rewriting the s
   const previousCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const externalServer = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.2-codex'],
+    models: ['gpt-5.6-terra'],
   });
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -4436,7 +4436,7 @@ test('Task 9 rejects resumed direct-agent endpoint drift without rewriting the s
     path.join(agentHome, 'config.toml'),
     [
       'codeinfo_provider = "codex"',
-      'model = "gpt-5.2-codex"',
+      'model = "gpt-5.6-terra"',
       `codeinfo_openai_endpoint = "${currentEndpointId}|responses"`,
       '',
     ].join('\n'),
@@ -4446,7 +4446,7 @@ test('Task 9 rejects resumed direct-agent endpoint drift without rewriting the s
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.2-codex"\n',
+    'model = "gpt-5.6-terra"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -4481,7 +4481,7 @@ test('Task 9 rejects resumed direct-agent endpoint drift without rewriting the s
       },
       models: [
         {
-          model: 'gpt-5.2-codex',
+          model: 'gpt-5.6-terra',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -4514,7 +4514,7 @@ test('Task 9 rejects resumed direct-agent endpoint drift without rewriting the s
     memoryConversations.set(conversationId, {
       _id: conversationId,
       provider: 'codex',
-      model: 'gpt-5.2-codex',
+      model: 'gpt-5.6-terra',
       title: 'Saved endpoint direct-agent conversation',
       agentName: 'coding_agent',
       source: 'REST',
@@ -4552,7 +4552,7 @@ test('Task 9 rejects resumed direct-agent endpoint drift without rewriting the s
     assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
     assert.equal(
       memoryConversations.get(conversationId)?.model,
-      'gpt-5.2-codex',
+      'gpt-5.6-terra',
     );
   } finally {
     __resetAgentServiceDepsForTests();
@@ -4624,7 +4624,7 @@ test('Task 24 keeps resumed direct-agent endpoint identity pinned and fails in p
     path.join(agentHome, 'config.toml'),
     [
       'codeinfo_provider = "codex"',
-      'model = "gpt-5.2-codex"',
+      'model = "gpt-5.6-terra"',
       `codeinfo_openai_endpoint = "${endpointId}|responses"`,
       '',
     ].join('\n'),
@@ -4634,7 +4634,7 @@ test('Task 24 keeps resumed direct-agent endpoint identity pinned and fails in p
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.2-codex"\n',
+    'model = "gpt-5.6-terra"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -4669,7 +4669,7 @@ test('Task 24 keeps resumed direct-agent endpoint identity pinned and fails in p
       },
       models: [
         {
-          model: 'gpt-5.2-codex',
+          model: 'gpt-5.6-terra',
           supportedReasoningEfforts: ['high'],
           defaultReasoningEffort: 'high',
         },
@@ -4702,7 +4702,7 @@ test('Task 24 keeps resumed direct-agent endpoint identity pinned and fails in p
     memoryConversations.set(conversationId, {
       _id: conversationId,
       provider: 'codex',
-      model: 'gpt-5.2-codex',
+      model: 'gpt-5.6-terra',
       title: 'Saved endpoint direct-agent conversation',
       agentName: 'coding_agent',
       source: 'REST',
@@ -4738,7 +4738,7 @@ test('Task 24 keeps resumed direct-agent endpoint identity pinned and fails in p
     assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
     assert.equal(
       memoryConversations.get(conversationId)?.model,
-      'gpt-5.2-codex',
+      'gpt-5.6-terra',
     );
   } finally {
     __resetAgentServiceDepsForTests();
@@ -5128,7 +5128,7 @@ test('T19 parser-removal regression guard hard-fails invalid supported key types
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
-    ['model = "gpt-5.1-codex-max"', 'approval_policy = 42'].join('\n'),
+    ['model = "gpt-5.6-sol"', 'approval_policy = 42'].join('\n'),
     'utf8',
   );
   await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');

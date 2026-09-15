@@ -125,7 +125,7 @@ async function startExternalEndpointModelsScenario(params: {
         tempCodexHomeForScenario = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-models-codex-home-'));
         await writeCodexChatConfig({
             home: tempCodexHomeForScenario,
-            model: params.codexConfigModel ?? params.pinnedModels[0] ?? 'gpt-5.1-codex-max',
+            model: params.codexConfigModel ?? params.pinnedModels[0] ?? 'gpt-5.6-luna',
             endpointId: pinnedEndpointId,
         });
         setScopedTestEnvValue("CODEINFO_CODEX_HOME", tempCodexHomeForScenario);
@@ -134,7 +134,7 @@ async function startExternalEndpointModelsScenario(params: {
     tempCodexHomeForScenario = await fs.mkdtemp(path.join(os.tmpdir(), 'chat-models-codex-home-'));
     await writeCodexChatConfig({
         home: tempCodexHomeForScenario,
-        model: params.codexConfigModel ?? params.discoveredModels[0] ?? 'gpt-5.1-codex-max',
+        model: params.codexConfigModel ?? params.discoveredModels[0] ?? 'gpt-5.6-luna',
         endpointId: discoveredEndpointId,
     });
     setScopedTestEnvValue("CODEINFO_CODEX_HOME", tempCodexHomeForScenario);
@@ -264,7 +264,7 @@ Given('chat models scenario {string}', async (name: string) => {
             cliPath: '/usr/bin/codex',
         });
         await startExternalEndpointModelsScenario({
-            discoveredModels: ['gpt-5.1-codex-max', 'gpt-5.2'],
+            discoveredModels: ['gpt-5.6-luna', 'gpt-5.6-terra'],
         });
         await startLegacyModelsServer();
         return;
@@ -294,8 +294,8 @@ Given('chat models scenario {string}', async (name: string) => {
             cliPath: '/usr/bin/codex',
         });
         await startExternalEndpointModelsScenario({
-            discoveredModels: ['gpt-5.1-codex-max'],
-            pinnedModels: ['gpt-5.2'],
+            discoveredModels: ['gpt-5.6-luna'],
+            pinnedModels: ['gpt-5.6-terra'],
             pinnedEndpointAbsentFromEnv: true,
         });
         await startLegacyModelsServer();

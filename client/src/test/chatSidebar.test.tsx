@@ -1010,7 +1010,7 @@ describe('Chat sidebar WS upserts (ChatPage)', () => {
       conversationId: 'agent-1',
       title: 'Agent conversation',
       provider: 'codex',
-      model: 'gpt-5.2',
+      model: 'gpt-5.6-terra',
       source: 'REST',
       lastMessageAt: '2025-01-01T00:00:00.000Z',
       archived: false,

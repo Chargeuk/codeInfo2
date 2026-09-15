@@ -592,7 +592,7 @@ test('codex model list CSV trims, drops empties, and de-duplicates', async () =>
   await setCodexHome();
   env.set(
     'Codex_model_list',
-    ' gpt-5.1-codex-max , , gpt-5.1, gpt-5.1 , gpt-5.2 ',
+    ' gpt-5.6-luna , , gpt-5.6-terra, gpt-5.6-terra , gpt-6-astra ',
   );
   setCodexDetection({
     available: true,
@@ -610,9 +610,9 @@ test('codex model list CSV trims, drops empties, and de-duplicates', async () =>
     );
     assert.deepEqual(modelKeys, [
       'gpt-5.6-sol',
-      'gpt-5.1-codex-max',
-      'gpt-5.1',
-      'gpt-5.2',
+      'gpt-5.6-luna',
+      'gpt-5.6-terra',
+      'gpt-6-astra',
     ]);
   } finally {
     await stopServer(server);
@@ -1523,8 +1523,8 @@ test('codex payload includes non-standard reasoning effort values from shared ca
 test('codex models prioritize CODEINFO_CHAT_DEFAULT_MODEL when codex is default provider', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
-  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.1');
-  env.set('Codex_model_list', 'config-model,gpt-5.1,gpt-5.2');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.6-luna');
+  env.set('Codex_model_list', 'config-model,gpt-5.6-luna,gpt-5.6-terra');
   setCodexDetection({
     available: true,
     authPresent: true,

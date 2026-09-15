@@ -635,7 +635,7 @@ describe('ChatInterface.run persistence', () => {
                 exec: async () => ({
                     _id: 'endpoint-conversation',
                     provider: 'codex',
-                    model: 'gpt-5.2',
+                    model: 'gpt-5.6-terra',
                     flags: {},
                     updatedAt: new Date('2024-12-31T00:00:00.000Z'),
                 }) as never,
@@ -647,7 +647,7 @@ describe('ChatInterface.run persistence', () => {
                 exec: async () => buildConversationDoc({
                     conversationId: 'endpoint-conversation',
                     provider: 'codex',
-                    model: 'gpt-5.2',
+                    model: 'gpt-5.6-terra',
                     flags: args[1] as Record<string, unknown>,
                     lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
                     updatedAt: new Date('2025-01-01T00:00:00.000Z'),
@@ -658,7 +658,7 @@ describe('ChatInterface.run persistence', () => {
             await updateConversationMeta({
                 conversationId: 'endpoint-conversation',
                 provider: 'codex',
-                model: 'gpt-5.2',
+                model: 'gpt-5.6-terra',
                 flags: {
                     endpointId: 'https://alpha.example/v1',
                     workingFolder: '/repos/working-root',
@@ -676,7 +676,7 @@ describe('ChatInterface.run persistence', () => {
         }
         assert.deepEqual(capturedUpdate, {
             provider: 'codex',
-            model: 'gpt-5.2',
+            model: 'gpt-5.6-terra',
             flags: {
                 endpointId: 'https://alpha.example/v1',
                 workingFolder: '/repos/working-root',
@@ -719,14 +719,14 @@ describe('ChatInterface.run persistence', () => {
                         ? ({
                             _id: conversationId,
                             provider: 'codex',
-                            model: 'gpt-5.2',
+                            model: 'gpt-5.6-terra',
                             flags: staleFlags,
                             updatedAt: new Date('2025-02-02T00:00:00.000Z'),
                         } as never)
                         : ({
                             _id: conversationId,
                             provider: 'codex',
-                            model: 'gpt-5.2',
+                            model: 'gpt-5.6-terra',
                             flags: freshFlags,
                             updatedAt: new Date('2025-03-03T00:00:00.000Z'),
                         } as never);
@@ -741,7 +741,7 @@ describe('ChatInterface.run persistence', () => {
                     : buildConversationDoc({
                         conversationId: 'stale-snapshot-conversation',
                         provider: 'codex',
-                        model: 'gpt-5.2',
+                        model: 'gpt-5.6-terra',
                         flags: (update as {
                             flags?: Record<string, unknown>;
                         }).flags ?? {},
@@ -754,7 +754,7 @@ describe('ChatInterface.run persistence', () => {
             await updateConversationMeta({
                 conversationId: 'stale-snapshot-conversation',
                 provider: 'codex',
-                model: 'gpt-5.2',
+                model: 'gpt-5.6-terra',
                 flags: {
                     endpointId: 'https://stale.example/v1',
                     workingFolder: '/repos/stale-root',
@@ -782,7 +782,7 @@ describe('ChatInterface.run persistence', () => {
         });
         assert.deepEqual(capturedCalls[0]?.update, {
             provider: 'codex',
-            model: 'gpt-5.2',
+            model: 'gpt-5.6-terra',
             flags: {
                 endpointId: 'https://stale.example/v1',
                 workingFolder: '/repos/stale-root',
@@ -800,7 +800,7 @@ describe('ChatInterface.run persistence', () => {
         });
         assert.deepEqual(capturedCalls[1]?.update, {
             provider: 'codex',
-            model: 'gpt-5.2',
+            model: 'gpt-5.6-terra',
             flags: {
                 endpointId: 'https://fresh.example/v1',
                 workingFolder: '/repos/fresh-root',
@@ -873,7 +873,7 @@ describe('ChatInterface.run persistence', () => {
         let storedConversation = buildConversationDoc({
             conversationId,
             provider: 'codex',
-            model: 'gpt-5.2',
+            model: 'gpt-5.6-terra',
             flags: staleFlags,
             lastMessageAt: updatedAtValues[0],
             updatedAt: updatedAtValues[0],
@@ -893,7 +893,7 @@ describe('ChatInterface.run persistence', () => {
                 storedConversation = buildConversationDoc({
                     conversationId,
                     provider: 'codex',
-                    model: 'gpt-5.2',
+                    model: 'gpt-5.6-terra',
                     flags: winnerFlags[stateIndex],
                     lastMessageAt: updatedAtValues[stateIndex],
                     updatedAt: updatedAtValues[stateIndex],
@@ -907,7 +907,7 @@ describe('ChatInterface.run persistence', () => {
             const outcome = await updateConversationMeta({
                 conversationId,
                 provider: 'codex',
-                model: 'gpt-5.2',
+                model: 'gpt-5.6-terra',
                 flags: staleFlags,
                 lastMessageAt: updatedAtValues[0],
             });
@@ -930,7 +930,7 @@ describe('ChatInterface.run persistence', () => {
         });
         assert.deepEqual(capturedCalls[0]?.update, {
             provider: 'codex',
-            model: 'gpt-5.2',
+            model: 'gpt-5.6-terra',
             flags: staleFlags,
             lastMessageAt: updatedAtValues[0],
         });
@@ -940,7 +940,7 @@ describe('ChatInterface.run persistence', () => {
         });
         assert.deepEqual(capturedCalls[1]?.update, {
             provider: 'codex',
-            model: 'gpt-5.2',
+            model: 'gpt-5.6-terra',
             flags: winnerFlags[1],
             lastMessageAt: updatedAtValues[0],
         });
@@ -950,7 +950,7 @@ describe('ChatInterface.run persistence', () => {
         });
         assert.deepEqual(capturedCalls[2]?.update, {
             provider: 'codex',
-            model: 'gpt-5.2',
+            model: 'gpt-5.6-terra',
             flags: winnerFlags[2],
             lastMessageAt: updatedAtValues[0],
         });
@@ -1032,7 +1032,7 @@ describe('ChatInterface.run persistence', () => {
             const outcome = await updateConversationMeta({
                 conversationId: 'missing-conversation',
                 provider: 'codex',
-                model: 'gpt-5.2',
+                model: 'gpt-5.6-terra',
                 flags: {
                     endpointId: 'https://missing.example/v1',
                     workingFolder: '/repos/missing-root',
@@ -1060,7 +1060,7 @@ describe('ChatInterface.run persistence', () => {
         const seedConversation: Conversation = {
             _id: 'missing-after-delete-conversation',
             provider: 'codex',
-            model: 'gpt-5.2',
+            model: 'gpt-5.6-terra',
             title: 'missing after delete',
             source: 'REST',
             flags: { ...staleFlags },
@@ -1075,7 +1075,7 @@ describe('ChatInterface.run persistence', () => {
                 const outcome = await updateConversationMeta({
                     conversationId: seedConversation._id,
                     provider: 'codex',
-                    model: 'gpt-5.3-codex',
+                    model: 'gpt-5.6-luna',
                     flags: {
                         endpointId: 'https://fresh.example/v1',
                         requestedProviderId: 'copilot',
@@ -1094,7 +1094,7 @@ describe('ChatInterface.run persistence', () => {
                 });
                 assert.deepEqual(capturedUpdates[0]?.update, {
                     provider: 'codex',
-                    model: 'gpt-5.3-codex',
+                    model: 'gpt-5.6-luna',
                     flags: {
                         endpointId: 'https://fresh.example/v1',
                         requestedProviderId: 'copilot',
@@ -1168,7 +1168,7 @@ describe('ChatInterface.run persistence', () => {
                 exec: async () => ({
                     _id: conversationId,
                     provider: 'codex',
-                    model: 'gpt-5.2',
+                    model: 'gpt-5.6-terra',
                     flags: {
                         endpointId: 'https://alpha.example/v1',
                         requestedProviderId: 'codex',
@@ -1250,7 +1250,7 @@ describe('ChatInterface.run persistence', () => {
                 exec: async () => ({
                     _id: conversationId,
                     provider: 'codex',
-                    model: 'gpt-5.2',
+                    model: 'gpt-5.6-terra',
                     flags: {
                         endpointId: 'https://alpha.example/v1',
                         requestedProviderId: 'codex',
@@ -1340,7 +1340,7 @@ describe('ChatInterface.run persistence', () => {
                         {
                             _id: 'legacy-endpoint-conversation',
                             provider: 'codex',
-                            model: 'gpt-5.2',
+                            model: 'gpt-5.6-terra',
                             title: 'Legacy endpoint conversation',
                             source: 'REST',
                             flags: {

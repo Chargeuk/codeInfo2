@@ -126,7 +126,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.2"\nmodel_reasoning_effort = "high"\n',
+      'model = "gpt-5.6-terra"\nmodel_reasoning_effort = "high"\n',
       'utf8',
     );
 
@@ -135,7 +135,7 @@ describe('Agent config defaults', () => {
       entrypoint: 'agents.service',
     });
 
-    assert.equal(resolved.modelId, 'gpt-5.2');
+    assert.equal(resolved.modelId, 'gpt-5.6-terra');
     assert.equal(resolved.providerId, 'codex');
   });
 
@@ -143,7 +143,7 @@ describe('Agent config defaults', () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
     const configPath = path.join(tmp, 'config.toml');
 
-    await fs.writeFile(configPath, 'model = "gpt-5.2"\n', 'utf8');
+    await fs.writeFile(configPath, 'model = "gpt-5.6-terra"\n', 'utf8');
 
     const resolved = await resolveAgentRuntimeExecutionConfig({
       configPath,
@@ -160,7 +160,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.2"\ncodeinfo_provider = ""\n',
+      'model = "gpt-5.6-terra"\ncodeinfo_provider = ""\n',
       'utf8',
     );
 
@@ -179,7 +179,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.2"\ncodeinfo_provider = "   "\n',
+      'model = "gpt-5.6-terra"\ncodeinfo_provider = "   "\n',
       'utf8',
     );
 
@@ -198,7 +198,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.2"\ncodeinfo_provider = "not-a-provider"\n',
+      'model = "gpt-5.6-terra"\ncodeinfo_provider = "not-a-provider"\n',
       'utf8',
     );
 
@@ -217,7 +217,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.2"\ncodeinfo_provider = "not-a-provider"\n',
+      'model = "gpt-5.6-terra"\ncodeinfo_provider = "not-a-provider"\n',
       'utf8',
     );
 
@@ -502,7 +502,7 @@ describe('Agent config defaults', () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
     const configPath = path.join(tmp, 'config.toml');
 
-    await fs.writeFile(configPath, 'model = "gpt-5.2"\n', 'utf8');
+    await fs.writeFile(configPath, 'model = "gpt-5.6-terra"\n', 'utf8');
 
     const originalInfo = console.info;
     const logs: string[] = [];
@@ -648,7 +648,7 @@ describe('Agent config defaults', () => {
             },
           },
           'conv-1',
-          'gpt-5.1-codex-max',
+          'gpt-5.6-luna',
         );
       },
     );

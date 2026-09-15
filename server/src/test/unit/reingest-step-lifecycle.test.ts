@@ -58,7 +58,7 @@ const buildConversation = (): Conversation =>
   ({
     _id: 'conversation-1',
     provider: 'codex',
-    model: 'gpt-5.3-codex',
+    model: 'gpt-5.6-luna',
     title: 'reingest conversation',
     source: 'MCP',
     flags: {},
@@ -206,7 +206,7 @@ const buildHarness = (params?: {
   const run = async () => {
     await runReingestStepLifecycle({
       conversationId: 'conversation-1',
-      modelId: params?.modelId ?? 'gpt-5.3-codex',
+      modelId: params?.modelId ?? 'gpt-5.6-luna',
       source: params?.source ?? 'MCP',
       command: params?.command ?? baseCommand,
       toolResult,
@@ -261,7 +261,7 @@ test('runReingestStepLifecycle stops before inflight bookkeeping continues when 
       conversation: {
         _id: 'conversation-1',
         provider: 'codex',
-        model: 'gpt-5.3-codex',
+        model: 'gpt-5.6-luna',
         title: 'retry-exhausted conversation',
         source: 'MCP',
         flags: {},

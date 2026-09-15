@@ -241,7 +241,7 @@ Before(async () => {
     path.join(os.tmpdir(), 'chat-stream-codex-home-'),
   );
   await writeCodexChatConfig({
-    model: 'gpt-5.3-codex',
+    model: 'gpt-5.6-luna',
     endpointId: 'https://alpha.example/v1',
   });
   setScopedTestEnvValue('CODEINFO_CODEX_HOME', tempCodexHomeForScenario);
@@ -313,11 +313,11 @@ Given('chat stream scenario {string}', async (name: string) => {
   if (name === 'external-endpoint-native-fallback') {
     const server = await startExternalOpenAiCompatServer({
       responseMode: 'transport-failure',
-      models: ['gpt-5.3-codex'],
+      models: ['gpt-5.6-luna'],
     });
     externalServers.push(server);
     await writeCodexChatConfig({
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-luna',
       endpointId: `${server.baseUrl}/v1`,
     });
     setScopedTestEnvValue(
@@ -330,11 +330,11 @@ Given('chat stream scenario {string}', async (name: string) => {
   if (name === 'external-endpoint-native-failure') {
     const server = await startExternalOpenAiCompatServer({
       responseMode: 'transport-failure',
-      models: ['gpt-5.3-codex'],
+      models: ['gpt-5.6-luna'],
     });
     externalServers.push(server);
     await writeCodexChatConfig({
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-luna',
       endpointId: `${server.baseUrl}/v1`,
     });
     setScopedTestEnvValue(

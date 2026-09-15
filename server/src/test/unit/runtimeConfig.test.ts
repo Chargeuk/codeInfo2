@@ -776,7 +776,7 @@ describe('runtimeConfig final minimization', () => {
       await fs.writeFile(
         baseConfigPath,
         [
-          'model = "gpt-5.3-codex-spark"',
+          'model = "gpt-5.6-luna"',
           'model_reasoning_effort = "xhigh"',
           'approval_policy = "never"',
           'sandbox_mode = "danger-full-access"',
@@ -828,7 +828,7 @@ describe('runtimeConfig final minimization', () => {
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const errorLogs: string[] = [];
     const originalBase =
-      'model = "gpt-5.3-codex-spark"\n[projects]\n[projects."/data"]\ntrust_level = "trusted"\n';
+      'model = "gpt-5.6-luna"\n[projects]\n[projects."/data"]\ntrust_level = "trusted"\n';
     mock.method(console, 'error', (...args: unknown[]) => {
       errorLogs.push(args.map(String).join(' '));
     });
@@ -1086,7 +1086,7 @@ describe('runtimeConfig merge and validation', () => {
   });
   it('accepts supported codex runtime keys without forward-compatibility warnings', () => {
     const result = validateRuntimeConfig({
-      model: 'gpt-5.4-mini',
+      model: 'gpt-5.6-luna',
       web_search_mode: 'disabled',
       model_reasoning_summary: 'concise',
       hide_agent_reasoning: false,

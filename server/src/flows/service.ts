@@ -7522,6 +7522,11 @@ async function runFlowUnlocked(params: {
       }
       const execution = await executeFlowDecisionScript({
         workingFolder: workingRepositoryRoot,
+        // The pre-existing explicit field owns harness helpers; Story 60's
+        // question/condition script paths own worked-repository entrypoints.
+        scriptRepositoryRoot: paramsForDecision.decisionScript
+          ? codeInfo2RootForRun()
+          : undefined,
         decisionScript,
         timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
         env: decisionScriptEnv,

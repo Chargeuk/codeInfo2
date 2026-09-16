@@ -62,7 +62,10 @@ import {
   bindCurrentTestOverrides,
   runWithTestOverrides,
 } from '../support/testOverrideScope.js';
-import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+import {
+  resolveConfiguredTestTimeoutMs,
+  waitForTestCondition,
+} from '../support/testTimeouts.js';
 import {
   subscribeConversationAndWaitReady,
   closeWs,
@@ -3440,54 +3443,88 @@ test('explicit decisionScript failure remains hard despite legacy break recovery
   );
 });
 
-test('explicit decisionScript resolves a checked-in script from the worked repository', async () => {
-  await withFlowHarness(
-    async ({ tmpDir, ws, baseUrl }) => {
-      const decisionScript = 'scripts/flow_control/explicit-worked-repo.py';
-      await fs.mkdir(path.join(tmpDir, 'scripts', 'flow_control'), {
-        recursive: true,
-      });
-      await fs.writeFile(
-        path.join(tmpDir, decisionScript),
-        'print("{\\"answer\\":\\"no\\"}")\n',
-        'utf8',
-      );
-      await execFileAsync('git', ['add', decisionScript], { cwd: tmpDir });
-      await writeFlowFile({
-        tmpDir,
-        flowName: 'explicit-worked-repository-script-flow',
-        steps: [
-          {
-            type: 'break',
-            agentType: 'coding_agent',
-            identifier: 'main',
-            question: 'Check the worked repository decision script.',
-            decisionScript,
-            breakOn: 'yes',
-          },
-        ],
-      });
+// These two forms deliberately have different owners. A same-named target
+// script must neither shadow a legacy harness helper nor fall back to one.
+for (const explicit of [true, false]) {
+  for (const workedScriptPresent of [true, false]) {
+    test(`${explicit ? 'legacy explicit' : 'worked question'} script ownership with worked script ${workedScriptPresent ? 'present' : 'absent'}`, async () => {
+      await withFlowHarness(
+        async ({ tmpDir, ws, baseUrl }) => {
+          const decisionScript =
+            'scripts/flow_control/check_current_task_has_blocker.py';
+          if (workedScriptPresent) {
+            await fs.mkdir(path.join(tmpDir, 'scripts', 'flow_control'), {
+              recursive: true,
+            });
+            await fs.writeFile(
+              path.join(tmpDir, decisionScript),
+              `print('{"answer":"no"}')\n`,
+              'utf8',
+            );
+            await execFileAsync('git', ['add', decisionScript], {
+              cwd: tmpDir,
+            });
+          }
+          await writeFlowFile({
+            tmpDir,
+            flowName: 'script-ownership-flow',
+            steps: [
+              {
+                type: 'break',
+                agentType: 'coding_agent',
+                identifier: 'main',
+                question: explicit
+                  ? 'Check the current task blocker state.'
+                  : decisionScript,
+                ...(explicit ? { decisionScript } : {}),
+                breakOn: 'yes',
+              },
+            ],
+          });
 
-      const conversationId = randomUUID();
-      await subscribeConversation(ws, conversationId);
-      const completedPromise = waitFor(() => {
-        const flowState = memoryConversations.get(conversationId)?.flags
-          ?.flow as { runLifecycle?: { status?: string } } | undefined;
-        return flowState?.runLifecycle?.status === 'ok';
-      });
-      const result = await supertest(baseUrl)
-        .post('/flows/explicit-worked-repository-script-flow/run')
-        .send({
-          conversationId,
-          source: 'REST',
-          working_folder: tmpDir,
-        });
-      assert.equal(result.status, 202);
-      await completedPromise;
-    },
-    { registerTmpDirAsRepo: true },
-  );
-});
+          const conversationId = randomUUID();
+          await subscribeConversation(ws, conversationId);
+          const status = explicit || workedScriptPresent ? 'ok' : 'failed';
+          const finalPromise =
+            status === 'failed'
+              ? waitForFlowFinal({ ws, conversationId, status })
+              : waitForTestCondition(
+                  () => {
+                    const flow = memoryConversations.get(conversationId)?.flags
+                      ?.flow as
+                      | { runLifecycle?: { status?: string } }
+                      | undefined;
+                    return flow?.runLifecycle?.status === 'ok';
+                  },
+                  { description: 'script ownership flow completion' },
+                ).then(() => undefined);
+          const result = await supertest(baseUrl)
+            .post('/flows/script-ownership-flow/run')
+            .send({ conversationId, source: 'REST', working_folder: tmpDir });
+          assert.equal(result.status, 202);
+          const final = await finalPromise;
+          if (status === 'failed') {
+            assert.equal(final?.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+            assert.match(final?.error?.message ?? '', /Script file not found/);
+          } else {
+            // The real harness helper returns yes for this target's missing
+            // task handoff; the colliding worked script deliberately returns no.
+            const decisions = query(
+              { text: 'flows.run.break_decision' },
+              100,
+            ).filter(
+              (entry) => entry.context?.flowName === 'script-ownership-flow',
+            );
+            assert.equal(decisions.length, 1);
+            assert.equal(decisions[0].context?.answer, explicit ? 'yes' : 'no');
+            assert.equal(decisions[0].context?.source, 'script');
+          }
+        },
+        { registerTmpDirAsRepo: true },
+      );
+    });
+  }
+}
 
 test('stopping a decision script aborts it before it can advance the flow', async () => {
   await withFlowHarness(
@@ -3526,8 +3563,7 @@ test('stopping a decision script aborts it before it can advance the flow', asyn
               type: 'break',
               agentType: 'coding_agent',
               identifier: 'main',
-              question: 'Wait for the stop request.',
-              decisionScript,
+              question: decisionScript,
               breakOn: 'yes',
             },
             makeLlmStep(),

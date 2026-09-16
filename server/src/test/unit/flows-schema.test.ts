@@ -629,9 +629,21 @@ describe('flow schema (v1)', () => {
     assert.equal(repeated?.steps?.[2]?.breakOn, 'yes');
     assert.equal(repeated?.steps?.[2]?.continueOnFailure, true);
     assert.equal(repeated?.steps?.[2]?.continueOnInvalidResponse, true);
-    assert.equal(repeated?.steps?.[4]?.agentType, 'research_agent');
+    assert.equal(repeated?.steps?.[3]?.agentType, 'research_agent_max');
+    assert.equal(repeated?.steps?.[3]?.identifier, 'batch_repeat_researcher');
+    assert.equal(repeated?.steps?.[4]?.agentType, 'research_agent_max');
     assert.equal(repeated?.steps?.[4]?.identifier, 'batch_repeat_researcher');
     assert.equal(repeated?.steps?.[4]?.continueOnFailure, true);
+    assert.equal(repeated?.steps?.at(-1)?.agentType, 'loop_control_agent');
+    assert.equal(
+      repeated?.steps?.at(-1)?.identifier,
+      'batch_research_loop_controller',
+    );
+    assert.equal(
+      repeated?.steps?.at(-1)?.question,
+      'Return exact JSON only: {"answer":"yes"}.',
+    );
+    assert.equal(repeated?.steps?.at(-1)?.breakOn, 'yes');
     assert.equal(repeated?.steps?.at(-1)?.breakOnFailure, true);
     assert.equal(
       flattenSteps(repeated?.steps ?? []).some((step) => step.type === 'if'),
@@ -682,7 +694,7 @@ describe('flow schema (v1)', () => {
     assert.equal(consolidator?.continueOnFailure, undefined);
   });
 
-  test('review capability tiers reserve Sol maximum review for high-consequence synthesis and audits without changing fixers', async () => {
+  test('review capability tiers reserve Sol maximum review for high-consequence synthesis and audits while preserving ordinary fixers', async () => {
     const batch = JSON.parse(
       await fs.readFile(path.join(repoRoot, 'flows/review_batch.json'), 'utf8'),
     ) as { steps?: FlowStep[] };

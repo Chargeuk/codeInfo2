@@ -233,13 +233,13 @@
             {
               "type": "reset",
               "label": "Reset Repeated Finding Researcher",
-              "agentType": "research_agent",
+              "agentType": "research_agent_max",
               "identifier": "batch_repeat_researcher"
             },
             {
               "type": "llm",
               "label": "Research and Fix Repeated Review Findings",
-              "agentType": "research_agent",
+              "agentType": "research_agent_max",
               "identifier": "batch_repeat_researcher",
               "continueOnFailure": true,
               "markdownFile": "research_and_fix_repeated_review_findings.md"
@@ -247,9 +247,9 @@
             {
               "type": "break",
               "label": "Exit Repeated Finding Investigation",
-              "agentType": "research_agent",
-              "identifier": "batch_repeat_researcher",
-              "question": "The repeated-finding section has completed its single research opportunity. Return exact JSON only: {\"answer\":\"yes\"}.",
+              "agentType": "loop_control_agent",
+              "identifier": "batch_research_loop_controller",
+              "question": "Return exact JSON only: {\"answer\":\"yes\"}.",
               "breakOn": "yes",
               "breakOnFailure": true
             }

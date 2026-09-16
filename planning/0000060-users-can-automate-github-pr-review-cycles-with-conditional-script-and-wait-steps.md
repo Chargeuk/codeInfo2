@@ -7683,15 +7683,15 @@ Final-task repair scope: the whole approved story is in scope for failures found
 1. [x] `npm run build:summary:client`
 2. [x] `npm run build:summary:server`
 3. [x] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
+4. [x] `npm run compose:up` — passed; the repository-owned main Compose stack reached healthy server and started client services.
+5. [x] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
 6. [x] `npm run test:summary:all:stress` — required parallel-safety proof for the changed cancellation and lifecycle behavior.
-7. [ ] `npm run test:summary:shell` — full supported shell harness, including Compose-wrapper coverage.
-8. [ ] `node --test scripts/*.test.mjs` — complete standalone JavaScript workflow-helper and wrapper proof.
-9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof.
-10. [ ] `npm run compose:down`
-11. [ ] `npm run lint`
-12. [ ] `npm run format:check`
+7. [x] `npm run test:summary:shell` — full supported shell harness, including Compose-wrapper coverage.
+8. [x] `node --test scripts/*.test.mjs` — complete standalone JavaScript workflow-helper and wrapper proof.
+9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof.
+10. [x] `npm run compose:down`
+11. [x] `npm run lint`
+12. [x] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -7724,3 +7724,11 @@ Optional, checkbox-free manual proof may use only the supported main Compose sta
 - Testing 6 completed: `npm run test:summary:all:stress` exited 0 with 911/911 client, 2,875/2,875 server-unit, 138/138 Cucumber, and 78/78 e2e tests passing. Logs: `test-results/client-tests-2026-09-16T16-35-46-775Z.log`, `test-results/server-unit-tests-2026-09-16T16-35-46-775Z.log`, `test-results/server-cucumber-tests-2026-09-16T16-35-46-777Z.log`, and `logs/test-summaries/e2e-tests-2026-09-16T16-35-46-778Z.log`. The wrapper confirmed both test infrastructures removed; no test or runtime repair was needed after the focused test-observation correction.
 
 - Repair handoff complete in `current_repository` only: `server/src/flows/service.ts` fixes the root-selection cause; `server/src/test/integration/flows.run.errors.test.ts` locks both owners and retains stop proof; `docs/developer-reference.md` explains the supported authoring distinction; this plan records the reconciled disposition, evidence, resolved blocker, and exact completed build/stress obligations. Both existing implementation subtasks were already checked. Testing 4, 5, 7–12 remain unchecked because their exact commands were not run here; normal final proof and any required review must use this repaired content, not earlier review HEADs. Historical Tasks 61–64 and immutable settlement/batch evidence remain unchanged and are superseded only for the ownership conflict by this fresh disposition and proof. No live implementation blocker remains, no new task or product scope was introduced, and `compose:local` was never stopped or restarted.
+- Testing 4 completed: `npm run compose:up` started the repository-owned main Compose stack successfully; server reached healthy state and client started.
+- Testing 5 completed: `npm run test:summary:all:parallel` passed with 911/911 client, 2,875/2,875 server-unit, 138/138 server-Cucumber, and 78/78 e2e tests; its dedicated Cucumber and e2e stacks were cleaned up by the wrapper.
+- Testing 7 completed: `npm run test:summary:shell` passed all 25 shell tests, including Compose-wrapper coverage.
+- Testing 8 completed: `node --test scripts/*.test.mjs` passed all 48 standalone JavaScript workflow-helper and wrapper tests.
+- Testing 9 completed: `python3 -m unittest discover -s scripts/test -p 'test_*.py'` passed all 237 standalone Python workflow-helper tests.
+- Testing 10 completed: `npm run compose:down` cleanly stopped and removed the main repository-owned Compose stack started for this proof.
+- Testing 11 completed: `npm run lint` passed with exit code 0 and no warnings.
+- Testing 12 completed: `npm run format:check` passed; all matched files use Prettier code style.

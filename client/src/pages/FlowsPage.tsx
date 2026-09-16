@@ -1138,6 +1138,11 @@ export default function FlowsPage() {
       if (nextFlow?.disabled) return;
       if (effectiveIsMobile) {
         restoreMobileFlowSelectorFocusRef.current = true;
+        document
+          .querySelector<HTMLElement>(
+            '[data-testid="workspace-mobile-new-action"]',
+          )
+          ?.focus();
       }
       setSelectedFlowKey(next);
       setSuppressAutoSelect(false);

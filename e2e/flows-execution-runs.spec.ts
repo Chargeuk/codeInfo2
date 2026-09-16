@@ -733,6 +733,119 @@ test('flows let operators select the GitHub review variant without mutating the 
   expect(runPaths).toEqual(['/flows/implement_next_plan_github_review/run']);
 });
 
+test('mobile flow selection moves focus before the deferred reload without an aria-hidden warning', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  await installMockChatWs(page);
+
+  const flowOptions = [
+    {
+      name: 'implement_next_plan',
+      description: 'Default implementation flow',
+      disabled: false,
+    },
+    {
+      name: 'implement_next_plan_github_review',
+      description: 'GitHub review variant',
+      disabled: false,
+    },
+  ];
+  let flowListRequestCount = 0;
+  let resolvePostSelectionReload: (() => void) | undefined;
+  const postSelectionReload = new Promise<void>((resolve) => {
+    resolvePostSelectionReload = resolve;
+  });
+  const consoleWarnings: string[] = [];
+  const consoleListener = (message: { type(): string; text(): string }) => {
+    if (message.type() === 'warning') consoleWarnings.push(message.text());
+  };
+  page.on('console', consoleListener);
+
+  await page.route('**/*', async (route: Route) => {
+    const req = route.request();
+    const method = req.method();
+    const url = new URL(req.url());
+    if (url.origin !== new URL(apiUrl).origin) {
+      await route.continue();
+      return;
+    }
+    const pathname = url.pathname;
+
+    if (pathname === '/health' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mongoConnected: true }),
+      });
+      return;
+    }
+
+    if (pathname === '/flows' && method === 'GET') {
+      flowListRequestCount += 1;
+      if (flowListRequestCount > 2) await postSelectionReload;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ flows: flowOptions }),
+      });
+      return;
+    }
+
+    if (pathname.startsWith('/conversations/') && pathname.endsWith('/turns')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      });
+      return;
+    }
+
+    if (pathname === '/conversations' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], nextCursor: null }),
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${baseUrl}/flows`);
+    const flowTrigger = page.getByTestId('flow-select-trigger');
+    await expect(flowTrigger).toContainText('implement_next_plan');
+
+    await flowTrigger.click();
+    const dialog = page.getByTestId('flow-select-dialog');
+    await expect(dialog).toBeVisible();
+    await dialog
+      .getByText('implement_next_plan_github_review', { exact: true })
+      .click();
+
+    await expect
+      .poll(() => flowListRequestCount, {
+        timeout: resolveConfiguredE2eTimeoutMs(10000),
+        message: 'Expected the post-selection flow reload to be pending',
+      })
+      .toBe(3);
+    await expect(dialog).toBeHidden({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
+    await expect(flowTrigger).toBeDisabled();
+    await expect(page.getByTestId('workspace-mobile-new-action')).toBeFocused();
+    expect(consoleWarnings).not.toContainEqual(
+      expect.stringContaining('Blocked aria-hidden on an element'),
+    );
+  } finally {
+    resolvePostSelectionReload?.();
+    page.off('console', consoleListener);
+  }
+});
+
 test('flows composer footer controls use upward desktop popovers and centered mobile dialogs', async ({
   page,
 }) => {

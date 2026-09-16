@@ -7479,15 +7479,66 @@ async function runFlowUnlocked(params: {
         ...process.env,
         ...buildFlowEnvOverrides(),
       };
+      const inflightState = createInflight({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        provider: params.providerId,
+        model: params.modelId,
+        source: params.source,
+        command: paramsForDecision.command,
+      });
+      const signal = inflightState.abortController.signal;
+      const consumePendingScriptStop = () => {
+        const boundPending = bindPendingConversationCancelToInflight({
+          conversationId: params.conversationId,
+          runToken: params.runToken,
+          inflightId: stepInflightId,
+        });
+        if (!boundPending.ok) {
+          return boundPending.reason !== 'PENDING_CANCEL_NOT_FOUND';
+        }
+        abortInflight({
+          conversationId: params.conversationId,
+          inflightId: stepInflightId,
+        });
+        consumePendingConversationCancel({
+          conversationId: params.conversationId,
+          runToken: params.runToken,
+          inflightId: stepInflightId,
+        });
+        return true;
+      };
+      if (consumePendingScriptStop() || signal.aborted) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction: `${paramsForDecision.instructionLabel}: ${paramsForDecision.decisionInput}`,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command: paramsForDecision.command,
+        });
+        return { status: 'stopped', source: 'script' };
+      }
       const execution = await executeFlowDecisionScript({
         workingFolder: workingRepositoryRoot,
-        scriptRepositoryRoot: implicitDecisionScript
-          ? undefined
-          : codeInfo2RootForRun(),
         decisionScript,
         timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
         env: decisionScriptEnv,
+        signal,
       });
+      if (consumePendingScriptStop() || signal.aborted) {
+        await emitStoppedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction: `${paramsForDecision.instructionLabel}: ${paramsForDecision.decisionInput}`,
+          modelId: params.modelId,
+          providerId: params.providerId,
+          source: params.source,
+          command: paramsForDecision.command,
+        });
+        return { status: 'stopped', source: 'script' };
+      }
       if (!execution.ok) {
         await emitFailedFlowStep({
           flowConversationId: params.conversationId,

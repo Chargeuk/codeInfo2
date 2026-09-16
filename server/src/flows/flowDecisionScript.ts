@@ -107,6 +107,7 @@ export const executeFlowDecisionScript = async (params: {
   timeoutMs: number;
   env?: NodeJS.ProcessEnv;
   execFile?: ExecFile;
+  signal?: AbortSignal;
 }): Promise<FlowDecisionScriptExecutionResult> => {
   let workingFolder: string;
   let repositoryRoot: string;
@@ -186,6 +187,13 @@ export const executeFlowDecisionScript = async (params: {
     };
   }
 
+  if (params.signal?.aborted) {
+    return {
+      ok: false,
+      reason: `Script execution aborted: ${params.decisionScript}`,
+    };
+  }
+
   return new Promise<FlowDecisionScriptExecutionResult>((resolve) => {
     const child = spawnProcess('python3', [scriptPath], {
       cwd: workingFolder,
@@ -197,45 +205,63 @@ export const executeFlowDecisionScript = async (params: {
     let outputLimitExceeded = false;
     let settled = false;
     const maxOutputLength = 64 * 1024;
-    const finish = (result: FlowDecisionScriptExecutionResult) => {
-      if (settled) return;
-      settled = true;
-      resolve(result);
-    };
-    const timeoutHandle = setTimeout(() => {
-      timedOut = true;
+    const terminateChild = () => {
       child.kill('SIGKILL');
       child.stdout.destroy();
       child.stderr.destroy();
+    };
+    const cleanup = () => {
+      clearTimeout(timeoutHandle);
+      params.signal?.removeEventListener('abort', onAbort);
+    };
+    const finish = (result: FlowDecisionScriptExecutionResult) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+    const onAbort = () => {
+      terminateChild();
+      finish({
+        ok: false,
+        reason: `Script execution aborted: ${params.decisionScript}`,
+      });
+    };
+    const timeoutHandle = setTimeout(() => {
+      timedOut = true;
+      terminateChild();
       finish({
         ok: false,
         reason: `Script timed out after ${params.timeoutMs}ms: ${params.decisionScript}`,
       });
     }, params.timeoutMs);
+    params.signal?.addEventListener('abort', onAbort, { once: true });
+    if (params.signal?.aborted) {
+      onAbort();
+      return;
+    }
 
     child.stdout.on('data', (data: Buffer) => {
       stdout += data.toString();
       if (stdout.length > maxOutputLength) {
         outputLimitExceeded = true;
-        child.kill('SIGKILL');
+        terminateChild();
       }
     });
     child.stderr.on('data', (data: Buffer) => {
       stderr += data.toString();
       if (stderr.length > maxOutputLength) {
         outputLimitExceeded = true;
-        child.kill('SIGKILL');
+        terminateChild();
       }
     });
     child.on('error', (error) => {
-      clearTimeout(timeoutHandle);
       finish({
         ok: false,
         reason: `Script execution failed: ${error.message}`,
       });
     });
     child.on('close', (exitCode, signal) => {
-      clearTimeout(timeoutHandle);
       if (timedOut) {
         finish({
           ok: false,

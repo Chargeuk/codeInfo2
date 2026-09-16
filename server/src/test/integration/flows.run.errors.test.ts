@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
@@ -3439,20 +3440,29 @@ test('explicit decisionScript failure remains hard despite legacy break recovery
   );
 });
 
-test('explicit decisionScript resolves checked-in harness scripts outside the worked repository', async () => {
+test('explicit decisionScript resolves a checked-in script from the worked repository', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
+      const decisionScript = 'scripts/flow_control/explicit-worked-repo.py';
+      await fs.mkdir(path.join(tmpDir, 'scripts', 'flow_control'), {
+        recursive: true,
+      });
+      await fs.writeFile(
+        path.join(tmpDir, decisionScript),
+        'print("{\\"answer\\":\\"no\\"}")\n',
+        'utf8',
+      );
+      await execFileAsync('git', ['add', decisionScript], { cwd: tmpDir });
       await writeFlowFile({
         tmpDir,
-        flowName: 'explicit-harness-script-flow',
+        flowName: 'explicit-worked-repository-script-flow',
         steps: [
           {
             type: 'break',
             agentType: 'coding_agent',
             identifier: 'main',
-            question: 'Check the current task blocker state.',
-            decisionScript:
-              'scripts/flow_control/check_current_task_has_blocker.py',
+            question: 'Check the worked repository decision script.',
+            decisionScript,
             breakOn: 'yes',
           },
         ],
@@ -3461,20 +3471,103 @@ test('explicit decisionScript resolves checked-in harness scripts outside the wo
       const conversationId = randomUUID();
       await subscribeConversation(ws, conversationId);
       const completedPromise = waitFor(() => {
-        const flowState = memoryConversations.get(conversationId)?.flags?.flow as
-          | { runLifecycle?: { status?: string } }
-          | undefined;
+        const flowState = memoryConversations.get(conversationId)?.flags
+          ?.flow as { runLifecycle?: { status?: string } } | undefined;
         return flowState?.runLifecycle?.status === 'ok';
       });
       const result = await supertest(baseUrl)
-        .post('/flows/explicit-harness-script-flow/run')
+        .post('/flows/explicit-worked-repository-script-flow/run')
         .send({
           conversationId,
           source: 'REST',
           working_folder: tmpDir,
-      });
+        });
       assert.equal(result.status, 202);
       await completedPromise;
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('stopping a decision script aborts it before it can advance the flow', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      const decisionScript = 'scripts/flow_control/block-until-stopped.py';
+      const startedMarker = 'decision-script-started';
+      let markStarted!: () => void;
+      const scriptStarted = new Promise<void>((resolve) => {
+        markStarted = resolve;
+      });
+      const watcher = fsSync.watch(tmpDir, (_eventType, filename) => {
+        if (filename?.toString() === startedMarker) markStarted();
+      });
+      try {
+        await fs.mkdir(path.join(tmpDir, 'scripts', 'flow_control'), {
+          recursive: true,
+        });
+        await fs.writeFile(
+          path.join(tmpDir, decisionScript),
+          [
+            'from pathlib import Path',
+            'import time',
+            `Path(${JSON.stringify(startedMarker)}).write_text("started")`,
+            'while True:',
+            '    time.sleep(1)',
+            '',
+          ].join('\n'),
+          'utf8',
+        );
+        await execFileAsync('git', ['add', decisionScript], { cwd: tmpDir });
+        await writeFlowFile({
+          tmpDir,
+          flowName: 'stop-decision-script-flow',
+          steps: [
+            {
+              type: 'break',
+              agentType: 'coding_agent',
+              identifier: 'main',
+              question: 'Wait for the stop request.',
+              decisionScript,
+              breakOn: 'yes',
+            },
+            makeLlmStep(),
+          ],
+        });
+
+        const conversationId = randomUUID();
+        await subscribeConversation(ws, conversationId);
+        const stoppedPromise = waitForFlowFinal({
+          ws,
+          conversationId,
+          status: 'stopped',
+        });
+        const result = await supertest(baseUrl)
+          .post('/flows/stop-decision-script-flow/run')
+          .send({
+            conversationId,
+            source: 'REST',
+            working_folder: tmpDir,
+          });
+        assert.equal(result.status, 202);
+        await scriptStarted;
+
+        assert.equal(await stopFlowRun(conversationId), true);
+        await stoppedPromise;
+        const flowState = memoryConversations.get(conversationId)?.flags
+          ?.flow as
+          | { stepPath?: number[]; runLifecycle?: { status?: string } }
+          | undefined;
+        assert.equal(flowState?.runLifecycle?.status, 'stopped');
+        assert.deepEqual(flowState?.stepPath ?? [], []);
+        assert.equal(
+          (memoryTurns.get(conversationId) ?? []).some(
+            (turn) => turn.command?.stepIndex === 2,
+          ),
+          false,
+        );
+      } finally {
+        watcher.close();
+      }
     },
     { registerTmpDirAsRepo: true },
   );

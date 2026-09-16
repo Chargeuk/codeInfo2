@@ -1356,6 +1356,45 @@ test('checked-in GitHub review flow is opt-in, runs after internal completion, a
       (step) => step.markdownFile === 'classify_pr_review_disposition.md',
     ),
   );
+  const dispositionIf = flattened[dispositionIfIndex];
+  const dispositionBranch = Array.isArray(dispositionIf?.then)
+    ? (dispositionIf.then as Array<Record<string, unknown>>)
+    : [];
+  const dispositionLoop = dispositionBranch.find(
+    (step) => step.type === 'startLoop',
+  );
+  const dispositionSteps = Array.isArray(dispositionLoop?.steps)
+    ? (dispositionLoop.steps as Array<Record<string, unknown>>)
+    : [];
+  const findingsProducerIndex = dispositionSteps.findIndex(
+    (step) => step.label === 'Produce Canonical GitHub Review Findings',
+  );
+  const classifierIndex = dispositionSteps.findIndex(
+    (step) => step.markdownFile === 'classify_pr_review_disposition.md',
+  );
+  assert.ok(findingsProducerIndex > -1);
+  assert.ok(classifierIndex > findingsProducerIndex);
+  const findingsProducer = dispositionSteps[findingsProducerIndex];
+  assert.equal(findingsProducer?.type, 'llm');
+  assert.match(
+    JSON.stringify(findingsProducer?.messages),
+    /CODEINFO_GITHUB_REVIEW_HANDOFF_PATH/u,
+  );
+  assert.match(
+    JSON.stringify(findingsProducer?.messages),
+    /findings_file/u,
+  );
+  const classifierInstructions = await fs.readFile(
+    path.join(repoRoot, 'codeinfo_markdown/classify_pr_review_disposition.md'),
+    'utf8',
+  );
+  assert.match(classifierInstructions, /minor_batchable_rules/u);
+  assert.match(classifierInstructions, /unresolved_task_required_findings/u);
+  assert.match(classifierInstructions, /needs_task_up_path/u);
+  assert.doesNotMatch(
+    classifierInstructions,
+    /Do not classify any actionable PR-review finding as task-up work/u,
+  );
   for (const commandName of [
     'external_review_evidence_gate',
     'external_review_findings',

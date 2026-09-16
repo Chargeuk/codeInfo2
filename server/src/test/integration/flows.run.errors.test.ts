@@ -3406,8 +3406,8 @@ test('explicit decisionScript failure remains hard despite legacy break recovery
             type: 'break',
             agentType: 'coding_agent',
             identifier: 'main',
-            question: 'Run the timeout decision script.',
-            decisionScript: 'flow-control/decision-timeout.py',
+            question: 'Run the missing decision script.',
+            decisionScript: 'scripts/flow_control/missing-decision.py',
             breakOn: 'yes',
             breakOnFailure: true,
             continueOnFailure: true,
@@ -3433,7 +3433,48 @@ test('explicit decisionScript failure remains hard despite legacy break recovery
         timeoutMs: 5000,
       });
       assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-      assert.match(final.error?.message ?? '', /timed out/);
+      assert.match(final.error?.message ?? '', /Script file not found/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('explicit decisionScript resolves checked-in harness scripts outside the worked repository', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'explicit-harness-script-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'Check the current task blocker state.',
+            decisionScript:
+              'scripts/flow_control/check_current_task_has_blocker.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const completedPromise = waitFor(() => {
+        const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+          | { runLifecycle?: { status?: string } }
+          | undefined;
+        return flowState?.runLifecycle?.status === 'ok';
+      });
+      const result = await supertest(baseUrl)
+        .post('/flows/explicit-harness-script-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+      });
+      assert.equal(result.status, 202);
+      await completedPromise;
     },
     { registerTmpDirAsRepo: true },
   );

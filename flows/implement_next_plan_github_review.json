@@ -591,6 +591,20 @@
                     },
                     {
                       "type": "llm",
+                      "label": "Produce Canonical GitHub Review Findings",
+                      "agentType": "planning_agent",
+                      "identifier": "planner",
+                      "messages": [
+                        {
+                          "role": "user",
+                          "content": [
+                            "Produce canonical findings for this execution's fetched GitHub review feedback before classification. Read the current plan, the execution-scoped GitHub review handoff named by CODEINFO_GITHUB_REVIEW_HANDOFF_PATH, and only the external_review_input_file referenced by that same handoff. Do not discover artifacts by timestamp or reuse another execution's review data. Adjudicate each fetched external comment against the current story scope: separate the underlying issue from any suggested remedy; record whether the issue is valid in scope, valid out of scope, or invalid/unproven; preserve an in-scope issue with an out-of-scope remedy as an endorsed finding with an explicit fix constraint. Write one distinct, human-readable canonical Markdown findings artifact under codeInfoTmp/reviews for this execution, with stable finding IDs and enough evidence for the normal scope filter and disposition paths. Update only that same execution-scoped handoff so findings_file points to the exact artifact while preserving its GitHub identity, scratch input reference, and existing counts. Do not run the generic external-review evidence, findings, saturation, or challenge command sequences; do not edit the canonical plan, code, tests, docs, configuration, or unrelated review artifacts."
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "llm",
                       "label": "Classify PR Review Disposition",
                       "agentType": "planning_agent",
                       "identifier": "planner",

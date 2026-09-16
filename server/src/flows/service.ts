@@ -7481,6 +7481,9 @@ async function runFlowUnlocked(params: {
       };
       const execution = await executeFlowDecisionScript({
         workingFolder: workingRepositoryRoot,
+        scriptRepositoryRoot: implicitDecisionScript
+          ? undefined
+          : codeInfo2RootForRun(),
         decisionScript,
         timeoutMs: FLOW_DECISION_SCRIPT_TIMEOUT_MS,
         env: decisionScriptEnv,

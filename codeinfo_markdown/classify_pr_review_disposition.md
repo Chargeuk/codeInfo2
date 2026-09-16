@@ -21,14 +21,12 @@ This step is a traffic controller only. It must not fix findings, task up findin
 
 <classification_contract>
 
-- This is the post-local-review PR-review loop. All surviving actionable findings in this path are fixed inline.
-- Do not route any current-story actionable PR-review finding into `unresolved_task_required_findings`.
-- `unresolved_task_required_findings` must remain empty unless a truly unusable review basis leaves no safe way to continue and an `incomplete_review_blocker` is unavoidable.
+- This is the post-local-review PR-review loop. Apply the existing `minor_batchable_rules` from `codeinfo_markdown/classify_review_disposition.md` to every surviving actionable finding in this path; do not invent a size cutoff or a new classification system.
 - Every endorsed finding that is:
   - within current story scope,
   - actionable on the current branch,
   - and not already resolved or stale
-  must be routed into `unresolved_minor_batchable_findings`.
+  must be routed into `unresolved_minor_batchable_findings` only when it satisfies those existing minor-batchability rules. Route every other supported actionable finding into `unresolved_task_required_findings` so the existing task-up path can own it.
 - Stale, already-resolved, out-of-scope, behavior-widening, or otherwise non-actionable findings must be routed into `rejected_or_non_actionable_findings`.
 - If required artifacts are missing, malformed, contradictory, or partially readable, salvage the facts that can be supported, record the evidence limitation in `incomplete_review_blockers`, and complete this step normally instead of claiming a clean result or deliberately failing the agent turn.
 - If the assigned state path cannot be resolved or written safely, do not guess another path. Return a normal unavailable summary that names the limitation.
@@ -62,10 +60,9 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - For each endorsed finding:
   - reject it if it would widen story scope, require an unapproved user-facing behavior change, address a pre-existing unrelated issue, or otherwise fail the story-behavior-lock rules;
   - reject it if repository evidence already shows the issue is resolved on the current branch;
-  - otherwise, route it into `unresolved_minor_batchable_findings`.
+  - otherwise, apply the existing `minor_batchable_rules` from `classify_review_disposition.md`: route minor-batchable findings into `unresolved_minor_batchable_findings` and all other supported actionable findings into `unresolved_task_required_findings`.
 - Prefer rejection over scope expansion when scope is ambiguous.
-- Do not classify any actionable PR-review finding as task-up work in this path.
-- Keep `needs_task_up_path` false unless an `incomplete_review_blocker` is present.
+- Keep each actionable finding in exactly one actionable queue.
 - Preserve same-cycle `resolved_minor_findings` and `minor_fix_commit_shas` exactly when they still belong to this review cycle so later PR-fix revalidation coverage remains durable.
 - Recompute:
   - `counts`
@@ -82,8 +79,8 @@ This step is a traffic controller only. It must not fix findings, task up findin
 
 <state_expectations>
 
-- `needs_minor_fix_path` is true whenever actionable PR-review findings remain.
-- `needs_task_up_path` is false for ordinary actionable PR-review findings in this path.
+- `needs_minor_fix_path` is true whenever unresolved minor-batchable findings remain.
+- `needs_task_up_path` is true whenever unresolved task-required findings or incomplete-review blockers remain.
 - `needs_review_rerun_before_close` should stay false in this classifier step unless same-cycle carry-forward state already proves a rerun is still required.
 - `needs_final_minor_fix_revalidation_task` is true when all of these are true:
   - `minor_fixes_made_in_review_loop` is already true from the same active `review_cycle_id`;
@@ -101,8 +98,9 @@ This step is a traffic controller only. It must not fix findings, task up findin
 
 - Update only `codeInfoStatus/flow-state/review-disposition-state.json`.
 - Leave the state in a shape where downstream PR-review fix steps can:
-  - keep fixing actionable remote findings inline,
-  - skip stale/non-actionable findings,
+- keep fixing actionable remote findings inline,
+- route task-required remote findings through the existing task-up path,
+- skip stale/non-actionable findings,
   - or finish cleanly when no actionable remote findings remain.
 - Do not create tasks in this step.
 
@@ -114,7 +112,7 @@ This step is a traffic controller only. It must not fix findings, task up findin
 - Confirm the exact canonical plan was re-opened from disk.
 - Confirm the review handoff and referenced findings artifact were read.
 - Confirm every endorsed finding was routed into exactly one state bucket.
-- Confirm no actionable PR-review finding was left in `unresolved_task_required_findings`.
+- Confirm every actionable PR-review finding that fails the existing `minor_batchable_rules` is in `unresolved_task_required_findings` and makes `needs_task_up_path` true.
 - Confirm no finding was treated as actionable solely because a behavior change would make the product cleaner or easier to prove.
 - Confirm stale or already-resolved findings were not left actionable.
 - Confirm the updated state file is valid JSON after writing.

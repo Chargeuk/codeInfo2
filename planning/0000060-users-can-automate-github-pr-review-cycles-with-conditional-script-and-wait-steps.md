@@ -70,6 +70,8 @@ This story should remain focused on enabling that review-loop orchestration. It 
 
 This is a workflow-runtime story, not a browser-UI redesign story. Outside the new flow-only primitives and the newly copied opt-in flow-definition variants that use them, existing browser-visible behavior, existing agent-command behavior, existing in-use flow files, and the default `improve_plan2` or adjacent execution paths must keep their current behavior. If a repository operator never selects one of the new copied flow variants, the current checked-in implementation and review workflows should continue to behave exactly as they do today.
 
+User-approved scope expansion (September 16, 2026): add history-aware handling of repeated accepted review findings to the existing internal review repair workflow. Immediately after `Skip Review Repair When Disposition Accepts No Findings`, a Luna matcher compares the current accepted findings with compact historical `### Accepted` records, and one bounded research-agent section investigates and repairs possible repeats using previous fixes, reversals, and validation evidence. This explicitly authorizes in-place changes to `flows/review_batch.json`, the continuation question in `flows/two_phase_review_cycle.json`, their repair/outcome/settlement prompts, and a read-only history helper with tests. It is a narrow exception to the original copied-flow-only restriction, applies to existing callers of this internal review workflow, and must be retained during review and final validation. Ordinary new findings keep the existing normal/stronger repair cycle. No human input is required; unresolved repeats remain visible for settlement. Task 66 implements this requested change.
+
 ### Acceptance Criteria
 
 - Flow definitions support a dedicated `if` step with `then` behavior and an optional `else` path.
@@ -132,6 +134,11 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 - Test-only isolation, readiness, lifecycle ownership, wait hardening, and diagnostic changes required to achieve that reliability are explicitly within Story 60 scope and must be retained.
 - Parallel and stress execution must not change production behavior, disturb the local development stack, or leave test-owned Docker resources running after completion.
 
+- User-approved repeated-finding repair: the existing `Optional Review Repair` loop checks historical accepted findings immediately after its no-accepted-findings break, using an existing Luna review agent and a one-iteration loop with breaks, without `if` steps or changes to ordinary repair grouping.
+- A read-only Python helper lists compact accepted-finding descriptions with batch/review, repository, Finding ID, and exact expansion references; expansion returns full finding and related repair-task evidence. Current-batch findings are excluded, ambiguous legacy records are preserved with explicit limitations, and historical acceptance is evidence rather than authorization.
+- A research agent investigates possible repeats, including why earlier fixes were reverted or incomplete, confirms current scope, implements the smallest reconciled repair, and proves both the defect and preserved behavior. False matches return to ordinary repair; confirmed or uncertain repeats are not blindly repaired again by normal/stronger agents in the same batch.
+- Repeated-finding research is autonomous and bounded to one invocation per batch. Missing evidence remains partial/unavailable, unresolved findings reach existing settlement, and research-only commits count as fix-bearing work requiring review and final validation. This does not introduce a global termination guarantee or a new issue database.
+
 ### Out Of Scope
 
 - Acting as the currently logged-in browser user for GitHub operations.
@@ -141,8 +148,8 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 - Automatically reopening previously closed PRs or reusing a closed PR for a later review cycle.
 - Replacing the existing local or external review-disposition rules with a brand-new classification system.
 - Reusing the existing external-review ingest storage path or ingest flow as the raw-input path for this GitHub review cycle.
-- Editing currently in-use checked-in flow definitions in place under `flows/` as part of this story.
-- Changing the currently selected default execution path for `improve_plan2`, `flows/implement_next_plan.json`, `flows/review_plan.json`, or other existing in-use flow entrypoints without an operator intentionally selecting one of the new copied variants.
+- Editing currently in-use checked-in flow definitions in place under `flows/`, except the explicitly user-approved repeated-finding repair addition in `flows/review_batch.json` and its continuation accounting in `flows/two_phase_review_cycle.json`.
+- Changing the currently selected default execution path for `improve_plan2`, `flows/implement_next_plan.json`, `flows/review_plan.json`, or other existing in-use flow entrypoints without an operator intentionally selecting one of the new copied variants, except that existing callers receive the explicitly approved internal repeated-finding repair addition.
 - Changing browser-visible UI, agent-command JSON behavior, or other unrelated user-facing product behavior beyond the explicit new flow-only review-cycle capabilities in this story.
 - Solving every possible stale-PR, duplicate-PR, or multi-actor branch edge case before there is evidence that the first-version branch lookup rule is insufficient.
 - Requiring one shared cross-repository or cross-organization GitHub token for all worked repositories.
@@ -6483,7 +6490,7 @@ Optional, checkbox-free manual proof may use the supported main Compose stack th
 
 ### Task 58. Record Review Fixes From Batch 0000060-rw-20260915T191400Z-05bb88ff
 
-- Task Status: __done__
+- Task Status: `__done__`
 - Review Task Role: completed_review_fixes
 - Repository Name: Current Repository
 - Task Dependencies: Task 57
@@ -6605,7 +6612,7 @@ Record the completed normal repair work from immutable batch `0000060-rw-2026091
 
 ### Task 59. Record Review Fixes From Batch 0000060-rw-20260915T210438Z-996d45ad
 
-- Task Status: __done__
+- Task Status: `__done__`
 - Review Task Role: completed_review_fixes
 - Repository Name: Current Repository
 - Task Dependencies: Task 58
@@ -6978,7 +6985,7 @@ The negative scope, positive authorization, and materiality gates all had surviv
 
 ### Task 61. Record Review Fixes From Batch 0000060-rw-20260916T043001Z-2c2cc37d
 
-- Task Status: __done__
+- Task Status: `__done__`
 - Review Task Role: completed_review_fixes
 - Repository Name: Current Repository
 - Task Dependencies: Task 60
@@ -7133,7 +7140,7 @@ All three filtering gates were applicable: scope left findings 1 and 2, authoriz
 
 ### Task 62. Record Review Fixes From Batch 0000060-rw-20260916T070218Z-3161e9c3
 
-- Task Status: __done__
+- Task Status: `__done__`
 - Review Task Role: completed_review_fixes
 - Repository Name: Current Repository
 - Task Dependencies: Task 61
@@ -7292,7 +7299,7 @@ All three filtering gates were applicable and completed: scope and positive auth
 
 ### Task 63. Record Review Fixes From Batch 0000060-rw-20260916T090838Z-0f67236a
 
-- Task Status: __done__
+- Task Status: `__done__`
 - Review Task Role: completed_review_fixes
 - Repository Name: Current Repository
 - Task Dependencies: Task 62
@@ -7429,7 +7436,7 @@ All three filtering gates were applicable and completed. Scope and authorization
 
 ### Task 64. Record Review Fixes From Batch 0000060-rw-20260916T104926Z-05929ba2
 
-- Task Status: __done__
+- Task Status: `__done__`
 - Review Task Role: completed_review_fixes
 - Repository Name: Current Repository
 - Task Dependencies: Task 63
@@ -7639,7 +7646,7 @@ Negative scope and positive authorization were applicable and completed. The com
 
 ### Task 65. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260916T043000Z-fe063675
 
-- Task Status: __in_progress__
+- Task Status: `__in_progress__`
 - Review Task Role: final_revalidation
 - Repository Name: Current Repository
 - Task Dependencies: Task 64 and all earlier Story 60 work
@@ -7764,3 +7771,56 @@ Optional, checkbox-free manual proof may use only the supported main Compose sta
 - Final implementation-and-automated-proof audit: commit `5bd57a6332a4b9b09305cf3df70cf6e0588c1a78` contains only the formatter correction and proof record after the conditional focus-restoration repair. All five subtasks and all twelve automated proof items are evidenced complete; the affected client build, full parallel and stress suites, lint, and final formatting checks were rerun after that correction. Parser confirmation reports no live blocker, and the selection-only focus handoff preserves ordinary Close behavior rather than introducing a new browser-visible scope change. Task 65 is `__done__`; optional manual guidance remains non-blocking.
 - Manual proof expanded to the final task's full-story browser/runtime scope on a freshly rebuilt main Compose stack; `/health` and `/flows` were healthy, and current picker proof was saved as `codeInfoTmp/manual-testing/0000060/65/proof-01-flows-mobile-picker.png` and `proof-02-flows-mobile-selected.png` after Playwright staging could not create the prescribed nested path and the exact local Playwright runtime file was copied out. The ordinary mobile Close path still restores focus to the enabled `flow-select-trigger`, but selecting `implement_next_plan_github_review` at 390px still logs Chrome's `aria-hidden` focused-descendant warning as the selected option becomes disabled. Bounded diagnosis confirms `FlowsPage.tsx` defers the New-flow focus handoff to dialog exit, after the problematic state transition; `e2e/flows-execution-runs.spec.ts` is the concrete browser-proof owner. No later open task owns this final-task failure, so Task 65 is reopened with two implementation/proof-authoring subtasks and its final format check reopened; no code changed in this manual pass.
 - Manual testing skipped for the live GitHub cycle surface. Tried: selecting `implement_next_plan_github_review` from `/flows` on the fresh main stack. Observed: the catalog only exposed the current repository and no authorized sandbox worked repository with provider access was available to launch safely. Why fuller proof was not possible: external live-cycle access is outside this task's repository scope, so this pass did not re-authenticate or launch a potentially destructive live flow.
+
+### Task 66. Escalate Repeated Accepted Review Findings With Repair History
+
+- Task Status: `__done__`
+- Repository Name: Current Repository
+- Task Dependencies: Existing internal review repair workflow; independent of Task 65's remaining mobile-focus repairs.
+- Authorization: Explicit user request on September 16, 2026; incorporated into Description, Acceptance Criteria, and Out Of Scope above.
+
+#### Overview
+
+Reduce repeated fix/revert churn by routing recurring accepted findings through Luna history matching and one research-agent repair invocation before ordinary repair. Preserve the existing normal/stronger repair structure and all current scope gates. The user stopped the running flow; this task does not restart it or claim that Task 65's outstanding work or final whole-story proof is complete.
+
+#### Task Exit Criteria
+
+- Compact history and targeted expansion preserve provenance and incomplete evidence.
+- Research handles potential repeats before ordinary repair, accounts for prior reversals, and records focused proof or the unresolved limitation without asking a human.
+- Outcome, continuation, and settlement retain research-only fixes and unresolved work.
+
+#### Subtasks
+
+1. [x] Implement `scripts/review_findings.py` with compact historical accepted-finding listing and targeted finding/repair evidence expansion.
+2. [x] Add matching and research prompts and the bounded section immediately after the existing no-findings break; integrate routing with normal/stronger repair and downstream accounting.
+3. [x] Add parser and flow/prompt regression coverage for identity collisions, imperfect evidence, mixed routing, bounded execution, and research-only repair accounting.
+4. [x] Run the repository lint workflow and fix issues caused by this task.
+5. [x] Run the repository formatting workflow and fix issues caused by this task.
+
+#### Testing
+
+1. [x] Run the complete standalone Python helper suite: `python3 -m unittest discover -s scripts/test -p 'test_*.py'`.
+2. [x] Run targeted server flow/schema and review-contract tests, then the full relevant `npm run test:summary:server:unit` wrapper.
+3. [x] Exercise the read-only helper against this story's real earlier script-ownership and PR-lookup findings, checking exact expansion references and repair evidence without launching the stopped flow.
+4. [x] Run `npm run lint`.
+5. [x] Run `npm run format:check` and `git diff --check`.
+
+#### Implementation Notes
+
+- Recorded the explicit scope exception before implementation so review and final validation can establish authorization from the top-level story contract. Task 65 and its unfinished proof remain unchanged; the live flow stays stopped.
+
+- Implemented the read-only history helper with current-batch exclusion, content-checked expansion references, explicit missing-field coverage, and batch-linked repair-task packets. Reused `plan_status.resolve_plan_path`; no new persisted history store.
+
+- Added the Luna matcher and one-iteration research section at the requested insertion point. Shared routing instructions prevent same-batch repeat repairs and extend completion, batch outcome, continuation, completed repair tasks, and settlement to include research-only commits and unresolved historical evidence. Existing normal/stronger step order and agent configurations are preserved.
+
+- Added helper regressions for reused IDs, exact source expansion, legacy/imperfect records, current-batch exclusion, and read-only CLI recovery. Updated flow-schema and prompt contracts and the existing production-flow mock to exercise candidate, no-candidate, and unavailable matching outcomes while preserving normal/stronger execution. Focused Python checks passed (61 tests).
+
+- Complete Python helper suite passed (250 tests); targeted server schema/review/production-flow tests passed (114 tests); repository lint passed. Applied supported Prettier to changed files. Existing raw underscore task statuses required code quoting to preserve their parser-visible values under formatting; no existing task status or checkbox changed. Full server proof and final formatting checks are in progress.
+
+- Real-history smoke proof expanded the script-ownership finding into Tasks 61 and 65 and the failed post-create lookup finding into Tasks 58 and 60, including final-validation notes. The compact list retained 78 accepted records and explicitly reported seven legacy sections without structured Accepted records as partial coverage. No live flow or provider was launched.
+
+- Repository-wide formatting check and `git diff --check` passed after preserving task status tokens in code spans. Newly added prompt files also passed explicit Prettier formatting.
+
+- A read-only Luna (`gpt-5.6-luna`) routing replay classified the opposite script-ownership remedy and post-create lookup reversal as possible repeats, recognized the larger-findings/task-up recurrence, and kept an unrelated mobile-focus finding on the ordinary path (four supplied cases, all expected routes). This checks a small sample, not general classifier accuracy or a live-flow repair. The stopped story flow was not launched. After adding a qualified-Finding-ID regression, the complete Python suite passed again (251 tests).
+
+- Full relevant server unit/integration wrapper passed: 2,875/2,875 tests (`test-results/server-unit-tests-2026-09-16T20-10-13-241Z.log`), after targeted proof passed 114/114. Task 66 is complete. All previous task statuses and checkboxes were compared with HEAD and preserved; Task 65 remains in progress. Client/e2e/stress and live-flow/manual proof were not rerun for this helper/prompt/flow-composition change, and this task does not claim whole-story closeout.

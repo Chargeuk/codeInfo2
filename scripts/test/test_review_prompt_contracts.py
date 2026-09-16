@@ -17,6 +17,36 @@ def read_text(relative_path: str) -> str:
 
 
 class ReviewPromptContractTests(unittest.TestCase):
+    def test_repeated_repair_routes_uncertainty_and_preserves_research_accounting(self):
+        matching = read_text("codeinfo_markdown/identify_repeated_review_findings.md")
+        research = read_text("codeinfo_markdown/research_and_fix_repeated_review_findings.md")
+        shared = read_text("codeinfo_markdown/shared/repeated-review-repair.md")
+        self.assertIn("--exclude-batch", matching)
+        self.assertIn("expand --reference", matching)
+        self.assertIn("Opposite proposed remedies", matching)
+        self.assertIn("Unresolved matching uncertainty goes to research", matching)
+        self.assertIn("false match returns to ordinary repair", research)
+        self.assertIn("why the prior repair was reverted or incomplete", research)
+        self.assertIn("both the reported defect", research)
+        self.assertIn("One research invocation is allowed per batch", research)
+        self.assertIn("never wait for human input", research)
+        self.assertIn("Normal and stronger fixers must not redo", shared)
+        self.assertIn("unresolved/uncertain research outcomes never justify", shared)
+        self.assertIn("research-only repair commit makes the batch fix-bearing", shared)
+        self.assertIn("stronger repair opportunity for its assigned findings", shared)
+        self.assertIn("do not by themselves keep the repeated group running", shared)
+        for name in (
+            "implement_review_batch_direct_fixes.md",
+            "implement_review_batch_remaining_fixes.md",
+            "record_review_batch_outcome.md",
+            "settle_agent_native_review_pass.md",
+            "apply_agent_native_review_settlement.md",
+            "audit_agent_native_review_settlement.md",
+            "shared/completed-review-fix-task.md",
+        ):
+            with self.subTest(name=name):
+                self.assertIn("shared/repeated-review-repair.md", read_text("codeinfo_markdown/" + name))
+
     def test_github_review_prompts_keep_imperfect_evidence_non_failing(
         self,
     ) -> None:
@@ -1199,7 +1229,7 @@ class ReviewPromptContractTests(unittest.TestCase):
         )
         self.assertEqual(direct_step["agentType"], "coding_agent")
         self.assertEqual(direct_step["identifier"], "batch_fixer")
-        completion_gate = optional_loop["steps"][4]
+        completion_gate = next(step for step in optional_loop["steps"] if step.get("label") == "Skip Stronger Repair When Normal Fixer Completed All Findings")
         self.assertEqual(completion_gate["agentType"], "coding_agent")
         self.assertEqual(completion_gate["identifier"], "batch_fixer")
         self.assertEqual(completion_gate["breakOn"], "yes")

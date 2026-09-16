@@ -215,6 +215,8 @@ type ProductionReviewProbe = {
   repeatedHeads: string[];
   oneShotHeads: string[];
   directFixCalls: number;
+  repeatMatchCalls: number;
+  repeatResearchCalls: number;
   normalCompletionGateCalls: number;
   researchFixCalls: number;
   optionalExitCalls: number;
@@ -480,6 +482,41 @@ class ProductionReviewChat extends ChatInterface {
       );
     }
 
+    if (message.includes('# Identify previously accepted review findings')) {
+      this.probe.repeatMatchCalls += 1;
+    }
+    if (
+      message.includes(
+        'positively confirms no possible repeat or matching uncertainty remains',
+      )
+    ) {
+      // Candidate, clean no-candidate result, then unavailable matching evidence.
+      const answers = ['no', 'yes', 'unavailable'];
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({
+          answer: answers[this.probe.repeatMatchCalls - 1],
+        }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+    if (message.includes('# Research and repair recurring review findings')) {
+      this.probe.repeatResearchCalls += 1;
+    }
+    if (
+      message.includes(
+        'The repeated-finding section has completed its single research opportunity.',
+      )
+    ) {
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({ answer: 'yes' }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
     if (
       message.includes('# Implement direct fixes from the current review batch')
     ) {
@@ -666,7 +703,7 @@ class ProductionReviewChat extends ChatInterface {
 
     if (
       message.includes(
-        'Findings explicitly left after the stronger attempt for complete-pass settlement do not keep this repeated group running.',
+        'Findings explicitly left after their repeated-research or ordinary stronger opportunity (including honestly unavailable attempts) for complete-pass settlement do not keep this repeated group running.',
       )
     ) {
       this.probe.breakCalls += 1;
@@ -1025,6 +1062,8 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       repeatedHeads: [],
       oneShotHeads: [],
       directFixCalls: 0,
+      repeatMatchCalls: 0,
+      repeatResearchCalls: 0,
       normalCompletionGateCalls: 0,
       researchFixCalls: 0,
       optionalExitCalls: 0,
@@ -1082,6 +1121,8 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     );
     assert.equal(probe.breakCalls, 2, JSON.stringify(probe));
     assert.equal(probe.directFixCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.repeatMatchCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.repeatResearchCalls, 2, JSON.stringify(probe));
     assert.equal(probe.normalCompletionGateCalls, 3, JSON.stringify(probe));
     assert.equal(probe.researchFixCalls, 1, JSON.stringify(probe));
     assert.equal(probe.optionalExitCalls, 1, JSON.stringify(probe));

@@ -594,6 +594,7 @@ describe('flow schema (v1)', () => {
       repair?.steps?.map((step) => step.label),
       [
         'Skip Review Repair When Disposition Accepts No Findings',
+        'Investigate Repeated Review Findings',
         'Re-embed Plan Scope Before Direct Review Fixes',
         'Reset Direct Review Fixer',
         'Implement Direct Review Fixes',
@@ -607,6 +608,35 @@ describe('flow schema (v1)', () => {
     assert.equal(repair?.steps?.[0]?.continueOnFailure, true);
     assert.equal(repair?.steps?.[0]?.continueOnInvalidResponse, true);
     assert.equal(repair?.steps?.at(-1)?.breakOnFailure, true);
+
+    const repeated = repair?.steps?.[1];
+    assert.equal(repeated?.type, 'startLoop');
+    assert.equal(repeated?.maxIterations, 1);
+    assert.deepEqual(
+      repeated?.steps?.map((step) => step.label),
+      [
+        'Reset Repeated Finding Matcher',
+        'Identify Repeated Review Findings',
+        'Skip Repeated Repair When No Candidates Remain',
+        'Reset Repeated Finding Researcher',
+        'Research and Fix Repeated Review Findings',
+        'Exit Repeated Finding Investigation',
+      ],
+    );
+    assert.equal(repeated?.steps?.[1]?.agentType, 'review_agent_lite');
+    assert.equal(repeated?.steps?.[1]?.identifier, 'batch_repeat_matcher');
+    assert.equal(repeated?.steps?.[1]?.continueOnFailure, true);
+    assert.equal(repeated?.steps?.[2]?.breakOn, 'yes');
+    assert.equal(repeated?.steps?.[2]?.continueOnFailure, true);
+    assert.equal(repeated?.steps?.[2]?.continueOnInvalidResponse, true);
+    assert.equal(repeated?.steps?.[4]?.agentType, 'research_agent');
+    assert.equal(repeated?.steps?.[4]?.identifier, 'batch_repeat_researcher');
+    assert.equal(repeated?.steps?.[4]?.continueOnFailure, true);
+    assert.equal(repeated?.steps?.at(-1)?.breakOnFailure, true);
+    assert.equal(
+      flattenSteps(repeated?.steps ?? []).some((step) => step.type === 'if'),
+      false,
+    );
 
     const filteringIndex = labels.indexOf('Optional Review Filtering');
     const auditIndex = labels.indexOf('Audit Review Batch Filtering Gates');
@@ -798,7 +828,7 @@ describe('flow schema (v1)', () => {
       true,
     );
     assert.match(repeatedExit?.question ?? '', /every target repository/u);
-    assert.match(repeatedExit?.question ?? '', /stronger attempt/u);
+    assert.match(repeatedExit?.question ?? '', /stronger opportunity/u);
     assert.equal(oneShotBatches.length, 1);
     const serialized = JSON.stringify({ repeatedBatch, oneShotBatches });
     assert.match(serialized, /codex_review/u);
@@ -1022,6 +1052,7 @@ describe('flow schema (v1)', () => {
       optionalSteps.map((step) => step.label),
       [
         'Skip Review Repair When Disposition Accepts No Findings',
+        'Investigate Repeated Review Findings',
         'Re-embed Plan Scope Before Direct Review Fixes',
         'Reset Direct Review Fixer',
         'Implement Direct Review Fixes',
@@ -1039,7 +1070,11 @@ describe('flow schema (v1)', () => {
     assert.equal(noWorkGate?.continueOnFailure, true);
     assert.equal(noWorkGate?.continueOnInvalidResponse, true);
     assert.match(noWorkGate?.question ?? '', /no accepted actionable finding/u);
-    const completionGate = optionalSteps[4];
+    const completionGate = optionalSteps.find(
+      (step) =>
+        step.label ===
+        'Skip Stronger Repair When Normal Fixer Completed All Findings',
+    );
     assert.equal(completionGate?.type, 'break');
     assert.equal(completionGate?.agentType, 'coding_agent');
     assert.equal(completionGate?.identifier, 'batch_fixer');
@@ -1050,10 +1085,15 @@ describe('flow schema (v1)', () => {
     assert.match(completionGate?.question ?? '', /positively confirmed/u);
     assert.match(completionGate?.question ?? '', /materiality survivor/u);
     assert.match(completionGate?.question ?? '', /evidence is uncertain/u);
-    const strongerReset = optionalSteps[5];
-    const strongerFix = optionalSteps[6];
+    const strongerReset = optionalSteps.find(
+      (step) => step.label === 'Reset Stronger Review Fixer',
+    );
+    const strongerFix = optionalSteps.find(
+      (step) => step.label === 'Implement Remaining Review Fixes',
+    );
     assert.equal(
-      optionalSteps.indexOf(strongerFix) - optionalSteps.indexOf(strongerReset),
+      optionalSteps.findIndex((step) => step === strongerFix) -
+        optionalSteps.findIndex((step) => step === strongerReset),
       1,
     );
     assert.equal(strongerReset?.type, 'reset');
@@ -1067,7 +1107,7 @@ describe('flow schema (v1)', () => {
       strongerFix?.markdownFile,
       'implement_review_batch_remaining_fixes.md',
     );
-    const exitGate = optionalSteps[8];
+    const exitGate = optionalSteps.at(-1);
     assert.equal(exitGate?.type, 'break');
     assert.equal(exitGate?.agentType, 'loop_control_agent');
     assert.equal(exitGate?.breakOn, 'yes');

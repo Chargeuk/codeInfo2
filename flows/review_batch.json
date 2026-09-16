@@ -202,6 +202,60 @@
           "continueOnInvalidResponse": true
         },
         {
+          "type": "startLoop",
+          "label": "Investigate Repeated Review Findings",
+          "maxIterations": 1,
+          "steps": [
+            {
+              "type": "reset",
+              "label": "Reset Repeated Finding Matcher",
+              "agentType": "review_agent_lite",
+              "identifier": "batch_repeat_matcher"
+            },
+            {
+              "type": "llm",
+              "label": "Identify Repeated Review Findings",
+              "agentType": "review_agent_lite",
+              "identifier": "batch_repeat_matcher",
+              "continueOnFailure": true,
+              "markdownFile": "identify_repeated_review_findings.md"
+            },
+            {
+              "type": "break",
+              "label": "Skip Repeated Repair When No Candidates Remain",
+              "agentType": "review_agent_lite",
+              "identifier": "batch_repeat_matcher",
+              "question": "Read the current immutable batch disposition and repeated-finding routing evidence from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when trustworthy completed routing accounts for every current accepted actionable finding and positively confirms no possible repeat or matching uncertainty remains. Answer no for any candidate, unclassified finding, or missing, partial, unavailable, contradictory, or uncertain evidence. Salvage imperfect evidence, never fail the turn, and never restore earlier gate removals.",
+              "breakOn": "yes",
+              "continueOnFailure": true,
+              "continueOnInvalidResponse": true
+            },
+            {
+              "type": "reset",
+              "label": "Reset Repeated Finding Researcher",
+              "agentType": "research_agent",
+              "identifier": "batch_repeat_researcher"
+            },
+            {
+              "type": "llm",
+              "label": "Research and Fix Repeated Review Findings",
+              "agentType": "research_agent",
+              "identifier": "batch_repeat_researcher",
+              "continueOnFailure": true,
+              "markdownFile": "research_and_fix_repeated_review_findings.md"
+            },
+            {
+              "type": "break",
+              "label": "Exit Repeated Finding Investigation",
+              "agentType": "research_agent",
+              "identifier": "batch_repeat_researcher",
+              "question": "The repeated-finding section has completed its single research opportunity. Return exact JSON only: {\"answer\":\"yes\"}.",
+              "breakOn": "yes",
+              "breakOnFailure": true
+            }
+          ]
+        },
+        {
           "type": "reingest",
           "label": "Re-embed Plan Scope Before Direct Review Fixes",
           "target": "plan_scope"
@@ -225,7 +279,7 @@
           "label": "Skip Stronger Repair When Normal Fixer Completed All Findings",
           "agentType": "coding_agent",
           "identifier": "batch_fixer",
-          "question": "Read the current immutable batch, filtered reconciliation, materiality record, combined filtering audit, disposition, your normal-repair audit, and current Git state for every target repository from disk. Have all supported, positively authorized materiality survivors been resolved? Answer yes only when completion is positively confirmed. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Do not restore any finding removed by an earlier gate. Answer no when any material survivor remains or the evidence is uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+          "question": "Read the current immutable batch, filtered reconciliation, materiality record, combined filtering audit, disposition, the repeated-finding routing and research audit, your normal-repair audit, and current Git state for every target repository from disk. Have all supported, positively authorized materiality survivors been resolved? Answer yes only when completion is positively confirmed. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Do not restore any finding removed by an earlier gate. Answer no when any material survivor remains or the evidence is uncertain. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Apply shared/repeated-review-repair.md: include trustworthy research fixes in combined completion, but unresolved or unavailable research-owned work means no; the normal and stronger stages must carry that remainder for settlement without reattempting it.",
           "breakOn": "yes",
           "continueOnFailure": true,
           "continueOnInvalidResponse": true

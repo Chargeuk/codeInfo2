@@ -1,5 +1,7 @@
 # Completed Review Fix Task Contract
 
+Include repeated-finding research contributions under `shared/repeated-review-repair.md`: research-only repair commits make a batch fix-bearing. Preserve historical finding references, reversal explanations, reconciled requirements, and focused proof alongside the normal/stronger contributions when present.
+
 Read and follow `review-created-task-timestamp.md` for every newly created completed-review-fix task.
 
 Use this contract at the end of each immutable review batch whenever either review repair agent committed one or more fixes. Complete-pass settlement consumes the same contract to reconcile, repair, or recover the record.

@@ -6337,3 +6337,459 @@ Optional, checkbox-free manual proof may use the supported main Compose stack th
 - Client typecheck passed, targeted ESLint passed across every changed source/test/script file, Prettier validation passed after mechanically formatting `ws-server.test.ts`, and `git diff --check` passed. The full combined stress proof remains pending.
 - Ran the final `npm run test:summary:all:stress` proof with client 2, server-unit 12, Cucumber 1, and Playwright 1. All 3,991 tests passed together: client 911/911 in 610.271s, server unit 2,864/2,864 in 685.866s, Cucumber 138/138 in 179.023s, and E2E 78/78 in 476.379s; all reusable builds passed, the client retained only its existing large-chunk warning, and both isolated test infrastructures were removed cleanly.
 - Final repository-wide `npm run format:check` passed after the stress run. No additional formatting repair was required.
+
+## Code Review Findings
+
+- Findings recorded: `September 15, 2026 at 9:23:10 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260915T191400Z-05bb88ff`
+- Review cycle: `0000060-rc-20260915T191359Z-06cc145c`
+- Reviews attempted:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — completed with qualified findings.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 2322
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — unavailable after native exit 1 with empty review streams.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed with three supported findings.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed, not applicable: only one repository was assigned, so it had no contract to compare.
+    - Input tokens: 310076
+    - Cached input tokens: 272768
+    - Output tokens: 3947
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — unavailable: the native commands were not permitted, leaving no substantive review content.
+    - Input tokens: 526112
+    - Cached input tokens: 472320
+    - Output tokens: 4274
+
+### Accepted
+
+#### 1. A persisted paused wait cannot be stopped
+
+- Finding ID: `2`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated.
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated.
+- Simple description: A paused persisted flow wait loses active ownership, so the existing stop operation refuses to cancel it even though the wait remains scheduled. The execution can later resume without the operator being able to stop it.
+- Example: The opt-in review flow enters its authored wait; before wake, an operator calls the existing stop endpoint. It returns a conflict and the scheduled wait later resumes the same run, so unwanted work can continue.
+- Why accepted: Current HEAD confirms the behavior and existing conversation lock, matching-wait, persistence, and lifecycle seams. It restores comparison-base cancellation behavior for the same persisted execution, is realistically reachable, and materially preserves control of a delayed automated run. The accepted scope is only identity-matched cancellation using existing state; the alternate new-ownership remedy is ignored below. Final disposition: fixed in `469256e25e250c66e128bb6e81dfb97e6d5e08a7`, recorded in Task 58 and awaiting Task 60 broad revalidation. The preceding observation describes the reviewed HEAD, not a defect still present at the final HEAD.
+
+#### 2. Decision-script Git preflight bypasses the existing timeout
+
+- Finding ID: `4` (timeout core only)
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated and verified.
+- Simple description: The required Git check for a decision script runs before the timed Python process and has no timeout. A stalled Git preflight can therefore hold the flow longer than its decision budget.
+- Example: A tracked repository-relative script is selected while Git blocks on delayed repository filesystem I/O. The Python child never starts, so its timeout cannot end the stalled decision.
+- Why accepted: The plan explicitly requires hard timeout behavior for direct decision scripts, current HEAD exposes the existing runtime timeout and subprocess seam, and the supported stalled-I/O scenario has meaningful flow-progress impact. Only applying the existing shared budget across Git preflight and remaining Python execution is accepted; no new timeout configuration or error taxonomy is authorized. Final disposition: partially repaired in `469256e25e250c66e128bb6e81dfb97e6d5e08a7`. Git now has a timeout, but at final HEAD `5cd2c0f60d80891f5031ebf3f1a55a56f7fc91bc`, `flowDecisionScript.ts:163-214` gives Git and Python separate full `params.timeoutMs` allowances. For example, with the existing 1000 ms budget, Git consuming 800 ms leaves Python another 1000 ms rather than 200 ms (source-derived example, not a measured execution). The positive gate expressly forbids resetting the allowance. This supported remainder requires the missing stronger repair opportunity before residual implementation tasking or final revalidation; the cycle is incomplete. This does not restore the later ignored proposal to increase/configure the timeout.
+
+#### 3. Failed post-create PR lookup is returned as success
+
+- Finding ID: `7` (truthful error-propagation core only)
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated and verified.
+- Simple description: After PR creation succeeds, a failed canonical lookup is turned into an OK result using requested rather than verified metadata. The flow can proceed as though metadata verification succeeded.
+- Example: `gh pr create` prints a valid URL and the follow-up lookup then fails due to an API/network failure. The flow enters review waiting with the requested head/base even though the lookup diagnostics show verification failed.
+- Why accepted: The contract requires canonical follow-up metadata and truthful warning/skip behavior on PR-step failure. Current HEAD already has a non-OK result and caller path, and propagating it avoids a realistic false stage completion without authorizing retry, fallback identity, or reselection. Final disposition: fixed in `469256e25e250c66e128bb6e81dfb97e6d5e08a7`, recorded in Task 58; Task 60 must reconcile the known stale integration expectation with this approved warning/skip behavior and run broad proof.
+
+### Ignored for This Story
+
+#### 4. Intended-base validation before PR creation
+
+- Finding ID or Review reference: `1` (complete finding removed at positive authorization)
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated.
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated.
+- Simple description: A valid but stale base branch could be passed to PR creation, but an existence check cannot establish which valid branch was intended.
+- Example: A handoff names an existing old release branch; `gh pr create --base` accepts it, but repository state provides no field showing whether `main` or that release branch was the intended target.
+- Why ignored: The trustworthy-base outcome does not authorize a new heuristic, default, branch-intent source, or rejection policy, and current HEAD has no existing seam that can prove intent. The complete finding is non-actionable for this story.
+
+#### 5. New persisted paused-ownership record
+
+- Finding ID or Review reference: `2` (narrowed-away remedy only)
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated.
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated.
+- Simple description: One proposed way to stop a paused wait is to add a separate persisted ownership record.
+- Example: Rather than matching the existing conversation lock and wait identity, the runtime would store another ownership state solely for paused runs.
+- Why ignored: Only the existing ownership/state cancellation seam is authorized. A new persisted ownership schema or cancellation mode is an excluded mechanism, while the finding’s accepted core remains separately recorded above.
+
+#### 6. Missing PR author identity treated as clean review
+
+- Finding ID or Review reference: `3` (complete authorized core removed at materiality; warning/skip remedy also removed)
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated.
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — corroborated, with lower native severity.
+- Simple description: Missing PR-author identity can suppress otherwise present review feedback and make the review look clean.
+- Example: A response with review bodies but no `authorLogin` reaches feedback filtering, which returns an empty set; the batch has no supported GitHub response proving that this absent-author shape is reachable in the normal workflow.
+- Why ignored: The behavior and a narrow materialization-error seam are technically supported and positively authorized, but realistic upstream reachability and value for changing completed code were not demonstrated. It is non-actionable; author guessing, warning conversion, fallback inclusion, and recovery policy remain unapproved.
+
+#### 7. Decision-script message taxonomy and authored timeout override
+
+- Finding ID or Review reference: `4` (narrowed-away remedies only)
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated and verified.
+- Simple description: Git preflight failures share a checked-in-script message, and a reviewer proposed a flow-authored timeout override.
+- Example: A Git permission error says the script must be checked in; adding a timeout field would let authors select a different budget.
+- Why ignored: Existing errors already fail the step and strict schemas expose no timeout control. The accepted scope is only the existing runtime budget on preflight; new messages, values, overrides, and retries are non-actionable.
+
+#### 8. Recursive semantic preflight for nested `if` branches
+
+- Finding ID or Review reference: `5` (complete qualified finding removed at positive authorization)
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated and verified.
+- Simple description: A nested `if` branch can be syntactically valid while a repository-backed requirement is discovered only after an earlier side effect. The broader claim that branch schemas are not recursively validated was corrected as false.
+- Example: A valid nested branch selects an unavailable repository-backed command after an earlier step ran, even though schema shape validation succeeded beforehand.
+- Why ignored: New recursive semantic-preflight timing and validation policy are outside the approved flow contract, and no existing control supports the proposed wider behavior.
+
+#### 9. Current-plan read errors collapsed into base-branch missing
+
+- Finding ID or Review reference: `6` (complete finding removed at positive authorization)
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated and verified.
+- Simple description: A current-plan read failure for a reason other than a missing base can be reported as `BASE_BRANCH_MISSING`.
+- Example: A containment or corruption error while reading plan context follows the same routine skip reason as a genuinely absent base branch.
+- Why ignored: A new error-reason taxonomy is not authorized by this story, and the review did not demonstrate a permitted existing seam for that policy change.
+
+#### 10. Retry, backoff, and fallback metadata after failed PR lookup
+
+- Finding ID or Review reference: `7` (narrowed-away remedies only)
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated and verified.
+- Simple description: Lookup diagnostics mention an attempt, but they do not provide an actual retry control or verified fallback identity.
+- Example: After lookup failure, retrying with backoff could delay the flow or use different PR data even though no retry API is exposed.
+- Why ignored: The accepted scope is truthful propagation through the existing non-OK path. Retry, backoff, reselection, fallback identity, and new failure policy are not authorized.
+
+#### 11. Simultaneous script and agent decision configuration
+
+- Finding ID or Review reference: `8` (complete finding removed at negative scope)
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated.
+- Simple description: A flow may supply script and agent decision settings together; the runtime chooses the script and silently ignores agent fields.
+- Example: An author sets both a script condition and `agentType`/`identifier`; only the script executes, and no evidence shows double execution.
+- Why ignored: A reject-or-warn policy would add a user-visible authoring/runtime contract that this story does not authorize. The complete finding is non-actionable.
+
+#### 12. Error-shaped HTTP-200 payload treated as an empty GitHub page
+
+- Finding ID or Review reference: `9` (complete authorized core removed at materiality)
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated; verification corroborated the normalization path.
+- Simple description: A non-array HTTP-200 payload can be normalized away and look like no reviews or no open PR.
+- Example: An error-shaped object from a proxy/API is accepted as a page entry, fails endpoint normalization, and produces an empty successful list; no supported `gh api` response proves this shape in normal operation.
+- Why ignored: The observation and narrow array-shape seam are technically supported and positively authorized, but realistic reachability and proportionate value were not demonstrated. The complete finding is non-actionable, along with parser expansion, retry, and completion-policy changes.
+
+### Task 58. Record Review Fixes From Batch 0000060-rw-20260915T191400Z-05bb88ff
+
+- Task Status: __done__
+- Review Task Role: completed_review_fixes
+- Repository Name: Current Repository
+- Task Dependencies: Task 57
+- Review Batch: `0000060-rw-20260915T191400Z-05bb88ff`
+- Review Cycle: `0000060-rc-20260915T191359Z-06cc145c`
+- Affected Repositories: `current_repository` — reviewed and initial-repair HEAD `57ab320989e499de620b936e4bd11a456031ef1d`; final repair HEAD `469256e25e250c66e128bb6e81dfb97e6d5e08a7`.
+- Created: `September 15, 2026 at 10:02:46 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repair work from immutable batch `0000060-rw-20260915T191400Z-05bb88ff`: two findings were fully repaired and Git preflight was bounded for original finding 4. The shared Git/Python budget remains unresolved. This historical completed record does not claim that missing work or the unperformed stronger repair succeeded; recovery must precede Task 60 final revalidation.
+
+#### Review Harnesses
+
+- codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, evidence directory `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) generated the persisted-wait cancellation finding and Claude corroborated it.
+- Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, evidence directory `f77ed0d8e98324e7ac4011496f6ed82c600ae9db7ddb74079408c6a388a359a0`) generated and verified the decision-script timeout and post-create lookup findings, and corroborated the persisted-wait finding.
+
+#### Addresses Findings
+
+- Original finding `2` — `current_repository`: a paused persisted wait released active ownership and could not be stopped. The repair now cancels only the identity-matched scheduled/persisted wait under the existing conversation lock and stores the existing stopped lifecycle.
+- Original finding `4` (timeout core only) — `current_repository`: `git ls-files` preflight could outlive the existing direct-decision runtime budget. The repair applies that existing timeout and `SIGKILL` to the required preflight child. It does not deduct preflight elapsed time from Python execution, so the accepted shared-budget requirement remains unresolved.
+- Original finding `7` (truthful failure-propagation core only) — `current_repository`: failed canonical post-create PR lookup returned requested metadata as success. The repair preserves the existing non-OK lookup result and diagnostic for the established warning/skip path.
+
+#### Subtasks
+
+1. [x] Repaired persisted authored-wait cancellation in `server/src/flows/service.ts` and added its integration regression proof in `server/src/test/integration/flows.run.errors.test.ts`.
+2. [x] Applied the existing decision-script budget to Git preflight in `server/src/flows/flowDecisionScript.ts` and added deterministic unit proof in `server/src/test/unit/flow-decision-script.test.ts`.
+3. [x] Preserved canonical lookup failure in `server/src/flows/githubReview.ts` and updated focused adapter regression coverage in `server/src/test/unit/flows.github-adapter.test.ts`.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --file server/src/test/unit/flows.github-adapter.test.ts --file server/src/test/integration/flows.run.errors.test.ts` — passed 81/81.
+2. [x] `npm run test:summary:server:unit -- --skip-build --file server/src/test/unit/flow-decision-script.test.ts --file server/src/test/unit/flows.github-adapter.test.ts --file server/src/test/integration/flows.run.errors.test.ts` — passed 81/81 after formatting.
+3. [x] `git diff --check` — passed.
+
+#### Implementation Notes
+
+- Normal repair committed two complete fixes and a partial timeout repair in commit `469256e25e250c66e128bb6e81dfb97e6d5e08a7` (`DEV-0000060 - Repair review batch flow contracts`). Its six changed files are the three production flow owners and their three focused regression files listed above.
+- The normal repair used no new persisted ownership state, timeout value/configuration, infrastructure-error taxonomy, retry/backoff, PR reselection, fallback identity, or unrelated cleanup. Every earlier negative-scope, positive-authorization, materiality, and narrowed-remedy removal remains non-actionable evidence.
+- The stronger repair attempt was skipped on the normal audit's claim that no material survivor remained. Independent settlement audit disproved that claim for original finding 4: Python resets the full timeout after Git. No stronger-stage evidence exists for this remainder. Preserve this completed work record, recover that repair opportunity before deciding residual implementation tasking, and keep the cycle incomplete until it is accounted for.
+- Focused server-unit proof passed before and after formatting (`test-results/server-unit-tests-2026-09-15T20-57-12-606Z.log` and `test-results/server-unit-tests-2026-09-15T20-58-04-918Z.log`); those tests do not establish a shared Git/Python budget. Changed-file Prettier check and ESLint with `--max-warnings=0` also passed. Broad full-suite, broad lint/format, browser proof, push, and a stronger repair were not run.
+- Batch outcome evidence is recorded at `codeInfoTmp/reviews/0000060-rc-20260915T191359Z-06cc145c/batches/0000060-rw-20260915T191400Z-05bb88ff--head-57ab320989e4/reconciliation/batch-outcome.md`. The new committed flow HEAD warrants a fresh review batch; this task does not create that review or a final revalidation task.
+
+## Code Review Findings
+
+- Findings recorded: `September 15, 2026 at 10:59:30 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260915T210438Z-996d45ad`
+- Review cycle: `0000060-rc-20260915T191359Z-06cc145c`
+- Reviews attempted:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — completed native execution; recovered as a partial targeted review with no verified actionable finding.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: At least 2763 reported; incomplete
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — unavailable: direct process exit 1 with empty review streams.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native static review with two source-supported findings.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed no-work: the immutable target inventory contains only `current_repository`.
+    - Input tokens: 197884
+    - Cached input tokens: 162048
+    - Output tokens: 3260
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — partial fallback review; native review was unavailable and 455 of 476 changed paths were uninspected.
+    - Input tokens: 1958417
+    - Cached input tokens: 1839744
+    - Output tokens: 9778
+
+### Accepted
+
+#### 1. Flow discovery misses commands inside `if` branches
+
+- Finding ID: `P2 — Flow discovery does not validate commands nested in if branches`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and source-verified.
+- Simple description: Flow discovery checks direct commands and loop contents but skips commands in `if.then` and `if.else`. A flow can be shown as runnable even when a conditional command is unavailable.
+- Example: The opt-in GitHub-review flow receives reviewer feedback and enters its `if` branch containing `task_up_review_tasks`; if that command is unavailable, the flow fails after the PR and review sequence has already begun rather than being disabled during discovery.
+- Why accepted: The current contract explicitly adds `if` flow steps, and current HEAD retains the existing command-discovery disabled-flow guard at `server/src/flows/discovery.ts`. Traversing the two existing branch arrays is the smallest proven repair seam, preserves the established guard without touching Out Of Scope entrypoints or policy, and prevents a realistically reachable late failure. It was a material survivor at the reviewed HEAD. Final disposition: normal repair fixed the existing discovery collector in `5cd2c0f60d80891f5031ebf3f1a55a56f7fc91bc`, recorded in Task 59 and awaiting Task 60 broad proof. This does not restore the earlier ignored recursive semantic-preflight proposal.
+
+#### 2. GitHub subprocesses do not preserve established Stop cancellation
+
+- Finding ID: `OCR-FALLBACK-001`
+- Review harnesses:
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated and source-verified by its fallback evidence.
+- Simple description: The new Git and GitHub CLI child processes are not connected to the flow cancellation signal. Stopping a stalled PR operation can leave the child and flow ownership running instead of reaching the existing stopped result.
+- Example: A `git push` or `gh` call stalls during the opt-in PR flow and the operator uses Stop. The inflight flow state is aborted, but `githubReview.ts` has no signal path to the child, so it continues holding the step until it exits independently.
+- Why accepted: Current HEAD shows the existing Stop/inflight lifecycle and the unconnected subprocess runner. Restoring cancellation propagation, child cleanup, and the stopped outcome is authorized comparison-base preservation, has a credible material stuck-flow impact, and excludes timeout, retry, fallback, remote-selection, and new-policy work. Final disposition: normal repair fixed registration, signal wiring, and lifecycle cleanup together in `5cd2c0f60d80891f5031ebf3f1a55a56f7fc91bc`, with focused stopped-flow proof recorded in Task 59. The earlier stronger-repair prediction was superseded by actual normal repair; no duplicate open implementation task is warranted. Task 60 owns broad and stress proof.
+
+### Ignored for This Story
+
+#### 3. Repository-local decision scripts in a global opt-in flow
+
+- Finding ID or Review reference: `P1 — Global opt-in review flow can create a PR before failing on repository-local decision scripts`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and source-verified.
+- Simple description: A global opt-in flow names CodeInfo-local decision helpers even though direct decision scripts are resolved from the worked repository. A selected external repository can lack those helpers after PR creation has started.
+- Example: An operator runs the copied GitHub-review flow against another repository. PR creation succeeds, then the next conditional cannot resolve `scripts/flow_control/check_github_review_cycle_active.py` inside that worked repository.
+- Why ignored: The observation is technically supported, but the positive-authorization gate found no approved existing seam for a helper-distribution, availability, or fallback policy. The complete finding is non-actionable for this story and received no materiality promotion.
+
+#### 4. Bounded timeout for GitHub commands
+
+- Finding ID or Review reference: `OCR-FALLBACK-001` (narrowed-away remedy only)
+- Review harnesses:
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated.
+- Simple description: The original cancellation finding also proposed imposing a bounded timeout on Git and GitHub CLI commands.
+- Example: A stalled `gh` command would be forcibly ended after a newly chosen time limit instead of only being ended when the existing Stop signal is received.
+- Why ignored: This remedy was removed by the negative scope gate. The Story Behavior Lock does not authorize a new command-timeout policy, and current HEAD exposes no existing GitHub timeout control that could be restored; the separate accepted cancellation core does not authorize it.
+
+#### 5. Claimed GitHub-review scratch-path mismatch
+
+- Finding ID or Review reference: `Copilot claude scratch-path candidate` (rejected non-finding)
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated; its recovered evidence rejected the claim.
+- Simple description: The normalized provider result claimed that GitHub review classification necessarily used the legacy story-global scratch file instead of the fetched GitHub handoff.
+- Example: The claim would mean fetched review data is ignored and classification reads an unrelated older review file, but current-HEAD verification shows the active handoff overrides that instruction and supplies its external input file.
+- Why ignored: The consequence is unsupported at the reviewed HEAD, so it is a rejected candidate rather than a finding. It is not eligible for authorization, materiality, repair, tasking, or review-loop continuation.
+
+### Task 59. Record Review Fixes From Batch 0000060-rw-20260915T210438Z-996d45ad
+
+- Task Status: __done__
+- Review Task Role: completed_review_fixes
+- Repository Name: Current Repository
+- Task Dependencies: Task 58
+- Review Batch: `0000060-rw-20260915T210438Z-996d45ad`
+- Review Cycle: `0000060-rc-20260915T191359Z-06cc145c`
+- Affected Repositories: `current_repository` — reviewed and initial-repair HEAD `469256e25e250c66e128bb6e81dfb97e6d5e08a7`; final repair HEAD `5cd2c0f60d80891f5031ebf3f1a55a56f7fc91bc`.
+- Created: `September 15, 2026 at 11:32:48 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repairs for immutable batch `0000060-rw-20260915T210438Z-996d45ad`. Both positively authorized, material survivors were fixed in one commit; the stronger attempt was deliberately skipped because the normal repair audit established that no actionable survivor remained.
+
+#### Review Harnesses
+
+- codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, evidence directory `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) generated and source-verified the conditional-command discovery finding.
+- open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, evidence directory `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) generated and source-verified the GitHub Stop-cancellation finding through partial fallback review.
+
+#### Addresses Findings
+
+- `P2 — Flow discovery does not validate commands nested in if branches` — `current_repository`: `collectCommandSteps` now covers the story-added `if.then` and optional `if.else` executable branch arrays, preserving the existing disabled-flow guard.
+- `OCR-FALLBACK-001 / P2 — Story-added GitHub subprocesses must preserve established Stop cancellation` — `current_repository`: GitHub flow work now uses the existing inflight lifecycle, propagates its AbortSignal to Git/GitHub children, cleans up on abort, and preserves the stopped outcome.
+
+#### Subtasks
+
+1. [x] Repaired conditional command discovery in `server/src/flows/discovery.ts` and added both-branch disabled-flow proof in `server/src/test/integration/flows.list.test.ts`.
+2. [x] Repaired GitHub command cancellation in `server/src/flows/service.ts` and `server/src/flows/githubReview.ts`, with focused adapter and deterministic stopped-flow proof in `server/src/test/unit/flows.github-adapter.test.ts` and `server/src/test/integration/flows.run.basic.test.ts`.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts --file server/src/test/integration/flows.list.test.ts` — passed 49/49 before formatting.
+2. [x] `npm run test:summary:server:unit -- --skip-build --file server/src/test/unit/flows.github-adapter.test.ts --file server/src/test/integration/flows.list.test.ts` — passed 49/49 after formatting.
+3. [x] `npm run test:summary:server:unit -- --skip-build --file server/src/test/integration/flows.run.basic.test.ts --test-name 'Stop cancels a stalled GitHub PR command and preserves the stopped flow outcome'` — passed 1/1.
+4. [x] `npm run build:summary:server` — passed with no warnings.
+
+#### Implementation Notes
+
+- Normal repair completed both accepted material survivors in `5cd2c0f60d80891f5031ebf3f1a55a56f7fc91bc` (`DEV-0000060 - Repair conditional discovery and GitHub cancellation`). The six changed files are the two repaired production paths, the flow-service lifecycle owner, and their three focused proof files.
+- The repair added no excluded timeout, retry, fallback, remote-selection, schema, or failure-policy behavior. The positive-unauthorized repository-local-script P1, negative-scope timeout remedy, and rejected scratch-path claim remain non-actionable evidence only.
+- The broader three-file server-unit wrapper reported 86/87 passing because `github review open PR keeps validated creation identity when immediate canonical reconciliation fails` still expects zero warnings and successful fallback metadata (`server/src/test/integration/flows.run.basic.test.ts:2548,2663`). It predates this batch but conflicts with the previous batch's approved original-7 failure propagation; it is not unrelated to this cycle. Task 60 owns correcting that stale expectation and rerunning proof without restoring the ignored fallback. Changed-file Prettier check, ESLint with `--max-warnings=0`, and `git diff --check` passed; no full suite, browser proof, Compose run, live GitHub call, or push was run.
+- Stronger repair was deliberately skipped because the normal repair audit positively established no remaining actionable finding. Batch outcome evidence is at `codeInfoTmp/reviews/0000060-rc-20260915T191359Z-06cc145c/batches/0000060-rw-20260915T210438Z-996d45ad--head-469256e25e25/reconciliation/batch-outcome.md`; the new committed HEAD makes a fresh review useful but this task creates no final revalidation work.
+
+## Code Review Findings
+
+- Findings recorded: `September 16, 2026 at 12:34:07 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260915T223448Z-b61cddd2`
+- Review cycle: `0000060-rc-20260915T191359Z-06cc145c`
+- Reviews attempted:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — completed native process; partial coverage with two supported observations, one unpromoted design concern, and a documented built-in-subagent procedure deviation.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 1796
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — unavailable: direct process exit 1 with empty output and no review text.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native, non-exhaustive review with one source-supported observation.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed no-work because only `current_repository` was assigned.
+    - Input tokens: 266094
+    - Cached input tokens: 229888
+    - Output tokens: 3564
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — partial fallback review; native OpenCode was unavailable and it established no supported finding.
+    - Input tokens: 731012
+    - Cached input tokens: 660352
+    - Output tokens: 4906
+
+### Accepted
+
+- None. The last applicable audited gate, positive authorization, completed with zero survivors; materiality was deliberately not applicable.
+
+### Ignored for This Story
+
+#### 1. Unpublished feature branches are skipped before PR creation
+
+- Finding ID or Review reference: `P1 — Unpublished feature branches are skipped before the PR-open path can publish them`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and source-verified.
+- Simple description: The PR-open setup requires a tracking ref for the current branch before it reaches the automatic push helper. A new untracked feature branch is skipped instead of being published.
+- Example: A developer creates a local feature branch from a tracked base but has not pushed it. `@{u}` is missing, so setup records `UPSTREAM_MISSING` and does not open the PR.
+- Why ignored: The observation is technically supported, but its only demonstrated remedy would choose a publication remote or establish tracking for a branch with no existing upstream. That is not an existing control and is excluded by the first-time-publication/alternate-remote Out Of Scope restriction. The complete finding was removed at negative scope and received no later authorization or materiality promotion.
+
+#### 2. Reused open PRs are not checked against the trusted base
+
+- Finding ID or Review reference: `Medium — Reusing an open PR does not verify that its base is the trusted story base`
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated and independently verified.
+- Simple description: The latest open PR for a branch can be reused without comparing its base to the resolved story base.
+- Example: A manually opened PR for the current branch targets another base; the simple latest-open lookup could select it. The batch does not establish that this happens in a supported normal cycle.
+- Why ignored: The complete finding was removed at negative scope because a new stale/manual-PR validation or skip policy is expressly outside this story's intentionally simple first-version lookup. It is not authorized, material, repairable, or taskable here.
+
+#### 3. GitHub Enterprise eligibility and runtime support differ
+
+- Finding ID or Review reference: `Medium — The GitHub Enterprise gate claims support that the runtime rejects`
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated and independently verified.
+- Simple description: The plan-scope predicate accepts GHE hosts while the GitHub runtime accepts github.com forms and hardcodes `GH_HOST=github.com`.
+- Example: A GHE-positive gate decision reaches the existing runtime warning/skip path instead of a supported Enterprise transport.
+- Why ignored: The Enterprise-expansion remedy was removed at negative scope, and the narrower gate-alignment remedy is a host-eligibility policy not positively authorized by the github.com credential criterion. The earlier materiality removal is preserved as history; once positive authorization had zero survivors, materiality was deliberately not applicable.
+
+#### 4. Fixed one-second decision-script timeout
+
+- Finding ID or Review reference: `Copilot claude fixed-timeout design concern`
+- Review harnesses:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`) — generated; verification confirms the fixed budget but not the claimed runtime impact.
+- Simple description: Decision scripts use a fixed 1,000 ms budget while some can invoke serial Git commands.
+- Example: A slow repository could exceed that budget, but the retained batch evidence has no runtime example that demonstrates the timeout or harm.
+- Why ignored: This is a factual configuration paired with an unproven design-risk inference, not a promoted finding. It has no authorization, materiality, repair, tasking, or review-loop route.
+
+## Code Review Findings
+
+- Findings recorded: `September 16, 2026 at 1:44:24 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260915T233853Z-d3b5ca2d`
+- Review cycle: `0000060-rc-20260915T191359Z-06cc145c`
+- Reviews attempted:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — completed partial, usable review with no supported actionable finding; live GitHub, restart/resume, contention, and full-suite coverage remain unproven.
+    - Input tokens: 7869504
+    - Cached input tokens: 7171840
+    - Output tokens: 41552
+
+### Accepted
+
+- None. The audited reconciliation established zero supported actionable findings; negative scope, positive authorization, and materiality were deliberately not applicable.
+
+### Ignored for This Story
+
+- None. No supported finding was removed or narrowed by an applicable gate. Retained authoring, accessibility, hygiene, concurrency, visual-proof, and evidence observations are non-finding audit context, not ignored findings for this story.
+
+### Task 60. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260915T191359Z-06cc145c
+
+- Repository Name: `Current Repository`
+- Review Task Role: `final_revalidation`
+- Task Dependencies: `Task 59` plus all earlier story work; recovery of the missing stronger repair opportunity for batch `0000060-rw-20260915T191400Z-05bb88ff`, original finding `4`, and any justified residual work must precede final proof
+- Task Status: `__in_progress__`
+- Review Cycle: `0000060-rc-20260915T191359Z-06cc145c`
+- Review Batches: `0000060-rw-20260915T191400Z-05bb88ff`, `0000060-rw-20260915T210438Z-996d45ad`, `0000060-rw-20260915T223448Z-b61cddd2`, and `0000060-rw-20260915T233853Z-d3b5ca2d`
+- Affected Repositories: `current_repository`
+- Review Scope: whole-story validation at `5cd2c0f60d80891f5031ebf3f1a55a56f7fc91bc`, including the batch-repair commits `469256e25e250c66e128bb6e81dfb97e6d5e08a7` and `5cd2c0f60d80891f5031ebf3f1a55a56f7fc91bc`, all earlier Story 60 server, client, flow-definition, script, test, Compose, and proof surfaces.
+- Created: `September 16, 2026 at 1:55:06 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Perform the sole current-cycle final whole-story automated validation after the two completed-review-fix records. This task owns broad proof at the latest repair HEAD and may repair a story-caused failure exposed by its checks when practical, rerunning every affected check. It must not reopen ignored findings or task unavailable review coverage. Final proof is pending recovery of the missing stronger repair for original finding 4; a new repair HEAD must return through the applicable repeated-review route before final revalidation. Do not treat an unperformed repair as success or create implementation work from a disposition prediction.
+
+#### Task Exit Criteria
+
+- The supported shared-budget remainder of original finding 4 has received the missing stronger repair opportunity, its factual outcome is recorded, and only any material authorized survivor after that opportunity becomes open implementation work before this final task. Any new repair HEAD is routed to repeated review before final revalidation.
+- The complete Story 60 surface and both current-cycle repair commits pass the supported client/server build, Compose startup, full automated-suite, shutdown, lint, and formatting lifecycle.
+- Tasks 58 and 59 remain the exact, completed records for the two fix-bearing batches; the two non-fix-bearing batches remain without completed-fix tasks.
+- Every gate removal, rejected candidate, unpromoted design concern, and unavailable/partial review limit in the four immutable batch records remains ignored evidence rather than implementation work.
+- If an automated check exposes a story-caused failure, repair it in this task when practical and rerun every affected automated check; record unrelated baseline limitations honestly.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [ ] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run build:summary:server`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts; it validates the story-owned flow runtime, conditional discovery, cancellation, GitHub adapter, and regression surfaces while unrelated baseline failures remain distinct.
+6. [ ] `npm run test:summary:all:stress` — required parallel-safety proof for changed cancellation and lifecycle tests.
+7. [ ] `npm run test:summary:shell` — full supported shell harness, including the changed Compose wrapper.
+8. [ ] `node --test scripts/*.test.mjs` — complete standalone script/wrapper unit proof; no summary wrapper is defined for these tests.
+9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof; no summary wrapper is defined for these tests.
+10. [ ] `npm run compose:down`
+11. [ ] `npm run lint`
+12. [ ] `npm run format:check`
+
+#### Manual Testing Guidance
+
+Optional, checkbox-free manual proof may use the supported main Compose stack through `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`, with the server at `http://localhost:5010` and client at `http://localhost:5001`. When provider access is available, observe only story-relevant conditional-flow discovery, stopped GitHub subprocess behavior, paused-wait cancellation, and warning/skip surfaces that can honestly be exercised. Keep screenshots, logs, and other task evidence under `codeInfoTmp/manual-testing/0000060/60/` and do not commit them; for Playwright MCP, capture to a relative staging path first, inspect `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host, then transfer selected proof into that task directory. If provider login requires human-controlled two-factor authentication, use the repository-approved skip, record the limitation honestly, and do not attempt re-authentication. Use `server/.env` plus `server/.env.local` and the corresponding client env files through the supported wrapper. Wait for the server `/health` endpoint and client to respond; use the mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` catalogs, with the selected worked repository available under `/data`. Obtain auth only from the configured proof environment; do not copy or print credentials. Promote any selected durable narrative to `codeInfoStatus/manual-proof/0000060/`, retaining honest unavailable scenarios. This guidance is optional and non-blocking; the separately recorded missing repair opportunity remains unresolved.
+
+#### Implementation Notes
+
+- Settlement created this task after reconciling all four immutable batches in `0000060-rc-20260915T191359Z-06cc145c`: Tasks 58 and 59 are the only fix-bearing completed records, and batches `0000060-rw-20260915T223448Z-b61cddd2` and `0000060-rw-20260915T233853Z-d3b5ca2d` have no material actionable remainder.
+- No code, test, build, runtime, manual proof, or review was run while creating this final owner. OpenCode fallback/native limits, unavailable DeepSeek coverage, single-target cross-repository no-work coverage, non-exhaustive completed review coverage, and the final artifact-review limits remain visible evidence limitations rather than blockers or new implementation work.
+
+- Settlement audit preserved all three original Created values, the four batch findings inventories, all gate removals, and both completed records. It corrected the partial timeout repair and stale integration-proof attribution, added missing stress/script proof, and kept all final checks open. No code repair, automated test, build, or manual proof was performed by the audit. See `codeInfoTmp/reviews/0000060-rc-20260915T191359Z-06cc145c/settlement/settlement-audit.md`. The cycle remains incomplete pending the missing stronger repair opportunity; Task 60 is not evidence that it occurred.

@@ -6781,7 +6781,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof; no summary wrapper is defined for these tests.
 10. [x] `npm run compose:down`
 11. [x] `npm run lint`
-12. [ ] `npm run format:check`
+12. [x] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -6789,7 +6789,27 @@ Optional, checkbox-free manual proof may use the supported main Compose stack th
 
 #### Implementation Notes
 
-- **BLOCKER** Formatting proof stopped at `npm run format:check`. The command was run after all repairs and reports eight unchanged client test files with pre-existing Prettier differences; none is a story-repaired path. Fixing them would be unrelated scope expansion, so the final task must remain in progress until the baseline formatting limitation is explicitly dispositioned or the supported repository formatting baseline is updated.
+- Reran `npm run format:check` after all repairs; every tracked supported file now passes Prettier verification.
+
+- Reran `npm run lint` after the wrapper repair; ESLint passed with zero errors and warnings.
+
+- Reran `npm run compose:down`; the repository-owned main proof stack shut down cleanly after final-suite revalidation.
+
+- Reran `npm run test:summary:all:parallel` after the canonical-root wrapper repair; client 911/911, server unit 2869/2869, server Cucumber 138/138, and e2e 78/78 passed, with the temporary proof stacks removed cleanly.
+
+- Reran `node --test scripts/*.test.mjs` after the wrapper repair; all 48 standalone script and wrapper tests passed.
+
+- Repaired the server-unit wrapper's mixed-case path leak by canonicalizing its child `CODEINFO_ROOT` and repository agent-home paths instead of inheriting the outer harness spelling; the focused wrapper unit test passed. The fresh `npm run test:summary:all:stress` rerun then passed client 911/911, server unit 2869/2869 at 12-way concurrency, server Cucumber 138/138, and e2e 78/78, with both temporary Compose lifecycles shut down cleanly.
+
+- Reran `npm run test:summary:all:parallel` after one transient Cucumber Mongo startup failure; its clean retry passed client 911/911, server unit 2869/2869, server Cucumber 138/138, and e2e 78/78, and both temporary Compose lifecycles shut down cleanly.
+
+- Reran `npm run compose:up` after the rebuilt images; the repository-owned main stack started and the server became healthy before the client started.
+
+- Reran `npm run compose:build:summary` after formatting the Story 60 client tests; both images and runtime-asset checks passed.
+
+- Re-formatted the eight Story 60-modified client test files reported by the fresh final formatting rerun; `npm run format:check` now passes. Reran `npm run build:summary:client` successfully; its only output was the repository's existing large-chunk warning.
+
+- **RESOLVED ISSUE** The fresh `npm run format:check` rerun showed that all eight reported client test files were Story 60-modified paths, not an unrelated baseline. Reformatting them made the check pass; its subsequent wrapper-path repair also passed the required stress proof.
 
 - Implementation-plus-proof audit confirmed `c009fb3d6` restores the story-authorized contract that a validated `gh pr create` URL is a success indicator before canonical metadata reconciliation; retaining the URL and known branch/base identity while surfacing lookup diagnostics as a warning is not an out-of-scope user-facing behavior change. Evidence records all other Task 60 automated checks as passing after that repair. The parser-confirmed formatting baseline blocker remains the only unchecked proof item and requires no unrelated formatting rewrite in this story.
 

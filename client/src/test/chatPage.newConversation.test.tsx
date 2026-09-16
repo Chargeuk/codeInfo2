@@ -618,10 +618,14 @@ describe('Chat page new conversation control', () => {
       expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
     );
     await user.click(modelSelect);
-    await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
+    await user.click(
+      await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
+    );
 
     await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.6-terra/i),
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5.6-terra/i,
+      ),
     );
 
     const input = await screen.findByTestId('chat-input');

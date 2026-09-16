@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,6 +8,7 @@ const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
 );
+const canonicalRootDir = fs.realpathSync.native(rootDir);
 
 export const buildServerUnitProviderHomeRoot = () =>
   path.join(
@@ -18,12 +20,13 @@ export const buildServerUnitWrapperEnv = (
   baseEnv = process.env,
   options = {},
 ) => {
-  const defaultAgentHome = path.join(rootDir, 'codeinfo_agents');
-  const defaultLegacyAgentHome = path.join(rootDir, 'codex_agents');
+  const defaultAgentHome = path.join(canonicalRootDir, 'codeinfo_agents');
+  const defaultLegacyAgentHome = path.join(canonicalRootDir, 'codex_agents');
   const wrappedEnv = {
     ...baseEnv,
     // Unit and integration suites should resolve repository-backed agents and
     // CODEINFO_ROOT against this checkout, not against the outer Codex harness.
+    CODEINFO_ROOT: canonicalRootDir,
     CODEINFO_AGENT_HOME: defaultAgentHome,
     CODEINFO_CODEX_AGENT_HOME: defaultLegacyAgentHome,
     CODEINFO_TEST_PROVIDER_HOME_ROOT:

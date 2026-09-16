@@ -1259,9 +1259,7 @@ describe('Chat page models list', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent(/gpt-5.6-luna/i),
-    );
+    await waitFor(() => expect(modelSelect).toHaveTextContent(/gpt-5.6-luna/i));
     const input = await screen.findByTestId('chat-input');
     await user.type(input, 'Keep this run going');
     await act(async () => {
@@ -1274,10 +1272,14 @@ describe('Chat page models list', () => {
       expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
     );
     await user.click(modelSelect);
-    await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
+    await user.click(
+      await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
+    );
 
     await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.6-terra/i),
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5.6-terra/i,
+      ),
     );
 
     const cancelMessages = getWsMessages().filter(
@@ -1317,7 +1319,9 @@ describe('Chat page models list', () => {
         expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
       );
       await user.click(modelSelect);
-      await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
+      await user.click(
+        await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
+      );
 
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
@@ -1374,7 +1378,9 @@ describe('Chat page models list', () => {
         expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
       );
       await user.click(modelSelect);
-      await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
+      await user.click(
+        await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
+      );
 
       const narrowedReasoningSelect = await screen.findByRole('combobox', {
         name: /reasoning effort/i,
@@ -1432,7 +1438,9 @@ describe('Chat page models list', () => {
       expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
     );
     await user.click(modelSelect);
-    await user.click(await screen.findByRole('option', { name: /gpt-5.6-terra/i }));
+    await user.click(
+      await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
+    );
 
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
   });

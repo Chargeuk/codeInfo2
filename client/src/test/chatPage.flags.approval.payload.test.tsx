@@ -180,9 +180,7 @@ describe('Codex approval policy flag payloads', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent('gpt-5.6-luna'),
-    );
+    await waitFor(() => expect(modelSelect).toHaveTextContent('gpt-5.6-luna'));
 
     const approvalSelect = await screen.findByRole('combobox', {
       name: /approval policy/i,

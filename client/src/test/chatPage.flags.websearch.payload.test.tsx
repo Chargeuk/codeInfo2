@@ -189,9 +189,7 @@ describe('Codex web search flag payloads', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent('gpt-5.6-luna'),
-    );
+    await waitFor(() => expect(modelSelect).toHaveTextContent('gpt-5.6-luna'));
 
     await user.clear(input);
     await user.type(input, 'Hello Codex');

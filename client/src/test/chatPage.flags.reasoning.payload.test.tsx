@@ -289,7 +289,9 @@ describe('Codex model reasoning Agent Flag payloads', () => {
     });
     await waitForInteractiveCombobox(modelSelect);
     await userEvent.click(modelSelect);
-    const gpt52Option = await screen.findByRole('option', { name: /gpt-5.6-terra/i });
+    const gpt52Option = await screen.findByRole('option', {
+      name: /gpt-5.6-terra/i,
+    });
     await userEvent.click(gpt52Option);
 
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));

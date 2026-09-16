@@ -378,4 +378,23 @@ describe('Flows page composer parity', () => {
       });
     }
   });
+
+  it('restores mobile flow-selector focus to its enabled trigger after an ordinary Close', async () => {
+    const user = userEvent.setup();
+    setViewportWidth(390);
+    installFlowsComposerMocks();
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+    const trigger = await screen.findByTestId('flow-select-trigger');
+    await waitFor(() => expect(trigger).toBeEnabled());
+    await user.click(trigger);
+    const dialog = await screen.findByTestId('flow-select-dialog');
+
+    await user.click(within(dialog).getByText('Close', { selector: 'button' }));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('flow-select-dialog')).not.toBeInTheDocument(),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
 });

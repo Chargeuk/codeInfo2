@@ -2240,7 +2240,7 @@ export default function FlowsPage() {
       <ComposerMobileDialog
         open={effectiveIsMobile && Boolean(selectedFlowAnchorEl)}
         onClose={handleSelectedFlowClose}
-        disableRestoreFocus
+        disableRestoreFocus={restoreMobileFlowSelectorFocusRef.current}
         onExited={handleSelectedFlowDialogExited}
         data-testid="flow-select-dialog"
       >

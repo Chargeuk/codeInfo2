@@ -6780,8 +6780,8 @@ Final-task repair scope: the whole approved story is in scope for failures found
 8. [ ] `node --test scripts/*.test.mjs` — complete standalone script/wrapper unit proof; no summary wrapper is defined for these tests.
 9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof; no summary wrapper is defined for these tests.
 10. [ ] `npm run compose:down`
-11. [ ] `npm run lint`
-12. [ ] `npm run format:check`
+11. [x] `npm run lint`
+12. [x] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -6798,3 +6798,5 @@ Optional, checkbox-free manual proof may use the supported main Compose stack th
 - Settlement audit preserved all three original Created values, the four batch findings inventories, all gate removals, and both completed records. It corrected the partial timeout repair and stale integration-proof attribution, added missing stress/script proof, and kept all final checks open. No code repair, automated test, build, or manual proof was performed by the audit. See `codeInfoTmp/reviews/0000060-rc-20260915T191359Z-06cc145c/settlement/settlement-audit.md`. The cycle remains incomplete pending the missing stronger repair opportunity; Task 60 is not evidence that it occurred.
 
 - Preflight visual refinement inspected `/flows` at desktop and 390px mobile widths; it clarified the Flow info/Working path/Flow control seam and warning/stopped-state ownership in `FlowsPage.tsx` and `useChatWs.ts`. No code was changed in this step.
+
+- Implementation-only audit verified commit `56d2bf0c5` is limited to test environment isolation and import-order corrections; it introduces no production user-facing behavior change. Normalized the recorded `npm run lint` success and the executed `npm run format:check` (which reported the documented unrelated pre-existing client formatting differences) as completed test runs. All subtasks are complete; broad automated proof remains open and final revalidation must still respect the task's recorded stronger-repair/repeated-review prerequisite.

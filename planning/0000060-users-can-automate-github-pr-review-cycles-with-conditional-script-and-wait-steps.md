@@ -6791,6 +6791,8 @@ Optional, checkbox-free manual proof may use the supported main Compose stack th
 
 - **BLOCKER** Formatting proof stopped at `npm run format:check`. The command was run after all repairs and reports eight unchanged client test files with pre-existing Prettier differences; none is a story-repaired path. Fixing them would be unrelated scope expansion, so the final task must remain in progress until the baseline formatting limitation is explicitly dispositioned or the supported repository formatting baseline is updated.
 
+- Implementation-plus-proof audit confirmed `c009fb3d6` restores the story-authorized contract that a validated `gh pr create` URL is a success indicator before canonical metadata reconciliation; retaining the URL and known branch/base identity while surfacing lookup diagnostics as a warning is not an out-of-scope user-facing behavior change. Evidence records all other Task 60 automated checks as passing after that repair. The parser-confirmed formatting baseline blocker remains the only unchecked proof item and requires no unrelated formatting rewrite in this story.
+
 - Reran `npm run lint` after all final-task repairs; ESLint passed with zero errors and warnings.
 
 - Ran `npm run compose:down`; the repository-owned main stack shut down cleanly after full and stress proof.

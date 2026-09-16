@@ -7655,7 +7655,7 @@ Perform the sole final whole-story automated revalidation after the four complet
 
 #### Addresses Findings
 
-- `0000060-rw-20260916T043001Z-2c2cc37d` — R1, R2, and R3 were repaired in `0b7ea9072b29dfe49176e5e3a5efda0203f929da`; R2 and R3 remain fixed, but R1 was reversed by the next repair and remains an unresolved settlement limitation, not new implementation work assigned by this task.
+- `0000060-rw-20260916T043001Z-2c2cc37d` — R1, R2, and R3 were repaired in `0b7ea9072b29dfe49176e5e3a5efda0203f929da`; R2 and R3 remain fixed, and Task 65 restored R1's legacy explicit-field ownership while retaining the Story 60 worked-repository path contract in `4490898f33ab51dddbdca1a2007ccf96d9e57530`.
 - `0000060-rw-20260916T070218Z-3161e9c3` — reconciliation findings 1 and 2 resolved in `17870939924c22e5981b93a4866cbf0178bcb0c9`.
 - `0000060-rw-20260916T090838Z-0f67236a` — R2 resolved in `b6aa8686b3c627fc04526eb5fdcbbf0b87926855`.
 - `0000060-rw-20260916T104926Z-05929ba2` — F-001 resolved in `49c919a2a02652f9ecf65e67bdfc84146ae6e96f`.

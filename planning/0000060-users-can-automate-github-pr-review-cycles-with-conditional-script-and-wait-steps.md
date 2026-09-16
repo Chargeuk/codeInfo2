@@ -7693,23 +7693,23 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 5. [x] In `client/src/test/flowsPage.composer.test.tsx`, add deterministic mobile ordinary-Close coverage that opens `flow-select-dialog`, invokes its Close action without selecting a flow, and proves the enabled `flow-select-trigger` regains focus after the dialog exit; this must remain distinct from the pending-reload selection regression.
 6. [x] In `client/src/pages/FlowsPage.tsx`, make the mobile enabled-flow selection path move focus away from the clicked `flow-select-dialog` option to the existing enabled `workspace-mobile-new-action` before the selection update can disable that option and MUI applies `aria-hidden` to `#root`; retain the flow-selector-only `disableRestoreFocus` behavior and the existing ordinary-Close restoration to `flow-select-trigger`.
 7. [x] In `e2e/flows-execution-runs.spec.ts`, add a deterministic 390px flow-picker selection regression using the existing mocked flow APIs and a deferred post-selection reload: select `implement_next_plan_github_review`, capture page console warnings before the click, and prove the selection closes the dialog, transfers focus to `workspace-mobile-new-action` while the picker is disabled, and emits no new `aria-hidden` focused-descendant warning. Set the console waiter before the click and settle the deferred response during cleanup without a timing delay.
-8. [ ] Revert the Task 65 browser-specific mobile flow-selector focus handoff and its focus-target behavior to the pre-Task 65 selector contract, removing or adapting the focus-specific proof so it documents preserved behavior only. Do not replace it with another browser-visible UX change unless the user explicitly expands Story 60 scope.
+8. [x] Revert the Task 65 browser-specific mobile flow-selector focus handoff and its focus-target behavior to the pre-Task 65 selector contract, removing or adapting the focus-specific proof so it documents preserved behavior only. Do not replace it with another browser-visible UX change unless the user explicitly expands Story 60 scope.
 
 #### Testing
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [x] `npm run build:summary:client`
+1. [ ] `npm run build:summary:client`
 2. [x] `npm run build:summary:server`
-3. [x] `npm run compose:build:summary`
-4. [x] `npm run compose:up` — passed; the repository-owned main Compose stack reached healthy server and started client services.
-5. [x] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
-6. [x] `npm run test:summary:all:stress` — required parallel-safety proof for the changed cancellation and lifecycle behavior.
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up` — passed; the repository-owned main Compose stack reached healthy server and started client services.
+5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
+6. [ ] `npm run test:summary:all:stress` — required parallel-safety proof for the changed cancellation and lifecycle behavior.
 7. [x] `npm run test:summary:shell` — full supported shell harness, including Compose-wrapper coverage.
 8. [x] `node --test scripts/*.test.mjs` — complete standalone JavaScript workflow-helper and wrapper proof.
 9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof.
-10. [x] `npm run compose:down`
-11. [x] `npm run lint`
+10. [ ] `npm run compose:down`
+11. [ ] `npm run lint`
 12. [ ] `npm run format:check`
 
 #### Manual Testing Guidance
@@ -7780,7 +7780,7 @@ Optional, checkbox-free manual proof may use only the supported main Compose sta
 - Manual testing skipped for the live GitHub cycle surface. Tried: selecting `implement_next_plan_github_review` from `/flows` on the fresh main stack. Observed: the catalog only exposed the current repository and no authorized sandbox worked repository with provider access was available to launch safely. Why fuller proof was not possible: external live-cycle access is outside this task's repository scope, so this pass did not re-authenticate or launch a potentially destructive live flow.
 - Implemented the pre-transition mobile focus handoff in `FlowsPage.tsx`, preserving conditional `disableRestoreFocus` and ordinary-close restoration. Added the deterministic 390px E2E regression with a deferred third flow-list request, pre-click console capture, focus/disabled-state assertions, and cleanup settlement. The targeted E2E wrapper passed 1/1; no broader Testing item was run.
 - Implementation-only audit: the seven originally checked subtasks are evidenced by commit `08205b2935bb33cede05e41efc2c125235b62603` and its targeted 1/1 E2E result, but the new focus handoff changes the browser-visible mobile picker contract. The Story 60 Description, Out Of Scope, and Behavior Lock authorize flow-only capabilities and explicitly preserve browser-visible behavior; no top-level authority covers moving selection focus to `New flow` or suppressing the associated browser warning. The behavior was introduced by this task rather than proven to predate Story 60, so it is in-scope regression restoration, not an authorized product fix. No Testing item was normalized complete: final format proof remains intentionally pending.
-- **BLOCKER** Task 65 has remaining unchecked Subtask 8 after audit normalization. Evidence checked: the bounded Task 65 packet, current `HEAD` commit `08205b2935bb33cede05e41efc2c125235b62603`, its `FlowsPage.tsx` and E2E diff, and the top-level Story 60 scope/behavior lock. Implementation cannot continue honestly without restoring the approved pre-Task-65 browser behavior, narrower ownership, or planner intervention; automated proof cannot authorize this out-of-scope UI change.
+- **RESOLVED ISSUE** Task 65 mobile-selector scope blocker: the Task 65 handoff added a browser-visible pre-transition focus transfer to `workspace-mobile-new-action`, an opt-in dialog restoration override, and E2E proof of that new target. Restored the pre-Task-65 selector contract by removing those additions and retaining the ordinary-Close regression as preserved default MUI restoration. Focused client proof passed 5/5 (`test-results/client-tests-2026-09-16T23-23-11-288Z.log`) and `npm run typecheck:summary:client` passed. Client-dependent final automated gates 1 and 3–6 plus lifecycle cleanup, lint, and formatting (10–12) are reopened for the repaired HEAD; no manual testing ran.
 
 ### Task 66. Escalate Repeated Accepted Review Findings With Repair History
 

@@ -4,8 +4,6 @@ import type { ReactNode } from 'react';
 type ComposerMobileDialogProps = {
   open: boolean;
   onClose: () => void;
-  disableRestoreFocus?: boolean;
-  onExited?: () => void;
   children: ReactNode;
   'data-testid'?: string;
 };
@@ -13,8 +11,6 @@ type ComposerMobileDialogProps = {
 export default function ComposerMobileDialog({
   open,
   onClose,
-  disableRestoreFocus = false,
-  onExited,
   children,
   'data-testid': dataTestId,
 }: ComposerMobileDialogProps) {
@@ -22,14 +18,10 @@ export default function ComposerMobileDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      disableRestoreFocus={disableRestoreFocus}
       fullWidth
       maxWidth="sm"
       data-testid={dataTestId}
       slotProps={{
-        transition: {
-          onExited,
-        },
         paper: {
           sx: {
             width: 'min(100vw - 32px, 560px)',

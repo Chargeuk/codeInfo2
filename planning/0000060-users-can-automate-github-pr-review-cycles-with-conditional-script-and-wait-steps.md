@@ -7683,18 +7683,18 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run build:summary:server`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` — passed; the repository-owned main Compose stack reached healthy server and started client services.
-5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
-6. [ ] `npm run test:summary:all:stress` — required parallel-safety proof for the changed cancellation and lifecycle behavior.
-7. [ ] `npm run test:summary:shell` — full supported shell harness, including Compose-wrapper coverage.
-8. [ ] `node --test scripts/*.test.mjs` — complete standalone JavaScript workflow-helper and wrapper proof.
-9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof.
-10. [ ] `npm run compose:down`
-11. [ ] `npm run lint`
-12. [ ] `npm run format:check`
+1. [x] `npm run build:summary:client`
+2. [x] `npm run build:summary:server`
+3. [x] `npm run compose:build:summary`
+4. [x] `npm run compose:up` — passed; the repository-owned main Compose stack reached healthy server and started client services.
+5. [x] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
+6. [x] `npm run test:summary:all:stress` — required parallel-safety proof for the changed cancellation and lifecycle behavior.
+7. [x] `npm run test:summary:shell` — full supported shell harness, including Compose-wrapper coverage.
+8. [x] `node --test scripts/*.test.mjs` — complete standalone JavaScript workflow-helper and wrapper proof.
+9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof.
+10. [x] `npm run compose:down`
+11. [x] `npm run lint`
+12. [x] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -7736,6 +7736,23 @@ Optional, checkbox-free manual proof may use only the supported main Compose sta
 - Testing 11 completed: `npm run lint` passed with exit code 0 and no warnings.
 - Testing 12 completed: `npm run format:check` passed; all matched files use Prettier code style.
 - Final automated-proof audit: all Task 65 subtasks and Testing items are evidenced complete at `4490898f33ab51dddbdca1a2007ccf96d9e57530`; the latest parallel suite, stress suite, shell, JavaScript-helper, Python-helper, lifecycle, lint, and formatting results passed. The parser reports no live blocker. The ownership restoration preserves the comparison-base explicit-field behavior while retaining Story 60's authorized worked-repository path, so no unapproved behavior drift remains. Optional manual guidance is non-blocking and was not treated as performed. Task 65 is `__done__`.
+- Automated proof rerun: `npm run build:summary:client` initially exposed a TypeScript fixture mismatch in the new mobile flow-selector regression; the deferred response now resolves an awaited `Response`. The rerun passed typecheck and client build; the only warning is the existing large output-chunk advisory.
+- Automated proof: `npm run build:summary:server` passed with no warnings.
+- Automated proof: `npm run compose:build:summary` passed with both image items successful.
+- Automated proof: `npm run compose:up` started the repository-owned main Compose stack; server became healthy and client services started.
+- Automated proof: `npm run test:summary:all:parallel` passed all suites: client 913/913, server-unit 2,875/2,875, server-Cucumber 138/138, and e2e 78/78. Its dedicated Cucumber and e2e stacks were cleaned up.
+- Automated proof: `npm run test:summary:all:stress` passed under increased server-unit concurrency: client 913/913, server-unit 2,875/2,875, server-Cucumber 138/138, and e2e 78/78. Temporary stacks were cleaned up.
+- Automated proof: `npm run test:summary:shell` passed all 25 supported shell tests, including Compose-wrapper coverage.
+- Automated proof: `node --test scripts/*.test.mjs` passed all 48 standalone JavaScript workflow-helper and wrapper tests.
+- Automated proof: `python3 -m unittest discover -s scripts/test -p 'test_*.py'` passed all 237 standalone Python workflow-helper tests.
+- Automated proof: `npm run compose:down` cleanly stopped and removed the main repository-owned Compose stack started for this proof.
+- Automated proof: `npm run lint` passed with exit code 0 and no warnings.
+- Automated proof repair: the final format check initially found Prettier differences in `client/src/pages/FlowsPage.tsx` and `client/src/test/flowsPage.composer.test.tsx`. The repository formatter corrected only those style differences; format check then passed. Client build, both full suites, and lint were reopened as stale after this tracked repair and must be rerun.
+- Automated proof rerun: `npm run build:summary:client` passed after formatting; the only warning remains the existing large output-chunk advisory.
+- Automated proof rerun: `npm run test:summary:all:parallel` passed after formatting: client 913/913, server-unit 2,875/2,875, server-Cucumber 138/138, and e2e 78/78. Temporary test stacks were cleaned up.
+- Automated proof rerun: `npm run test:summary:all:stress` passed after formatting: client 913/913, server-unit 2,875/2,875, server-Cucumber 138/138, and e2e 78/78. Temporary test stacks were cleaned up.
+- Automated proof rerun: `npm run lint` passed after formatting with exit code 0 and no warnings.
+- Automated proof final check: `npm run format:check` passed; all matched files use Prettier code style after the final plan updates.
 - Manual proof expanded to the final task's full-story browser/runtime scope: a fresh main Compose stack built and started through the documented wrappers, `/health` and `/flows` both returned HTTP 200, and `implement_next_plan_github_review` was selectable and usable at desktop and mobile. Latest proof is `codeInfoTmp/manual-testing/0000060/65/proof-01-flows-desktop.png` and `proof-02-flows-mobile.png`, staged as `.playwright-mcp/proof-01-flows-desktop.png` and `.playwright-mcp/proof-02-flows-mobile.png` in the recorded local Playwright runtime and copied out of `codeinfo2-playwright-mcp-local` after the documented host bind was absent; `support-browser-summary.txt` records the check. The current screenshots supersede no earlier task-scoped screenshots.
 - Manual proof found a concrete accessibility regression: selecting `implement_next_plan_github_review` in the mobile picker consistently logs Chrome's `aria-hidden`-focused-descendant warning while the flow trigger is disabled during reload. Bounded diagnosis located the selection-and-close seam in `client/src/pages/FlowsPage.tsx` and the containing MUI dialog in `client/src/components/workspace/composer/ComposerMobileDialog.tsx`; no later open task owns it. Added the two concrete implementation/proof-authoring subtasks above, reopened the final existing automated check (`npm run format:check`), and returned Task 65 to `__in_progress__` so automated proof must rerun before manual retest.
 - Manual testing skipped for the live GitHub cycle surface. Tried: selecting `implement_next_plan_github_review` in `/flows` on the fresh main stack. Observed: the supported catalog exposes the current repository path, but no authorized sandbox worked repository with provider access was available to launch safely. Why fuller proof was not possible: external live-cycle access is outside this task's repository scope; the documented pre-launch/UI proof completed without attempting re-authentication or a destructive live flow.

@@ -1190,7 +1190,9 @@ export default function FlowsPage() {
   const handleSelectedFlowDialogExited = useCallback(() => {
     if (!restoreMobileFlowSelectorFocusRef.current) return;
     restoreMobileFlowSelectorFocusRef.current = false;
-    document.querySelector<HTMLElement>('[data-testid="workspace-mobile-new-action"]')?.focus();
+    document
+      .querySelector<HTMLElement>('[data-testid="workspace-mobile-new-action"]')
+      ?.focus();
   }, []);
 
   const copyFlowTitle = useCallback(async () => {

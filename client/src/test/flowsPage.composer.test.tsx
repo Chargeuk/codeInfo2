@@ -354,13 +354,15 @@ describe('Flows page composer parity', () => {
 
       await waitFor(() => expect(trigger).toBeDisabled());
       await waitFor(() =>
-        expect(screen.queryByTestId('flow-select-dialog')).not.toBeInTheDocument(),
+        expect(
+          screen.queryByTestId('flow-select-dialog'),
+        ).not.toBeInTheDocument(),
       );
       await waitFor(() => expect(document.activeElement).toBe(newAction));
     } finally {
       await act(async () => {
         reload.resolve(
-          mockJsonResponse({
+          await mockJsonResponse({
             flows: [
               {
                 name: 'daily',
@@ -393,7 +395,9 @@ describe('Flows page composer parity', () => {
     await user.click(within(dialog).getByText('Close', { selector: 'button' }));
 
     await waitFor(() =>
-      expect(screen.queryByTestId('flow-select-dialog')).not.toBeInTheDocument(),
+      expect(
+        screen.queryByTestId('flow-select-dialog'),
+      ).not.toBeInTheDocument(),
     );
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });

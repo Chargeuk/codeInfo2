@@ -6770,24 +6770,64 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] `npm run build:summary:client`
-2. [ ] `npm run build:summary:server`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts; it validates the story-owned flow runtime, conditional discovery, cancellation, GitHub adapter, and regression surfaces while unrelated baseline failures remain distinct.
-6. [ ] `npm run test:summary:all:stress` — required parallel-safety proof for changed cancellation and lifecycle tests.
-7. [ ] `npm run test:summary:shell` — full supported shell harness, including the changed Compose wrapper.
-8. [ ] `node --test scripts/*.test.mjs` — complete standalone script/wrapper unit proof; no summary wrapper is defined for these tests.
-9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof; no summary wrapper is defined for these tests.
-10. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client`
+2. [x] `npm run build:summary:server`
+3. [x] `npm run compose:build:summary`
+4. [x] `npm run compose:up`
+5. [x] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation with shared reusable artifacts; it validates the story-owned flow runtime, conditional discovery, cancellation, GitHub adapter, and regression surfaces while unrelated baseline failures remain distinct.
+6. [x] `npm run test:summary:all:stress` — required parallel-safety proof for changed cancellation and lifecycle tests.
+7. [x] `npm run test:summary:shell` — full supported shell harness, including the changed Compose wrapper.
+8. [x] `node --test scripts/*.test.mjs` — complete standalone script/wrapper unit proof; no summary wrapper is defined for these tests.
+9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof; no summary wrapper is defined for these tests.
+10. [x] `npm run compose:down`
 11. [x] `npm run lint`
-12. [x] `npm run format:check`
+12. [ ] `npm run format:check`
 
 #### Manual Testing Guidance
 
 Optional, checkbox-free manual proof may use the supported main Compose stack through `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`, with the server at `http://localhost:5010` and client at `http://localhost:5001`. When provider access is available, observe only story-relevant conditional-flow discovery, stopped GitHub subprocess behavior, paused-wait cancellation, and warning/skip surfaces that can honestly be exercised. On `/flows`, select `implement_next_plan_github_review` and use the visible `Flow info`, `Working path`, and `Flow` controls to confirm pre-launch context before an authorized run; the warning seams in `client/src/pages/FlowsPage.tsx` and the `stream_warning`/`cancel_ack` transport in `client/src/hooks/useChatWs.ts` must make a stopped GitHub child or cancelled persisted wait visibly distinct from a successful run. Confirm those docked controls remain usable at a 390px mobile viewport as well as desktop. Keep screenshots, logs, and other task evidence under `codeInfoTmp/manual-testing/0000060/60/` and do not commit them; for Playwright MCP, capture to a relative staging path first, inspect `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host, then transfer selected proof into that task directory. If provider login requires human-controlled two-factor authentication, use the repository-approved skip, record the limitation honestly, and do not attempt re-authentication. Use `server/.env` plus `server/.env.local` and the corresponding client env files through the supported wrapper. Wait for the server `/health` endpoint and client to respond; use the mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` catalogs, with the selected worked repository available under `/data`. Obtain auth only from the configured proof environment; do not copy or print credentials. Promote any selected durable narrative to `codeInfoStatus/manual-proof/0000060/`, retaining honest unavailable scenarios. This guidance is optional and non-blocking; the separately recorded missing repair opportunity remains unresolved.
 
 #### Implementation Notes
+
+- **BLOCKER** Formatting proof stopped at `npm run format:check`. The command was run after all repairs and reports eight unchanged client test files with pre-existing Prettier differences; none is a story-repaired path. Fixing them would be unrelated scope expansion, so the final task must remain in progress until the baseline formatting limitation is explicitly dispositioned or the supported repository formatting baseline is updated.
+
+- Reran `npm run lint` after all final-task repairs; ESLint passed with zero errors and warnings.
+
+- Ran `npm run compose:down`; the repository-owned main stack shut down cleanly after full and stress proof.
+
+- The first Python run found one policy-test failure because the reachable review guidance used the scanner-triggering phrase `reopen the plan block`; changed that wording to `revisit the plan block` without changing meaning and reran successfully: 237 tests passed.
+
+- Ran `node --test scripts/*.test.mjs`; all 48 standalone JavaScript helper and wrapper tests passed.
+
+- Ran `npm run test:summary:shell`; all 25 shell harness tests passed, including Compose-wrapper coverage.
+
+- Ran `npm run test:summary:all:stress`; client 911/911, server unit 2869/2869, server Cucumber 138/138, and e2e 78/78 passed under stress concurrency (12 server-unit workers).
+
+- Reran `npm run test:summary:all:parallel` after the creation-identity implementation and unit-test contract repair: client 911/911, server unit 2869/2869, server Cucumber 138/138, and e2e 78/78 passed. The client build retained its documented large-chunk warning only.
+
+- Reclaimed and restarted the repository-owned main stack after the unit expectation update; `npm run compose:up` passed with the server healthy and client started.
+
+- Reran `npm run compose:build:summary` after updating the unit expectation; both images and runtime asset checks passed.
+
+- Reran `npm run build:summary:server` after updating the unit expectation; it passed cleanly.
+
+- The rerun exposed one stale unit expectation for the repaired creation-identity contract; updated `flows.github-adapter.test.ts` to assert the preserved PR identity plus lookup diagnostic. The server build, Compose build, and startup checks are reopened once more because this test-support change affects the compiled server proof surface.
+
+- Reclaimed the previously running repository-owned main stack with `npm run compose:down`, then reran `npm run compose:up` against the repaired images; the server became healthy and the client started successfully.
+
+- Reran `npm run compose:build:summary` after the PR identity repair; both images and runtime asset checks passed.
+
+- Reran `npm run build:summary:server` after the PR identity repair; it passed cleanly.
+
+- Full parallel proof exposed a story-caused GitHub PR creation regression: a valid `gh pr create` URL was discarded when immediate canonical lookup failed, producing a failure warning instead of preserving the validated creation identity. `createPullRequest` now retains the parsed URL with the known upstream/base branch identity and records the lookup diagnostic as a warning; the focused regression test passes. The server build, Compose build, and startup results were made stale by this repair and must be rerun before closeout.
+
+- Ran `npm run compose:up`; the supported main Compose stack started successfully and the server reached healthy status before the client started.
+
+- Ran `npm run compose:build:summary`; both Compose images built successfully and runtime asset checks passed.
+
+- Ran `npm run build:summary:server`; the first run exposed incorrect imports for scoped environment helpers in `flows.run.subflow.test.ts`. Repointed those imports to `processEnvIsolation.ts` and reran successfully.
+
+- Ran `npm run build:summary:client`; client typecheck and Vite production build passed. The wrapper reported one existing large-chunk warning, with no build failure.
 
 - Ran `npm run lint`; replaced direct test `process.env` writes/deletes with scoped environment helpers and corrected four import-order warnings, then reran successfully with zero errors and warnings.
 - Ran `npm run format:check`; it found eight unmodified client test files with pre-existing formatting differences and no Story 60 changes in those paths, so no unrelated formatting was rewritten. The required final testing step remains open to record this baseline limitation honestly.

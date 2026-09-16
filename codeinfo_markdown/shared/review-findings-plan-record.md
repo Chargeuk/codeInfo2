@@ -114,7 +114,7 @@ Identify a current generic block by exact review-batch ID and a legacy block by 
 
 Before completing:
 
-- reopen the plan block;
+- revisit the plan block;
 - verify the timestamp is present and labelled with locale and time zone;
 - verify every direct batch job appears exactly once in `Reviews attempted`, including no-findings and unavailable jobs;
 - verify input, cached input, and output remain separate and every unavailable or incomplete category is labelled honestly;

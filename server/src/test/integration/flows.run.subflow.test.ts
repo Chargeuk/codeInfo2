@@ -40,14 +40,16 @@ import {
 } from '../support/codexAvailabilityBootstrap.js';
 import { removeWritableTree } from '../support/fsCleanup.js';
 import {
+  clearScopedTestEnvValue,
+  setScopedTestEnvValue,
+} from '../support/processEnvIsolation.js';
+import {
   createIsolatedProviderHomeEnv,
   type IsolatedProviderHomeEnv,
 } from '../support/providerHomeHarness.js';
 import {
-  clearScopedTestEnvValue,
   enterTestEnvOverrides,
   getScopedEnvValue,
-  setScopedTestEnvValue,
 } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 

@@ -72,6 +72,8 @@ This is a workflow-runtime story, not a browser-UI redesign story. Outside the n
 
 User-approved scope expansion (September 16, 2026): add history-aware handling of repeated accepted review findings to the existing internal review repair workflow. Immediately after `Skip Review Repair When Disposition Accepts No Findings`, a Luna matcher compares the current accepted findings with compact historical `### Accepted` records, and one bounded research-agent section investigates and repairs possible repeats using previous fixes, reversals, and validation evidence. This explicitly authorizes in-place changes to `flows/review_batch.json`, the continuation question in `flows/two_phase_review_cycle.json`, their repair/outcome/settlement prompts, and a read-only history helper with tests. It is a narrow exception to the original copied-flow-only restriction, applies to existing callers of this internal review workflow, and must be retained during review and final validation. Ordinary new findings keep the existing normal/stronger repair cycle. No human input is required; unresolved repeats remain visible for settlement. Task 66 implements this requested change.
 
+User-approved Codex migration (September 16, 2026): update and retain the current supported Codex model tiers and latest stable Codex CLI/SDK libraries. Restore the intended default model catalog to `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and `gpt-6-astra`, in that order, and preserve the agent-role assignments introduced by commits `a903c3840` and `c0822065f`, as explicitly refined by the user: `research_agent` uses `gpt-5.6-sol` with high reasoning, the new `research_agent_max` uses `gpt-6-astra` with high reasoning, and `review_agent_max` retains `gpt-6-astra` with medium reasoning. These are separate named roles; existing flow references to `research_agent` stay on that Sol role, and adding the Astra research role does not implicitly retarget flows. This explicitly authorizes removing `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, and `gpt-5.3-codex-spark` from the checked-in main-stack default catalog and parser fallback; upstream availability of older models does not require their inclusion in this selected catalog. The scope includes necessary Codex agent settings, Codex CLI/SDK pins, container/lockfile alignment, and directly related tests. This is a deliberate exception to the original flow-only/no-existing-behavior-change restriction and supersedes the model-catalog restoration rationale recorded historically in Task 63 and commit `b6aa8686b`. Keep that historical record intact, but do not use it as authority to reverse the newly approved migration. Task 67 records implementation and the verified version snapshot.
+
 ### Acceptance Criteria
 
 - Flow definitions support a dedicated `if` step with `then` behavior and an optional `else` path.
@@ -139,6 +141,8 @@ User-approved scope expansion (September 16, 2026): add history-aware handling o
 - A research agent investigates possible repeats, including why earlier fixes were reverted or incomplete, confirms current scope, implements the smallest reconciled repair, and proves both the defect and preserved behavior. False matches return to ordinary repair; confirmed or uncertain repeats are not blindly repaired again by normal/stronger agents in the same batch.
 - Repeated-finding research is autonomous and bounded to one invocation per batch. Missing evidence remains partial/unavailable, unresolved findings reach existing settlement, and research-only commits count as fix-bearing work requiring review and final validation. This does not introduce a global termination guarantee or a new issue database.
 
+- Update to the latest supported Codex models and latest stable Codex CLI/SDK libraries verified at implementation time, recording the exact model IDs, versions, verification date, and sources in Task 67. The approved default model list is `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-6-astra` in that order; main-stack configuration, parser fallback, and related tests must agree, and the updated agent-role model assignments must be retained. The user-approved research split is `research_agent` = Sol/high and `research_agent_max` = Astra/high; keep both discoverable with their research instructions, and retain `review_agent_max` = Astra/medium. Existing flow references to `research_agent` continue to select Sol; do not merge the two research roles or silently move those references to Astra. Keep CLI, SDK, container installation, and lockfile versions aligned; do not select prereleases. This migration and intentional removal of the four older default choices are explicitly in scope for existing workflows, review, and final validation. Preserve explicit user model overrides and unrelated provider/embedding-library behavior. A later upstream release alone does not invalidate this recorded implementation snapshot.
+
 ### Out Of Scope
 
 - Acting as the currently logged-in browser user for GitHub operations.
@@ -150,7 +154,7 @@ User-approved scope expansion (September 16, 2026): add history-aware handling o
 - Reusing the existing external-review ingest storage path or ingest flow as the raw-input path for this GitHub review cycle.
 - Editing currently in-use checked-in flow definitions in place under `flows/`, except the explicitly user-approved repeated-finding repair addition in `flows/review_batch.json` and its continuation accounting in `flows/two_phase_review_cycle.json`.
 - Changing the currently selected default execution path for `improve_plan2`, `flows/implement_next_plan.json`, `flows/review_plan.json`, or other existing in-use flow entrypoints without an operator intentionally selecting one of the new copied variants, except that existing callers receive the explicitly approved internal repeated-finding repair addition.
-- Changing browser-visible UI, agent-command JSON behavior, or other unrelated user-facing product behavior beyond the explicit new flow-only review-cycle capabilities in this story.
+- Changing browser-visible UI, agent-command JSON behavior, or other unrelated user-facing product behavior beyond the explicit new flow-only review-cycle capabilities, except the user-approved Codex model catalog, agent model assignments, and directly required Codex CLI/SDK migration recorded in Task 67.
 - Solving every possible stale-PR, duplicate-PR, or multi-actor branch edge case before there is evidence that the first-version branch lookup rule is insufficient.
 - Requiring one shared cross-repository or cross-organization GitHub token for all worked repositories.
 - Guessing alternate remotes, forks, or first-time publication targets when automatic branch push fails.
@@ -7824,3 +7828,47 @@ Reduce repeated fix/revert churn by routing recurring accepted findings through 
 - A read-only Luna (`gpt-5.6-luna`) routing replay classified the opposite script-ownership remedy and post-create lookup reversal as possible repeats, recognized the larger-findings/task-up recurrence, and kept an unrelated mobile-focus finding on the ordinary path (four supplied cases, all expected routes). This checks a small sample, not general classifier accuracy or a live-flow repair. The stopped story flow was not launched. After adding a qualified-Finding-ID regression, the complete Python suite passed again (251 tests).
 
 - Full relevant server unit/integration wrapper passed: 2,875/2,875 tests (`test-results/server-unit-tests-2026-09-16T20-10-13-241Z.log`), after targeted proof passed 114/114. Task 66 is complete. All previous task statuses and checkboxes were compared with HEAD and preserved; Task 65 remains in progress. Client/e2e/stress and live-flow/manual proof were not rerun for this helper/prompt/flow-composition change, and this task does not claim whole-story closeout.
+
+### Task 67. Restore And Authorize The Current Codex Model And Library Migration
+
+- Task Status: `__done__`
+- Repository Name: Current Repository
+- Task Dependencies: Existing model migration in `a903c3840` and `c0822065f`; independent of Task 65's remaining mobile-focus repairs.
+- Authorization: Explicit user request on September 16, 2026, incorporated into Description, Acceptance Criteria, and Out Of Scope above.
+
+#### Overview
+
+Restore the user's intended four-model default catalog after review commit `b6aa8686b` reintroduced older choices. Retain the user-created split between Sol/high `research_agent` and Astra/high `research_agent_max`, preserve Astra/medium `review_agent_max`, and verify the latest stable Codex CLI/SDK pins across package, lockfile, and container installation. This task records the requested migration as current story authority so subsequent review and final validation preserve it. It neither rewrites historical review decisions nor restarts the stopped flow.
+
+#### Task Exit Criteria
+
+- Main-stack `Codex_model_list` and parser fallback contain exactly Sol, Terra, Luna, and Astra in the approved order; explicit user overrides continue to work.
+- Both research agents are discoverable with their config, description, and research prompt; `research_agent` is Sol/high, `research_agent_max` is Astra/high, and maximum review is Astra/medium. Existing flow references are preserved. Stable CLI/SDK versions are verified and aligned across package, lockfile, runtime guard, and container installation.
+- Existing focused proof reflects the approved catalog, and top-level story scope explicitly permits the migration.
+
+#### Subtasks
+
+1. [x] Verify supported model tiers and the latest stable `@openai/codex` and `@openai/codex-sdk` releases; record a dated version snapshot and inspect existing agent assignments and dependency pins.
+2. [x] Restore the four-model catalog in `server/.env` and `server/src/config/codexEnvDefaults.ts`, retaining agent-role assignments and already-current Codex dependency pins.
+3. [x] Update the existing fallback expectations in `server/src/test/unit/codexEnvDefaults.test.ts` and verify package/lockfile/container consistency with existing dependency-contract tests.
+4. [x] Preserve the user-created Sol/high ordinary research agent and Astra/high maximum research agent; verify both through discovery without seeding auth, and align the existing maximum-review regression with Astra/medium.
+5. [x] Run the repository lint workflow and fix issues caused by this task.
+6. [x] Run the repository formatting workflow and fix issues caused by this task.
+
+#### Testing
+
+1. [x] Run targeted server model-default, agent-config, discovery, review-role, SDK-guard, and provider-package-version tests using the server-unit summary wrapper; verify both real research agents through read-only discovery.
+2. [x] Run the full relevant `npm run test:summary:server:unit` wrapper.
+3. [x] Run `npm run lint`.
+4. [x] Run `npm run format:check` and `git diff --check`.
+
+#### Implementation Notes
+
+- Added explicit user authorization to Description, Acceptance Criteria, and Out Of Scope for the current Codex model/library migration and the research-role split. Task 63 remains historical evidence of the earlier restoration; the new top-level contract supersedes that rationale. All previous task records, including Task 65's unfinished work, remain unchanged.
+- Restored the intended ordered default catalog (`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-6-astra`) in `server/.env`, the parser fallback, and its existing test. Preserved explicit user overrides and unrelated provider behavior.
+- Preserved the user-created Sol/high `research_agent` and Astra/high `research_agent_max`, including the new agent's config, description, and research prompt. Kept Astra/medium `review_agent_max` and aligned its source-catalog test; the separate manual-proof maximum reviewer remains Sol/high. Existing flow references still target `research_agent` and were not implicitly moved to the new maximum role.
+- Verification snapshot, September 16, 2026: official [OpenAI model guidance](https://learn.chatgpt.com/docs/pricing#what-are-the-usage-limits-for-my-plan) documents Astra, Sol, Terra, and Luna. This is the intentionally selected default catalog, not a claim that every older model is globally unsupported. `npm view @openai/codex dist-tags --json` and `npm view @openai/codex-sdk dist-tags --json` both reported stable `latest` as `0.154.0`; the available `0.155.0-alpha.2.6` prerelease was not selected. Existing package, lockfile, runtime guard, and container pins already match `0.154.0`, so no dependency installation was needed. The separate `openai` embedding-provider package is outside this Codex-specific migration.
+- Read-only production discovery (`seedAuth: false`) found both research agents with descriptions and system prompts; runtime resolution confirmed their Codex providers, respective Sol/Astra models, and high reasoning. Existing inherited unknown `apps` keys produced forward-compatibility warnings and were preserved; both configurations resolved successfully. No auth files were seeded or added.
+- The earlier full-suite failure (2,874/2,875) came from the concurrent maximum-review high-to-medium change while its assertion still expected high. That mismatch is resolved. A focused run also caught an intermediate broad assertion edit; the final change applies only to the source maximum reviewer and preserves the manual-proof setting.
+- Final focused summary proof passed 59/59 tests (`test-results/server-unit-tests-2026-09-16T20-47-37-747Z.log`). The complete relevant server-unit/integration wrapper then passed 2,875/2,875 (`test-results/server-unit-tests-2026-09-16T20-48-38-542Z.log`). Repository lint, repository-wide formatting, explicit new-description formatting, and `git diff --check` passed.
+- Task 67 is complete. Client/e2e/stress and live-provider/manual-flow proof were not rerun for this configuration change; this does not claim whole-story closeout. The user-stopped flow remains stopped.

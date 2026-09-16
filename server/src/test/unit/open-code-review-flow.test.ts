@@ -156,7 +156,7 @@ test('source heavy and maximum review agents share the review boundary while ret
   assert.match(heavyConfig, /model = "gpt-5\.6-sol"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
   assert.match(maxConfig, /model = "gpt-6-astra"/u);
-  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "medium"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);
   assert.equal(maxCommand, heavyCommand);

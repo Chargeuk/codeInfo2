@@ -1,6 +1,6 @@
 codeinfo_provider = "codex"
 model = "gpt-6-astra"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 personality = "pragmatic"

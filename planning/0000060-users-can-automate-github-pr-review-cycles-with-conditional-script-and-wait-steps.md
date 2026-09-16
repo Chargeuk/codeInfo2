@@ -7675,24 +7675,25 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 1. [x] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
 2. [x] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues.
-3. [x] In `client/src/pages/FlowsPage.tsx` and `client/src/components/workspace/composer/ComposerMobileDialog.tsx`, implement a flow-selector-only mobile close protocol: add an opt-in `disableRestoreFocus` path to `ComposerMobileDialog`, use it only for `flow-select-dialog`, and queue focus to the existing always-enabled `workspace-mobile-new-action` (`New flow`) after the dialog exit has removed MUI's `aria-hidden` state from `#root`. Keep default MUI restoration for the desktop popover, info/title dialogs, and ordinary Close actions; a different enabled-flow selection must never restore focus to `flow-select-trigger` while its flow-list reload disables it.
+3. [ ] In `client/src/pages/FlowsPage.tsx` and `client/src/components/workspace/composer/ComposerMobileDialog.tsx`, complete the flow-selector-only mobile close protocol: apply `disableRestoreFocus` only when an enabled-flow selection initiates the reload, then queue focus to the existing always-enabled `workspace-mobile-new-action` (`New flow`) after the dialog exit has removed MUI's `aria-hidden` state from `#root`. Preserve default MUI restoration for the desktop popover, info/title dialogs, and ordinary Close actions; a different enabled-flow selection must never restore focus to `flow-select-trigger` while its flow-list reload disables it.
 4. [x] In `client/src/test/flowsPage.composer.test.tsx`, add a deterministic mobile (`setViewportWidth(390)`) flow-selector regression with two enabled options and a pending post-selection reload: select the second option from `flow-select-dialog`, prove the dialog closes, prove `flow-select-trigger` is disabled during the reload, and prove `workspace-mobile-new-action` owns `document.activeElement` after the close. Create the pending-response waiter before the click and settle it during cleanup; do not use a timing delay.
+5. [ ] In `client/src/test/flowsPage.composer.test.tsx`, add deterministic mobile ordinary-Close coverage that opens `flow-select-dialog`, invokes its Close action without selecting a flow, and proves the enabled `flow-select-trigger` regains focus after the dialog exit; this must remain distinct from the pending-reload selection regression.
 
 #### Testing
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [x] `npm run build:summary:client`
-2. [x] `npm run build:summary:server`
-3. [x] `npm run compose:build:summary`
-4. [x] `npm run compose:up` — passed; the repository-owned main Compose stack reached healthy server and started client services.
-5. [x] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
-6. [x] `npm run test:summary:all:stress` — required parallel-safety proof for the changed cancellation and lifecycle behavior.
-7. [x] `npm run test:summary:shell` — full supported shell harness, including Compose-wrapper coverage.
-8. [x] `node --test scripts/*.test.mjs` — complete standalone JavaScript workflow-helper and wrapper proof.
-9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof.
-10. [x] `npm run compose:down`
-11. [x] `npm run lint`
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run build:summary:server`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up` — passed; the repository-owned main Compose stack reached healthy server and started client services.
+5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
+6. [ ] `npm run test:summary:all:stress` — required parallel-safety proof for the changed cancellation and lifecycle behavior.
+7. [ ] `npm run test:summary:shell` — full supported shell harness, including Compose-wrapper coverage.
+8. [ ] `node --test scripts/*.test.mjs` — complete standalone JavaScript workflow-helper and wrapper proof.
+9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof.
+10. [ ] `npm run compose:down`
+11. [ ] `npm run lint`
 12. [ ] `npm run format:check`
 
 #### Manual Testing Guidance
@@ -7740,3 +7741,4 @@ Optional, checkbox-free manual proof may use only the supported main Compose sta
 - Manual testing skipped for the live GitHub cycle surface. Tried: selecting `implement_next_plan_github_review` in `/flows` on the fresh main stack. Observed: the supported catalog exposes the current repository path, but no authorized sandbox worked repository with provider access was available to launch safely. Why fuller proof was not possible: external live-cycle access is outside this task's repository scope; the documented pre-launch/UI proof completed without attempting re-authentication or a destructive live flow.
 - Preflight visual refinement pass: reproduced the mobile Flow picker selection warning in Chrome DevTools and clarified the `flow-select-dialog` close/focus seam, the durable `New flow` destination, and its deterministic mobile regression in the existing Task 65 subtasks; no code was changed.
 - Implemented the flow-selector-only mobile focus protocol with an opt-in `disableRestoreFocus` dialog path and exit-time focus handoff to `workspace-mobile-new-action`; all other mobile dialogs retain MUI restoration. Added the deterministic 390px pending-reload regression, including cleanup resolution for its deferred response. The targeted client wrapper initially exposed an overly early deferred mock request; the fixture now allows both initial flow loads and defers only the post-selection reload. `npm run test:summary:client -- --file client/src/test/flowsPage.composer.test.tsx` passed 5/5.
+- **BLOCKER** Implementation-only audit found that `ab0b3c59cbc47afd522047bf77cca9a9e8f16347` passes `disableRestoreFocus` unconditionally to `flow-select-dialog`. This leaves ordinary Close actions without the explicitly required default MUI restoration, a story-caused regression on the Story 60-modified flow-picker surface. Subtasks 3 and 5 remain unchecked after normalization: scope is the conditional selection-only focus override plus a deterministic ordinary-Close restoration regression. Evidence checked: the committed diff, the current `FlowsPage.tsx` and `ComposerMobileDialog.tsx` close paths, the new targeted selection test, and the story behavior lock. Implementation cannot continue honestly without repairing that conditional scope and its proof; all final automated-proof items are also stale at the new HEAD and remain open for the later proof pass.

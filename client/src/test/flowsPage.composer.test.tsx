@@ -54,6 +54,15 @@ function mockJsonResponse(
     }),
   );
 }
+
+function deferredResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>((resolveResponse) => {
+    resolve = resolveResponse;
+  });
+  return { promise, resolve };
+}
+
 function installFlowsComposerMocks() {
   mockFetch.mockImplementation((url: RequestInfo | URL) => {
     const target =
@@ -277,5 +286,96 @@ describe('Flows page composer parity', () => {
     const newButton = await screen.findByTestId('conversation-new');
     expect(newButton).toBeVisible();
     expect(newButton).toHaveAccessibleName('New flow');
+  });
+
+  it('moves mobile flow-selector focus to New flow while the selected flow reloads', async () => {
+    const user = userEvent.setup();
+    const reload = deferredResponse();
+    let flowListRequestCount = 0;
+    setViewportWidth(390);
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : 'url' in url && typeof url.url === 'string'
+              ? url.url
+              : url.toString();
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+      if (target.endsWith('/flows')) {
+        flowListRequestCount += 1;
+        if (flowListRequestCount < 3) {
+          return mockJsonResponse({
+            flows: [
+              {
+                name: 'daily',
+                description: 'Daily flow',
+                sourceLabel: 'Repo Alpha',
+                sourceId: 'repo-alpha',
+                disabled: false,
+              },
+              {
+                name: 'nightly',
+                description: 'Nightly flow',
+                sourceLabel: 'Repo Beta',
+                sourceId: 'repo-beta',
+                disabled: false,
+              },
+            ],
+          });
+        }
+        return reload.promise;
+      }
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [], nextCursor: null });
+      }
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [], nextCursor: null });
+      }
+      return mockJsonResponse({});
+    });
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+      render(<RouterProvider router={router} />);
+      const trigger = await screen.findByTestId('flow-select-trigger');
+      const newAction = await screen.findByTestId(
+        'workspace-mobile-new-action',
+      );
+      await waitFor(() => expect(trigger).toBeEnabled());
+      await user.click(trigger);
+      const dialog = await screen.findByTestId('flow-select-dialog');
+      await user.click(
+        within(dialog).getByRole('option', { name: /nightly/i }),
+      );
+
+      await waitFor(() => expect(trigger).toBeDisabled());
+      await waitFor(() =>
+        expect(screen.queryByTestId('flow-select-dialog')).not.toBeInTheDocument(),
+      );
+      await waitFor(() => expect(document.activeElement).toBe(newAction));
+    } finally {
+      await act(async () => {
+        reload.resolve(
+          mockJsonResponse({
+            flows: [
+              {
+                name: 'daily',
+                sourceId: 'repo-alpha',
+                disabled: false,
+              },
+              {
+                name: 'nightly',
+                sourceId: 'repo-beta',
+                disabled: false,
+              },
+            ],
+          }),
+        );
+      });
+    }
   });
 });

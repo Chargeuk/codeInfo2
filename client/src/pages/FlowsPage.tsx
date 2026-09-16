@@ -211,6 +211,7 @@ export default function FlowsPage() {
   );
   const [selectedFlowAnchorEl, setSelectedFlowAnchorEl] =
     useState<HTMLElement | null>(null);
+  const restoreMobileFlowSelectorFocusRef = useRef(false);
   const [titleAnchorEl, setTitleAnchorEl] = useState<HTMLElement | null>(null);
   const [titleCopyFeedback, setTitleCopyFeedback] = useState<{
     severity: 'success' | 'error';
@@ -1135,6 +1136,9 @@ export default function FlowsPage() {
       if (next === selectedFlowKey) return;
       const nextFlow = flowOptions.find((flow) => flow.key === next);
       if (nextFlow?.disabled) return;
+      if (effectiveIsMobile) {
+        restoreMobileFlowSelectorFocusRef.current = true;
+      }
       setSelectedFlowKey(next);
       setSuppressAutoSelect(false);
       resetConversation();
@@ -1144,6 +1148,7 @@ export default function FlowsPage() {
     },
     [
       flowOptions,
+      effectiveIsMobile,
       resetConversation,
       selectedFlowKey,
       setSuppressAutoSelect,
@@ -1181,6 +1186,12 @@ export default function FlowsPage() {
   const handleSelectedFlowClose = () => {
     setSelectedFlowAnchorEl(null);
   };
+
+  const handleSelectedFlowDialogExited = useCallback(() => {
+    if (!restoreMobileFlowSelectorFocusRef.current) return;
+    restoreMobileFlowSelectorFocusRef.current = false;
+    document.querySelector<HTMLElement>('[data-testid="workspace-mobile-new-action"]')?.focus();
+  }, []);
 
   const copyFlowTitle = useCallback(async () => {
     if (!titleLabel.trim() || titleLabel === 'Set title') {
@@ -2229,6 +2240,8 @@ export default function FlowsPage() {
       <ComposerMobileDialog
         open={effectiveIsMobile && Boolean(selectedFlowAnchorEl)}
         onClose={handleSelectedFlowClose}
+        disableRestoreFocus
+        onExited={handleSelectedFlowDialogExited}
         data-testid="flow-select-dialog"
       >
         <DialogTitle sx={{ pb: 1 }}>

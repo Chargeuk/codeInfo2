@@ -7639,7 +7639,7 @@ Negative scope and positive authorization were applicable and completed. The com
 
 ### Task 65. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260916T043000Z-fe063675
 
-- Task Status: __in_progress__
+- Task Status: __done__
 - Review Task Role: final_revalidation
 - Repository Name: Current Repository
 - Task Dependencies: Task 64 and all earlier Story 60 work
@@ -7651,7 +7651,7 @@ Negative scope and positive authorization were applicable and completed. The com
 
 #### Overview
 
-Perform the sole final whole-story automated revalidation after the four completed review-fix records for this cycle. The two no-fix batches have empty dispositions. Settlement audit found that batch 2 reversed batch 1's accepted R1 repair; the renewed blocker repair below reconciles the legacy explicit-field and new worked-repository path contracts with simultaneous focused proof. Final whole-story proof remains necessary at the repaired HEAD before clean closeout. This task owns whole-story proof at the current repair HEAD; unavailable or partial review coverage remains recorded evidence, not implementation work or a reason to reopen ignored findings.
+The sole final whole-story automated revalidation completed after the four completed review-fix records for this cycle. The two no-fix batches have empty dispositions. Settlement audit found that batch 2 reversed batch 1's accepted R1 repair; the renewed blocker repair reconciled the legacy explicit-field and new worked-repository path contracts with simultaneous focused proof. Final whole-story proof passed at the repaired HEAD. This task records whole-story proof at that repair HEAD; unavailable or partial review coverage remains recorded evidence, not implementation work or a reason to reopen ignored findings.
 
 #### Addresses Findings
 
@@ -7732,3 +7732,4 @@ Optional, checkbox-free manual proof may use only the supported main Compose sta
 - Testing 10 completed: `npm run compose:down` cleanly stopped and removed the main repository-owned Compose stack started for this proof.
 - Testing 11 completed: `npm run lint` passed with exit code 0 and no warnings.
 - Testing 12 completed: `npm run format:check` passed; all matched files use Prettier code style.
+- Final automated-proof audit: all Task 65 subtasks and Testing items are evidenced complete at `4490898f33ab51dddbdca1a2007ccf96d9e57530`; the latest parallel suite, stress suite, shell, JavaScript-helper, Python-helper, lifecycle, lint, and formatting results passed. The parser reports no live blocker. The ownership restoration preserves the comparison-base explicit-field behavior while retaining Story 60's authorized worked-repository path, so no unapproved behavior drift remains. Optional manual guidance is non-blocking and was not treated as performed. Task 65 is `__done__`.

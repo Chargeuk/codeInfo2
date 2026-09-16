@@ -21,7 +21,7 @@ test('sandbox OpenCode flow uses the same generic workspace reviewer', () => {
     {
       type: 'llm',
       label: 'Run OpenCode Workspace Review',
-      agentType: 'review_agent_max',
+      agentType: 'review_agent_heavy',
       identifier: 'ocr_reviewer',
       continueOnFailure: true,
       recordReviewUsage: true,
@@ -40,7 +40,7 @@ test('production OpenCode flow uses only the scheduler-provided workspace', () =
     {
       type: 'llm',
       label: 'Run OpenCode Workspace Review',
-      agentType: 'review_agent_max',
+      agentType: 'review_agent_heavy',
       identifier: 'ocr_reviewer',
       recordReviewUsage: true,
       markdownFile: 'run_open_code_review_workspace.md',
@@ -133,7 +133,7 @@ test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex 
   assert.match(manualTestingIgnore, /^\*\*\/auth\.json$/mu);
 });
 
-test('source heavy and maximum review agents share the review boundary while retaining Sol and Astra model tiers', () => {
+test('source heavy and maximum review agents share the review boundary while retaining Terra/high and Sol/high model tiers', () => {
   const heavyConfig = readRepoFile(
     'codeinfo_agents/review_agent_heavy/config.toml',
   );
@@ -153,10 +153,10 @@ test('source heavy and maximum review agents share the review boundary while ret
     'codeinfo_agents/review_agent_max/commands/code_review_findings.json',
   );
 
-  assert.match(heavyConfig, /model = "gpt-5\.6-sol"/u);
+  assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
-  assert.match(maxConfig, /model = "gpt-6-astra"/u);
-  assert.match(maxConfig, /model_reasoning_effort = "medium"/u);
+  assert.match(maxConfig, /model = "gpt-5\.6-sol"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);
   assert.equal(maxCommand, heavyCommand);

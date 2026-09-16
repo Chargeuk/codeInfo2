@@ -6868,3 +6868,840 @@ Optional, checkbox-free manual proof may use the supported main Compose stack th
 - Manual testing ran as final-task full-story proof for the supported main stack and safe pre-launch `/flows` surface. The prior main runtime had no freshness marker, so it was rebuilt and restarted; `http://localhost:5010/health` and `http://localhost:5001` passed, and desktop plus 390px checks confirmed the `implement_next_plan_github_review` Flow info, Working path, and Flow control seam. Browser console errors were zero; the observed aborted historical-turn requests occurred while switching/resetting conversations, while the current `/flows`, `/health`, and conversation-list requests returned successfully. Screenshot capture was attempted in Playwright and Chrome, but neither documented Playwright transfer source nor Chrome's configured artifact root could write into `codeInfoTmp/manual-testing/0000060/60/`; no screenshot artifact is claimed. The stack was shut down cleanly.
 
 - Manual testing skipped for live GitHub review execution. Tried: selected `implement_next_plan_github_review` and opened its Flow info at `/flows`. Observed: the pre-launch context showed `Working path: Select folder` with unknown provider/model, and no authorized sandbox worktree or repository-local access source was available in the current scope. Why fuller proof was not possible: running a GitHub PR workflow against an arbitrary repository would be unsafe, and the missing sandbox/access capability is outside Task 60 repair scope. No additional subtask was needed; the safe current-state proof does not supersede any earlier retained Task 60 screenshot.
+
+## Code Review Findings
+
+- Findings recorded: `September 16, 2026 at 7:37:21 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260916T043001Z-2c2cc37d`
+- Review cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Reviews attempted:
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — partial review; one supported finding, with native OCR unavailable and non-exhaustive coverage.
+    - Input tokens: 1383852
+    - Cached input tokens: 1287040
+    - Output tokens: 8750
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native review; two supported findings.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — completed provider review; no promoted finding.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 1696
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed no-work result; the immutable batch has one repository target.
+    - Input tokens: 205966
+    - Cached input tokens: 152576
+    - Output tokens: 3417
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — unavailable; HTTP 402 quota failure before source review.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+
+Usage accounting (input / cached input / output): At least 1,589,818 reported; incomplete / At least 1,439,616 reported; incomplete / At least 13,863 reported; incomplete. Only explicitly designated actual-review records under the direct jobs' `work/review-usage/` are included. Cached input is not added to input; unreported categories are not zero, and usage changes no review decision. OpenCode counts belong to its designated reviewing-model invocation and do not prove native OCR ran; native Codex zeros are preserved as reported.
+
+### Accepted
+
+#### 1. Legacy explicit decision scripts lose harness-script ownership
+
+- Finding ID: `R1 — OpenCode F1`
+- Review harnesses:
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`) — generated and verified.
+- Simple description: Explicit decision scripts in existing default flows are now resolved from the worked repository instead of the harness root. This breaks unchanged default-flow decisions for external repositories.
+- Example: An external worked repository lacks `scripts/flow_control/check_current_task_has_blocker.py`; the existing implementation flow tries to resolve it there and fails before deciding whether to continue.
+- Why accepted: The reviewed HEAD omitted the existing `scriptRepositoryRoot` seam while the comparison base supplied the harness root. The batch authorized the narrow restoration under the default-entrypoint compatibility requirement and established material external-repository failure. Normal repair `0b7ea9072b29dfe49176e5e3a5efda0203f929da` implemented it, but later repair `17870939924c22e5981b93a4866cbf0178bcb0c9` removed it and replaced its regression test. At current HEAD `49c919a2a02652f9ecf65e67bdfc84146ae6e96f`, this compatibility finding is therefore unresolved, not still fixed or deliberately ignored. The later Codex finding requires worked-repository script ownership; no recorded gate reconciles that requirement with preservation of the legacy default flows. Settlement is incomplete pending a supported combined disposition and renewed repair opportunity. No removed finding is restored and no unattempted remedy is tasked.
+
+#### 2. The opt-in GitHub flow has no canonical findings producer before PR classification
+
+- Finding ID: `R2 — Codex finding 1`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and verified.
+- Simple description: The copied GitHub-review flow fetches feedback and calls the PR classifier without first creating the classifier's required canonical findings file. Valid feedback therefore has no supported classification input.
+- Example: A reviewer leaves valid PR feedback, fetch succeeds, and the feedback guard enters disposition; the classifier requires `findings_file`, but no prior step has published one, so it must report incomplete evidence.
+- Why accepted: The reviewed copied flow, GitHub handoff, and classifier proved the missing producer; the existing `llm.messages` and handoff-update seams authorized the material, focused fix. Normal repair `0b7ea9072b29dfe49176e5e3a5efda0203f929da` added the producer and same-handoff reference, with focused composition proof. The earlier stronger-attempt prediction was advisory and was superseded by successful normal repair; no stronger repair ran and no open implementation task is needed for R2.
+
+#### 3. Ordinary larger findings cannot use the existing task-up route
+
+- Finding ID: `R3 — Codex finding 2`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and verified.
+- Simple description: The PR classifier forces every ordinary actionable finding into the inline minor bucket and keeps task-up false. Larger in-scope work cannot reach the copied flow's task-up branch.
+- Example: Once a canonical findings file exists, a multi-step valid finding fails the existing minor-batchability rules but is still forced into inline work instead of the already-wired task-up path.
+- Why accepted: The story requires a small-fix versus larger-task split, and the reviewed HEAD forced the minor bucket despite an existing task-up route. Normal repair `0b7ea9072b29dfe49176e5e3a5efda0203f929da` restored the authorized existing classification buckets in the PR-only instruction, with focused composition proof. R3 remains fixed at the current HEAD and creates no open implementation task.
+
+### Ignored for This Story
+
+#### 4. R2's proposed wholesale external-review mechanism
+
+- Finding ID or Review reference: `R2 remedy narrowing — Codex finding 1`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — source finding; the independent filtering audit removed this mechanism.
+- Simple description: An earlier proposed remedy would run the full external-review evidence/findings command sequences and extend the GitHub review handoff type.
+- Example: Those generic sequences require prepared review-session identity that the fetched-PR handoff does not provide, and would run a broader review than the bounded outside-comment cycle.
+- Why ignored: The completed negative gate removed only this remedy because no existing narrow override proves it safe and it risks the story's bounded flow-only scope. R2 remains accepted through the focused existing `llm.messages` producer seam; this excluded mechanism is not authorized for repair or tasking.
+
+#### 5. One-second decision-script timeout observation
+
+- Finding ID or Review reference: `DeepSeek Copilot fixed-timeout observation`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`) — generated; verification preserves the missing runtime case.
+- Simple description: Decision scripts use a fixed 1,000 ms budget while some may invoke serial Git commands.
+- Example: A slow repository could exceed that budget, but the batch contains no demonstrated timeout or practical harm.
+- Why ignored: This is an unproven robustness inference rather than a supported finding. It has no positive authorization or materiality basis and is not promoted by unavailable or partial sibling coverage.
+
+#### 6. Close-PR warning observation
+
+- Finding ID or Review reference: `DeepSeek Copilot close-PR completion observation`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`) — generated and verified as a caveated observation.
+- Simple description: A skipped close-PR action can leave the flow completed with warning.
+- Example: After an active PR exists, the reviewer preferred a clean terminal result, but the current acceptance criteria do not require that alternate completion policy.
+- Why ignored: This is a debatable edge-policy preference, not a demonstrated Story 60 defect. Changing completion policy would be unapproved scope expansion.
+
+#### 7. Persisted-wait index-after-edit observation
+
+- Finding ID or Review reference: `DeepSeek Copilot persisted-wait index observation`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`) — generated; verification confirms no current failure.
+- Simple description: Editing an authored flow after a wait is persisted could change the resumed step index.
+- Example: A later incompatible flow edit might affect a saved wait, but the current authored flow resumes correctly and the review provides no present failing case.
+- Why ignored: This is a hypothetical robustness note without supported current reachability, meaningful impact, materiality, or an authorized repair route.
+
+#### 8. Embedded script-path validation observation
+
+- Finding ID or Review reference: `DeepSeek Copilot embedded script-path investigation`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`) — generated; verification confirms the schema shape.
+- Simple description: A descriptive backticked Python path in question text can appear beside `decisionScript` without being treated as a second declaration.
+- Example: The helper only recognizes a question ending in `.py`; a prose path does not match that intentional shape, so validation correctly sees one script declaration.
+- Why ignored: This is a negative investigation, not a defect. It has no supported observation requiring repair, tasking, or review-loop continuation.
+
+The negative scope, positive authorization, and materiality gates all had survivors and were therefore applicable. No later gate was deliberately skipped. The batch remains partial in coverage: native OCR was unavailable, the Claude Copilot review failed before source review, completed reviews were non-exhaustive, and the one-target cross-repository review correctly had no work. These limitations are evidence limits only and do not promote additional findings.
+
+### Task 61. Record Review Fixes From Batch 0000060-rw-20260916T043001Z-2c2cc37d
+
+- Task Status: __done__
+- Review Task Role: completed_review_fixes
+- Repository Name: Current Repository
+- Task Dependencies: Task 60
+- Review Batch: `0000060-rw-20260916T043001Z-2c2cc37d`
+- Review Cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Affected Repositories: `current_repository` — reviewed and initial-repair HEAD `ace37b2b58ac381b5d12aad51f53f7e3b62fcb12`; final repair HEAD `0b7ea9072b29dfe49176e5e3a5efda0203f929da`.
+- Created: `September 16, 2026 at 7:58:34 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repair for immutable batch `0000060-rw-20260916T043001Z-2c2cc37d`. The one committed repair addressed all three authorized, material survivors at its recorded repair HEAD; stronger repair was deliberately skipped on that contemporaneous result. R2 and R3 remain fixed. R1 was reversed by the next batch and is an unresolved settlement limitation, as recorded below; this historical completed task remains `__done__` because its repair and focused proof actually occurred.
+
+#### Review Harnesses
+
+- open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, evidence directory `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) generated and verified R1 through partial source review and a focused resolution probe.
+- codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, evidence directory `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) generated and verified R2 and R3 through completed native review.
+
+#### Addresses Findings
+
+- `R1 — legacy explicit decision scripts lose harness-script ownership` — `current_repository`: restore the existing harness root for explicit legacy scripts only while retaining implicit worked-repository ownership and child cwd.
+- `R2 — the opt-in flow invokes classification before a canonical findings producer exists` — `current_repository`: add a focused execution-scoped producer before classification that writes canonical findings and publishes `findings_file` to the same GitHub handoff without running excluded generic review sequences.
+- `R3 — ordinary larger findings cannot reach the task-up path` — `current_repository`: use the established minor-batchability split and existing task-required/task-up state in the PR-specific classifier.
+
+#### Subtasks
+
+1. [x] Restored explicit legacy decision-script harness ownership in `server/src/flows/service.ts` and updated deterministic error-flow proof in `server/src/test/integration/flows.run.errors.test.ts`.
+2. [x] Added the narrow canonical GitHub findings producer to `flows/implement_next_plan_github_review.json` and composition proof in `server/src/test/integration/flows.run.loop.test.ts`.
+3. [x] Restored task-required PR classification and task-up state in `codeinfo_markdown/classify_pr_review_disposition.md`, with focused loop-flow proof.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --skip-build --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/flows.run.loop.test.ts` — passed 96/96 after the repair and again after formatting.
+2. [x] `npm run format:check` — passed; the preceding formatter write is recorded in Implementation Notes rather than as automated proof.
+3. [x] `npm run lint` with `--max-warnings=0` — passed.
+4. [x] `git diff --check` — passed before commit.
+
+#### Implementation Notes
+
+- Normal repair implemented R1, R2, and R3 at that time in exact commit `0b7ea9072b29dfe49176e5e3a5efda0203f929da` (`DEV-0000060 - repair GitHub review disposition flow`). The five changed files are the three authorized product/flow seams and two focused integration-proof files.
+- `npm run format` ran before the final focused proof; it is a formatting operation, not a separate test result.
+- Settlement audit confirmed that `17870939924c22e5981b93a4866cbf0178bcb0c9` removed this batch's R1 root override and inverse integration test. The checked repair and 96/96 result above remain historical facts at `0b7ea9072b29dfe49176e5e3a5efda0203f929da`, not evidence that legacy harness-script ownership works at current HEAD. Both the OpenCode compatibility finding and the later Codex worked-repository requirement remain visible; neither can be silently discarded.
+- The repair preserved R2's excluded wholesale generic-review mechanism and handoff-type extension, plus the four rejected DeepSeek observations. It added no default-flow definition edit, generic classifier, new state system, timeout/retry/fallback policy, UI, or agent-command behavior.
+- The first focused wrapper result was 94/96 because one prior explicit-script fixture had become intentionally invalid and a new WebSocket waiter was attached too late. The tests were corrected without product changes; the final wrapper reruns passed 96/96. No full server/client suite, parallel/stress suite, Compose/browser proof, or live GitHub operation ran.
+- Stronger repair was deliberately skipped because `reconciliation/normal-repair-audit.md` proves every material survivor is repaired. Batch outcome evidence is at `codeInfoTmp/reviews/0000060-rc-20260916T043000Z-fe063675/batches/0000060-rw-20260916T043001Z-2c2cc37d--head-ace37b2b58ac/reconciliation/batch-outcome.md`; the new commit makes another review useful, but this completed record creates no unresolved or final-revalidation work.
+
+## Code Review Findings
+
+- Findings recorded: `September 16, 2026 at 9:35:39 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260916T070218Z-3161e9c3`
+- Review cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Reviews attempted:
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — unavailable; native OCR could not be launched, so no source-review coverage was completed.
+    - Input tokens: 567255
+    - Cached input tokens: 517248
+    - Output tokens: 3980
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed; two supported findings.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — completed; one technically supported finding removed by the audited scope decision, plus non-promoted observations.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 3997
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed and not applicable; the batch has one repository target.
+    - Input tokens: 163171
+    - Cached input tokens: 114048
+    - Output tokens: 3252
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — unavailable; HTTP 402 quota exhaustion occurred before source review.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+
+Usage accounting (input / cached input / output): At least 730,426 reported; incomplete / At least 631,296 reported; incomplete / At least 11,229 reported; incomplete. Only explicitly designated actual-review records under the direct jobs' `work/review-usage/` are included. Cached input is not added to input; unreported categories are not zero, and usage changes no review decision. OpenCode counts belong to its designated reviewing-model invocation and do not prove native OCR ran; native Codex zeros are preserved as reported.
+
+### Accepted
+
+#### 1. Explicit `decisionScript` paths use the server repository instead of the worked repository
+
+- Finding ID: `Reconciliation finding 1`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and verified.
+- Simple description: An explicit Python decision-script path is resolved from the server repository, unlike the implicit form. A flow can therefore reject its own checked-in script or run a same-named script from the wrong repository.
+- Example: A worked repository supplies `scripts/decision.py` through an explicit `decisionScript` field. The runtime searches the server root instead, so it fails when that server copy is absent or executes the server copy when it exists.
+- Why accepted: The reviewed HEAD passed `codeInfo2RootForRun()` as the explicit script root, while the Acceptance Criteria require the checked-in entrypoint to be resolved from the worked repository root. Removing that override uses the existing execution seam, avoids every Out Of Scope restriction and new policy, and materially prevents a wrong script-backed workflow decision. Normal repair `17870939924c22e5981b93a4866cbf0178bcb0c9` removed the override and passed focused worked-repository proof. This resolves this batch's finding, but reverses batch `0000060-rw-20260916T043001Z-2c2cc37d` R1; the unresolved compatibility conflict is not evidence of a fully settled cycle.
+
+#### 2. Python decision scripts continue after a flow is stopped
+
+- Finding ID: `Reconciliation finding 2`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and verified.
+- Simple description: The direct Python decision runner does not receive the flow’s cancellation signal. A stopped flow can leave the child script running and can still process its answer.
+- Example: A user stops a flow while a Python break decision is running. The child returns `yes`, `runBreakStep` receives `ok`, and the flow can handle that decision before a later cancellation boundary.
+- Why accepted: The reviewed HEAD had no script inflight registration, abort listener, or post-await cancellation check, despite the existing flow-stop pattern. Restoring that existing lifecycle behavior is authorized and materially prevents post-stop process and checkpoint/branch authority without adding a new timeout, retry, schema option, or user-facing policy. Normal repair `17870939924c22e5981b93a4866cbf0178bcb0c9` wired that lifecycle and passed deterministic stopped-flow proof within the 62/62 focused run. The advisory stronger-attempt prediction was superseded by normal repair; stronger repair did not run and this finding is not open work.
+
+### Ignored for This Story
+
+#### 3. `github_fetch_reviews` failure recovery asymmetry
+
+- Finding ID or Review reference: `Reconciliation finding 3`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`) — generated and verified.
+- Simple description: Fetch failures return directly while sibling GitHub steps use a recovery helper. The observed difference is technically supported, but the proposed recovery adds policy that this story does not authorize.
+- Example: Applying the sibling helper to a fetch API failure would add retry attempts, persisted waits, and eventual skip/continue behavior to a retrieval-only step, even though fetch exposes no existing per-step policy control.
+- Why ignored: The completed independent filtering audit fully removed this entire finding under negative gates 3, 7, 9, and 11, and the positive gate preserves the same non-authorization. The Acceptance Criteria require retrieval without implicit waiting or completion policy; Out Of Scope also excludes hidden IF logic in the GitHub comment step. No proven policy-free existing seam remains. It is technically supported and positively considered, but cannot be repaired, tasked, or used to continue this story’s review loop.
+
+#### 4. Claimed post-stop `review_retry` wake
+
+- Finding ID or Review reference: `DeepSeek rejected retry-wake candidate`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — generated; job-local verification rejected or retained only as an observation.
+- Simple description: The candidate claimed that the retry exemption could revive a stopped flow.
+- Example: `stopPersistedWaitIfMatches` cancels the matching handle and removes persisted state; a concurrent wake reloads it and exits when absent.
+- Why ignored: Job verification disproved the cited post-stop path. The retry exemption permits a retry after failure, not after a completed stop; this candidate remains rejected.
+
+#### 5. Test-support import layering
+
+- Finding ID or Review reference: `DeepSeek import-layering observation`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — generated; job-local verification rejected or retained only as an observation.
+- Simple description: Production imports refer to test-support helpers.
+- Example: The batch identified layering but no concrete packaging or runtime failure; the supplied example is limited to those imports.
+- Why ignored: The verified recovery retained architectural advice only, without a demonstrated production defect or story regression.
+
+#### 6. Git preflight environment consistency
+
+- Finding ID or Review reference: `DeepSeek process.env versus params.env observation`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — generated; job-local verification rejected or retained only as an observation.
+- Simple description: The review noted different environment inputs around a Git check.
+- Example: The cited check uses `process.env` rather than `params.env`; no failing supported environment or incorrect decision was established.
+- Why ignored: The observation alone does not establish material harm or an authorized behavior change and remains non-actionable.
+
+#### 7. Duplicated script-path helper
+
+- Finding ID or Review reference: `DeepSeek isFlowDecisionScriptPath observation`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — generated; job-local verification rejected or retained only as an observation.
+- Simple description: The script-path detection helper is duplicated.
+- Example: Two helper implementations were noted, but the evidence supplied no diverging result for a supported path.
+- Why ignored: Duplication is maintenance advice, not a supported actionable finding in this batch.
+
+#### 8. Changed repository-root discovery
+
+- Finding ID or Review reference: `DeepSeek findRepoRoot observation`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — generated; job-local verification rejected or retained only as an observation.
+- Simple description: The review noticed a changed repository-root lookup.
+- Example: The verified recovery treats the `findRepoRoot` change as intentional; no concrete incorrect repository selection was established.
+- Why ignored: An intentional implementation change without a demonstrated contract regression is not promoted to a finding.
+
+All three filtering gates were applicable: scope left findings 1 and 2, authorization retained both, and materiality retained both. No later gate was deliberately skipped. Finding 3 is fully removed, including its proposed remedy, and is preserved above solely as non-actionable follow-up evidence. Coverage remains partial because OpenCode and Claude source review were unavailable; that limitation does not promote further findings.
+
+### Task 62. Record Review Fixes From Batch 0000060-rw-20260916T070218Z-3161e9c3
+
+- Task Status: __done__
+- Review Task Role: completed_review_fixes
+- Repository Name: Current Repository
+- Task Dependencies: Task 61
+- Review Batch: `0000060-rw-20260916T070218Z-3161e9c3`
+- Review Cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Affected Repositories: `current_repository` — reviewed and initial-repair HEAD `0b7ea9072b29dfe49176e5e3a5efda0203f929da`; final repair HEAD `17870939924c22e5981b93a4866cbf0178bcb0c9`.
+- Created: `September 16, 2026 at 10:06:40 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repair for immutable batch `0000060-rw-20260916T070218Z-3161e9c3`. Both positively authorized, material decision-script findings were repaired in one commit; the stronger attempt was deliberately skipped because the normal-repair audit positively establishes that no actionable survivor remains.
+
+#### Review Harnesses
+
+- codex_review [current_repository] (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) generated and verified both addressed findings.
+
+#### Addresses Findings
+
+- `Reconciliation finding 1 — explicit decisionScript paths use the server repository instead of the worked repository` — `current_repository`: remove the explicit server-root override so supported explicit and implicit scripts share worked-repository resolution, containment, Git tracking, and execution authority.
+- `Reconciliation finding 2 — Python decision-script subprocesses do not honor flow cancellation` — `current_repository`: register script work in the existing inflight lifecycle, propagate cancellation to the child, and return the existing stopped outcome before a post-stop answer can affect the flow.
+
+#### Subtasks
+
+1. [x] Repaired explicit decision-script root selection in `server/src/flows/service.ts` and added focused worked-repository script proof in `server/src/test/integration/flows.run.errors.test.ts`.
+2. [x] Added cancellation-aware child execution in `server/src/flows/flowDecisionScript.ts`, connected it to the existing flow inflight lifecycle in `server/src/flows/service.ts`, and added deterministic stopped-flow proof in `server/src/test/integration/flows.run.errors.test.ts`.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flow-decision-script.test.ts --file server/src/test/integration/flows.run.errors.test.ts` — passed 62/62 after formatting.
+2. [x] `./node_modules/.bin/prettier --check server/src/flows/flowDecisionScript.ts server/src/flows/service.ts server/src/test/integration/flows.run.errors.test.ts` — passed.
+3. [x] `./node_modules/.bin/eslint server/src/flows/flowDecisionScript.ts server/src/flows/service.ts server/src/test/integration/flows.run.errors.test.ts --max-warnings=0` — passed.
+4. [x] `git diff --check` — passed before commit.
+
+#### Implementation Notes
+
+- Normal repair completed both addressed findings in `17870939924c22e5981b93a4866cbf0178bcb0c9` (`DEV-0000060 - repair decision script ownership and cancellation`). The exact changed files are `server/src/flows/flowDecisionScript.ts`, `server/src/flows/service.ts`, and `server/src/test/integration/flows.run.errors.test.ts`.
+- This batch replaced the preceding batch's harness-root regression test with the worked-repository test and removed its root override. The two batch-local success reports establish opposing behaviors at different commits, not simultaneous satisfaction of both current acceptance requirements. Settlement audit leaves this cross-batch compatibility conflict unresolved without reopening this completed history task.
+- The repair preserved existing timeout, output-limit, parsing, Git-tracking, and stopped-flow semantics; it added no schema field, retry, fallback, timeout policy, GitHub recovery behavior, UI, or agent-command behavior. The negatively removed and positively unauthorized `github_fetch_reviews` recovery observation remains non-actionable evidence only.
+- An earlier focused run exposed an inappropriate WebSocket waiter in the new no-LLM ownership test; the test was corrected without product changes, then the focused wrapper passed 62/62. Full-suite, parallel/stress, browser/manual, live-GitHub, and broad build proof were not run.
+- Stronger repair was deliberately skipped because `reconciliation/normal-repair-audit.md` establishes that both material survivors are resolved. Batch outcome evidence is at `codeInfoTmp/reviews/0000060-rc-20260916T043000Z-fe063675/batches/0000060-rw-20260916T070218Z-3161e9c3--head-0b7ea9072b29/reconciliation/batch-outcome.md`; the final commit makes another review useful, but this completed task creates no unresolved finding or final-revalidation task.
+
+## Code Review Findings
+
+- Findings recorded: `September 16, 2026 at 11:29:28 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260916T090838Z-0f67236a`
+- Review cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Reviews attempted:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — unavailable; HTTP 402 `quota_exceeded` occurred before review work.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — completed; five candidates were rejected or retained as advice/information.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 1,404
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed; generated and job-locally verified R1 and R2.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — not applicable; the immutable batch has one target and no additional repository boundary.
+    - Input tokens: 227,862
+    - Cached input tokens: 200,192
+    - Output tokens: 3,207
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — partial; native stages were unavailable and manual fallback inspected portions of 14 paths, leaving 462 included paths uninspected, with no supported finding in that inspected subset.
+    - Input tokens: 1,151,227
+    - Cached input tokens: 1,051,520
+    - Output tokens: 5,786
+
+Usage accounting (input / cached input / output): At least 1,379,089 reported; incomplete / At least 1,251,712 reported; incomplete / At least 10,397 reported; incomplete. Only explicitly designated actual-review records under the direct jobs' `work/review-usage/` are included. Cached input is not added to input; unreported categories are not zero, and usage changes no review decision. OpenCode counts belong to its designated reviewing-model invocation and do not prove native OCR ran; native Codex zeros are preserved as reported.
+
+### Accepted
+
+#### 1. Established default Codex model choices were removed outside the opt-in flow scope
+
+- Finding ID: `R2`
+- Target: `current_repository`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and job-locally verified.
+- Simple description: Four established models were removed from both the main-stack default list and the fallback list. Operators using the normal non-opt-in catalog can no longer select those choices without an override.
+- Example: An operator starts the checked-in stack without overriding `Codex_model_list` and wants to choose `gpt-5.5`. Current `server/.env:52` and the empty-list fallback omit it, whereas the comparison base offered it in both sources.
+- Why accepted: The reviewed HEAD and the comparison base proved the exact four-entry regression at `server/.env:52` and `server/src/config/codexEnvDefaults.ts:40-45`. The current contract requires existing non-opt-in browser-visible behavior to remain unchanged; restoring only `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, and `gpt-5.3-codex-spark` at those existing seams is authorized, material, and respects every Out Of Scope restriction. Normal repair `b6aa8686b3c627fc04526eb5fdcbbf0b87926855` restored those four entries and passed the 6/6 focused configuration suite. The restoration remains present at current HEAD; no open implementation task is required.
+
+### Ignored for This Story
+
+#### 2. PR base-branch candidate lacks an independent pre-create lookup
+
+- Finding ID or Review reference: `R1`
+- Target: `current_repository`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated and job-locally verified.
+- Simple description: The selected base name is not looked up before PR creation. A missing base instead reaches the existing create failure path.
+- Example: A preserved handoff base is later deleted. `gh pr create --base` fails, and the current caller records a warning and skips that GitHub-review cycle rather than silently succeeding against another branch.
+- Why ignored: The exact existence-preflight core is technically supported and positively authorized, but materiality did not demonstrate false success, lost work, a stuck flow, or enough value beyond the existing warning-and-skip behavior. The broader ancestry, rebasing, automatic-retargeting, and wrong-existing-base remedy was removed by negative scope because no safe intended-ancestry predicate or authorized control exists. The complete finding is non-actionable for this story.
+
+#### 3. R2 catalog-expansion suggestion beyond the four restored entries
+
+- Finding ID or Review reference: `R2 — narrowed-away remedy`
+- Target: `current_repository`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the source observation; the filtering audit narrowed its remedy.
+- Simple description: The supported regression is loss of four comparison-base choices, not a decision about which new models should be added, retained, promoted, or substituted.
+- Example: Restoring the four former entries does not establish whether `gpt-6-astra` should stay in the catalog, move order, or replace another choice; the story has no approved catalog-migration policy.
+- Why ignored: Negative scope removed the optional catalog-expansion meaning and positive authorization retained only comparison-base restoration. This part of R2 is non-actionable and cannot be used to add a policy or broaden the repair.
+
+#### 4. Production imports from `server/src/test/support/*`
+
+- Finding ID or Review reference: `DeepSeek candidate 1`
+- Target: `current_repository`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `dd18fe544b42cc199c329664578ee7e2643dd7b331e4de33ba9d5a4b3840a271`) — generated; job-local verification retained it as architectural advice.
+- Simple description: Some production paths import test-support helpers. The architectural concern is factual, but current configuration and fallbacks do not demonstrate incorrect runtime behavior.
+- Example: A future packaging change could omit a test-support helper, but today `server/tsconfig.json` includes `src` and the helper has production fallbacks, so no present failure is shown.
+- Why ignored: Reconciliation rejected it as a defect and retained it only as maintenance advice. It was never a supported actionable finding and cannot be promoted by incomplete review coverage.
+
+#### 5. Unused GitHub PR scope-check script
+
+- Finding ID or Review reference: `DeepSeek candidate 2`
+- Target: `current_repository`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `dd18fe544b42cc199c329664578ee7e2643dd7b331e4de33ba9d5a4b3840a271`) — generated; job-local verification rejected it.
+- Simple description: `check_plan_scope_supports_github_pr_review.py` is present but unreferenced. The observation alone does not show a user-visible failure.
+- Example: An unsupported remote host is rejected by `resolveGitHubRepositoryState` even if this unused script is never called, so the candidate does not show that an invalid PR workflow proceeds.
+- Why ignored: Current runtime behavior and focused coverage already reject unsupported hosts. No incorrect behavior or authorized material repair was established.
+
+#### 6. Fixed `GH_HOST = github.com`
+
+- Finding ID or Review reference: `DeepSeek candidate 3`
+- Target: `current_repository`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `dd18fe544b42cc199c329664578ee7e2643dd7b331e4de33ba9d5a4b3840a271`) — generated; job-local verification rejected it.
+- Simple description: The GitHub transport fixes the host to github.com. That matches the currently supported github.com-only transport.
+- Example: A GitHub Enterprise installation would need a different host, but Enterprise support is not part of this story’s supported transport.
+- Why ignored: The claimed failure is hypothetical under the current contract, so it is not a supported or authorized defect for this story.
+
+#### 7. `tree-sitter-rust` version change
+
+- Finding ID or Review reference: `DeepSeek candidate 4`
+- Target: `current_repository`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `dd18fe544b42cc199c329664578ee7e2643dd7b331e4de33ba9d5a4b3840a271`) — generated; job-local verification retained the factual observation only.
+- Simple description: The dependency version changed from 0.23.2 to 0.23.1. No compatibility or runtime failure was evidenced.
+- Example: A dependency downgrade could matter if an incompatible API were used, but the review supplied no failing consumer, build, or behavior tied to this version.
+- Why ignored: It is an unproven factual dependency observation, not a supported, authorized, material finding.
+
+#### 8. Extra empty pagination request at exact page multiples
+
+- Finding ID or Review reference: `DeepSeek candidate 5`
+- Target: `current_repository`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `dd18fe544b42cc199c329664578ee7e2643dd7b331e4de33ba9d5a4b3840a271`) — generated; job-local verification retained it as informational.
+- Simple description: Pagination can make one additional empty request when the item count is exactly a page multiple. The behavior does not change correctness.
+- Example: A review list with exactly one full page triggers one final empty fetch before termination, but returns the same complete set of comments.
+- Why ignored: The reconciled candidate is informational and harmless for correctness, with no demonstrated material value for changing completed code.
+
+All three filtering gates were applicable and completed: scope and positive authorization narrowed R1 and R2, and materiality retained R2 only. No later gate was deliberately skipped. R1, the narrowed-away R2 remedy, and every rejected candidate above are non-actionable; partial OpenCode coverage and unavailable Claude coverage do not promote them. The complete current disposition is `codeInfoTmp/reviews/0000060-rc-20260916T043000Z-fe063675/batches/0000060-rw-20260916T090838Z-0f67236a--head-17870939924c/reconciliation/disposition.md`.
+
+### Task 63. Record Review Fixes From Batch 0000060-rw-20260916T090838Z-0f67236a
+
+- Task Status: __done__
+- Review Task Role: completed_review_fixes
+- Repository Name: Current Repository
+- Task Dependencies: Task 62
+- Review Batch: `0000060-rw-20260916T090838Z-0f67236a`
+- Review Cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Affected Repositories: `current_repository` — reviewed and initial-repair HEAD `17870939924c22e5981b93a4866cbf0178bcb0c9`; final repair HEAD `b6aa8686b3c627fc04526eb5fdcbbf0b87926855`; changed `server/.env`, `server/src/config/codexEnvDefaults.ts`, and `server/src/test/unit/codexEnvDefaults.test.ts`.
+- Created: `September 16, 2026 at 11:47:45 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repair for immutable batch `0000060-rw-20260916T090838Z-0f67236a`. The sole positively authorized, material survivor R2 was fixed in one commit; stronger repair was deliberately skipped because the normal-repair audit establishes that no actionable survivor remains.
+
+#### Review Harnesses
+
+- codex_review [current_repository] (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) generated and job-locally verified R2.
+
+#### Addresses Findings
+
+- `R2 — established default Codex model choices were removed outside the opt-in flow scope` — `current_repository`: restore exactly `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, and `gpt-5.3-codex-spark` in the existing main-stack list and parser-owned fallback, preserving retained `gpt-6-astra`, first/default choice, and ordering.
+
+#### Subtasks
+
+1. [x] Restored the four authorized comparison-base models in `server/.env` and `server/src/config/codexEnvDefaults.ts` without changing flow, UI, routing, schema, or model-policy behavior.
+2. [x] Updated the existing blank-list fallback expectation in `server/src/test/unit/codexEnvDefaults.test.ts` to protect the restored parser fallback.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/codexEnvDefaults.test.ts` — passed 6/6.
+2. [x] `git diff --check` — passed before commit.
+3. [x] `./node_modules/.bin/eslint server/src/config/codexEnvDefaults.ts server/src/test/unit/codexEnvDefaults.test.ts --max-warnings=0` — passed.
+4. [x] `./node_modules/.bin/prettier --check server/src/config/codexEnvDefaults.ts server/src/test/unit/codexEnvDefaults.test.ts` — passed.
+
+#### Implementation Notes
+
+- Normal repair resolved R2 in exact commit `b6aa8686b3c627fc04526eb5fdcbbf0b87926855` (`DEV-0000060 - restore default Codex model choices`). It changed only the two authorized default-list seams and their focused fallback proof.
+- The direct main-stack configuration/order assertion passed. A safe Prettier write attempt reported that `.env` has no parser and left the TypeScript files unchanged; the tracked-file formatter does not target `.env`.
+- R1 remains technically supported but below materiality, and R2's catalog-expansion meaning plus the five DeepSeek candidates remain non-actionable. No unauthorized or below-materiality item changed.
+- Stronger repair was deliberately skipped because `reconciliation/normal-repair-audit.md` proves R2 was the only material survivor and it is resolved. The focused wrapper built the server; separate broad build, full-suite, parallel/stress, Compose, browser/manual, live-provider, and push proof were not run; the new committed final HEAD warrants another review but this task creates no unresolved or final-revalidation work. Batch outcome evidence is at `codeInfoTmp/reviews/0000060-rc-20260916T043000Z-fe063675/batches/0000060-rw-20260916T090838Z-0f67236a--head-17870939924c/reconciliation/batch-outcome.md`.
+
+## Code Review Findings
+
+- Findings recorded: `September 16, 2026 at 1:10:07 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260916T104926Z-05929ba2`
+- Review cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Reviews attempted:
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — unavailable substantive coverage; completed scope verification only.
+    - Input tokens: 466214
+    - Cached input tokens: 415488
+    - Output tokens: 3653
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native review with one independently verified finding.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — completed source review; its four candidates were not promoted after job-local verification.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 3014
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed no-work result; the immutable inventory has one target.
+    - Input tokens: 236904
+    - Cached input tokens: 203264
+    - Output tokens: 3556
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — unavailable; HTTP 402 quota failure before model output.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+
+Usage accounting (input / cached input / output): At least 703,118 reported; incomplete / At least 618,752 reported; incomplete / At least 10,223 reported; incomplete. Only explicitly designated actual-review records under the direct jobs' `work/review-usage/` are included. Cached input is not added to input; unreported categories are not zero, and usage changes no review decision. OpenCode counts belong to its designated reviewing-model invocation and do not prove native OCR ran; native Codex zeros are preserved as reported.
+
+### Accepted
+
+#### 1. Feature commits can be pushed directly to the tracked base branch
+
+- Finding ID: `F-001`
+- Target: `current_repository`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and independently verified.
+- Simple description: A feature branch tracking the base branch can be pushed straight to that base before the GitHub review flow creates its pull request. That bypasses the review boundary the flow is supposed to provide.
+- Example: A feature branch tracks `origin/main`, the story base is `main`, and it has unpushed commits. The flow runs `git push origin HEAD:main`; on a writable unprotected remote, those commits reach `main` before PR creation.
+- Why accepted: The reviewed HEAD constructed that command without comparing the current, upstream, and base branch values. The current contract authorizes a current-branch PR and truthful failure handling, while the existing push-result and warning lifecycle can express a pre-command refusal only for this incompatible `HEAD:base` case. The concrete permitted-fast-forward scenario has meaningful impact, and the narrow adapter guard respects every Out Of Scope restriction. Normal repair `49c919a2a02652f9ecf65e67bdfc84146ae6e96f` added that guard and passed 23/23 adapter tests. It remains fixed at current HEAD, and the next two batches reviewed that HEAD. No open implementation task is needed for F-001.
+
+### Ignored for This Story
+
+#### 2. F-001's broader proposed mechanisms
+
+- Finding ID or Review reference: `F-001 remedy narrowing`
+- Target: `current_repository`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and independently verified the underlying finding; the combined filtering audit removed these mechanisms.
+- Simple description: Earlier remedy variants would change shared repository resolution, add a new skip reason, reject all renamed feature upstreams, or discover another publication target.
+- Example: A valid renamed upstream such as `origin/review/demo` is not the base branch. A blanket name rule would reject it even though the demonstrated problem is specifically `HEAD:main`.
+- Why ignored: The completed scope and authorization gates retain only the local pre-command equality guard. The broader mechanisms are unproven or affect standalone fetch/close behavior, and they are not authorized for repair, tasking, or review-loop continuation.
+
+#### 3. Fetch-step recovery/warning semantics
+
+- Finding ID or Review reference: `R-001`
+- Target: `current_repository`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`) — generated; job-local verification rejected promotion.
+- Simple description: Fetch failures return directly instead of using the open/close recovery dispatch.
+- Example: A transient fetch failure returns its current outcome, but the batch does not establish that this story requires a retry or that one would change a required result.
+- Why ignored: The behavior observation does not authorize a retry/continuation policy and does not demonstrate material harm; preserved documentation tension is uncertainty, not accepted work.
+
+#### 4. Close-step token/transport asymmetry
+
+- Finding ID or Review reference: `R-002`
+- Target: `current_repository`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`) — generated; job-local verification rejected promotion.
+- Simple description: The candidate treated credential skips and close-operation errors as the same failure path.
+- Example: Blank credentials produce the existing warning skip, while an actual close error uses the close-step recovery dispatch, so the claimed whole-flow defect is not established.
+- Why ignored: Verification disproves the claimed defect; it has no actionable authorization or materiality basis.
+
+#### 5. Base resolution lacks GitHub lookup
+
+- Finding ID or Review reference: `R-003`
+- Target: `current_repository`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`) — generated; job-local verification retained only uncertainty.
+- Simple description: Base resolution uses the story-owned branch value without a separate GitHub lookup.
+- Example: A stale base could matter, but no batch evidence shows an invalid-base execution or harmful result.
+- Why ignored: The requirement interpretation is disputed, and no realistic material failure or authorized narrow remedy was proven.
+
+#### 6. Warning-status downgrade
+
+- Finding ID or Review reference: `R-004`
+- Target: `current_repository`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`) — generated; job-local verification rejected promotion.
+- Simple description: The candidate speculated that a context reset could turn a warning into clean completion.
+- Example: No current-HEAD path in the evidence performs that reset and produces a false clean result.
+- Why ignored: This is speculative with no demonstrated impact, authorization, or material value for changing completed code.
+
+All three filtering gates were applicable and completed. Scope and authorization narrowed F-001 to the local push-boundary guard, and materiality retained that same core. No later gate was deliberately skipped. The narrowed-away mechanisms and R-001 through R-004 are non-actionable; partial or unavailable sibling coverage does not promote them. The complete disposition is `codeInfoTmp/reviews/0000060-rc-20260916T043000Z-fe063675/batches/0000060-rw-20260916T104926Z-05929ba2--head-b6aa8686b3c6/reconciliation/disposition.md`.
+
+### Task 64. Record Review Fixes From Batch 0000060-rw-20260916T104926Z-05929ba2
+
+- Task Status: __done__
+- Review Task Role: completed_review_fixes
+- Repository Name: Current Repository
+- Task Dependencies: Task 63
+- Review Batch: `0000060-rw-20260916T104926Z-05929ba2`
+- Review Cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Affected Repositories: `current_repository` — reviewed and initial-repair HEAD `b6aa8686b3c627fc04526eb5fdcbbf0b87926855`; final repair HEAD `49c919a2a02652f9ecf65e67bdfc84146ae6e96f`; changed `server/src/flows/githubReview.ts` and `server/src/test/unit/flows.github-adapter.test.ts`.
+- Created: `September 16, 2026 at 1:27:59 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed normal repair for immutable batch `0000060-rw-20260916T104926Z-05929ba2`. The sole positively authorized, material survivor F-001 was fixed in one commit; stronger repair was deliberately skipped because the normal-repair audit establishes that no actionable survivor remains.
+
+#### Review Harnesses
+
+- codex_review [current_repository] (`codex_review`, job `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`, target `current_repository`) generated and independently verified F-001.
+
+#### Addresses Findings
+
+- `F-001 — feature commits can be pushed directly to the tracked base branch` — `current_repository`: refuse only the feature-to-review-base publication immediately before the existing Git push and return the existing warning-backed `PUSH_FAILED` skip; retain renamed feature upstreams and direct base pushes.
+
+#### Subtasks
+
+1. [x] Added the authorized narrow equality guard in `server/src/flows/githubReview.ts` without changing shared resolver validation, schema, flow definitions, UI, agent-command behavior, or GitHub publication policy.
+2. [x] Added command-spy coverage in `server/src/test/unit/flows.github-adapter.test.ts` for the refused base-target push and preserved valid renamed-feature and direct-base destinations.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows.github-adapter.test.ts` — passed 23/23.
+2. [x] `./node_modules/.bin/prettier --check server/src/flows/githubReview.ts server/src/test/unit/flows.github-adapter.test.ts` — passed.
+3. [x] `./node_modules/.bin/eslint server/src/flows/githubReview.ts server/src/test/unit/flows.github-adapter.test.ts --max-warnings=0` — passed with no warnings.
+4. [x] `git diff --check` — passed before commit.
+
+#### Implementation Notes
+
+- Normal repair resolved F-001 in exact commit `49c919a2a02652f9ecf65e67bdfc84146ae6e96f` (`DEV-0000060 - prevent base-branch review pushes`). It used the existing `PUSH_FAILED` skip and service warning lifecycle, leaving all narrowed-away mechanisms and R-001 through R-004 non-actionable.
+- The repair's focused adapter suite passed 23/23. Prettier write was also run and found both changed files already formatted; it made no change, so no post-format test rerun was required.
+- Stronger repair was deliberately skipped because `reconciliation/normal-repair-audit.md` proves the sole material survivor is resolved. Full-suite, parallel/stress, client, e2e, Compose, browser/manual, live-GitHub, and push proof were not run; the final committed HEAD makes a later review useful but creates no unresolved work here.
+- Batch outcome evidence is at `codeInfoTmp/reviews/0000060-rc-20260916T043000Z-fe063675/batches/0000060-rw-20260916T104926Z-05929ba2--head-b6aa8686b3c6/reconciliation/batch-outcome.md`.
+
+## Code Review Findings
+
+- Findings recorded: `September 16, 2026 at 2:58:09 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260916T123011Z-c4836c9d`
+- Review cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Reviews attempted:
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — partial fallback with limited named source coverage; no supported finding.
+    - Input tokens: 846,519
+    - Cached input tokens: 762,496
+    - Output tokens: 5,150
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native, non-exhaustive review; F-001 was technically supported and R-001 was rejected.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — completed provider review; R-002 remained an unpromoted policy concern.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 1,519
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed no-work because the immutable batch has one repository target.
+    - Input tokens: 242,208
+    - Cached input tokens: 205,568
+    - Output tokens: 3,992
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — unavailable; HTTP 402 quota exhaustion occurred before source review.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+
+Usage accounting (input / cached input / output): At least 1,088,727 reported; incomplete / At least 968,064 reported; incomplete / At least 10,661 reported; incomplete. Only explicitly designated actual-review records under the direct jobs' `work/review-usage/` are included. Cached input is not added to input; unreported categories are not zero, and usage changes no review decision. OpenCode counts belong to its designated reviewing-model invocation and do not prove native OCR ran; native Codex zeros are preserved as reported.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+#### 1. `branched_from` is passed through as the PR base
+
+- Finding ID or Review reference: `F-001`
+- Target: `current_repository` — `server/src/flows/githubReview.ts:986-1008`, with PR creation at `:1192-1195`.
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — generated the observation and job verification corroborated the current-HEAD data flow.
+- Simple description: A nonblank persisted `branched_from` becomes the pull request base without an independent trust check. If it names an existing but unintended branch, reviewers can see the wrong diff.
+- Example: A persisted handoff names an old branch rather than the intended story base. The resolver accepts it and creates the PR with that value as `--base`, so reviewers could assess unrelated changes instead of receiving a warning that the intended base was not established.
+- Why ignored: The negative gate retained only the technical observation and narrowed away arbitrary validation, default-base derivation, and an unspecified rejection rule. The completed positive-authorization gate found no concrete existing trust predicate or configuration seam that can express a permitted repair without adding unapproved branch policy; materiality was therefore deliberately not applicable. This technically supported complete finding is non-actionable for this story.
+
+#### 2. Claimed loss of feedback after post-create PR lookup failure
+
+- Finding ID or Review reference: `R-001`
+- Target: `current_repository` — post-create lookup and resumed PR resolution in `server/src/flows/githubReview.ts`.
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — generated the candidate; job verification rejected it.
+- Simple description: The candidate claimed that a failed post-create lookup could later discard review feedback because synthetic PR data lacks an author login.
+- Example: After PR creation, metadata lookup could fail. The verified flow keeps the PR number and re-resolves that exact PR before fetch; if that lookup fails, fetch fails rather than materializing authorless feedback, so the claimed silent loss is not established.
+- Why ignored: Reconciliation rejected this candidate based on the verified current-HEAD flow. It has no supported defect, authorization, or materiality basis and never entered the filtering survivor set.
+
+#### 3. Fetch-step retry-policy asymmetry
+
+- Finding ID or Review reference: `R-002`
+- Target: `current_repository` — `github_fetch_reviews` recovery behavior.
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4-flash-0731 (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-0731-b13ffeca040a:current_repository:copilot_review`, target `current_repository`) — generated the concern; job verification retained only an unproven policy question.
+- Simple description: Fetch failures return directly while open and close operations use their own recovery paths.
+- Example: A fetch failure can return its current outcome, but the story does not require it to retry and an existing identity-mismatch test preserves a no-retry case. The evidence therefore does not demonstrate a required harmful result.
+- Why ignored: The structural difference is real but no required retry policy, realistic material impact, or authorized narrow remedy was demonstrated. It never entered the filtering survivor set.
+
+Negative scope and positive authorization were applicable and completed. The completed positive-authorization gate had zero survivors, so materiality was deliberately not applicable; the earlier materiality artifact is superseded history and does not restore F-001. All three ignored entries are non-actionable, and partial or unavailable sibling coverage does not promote them. The complete disposition is `codeInfoTmp/reviews/0000060-rc-20260916T043000Z-fe063675/batches/0000060-rw-20260916T123011Z-c4836c9d--head-49c919a2a026/reconciliation/disposition.md`.
+
+## Code Review Findings
+
+- Findings recorded: `September 16, 2026 at 4:18:49 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260916T141710Z-b5b44ea4`
+- Review cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Reviews attempted:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — completed bounded review with independently verified source findings and partial product-execution coverage.
+    - Input tokens: 6,318,812
+    - Cached input tokens: 5,697,408
+    - Output tokens: 42,400
+
+Usage accounting (input / cached input / output): 6,318,812 / 5,697,408 / 42,400; complete for the six designated records. Only explicitly designated actual-review records under the direct jobs' `work/review-usage/` are included. Cached input is not added to input; unreported categories are not zero, and usage changes no review decision. The six records include the explicitly designated consolidator review invocation; internal stages are provenance, not additional direct jobs.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+#### 1. Canonical PR metadata validation failure is treated as a successful open
+
+- Finding ID or Review reference: `CR-001` (deep-review Candidate 2; `BLIND-002`)
+- Target: `current_repository` — `server/src/flows/githubReview.ts:1251-1276` and `server/src/flows/service.ts:8494-8531`.
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — generated and corroborated the observation; the job verifier independently supported its narrowed form.
+- Simple description: After `gh pr create` prints a PR URL, a failed immediate canonical lookup is represented as a successful result with reconstructed metadata. The flow can store `opened` and begin its authored wait before that first lookup has resolved.
+- Example: GitHub creates a PR but its immediate API lookup transiently fails. Before fetch, the execution-scoped resolver rechecks that same PR; if it still cannot resolve it, fetch fails visibly rather than proving that feedback was lost or a clean review was reported.
+- Why ignored: The negative gate removed unapproved bounded-retry, provisional-state, and assumed configuration-only remedies because the current schema and copied flow expose no such control. The repaired positive gate then found that returning the existing non-OK union would add a new skip-after-success policy and drop the created PR from that result, not a policy-free correction authorized by the story or comparison base. The claimed inevitable feedback-loss consequence was also rejected. Materiality is deliberately not applicable after this empty positive survivor set.
+
+#### 2. Warning-status text contrast
+
+- Finding ID or Review reference: `CR-002` (`VISUAL-001`; `BLIND-004`; saturation corroboration)
+- Target: `current_repository` — `client/src/components/chat/transcriptSurfaceTokens.ts:23-26` and `client/src/components/chat/AssistantTranscriptSlice.tsx:744-782`.
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — generated and corroborated the token and rendering observation; the job verifier independently recalculated the source ratio.
+- Simple description: The warning chip uses `#B7791F` text on `#FFF4E5`, a calculated 3.3500456817852164:1 standard-sRGB ratio for normal-size chip text. The batch has source and calculation evidence, not browser accessibility proof.
+- Example: A completed-with-warning transcript row renders that warning chip with the current pair. The story requires truthful warning status but does not define a color choice or contrast standard for it.
+- Why ignored: The positive gate preserved the technically supported observation but found no authorization for a browser-visible color or contrast policy. The Out Of Scope boundary excludes that additional UI decision, and no existing configuration expresses a policy-free repair. Materiality is deliberately not applicable after positive authorization produced no survivors.
+
+#### 3. Local branch without a tracking ref skips before automatic publication
+
+- Finding ID or Review reference: Deep-review Candidate 1 / `BLIND-001`
+- Target: `current_repository` — branch publication before PR creation.
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — generated and corroborated the real behavior; consolidation and verification rejected it as actionable.
+- Simple description: A local branch that has no tracking ref cannot be automatically pushed by the supported path. An `origin` remote alone does not identify a permitted first-time publication target.
+- Example: A new local branch has an `origin` remote but no upstream branch. Choosing a fork, remote branch name, or alternate remote would require policy the story does not authorize.
+- Why ignored: Reconciliation rejected the complete finding because the contract permits automatic push only to an existing upstream remote and explicitly rules out guessing the destination. It never entered the filtering survivor set.
+
+#### 4. Claimed shared timeout budget after Git preflight
+
+- Finding ID or Review reference: Evidence timeout lead / `SAT-001` / `BLIND-003`
+- Target: `current_repository` — direct-decision Git preflight and Python execution timers.
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — generated and corroborated separate timers; consolidation and verification did not promote it.
+- Simple description: Git preflight and Python execution use separate timers. That structure alone does not establish that the story requires one shared end-to-end deadline.
+- Example: A Git preflight can consume time, but a real preflight timeout is caught and does not proceed to Python. The review supplied no measured harmful run or independent violated deadline requirement.
+- Why ignored: Reconciliation retained this as a source observation only; it demonstrated neither an authorized shared-budget policy nor realistic material harm. It never entered the filtering survivor set.
+
+#### 5. Script-backed `continue` lacks a dedicated `decisionScript` property
+
+- Finding ID or Review reference: Blind-spot `continue` property candidate
+- Target: `current_repository` — direct-script `continue.question` handling.
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — generated the candidate and consolidation preserved the supported route.
+- Simple description: The candidate expected a separate `decisionScript` field for `continue`. The supported direct-script route is already a relative Python path in `continue.question`.
+- Example: A flow puts a relative `.py` path in `continue.question`; the runtime treats that as the documented direct decision script rather than needing another schema field.
+- Why ignored: The candidate does not establish a defect, missing contract, or authorized repair and never entered the filtering survivor set.
+
+#### 6. Open/close recovery differs from fetch dispatch
+
+- Finding ID or Review reference: Evidence-stage recovery-asymmetry lead
+- Target: `current_repository` — GitHub open, close, and fetch dispatch paths.
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — recorded the structural difference; consolidation did not promote a product finding.
+- Simple description: The three GitHub operations do not all use identical recovery paths. The review did not establish a required common lifecycle or a concrete failing result.
+- Example: A fetch failure follows its own outcome path while open or close can use their existing recovery paths. Without a required shared policy, the difference does not by itself show harm.
+- Why ignored: This remained an evidence-stage lead with no contract breach, realistic impact, or authorized remedy. It never entered the filtering survivor set.
+
+#### 7. Whitespace in a reviewer work artifact
+
+- Finding ID or Review reference: `work/core-flow-contract.diff` whitespace observation
+- Target: `current_repository` — committed `work/core-flow-contract.diff`, distinct from this scheduler job's work directory.
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — recorded the observation during evidence review.
+- Simple description: The committed repository artifact `work/core-flow-contract.diff` contains trailing whitespace. This is repository content, although no product-correctness failure was established.
+- Example: The evidence stage's base-to-HEAD `git diff --check` reported trailing whitespace in that committed file; it did not attribute it to the scheduler job's generated work or demonstrate an incorrect flow result.
+- Why ignored: Reconciliation classified it as an observation only, not a product-correctness finding; it never entered the filtering survivor set.
+
+#### 8. Bounded no-additional-findings statement
+
+- Finding ID or Review reference: no-additional-findings stage result
+- Target: bounded review coverage.
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — issued the bounded no-additional-findings result.
+- Simple description: One review stage reported no additional findings within its assigned work. That statement is not a blanket approval of unexecuted surfaces.
+- Example: Client, full-suite, Compose, live GitHub, browser-warning, and accessibility proof were not run, so this stage cannot prove those surfaces clean.
+- Why ignored: Reconciliation preserved the statement as limited coverage evidence, not a repairable finding. It never entered the filtering survivor set.
+
+Negative scope and positive authorization were applicable and completed. The completed positive-authorization gate had zero survivors, so materiality is deliberately not applicable; `materiality-filtered-findings.md` is superseded historical decision evidence and does not restore CR-001. Every ignored item above is non-actionable. The complete disposition is `codeInfoTmp/reviews/0000060-rc-20260916T043000Z-fe063675/batches/0000060-rw-20260916T141710Z-b5b44ea4--head-49c919a2a026/reconciliation/disposition.md`.
+
+### Task 65. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260916T043000Z-fe063675
+
+- Task Status: __in_progress__
+- Review Task Role: final_revalidation
+- Repository Name: Current Repository
+- Task Dependencies: Task 64 and all earlier Story 60 work
+- Review Cycle: `0000060-rc-20260916T043000Z-fe063675`
+- Review Batches: `0000060-rw-20260916T043001Z-2c2cc37d`, `0000060-rw-20260916T070218Z-3161e9c3`, `0000060-rw-20260916T090838Z-0f67236a`, `0000060-rw-20260916T104926Z-05929ba2`, `0000060-rw-20260916T123011Z-c4836c9d`, and `0000060-rw-20260916T141710Z-b5b44ea4`
+- Affected Repositories: `current_repository` — all Story 60 surfaces and cycle repair commits `0b7ea9072b29dfe49176e5e3a5efda0203f929da`, `17870939924c22e5981b93a4866cbf0178bcb0c9`, `b6aa8686b3c627fc04526eb5fdcbbf0b87926855`, and `49c919a2a02652f9ecf65e67bdfc84146ae6e96f`.
+- Affected Applications Or Components: client workspace; server workspace; flow definitions and disposition scripts; GitHub review adapter; Compose wrappers; JavaScript and Python workflow-helper test harnesses.
+- Created: `September 16, 2026 at 4:35:28 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Perform the sole final whole-story automated revalidation after the four completed review-fix records for this cycle. The two no-fix batches have empty dispositions, but settlement audit found that batch 2 reversed batch 1's accepted R1 repair. The legacy-default-flow versus worked-repository script-ownership conflict remains unresolved; this final testing task cannot substitute for its missing reconciled disposition and renewed repair opportunity or justify clean closeout. This task owns whole-story proof at the current repair HEAD; unavailable or partial review coverage remains recorded evidence, not implementation work or a reason to reopen ignored findings.
+
+#### Addresses Findings
+
+- `0000060-rw-20260916T043001Z-2c2cc37d` — R1, R2, and R3 were repaired in `0b7ea9072b29dfe49176e5e3a5efda0203f929da`; R2 and R3 remain fixed, but R1 was reversed by the next repair and remains an unresolved settlement limitation, not new implementation work assigned by this task.
+- `0000060-rw-20260916T070218Z-3161e9c3` — reconciliation findings 1 and 2 resolved in `17870939924c22e5981b93a4866cbf0178bcb0c9`.
+- `0000060-rw-20260916T090838Z-0f67236a` — R2 resolved in `b6aa8686b3c627fc04526eb5fdcbbf0b87926855`.
+- `0000060-rw-20260916T104926Z-05929ba2` — F-001 resolved in `49c919a2a02652f9ecf65e67bdfc84146ae6e96f`.
+- `0000060-rw-20260916T123011Z-c4836c9d` and `0000060-rw-20260916T141710Z-b5b44ea4` — no accepted material survivor and no repair commit; no implementation work is created from their ignored evidence.
+
+#### Task Exit Criteria
+
+- The script-ownership conflict has a supported disposition after renewed repair opportunities, with any resulting material implementation work correctly ordered before this final task. A later changed target HEAD must receive repeated review or final revalidation as appropriate; existing review at `49c919a2a02652f9ecf65e67bdfc84146ae6e96f` cannot certify future code.
+- The whole Story 60 surface and all four cycle repair commits pass the supported client/server build, Compose lifecycle, full automated suite, stress, shell, JavaScript-helper, Python-helper, lint, and formatting checks at the latest story-owned HEAD.
+- Tasks 61 through 64 remain the exact completed-review-fixes records for the four fix-bearing batches; no completed-fix task exists for the two no-fix batches.
+- Every negative-scope, positive-authorization, or materiality removal, rejected candidate, and unavailable/partial coverage limit in the six batch records remains ignored evidence rather than new implementation work.
+- If an automated check exposes a story-caused issue, repair it within this task when practical, rerun every stale affected automated check, and record an unrelated baseline limitation honestly.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [ ] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+1. [ ] `npm run build:summary:client`
+2. [ ] `npm run build:summary:server`
+3. [ ] `npm run compose:build:summary`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
+6. [ ] `npm run test:summary:all:stress` — required parallel-safety proof for the changed cancellation and lifecycle behavior.
+7. [ ] `npm run test:summary:shell` — full supported shell harness, including Compose-wrapper coverage.
+8. [ ] `node --test scripts/*.test.mjs` — complete standalone JavaScript workflow-helper and wrapper proof.
+9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof.
+10. [ ] `npm run compose:down`
+11. [ ] `npm run lint`
+12. [ ] `npm run format:check`
+
+#### Manual Testing Guidance
+
+Optional, checkbox-free manual proof may use only the supported main Compose stack through `npm run compose:build`, `npm run compose:up`, and `npm run compose:down`; do not use or stop the protected local stack. When provider access and an authorized worked repository are available, inspect the `/flows` pre-launch surface for `implement_next_plan_github_review`, then observe only story-relevant conditional discovery, stopped GitHub subprocess behavior, cancelled waits, and warning/skip states. Use `http://localhost:5010/health` and `http://localhost:5001` as readiness/access checks, with `server/.env`, `server/.env.local`, corresponding client environment files, and the mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` catalogs through the supported wrapper. Do not copy or print credentials; if provider login requires human-controlled two-factor authentication, record the approved limitation without re-authentication. Save any optional screenshots, logs, or notes under `codeInfoTmp/manual-testing/0000060/65/` without committing them, and curate only selected durable proof later under `codeInfoStatus/manual-proof/0000060/`. For Playwright MCP, first capture to a relative staging path, inspect `$CODEINFO_ROOT/playwright-output-local/<relative-path>` on the host, then transfer selected evidence to that task directory. This guidance is optional and non-blocking.
+
+#### Implementation Notes
+
+- Review Task Role: `final_revalidation`
+- Review Cycle Id: `0000060-rc-20260916T043000Z-fe063675`
+- Settlement created this task after reconciling all six immutable batches. Tasks 61–64 are the four exact fix-bearing completed records; batches `0000060-rw-20260916T123011Z-c4836c9d` and `0000060-rw-20260916T141710Z-b5b44ea4` correctly have no completed-fix task.
+- No implementation, review, automated test, build, Compose lifecycle, or manual proof was run while creating this final owner. Partial OpenCode coverage, unavailable Claude provider review, single-target cross-repository no-work review, and unrun repair-time broad/live proof remain evidence limitations only.
+
+- Settlement audit: incomplete at `49c919a2a02652f9ecf65e67bdfc84146ae6e96f` because batch 2 reversed batch 1 R1 without reconciling the two supported ownership requirements. Normal repair happened for each batch independently; the prior stronger-stage skips do not prove that this later-discovered conflict was repaired. No predicted implementation task or completed-fix duplicate was created. Final revalidation remains outstanding after resolution; this audit ran no product tests, builds, Compose, or manual proof.

@@ -7673,8 +7673,8 @@ Perform the sole final whole-story automated revalidation after the four complet
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
-2. [ ] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+1. [x] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [x] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues.
 
 #### Testing
 
@@ -7705,3 +7705,5 @@ Optional, checkbox-free manual proof may use only the supported main Compose sta
 - No implementation, review, automated test, build, Compose lifecycle, or manual proof was run while creating this final owner. Partial OpenCode coverage, unavailable Claude provider review, single-target cross-repository no-work review, and unrun repair-time broad/live proof remain evidence limitations only.
 
 - Settlement audit: incomplete at `49c919a2a02652f9ecf65e67bdfc84146ae6e96f` because batch 2 reversed batch 1 R1 without reconciling the two supported ownership requirements. Normal repair happened for each batch independently; the prior stronger-stage skips do not prove that this later-discovered conflict was repaired. No predicted implementation task or completed-fix duplicate was created. Final revalidation remains outstanding after resolution; this audit ran no product tests, builds, Compose, or manual proof.
+- `npm run lint` passed with exit code 0 and no warnings; no story-caused lint repair was needed.
+- `npm run format:check` passed with exit code 0; all matched files used Prettier style and no formatting repair was needed.

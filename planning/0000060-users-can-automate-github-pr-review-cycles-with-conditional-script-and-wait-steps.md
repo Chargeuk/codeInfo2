@@ -7639,7 +7639,7 @@ Negative scope and positive authorization were applicable and completed. The com
 
 ### Task 65. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260916T043000Z-fe063675
 
-- Task Status: __done__
+- Task Status: __in_progress__
 - Review Task Role: final_revalidation
 - Repository Name: Current Repository
 - Task Dependencies: Task 64 and all earlier Story 60 work
@@ -7675,6 +7675,8 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 1. [x] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
 2. [x] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+3. [ ] In `client/src/pages/FlowsPage.tsx` and `client/src/components/workspace/composer/ComposerMobileDialog.tsx`, close the mobile flow-picker only after focus is moved to an enabled durable control so selecting a flow while the trigger reloads does not leave a focused descendant under MUI's `aria-hidden` root.
+4. [ ] In `client/src/test/flowsPage.composer.test.tsx`, add a mobile flow-selector regression that selects a different enabled flow and proves the dialog closes with focus outside the disabled/reloading flow trigger.
 
 #### Testing
 
@@ -7691,7 +7693,7 @@ Final-task repair scope: the whole approved story is in scope for failures found
 9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof.
 10. [x] `npm run compose:down`
 11. [x] `npm run lint`
-12. [x] `npm run format:check`
+12. [ ] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -7733,3 +7735,6 @@ Optional, checkbox-free manual proof may use only the supported main Compose sta
 - Testing 11 completed: `npm run lint` passed with exit code 0 and no warnings.
 - Testing 12 completed: `npm run format:check` passed; all matched files use Prettier code style.
 - Final automated-proof audit: all Task 65 subtasks and Testing items are evidenced complete at `4490898f33ab51dddbdca1a2007ccf96d9e57530`; the latest parallel suite, stress suite, shell, JavaScript-helper, Python-helper, lifecycle, lint, and formatting results passed. The parser reports no live blocker. The ownership restoration preserves the comparison-base explicit-field behavior while retaining Story 60's authorized worked-repository path, so no unapproved behavior drift remains. Optional manual guidance is non-blocking and was not treated as performed. Task 65 is `__done__`.
+- Manual proof expanded to the final task's full-story browser/runtime scope: a fresh main Compose stack built and started through the documented wrappers, `/health` and `/flows` both returned HTTP 200, and `implement_next_plan_github_review` was selectable and usable at desktop and mobile. Latest proof is `codeInfoTmp/manual-testing/0000060/65/proof-01-flows-desktop.png` and `proof-02-flows-mobile.png`, staged as `.playwright-mcp/proof-01-flows-desktop.png` and `.playwright-mcp/proof-02-flows-mobile.png` in the recorded local Playwright runtime and copied out of `codeinfo2-playwright-mcp-local` after the documented host bind was absent; `support-browser-summary.txt` records the check. The current screenshots supersede no earlier task-scoped screenshots.
+- Manual proof found a concrete accessibility regression: selecting `implement_next_plan_github_review` in the mobile picker consistently logs Chrome's `aria-hidden`-focused-descendant warning while the flow trigger is disabled during reload. Bounded diagnosis located the selection-and-close seam in `client/src/pages/FlowsPage.tsx` and the containing MUI dialog in `client/src/components/workspace/composer/ComposerMobileDialog.tsx`; no later open task owns it. Added the two concrete implementation/proof-authoring subtasks above, reopened the final existing automated check (`npm run format:check`), and returned Task 65 to `__in_progress__` so automated proof must rerun before manual retest.
+- Manual testing skipped for the live GitHub cycle surface. Tried: selecting `implement_next_plan_github_review` in `/flows` on the fresh main stack. Observed: the supported catalog exposes the current repository path, but no authorized sandbox worked repository with provider access was available to launch safely. Why fuller proof was not possible: external live-cycle access is outside this task's repository scope; the documented pre-launch/UI proof completed without attempting re-authentication or a destructive live flow.

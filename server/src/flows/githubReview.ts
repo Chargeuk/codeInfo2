@@ -1015,6 +1015,17 @@ export const pushBranchToExistingUpstream = async (params: {
   repository: GitHubRepositoryState;
   signal?: AbortSignal;
 }): Promise<GitHubStepOutcome<null>> => {
+  if (
+    params.repository.currentBranch !== params.repository.baseBranch &&
+    params.repository.upstreamBranch === params.repository.baseBranch
+  ) {
+    return {
+      kind: 'skip',
+      reason: 'PUSH_FAILED',
+      message:
+        'The current branch was not pushed because its existing upstream is the GitHub review base branch.',
+    };
+  }
   const result = await runGitCommand({
     workingRepositoryRoot: params.repository.workingRepositoryRoot,
     args: [

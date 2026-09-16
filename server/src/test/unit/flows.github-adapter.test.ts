@@ -401,6 +401,53 @@ test('repository-state resolution reports missing story-owned base branch and up
   }
 });
 
+test('upstream push refuses a feature branch targeting its review base without changing valid destinations', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const commands: string[][] = [];
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        commands.push(params.args);
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    });
+
+    const refused = await pushBranchToExistingUpstream({
+      repository: {
+        ...baseRepositoryState(tempRepo.repoRoot),
+        upstreamBranch: 'main',
+      },
+    });
+    assert.equal(refused.kind, 'skip');
+    assert.equal(refused.reason, 'PUSH_FAILED');
+    assert.match(refused.message, /review base branch/);
+    assert.deepEqual(commands, []);
+
+    const renamedFeaturePush = await pushBranchToExistingUpstream({
+      repository: {
+        ...baseRepositoryState(tempRepo.repoRoot),
+        upstreamBranch: 'review/feature-0000060',
+      },
+    });
+    assert.deepEqual(renamedFeaturePush, { kind: 'ok', value: null });
+
+    const baseBranchPush = await pushBranchToExistingUpstream({
+      repository: {
+        ...baseRepositoryState(tempRepo.repoRoot),
+        currentBranch: 'main',
+        upstreamBranch: 'main',
+      },
+    });
+    assert.deepEqual(baseBranchPush, { kind: 'ok', value: null });
+    assert.deepEqual(commands, [
+      ['push', 'origin', 'HEAD:review/feature-0000060'],
+      ['push', 'origin', 'HEAD:main'],
+    ]);
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
 test('repository-state resolution rejects non-GitHub upstream hosts', async () => {
   const tempRepo = await createTempRepo();
   try {

@@ -44,8 +44,10 @@ import {
   type IsolatedProviderHomeEnv,
 } from '../support/providerHomeHarness.js';
 import {
+  clearScopedTestEnvValue,
   enterTestEnvOverrides,
   getScopedEnvValue,
+  setScopedTestEnvValue,
 } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
@@ -1321,11 +1323,14 @@ test('prepared Copilot repository-model cells join the existing wave and persist
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-copilot-review-wave-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
   const previousModels = process.env.CODEINFO_COPILOT_REVIEW_MODELS;
   const previousCli = process.env.CODEINFO_COPILOT_CLI_PATH;
-  process.env.CODEINFO_COPILOT_REVIEW_MODELS = 'missing-model|low';
-  process.env.CODEINFO_COPILOT_CLI_PATH = path.join(tmpDir, 'missing-copilot');
+  setScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS', 'missing-model|low');
+  setScopedTestEnvValue(
+    'CODEINFO_COPILOT_CLI_PATH',
+    path.join(tmpDir, 'missing-copilot'),
+  );
   let releaseChildren: (() => void) | undefined;
   const childGate = new Promise<void>((resolve) => {
     releaseChildren = resolve;
@@ -1458,14 +1463,14 @@ test('prepared Copilot repository-model cells join the existing wave and persist
   } finally {
     releaseChildren?.();
     if (previousModels === undefined) {
-      delete process.env.CODEINFO_COPILOT_REVIEW_MODELS;
+      clearScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS');
     } else {
-      process.env.CODEINFO_COPILOT_REVIEW_MODELS = previousModels;
+      setScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS', previousModels);
     }
     if (previousCli === undefined) {
-      delete process.env.CODEINFO_COPILOT_CLI_PATH;
+      clearScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH');
     } else {
-      process.env.CODEINFO_COPILOT_CLI_PATH = previousCli;
+      setScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH', previousCli);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -1480,10 +1485,12 @@ test('cancelling Copilot group preparation interrupts readiness before any child
   const previousMarker = process.env.COPILOT_PREP_CANCEL_MARKER;
   const marker = path.join(tmpDir, 'readiness-started');
   const cli = path.join(tmpDir, 'blocking-copilot.sh');
-  process.env.FLOWS_DIR = tmpDir;
-  process.env.CODEINFO_COPILOT_REVIEW_MODELS = 'gpt-5.4|low';
-  process.env.CODEINFO_COPILOT_CLI_PATH = cli;
-  process.env.COPILOT_PREP_CANCEL_MARKER = marker;
+  enterTestEnvOverrides({
+    FLOWS_DIR: tmpDir,
+    CODEINFO_COPILOT_REVIEW_MODELS: 'gpt-5.4|low',
+    CODEINFO_COPILOT_CLI_PATH: cli,
+    COPILOT_PREP_CANCEL_MARKER: marker,
+  });
 
   try {
     await fs.writeFile(
@@ -1563,13 +1570,13 @@ while true; do sleep 0.05; done
     assert.equal(flow?.values?.effective_review_groups, undefined);
   } finally {
     if (previousModels === undefined)
-      delete process.env.CODEINFO_COPILOT_REVIEW_MODELS;
-    else process.env.CODEINFO_COPILOT_REVIEW_MODELS = previousModels;
-    if (previousCli === undefined) delete process.env.CODEINFO_COPILOT_CLI_PATH;
-    else process.env.CODEINFO_COPILOT_CLI_PATH = previousCli;
+      clearScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS');
+    else setScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS', previousModels);
+    if (previousCli === undefined) clearScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH');
+    else setScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH', previousCli);
     if (previousMarker === undefined)
-      delete process.env.COPILOT_PREP_CANCEL_MARKER;
-    else process.env.COPILOT_PREP_CANCEL_MARKER = previousMarker;
+      clearScopedTestEnvValue('COPILOT_PREP_CANCEL_MARKER');
+    else setScopedTestEnvValue('COPILOT_PREP_CANCEL_MARKER', previousMarker);
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

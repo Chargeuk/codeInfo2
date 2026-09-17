@@ -1255,18 +1255,16 @@ export const createPullRequest = async (params: {
     signal: params.signal,
   });
   if (lookedUp.kind !== 'ok') {
+    // Creation succeeded, but the review cycle still needs canonical metadata.
+    // Retain the validated URL as evidence without inventing a usable identity.
+    const message = `Pull request created at ${createdUrl}, but canonical metadata lookup failed: ${lookedUp.message}`;
     return {
-      kind: 'ok',
-      value: {
-        number: createdPullRequestNumber,
-        url: createdUrl,
-        headRefName: params.repository.upstreamBranch,
-        baseRefName: params.repository.baseBranch,
-      },
+      ...lookedUp,
+      message,
       lookupDiagnostics: [
         {
           reason: lookedUp.reason,
-          message: lookedUp.message,
+          message,
           stderr: lookedUp.stderr,
           exitCode: lookedUp.exitCode,
           attemptNumber: 1,
@@ -1285,6 +1283,14 @@ export const createPullRequest = async (params: {
       reason: 'INVALID_GITHUB_RESPONSE',
       message:
         'GitHub pull request lookup did not return the created branch and base identity.',
+      lookupDiagnostics: [],
+    };
+  }
+  if (!normalizeTrimmedString(lookedUp.value.authorLogin)) {
+    return {
+      kind: 'error',
+      reason: 'INVALID_GITHUB_RESPONSE',
+      message: `Pull request created at ${createdUrl}, but canonical metadata did not identify the PR author. External review cannot distinguish feedback from other users.`,
       lookupDiagnostics: [],
     };
   }

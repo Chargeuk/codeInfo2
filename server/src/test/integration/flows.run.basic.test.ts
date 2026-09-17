@@ -2545,166 +2545,197 @@ test('Stop cancels a stalled GitHub PR command and preserves the stopped flow ou
   }
 });
 
-test('github review open PR keeps validated creation identity when immediate canonical reconciliation fails', async () => {
-  const tempFlowsDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'github-open-pr-flow-'),
-  );
-  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
-  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
-  const conversationId = 'github-open-pr-retry-failure';
-
-  try {
-    await fs.writeFile(
-      path.join(repoRoot, '.env.local'),
-      'CODEINFO_PR_TOKEN=test-token\n',
-      'utf8',
+for (const failure of ['lookup-failed', 'author-missing'] as const) {
+  test(`github review open PR preserves creation evidence and skips when canonical identity is ${failure}`, async () => {
+    const tempFlowsDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'github-open-pr-flow-'),
     );
-    let lookupAttempts = 0;
-    __setGitHubReviewDepsForTests({
-      readFile: async (filePath, encoding) =>
-        await fs.readFile(filePath, encoding),
-      sleep: async () => {},
-      runCommand: async ({ command, args }) => {
-        if (command === 'git') {
-          const joined = args.join(' ');
-          if (joined === 'branch --show-current') {
+    const repoRoot = await createGitHubReviewRepoFixture({
+      flowTaskNumber: 23,
+    });
+    enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
+    const conversationId = 'github-open-pr-retry-failure';
+
+    try {
+      await fs.writeFile(
+        path.join(repoRoot, '.env.local'),
+        'CODEINFO_PR_TOKEN=test-token\n',
+        'utf8',
+      );
+      let lookupAttempts = 0;
+      let createAttempts = 0;
+      __setGitHubReviewDepsForTests({
+        readFile: async (filePath, encoding) =>
+          await fs.readFile(filePath, encoding),
+        sleep: async () => {},
+        runCommand: async ({ command, args }) => {
+          if (command === 'git') {
+            const joined = args.join(' ');
+            if (joined === 'branch --show-current') {
+              return {
+                exitCode: 0,
+                stdout:
+                  'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+                stderr: '',
+              };
+            }
+            if (joined === 'rev-parse HEAD') {
+              return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+            }
+            if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+              return {
+                exitCode: 0,
+                stdout:
+                  'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+                stderr: '',
+              };
+            }
+            if (joined === 'remote get-url origin') {
+              return {
+                exitCode: 0,
+                stdout: 'https://github.com/test-owner/test-repo.git\n',
+                stderr: '',
+              };
+            }
+            if (
+              joined ===
+              'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+            ) {
+              return { exitCode: 0, stdout: '', stderr: '' };
+            }
             return {
-              exitCode: 0,
-              stdout:
-                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
-              stderr: '',
+              exitCode: 1,
+              stdout: '',
+              stderr: `unexpected git command: ${joined}`,
             };
           }
-          if (joined === 'rev-parse HEAD') {
-            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
-          }
-          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+          if (command === 'gh') {
+            if (
+              args[0] === 'api' &&
+              (args.at(-1) ?? '').includes('pulls?state=open')
+            ) {
+              return { exitCode: 0, stdout: '[]', stderr: '' };
+            }
+            if (args[0] === 'pr' && args[1] === 'create') {
+              createAttempts += 1;
+              return {
+                exitCode: 0,
+                stdout: 'https://github.com/test-owner/test-repo/pull/206\n',
+                stderr: '',
+              };
+            }
+            assert.equal(args.at(-1), 'repos/test-owner/test-repo/pulls/206');
+            lookupAttempts += 1;
+            if (failure === 'author-missing') {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  number: 206,
+                  html_url: 'https://github.com/test-owner/test-repo/pull/206',
+                  state: 'open',
+                  head: {
+                    ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                  },
+                  base: { ref: 'main' },
+                  user: null,
+                }),
+                stderr: '',
+              };
+            }
             return {
-              exitCode: 0,
-              stdout:
-                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
-              stderr: '',
+              exitCode: 1,
+              stdout: '',
+              stderr: `lookup attempt ${lookupAttempts} failed`,
             };
-          }
-          if (joined === 'remote get-url origin') {
-            return {
-              exitCode: 0,
-              stdout: 'https://github.com/test-owner/test-repo.git\n',
-              stderr: '',
-            };
-          }
-          if (
-            joined ===
-            'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
-          ) {
-            return { exitCode: 0, stdout: '', stderr: '' };
           }
           return {
             exitCode: 1,
             stdout: '',
-            stderr: `unexpected git command: ${joined}`,
+            stderr: `unexpected command: ${command}`,
           };
-        }
-        if (command === 'gh') {
-          if (
-            args[0] === 'api' &&
-            (args.at(-1) ?? '').includes('pulls?state=open')
-          ) {
-            return { exitCode: 0, stdout: '[]', stderr: '' };
-          }
-          if (args[0] === 'pr' && args[1] === 'create') {
-            return {
-              exitCode: 0,
-              stdout: 'https://github.com/test-owner/test-repo/pull/206\n',
-              stderr: '',
+        },
+      });
+
+      await writeFlowFile({
+        flowsRoot: tempFlowsDir,
+        flowName: 'github-open-pr-retry-failure',
+        steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+      });
+
+      await startFlowRun({
+        flowName: 'github-open-pr-retry-failure',
+        conversationId,
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () => new InstantChat(),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
+        }),
+      });
+
+      await waitForConversationUnlocked(conversationId);
+
+      const assistantTurns = [
+        ...(memoryTurns.get(conversationId) ?? []),
+      ].filter((turn) => turn.role === 'assistant');
+      const warningTurns = assistantTurns.filter(
+        (turn) => turn.status === 'warning',
+      );
+      assert.equal(warningTurns.length, 1);
+      assert.match(
+        warningTurns[0].content,
+        /Pull request created at https:\/\/github.com\/test-owner\/test-repo\/pull\/206/,
+      );
+      const retryLogs = query({
+        text: 'flows.github.open_pr.lookup_retry_failed',
+      }).filter(
+        (entry) => entry.context?.flowName === 'github-open-pr-retry-failure',
+      );
+      assert.deepEqual(retryLogs, []);
+      assert.equal(lookupAttempts, 1);
+      assert.equal(createAttempts, 1);
+
+      assert.equal(
+        assistantTurns.some((turn) => turn.status === 'failed'),
+        false,
+      );
+      const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+        | {
+            githubReviewContext?: {
+              prNumber?: number;
+              phase?: string;
             };
           }
-          lookupAttempts += 1;
-          return {
-            exitCode: 1,
-            stdout: '',
-            stderr: `lookup attempt ${lookupAttempts} failed`,
-          };
-        }
-        return {
-          exitCode: 1,
-          stdout: '',
-          stderr: `unexpected command: ${command}`,
-        };
-      },
-    });
+        | undefined;
+      assert.equal(flowState?.githubReviewContext?.prNumber, undefined);
+      assert.equal(flowState?.githubReviewContext?.phase, 'skipped');
+      assert.equal((await getFlowRunStatus(conversationId))?.status, 'warning');
 
-    await writeFlowFile({
-      flowsRoot: tempFlowsDir,
-      flowName: 'github-open-pr-retry-failure',
-      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
-    });
-
-    await startFlowRun({
-      flowName: 'github-open-pr-retry-failure',
-      conversationId,
-      source: 'REST',
-      working_folder: repoRoot,
-      chatFactory: () => new InstantChat(),
-      listIngestedRepositories: async () => ({
-        repos: [buildRepoEntry(repoRoot)],
-        lockedModelId: null,
-      }),
-    });
-
-    await waitForConversationUnlocked(conversationId);
-
-    const assistantTurns = [...(memoryTurns.get(conversationId) ?? [])].filter(
-      (turn) => turn.role === 'assistant',
-    );
-    const warningTurns = assistantTurns.filter(
-      (turn) => turn.status === 'warning',
-    );
-    assert.equal(warningTurns.length, 0);
-    const retryLogs = query({
-      text: 'flows.github.open_pr.lookup_retry_failed',
-    }).filter(
-      (entry) => entry.context?.flowName === 'github-open-pr-retry-failure',
-    );
-    assert.deepEqual(
-      retryLogs.map((entry) => entry.context?.waitMs),
-      [0],
-    );
-    assert.equal(lookupAttempts, 1);
-
-    assert.equal(
-      assistantTurns.some((turn) => turn.status === 'failed'),
-      false,
-    );
-    const flowState = memoryConversations.get(conversationId)?.flags?.flow as
-      | {
-          githubReviewContext?: {
-            prNumber?: number;
-            phase?: string;
-          };
-        }
-      | undefined;
-    assert.equal(flowState?.githubReviewContext?.prNumber, 206);
-    assert.equal(flowState?.githubReviewContext?.phase, 'opened');
-
-    const planRaw = await fs.readFile(
-      path.join(
-        repoRoot,
-        'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
-      ),
-      'utf8',
-    );
-    assert.doesNotMatch(planRaw, /GitHub review stage failed during PR open\./);
-    assert.match(
-      planRaw,
-      /GitHub review stage warning during PR open lookup retry 1 after waiting 0s:/,
-    );
-    assert.match(planRaw, /stderr: lookup attempt 1 failed/i);
-  } finally {
-    await fs.rm(tempFlowsDir, { recursive: true, force: true });
-    await fs.rm(repoRoot, { recursive: true, force: true });
-  }
-});
+      const planRaw = await fs.readFile(
+        path.join(
+          repoRoot,
+          'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+        ),
+        'utf8',
+      );
+      assert.match(
+        planRaw,
+        /Pull request created at https:\/\/github.com\/test-owner\/test-repo\/pull\/206/,
+      );
+      assert.doesNotMatch(planRaw, /lookup retry/);
+      if (failure === 'lookup-failed') {
+        assert.match(planRaw, /stderr: lookup attempt 1 failed/i);
+      } else {
+        assert.match(planRaw, /did not identify the PR author/);
+      }
+    } finally {
+      cleanupMemory(conversationId);
+      await fs.rm(tempFlowsDir, { recursive: true, force: true });
+      await fs.rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+}
 
 test('github review open PR reuses the latest existing pull request before creation', async () => {
   const tempFlowsDir = await fs.mkdtemp(

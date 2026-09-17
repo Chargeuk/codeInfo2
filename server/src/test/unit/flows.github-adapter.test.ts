@@ -580,6 +580,7 @@ test('GitHub PR creation uses the remote upstream branch when its local name dif
               number: 45,
               html_url: 'https://github.com/example/repo/pull/45',
               state: 'open',
+              user: { login: 'review-bot' },
               head: { ref: 'feature/remote-review' },
               base: { ref: 'main' },
             }),
@@ -628,7 +629,7 @@ test('GitHub PR creation uses the remote upstream branch when its local name dif
   }
 });
 
-test('GitHub PR creation preserves validated creation identity when metadata reconciliation fails', async () => {
+test('GitHub PR creation retains creation evidence while rejecting unavailable canonical metadata', async () => {
   const tempRepo = await createTempRepo();
   try {
     __setGitHubReviewDepsForTests({
@@ -659,18 +660,18 @@ test('GitHub PR creation preserves validated creation identity when metadata rec
       body: 'body',
     });
 
+    const message =
+      'Pull request created at https://github.com/example/repo/pull/45, but canonical metadata lookup failed: gh api repos/example/repo/pulls/45 failed';
     assert.deepEqual(created, {
-      kind: 'ok',
-      value: {
-        number: 45,
-        url: 'https://github.com/example/repo/pull/45',
-        headRefName: repository.upstreamBranch,
-        baseRefName: repository.baseBranch,
-      },
+      kind: 'error',
+      reason: 'GITHUB_CLI_FAILED',
+      message,
+      stderr: 'temporary GitHub API failure',
+      exitCode: 1,
       lookupDiagnostics: [
         {
           reason: 'GITHUB_CLI_FAILED',
-          message: 'gh api repos/example/repo/pulls/45 failed',
+          message,
           stderr: 'temporary GitHub API failure',
           exitCode: 1,
           attemptNumber: 1,
@@ -678,6 +679,61 @@ test('GitHub PR creation preserves validated creation identity when metadata rec
         },
       ],
     });
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+test('PR creation requires a nonblank canonical author without admitting PR-author feedback', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const repository = baseRepositoryState(tempRepo.repoRoot);
+    for (const user of [undefined, null, { login: '' }, { login: '  ' }]) {
+      const calls: string[][] = [];
+      __setGitHubReviewDepsForTests({
+        runCommand: async ({ args }) => {
+          calls.push(args);
+          if (args[0] === 'pr' && args[1] === 'create') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/example/repo/pull/45\n',
+              stderr: '',
+            };
+          }
+          assert.equal(args.at(-1), 'repos/example/repo/pulls/45');
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({
+              number: 45,
+              html_url: 'https://github.com/example/repo/pull/45',
+              state: 'open',
+              head: { ref: repository.upstreamBranch },
+              base: { ref: repository.baseBranch },
+              user,
+            }),
+            stderr: '',
+          };
+        },
+      });
+      const created = await createPullRequest({
+        repository,
+        token: 'secret',
+        title: 'Review',
+        body: 'body',
+      });
+      assert.equal(created.kind, 'error');
+      assert.equal(created.reason, 'INVALID_GITHUB_RESPONSE');
+      assert.match(
+        created.message,
+        /Pull request created at https:\/\/github.com\/example\/repo\/pull\/45/,
+      );
+      assert.match(created.message, /did not identify the PR author/);
+      assert.equal(
+        calls.length,
+        2,
+        'one creation and one lookup; no retry or reselection',
+      );
+    }
   } finally {
     await tempRepo.cleanup();
   }
@@ -703,6 +759,7 @@ test('PR creation accepts canonical owner and repository casing in the printed U
               number: 45,
               html_url: 'https://github.com/Example/Repo/pull/45',
               state: 'open',
+              user: { login: 'review-bot' },
               head: {
                 ref: baseRepositoryState(tempRepo.repoRoot).upstreamBranch,
               },

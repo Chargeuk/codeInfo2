@@ -8344,41 +8344,6 @@ async function runFlowUnlocked(params: {
           };
           return 'ok';
         }
-        const pushResult = await pushBranchToExistingUpstream({
-          repository: context.value.repository,
-          signal,
-        });
-        if (pushResult.kind === 'skip') {
-          const warningMessage = `GitHub review stage skipped during PR open: ${pushResult.message}`;
-          await appendGitHubStagePlanNote(warningMessage);
-          append({
-            level: 'warn',
-            message: 'flows.github.open_pr.skipped',
-            timestamp: new Date().toISOString(),
-            source: 'server',
-            context: {
-              flowName: params.flowName,
-              reason: pushResult.reason,
-              detail: pushResult.message,
-            },
-          });
-          await emitGitHubStepWarning({
-            instruction: 'GitHub open PR step',
-            message: warningMessage,
-          });
-          markGitHubReviewCycleSkipped(warningMessage);
-          return 'ok';
-        }
-        if (pushResult.kind !== 'ok') {
-          const warningMessage = `GitHub review stage skipped during PR open after branch push failed: ${pushResult.message}`;
-          await appendGitHubStagePlanNote(warningMessage);
-          await emitGitHubStepWarning({
-            instruction: 'GitHub open PR step',
-            message: warningMessage,
-          });
-          markGitHubReviewCycleSkipped(warningMessage);
-          return 'ok';
-        }
         const latestOpenPullRequest = await lookupLatestOpenPullRequest({
           repository: context.value.repository,
           token: context.value.token,
@@ -8405,6 +8370,41 @@ async function runFlowUnlocked(params: {
         let pullRequest = latestOpenPullRequest.value;
         const reusingOpenPullRequest = Boolean(pullRequest);
         if (!pullRequest) {
+          const pushResult = await pushBranchToExistingUpstream({
+            repository: context.value.repository,
+            signal,
+          });
+          if (pushResult.kind === 'skip') {
+            const warningMessage = `GitHub review stage skipped during PR open: ${pushResult.message}`;
+            await appendGitHubStagePlanNote(warningMessage);
+            append({
+              level: 'warn',
+              message: 'flows.github.open_pr.skipped',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              context: {
+                flowName: params.flowName,
+                reason: pushResult.reason,
+                detail: pushResult.message,
+              },
+            });
+            await emitGitHubStepWarning({
+              instruction: 'GitHub open PR step',
+              message: warningMessage,
+            });
+            markGitHubReviewCycleSkipped(warningMessage);
+            return 'ok';
+          }
+          if (pushResult.kind !== 'ok') {
+            const warningMessage = `GitHub review stage skipped during PR open after branch push failed: ${pushResult.message}`;
+            await appendGitHubStagePlanNote(warningMessage);
+            await emitGitHubStepWarning({
+              instruction: 'GitHub open PR step',
+              message: warningMessage,
+            });
+            markGitHubReviewCycleSkipped(warningMessage);
+            return 'ok';
+          }
           const { title, body } = await buildGitHubReviewPullRequestContent({
             repositoryFullName: context.value.repository.repositoryFullName,
             branchName: context.value.repository.upstreamBranch,

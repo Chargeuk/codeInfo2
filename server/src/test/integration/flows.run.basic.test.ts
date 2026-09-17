@@ -2469,6 +2469,13 @@ test('Stop cancels a stalled GitHub PR command and preserves the stopped flow ou
     });
     __setGitHubReviewDepsForTests({
       runCommand: async ({ command, args, signal }) => {
+        if (
+          command === 'gh' &&
+          args[0] === 'api' &&
+          (args.at(-1) ?? '').includes('pulls?state=open')
+        ) {
+          return { exitCode: 0, stdout: '[]', stderr: '' };
+        }
         if (command !== 'git') {
           throw new Error(`Unexpected command: ${command}`);
         }
@@ -2737,75 +2744,114 @@ for (const failure of ['lookup-failed', 'author-missing'] as const) {
   });
 }
 
-test('github review open PR reuses the latest existing pull request before creation', async () => {
-  const tempFlowsDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'github-open-pr-existing-flow-'),
-  );
-  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
-  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
-  const conversationId = 'github-open-pr-existing';
-
-  try {
-    await fs.writeFile(
-      path.join(repoRoot, '.env.local'),
-      'CODEINFO_PR_TOKEN=test-token\n',
-      'utf8',
+for (const lookupOutcome of ['existing', 'missing', 'failed'] as const) {
+  test(`github review open PR handles ${lookupOutcome} lookup before a failing push`, async () => {
+    const tempFlowsDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'github-open-pr-existing-flow-'),
     );
-    let createAttempts = 0;
-    __setGitHubReviewDepsForTests({
-      readFile: async (filePath, encoding) =>
-        await fs.readFile(filePath, encoding),
-      runCommand: async ({ command, args }) => {
-        if (command === 'git') {
-          const joined = args.join(' ');
-          if (joined === 'branch --show-current') {
-            return {
-              exitCode: 0,
-              stdout:
-                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
-              stderr: '',
-            };
+    const repoRoot = await createGitHubReviewRepoFixture({
+      flowTaskNumber: 23,
+    });
+    enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
+    const conversationId = `github-open-pr-${lookupOutcome}-failing-push`;
+
+    try {
+      await fs.writeFile(
+        path.join(repoRoot, '.env.local'),
+        'CODEINFO_PR_TOKEN=test-token\n',
+        'utf8',
+      );
+      let createAttempts = 0;
+      const operations: string[] = [];
+      __setGitHubReviewDepsForTests({
+        readFile: async (filePath, encoding) =>
+          await fs.readFile(filePath, encoding),
+        runCommand: async ({ command, args }) => {
+          if (command === 'git') {
+            const joined = args.join(' ');
+            if (joined === 'branch --show-current') {
+              return {
+                exitCode: 0,
+                stdout:
+                  'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+                stderr: '',
+              };
+            }
+            if (joined === 'rev-parse HEAD') {
+              return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+            }
+            if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+              return {
+                exitCode: 0,
+                stdout:
+                  'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+                stderr: '',
+              };
+            }
+            if (joined === 'remote get-url origin') {
+              return {
+                exitCode: 0,
+                stdout: 'https://github.com/test-owner/test-repo.git\n',
+                stderr: '',
+              };
+            }
+            if (
+              joined ===
+              'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+            ) {
+              operations.push('push');
+              return {
+                exitCode: 1,
+                stdout: '',
+                stderr: 'push credentials unavailable',
+              };
+            }
           }
-          if (joined === 'rev-parse HEAD') {
-            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
-          }
-          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
-            return {
-              exitCode: 0,
-              stdout:
-                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
-              stderr: '',
-            };
-          }
-          if (joined === 'remote get-url origin') {
-            return {
-              exitCode: 0,
-              stdout: 'https://github.com/test-owner/test-repo.git\n',
-              stderr: '',
-            };
-          }
-          if (
-            joined ===
-            'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
-          ) {
-            return { exitCode: 0, stdout: '', stderr: '' };
-          }
-        }
-        if (command === 'gh') {
-          const endpoint = args.at(-1) ?? '';
-          if (args[0] === 'pr' && args[1] === 'create') {
-            createAttempts += 1;
-            return {
-              exitCode: 1,
-              stdout: '',
-              stderr: 'create should not run when an open PR exists',
-            };
-          }
-          if (endpoint.includes('pulls?state=open')) {
-            return {
-              exitCode: 0,
-              stdout: JSON.stringify([
-                {
+          if (command === 'gh') {
+            const endpoint = args.at(-1) ?? '';
+            if (args[0] === 'pr' && args[1] === 'create') {
+              createAttempts += 1;
+              return {
+                exitCode: 1,
+                stdout: '',
+                stderr: 'create should not run when an open PR exists',
+              };
+            }
+            if (endpoint.includes('pulls?state=open')) {
+              operations.push('lookup');
+              if (lookupOutcome === 'failed') {
+                return {
+                  exitCode: 1,
+                  stdout: '',
+                  stderr: 'lookup unavailable',
+                };
+              }
+              if (lookupOutcome === 'missing') {
+                return { exitCode: 0, stdout: '[]', stderr: '' };
+              }
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify([
+                  {
+                    number: 207,
+                    html_url:
+                      'https://github.com/test-owner/test-repo/pull/207',
+                    state: 'open',
+                    created_at: '2026-08-03T12:00:00.000Z',
+                    head: {
+                      ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                    },
+                    base: { ref: 'main' },
+                    user: { login: 'reviewer' },
+                  },
+                ]),
+                stderr: '',
+              };
+            }
+            if (endpoint.endsWith('/pulls/207')) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
                   number: 207,
                   html_url: 'https://github.com/test-owner/test-repo/pull/207',
                   state: 'open',
@@ -2815,74 +2861,83 @@ test('github review open PR reuses the latest existing pull request before creat
                   },
                   base: { ref: 'main' },
                   user: { login: 'reviewer' },
-                },
-              ]),
-              stderr: '',
-            };
+                }),
+                stderr: '',
+              };
+            }
           }
-          if (endpoint.endsWith('/pulls/207')) {
-            return {
-              exitCode: 0,
-              stdout: JSON.stringify({
-                number: 207,
-                html_url: 'https://github.com/test-owner/test-repo/pull/207',
-                state: 'open',
-                created_at: '2026-08-03T12:00:00.000Z',
-                head: {
-                  ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
-                },
-                base: { ref: 'main' },
-                user: { login: 'reviewer' },
-              }),
-              stderr: '',
-            };
-          }
-        }
-        return {
-          exitCode: 1,
-          stdout: '',
-          stderr: `unexpected command: ${command} ${args.join(' ')}`,
-        };
-      },
-    });
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected command: ${command} ${args.join(' ')}`,
+          };
+        },
+      });
 
-    await writeFlowFile({
-      flowsRoot: tempFlowsDir,
-      flowName: 'github-open-pr-existing',
-      steps: [
-        { type: 'github_open_pr', label: 'Open GitHub Review Pull Request' },
-      ],
-    });
-    await startFlowRun({
-      flowName: 'github-open-pr-existing',
-      conversationId,
-      source: 'REST',
-      working_folder: repoRoot,
-      chatFactory: () => new InstantChat(),
-      listIngestedRepositories: async () => ({
-        repos: [buildRepoEntry(repoRoot)],
-        lockedModelId: null,
-      }),
-    });
-    await waitForConversationUnlocked(conversationId);
+      await writeFlowFile({
+        flowsRoot: tempFlowsDir,
+        flowName: 'github-open-pr-existing',
+        steps: [
+          { type: 'github_open_pr', label: 'Open GitHub Review Pull Request' },
+        ],
+      });
+      await startFlowRun({
+        flowName: 'github-open-pr-existing',
+        conversationId,
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () => new InstantChat(),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
+        }),
+      });
+      await waitForConversationUnlocked(conversationId);
 
-    assert.equal(createAttempts, 0);
-    const flowState = memoryConversations.get(conversationId)?.flags?.flow as
-      | { githubReviewContext?: { prNumber?: number; phase?: string } }
-      | undefined;
-    assert.equal(flowState?.githubReviewContext?.prNumber, 207);
-    assert.equal(flowState?.githubReviewContext?.phase, 'opened');
-    assert.equal(
-      [...(memoryTurns.get(conversationId) ?? [])].some(
-        (turn) => turn.role === 'assistant' && turn.status === 'warning',
-      ),
-      false,
-    );
-  } finally {
-    await fs.rm(tempFlowsDir, { recursive: true, force: true });
-    await fs.rm(repoRoot, { recursive: true, force: true });
-  }
-});
+      assert.equal(createAttempts, 0);
+      const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+        | { githubReviewContext?: { prNumber?: number; phase?: string } }
+        | undefined;
+      assert.deepEqual(
+        operations,
+        lookupOutcome === 'missing' ? ['lookup', 'push'] : ['lookup'],
+      );
+      if (lookupOutcome === 'existing') {
+        assert.equal(flowState?.githubReviewContext?.prNumber, 207);
+        assert.equal(flowState?.githubReviewContext?.phase, 'opened');
+        assert.equal((await getFlowRunStatus(conversationId))?.status, 'ok');
+      } else {
+        assert.equal(flowState?.githubReviewContext?.prNumber, undefined);
+        assert.equal(
+          (await getFlowRunStatus(conversationId))?.status,
+          'warning',
+        );
+        const planRaw = await fs.readFile(
+          path.join(
+            repoRoot,
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          ),
+          'utf8',
+        );
+        assert.match(
+          planRaw,
+          lookupOutcome === 'missing'
+            ? /could not be pushed to its existing upstream remote/
+            : /lookup unavailable/,
+        );
+      }
+      assert.equal(
+        [...(memoryTurns.get(conversationId) ?? [])].some(
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
+        ),
+        lookupOutcome !== 'existing',
+      );
+    } finally {
+      await fs.rm(tempFlowsDir, { recursive: true, force: true });
+      await fs.rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+}
 
 test('github review open PR skips the cycle when gh pr create fails', async () => {
   const tempFlowsDir = await fs.mkdtemp(

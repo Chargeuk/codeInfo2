@@ -8852,7 +8852,7 @@ This completed task records the normal repair for the two accepted review findin
 
 ### Task 74. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260917T003308Z-1ade1bb4
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Task Role: `final_revalidation`
 - Repository Name: Current Repository
 - Affected Repositories: `current_repository` — client, server, Compose runtime, review flows, manual mounted agent catalog, and workflow-support scripts changed across Story 60 and batches `0000060-rw-20260917T003309Z-f0282f72`, `0000060-rw-20260917T022743Z-9e582243`, `0000060-rw-20260917T042233Z-de8b1065`, `0000060-rw-20260917T055840Z-22cdd8aa`, `0000060-rw-20260917T075448Z-fbc2a8c5`, and `0000060-rw-20260917T094414Z-1f5c4db1`.
@@ -8933,3 +8933,4 @@ Optional and non-blocking: after automated proof, use the normal main Compose st
 - Task 74 testing step 10 completed: `npm run compose:down` stopped and removed the main Compose stack and network started for automated proof.
 - Task 74 testing step 11 completed: `npm run lint` passed with zero warnings.
 - Task 74 testing step 12 completed: `npm run format:check` passed; all matched files use Prettier code style.
+- Automated-proof audit: `fe90ec24c` repaired only the persisted-publication-order test fixture by supplying the mocked PR `head.sha` required by the existing runtime contract. The targeted regression plus post-repair parallel and stress full-suite runs passed, as did the recorded build, Compose lifecycle, shell, JavaScript, Python, lint, and formatting checks. All four subtasks and twelve automated testing items are complete; parser evidence reports no live blocker, so Task 74 is `__done__`. Optional manual guidance remains non-blocking and does not alter this automated closeout.

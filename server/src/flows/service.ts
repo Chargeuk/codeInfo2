@@ -3753,6 +3753,9 @@ export const getFlowConversationLifecycleStatus = async (params: {
     return 'orphaned';
   }
   if (resumeState?.runLifecycle) {
+    if (resumeState.wait) {
+      return 'running';
+    }
     if (resumeState.runLifecycle.status === 'running' && !activeOwnership) {
       return 'orphaned';
     }
@@ -9163,6 +9166,8 @@ async function runFlowUnlocked(params: {
       .filter((activeSubflow): activeSubflow is FlowActiveSubflow =>
         Boolean(activeSubflow),
       );
+    const childrenAwaitingScheduledWake = new Set<string>();
+
     const stopActiveSubflowsAndWaitForTerminalStatus = async (): Promise<
       Array<{
         childRun: FlowActiveSubflow;
@@ -9180,10 +9185,7 @@ async function runFlowUnlocked(params: {
             runToken: activeChildRun.runToken,
           });
           while (true) {
-            const status = await getFlowConversationLifecycleStatus({
-              conversationId: activeChildRun.conversationId,
-              runToken: activeChildRun.runToken,
-            });
+            const status = await observeChildLifecycle(activeChildRun);
             if (isTerminalFlowChildLifecycleStatus(status)) {
               return { childRun: activeChildRun, status };
             }
@@ -9270,6 +9272,28 @@ async function runFlowUnlocked(params: {
       });
       if (!resumedRunToken) return null;
       return { ...childRun, runToken: resumedRunToken };
+    };
+    const observeChildLifecycle = async (childRun: FlowActiveSubflow) => {
+      const activeOwnership = getActiveRunOwnership(childRun.conversationId);
+      if (
+        childrenAwaitingScheduledWake.has(childRun.conversationId) &&
+        activeOwnership &&
+        activeOwnership.runToken !== childRun.runToken
+      ) {
+        childRun.runToken = activeOwnership.runToken;
+        childrenAwaitingScheduledWake.delete(childRun.conversationId);
+      }
+      const status = await getFlowConversationLifecycleStatus({
+        conversationId: childRun.conversationId,
+        runToken: childRun.runToken,
+      });
+      if (
+        status === 'running' &&
+        !getActiveRunOwnership(childRun.conversationId)
+      ) {
+        childrenAwaitingScheduledWake.add(childRun.conversationId);
+      }
+      return status;
     };
     const buildTrackedSubflowTitle = (job: SubflowWaveJob) =>
       rememberedSubflowsByInstance.get(job.instanceId)?.title ??
@@ -9510,10 +9534,7 @@ async function runFlowUnlocked(params: {
       }
 
       for (const childRun of childRuns) {
-        const childStatus = await getFlowConversationLifecycleStatus({
-          conversationId: childRun.conversationId,
-          runToken: childRun.runToken,
-        });
+        const childStatus = await observeChildLifecycle(childRun);
         if (!isTerminalFlowChildLifecycleStatus(childStatus)) return false;
       }
 
@@ -9594,10 +9615,7 @@ async function runFlowUnlocked(params: {
       await persistRuntimeResumeState(lastCompletedStepPath);
       const resumableChildRuns: FlowActiveSubflow[] = [];
       for (const childRun of childRuns) {
-        const status = await getFlowConversationLifecycleStatus({
-          conversationId: childRun.conversationId,
-          runToken: childRun.runToken,
-        });
+        const status = await observeChildLifecycle(childRun);
         if (status === 'stopped') {
           const resumedChildRun = await resumeWaveChild(childRun);
           if (resumedChildRun) {
@@ -9778,10 +9796,7 @@ async function runFlowUnlocked(params: {
 
         const childStatuses = await Promise.all(
           childRuns.map(async (childRun) => {
-            const lifecycleStatus = await getFlowConversationLifecycleStatus({
-              conversationId: childRun.conversationId,
-              runToken: childRun.runToken,
-            });
+            const lifecycleStatus = await observeChildLifecycle(childRun);
             const status = isTerminalFlowChildLifecycleStatus(lifecycleStatus)
               ? lifecycleStatus
               : null;

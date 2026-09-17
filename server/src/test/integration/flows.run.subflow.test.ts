@@ -27,6 +27,8 @@ import {
 import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
 import {
+  __resetFlowWaitResumeDepsForTests,
+  __setFlowWaitResumeDepsForTests,
   getFlowConversationLifecycleStatus,
   getFlowRunStatus,
   startFlowRun as startFlowRunService,
@@ -446,6 +448,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  __resetFlowWaitResumeDepsForTests();
   resetDeterministicCodexAvailabilityBootstrap();
   __resetProviderBootstrapStatusForTests();
   enterTestEnvOverrides({
@@ -580,6 +583,101 @@ test('orphaned flow lifecycle observation remains recoverable', async () => {
   assert.equal(observed?.status, 'orphaned');
   assert.equal(observed?.terminal, false);
 });
+
+for (const mode of ['subflow', 'subflowWave'] as const) {
+  test(`${mode} child waits remain paused until their scheduled wake`, async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), `flow-${mode}-child-wait-`),
+    );
+    const now = 1_800_000_000_000;
+    const scheduledWakes: Array<{ resumeAt: number; onWake: () => void }> = [];
+    enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
+    __setFlowWaitResumeDepsForTests({
+      now: () => now,
+      nowIso: () => new Date(now).toISOString(),
+      scheduleWake: ({ resumeAt, onWake }) => {
+        scheduledWakes.push({ resumeAt, onWake });
+        return { cancel: () => undefined };
+      },
+    });
+
+    try {
+      await writeFlowFile({
+        tmpDir,
+        flowName: `${mode}-wait-child`,
+        steps: [{ type: 'wait', label: 'Hold child work', seconds: 60 }],
+      });
+      await writeFlowFile({
+        tmpDir,
+        flowName: `${mode}-wait-parent`,
+        steps:
+          mode === 'subflow'
+            ? [subflowStep('Run waiting child', `${mode}-wait-child`)]
+            : [
+                {
+                  type: 'subflowWave',
+                  groups: [
+                    {
+                      kind: 'singleton',
+                      id: 'waiting-child',
+                      flowName: `${mode}-wait-child`,
+                    },
+                  ],
+                },
+              ],
+      });
+
+      const parent = await startFlowRun({
+        flowName: `${mode}-wait-parent`,
+        source: 'REST',
+      });
+      const [activeChild] = await waitForActiveSubflowCount(
+        parent.conversationId,
+        1,
+      );
+      assert.ok(activeChild?.conversationId);
+      assert.ok(activeChild?.runToken);
+      const childConversationId = String(activeChild.conversationId);
+      const childRunToken = String(activeChild.runToken);
+      await waitFor(() => scheduledWakes.length === 1);
+      await waitFor(() => !getActiveRunOwnership(childConversationId));
+
+      const childState = (
+        memoryConversations.get(childConversationId)?.flags as {
+          flow?: { wait?: { resumeAt?: number } };
+        }
+      ).flow;
+      assert.equal(childState?.wait?.resumeAt, now + 60_000);
+      assert.equal(scheduledWakes[0]?.resumeAt, now + 60_000);
+      assert.equal(
+        await getFlowConversationLifecycleStatus({
+          conversationId: childConversationId,
+          runToken: childRunToken,
+        }),
+        'running',
+      );
+
+      scheduledWakes[0]?.onWake();
+      await waitFor(() => {
+        const flow = (
+          memoryConversations.get(childConversationId)?.flags as {
+            flow?: { runLifecycle?: { status?: string } };
+          }
+        ).flow;
+        return flow?.runLifecycle?.status === 'ok';
+      });
+      await waitForAssistantStatus(parent.conversationId, 'ok');
+      const children = findChildFlowConversations({
+        parentConversationId: parent.conversationId,
+        childFlowNames: [`${mode}-wait-child`],
+      });
+      assert.equal(children.length, 1);
+      assert.equal(children[0]?._id, childConversationId);
+    } finally {
+      await removeWritableTree(tmpDir);
+    }
+  });
+}
 
 test('review initialization failures fail the flow instead of silently skipping the review cycle', async () => {
   const tmpDir = await fs.mkdtemp(

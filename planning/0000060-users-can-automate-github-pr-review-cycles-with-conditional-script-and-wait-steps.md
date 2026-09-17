@@ -8884,8 +8884,8 @@ This is the sole whole-story automated revalidation owner after the six complete
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
-2. [ ] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues.
+1. [x] In `current_repository`, run the supported lint command `npm run lint` and fix story-caused issues.
+2. [x] In `current_repository`, run the supported formatting check `npm run format:check` and fix story-caused issues.
 3. [x] Implement and preserve the user-approved decision-script correction in `server/src/flows/flowDecisionScript.ts`: remove the Git-tracking preflight for both harness-owned and worked-repository Python scripts. Update `server/src/test/unit/flow-decision-script.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, and runtime documentation for no-Git/untracked/contained-symlink execution while retaining the other execution checks.
 4. [x] Implement and preserve the user-approved best-effort review-plan commit in `scripts/flow_control/review.py`, the recorder/verifier prompts, and `codeinfo_markdown/shared/review-findings-plan-record.md`: readiness uses saved content and identity only; a failed commit or missing/stale SHA never stops, restarts, reroutes, or blocks the flow. Retain one best-effort plan-only commit attempt and update the Python readiness and prompt regressions.
 
@@ -8912,6 +8912,8 @@ Optional and non-blocking: after automated proof, use the normal main Compose st
 
 #### Implementation Notes
 
+- Task 74 lint subtask completed: `npm run lint` passed with exit code 0 and no warnings; no story-caused lint repair was required.
+- Task 74 formatting subtask completed: `npm run format:check` passed with exit code 0; Prettier reported all matched files use the project style, so no repair was required.
 - September 17 user-approved correction, subtask 3 completed: removed the decision-script Git-tracking preflight and aligned runtime documentation. The 65 affected server unit/integration tests passed, along with the server build and scoped lint/formatting checks. The broader server run had 2,881 passes and 7 failures, including 2 reproduced with the original executor; this is focused correction evidence, not a claim that final whole-story proof is complete.
 - September 17 user-approved correction, subtask 4 completed: removed Git status/history and commit-SHA equality from review readiness; recorder and verifier instructions now report commit failures without rerouting or retrying. All 252 Python workflow-helper tests passed with `TMPDIR=/private/tmp` to avoid macOS path-alias failures, including a rejected commit hook, dirty plan, no Git metadata, and null/missing/stale SHA cases. Markdown formatting and whitespace checks passed. Existing final proof checkboxes remain outstanding.
 - Review preservation rule: subtasks 3–4 implement explicit user requirements now recorded in Acceptance Criteria and Story Behavior Lock. Do not restore either removed gate based on older completed-task wording or historical review findings; assess regressions against the updated requirements.

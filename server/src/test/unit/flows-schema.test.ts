@@ -3334,6 +3334,108 @@ describe('flow schema (v1)', () => {
     assert.equal(step.githubReviewRecovery, true);
   });
 
+  test('if-step schema accepts explicit harness scripts without an AI agent', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'if',
+            condition: 'Check the story.',
+            decisionScript:
+              'scripts/flow_control/check_plan_scope_story_complete.py',
+            then: [{ type: 'wait', seconds: 1 }],
+          },
+        ],
+      }),
+    );
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const step = parsed.flow.steps[0];
+    assert.equal(step.type, 'if');
+    if (step.type !== 'if') return;
+    assert.equal(
+      step.decisionScript,
+      'scripts/flow_control/check_plan_scope_story_complete.py',
+    );
+  });
+
+  for (const decisionScript of [
+    '',
+    '/outside.py',
+    '../outside.py',
+    'helper.sh',
+    42,
+  ]) {
+    test(`if-step schema rejects invalid explicit script ${JSON.stringify(decisionScript)}`, () => {
+      assert.equal(
+        parseFlowFile(
+          JSON.stringify({
+            steps: [
+              {
+                type: 'if',
+                condition: 'Check the story.',
+                decisionScript,
+                then: [{ type: 'wait', seconds: 1 }],
+              },
+            ],
+          }),
+        ).ok,
+        false,
+      );
+    });
+  }
+
+  test('if-step schema rejects two competing script owners', () => {
+    assert.equal(
+      parseFlowFile(
+        JSON.stringify({
+          steps: [
+            {
+              type: 'if',
+              condition: 'scripts/target.py',
+              decisionScript: 'scripts/harness.py',
+              then: [{ type: 'wait', seconds: 1 }],
+            },
+          ],
+        }),
+      ).ok,
+      false,
+    );
+  });
+
+  test('GitHub review variant explicitly owns its harness predicates', async () => {
+    const parsed = parseFlowFile(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/implement_next_plan_github_review.json'),
+        'utf8',
+      ),
+    );
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const predicates: string[] = [];
+    const visit = (steps: import('../../flows/flowSchema.js').FlowStep[]) => {
+      for (const step of steps) {
+        if (step.type === 'startLoop') visit(step.steps);
+        if (step.type === 'if') {
+          if (step.decisionScript || step.condition.endsWith('.py')) {
+            assert.ok(step.decisionScript);
+            predicates.push(step.decisionScript);
+          }
+          visit(step.then);
+          if (step.else) visit(step.else);
+        }
+      }
+    };
+    visit(parsed.flow.steps);
+    assert.deepEqual(predicates, [
+      'scripts/flow_control/check_plan_scope_story_complete.py',
+      'scripts/flow_control/check_github_review_cycle_active.py',
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+      'scripts/flow_control/check_review_should_exit_to_main_loop.py',
+      'scripts/flow_control/check_github_review_should_write_no_findings_closeout.py',
+    ]);
+  });
+
   test('if-step schema rejects a non-boolean GitHub review recovery boundary', () => {
     resetStore();
     const parsed = parseFlowFile(

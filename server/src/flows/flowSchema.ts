@@ -168,6 +168,7 @@ export type FlowIfStep = {
   identifier?: string;
   githubReviewRecovery?: boolean;
   condition: string;
+  decisionScript?: string;
   then: FlowStep[];
   else?: FlowStep[];
 };
@@ -560,6 +561,7 @@ const FlowIfStepSchema = z
     identifier: trimmedNonEmptyString.optional(),
     githubReviewRecovery: z.boolean().optional(),
     condition: trimmedNonEmptyString,
+    decisionScript: trimmedNonEmptyString.optional(),
     then: z.array(z.lazy(() => FlowStepSchema)).min(1),
     else: z
       .array(z.lazy(() => FlowStepSchema))
@@ -577,11 +579,32 @@ const FlowIfStepSchema = z
           'if steps must provide both agentType and identifier together.',
       });
     }
-    if (!isFlowDecisionScriptPath(value.condition) && !hasAgentType) {
+    const scriptBacked =
+      typeof value.decisionScript === 'string' ||
+      isFlowDecisionScriptPath(value.condition);
+    if (!scriptBacked && !hasAgentType) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
           'if steps that use the AI decision path must provide agentType and identifier.',
+      });
+    }
+    if (
+      value.decisionScript &&
+      !isFlowDecisionScriptPath(value.decisionScript)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['decisionScript'],
+        message: 'if decisionScript must be a relative Python script path.',
+      });
+    }
+    if (value.decisionScript && isFlowDecisionScriptPath(value.condition)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['decisionScript'],
+        message:
+          'if steps cannot provide script paths in both condition and decisionScript.',
       });
     }
   });

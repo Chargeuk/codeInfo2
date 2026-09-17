@@ -537,7 +537,8 @@
         {
           "type": "if",
           "label": "Run GitHub Review Only After Internal Story Completion",
-          "condition": "scripts/flow_control/check_plan_scope_story_complete.py",
+          "condition": "Is the internal story complete?",
+          "decisionScript": "scripts/flow_control/check_plan_scope_story_complete.py",
           "then": [
             {
               "type": "llm",
@@ -561,7 +562,8 @@
               "type": "if",
               "label": "Only Wait When The GitHub Review Cycle Is Active",
               "githubReviewRecovery": true,
-              "condition": "scripts/flow_control/check_github_review_cycle_active.py",
+              "condition": "Is the GitHub review cycle active?",
+              "decisionScript": "scripts/flow_control/check_github_review_cycle_active.py",
               "then": [
                 {
                   "type": "wait",
@@ -578,7 +580,8 @@
               "type": "if",
               "label": "Only Enter External Review Disposition When Reviewer Feedback Exists",
               "githubReviewRecovery": true,
-              "condition": "scripts/flow_control/check_github_review_has_reviewer_feedback.py",
+              "condition": "Does the GitHub review have reviewer feedback?",
+              "decisionScript": "scripts/flow_control/check_github_review_has_reviewer_feedback.py",
               "then": [
                 {
                   "type": "startLoop",
@@ -804,7 +807,8 @@
                 {
                   "type": "if",
                   "label": "Close PR When External Review Created New Work",
-                  "condition": "scripts/flow_control/check_review_should_exit_to_main_loop.py",
+                  "condition": "Should review return to the main implementation loop?",
+                  "decisionScript": "scripts/flow_control/check_review_should_exit_to_main_loop.py",
                   "then": [
                     {
                       "type": "github_close_pr",
@@ -818,7 +822,8 @@
               "type": "if",
               "label": "Only Write No-Findings Closeout After A Clean GitHub Review",
               "githubReviewRecovery": true,
-              "condition": "scripts/flow_control/check_github_review_should_write_no_findings_closeout.py",
+              "condition": "Should the GitHub review write a no-findings closeout?",
+              "decisionScript": "scripts/flow_control/check_github_review_should_write_no_findings_closeout.py",
               "then": [
                 {
                   "type": "llm",

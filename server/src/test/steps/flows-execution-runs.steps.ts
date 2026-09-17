@@ -606,7 +606,7 @@ Then(
     const ifStep = flattened.find(
       (step) =>
         step.type === 'if' &&
-        step.condition ===
+        step.decisionScript ===
           'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
     );
     assert.ok(ifStep);

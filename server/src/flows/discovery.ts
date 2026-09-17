@@ -271,6 +271,7 @@ const collectAgentTypes = (params: {
       case 'if':
         if (
           step.agentType?.trim() &&
+          !step.decisionScript &&
           !isFlowDecisionScriptPath(step.condition)
         ) {
           names.add(step.agentType);

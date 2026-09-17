@@ -3451,84 +3451,106 @@ test('explicit decisionScript failure remains hard despite legacy break recovery
 
 // These two forms deliberately have different owners. A same-named target
 // script must neither shadow a legacy harness helper nor fall back to one.
-for (const explicit of [true, false]) {
-  for (const workedScriptPresent of [true, false]) {
-    test(`${explicit ? 'legacy explicit' : 'worked question'} script ownership with worked script ${workedScriptPresent ? 'present' : 'absent'}`, async () => {
-      await withFlowHarness(
-        async ({ tmpDir, ws, baseUrl }) => {
-          const decisionScript =
-            'scripts/flow_control/check_current_task_has_blocker.py';
-          if (workedScriptPresent) {
-            await fs.mkdir(path.join(tmpDir, 'scripts', 'flow_control'), {
-              recursive: true,
+for (const kind of ['break', 'if'] as const) {
+  for (const explicit of [true, false]) {
+    for (const workedScriptPresent of [true, false]) {
+      test(`${kind} ${explicit ? 'explicit harness' : 'implicit worked'} script ownership with worked script ${workedScriptPresent ? 'present' : 'absent'}`, async () => {
+        await withFlowHarness(
+          async ({ tmpDir, ws, baseUrl }) => {
+            const decisionScript =
+              'scripts/flow_control/check_current_task_has_blocker.py';
+            if (workedScriptPresent) {
+              await fs.mkdir(path.join(tmpDir, 'scripts', 'flow_control'), {
+                recursive: true,
+              });
+              await fs.writeFile(
+                path.join(tmpDir, decisionScript),
+                `print('{"answer":"no"}')\n`,
+                'utf8',
+              );
+            }
+            await writeFlowFile({
+              tmpDir,
+              flowName: 'script-ownership-flow',
+              steps: [
+                kind === 'break'
+                  ? {
+                      type: 'break',
+                      question: explicit
+                        ? 'Check the current task blocker state.'
+                        : decisionScript,
+                      ...(explicit ? { decisionScript } : {}),
+                      breakOn: 'yes',
+                    }
+                  : {
+                      type: 'if',
+                      condition: explicit
+                        ? 'Check the current task blocker state.'
+                        : decisionScript,
+                      ...(explicit ? { decisionScript } : {}),
+                      then: [
+                        {
+                          type: 'break',
+                          question: 'Finish the selected branch.',
+                          decisionScript,
+                          breakOn: 'no',
+                        },
+                      ],
+                    },
+              ],
             });
-            await fs.writeFile(
-              path.join(tmpDir, decisionScript),
-              `print('{"answer":"no"}')\n`,
-              'utf8',
-            );
-            await execFileAsync('git', ['add', decisionScript], {
-              cwd: tmpDir,
-            });
-          }
-          await writeFlowFile({
-            tmpDir,
-            flowName: 'script-ownership-flow',
-            steps: [
-              {
-                type: 'break',
-                agentType: 'coding_agent',
-                identifier: 'main',
-                question: explicit
-                  ? 'Check the current task blocker state.'
-                  : decisionScript,
-                ...(explicit ? { decisionScript } : {}),
-                breakOn: 'yes',
-              },
-            ],
-          });
 
-          const conversationId = randomUUID();
-          await subscribeConversation(ws, conversationId);
-          const status = explicit || workedScriptPresent ? 'ok' : 'failed';
-          const finalPromise =
-            status === 'failed'
-              ? waitForFlowFinal({ ws, conversationId, status })
-              : waitForTestCondition(
-                  () => {
-                    const flow = memoryConversations.get(conversationId)?.flags
-                      ?.flow as
-                      | { runLifecycle?: { status?: string } }
-                      | undefined;
-                    return flow?.runLifecycle?.status === 'ok';
-                  },
-                  { description: 'script ownership flow completion' },
-                ).then(() => undefined);
-          const result = await supertest(baseUrl)
-            .post('/flows/script-ownership-flow/run')
-            .send({ conversationId, source: 'REST', working_folder: tmpDir });
-          assert.equal(result.status, 202);
-          const final = await finalPromise;
-          if (status === 'failed') {
-            assert.equal(final?.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-            assert.match(final?.error?.message ?? '', /Script file not found/);
-          } else {
-            // The real harness helper returns yes for this target's missing
-            // task handoff; the colliding worked script deliberately returns no.
-            const decisions = query(
-              { text: 'flows.run.break_decision' },
-              100,
-            ).filter(
-              (entry) => entry.context?.flowName === 'script-ownership-flow',
-            );
-            assert.equal(decisions.length, 1);
-            assert.equal(decisions[0].context?.answer, explicit ? 'yes' : 'no');
-            assert.equal(decisions[0].context?.source, 'script');
-          }
-        },
-        { registerTmpDirAsRepo: true },
-      );
-    });
+            const conversationId = randomUUID();
+            await subscribeConversation(ws, conversationId);
+            const status = explicit || workedScriptPresent ? 'ok' : 'failed';
+            const finalPromise =
+              status === 'failed'
+                ? waitForFlowFinal({ ws, conversationId, status })
+                : waitForTestCondition(
+                    () => {
+                      const flow = memoryConversations.get(conversationId)
+                        ?.flags?.flow as
+                        | { runLifecycle?: { status?: string } }
+                        | undefined;
+                      return flow?.runLifecycle?.status === 'ok';
+                    },
+                    { description: 'script ownership flow completion' },
+                  ).then(() => undefined);
+            const result = await supertest(baseUrl)
+              .post('/flows/script-ownership-flow/run')
+              .send({ conversationId, source: 'REST', working_folder: tmpDir });
+            assert.equal(result.status, 202);
+            const final = await finalPromise;
+            if (status === 'failed') {
+              assert.equal(
+                final?.error?.code,
+                `${kind.toUpperCase()}_DECISION_SCRIPT_FAILED`,
+              );
+              assert.match(
+                final?.error?.message ?? '',
+                /Script file not found/,
+              );
+            } else {
+              // The real harness helper returns yes for this target's missing
+              // task handoff; the colliding worked script deliberately returns no.
+              const decisions = query(
+                { text: `flows.run.${kind}_decision` },
+                100,
+              ).filter(
+                (entry) => entry.context?.flowName === 'script-ownership-flow',
+              );
+              assert.equal(decisions.length, 1);
+              assert.equal(
+                decisions[0].context?.answer,
+                explicit ? 'yes' : 'no',
+              );
+              assert.equal(decisions[0].context?.source, 'script');
+            }
+          },
+          { registerTmpDirAsRepo: true },
+        );
+      });
+    }
   }
 }
 
@@ -3655,6 +3677,47 @@ test('implicit continue decisionScript failure remains hard', async () => {
       });
       assert.equal(final.error?.code, 'CONTINUE_DECISION_SCRIPT_FAILED');
       assert.match(final.error?.message ?? '', /timed out/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('explicit if scripts do not fall back to worked files or recover script failures as GitHub skips', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      const decisionScript = 'scripts/missing-harness-if.py';
+      await fs.mkdir(path.join(tmpDir, 'scripts'), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, decisionScript),
+        `print('{"answer":"no"}')\n`,
+      );
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'explicit-if-missing',
+        steps: [
+          {
+            type: 'if',
+            condition: 'Run the harness decision.',
+            decisionScript,
+            githubReviewRecovery: true,
+            then: [{ type: 'wait', seconds: 1 }],
+          },
+        ],
+      });
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const finalPromise = waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      const response = await supertest(baseUrl)
+        .post('/flows/explicit-if-missing/run')
+        .send({ conversationId, source: 'REST', working_folder: tmpDir });
+      assert.equal(response.status, 202);
+      const final = await finalPromise;
+      assert.equal(final.error?.code, 'IF_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /Script file not found/);
     },
     { registerTmpDirAsRepo: true },
   );

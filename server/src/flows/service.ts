@@ -5290,6 +5290,7 @@ const findFirstAgentStep = (
       if (
         step.agentType &&
         step.identifier &&
+        !step.decisionScript &&
         !isFlowDecisionScriptPath(step.condition)
       ) {
         return step;
@@ -5330,7 +5331,11 @@ const collectDirectFlowAgentTypes = (
       continue;
     }
     if (step.type === 'if') {
-      if (step.agentType && !isFlowDecisionScriptPath(step.condition)) {
+      if (
+        step.agentType &&
+        !step.decisionScript &&
+        !isFlowDecisionScriptPath(step.condition)
+      ) {
         names.add(step.agentType);
       }
       collectDirectFlowAgentTypes(step.then, names);
@@ -5406,6 +5411,7 @@ const stepRequiresProviderBootstrap = (step: FlowStep | undefined): boolean => {
     return Boolean(
       step.agentType &&
         step.identifier &&
+        !step.decisionScript &&
         !isFlowDecisionScriptPath(step.condition),
     );
   }
@@ -5473,6 +5479,7 @@ const findRuntimeIdentityStep = (
       if (
         step.agentType &&
         step.identifier &&
+        !step.decisionScript &&
         !isFlowDecisionScriptPath(step.condition)
       ) {
         return step;
@@ -5561,6 +5568,7 @@ const validateCommandSteps = async (params: {
     }
     if (step.type === 'if') {
       if (
+        !step.decisionScript &&
         !isFlowDecisionScriptPath(step.condition) &&
         (!step.agentType || !step.identifier)
       ) {
@@ -7829,6 +7837,7 @@ async function runFlowUnlocked(params: {
     const result = await runSharedDecisionStep({
       kind: 'if',
       decisionInput: step.condition,
+      decisionScript: step.decisionScript,
       command,
       agentType: step.agentType,
       identifier: step.identifier,
@@ -8406,7 +8415,10 @@ async function runFlowUnlocked(params: {
             token: context.value.token,
             signal,
           });
-          if (refreshedPullRequest.kind !== 'ok' || !refreshedPullRequest.value) {
+          if (
+            refreshedPullRequest.kind !== 'ok' ||
+            !refreshedPullRequest.value
+          ) {
             const detail =
               refreshedPullRequest.kind === 'ok'
                 ? 'no latest open pull request was found after publishing the current branch.'
@@ -11903,7 +11915,7 @@ async function runFlowUnlocked(params: {
           }
           if (
             outcome === 'failed' &&
-            isFlowDecisionScriptPath(step.condition)
+            (step.decisionScript || isFlowDecisionScriptPath(step.condition))
           ) {
             return outcome;
           }

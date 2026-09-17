@@ -938,22 +938,50 @@ export const resolveGitHubRepositoryState = async (params: {
   });
   if (headResult.kind !== 'ok') return headResult;
 
+  const baseBranch = planContextResult.value.branchedFrom;
+  if (!baseBranch) {
+    return {
+      kind: 'skip',
+      reason: 'BASE_BRANCH_MISSING',
+      message:
+        'A trustworthy story-owned base branch could not be determined from the current-plan handoff.',
+    };
+  }
+
   const upstreamResult = await runGitCommand({
     workingRepositoryRoot: params.workingRepositoryRoot,
     args: ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'],
     signal: params.signal,
   });
-  if (upstreamResult.kind !== 'ok') {
-    return {
-      kind: 'skip',
-      reason: 'UPSTREAM_MISSING',
-      message:
-        'The current branch does not have an existing upstream remote to use for GitHub review.',
-      stderr: upstreamResult.stderr,
-      exitCode: upstreamResult.exitCode,
-    };
+  let upstreamRef: string;
+  let usesCurrentBranchUpstream: boolean;
+  if (upstreamResult.kind === 'ok') {
+    upstreamRef = upstreamResult.value.stdout.trim();
+    usesCurrentBranchUpstream = true;
+  } else {
+    const baseUpstreamResult = await runGitCommand({
+      workingRepositoryRoot: params.workingRepositoryRoot,
+      args: [
+        'rev-parse',
+        '--abbrev-ref',
+        '--symbolic-full-name',
+        `${baseBranch}@{u}`,
+      ],
+      signal: params.signal,
+    });
+    if (baseUpstreamResult.kind !== 'ok') {
+      return {
+        kind: 'skip',
+        reason: 'UPSTREAM_MISSING',
+        message:
+          'Neither the current branch nor its story-owned base branch has an existing upstream remote to use for GitHub review.',
+        stderr: baseUpstreamResult.stderr ?? upstreamResult.stderr,
+        exitCode: baseUpstreamResult.exitCode ?? upstreamResult.exitCode,
+      };
+    }
+    upstreamRef = baseUpstreamResult.value.stdout.trim();
+    usesCurrentBranchUpstream = false;
   }
-  const upstreamRef = upstreamResult.value.stdout.trim();
   const slashIndex = upstreamRef.indexOf('/');
   if (slashIndex <= 0 || slashIndex === upstreamRef.length - 1) {
     return {
@@ -964,7 +992,9 @@ export const resolveGitHubRepositoryState = async (params: {
     };
   }
   const upstreamRemote = upstreamRef.slice(0, slashIndex);
-  const upstreamBranch = upstreamRef.slice(slashIndex + 1);
+  const upstreamBranch = usesCurrentBranchUpstream
+    ? upstreamRef.slice(slashIndex + 1)
+    : currentBranch;
 
   const remoteUrlResult = await runGitCommand({
     workingRepositoryRoot: params.workingRepositoryRoot,
@@ -980,16 +1010,6 @@ export const resolveGitHubRepositoryState = async (params: {
       reason: 'GIT_REMOTE_INVALID',
       message:
         'The upstream remote URL could not be resolved to a GitHub owner/name repository.',
-    };
-  }
-
-  const baseBranch = planContextResult.value.branchedFrom;
-  if (!baseBranch) {
-    return {
-      kind: 'skip',
-      reason: 'BASE_BRANCH_MISSING',
-      message:
-        'A trustworthy story-owned base branch could not be determined from the current-plan handoff.',
     };
   }
 

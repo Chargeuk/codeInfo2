@@ -287,6 +287,52 @@ test('repository-state resolution reads current branch, upstream remote, and sto
   }
 });
 
+test('repository-state resolution uses the story-owned base remote for a first push without guessing a destination', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        if (joined === 'branch --show-current') {
+          return { exitCode: 0, stdout: 'feature/0000060-demo\n', stderr: '' };
+        }
+        if (joined === 'rev-parse HEAD') {
+          return { exitCode: 0, stdout: 'deadbeef\n', stderr: '' };
+        }
+        if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+          return { exitCode: 128, stdout: '', stderr: 'no upstream\n' };
+        }
+        if (joined === 'rev-parse --abbrev-ref --symbolic-full-name main@{u}') {
+          return { exitCode: 0, stdout: 'origin/main\n', stderr: '' };
+        }
+        if (joined === 'remote get-url origin') {
+          return {
+            exitCode: 0,
+            stdout: 'https://github.com/example/repo.git\n',
+            stderr: '',
+          };
+        }
+        throw new Error(`Unexpected command: ${joined}`);
+      },
+    });
+
+    const resolved = await resolveGitHubRepositoryState({
+      workingRepositoryRoot: tempRepo.repoRoot,
+    });
+    assert.deepEqual(resolved, {
+      kind: 'ok',
+      value: {
+        ...baseRepositoryState(tempRepo.repoRoot),
+        currentBranch: 'feature/0000060-demo',
+        headSha: 'deadbeef',
+        upstreamBranch: 'feature/0000060-demo',
+      },
+    });
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
 test('repository-state resolution accepts an SSH-over-443 GitHub upstream', async () => {
   const tempRepo = await createTempRepo();
   try {

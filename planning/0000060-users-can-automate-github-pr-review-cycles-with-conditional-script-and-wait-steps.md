@@ -7699,18 +7699,18 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] `npm run build:summary:client`
+1. [x] `npm run build:summary:client`
 2. [x] `npm run build:summary:server`
-3. [ ] `npm run compose:build:summary`
-4. [ ] `npm run compose:up` — passed; the repository-owned main Compose stack reached healthy server and started client services.
-5. [ ] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
-6. [ ] `npm run test:summary:all:stress` — required parallel-safety proof for the changed cancellation and lifecycle behavior.
+3. [x] `npm run compose:build:summary`
+4. [x] `npm run compose:up` — passed; the repository-owned main Compose stack reached healthy server and started client services.
+5. [x] `npm run test:summary:all:parallel` — full client, server-unit, server-Cucumber, and e2e validation for the story-owned flow runtime, GitHub adapter, configuration, and flow-definition changes; unrelated baseline failures remain distinct.
+6. [x] `npm run test:summary:all:stress` — required parallel-safety proof for the changed cancellation and lifecycle behavior.
 7. [x] `npm run test:summary:shell` — full supported shell harness, including Compose-wrapper coverage.
 8. [x] `node --test scripts/*.test.mjs` — complete standalone JavaScript workflow-helper and wrapper proof.
 9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — complete standalone Python workflow-helper proof.
-10. [ ] `npm run compose:down`
-11. [ ] `npm run lint`
-12. [ ] `npm run format:check`
+10. [x] `npm run compose:down`
+11. [x] `npm run lint`
+12. [x] `npm run format:check`
 
 #### Manual Testing Guidance
 
@@ -7781,6 +7781,22 @@ Optional, checkbox-free manual proof may use only the supported main Compose sta
 - Implemented the pre-transition mobile focus handoff in `FlowsPage.tsx`, preserving conditional `disableRestoreFocus` and ordinary-close restoration. Added the deterministic 390px E2E regression with a deferred third flow-list request, pre-click console capture, focus/disabled-state assertions, and cleanup settlement. The targeted E2E wrapper passed 1/1; no broader Testing item was run.
 - Implementation-only audit: the seven originally checked subtasks are evidenced by commit `08205b2935bb33cede05e41efc2c125235b62603` and its targeted 1/1 E2E result, but the new focus handoff changes the browser-visible mobile picker contract. The Story 60 Description, Out Of Scope, and Behavior Lock authorize flow-only capabilities and explicitly preserve browser-visible behavior; no top-level authority covers moving selection focus to `New flow` or suppressing the associated browser warning. The behavior was introduced by this task rather than proven to predate Story 60, so it is in-scope regression restoration, not an authorized product fix. No Testing item was normalized complete: final format proof remains intentionally pending.
 - **RESOLVED ISSUE** Task 65 mobile-selector scope blocker: the Task 65 handoff added a browser-visible pre-transition focus transfer to `workspace-mobile-new-action`, an opt-in dialog restoration override, and E2E proof of that new target. Restored the pre-Task-65 selector contract by removing those additions and retaining the ordinary-Close regression as preserved default MUI restoration. Focused client proof passed 5/5 (`test-results/client-tests-2026-09-16T23-23-11-288Z.log`) and `npm run typecheck:summary:client` passed. Client-dependent final automated gates 1 and 3–6 plus lifecycle cleanup, lint, and formatting (10–12) are reopened for the repaired HEAD; no manual testing ran.
+
+- Automated proof: `npm run build:summary:client` passed typecheck and client build. The only warning is the existing Vite large-output-chunk advisory; no story-caused build issue was found.
+
+- Automated proof: `npm run compose:build:summary` passed both image build items; no build repair was needed.
+
+- Automated proof: `npm run compose:up` started the repository-owned main stack; server became healthy and client services started. The stack remains running for the next required full-suite proof.
+
+- Automated proof: `npm run test:summary:all:parallel` passed: client 912/912, server-unit 2,875/2,875, server-Cucumber 138/138, and e2e 78/78. Its temporary Cucumber and e2e infrastructures were removed successfully.
+
+- Automated proof: `npm run test:summary:all:stress` passed under increased server-unit concurrency: client 912/912, server-unit 2,875/2,875, server-Cucumber 138/138, and e2e 78/78. Temporary stress infrastructures were removed successfully.
+
+- Automated proof: `npm run compose:down` cleanly stopped and removed the main repository-owned Compose stack started for this proof.
+
+- Automated proof: `npm run lint` passed with exit code 0 and no warnings; no story-caused lint repair was needed.
+
+- Automated proof: `npm run format:check` passed; all matched tracked files use Prettier code style and no formatting repair was needed.
 
 ### Task 66. Escalate Repeated Accepted Review Findings With Repair History
 

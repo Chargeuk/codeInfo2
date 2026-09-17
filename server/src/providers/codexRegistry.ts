@@ -21,7 +21,6 @@ let detection: CodexDetection = {
 
 export function setCodexDetection(value: CodexDetection) {
   if (hasActiveTestOverrideScope()) {
-    detection = value;
     enterTestOverrideScope({ codexDetection: value });
     return;
   }
@@ -34,7 +33,6 @@ export function __setGlobalCodexDetectionForTests(value: CodexDetection) {
 
 export function updateCodexDetection(value: CodexDetection): CodexDetection {
   if (hasActiveTestOverrideScope()) {
-    detection = value;
     enterTestOverrideScope({ codexDetection: value });
     return value;
   }

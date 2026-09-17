@@ -38,6 +38,8 @@ import {
   __resetGitHubReviewDepsForTests,
   __setGitHubReviewDepsForTests,
   readGitHubReviewScratch,
+  prepareGitHubReviewScratchOwnership,
+  type GitHubRepositoryState,
   materializeGitHubExternalReviewInput,
   writeGitHubReviewScratch,
 } from '../../flows/githubReview.js';
@@ -1380,10 +1382,7 @@ test('checked-in GitHub review flow is opt-in, runs after internal completion, a
     JSON.stringify(findingsProducer?.messages),
     /CODEINFO_GITHUB_REVIEW_HANDOFF_PATH/u,
   );
-  assert.match(
-    JSON.stringify(findingsProducer?.messages),
-    /findings_file/u,
-  );
+  assert.match(JSON.stringify(findingsProducer?.messages), /findings_file/u);
   const classifierInstructions = await fs.readFile(
     path.join(repoRoot, 'codeinfo_markdown/classify_pr_review_disposition.md'),
     'utf8',
@@ -1961,7 +1960,9 @@ test('github review runtime re-derives canonical execution-scoped handoff author
   }
 });
 
-test('github review runtime keeps the newer execution selector authoritative after an older run later attempts to reclaim scratch ownership', async () => {
+const assertGitHubReviewPublicationOrder = async (
+  publishNewerWhilePaused: boolean,
+) => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {
     await fs.mkdir(path.join(repoRoot, 'codeInfoTmp/reviews'), {
@@ -2091,7 +2092,10 @@ test('github review runtime keeps the newer execution selector authoritative aft
       },
       async ({ baseUrl, wsUrl, tmpDir }) => {
         const conversationId = 'github-review-runtime-conv';
-        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+        await subscribeConversationAndWaitReady({
+          ws: wsUrl,
+          conversationId,
+        });
 
         await fs.writeFile(
           path.join(tmpDir, 'github-review-runtime.json'),
@@ -2159,6 +2163,64 @@ test('github review runtime keeps the newer execution selector authoritative aft
           false,
         );
         await waitForRuntimeCleanup(conversationId);
+        const pausedContext = (
+          memoryConversations.get(conversationId)?.flags as {
+            flow: {
+              wait: {
+                githubReviewContext: {
+                  executionId: string;
+                  handoffPath: string;
+                  selectorPublicationSequence: number;
+                };
+              };
+            };
+          }
+        ).flow.wait.githubReviewContext;
+        assert.ok(pausedContext.selectorPublicationSequence > 0);
+        const publicationRepository: GitHubRepositoryState = {
+          workingRepositoryRoot: repoRoot,
+          repositoryHost: 'github.com',
+          repositoryOwner: 'example',
+          repositoryName: 'repo',
+          repositoryFullName: 'example/repo',
+          currentBranch: JSON.parse(latestPullPage)[0].head.ref,
+          upstreamBranch: JSON.parse(latestPullPage)[0].head.ref,
+          headSha: 'newer-head',
+          upstreamRemote: 'origin',
+          baseBranch: 'main',
+          remoteUrl: 'https://github.com/example/repo.git',
+        };
+        if (publishNewerWhilePaused) {
+          const newer = await prepareGitHubReviewScratchOwnership({
+            repository: publicationRepository,
+            executionId: 'newer-cycle',
+          });
+          assert.equal(newer.kind, 'ok');
+          assert.ok(
+            newer.value.publication_sequence! >
+              pausedContext.selectorPublicationSequence,
+          );
+          const pullRequest = {
+            number: 88,
+            url: 'https://github.com/example/repo/pull/88',
+            headRefName: publicationRepository.upstreamBranch,
+            baseRefName: 'main',
+          };
+          const published = await writeGitHubReviewScratch({
+            repository: publicationRepository,
+            executionId: 'newer-cycle',
+            pullRequest,
+            publicationSequence: newer.value.publication_sequence,
+            artifact: {
+              repository: { owner: 'example', name: 'repo' },
+              pullRequest,
+              fetchedAt: '2026-09-17T00:00:00Z',
+              reviews: [],
+              reviewComments: [],
+            },
+          });
+          assert.equal(published.kind, 'ok');
+        }
         await supertest(baseUrl)
           .post('/flows/github-review-runtime/run')
           .send({
@@ -2185,7 +2247,7 @@ test('github review runtime keeps the newer execution selector authoritative aft
         while (Date.now() - started < resolveConfiguredTestTimeoutMs(4000)) {
           try {
             const parsed = await readGitHubReviewScratch({
-              handoffPath: selectorPath,
+              handoffPath: pausedContext.handoffPath,
             });
             if (parsed.kind !== 'ok') {
               throw new Error(parsed.message);
@@ -2293,9 +2355,19 @@ test('github review runtime keeps the newer execution selector authoritative aft
         assert.equal(stillAuthoritative.kind, 'ok');
         assert.equal(
           stillAuthoritative.value.execution_id,
-          handoff.execution_id,
+          publishNewerWhilePaused ? 'newer-cycle' : handoff.execution_id,
         );
-        assert.equal(stillAuthoritative.value.pull_request.number, 45);
+        assert.equal(
+          stillAuthoritative.value.pull_request.number,
+          publishNewerWhilePaused ? 88 : 45,
+        );
+        const selector = JSON.parse(await fs.readFile(selectorPath, 'utf8'));
+        if (!publishNewerWhilePaused) {
+          assert.equal(
+            selector.publication_sequence,
+            pausedContext.selectorPublicationSequence,
+          );
+        }
 
         await cleanupConversationRuntime(conversationId);
       },
@@ -2306,7 +2378,13 @@ test('github review runtime keeps the newer execution selector authoritative aft
   } finally {
     await fs.rm(repoRoot, { recursive: true, force: true });
   }
-});
+};
+
+for (const publishNewerWhilePaused of [false, true]) {
+  test(`github review runtime preserves persisted publication order after wait (newer cycle: ${publishNewerWhilePaused})`, async () => {
+    await assertGitHubReviewPublicationOrder(publishNewerWhilePaused);
+  });
+}
 
 test('github review runtime records producer-side token loader failures as skip warnings without stopping the flow', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
@@ -2588,6 +2666,7 @@ test('github review resume keeps execution-scoped fetch and close authority even
                 githubReviewContext: {
                   executionId: 'exec-old',
                   prNumber: 77,
+                  selectorPublicationPending: true,
                   storyNumber: '0000060',
                   branchName:
                     'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',

@@ -16,6 +16,7 @@ import {
   readGitHubReviewScratch,
   resolveCanonicalGitHubReviewScratchPaths,
   writeGitHubReviewScratch,
+  type GitHubReviewArtifact,
   type GitHubCurrentReviewHandoff,
   type GitHubRepositoryState,
   type GitHubReviewScratchSelector,
@@ -171,6 +172,113 @@ test('preparing GitHub review scratch context does not publish an active selecto
     await tempRepo.cleanup();
   }
 });
+
+test('simultaneous review opens reserve distinct publication claims without publishing', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    const repository = buildRepositoryState(tempRepo.repoRoot);
+    const results = await Promise.all(
+      ['first', 'second'].map(
+        async (executionId) =>
+          await prepareGitHubReviewScratchOwnership({
+            repository,
+            executionId,
+          }),
+      ),
+    );
+    const sequences = results.map((result) => {
+      assert.equal(result.kind, 'ok');
+      return result.value.publication_sequence;
+    });
+    assert.deepEqual(sequences.sort(), [1, 2]);
+    await assert.rejects(fs.access(buildSelectorPath(tempRepo.repoRoot)), {
+      code: 'ENOENT',
+    });
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
+for (const order of [
+  ['older', 'newer'],
+  ['newer', 'older'],
+]) {
+  test(`publication claims preserve newest fetched ownership in ${order.join(' then ')} order`, async () => {
+    const tempRepo = await createTempRepo();
+    try {
+      const repository = buildRepositoryState(tempRepo.repoRoot);
+      const claims = new Map<string, number>();
+      for (const executionId of ['older', 'newer']) {
+        const prepared = await prepareGitHubReviewScratchOwnership({
+          repository,
+          executionId,
+        });
+        assert.equal(prepared.kind, 'ok');
+        assert.ok(prepared.value.publication_sequence);
+        claims.set(executionId, prepared.value.publication_sequence);
+      }
+      assert.ok(claims.get('newer')! > claims.get('older')!);
+      await assert.rejects(fs.access(buildSelectorPath(tempRepo.repoRoot)), {
+        code: 'ENOENT',
+      });
+      for (const executionId of order) {
+        const pullRequest = {
+          number: executionId === 'newer' ? 88 : 77,
+          url: `https://github.com/example/repo/pull/${executionId === 'newer' ? 88 : 77}`,
+          headRefName: repository.upstreamBranch,
+          baseRefName: 'main',
+        };
+        const artifact: GitHubReviewArtifact = {
+          repository: { owner: 'example', name: 'repo' },
+          pullRequest,
+          fetchedAt: '2026-09-17T00:00:00Z',
+          reviews: [],
+          reviewComments: [],
+        };
+        const written = await writeGitHubReviewScratch({
+          repository,
+          executionId,
+          pullRequest,
+          artifact,
+          publicationSequence: claims.get(executionId),
+          preserveForeignSelectorOwnership: true,
+        });
+        assert.equal(written.kind, 'ok');
+        const own = await readGitHubReviewScratch({
+          handoffPath: buildExecutionScopedHandoffPath(
+            tempRepo.repoRoot,
+            executionId,
+          ),
+          expectedExecutionId: executionId,
+        });
+        assert.equal(own.kind, 'ok');
+        assert.equal(own.value.pull_request.number, pullRequest.number);
+      }
+      const active = await readGitHubReviewScratch({
+        handoffPath: buildSelectorPath(tempRepo.repoRoot),
+      });
+      assert.equal(active.kind, 'ok');
+      assert.equal(active.value.execution_id, 'newer');
+      const selectorBeforeUnfetched = await fs.readFile(
+        buildSelectorPath(tempRepo.repoRoot),
+        'utf8',
+      );
+      // A subsequently opened cycle must not displace successfully fetched data.
+      const unfetched = await prepareGitHubReviewScratchOwnership({
+        repository,
+        executionId: 'unfetched',
+      });
+      assert.equal(unfetched.kind, 'ok');
+      assert.ok(unfetched.value.publication_sequence! > claims.get('newer')!);
+      assert.equal(
+        await fs.readFile(buildSelectorPath(tempRepo.repoRoot), 'utf8'),
+        selectorBeforeUnfetched,
+      );
+    } finally {
+      await tempRepo.cleanup();
+    }
+  });
+}
 
 test('failed execution-scoped scratch publish leaves the last valid selector-owned handoff authoritative', async () => {
   const tempRepo = await createTempRepo();

@@ -1318,8 +1318,10 @@ const parseFlowGitHubReviewContext = (
     value.phase === 'skipped'
       ? { phase: value.phase }
       : {}),
-    ...(value.selectorPublicationPending === true
-      ? { selectorPublicationPending: true }
+    ...(typeof value.selectorPublicationSequence === 'number' &&
+    Number.isSafeInteger(value.selectorPublicationSequence) &&
+    value.selectorPublicationSequence > 0
+      ? { selectorPublicationSequence: value.selectorPublicationSequence }
       : {}),
     ...(typeof value.retryAttempt === 'number' &&
     Number.isInteger(value.retryAttempt) &&
@@ -8530,7 +8532,8 @@ async function runFlowUnlocked(params: {
           ).selectorPath,
           handoffPath: scratchOwnershipClaim.value.handoff_path,
           phase: 'opened',
-          selectorPublicationPending: true,
+          selectorPublicationSequence:
+            scratchOwnershipClaim.value.publication_sequence,
           retryAttempt: 0,
         };
         return 'ok';
@@ -8728,8 +8731,8 @@ async function runFlowUnlocked(params: {
           preserveForeignSelectorOwnership: Boolean(
             activeGitHubReviewContext?.executionId,
           ),
-          replaceForeignSelectorOwnership:
-            activeGitHubReviewContext?.selectorPublicationPending === true,
+          publicationSequence:
+            activeGitHubReviewContext?.selectorPublicationSequence,
         });
         if (scratchWriteResult.kind !== 'ok') {
           await appendGitHubStagePlanNote(
@@ -8789,6 +8792,8 @@ async function runFlowUnlocked(params: {
           selectorPath: canonicalScratchPaths.value.selectorPath,
           handoffPath,
           phase: 'fetched',
+          selectorPublicationSequence:
+            activeGitHubReviewContext?.selectorPublicationSequence,
           retryAttempt: 0,
         };
         const materializedReviewInput =

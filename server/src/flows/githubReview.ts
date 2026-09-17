@@ -130,6 +130,7 @@ export type GitHubReviewScratchSelector = {
   repository_root: string;
   branch_name: string;
   handoff_path: string;
+  publication_sequence?: number;
 };
 
 export type GitHubReviewFeedbackEntry =
@@ -386,6 +387,10 @@ export const buildGitHubReviewScratchPaths = (
   const reviewsRoot = path.join(workingRepositoryRoot, 'codeInfoTmp/reviews');
   return {
     reviewsRoot,
+    publicationSequencePath: path.join(
+      reviewsRoot,
+      `${storyNumber}-github-review-publication-sequence.json`,
+    ),
     selectorPath: path.join(
       reviewsRoot,
       `${storyNumber}-github-review-current.json`,
@@ -1964,6 +1969,11 @@ const validateGitHubReviewScratchSelectorRecord = (params: {
       repository_root: repositoryRoot,
       branch_name: branchName,
       handoff_path: handoffPath,
+      ...(typeof params.record.publication_sequence === 'number' &&
+      Number.isSafeInteger(params.record.publication_sequence) &&
+      params.record.publication_sequence > 0
+        ? { publication_sequence: params.record.publication_sequence }
+        : {}),
     },
   };
 };
@@ -2408,20 +2418,62 @@ export const prepareGitHubReviewScratchOwnership = async (params: {
     params.repository.workingRepositoryRoot,
     planContext.value.storyNumber,
   );
-  return {
-    kind: 'ok',
-    value: {
-      selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
-      execution_id: params.executionId,
-      plan_path: planContext.value.planPath,
-      story_number: planContext.value.storyNumber,
-      repository_root: params.repository.workingRepositoryRoot,
-      branch_name: params.repository.upstreamBranch,
-      handoff_path: scratchPaths.buildExecutionScopedHandoffPath(
-        params.executionId,
-      ),
-    },
-  };
+  try {
+    // Reserve ordering without changing the last successfully fetched selector.
+    const publicationSequence = await withExclusiveFileLock({
+      targetPath: scratchPaths.selectorPath,
+      action: async () => {
+        let previous = 0;
+        try {
+          previous = JSON.parse(
+            await githubReviewDeps.readFile(
+              scratchPaths.publicationSequencePath,
+              'utf8',
+            ),
+          ) as number;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') throw error;
+        }
+        if (
+          !Number.isSafeInteger(previous) ||
+          previous < 0 ||
+          !Number.isSafeInteger(previous + 1)
+        ) {
+          throw new Error('GitHub review publication sequence is invalid.');
+        }
+        const next = previous + 1;
+        await writeJsonAtomically({
+          targetPath: scratchPaths.publicationSequencePath,
+          value: next,
+        });
+        return next;
+      },
+    });
+    return {
+      kind: 'ok',
+      value: {
+        selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
+        execution_id: params.executionId,
+        plan_path: planContext.value.planPath,
+        story_number: planContext.value.storyNumber,
+        repository_root: params.repository.workingRepositoryRoot,
+        branch_name: params.repository.upstreamBranch,
+        handoff_path: scratchPaths.buildExecutionScopedHandoffPath(
+          params.executionId,
+        ),
+        publication_sequence: publicationSequence,
+      },
+    };
+  } catch (error) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'GitHub review publication sequence could not be reserved.',
+    };
+  }
 };
 
 export const writeGitHubReviewScratch = async (params: {
@@ -2430,7 +2482,7 @@ export const writeGitHubReviewScratch = async (params: {
   pullRequest: GitHubPullRequestIdentity;
   artifact: GitHubReviewArtifact;
   preserveForeignSelectorOwnership?: boolean;
-  replaceForeignSelectorOwnership?: boolean;
+  publicationSequence?: number;
 }): Promise<GitHubStepOutcome<GitHubCurrentReviewHandoff>> => {
   const planContext = await readCurrentPlanContext(
     params.repository.workingRepositoryRoot,
@@ -2482,7 +2534,11 @@ export const writeGitHubReviewScratch = async (params: {
             validatedSelector.kind === 'ok' &&
             validatedSelector.value.execution_id !== params.executionId
           ) {
-            if (!params.replaceForeignSelectorOwnership) {
+            const mayReplace =
+              params.publicationSequence !== undefined &&
+              params.publicationSequence >
+                (validatedSelector.value.publication_sequence ?? 0);
+            if (!mayReplace) {
               if (params.preserveForeignSelectorOwnership) {
                 return 'preserved';
               }
@@ -2502,6 +2558,9 @@ export const writeGitHubReviewScratch = async (params: {
             repository_root: params.repository.workingRepositoryRoot,
             branch_name: params.repository.upstreamBranch,
             handoff_path: handoffPath,
+            ...(params.publicationSequence !== undefined
+              ? { publication_sequence: params.publicationSequence }
+              : {}),
           } satisfies GitHubReviewScratchSelector,
         });
         return 'published';

@@ -7652,7 +7652,7 @@ Negative scope and positive authorization were applicable and completed. The com
 
 ### Task 65. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260916T043000Z-fe063675
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Task Role: final_revalidation
 - Repository Name: Current Repository
 - Task Dependencies: Task 64 and all earlier Story 60 work
@@ -7797,6 +7797,7 @@ Optional, checkbox-free manual proof may use only the supported main Compose sta
 - Automated proof: `npm run lint` passed with exit code 0 and no warnings; no story-caused lint repair was needed.
 
 - Automated proof: `npm run format:check` passed; all matched tracked files use Prettier code style and no formatting repair was needed.
+- Final implementation-and-automated-proof audit: commit `ff9102bda` restores the affected browser files to their pre-Task-65 focus-handoff contract, while `e0ba2c14a7aec81c65b03a1c26bd4f9aa1b104bd` records all twelve current-HEAD automated gates complete. The client build (with only the existing chunk advisory), Compose build/lifecycle, full parallel and stress suites, shell, JavaScript-helper, Python-helper, lint, and formatting proof all passed. All eight subtasks and twelve Testing items are checked, and the canonical parser reports no live blocker. The optional manual guidance remains checkbox-free and non-blocking, so Task 65 is `__done__`.
 
 ### Task 66. Escalate Repeated Accepted Review Findings With Repair History
 

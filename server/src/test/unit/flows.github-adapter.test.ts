@@ -1105,6 +1105,90 @@ test('resumed GitHub review reconciliation warns only when an expected materiali
   }
 });
 
+test('resumed GitHub review reconciliation rejects pull requests for another base branch', async () => {
+  const tempRepo = await createTempRepo();
+  try {
+    __setGitHubReviewDepsForTests({
+      runCommand: async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          number: 44,
+          state: 'open',
+          html_url: 'https://github.com/example/repo/pull/44',
+          head: {
+            ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          },
+          base: { ref: 'release' },
+        }),
+        stderr: '',
+      }),
+    });
+    const missingHandoff = await reconcileResumedGitHubReviewPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      executionId: 'missing-base',
+      handoffPath: path.join(
+        tempRepo.repoRoot,
+        'codeInfoTmp/reviews/0000060-github-review-missing-base.json',
+      ),
+      resumedPullRequestNumber: 44,
+    });
+    assert.equal(missingHandoff.kind, 'error');
+    assert.equal(missingHandoff.reason, 'SCRATCH_INVALID');
+    assert.match(missingHandoff.message, /base branch main/i);
+
+    const reviewsDir = path.join(tempRepo.repoRoot, 'codeInfoTmp/reviews');
+    await fs.mkdir(reviewsDir, { recursive: true });
+    const handoffPath = path.join(
+      reviewsDir,
+      '0000060-github-review-persisted-base-current.json',
+    );
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify({
+        handoff_kind: 'github-review-handoff-v1',
+        execution_id: 'persisted-base',
+        plan_path:
+          'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+        story_number: '0000060',
+        repository_root: tempRepo.repoRoot,
+        branch_name:
+          'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+        head_sha: 'abc123',
+        raw_review_artifact_path: path.join(
+          reviewsDir,
+          '0000060-github-review-persisted-base-pr-44.json',
+        ),
+        pull_request: {
+          number: 44,
+          url: 'https://github.com/example/repo/pull/44',
+          headRefName:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          baseRefName: 'release',
+        },
+      }),
+      'utf8',
+    );
+    __setGitHubReviewDepsForTests({
+      runCommand: async () => {
+        throw new Error('persisted handoff must not query GitHub');
+      },
+    });
+    const persistedHandoff = await reconcileResumedGitHubReviewPullRequest({
+      repository: baseRepositoryState(tempRepo.repoRoot),
+      token: 'secret',
+      executionId: 'persisted-base',
+      handoffPath,
+      resumedPullRequestNumber: 44,
+    });
+    assert.equal(persistedHandoff.kind, 'error');
+    assert.equal(persistedHandoff.reason, 'SCRATCH_INVALID');
+    assert.match(persistedHandoff.message, /repository root or upstream branch/i);
+  } finally {
+    await tempRepo.cleanup();
+  }
+});
+
 test('resumed GitHub review reconciliation rejects a manually closed pull request', async () => {
   const tempRepo = await createTempRepo();
   try {
@@ -1307,7 +1391,7 @@ test('latest-open lookup canonicalizes a selected PR whose list response has no 
               number: 145,
               html_url: 'https://github.com/example/repo/pull/145',
               state: 'open',
-              head: { ref: 'feature/0000060-demo' },
+              head: { ref: 'feature/0000060-demo', sha: 'abc123' },
               base: { ref: 'main' },
               user: { login: 'pull-request-author' },
             }),
@@ -1345,6 +1429,7 @@ test('latest-open lookup canonicalizes a selected PR whose list response has no 
         number: 145,
         url: 'https://github.com/example/repo/pull/145',
         headRefName: 'feature/0000060-demo',
+        headSha: 'abc123',
         baseRefName: 'main',
         authorLogin: 'pull-request-author',
       },

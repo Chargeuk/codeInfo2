@@ -59,6 +59,7 @@ export type GitHubPullRequestIdentity = {
   number: number;
   url: string;
   headRefName: string;
+  headSha?: string;
   baseRefName: string;
   authorLogin?: string;
   createdAt?: string;
@@ -1110,6 +1111,12 @@ const normalizePullRequestIdentity = (
         typeof record.base === 'object' &&
         normalizeTrimmedString((record.base as Record<string, unknown>).ref)),
   );
+  const headSha = normalizeTrimmedString(
+    record.headSha ??
+      (record.head &&
+        typeof record.head === 'object' &&
+        normalizeTrimmedString((record.head as Record<string, unknown>).sha)),
+  );
   if (
     typeof number !== 'number' ||
     !Number.isFinite(number) ||
@@ -1133,6 +1140,7 @@ const normalizePullRequestIdentity = (
     url,
     headRefName,
     baseRefName,
+    ...(headSha ? { headSha } : {}),
     ...(authorLogin ? { authorLogin } : {}),
     ...(createdAt ? { createdAt } : {}),
     ...(title ? { title } : {}),
@@ -2669,12 +2677,14 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
     }
     if (
       resumedPullRequest.value.headRefName.trim() !==
-      params.repository.upstreamBranch.trim()
+        params.repository.upstreamBranch.trim() ||
+      resumedPullRequest.value.baseRefName.trim() !==
+        params.repository.baseBranch.trim()
     ) {
       return {
         kind: 'error',
         reason: 'SCRATCH_INVALID',
-        message: `Resumed pull request #${String(params.resumedPullRequestNumber)} targets head branch ${resumedPullRequest.value.headRefName}, which does not match the execution upstream branch ${params.repository.upstreamBranch}.`,
+        message: `Resumed pull request #${String(params.resumedPullRequestNumber)} does not match the execution upstream branch ${params.repository.upstreamBranch} and base branch ${params.repository.baseBranch}.`,
         warnings: missingHandoffWarnings,
       };
     }
@@ -2703,7 +2713,8 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
     persistedHandoff.value.branch_name.trim() !==
       params.repository.upstreamBranch.trim() ||
     expectedPullRequest.headRefName.trim() !==
-      params.repository.upstreamBranch.trim()
+      params.repository.upstreamBranch.trim() ||
+    expectedPullRequest.baseRefName.trim() !== params.repository.baseBranch.trim()
   ) {
     return {
       kind: 'error',

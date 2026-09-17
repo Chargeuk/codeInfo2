@@ -8369,6 +8369,74 @@ async function runFlowUnlocked(params: {
         }
         let pullRequest = latestOpenPullRequest.value;
         const reusingOpenPullRequest = Boolean(pullRequest);
+        if (
+          pullRequest &&
+          pullRequest.baseRefName.trim() !==
+            context.value.repository.baseBranch.trim()
+        ) {
+          const warningMessage = `GitHub review stage skipped during PR open: existing pull request #${String(pullRequest.number)} targets base branch ${pullRequest.baseRefName}, which does not match the repository base branch ${context.value.repository.baseBranch}.`;
+          await appendGitHubStagePlanNote(warningMessage);
+          await emitGitHubStepWarning({
+            instruction: 'GitHub open PR step',
+            message: warningMessage,
+          });
+          markGitHubReviewCycleSkipped(warningMessage);
+          return 'ok';
+        }
+        if (
+          pullRequest &&
+          pullRequest.headSha !== context.value.repository.headSha
+        ) {
+          const pushResult = await pushBranchToExistingUpstream({
+            repository: context.value.repository,
+            signal,
+          });
+          if (pushResult.kind !== 'ok') {
+            const warningMessage = `GitHub review stage skipped during PR open: ${pushResult.message}`;
+            await appendGitHubStagePlanNote(warningMessage);
+            await emitGitHubStepWarning({
+              instruction: 'GitHub open PR step',
+              message: warningMessage,
+            });
+            markGitHubReviewCycleSkipped(warningMessage);
+            return 'ok';
+          }
+          const refreshedPullRequest = await lookupLatestOpenPullRequest({
+            repository: context.value.repository,
+            token: context.value.token,
+            signal,
+          });
+          if (refreshedPullRequest.kind !== 'ok' || !refreshedPullRequest.value) {
+            const detail =
+              refreshedPullRequest.kind === 'ok'
+                ? 'no latest open pull request was found after publishing the current branch.'
+                : refreshedPullRequest.message;
+            const warningMessage = `GitHub review stage skipped during PR open after publishing the current branch: ${detail}`;
+            await appendGitHubStagePlanNote(warningMessage);
+            await emitGitHubStepWarning({
+              instruction: 'GitHub open PR step',
+              message: warningMessage,
+            });
+            markGitHubReviewCycleSkipped(warningMessage);
+            return 'ok';
+          }
+          if (
+            refreshedPullRequest.value.baseRefName.trim() !==
+              context.value.repository.baseBranch.trim() ||
+            refreshedPullRequest.value.headSha !==
+              context.value.repository.headSha
+          ) {
+            const warningMessage = `GitHub review stage skipped during PR open because the canonical pull request does not match the current branch revision and base branch.`;
+            await appendGitHubStagePlanNote(warningMessage);
+            await emitGitHubStepWarning({
+              instruction: 'GitHub open PR step',
+              message: warningMessage,
+            });
+            markGitHubReviewCycleSkipped(warningMessage);
+            return 'ok';
+          }
+          pullRequest = refreshedPullRequest.value;
+        }
         if (!pullRequest) {
           const pushResult = await pushBranchToExistingUpstream({
             repository: context.value.repository,

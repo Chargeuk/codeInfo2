@@ -2744,8 +2744,14 @@ for (const failure of ['lookup-failed', 'author-missing'] as const) {
   });
 }
 
-for (const lookupOutcome of ['existing', 'missing', 'failed'] as const) {
-  test(`github review open PR handles ${lookupOutcome} lookup before a failing push`, async () => {
+for (const lookupOutcome of [
+  'existing',
+  'stale',
+  'wrong-base',
+  'missing',
+  'failed',
+] as const) {
+  test(`github review open PR handles ${lookupOutcome} lookup and publication state`, async () => {
     const tempFlowsDir = await fs.mkdtemp(
       path.join(os.tmpdir(), 'github-open-pr-existing-flow-'),
     );
@@ -2762,6 +2768,7 @@ for (const lookupOutcome of ['existing', 'missing', 'failed'] as const) {
         'utf8',
       );
       let createAttempts = 0;
+      let openPullLookupCount = 0;
       const operations: string[] = [];
       __setGitHubReviewDepsForTests({
         readFile: async (filePath, encoding) =>
@@ -2800,6 +2807,9 @@ for (const lookupOutcome of ['existing', 'missing', 'failed'] as const) {
               'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
             ) {
               operations.push('push');
+              if (lookupOutcome === 'stale') {
+                return { exitCode: 0, stdout: '', stderr: '' };
+              }
               return {
                 exitCode: 1,
                 stdout: '',
@@ -2819,6 +2829,7 @@ for (const lookupOutcome of ['existing', 'missing', 'failed'] as const) {
             }
             if (endpoint.includes('pulls?state=open')) {
               operations.push('lookup');
+              openPullLookupCount += 1;
               if (lookupOutcome === 'failed') {
                 return {
                   exitCode: 1,
@@ -2840,8 +2851,14 @@ for (const lookupOutcome of ['existing', 'missing', 'failed'] as const) {
                     created_at: '2026-08-03T12:00:00.000Z',
                     head: {
                       ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                      sha:
+                        lookupOutcome === 'stale' && openPullLookupCount === 1
+                          ? 'stale-head'
+                          : 'abc123',
                     },
-                    base: { ref: 'main' },
+                    base: {
+                      ref: lookupOutcome === 'wrong-base' ? 'release' : 'main',
+                    },
                     user: { login: 'reviewer' },
                   },
                 ]),
@@ -2858,8 +2875,14 @@ for (const lookupOutcome of ['existing', 'missing', 'failed'] as const) {
                   created_at: '2026-08-03T12:00:00.000Z',
                   head: {
                     ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                    sha:
+                      lookupOutcome === 'stale' && openPullLookupCount === 1
+                        ? 'stale-head'
+                        : 'abc123',
                   },
-                  base: { ref: 'main' },
+                  base: {
+                    ref: lookupOutcome === 'wrong-base' ? 'release' : 'main',
+                  },
                   user: { login: 'reviewer' },
                 }),
                 stderr: '',
@@ -2900,9 +2923,13 @@ for (const lookupOutcome of ['existing', 'missing', 'failed'] as const) {
         | undefined;
       assert.deepEqual(
         operations,
-        lookupOutcome === 'missing' ? ['lookup', 'push'] : ['lookup'],
+        lookupOutcome === 'stale'
+          ? ['lookup', 'push', 'lookup']
+          : lookupOutcome === 'missing'
+            ? ['lookup', 'push']
+            : ['lookup'],
       );
-      if (lookupOutcome === 'existing') {
+      if (lookupOutcome === 'existing' || lookupOutcome === 'stale') {
         assert.equal(flowState?.githubReviewContext?.prNumber, 207);
         assert.equal(flowState?.githubReviewContext?.phase, 'opened');
         assert.equal((await getFlowRunStatus(conversationId))?.status, 'ok');
@@ -2923,14 +2950,16 @@ for (const lookupOutcome of ['existing', 'missing', 'failed'] as const) {
           planRaw,
           lookupOutcome === 'missing'
             ? /could not be pushed to its existing upstream remote/
-            : /lookup unavailable/,
+            : lookupOutcome === 'wrong-base'
+              ? /targets base branch release/
+              : /lookup unavailable/,
         );
       }
       assert.equal(
         [...(memoryTurns.get(conversationId) ?? [])].some(
           (turn) => turn.role === 'assistant' && turn.status === 'warning',
         ),
-        lookupOutcome !== 'existing',
+        lookupOutcome !== 'existing' && lookupOutcome !== 'stale',
       );
     } finally {
       await fs.rm(tempFlowsDir, { recursive: true, force: true });

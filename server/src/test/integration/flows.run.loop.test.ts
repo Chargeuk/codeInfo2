@@ -1997,6 +1997,7 @@ const assertGitHubReviewPublicationOrder = async (
         created_at: '2026-06-24T10:00:00Z',
         head: {
           ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          sha: 'deadbeef',
         },
         base: { ref: 'main' },
         user: { login: 'review-bot' },
@@ -2066,6 +2067,7 @@ const assertGitHubReviewPublicationOrder = async (
               state: 'open',
               head: {
                 ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                sha: 'deadbeef',
               },
               base: { ref: 'main' },
               user: { login: 'review-bot' },

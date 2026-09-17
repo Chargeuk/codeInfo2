@@ -8893,18 +8893,18 @@ Final-task repair scope: this task owns whole-story validation. If lint, formatt
 
 Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
 
-1. [ ] `npm run build:summary:client` — validate the client TypeScript and production build at the final repair HEAD.
-2. [ ] `npm run build:summary:server` — validate the server workspace at the final repair HEAD.
-3. [ ] `npm run compose:build:summary` — validate the supported main Compose images.
-4. [ ] `npm run compose:up` — start the supported main Compose stack for the normal runtime smoke boundary.
-5. [ ] `npm run test:summary:all:parallel` — run the full client, server unit/integration, Cucumber, and E2E suites; this is the task-owned whole-story regression boundary.
-6. [ ] `npm run test:summary:all:stress` — rerun that full suite under increased server-unit concurrency to cover the changed wait, selector-publication, registry, and lifecycle coordination paths.
-7. [ ] `npm run test:summary:shell` — run the repository-supported shell and Compose-wrapper suite.
-8. [ ] `node --test scripts/*.test.mjs` — run the standalone JavaScript workflow-helper and wrapper suite.
-9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — run the standalone Python workflow-helper suite.
-10. [ ] `npm run compose:down` — stop the main stack started by this task after automated proof completes.
-11. [ ] `npm run lint` — rerun the supported lint command after runtime and suite proof.
-12. [ ] `npm run format:check` — rerun the supported formatting check after lint.
+1. [x] `npm run build:summary:client` — validate the client TypeScript and production build at the final repair HEAD.
+2. [x] `npm run build:summary:server` — validate the server workspace at the final repair HEAD.
+3. [x] `npm run compose:build:summary` — validate the supported main Compose images.
+4. [x] `npm run compose:up` — start the supported main Compose stack for the normal runtime smoke boundary.
+5. [x] `npm run test:summary:all:parallel` — run the full client, server unit/integration, Cucumber, and E2E suites; this is the task-owned whole-story regression boundary.
+6. [x] `npm run test:summary:all:stress` — rerun that full suite under increased server-unit concurrency to cover the changed wait, selector-publication, registry, and lifecycle coordination paths.
+7. [x] `npm run test:summary:shell` — run the repository-supported shell and Compose-wrapper suite.
+8. [x] `node --test scripts/*.test.mjs` — run the standalone JavaScript workflow-helper and wrapper suite.
+9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — run the standalone Python workflow-helper suite.
+10. [x] `npm run compose:down` — stop the main stack started by this task after automated proof completes.
+11. [x] `npm run lint` — rerun the supported lint command after runtime and suite proof.
+12. [x] `npm run format:check` — rerun the supported formatting check after lint.
 
 #### Manual Testing Guidance
 
@@ -8920,3 +8920,16 @@ Optional and non-blocking: after automated proof, use the normal main Compose st
 - Settlement created this sole final owner after reconciling all six immutable batches. Every batch is fix-bearing through normal or repeated-research commits and has exactly one matching completed-review-fixes task, Tasks 68–73.
 - No materiality-surviving actionable finding remains. The batch 2 R3 repeated-research result is an authority conflict with an earlier gate removal; it is preserved as ignored evidence with its historical references, exhausted approach, and protected warning semantics, not tasked or retried.
 - This task starts with no test result. Earlier focused/stress proof is historical evidence only; all final automated proof must run at the final HEAD. Manual proof is optional guidance and never a completion gate.
+- Task 74 testing step 1 completed: `npm run build:summary:client` passed the client typecheck and production build; the wrapper reported one existing chunk-size warning only.
+- Task 74 testing step 2 completed: `npm run build:summary:server` passed with no warnings.
+- Task 74 testing step 3 completed: `npm run compose:build:summary` passed with both supported main Compose images built successfully.
+- Task 74 testing step 4 completed: `npm run compose:up` started the supported main Compose stack; the server reached healthy status before the client started.
+- Task 74 testing step 5 first attempt exposed two server-unit failures in the persisted-publication-order test: its mocked GitHub PR omitted `head.sha`, so runtime validation correctly skipped the PR. Added the expected `deadbeef` head SHA to both fixture response shapes; the targeted regression rerun passed 2/2, so the full-suite proof is being rerun.
+- Task 74 testing step 5 completed: after the fixture repair, `npm run test:summary:all:parallel` passed client (912), server unit (2888), Cucumber (138), and E2E (78) tests; its temporary Cucumber and E2E infrastructure shut down cleanly.
+- Task 74 testing step 6 completed: `npm run test:summary:all:stress` passed client (912), server unit (2888), Cucumber (138), and E2E (78) tests with server-unit concurrency 12; temporary infrastructure shut down cleanly.
+- Task 74 testing step 7 completed: `npm run test:summary:shell` passed all 25 shell and Compose-wrapper tests.
+- Task 74 testing step 8 completed: `node --test scripts/*.test.mjs` passed all 48 standalone JavaScript workflow-helper and wrapper tests.
+- Task 74 testing step 9 completed: `python3 -m unittest discover -s scripts/test -p 'test_*.py'` passed all 252 Python workflow-helper tests.
+- Task 74 testing step 10 completed: `npm run compose:down` stopped and removed the main Compose stack and network started for automated proof.
+- Task 74 testing step 11 completed: `npm run lint` passed with zero warnings.
+- Task 74 testing step 12 completed: `npm run format:check` passed; all matched files use Prettier code style.

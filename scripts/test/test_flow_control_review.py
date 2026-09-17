@@ -55,6 +55,7 @@ class FlowControlReviewTests(unittest.TestCase):
         *,
         plan_text: str,
         commit: bool = True,
+        initialize_git: bool = True,
     ) -> Path:
         plan_path = Path("planning/0000001-review-decisions.md")
         resolved_plan = repo / plan_path
@@ -64,6 +65,9 @@ class FlowControlReviewTests(unittest.TestCase):
         (flow_state / "current-plan.json").write_text(
             json.dumps({"plan_path": str(plan_path)}, indent=2)
         )
+
+        if not initialize_git:
+            return resolved_plan
 
         subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
         subprocess.run(
@@ -646,7 +650,7 @@ class FlowControlReviewTests(unittest.TestCase):
             outcome.details["block_reason"], "accepted_issue_detail_missing"
         )
 
-    def test_minor_fix_path_exits_when_current_pass_block_is_uncommitted(self) -> None:
+    def test_minor_fix_path_continues_when_current_pass_block_is_uncommitted(self) -> None:
         repo = self.make_repo(
             review_state={
                 "needs_minor_fix_path": True,
@@ -662,11 +666,8 @@ class FlowControlReviewTests(unittest.TestCase):
 
         outcome = self.run_in_repo(repo, review.check_review_minor_fix_path_clear)
 
-        self.assertEqual(outcome.answer, "yes")
-        self.assertEqual(
-            outcome.details["block_reason"],
-            "structured_review_block_not_committed",
-        )
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "minor_fix_path_still_needed")
 
     def test_review_decisions_retry_when_recording_outcome_is_missing(self) -> None:
         repo = self.make_repo(
@@ -1109,7 +1110,7 @@ class FlowControlReviewTests(unittest.TestCase):
             outcome.reason_code, "accepted_review_finding_ids_not_unique"
         )
 
-    def test_review_decisions_retry_for_uncommitted_block(self) -> None:
+    def test_review_decisions_continue_for_uncommitted_block(self) -> None:
         repo = self.make_repo(
             review_state={
                 "review_pass_id": self.REVIEW_PASS_ID,
@@ -1135,11 +1136,63 @@ class FlowControlReviewTests(unittest.TestCase):
 
         outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
 
-        self.assertEqual(outcome.answer, "yes")
-        self.assertEqual(
-            outcome.details["block_reason"],
-            "structured_review_block_not_committed",
-        )
+        self.assertEqual(outcome.answer, "no")
+        self.assertEqual(outcome.reason_code, "review_decisions_ready")
+
+    def test_recorded_decisions_and_minor_fixes_ignore_commit_failures_and_metadata(self) -> None:
+        for case in ("no_git", "failed_commit", "null_sha", "missing_sha", "stale_sha"):
+            with self.subTest(case=case):
+                repo = self.make_repo(
+                    review_state={
+                        "review_pass_id": self.REVIEW_PASS_ID,
+                        "review_cycle_id": self.REVIEW_CYCLE_ID,
+                        "needs_minor_fix_path": True,
+                        "unresolved_minor_batchable_findings": [{"id": "finding-1"}],
+                        "unresolved_task_required_findings": [],
+                        "rejected_or_non_actionable_findings": [],
+                    }
+                )
+                plan = self.write_plan_handoff(
+                    repo,
+                    plan_text=self.structured_review_block(),
+                    commit=False,
+                    initialize_git=case != "no_git",
+                )
+                recording = {
+                    "review_pass_id": self.REVIEW_PASS_ID,
+                    "outcome": "recorded",
+                    "accepted_count": 1,
+                    "ignored_count": 0,
+                    "plan_commit_sha": None,
+                }
+                if case == "missing_sha":
+                    del recording["plan_commit_sha"]
+                elif case == "stale_sha":
+                    recording["plan_commit_sha"] = self.plan_commit_sha(repo)
+                    subprocess.run(
+                        ["git", "commit", "--only", "-qm", "Unrelated plan edit", str(plan)],
+                        cwd=repo,
+                        check=True,
+                    )
+                    self.assertNotEqual(recording["plan_commit_sha"], self.plan_commit_sha(repo))
+                elif case == "failed_commit":
+                    hook = repo / ".git/hooks/pre-commit"
+                    hook.write_text("#!/bin/sh\nexit 1\n")
+                    hook.chmod(0o755)
+                    result = subprocess.run(
+                        ["git", "commit", "--only", "-qm", "Record decisions", str(plan)],
+                        cwd=repo,
+                        capture_output=True,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                self.update_review_state(repo, review_decision_recording=recording)
+
+                outcome = self.run_in_repo(repo, review.check_review_decisions_need_retry)
+                self.assertEqual(outcome.answer, "no")
+                self.assertEqual(outcome.reason_code, "review_decisions_ready")
+                outcome = self.run_in_repo(repo, review.check_review_minor_fix_path_clear)
+                self.assertEqual(outcome.answer, "no")
+                self.assertEqual(outcome.reason_code, "minor_fix_path_still_needed")
 
     def test_after_sync_uses_current_review_state_and_keeps_minor_result_as_context(self) -> None:
         repo = self.make_repo(

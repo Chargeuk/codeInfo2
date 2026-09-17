@@ -33,7 +33,7 @@ test('flow decision scripts are restricted to the flow_control helper directory'
         codeInfoRoot,
         'scripts/flow_control/check_complete.py',
       ),
-      allowedScript,
+      fs.realpathSync(allowedScript),
     );
     assert.throws(
       () => resolveFlowDecisionScriptPath(codeInfoRoot, '../outside.py'),
@@ -96,7 +96,7 @@ test('bundled flow decision scripts execute without Git metadata and return trim
     assert.deepEqual(calls, [
       {
         file: 'python3',
-        args: [scriptPath],
+        args: [fs.realpathSync(scriptPath)],
         cwd: '/repo',
         timeout: 1_000,
         killSignal: 'SIGKILL',
@@ -107,7 +107,7 @@ test('bundled flow decision scripts execute without Git metadata and return trim
   }
 });
 
-test('checked-in repository entrypoint contract', async () => {
+test('decision scripts execute without Git metadata and accept untracked in-root targets', async () => {
   const scriptRepositoryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'flow-script-repository-'),
   );
@@ -123,7 +123,7 @@ test('checked-in repository entrypoint contract', async () => {
     fs.mkdirSync(flowControlRoot, { recursive: true });
     const scriptPath = path.join(flowControlRoot, 'check_working_folder.py');
     fs.writeFileSync(scriptPath, 'import os\nprint(os.getcwd())\n');
-    initializeRepository(scriptRepositoryRoot, scriptPath);
+    assert.equal(fs.existsSync(path.join(scriptRepositoryRoot, '.git')), false);
     const result = await executeFlowDecisionScript({
       workingFolder,
       scriptRepositoryRoot,
@@ -136,6 +136,7 @@ test('checked-in repository entrypoint contract', async () => {
       stdout: fs.realpathSync(workingFolder),
     });
 
+    initializeRepository(scriptRepositoryRoot, scriptPath);
     const untrackedScriptPath = path.join(
       flowControlRoot,
       'check_untracked.py',
@@ -148,9 +149,8 @@ test('checked-in repository entrypoint contract', async () => {
       timeoutMs: 5_000,
     });
     assert.deepEqual(untrackedResult, {
-      ok: false,
-      reason:
-        'Script file must be checked in: scripts/flow_control/check_untracked.py',
+      ok: true,
+      stdout: 'yes',
     });
 
     const symlinkPath = path.join(flowControlRoot, 'check_symlink.py');
@@ -162,9 +162,8 @@ test('checked-in repository entrypoint contract', async () => {
       timeoutMs: 5_000,
     });
     assert.deepEqual(symlinkResult, {
-      ok: false,
-      reason:
-        'Script file must be checked in: scripts/flow_control/check_symlink.py',
+      ok: true,
+      stdout: 'yes',
     });
   } finally {
     fs.rmSync(scriptRepositoryRoot, { recursive: true, force: true });
@@ -172,47 +171,25 @@ test('checked-in repository entrypoint contract', async () => {
   }
 });
 
-test('checked-in script preflight uses the runtime decision timeout', async () => {
-  const scriptRepositoryRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'flow-script-repository-'),
-  );
+test('repository-relative decisions execute from a working folder without Git metadata', async () => {
   const workingFolder = fs.mkdtempSync(
     path.join(os.tmpdir(), 'flow-working-repository-'),
   );
   try {
-    const flowControlRoot = path.join(
-      scriptRepositoryRoot,
-      'scripts',
-      'flow_control',
-    );
-    fs.mkdirSync(flowControlRoot, { recursive: true });
     fs.writeFileSync(
-      path.join(flowControlRoot, 'check_complete.py'),
-      'print("yes")\n',
+      path.join(workingFolder, 'decision.py'),
+      'import os\nprint(os.getcwd())\n',
     );
-    const preflightCalls: Array<{
-      timeout: number | undefined;
-      killSignal: 'SIGKILL' | undefined;
-    }> = [];
-
     const result = await executeFlowDecisionScript({
       workingFolder,
-      scriptRepositoryRoot,
-      decisionScript: 'scripts/flow_control/check_complete.py',
-      timeoutMs: 25,
-      execFile: async (_file, _args, options) => {
-        preflightCalls.push({
-          timeout: options.timeout,
-          killSignal: options.killSignal,
-        });
-        return { stdout: '', stderr: '' };
-      },
+      decisionScript: 'decision.py',
+      timeoutMs: 5_000,
     });
-
-    assert.deepEqual(result, { ok: true, stdout: 'yes' });
-    assert.deepEqual(preflightCalls, [{ timeout: 25, killSignal: 'SIGKILL' }]);
+    assert.deepEqual(result, {
+      ok: true,
+      stdout: fs.realpathSync(workingFolder),
+    });
   } finally {
-    fs.rmSync(scriptRepositoryRoot, { recursive: true, force: true });
     fs.rmSync(workingFolder, { recursive: true, force: true });
   }
 });

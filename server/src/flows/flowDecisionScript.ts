@@ -106,7 +106,6 @@ export const executeFlowDecisionScript = async (params: {
   decisionScript: string;
   timeoutMs: number;
   env?: NodeJS.ProcessEnv;
-  execFile?: ExecFile;
   signal?: AbortSignal;
 }): Promise<FlowDecisionScriptExecutionResult> => {
   let workingFolder: string;
@@ -157,34 +156,6 @@ export const executeFlowDecisionScript = async (params: {
   }
   if (!fileContent.trim()) {
     return { ok: false, reason: `Script file is empty: ${scriptPath}` };
-  }
-
-  const relativeScriptPath = path.relative(repositoryRoot, scriptPath);
-  try {
-    await (params.execFile ?? execFile)(
-      'git',
-      [
-        '-C',
-        repositoryRoot,
-        'ls-files',
-        '--error-unmatch',
-        '--',
-        relativeScriptPath,
-      ],
-      {
-        cwd: repositoryRoot,
-        env: process.env,
-        encoding: 'utf8',
-        maxBuffer: 1024 * 1024,
-        timeout: params.timeoutMs,
-        killSignal: 'SIGKILL',
-      },
-    );
-  } catch {
-    return {
-      ok: false,
-      reason: `Script file must be checked in: ${params.decisionScript}`,
-    };
   }
 
   if (params.signal?.aborted) {

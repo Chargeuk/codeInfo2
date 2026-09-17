@@ -2,6 +2,8 @@
 
 Use this contract whenever an agent creates, repairs, verifies, or consumes a durable `## Code Review Findings` block in a story plan.
 
+A complete findings block saved in the canonical plan is ready for downstream work even when it is uncommitted. Any commit attempt is best effort: failure or missing commit metadata must not stop, restart, reroute, or block the flow. Validate the saved content and review identity independently of Git status or history.
+
 The plan record is a human-readable projection of flexible self-describing review evidence. Interpret source artifacts by meaning and make a best effort to repair understandable omissions. Do not require immutable reviewer output, reconciliation, scope, disposition, or repair artifacts to match one rigid schema.
 
 ## Section Identity And Timestamp

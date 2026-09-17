@@ -3048,7 +3048,7 @@ test('shared decision seam fails hard for missing script file', async () => {
   );
 });
 
-test('shared decision seam rejects an untracked in-root script entrypoint', async () => {
+test('shared decision seam executes an untracked in-root script entrypoint', async () => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
       await fs.writeFile(
@@ -3072,6 +3072,15 @@ test('shared decision seam rejects an untracked in-root script entrypoint', asyn
 
       const conversationId = randomUUID();
       await subscribeConversation(ws, conversationId);
+      const completion = waitForTestCondition(
+        () => {
+          const flow = memoryConversations.get(conversationId)?.flags?.flow as
+            | { runLifecycle?: { status?: string } }
+            | undefined;
+          return flow?.runLifecycle?.status === 'ok';
+        },
+        { description: 'untracked decision script flow completion' },
+      );
       const result = await supertest(baseUrl)
         .post('/flows/untracked-script-flow/run')
         .send({
@@ -3081,19 +3090,13 @@ test('shared decision seam rejects an untracked in-root script entrypoint', asyn
         });
       assert.equal(result.status, 202);
 
-      const final = await waitForFlowFinal({
-        ws,
-        conversationId,
-        status: 'failed',
-      });
-      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-      assert.match(final.error?.message ?? '', /must be checked in/);
+      await completion;
     },
     { registerTmpDirAsRepo: true },
   );
 });
 
-test('shared decision seam rejects an in-root symlink to an untracked target', async (t) => {
+test('shared decision seam executes an in-root symlink to an untracked target', async (t) => {
   await withFlowHarness(
     async ({ tmpDir, ws, baseUrl }) => {
       const targetPath = path.join(
@@ -3138,6 +3141,15 @@ test('shared decision seam rejects an in-root symlink to an untracked target', a
 
       const conversationId = randomUUID();
       await subscribeConversation(ws, conversationId);
+      const completion = waitForTestCondition(
+        () => {
+          const flow = memoryConversations.get(conversationId)?.flags?.flow as
+            | { runLifecycle?: { status?: string } }
+            | undefined;
+          return flow?.runLifecycle?.status === 'ok';
+        },
+        { description: 'untracked decision script flow completion' },
+      );
       const result = await supertest(baseUrl)
         .post('/flows/tracked-symlink-untracked-target-flow/run')
         .send({
@@ -3147,13 +3159,7 @@ test('shared decision seam rejects an in-root symlink to an untracked target', a
         });
       assert.equal(result.status, 202);
 
-      const final = await waitForFlowFinal({
-        ws,
-        conversationId,
-        status: 'failed',
-      });
-      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
-      assert.match(final.error?.message ?? '', /must be checked in/);
+      await completion;
     },
     { registerTmpDirAsRepo: true },
   );

@@ -17,7 +17,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - The flow schema now exposes five Story 60 step types in `server/src/flows/flowSchema.ts`: `if`, `wait`, `github_open_pr`, `github_fetch_reviews`, and `github_close_pr`.
 - The shared condition contract lives in `server/src/flows/service.ts` and is intentionally reused by `if`, `break`, and `continue`:
   - the authored condition may stay on the existing AI yes-or-no path;
-  - or it may be a checked-in repository-relative Python entrypoint evaluated from the worked repository root;
+  - or it may be a repository-relative Python entrypoint evaluated from the worked repository root; scripts do not need to be Git-tracked, and bundled harness scripts work without Git metadata;
   - script answers must resolve to exactly `{"answer":"yes"}` or `{"answer":"no"}`;
   - missing files, paths that escape the worked repository root, malformed JSON, extra top-level keys, non-zero exits, timeouts, or any non-`yes`/`no` answer are hard step failures rather than silent fallbacks.
 - Story 60 keeps the flow-control seams thin and composable on purpose. `github_open_pr`, `github_fetch_reviews`, and `github_close_pr` are transport primitives, while branching and loopback policy remains authored in the copied flow definition instead of being hidden inside the GitHub adapter.

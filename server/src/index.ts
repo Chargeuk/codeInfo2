@@ -33,6 +33,7 @@ import {
 import './flows/flowSchema.js';
 import {
   reconcileInterruptedFlowRunsForStartup,
+  resumeInterruptedParentsWithPersistedChildWaitsForStartup,
   resumePendingFlowWaitsForStartup,
 } from './flows/service.js';
 import './ingest/index.js';
@@ -474,6 +475,19 @@ const start = async () => {
       baseLogger.warn(
         { error },
         'flows startup reconciliation skipped after recoverable error',
+      );
+    }
+    try {
+      const resumedFlowParents =
+        await resumeInterruptedParentsWithPersistedChildWaitsForStartup();
+      baseLogger.info(
+        { resumedFlowParents },
+        'flows startup parent reattachment complete',
+      );
+    } catch (error) {
+      baseLogger.warn(
+        { error },
+        'flows startup parent reattachment skipped after recoverable error',
       );
     }
     const flowWaitRecovery = await resumePendingFlowWaitsForStartup();

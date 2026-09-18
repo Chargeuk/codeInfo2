@@ -1536,6 +1536,7 @@ const parseFlowResumeState = (
     flow.retryOwnershipCompletion,
   );
   const wait = parseFlowWaitState(flow.wait);
+  const sourceId = normalizeOptionalString(flow.sourceId);
   const githubReviewContext = parseFlowGitHubReviewContext(
     flow.githubReviewContext,
   );
@@ -1692,6 +1693,7 @@ const parseFlowResumeState = (
     ...(typeof flow.workingFolder === 'string' && flow.workingFolder.trim()
       ? { workingFolder: flow.workingFolder.trim() }
       : {}),
+    ...(sourceId ? { sourceId } : {}),
     agentConversations,
     ...(Object.keys(agentWorkingFolders).length > 0
       ? { agentWorkingFolders }
@@ -4232,6 +4234,7 @@ const buildFlowResumeState = (params: {
   runLifecycle?: FlowResumeState['runLifecycle'];
   codexReviewModelId?: string;
   workingFolder?: string;
+  sourceId?: string;
   retryOwnershipPending?: FreshRunRetryOwnershipPending | null;
   retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion | null;
   input?: FlowJsonObject;
@@ -4349,6 +4352,7 @@ const buildFlowResumeState = (params: {
       ? { codexReviewModelId: params.codexReviewModelId }
       : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
+    ...(params.sourceId ? { sourceId: params.sourceId } : {}),
     ...(params.input ? { input: params.input } : {}),
     ...(params.inputHash ? { inputHash: params.inputHash } : {}),
     ...(params.values ? { values: params.values } : {}),
@@ -4403,6 +4407,7 @@ const persistFlowResumeState = async (params: {
   runLifecycle?: FlowResumeState['runLifecycle'];
   codexReviewModelId?: string;
   workingFolder?: string;
+  sourceId?: string;
   retryOwnershipPending?: FreshRunRetryOwnershipPending | null;
   retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion | null;
   input?: FlowJsonObject;
@@ -4425,6 +4430,7 @@ const persistFlowResumeState = async (params: {
     runLifecycle: params.runLifecycle,
     codexReviewModelId: params.codexReviewModelId,
     workingFolder: params.workingFolder,
+    sourceId: params.sourceId,
     retryOwnershipPending: params.retryOwnershipPending,
     retryOwnershipCompletion: params.retryOwnershipCompletion,
     input: params.input,
@@ -4437,6 +4443,9 @@ const persistFlowResumeState = async (params: {
       ? (existingConversation.flags as Record<string, unknown>)
       : undefined,
   );
+  if (!flowState.sourceId && existingFlowState?.sourceId) {
+    flowState.sourceId = existingFlowState.sourceId;
+  }
   if (
     params.retryOwnershipPending === undefined &&
     existingFlowState?.retryOwnershipPending
@@ -6308,6 +6317,7 @@ async function runFlowUnlocked(params: {
       runLifecycle,
       codexReviewModelId: params.codexReviewModelId,
       workingFolder: params.repositoryContext.workingRepositoryPath,
+      sourceId: params.repositoryContext.flowSourceId,
       input: params.input,
       inputHash: params.inputHash,
       values: flowValues,
@@ -12701,9 +12711,12 @@ export async function startFlowRun(
             | undefined,
         )
       : null;
+  const persistedSourceId =
+    trustedRequestedFlowState?.sourceId ??
+    trustedRequestedFlowState?.wait?.sourceId;
   const sourceId =
-    params.resumeStepPath && trustedRequestedFlowState?.wait?.sourceId
-      ? trustedRequestedFlowState.wait.sourceId
+    params.resumeStepPath && persistedSourceId
+      ? persistedSourceId
       : requestedSourceId;
   const flowPathEntry = buildFlowPathEntry({ flowName, sourceId });
   if (params.flowPath?.includes(flowPathEntry)) {
@@ -13219,6 +13232,7 @@ export async function startFlowRun(
       codexReviewModelId:
         params.codexReviewModelId ?? resumeState?.codexReviewModelId,
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
+      sourceId: sourceId ?? resumeState?.sourceId,
       input: effectiveFlowInput,
       inputHash: effectiveFlowInputHash,
       values: resumeState?.values as FlowJsonObject | undefined,
@@ -13635,6 +13649,75 @@ export async function reconcileInterruptedFlowRunsForStartup(): Promise<number> 
     });
   }
   return reconciledCount;
+}
+
+export async function resumeInterruptedParentsWithPersistedChildWaitsForStartup(): Promise<number> {
+  const conversations: Conversation[] = shouldUseMemoryPersistence()
+    ? [...memoryConversations.values()]
+    : ((await ConversationModel.find({
+        'flags.flow.restartReconciliation.status': 'interrupted',
+        'flags.flow.activeSubflows.0': { $exists: true },
+      })
+        .lean()
+        .exec()) as Conversation[]);
+  let resumedCount = 0;
+  for (const conversation of conversations) {
+    if (!conversation.flowName) continue;
+    const resumeState = parseFlowResumeState(
+      isRecord(conversation.flags)
+        ? (conversation.flags as Record<string, unknown>)
+        : undefined,
+    );
+    if (
+      resumeState?.restartReconciliation?.status !== 'interrupted' ||
+      !resumeState.activeSubflows?.length
+    ) {
+      continue;
+    }
+    const childStates = await Promise.all(
+      resumeState.activeSubflows.map(async (child) => {
+        const childConversation = await getConversation(child.conversationId);
+        return parseFlowResumeState(
+          isRecord(childConversation?.flags)
+            ? (childConversation.flags as Record<string, unknown>)
+            : undefined,
+        );
+      }),
+    );
+    if (!childStates.some((childState) => childState?.wait)) continue;
+    try {
+      await startFlowRun({
+        flowName: conversation.flowName,
+        sourceId: resumeState.sourceId,
+        conversationId: conversation._id,
+        resumeStepPath: resumeState.restartReconciliation.resumeStepPath,
+        source: conversation.source,
+        working_folder: resumeState.workingFolder,
+      });
+      resumedCount += 1;
+      append({
+        level: 'info',
+        message: 'flows.run.parent_reattached_after_restart',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          conversationId: conversation._id,
+          flowName: conversation.flowName,
+          resumeStepPath: resumeState.restartReconciliation.resumeStepPath,
+        },
+      });
+    } catch (error) {
+      baseLogger.warn(
+        {
+          error,
+          conversationId: conversation._id,
+          flowName: conversation.flowName,
+        },
+        'flows.run.parent_reattach_after_restart_failed',
+      );
+    }
+  }
+  return resumedCount;
 }
 
 export async function getFlowRunStatus(

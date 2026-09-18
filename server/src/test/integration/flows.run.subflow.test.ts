@@ -27,10 +27,12 @@ import {
 import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
 import {
+  __resumePendingFlowWaitsForTests,
   __resetFlowWaitResumeDepsForTests,
   __setFlowWaitResumeDepsForTests,
   getFlowConversationLifecycleStatus,
   getFlowRunStatus,
+  resumeInterruptedParentsWithPersistedChildWaitsForStartup,
   startFlowRun as startFlowRunService,
   stopFlowRun,
 } from '../../flows/service.js';
@@ -766,6 +768,141 @@ for (const mode of ['subflow', 'subflowWave'] as const) {
     }
   });
 }
+
+test('startup reattaches an interrupted parent while its persisted child wait resumes', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-parent-restart-child-wait-'),
+  );
+  const wakes: Array<() => void> = [];
+  const parentConversationId = 'parent-restart-child-wait';
+  const childConversationId = 'child-restart-child-wait';
+  const parentExecutionId = 'parent-restart-child-wait-execution';
+  const now = new Date();
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
+  __setFlowWaitResumeDepsForTests({
+    scheduleWake: ({ onWake }) => {
+      wakes.push(onWake);
+      return { cancel: () => undefined };
+    },
+  });
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'restart-child-wait',
+      steps: [{ type: 'wait', seconds: 60 }],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'restart-parent-wait',
+      steps: [subflowStep('Run waiting child', 'restart-child-wait')],
+    });
+    memoryConversations.set(childConversationId, {
+      _id: childConversationId,
+      provider: 'codex',
+      model: 'gpt-5.6-luna',
+      title: 'Restarted waiting child',
+      flowName: 'restart-child-wait',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'child-restart-child-wait-execution',
+          stepPath: [0],
+          loopStack: [],
+          wait: {
+            executionId: 'child-restart-child-wait-execution',
+            stepPath: [0],
+            loopStack: [],
+            resumeAt: Date.now() + 60_000,
+          },
+          runLifecycle: { status: 'running', updatedAt: now.toISOString() },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.6-luna',
+      title: 'Restarted parent',
+      flowName: 'restart-parent-wait',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: parentExecutionId,
+          stepPath: [0],
+          loopStack: [],
+          activeSubflows: [
+            activeSubflowState({
+              stepPath: [0],
+              flowName: 'restart-child-wait',
+              conversationId: childConversationId,
+              runToken: 'released-child-run-token',
+              title: 'Restarted waiting child',
+            }),
+          ],
+          restartReconciliation: {
+            status: 'interrupted',
+            reconciledAt: now.toISOString(),
+            resumeStepPath: [0],
+            interruptedSubflowCount: 1,
+            interruptedWaveRunningCount: 0,
+          },
+          runLifecycle: { status: 'orphaned', updatedAt: now.toISOString() },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    assert.equal(
+      await resumeInterruptedParentsWithPersistedChildWaitsForStartup(),
+      1,
+    );
+    assert.equal(await __resumePendingFlowWaitsForTests(), 1);
+    assert.equal(wakes.length, 1);
+
+    wakes[0]?.();
+    await waitFor(() => {
+      const flow = memoryConversations.get(parentConversationId)?.flags
+        ?.flow as { runLifecycle?: { status?: string } } | undefined;
+      return flow?.runLifecycle?.status === 'ok';
+    });
+    assert.equal(
+      (
+        memoryConversations.get(parentConversationId)?.flags as {
+          flow?: { executionId?: string; restartReconciliation?: unknown };
+        }
+      ).flow?.executionId,
+      parentExecutionId,
+    );
+    assert.equal(
+      (
+        memoryConversations.get(parentConversationId)?.flags as {
+          flow?: { restartReconciliation?: unknown };
+        }
+      ).flow?.restartReconciliation,
+      undefined,
+    );
+    assert.equal(
+      Array.from(memoryConversations.values()).filter(
+        (conversation) => conversation.flowName === 'restart-child-wait',
+      ).length,
+      1,
+    );
+  } finally {
+    await removeWritableTree(tmpDir);
+  }
+});
 
 test('review initialization failures fail the flow instead of silently skipping the review cycle', async () => {
   const tmpDir = await fs.mkdtemp(

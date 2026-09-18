@@ -122,6 +122,7 @@ export type FlowResumeState = {
   };
   codexReviewModelId?: string;
   workingFolder?: string;
+  sourceId?: string;
   input?: FlowJsonObject;
   inputHash?: string;
   values?: Record<string, FlowJsonValue>;

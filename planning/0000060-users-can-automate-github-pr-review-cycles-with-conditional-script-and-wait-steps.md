@@ -8935,3 +8935,338 @@ Optional and non-blocking: after automated proof, use the normal main Compose st
 - Task 74 testing step 12 completed: `npm run format:check` passed; all matched files use Prettier code style.
 - Automated-proof audit: `fe90ec24c` repaired only the persisted-publication-order test fixture by supplying the mocked PR `head.sha` required by the existing runtime contract. The targeted regression plus post-repair parallel and stress full-suite runs passed, as did the recorded build, Compose lifecycle, shell, JavaScript, Python, lint, and formatting checks. All four subtasks and twelve automated testing items are complete; parser evidence reports no live blocker, so Task 74 is `__done__`. Optional manual guidance remains non-blocking and does not alter this automated closeout.
 - Final-task manual proof expanded to the story's observable Flow surface: a fresh main Compose build/up lifecycle passed, `http://localhost:5010/health` returned `status: ok`, and `http://localhost:5001/flows` loaded the flow catalog with `implement_next_plan_github_review` available on desktop and in the mobile flow-selection dialog. Chrome DevTools reported no console errors and successful UI/API requests; the stack was stopped with `npm run compose:down`. Playwright screenshot staging at `manual-testing/0000060/74/proof-01-flow-catalog.png` was attempted but its active runtime resolved the relative path under `/home/node` rather than the documented bind and reported `ENOENT`, so no screenshot was saved to `codeInfoTmp/manual-testing/0000060/74/` and no earlier screenshot is superseded. Manual testing skipped for live external GitHub-review launch. Tried: inspected the opt-in review flow in the fresh catalog. Observed: the variant is present, but the active scope provides no authorized sandbox worked repository or established provider/`CODEINFO_PR_TOKEN` access. Why fuller proof was not possible: task guidance prohibits supplying credentials or launching the external cycle without those authorized prerequisites; this is an honest access limitation, not follow-up implementation work.
+
+## Code Review Findings
+
+- Findings recorded: `September 18, 2026 at 10:34:32 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260918T201427Z-8fdf51e8`
+- Review cycle: `0000060-rc-20260917T210235Z-d06d5f24`
+- Reviews attempted:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`) — completed successful static review; generated RC-01 through RC-04, with runtime/build/Compose/browser/live-GitHub coverage unavailable.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 2,264
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed no-supported-findings prepared-bundle review; static/focused-test coverage only.
+    - Input tokens: 3,228,183
+    - Cached input tokens: 3,075,328
+    - Output tokens: 13,266
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native review with no P0–P3 findings; focused Python proof only.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed not applicable because the batch has one target and no cross-repository comparison.
+    - Input tokens: 302,701
+    - Cached input tokens: 259,584
+    - Output tokens: 3,199
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — partial/unavailable: HTTP 402 `quota_exceeded` occurred before any reviewer response, so it supplies no implementation-review coverage.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+
+Usage accounting covers only designated job-owned reviewing-model artifacts. Cached input is separate from input and did not affect disposition.
+
+### Accepted
+
+- None. The completed negative-scope gate fully removed every actionable candidate, so positive authorization and materiality were deliberately not applicable and no materiality survivor exists.
+
+### Ignored for This Story
+
+#### 1. Fetch failure has no retry-recovery path
+
+- Finding ID or Review reference: `RC-01 — github_fetch_reviews has no retry-recovery path`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`) — generated and verification corroborated the static observation.
+- Simple description: A failed GitHub-review fetch returns through the existing warning/skip path instead of using the retry recovery used by PR open and close. The story intentionally keeps fetch thin and does not require retry behavior.
+- Example: A transient fetch failure persists resume state and stops this step rather than performing a three-attempt backoff retry; no evidence shows an incorrect fetched result or acceptance-criterion failure.
+- Why ignored: The completed negative-scope gate removed the entire finding. The only demonstrated remedy adds fixed retries, waits, and exhaustion policy, which the current contract does not authorize for the thin retrieval primitive; no narrower existing configurable seam was proven. It is preserved only as separately approvable future reliability evidence.
+
+#### 2. `continue` has no explicit `decisionScript` field
+
+- Finding ID or Review reference: `RC-02 — continue lacks an explicit decisionScript field`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`) — generated the rejected authoring-asymmetry observation.
+- Simple description: `continue` accepts the supported implicit Python-question form but not an unsupported explicit `decisionScript` property. The strict schema behavior matches the applicable criterion.
+- Example: An author uses a `.py` question for `continue` and it remains supported; adding the undocumented `decisionScript` property is rejected, but no supported flow fails.
+- Why ignored: Audited reconciliation rejected this before any filtering gate because it is not a defect candidate. It has no demonstrated harm, authorization, or materiality and cannot be promoted from original job evidence.
+
+#### 3. Exact page multiples can make one empty pagination request
+
+- Finding ID or Review reference: `RC-03 — pagination can make one empty request at an exact page multiple`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`) — generated the rejected efficiency observation.
+- Simple description: At an exact multiple of 100 entries, pagination may issue one final empty request before ending. The returned review comments remain correct.
+- Example: With exactly 200 comments, a third request can be empty; the existing 205-entry test and review evidence support correct termination rather than lost or wrong comments.
+- Why ignored: Audited reconciliation rejected this as a correctness defect before filtering. The evidence establishes at most a harmless extra request, not a materially harmful supported-path failure, and it never entered a gate survivor set.
+
+#### 4. GitHub-review scope helper is not called by a flow
+
+- Finding ID or Review reference: `RC-04 — check_plan_scope_supports_github_pr_review.py is not called by a flow`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`) — generated and verification corroborated the dead-but-tested observation.
+- Simple description: A tested helper exists but no flow invokes it. Wiring it would add a host eligibility policy, while deleting it would be cleanup rather than a user-visible repair.
+- Example: Invoking the helper would allow only `github.com` or `ghe.com` and could skip a GitHub-review cycle, but no supported current flow is shown to fail without that new branch.
+- Why ignored: The completed negative-scope gate removed the entire finding. The story does not authorize a new host allow-list/skip policy or general cleanup, and current HEAD proves only an unused control—not authority to apply it. It remains separately approvable future work.
+
+The negative-scope gate was applicable and completed. Positive authorization and materiality were deliberately not applicable because that trustworthy earlier gate had no survivors; the absent materiality artifact is therefore intentional. RC-01 and RC-04 were fully removed at negative scope, while RC-02 and RC-03 were rejected by audited reconciliation before gate survival. No actionable finding remains. The completed disposition is `codeInfoTmp/reviews/0000060-rc-20260917T210235Z-d06d5f24/batches/0000060-rw-20260918T201427Z-8fdf51e8--head-457e033a3de2/reconciliation/disposition.md`.
+
+## Code Review Findings
+
+- Findings recorded: `September 18, 2026 at 11:47:18 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260917T210236Z-e55f0014`
+- Review cycle: `0000060-rc-20260917T210235Z-d06d5f24`
+- Reviews attempted:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`) — partial/unavailable: retained progress and exit 0, but no final review conclusion.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 351
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed bounded no-findings review over 194 reviewable of 501 changed entries.
+    - Input tokens: 5,807,391
+    - Cached input tokens: 5,595,904
+    - Output tokens: 15,077
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed static review with R-1 and R-2.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — deliberately inapplicable/no work because one target has no cross-repository boundary.
+    - Input tokens: 398,644
+    - Cached input tokens: 360,704
+    - Output tokens: 3,084
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — unavailable: HTTP 402 `quota_exceeded`, exit 1, and no review conclusion.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+
+Usage covers designated actual-review invocations only. Cached input remains separate from input; batch totals are Input tokens: At least 6,206,035 reported; incomplete. Cached input tokens: At least 5,956,608 reported; incomplete. Output tokens: At least 18,512 reported; incomplete.
+
+### Accepted
+
+#### 1. GitHub review-flow predicates resolved harness helpers from the worked repository
+
+- Finding ID: `R-1`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and source-corrobated the finding.
+- Simple description: The copied GitHub-review flow used harness helper paths as implicit `if.condition` scripts. A normal worked repository resolved those paths beneath itself, so the flow failed before PR creation.
+- Example: A user selects the opt-in flow for a repository without the harness `scripts/flow_control` directory; its first predicate cannot resolve the harness helper and the review cycle cannot open a PR.
+- Why accepted: The materiality survivor was research-owned because of the historical root-ownership conflict. That bounded research invocation was the stronger opportunity and repaired the current implicit-if form in `bd8ff232f7872895f3325bec0f0d50af43009a0b`; it is resolved, not open task work.
+
+#### 2. Persisted subflow waits could recover before their authored wake
+
+- Finding ID: `R-2`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and source-corrobated the finding.
+- Simple description: A child with a valid persisted authored wait could be classified as orphaned and resumed before `resumeAt`.
+- Example: A `subflowWave` child releases run ownership for a timed wait; parent polling treats it as orphaned and resumes it before the scheduled wake.
+- Why accepted: The materiality survivor was distinct from the research false matches and was fixed by ordinary repair in `7c4759664698f9e44359ad0b37390f30a5b8ee7a`. The negative-scope removal of a new explicit paused lifecycle state remains binding.
+
+### Ignored for This Story
+
+- None. Partial/unavailable Copilot coverage, OpenCode's bounded no-findings result, and the one-target cross-repository no-work result remain coverage limits, not contradictory findings.
+
+## Code Review Findings
+
+- Findings recorded: `September 18, 2026 at 11:47:18 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260917T235418Z-e7c3966d`
+- Review cycle: `0000060-rc-20260917T210235Z-d06d5f24`
+- Reviews attempted:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`) — unavailable before launch after endpoint model discovery failed with exit 2.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed no-supported-findings review within 194 reviewable of 501 files.
+    - Input tokens: 4,155,250
+    - Cached input tokens: 3,991,040
+    - Output tokens: 13,120
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed static review with P1 and P2.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed no-work/not applicable because only one repository was assigned.
+    - Input tokens: 218,927
+    - Cached input tokens: 166,144
+    - Output tokens: 2,931
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — partial/unavailable: HTTP 402 `quota_exceeded`, exit 1, before a review payload.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+
+Usage covers designated actual-review invocations only. Cached input remains separate from input; batch totals are Input tokens: At least 4,374,177 reported; incomplete. Cached input tokens: At least 4,157,184 reported; incomplete. Output tokens: At least 16,051 reported; incomplete.
+
+### Accepted
+
+#### 1. Parent flow could remain stranded after a persisted child wait survived restart
+
+- Finding ID: `P1`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and source-corrobated the finding.
+- Simple description: Startup scheduled the persisted child wait but left its active-child parent orphaned, so the parent could not consume the child's terminal result.
+- Example: A server restarts while a child waits; the child wakes normally, but the parent stays non-terminal instead of completing the composed execution.
+- Why accepted: Repeated research rejected historical false matches and returned this materiality survivor to ordinary repair. Normal repair committed `457e033a3de26ff5cde0f4ef7b9575355fc4fe2f`, so this finding is resolved and preserved as completed batch evidence.
+
+#### 2. Parent stop did not cancel a persisted child wait
+
+- Finding ID: `P2`
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and source-corrobated the finding.
+- Simple description: Parent cancellation targeted a released child token and was not reapplied after the scheduled wake adopted a new token.
+- Example: Stopping a parent during a child's 900-second review wait could leave the parent blocked until the wait naturally ended.
+- Why accepted: Repeated research confirmed this as the earlier released-ownership stop gap and was the stronger opportunity. It fixed the parent entrypoint in `822e0d62a3f44d3921b3f455fa1a0c720c0270b4`; the completed record preserves the passing focused proof and incomplete broad-stress result.
+
+### Ignored for This Story
+
+#### 3. Review-work whitespace observation
+
+- Finding ID or Review reference: `work/core-flow-contract.diff` whitespace observation
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — reported it as review-work evidence.
+- Simple description: A committed review artifact contained whitespace, without a product behavior consequence.
+- Example: The scoped product diff is clean once the non-product review artifact and excluded planning paths are removed from the check.
+- Why ignored: Audited reconciliation rejected it before gate survival. It is not implementation, repair, or task work.
+
+## Code Review Findings
+
+- Findings recorded: `September 18, 2026 at 11:47:18 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260918T215940Z-7968e3b8`
+- Review cycle: `0000060-rc-20260917T210235Z-d06d5f24`
+- Reviews attempted:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — recovered supported partial review with one supported finding and no further confirmed finding in inspected paths.
+    - Input tokens: 5,840,433
+    - Cached input tokens: 5,303,552
+    - Output tokens: 40,541
+
+All six designated reviewing-model stages report each category, so the listed multi-stage totals are complete. Cached input is separate and is not added to input.
+
+### Accepted
+
+- None. The sole negative-scope survivor was positively unauthorized, so materiality was deliberately inapplicable.
+
+### Ignored for This Story
+
+#### 1. Warning status chip has insufficient small-text contrast
+
+- Finding ID or Review reference: `VISUAL-001`
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) — generated, independently recalculated, and verified the contrast observation.
+- Simple description: The story-added Warning chip uses `#B7791F` text and icon on `#FFF4E5`, a 3.35:1 ratio for small label text.
+- Example: A user sees the required completed-with-warning state at the small responsive chip size and can have difficulty reading its label.
+- Why ignored: Positive authorization allows a truthful warning outcome but does not authorize a browser palette, WCAG threshold, or new visual policy in this flow-only story. Preserve it as separately approvable accessibility evidence; missing browser, live-GitHub, and broad-stress coverage remains uncertainty rather than a task trigger.
+
+### Task 75. Record Review Fixes From Batch 0000060-rw-20260917T210236Z-e55f0014
+
+- Task Status: `__done__`
+- Review Task Role: `completed_review_fixes`
+- Repository Name: Current Repository
+- Affected Repositories: `current_repository`
+- Review Batch: `0000060-rw-20260917T210236Z-e55f0014`
+- Review Cycle: `0000060-rc-20260917T210235Z-d06d5f24`
+- Review Harnesses: codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) generated and corroborated R-1 and R-2.
+- Addresses Findings: R-1, harness-owned `if` predicates resolving under a worked repository; R-2, persisted child wait early recovery before `resumeAt`.
+- Created: `September 18, 2026 at 11:47:18 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+This recovered completed task records the two repairs that were committed during this fix-bearing batch even though the expected batch outcome and completed-task writer did not create a durable plan task. It does not reopen the fixes or create new implementation work.
+
+#### Subtasks
+
+1. [x] Repeated-finding research repaired R-1 in `server/src/flows/flowSchema.ts`, `server/src/flows/service.ts`, `server/src/flows/discovery.ts`, `flows/implement_next_plan_github_review.json`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/unit/flows-schema.test.ts`, `server/src/test/steps/flows-execution-runs.steps.ts`, and `docs/developer-reference.md`; commit `bd8ff232f7872895f3325bec0f0d50af43009a0b` preserved explicit harness ownership while retaining worked-repository scripts.
+2. [x] Normal repair fixed R-2 in `server/src/flows/service.ts` and `server/src/test/integration/flows.run.subflow.test.ts`; commit `7c4759664698f9e44359ad0b37390f30a5b8ee7a` retains a valid ownerless child wait as `running` until its scheduled wake.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file src/test/unit/flows-schema.test.ts --file src/test/integration/flows.run.errors.test.ts --test-name 'if-step schema|script ownership|explicit if scripts|GitHub review variant|script-backed if steps'` — passed 24/24 for R-1.
+2. [x] `npm run test:summary:server:unit -- --file src/test/integration/flows.run.subflow.test.ts --test-name 'child waits remain paused until their scheduled wake'` — passed 2/2 for R-2.
+
+#### Implementation Notes
+
+- Research was the stronger repair opportunity for R-1. Its historical ownership match was confirmed; opposing explicit-root records were preserved to prevent reversing the two-root contract. The final research evidence also records server-unit stress 2901/2901, client 912/912, E2E 78/78, Cucumber 138/138, builds, lint, and format checks; the original aggregate stress failure caused only a corrected Cucumber lookup and was not misreported as clean.
+- R-2's historical candidates were disproved, so ordinary repair owned its distinct parent-polling cause. The negative-scope removal of an explicit paused lifecycle state remains ignored evidence; no new lifecycle state was added. Its final focused proof and later full stress evidence passed (server 2903/2903, client 912/912, Cucumber 138/138, E2E 78 with one allowed skip).
+- DeepSeek had no final conclusion, Claude was unavailable after quota exhaustion, OpenCode was bounded, and cross-repository review was one-target no-work. These limitations do not undo either repair. The completed batch outcome/task record was missing and is recovered here from repair, research, reconciliation, and current Git evidence.
+
+### Task 76. Record Review Fixes From Batch 0000060-rw-20260917T235418Z-e7c3966d
+
+- Task Status: `__done__`
+- Review Task Role: `completed_review_fixes`
+- Repository Name: Current Repository
+- Affected Repositories: `current_repository`
+- Review Batch: `0000060-rw-20260917T235418Z-e7c3966d`
+- Review Cycle: `0000060-rc-20260917T210235Z-d06d5f24`
+- Review Harnesses: codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) generated and corroborated P1 and P2.
+- Addresses Findings: P1, parent reattachment after restart around a persisted child wait; P2, cancellation of a persisted child wait when its parent stops.
+- Created: `September 18, 2026 at 11:47:18 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+This recovered completed task records the normal and repeated-research repairs for the two material survivors. It preserves the missing disposition/outcome recovery, history matching results, proof, and limitations without turning historical gate conflicts into new work.
+
+#### Subtasks
+
+1. [x] Repeated-finding research repaired P2 in `server/src/flows/service.ts` and `server/src/test/integration/flows.run.subflow.test.ts`; commit `822e0d62a3f44d3921b3f455fa1a0c720c0270b4` routes parent cancellation through the identity-matched persisted-wait stop seam and reapplies cancellation after token adoption.
+2. [x] Normal repair fixed P1 in `server/src/flows/flowState.ts`, `server/src/flows/service.ts`, `server/src/index.ts`, `server/src/test/integration/flows.run.subflow.test.ts`, and `server/src/test/unit/flows-startup-reconciliation.test.ts`; commit `457e033a3de26ff5cde0f4ef7b9575355fc4fe2f` restores parent reattachment before existing child-wait scheduling.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --skip-build --file server/src/test/integration/flows.run.subflow.test.ts --file server/src/test/integration/flows.run.errors.test.ts --file server/src/test/integration/review-production-loop.test.ts` — passed 126/126 for P2 and the adjacent production-loop diagnosis.
+2. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts --test-name 'startup reattaches an interrupted parent while its persisted child wait resumes'` — passed 1/1 for P1.
+3. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.subflow.test.ts` — passed 59/59.
+4. [x] `npm run test:summary:server:unit -- --file server/src/test/unit/flows-startup-reconciliation.test.ts` — passed 6/6.
+
+#### Implementation Notes
+
+- P2's research matched the earlier released-ownership stop gap, so research was its stronger opportunity. The retained direct-stop repair alone did not cover the parent entrypoint; this commit connected that entrypoint without adding retry, timeout, fallback, or ownership policy. P1's plausible history was false-match evidence: continued-failure/warning guards and resume-state clearing are not orphaned-parent restart recovery.
+- P2 focused proof passed 9/9 and later 126/126. Its stress run passed the new cancellation and preserved-wake cases, but the complete stress run still had eight server and two Cucumber failures outside these proved paths; they remain a validation limitation, not a claimed green suite or a new task under P2.
+- P1 focused proof passed 1/1, full subflow 59/59, and startup reconciliation 6/6, plus lint and format checks. Neither a standalone disposition nor batch outcome exists; this task recovers the completed record from the reconciliation, gate, research, normal-repair, and Git evidence. The later `201427Z` batch reviewed `457e033a` without finding an actionable lifecycle defect.
+
+### Task 77. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260917T210235Z-d06d5f24
+
+- Task Status: `__in_progress__`
+- Review Task Role: `final_revalidation`
+- Repository Name: Current Repository
+- Affected Repositories: `current_repository` — client, server, Compose runtime, review flows, workflow-support scripts, and the repairs from batches `0000060-rw-20260917T210236Z-e55f0014` and `0000060-rw-20260917T235418Z-e7c3966d`.
+- Task Dependencies: Tasks 75–76 and all earlier Story 60 work
+- Review Cycle: `0000060-rc-20260917T210235Z-d06d5f24`
+- Created: `September 18, 2026 at 11:47:18 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+This is the sole final automated revalidation owner for the completed research and normal repair commits `bd8ff232`, `7c475966`, `822e0d62`, and `457e033a`. It validates their script-root and persisted-child-wait lifecycle behavior at the current final HEAD; it does not reopen positively unauthorized, negative-scope-removed, or already resolved findings.
+
+#### Task Exit Criteria
+
+- Supported build, main Compose lifecycle, full automated suites, stress suite, shell suite, JavaScript/Python workflow-helper suites, lint, and formatting checks pass at the final head for the Story 60 repair surface.
+- The completed records for Tasks 75–76 retain their exact commits, research provenance, reversal reasons, and proof limitations; no duplicate batch record or open implementation task is introduced.
+- Unavailable Copilot coverage, one-target cross-repository no-work, previous static-review limits, the failed one-shot batch launch, and missing manual/live-GitHub access remain evidence limitations rather than blockers.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] Run `npm run lint` for `current_repository` and fix any Story 60-caused issue found.
+2. [ ] Run `npm run format:check` for `current_repository` and fix any Story 60-caused formatting issue found.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+Repository group: `current_repository` (client, server, main Compose runtime, review flows, and workflow-support scripts).
+
+1. [ ] `npm run build:summary:client` — validate the client typecheck and production build at the final repair head.
+2. [ ] `npm run build:summary:server` — validate the server workspace at the final repair head.
+3. [ ] `npm run compose:build:summary` — validate supported main Compose images.
+4. [ ] `npm run compose:up` — start the supported main Compose stack for the normal runtime smoke boundary.
+5. [ ] `npm run test:summary:all:parallel` — execute the full client, server unit/integration, Cucumber, and E2E suite; lifecycle, script-root, and review-flow failures are task-owned, while unrelated failures require shared-baseline diagnosis.
+6. [ ] `npm run test:summary:all:stress` — run the same full suite under higher server-unit concurrency, covering the repaired wait/restart/cancellation ordering paths.
+7. [ ] `npm run test:summary:shell` — execute the supported shell and Compose-wrapper suite.
+8. [ ] `node --test scripts/*.test.mjs` — execute standalone JavaScript workflow-helper and wrapper tests.
+9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — execute standalone Python workflow-helper tests.
+10. [ ] `npm run compose:down` — stop the main stack started for automated validation.
+11. [ ] `npm run lint` — rerun supported lint after runtime and suite proof.
+12. [ ] `npm run format:check` — rerun supported formatting after lint.
+
+#### Manual Testing Guidance
+
+Optional only: use the supported main Compose stack at `http://localhost:5001` and `http://localhost:5010` after its automated lifecycle when safely available. For any live flow observation, use the mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` catalogs and a user-authorized worked repository; never print or create credentials. Keep optional screenshots, logs, and notes under `codeInfoTmp/manual-testing/0000060/77/` without committing them, then allow later closeout to curate any durable proof into `codeInfoStatus/manual-proof/0000060/`. If provider login requires human-controlled two-factor authentication, record the affected surface as unavailable and do not attempt re-authentication. The earlier manual screenshot staging limitation and unavailable live GitHub coverage remain honest limitations, not implementation or completion blockers.
+
+#### Implementation Notes
+
+- Created by complete-pass settlement after recovering Tasks 75–76 for the two fix-bearing batches. No materiality-surviving actionable finding remains; final proof covers their committed repairs and the complete Story 60 surface rather than starting another review.
+- Settlement audit restored the required non-checkbox final-task repair-scope notes under Subtasks and Testing; no task status, checkbox, or creation timestamp changed.

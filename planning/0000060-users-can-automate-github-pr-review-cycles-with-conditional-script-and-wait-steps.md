@@ -9240,8 +9240,8 @@ This is the sole final automated revalidation owner for the completed research a
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] Run `npm run lint` for `current_repository` and fix any Story 60-caused issue found.
-2. [ ] Run `npm run format:check` for `current_repository` and fix any Story 60-caused formatting issue found.
+1. [x] Run `npm run lint` for `current_repository` and fix any Story 60-caused issue found.
+2. [x] Run `npm run format:check` for `current_repository` and fix any Story 60-caused formatting issue found.
 
 #### Testing
 
@@ -9270,3 +9270,5 @@ Optional only: use the supported main Compose stack at `http://localhost:5001` a
 
 - Created by complete-pass settlement after recovering Tasks 75–76 for the two fix-bearing batches. No materiality-surviving actionable finding remains; final proof covers their committed repairs and the complete Story 60 surface rather than starting another review.
 - Settlement audit restored the required non-checkbox final-task repair-scope notes under Subtasks and Testing; no task status, checkbox, or creation timestamp changed.
+- Ran `npm run lint` successfully with no Story 60-caused issues found; no code repair was required.
+- Ran `npm run format:check` successfully; all tracked files matched Prettier formatting and no repair was required.

@@ -9218,7 +9218,7 @@ This recovered completed task records the normal and repeated-research repairs f
 
 ### Task 77. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260917T210235Z-d06d5f24
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Task Role: `final_revalidation`
 - Repository Name: Current Repository
 - Affected Repositories: `current_repository` — client, server, Compose runtime, review flows, workflow-support scripts, and the repairs from batches `0000060-rw-20260917T210236Z-e55f0014` and `0000060-rw-20260917T235418Z-e7c3966d`.
@@ -9284,3 +9284,4 @@ Optional only: use the supported main Compose stack at `http://localhost:5001` a
 - Ran `npm run compose:down` successfully; the main validation stack was stopped and removed cleanly.
 - Reran `npm run lint` successfully with zero warnings or errors; no repair was required.
 - Reran `npm run format:check` successfully; all tracked files matched Prettier formatting and no repair was required.
+- Implementation-plus-proof audit confirmed the committed final validation at `560b22458`: all Task 77 subtasks and automated checks are complete, the main validation stack was shut down, and no live blocker or unapproved user-facing behavior drift was identified. Task 77 is therefore `__done__`; optional manual/live-GitHub proof remains a documented evidence limitation rather than a completion gate.

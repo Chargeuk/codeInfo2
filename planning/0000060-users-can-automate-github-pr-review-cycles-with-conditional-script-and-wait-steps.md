@@ -9249,18 +9249,18 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 Repository group: `current_repository` (client, server, main Compose runtime, review flows, and workflow-support scripts).
 
-1. [ ] `npm run build:summary:client` — validate the client typecheck and production build at the final repair head.
-2. [ ] `npm run build:summary:server` — validate the server workspace at the final repair head.
-3. [ ] `npm run compose:build:summary` — validate supported main Compose images.
-4. [ ] `npm run compose:up` — start the supported main Compose stack for the normal runtime smoke boundary.
-5. [ ] `npm run test:summary:all:parallel` — execute the full client, server unit/integration, Cucumber, and E2E suite; lifecycle, script-root, and review-flow failures are task-owned, while unrelated failures require shared-baseline diagnosis.
-6. [ ] `npm run test:summary:all:stress` — run the same full suite under higher server-unit concurrency, covering the repaired wait/restart/cancellation ordering paths.
-7. [ ] `npm run test:summary:shell` — execute the supported shell and Compose-wrapper suite.
-8. [ ] `node --test scripts/*.test.mjs` — execute standalone JavaScript workflow-helper and wrapper tests.
-9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — execute standalone Python workflow-helper tests.
-10. [ ] `npm run compose:down` — stop the main stack started for automated validation.
-11. [ ] `npm run lint` — rerun supported lint after runtime and suite proof.
-12. [ ] `npm run format:check` — rerun supported formatting after lint.
+1. [x] `npm run build:summary:client` — validate the client typecheck and production build at the final repair head.
+2. [x] `npm run build:summary:server` — validate the server workspace at the final repair head.
+3. [x] `npm run compose:build:summary` — validate supported main Compose images.
+4. [x] `npm run compose:up` — start the supported main Compose stack for the normal runtime smoke boundary.
+5. [x] `npm run test:summary:all:parallel` — execute the full client, server unit/integration, Cucumber, and E2E suite; lifecycle, script-root, and review-flow failures are task-owned, while unrelated failures require shared-baseline diagnosis.
+6. [x] `npm run test:summary:all:stress` — run the same full suite under higher server-unit concurrency, covering the repaired wait/restart/cancellation ordering paths.
+7. [x] `npm run test:summary:shell` — execute the supported shell and Compose-wrapper suite.
+8. [x] `node --test scripts/*.test.mjs` — execute standalone JavaScript workflow-helper and wrapper tests.
+9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — execute standalone Python workflow-helper tests.
+10. [x] `npm run compose:down` — stop the main stack started for automated validation.
+11. [x] `npm run lint` — rerun supported lint after runtime and suite proof.
+12. [x] `npm run format:check` — rerun supported formatting after lint.
 
 #### Manual Testing Guidance
 
@@ -9272,3 +9272,15 @@ Optional only: use the supported main Compose stack at `http://localhost:5001` a
 - Settlement audit restored the required non-checkbox final-task repair-scope notes under Subtasks and Testing; no task status, checkbox, or creation timestamp changed.
 - Ran `npm run lint` successfully with no Story 60-caused issues found; no code repair was required.
 - Ran `npm run format:check` successfully; all tracked files matched Prettier formatting and no repair was required.
+- Ran `npm run build:summary:client` successfully; client typecheck and production build passed with only the existing large-chunk warning, and no repair was required.
+- Ran `npm run build:summary:server` successfully with no warnings; no repair was required.
+- Ran `npm run compose:build:summary` successfully; both supported images built cleanly and no repair was required.
+- Ran `npm run compose:up` successfully; the supported main Compose stack reached healthy server and client startup.
+- Ran `npm run test:summary:all:parallel` successfully: client 912/912, server unit 2906/2906, Cucumber 138/138, and E2E 78/78 passed; its dedicated Cucumber and E2E infrastructure was removed cleanly.
+- Ran `npm run test:summary:all:stress` successfully at server-unit concurrency 12: client 912/912, server unit 2906/2906, Cucumber 138/138, and E2E 78/78 passed; temporary infrastructure was removed cleanly.
+- Ran `npm run test:summary:shell` successfully with 25/25 tests passing.
+- Ran `node --test scripts/*.test.mjs` successfully with 48/48 tests passing.
+- Ran `python3 -m unittest discover -s scripts/test -p 'test_*.py'` successfully with 252 tests passing.
+- Ran `npm run compose:down` successfully; the main validation stack was stopped and removed cleanly.
+- Reran `npm run lint` successfully with zero warnings or errors; no repair was required.
+- Reran `npm run format:check` successfully; all tracked files matched Prettier formatting and no repair was required.

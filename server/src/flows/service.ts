@@ -9053,13 +9053,36 @@ async function runFlowUnlocked(params: {
     });
   };
 
-  const requestActiveSubflowStop = (params: {
+  const requestActiveSubflowStop = async (params: {
     conversationId: string;
     runToken?: string;
   }) => {
+    if (!getActiveRunOwnership(params.conversationId)) {
+      const conversation = await getConversation(params.conversationId);
+      const wait = parseFlowResumeState(
+        isRecord(conversation?.flags)
+          ? (conversation.flags as Record<string, unknown>)
+          : undefined,
+      )?.wait;
+      if (wait && tryAcquireConversationLock(params.conversationId)) {
+        const ownership = getActiveRunOwnership(params.conversationId);
+        try {
+          return await stopPersistedWaitIfMatches({
+            conversationId: params.conversationId,
+            wait,
+          });
+        } finally {
+          releaseConversationLock(params.conversationId, ownership?.runToken);
+        }
+      }
+    }
     const childRunToken =
       params.runToken ?? getActiveRunOwnership(params.conversationId)?.runToken;
     if (!childRunToken) return false;
+    const activeOwnership = getActiveRunOwnership(params.conversationId);
+    if (activeOwnership && activeOwnership.runToken !== childRunToken) {
+      return false;
+    }
 
     registerPendingConversationCancel({
       conversationId: params.conversationId,
@@ -9180,20 +9203,20 @@ async function runFlowUnlocked(params: {
       Promise.all(
         childRuns.map(async (childRun) => {
           let activeChildRun = childRun;
-          requestActiveSubflowStop({
-            conversationId: activeChildRun.conversationId,
-            runToken: activeChildRun.runToken,
-          });
           while (true) {
             const status = await observeChildLifecycle(activeChildRun);
             if (isTerminalFlowChildLifecycleStatus(status)) {
               return { childRun: activeChildRun, status };
             }
+            await requestActiveSubflowStop({
+              conversationId: activeChildRun.conversationId,
+              runToken: activeChildRun.runToken,
+            });
             if (status === 'orphaned') {
               const resumedChildRun = await resumeWaveChild(activeChildRun);
               if (resumedChildRun) {
                 activeChildRun = resumedChildRun;
-                requestActiveSubflowStop({
+                await requestActiveSubflowStop({
                   conversationId: activeChildRun.conversationId,
                   runToken: activeChildRun.runToken,
                 });

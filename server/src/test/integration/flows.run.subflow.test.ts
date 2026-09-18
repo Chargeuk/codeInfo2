@@ -32,6 +32,7 @@ import {
   getFlowConversationLifecycleStatus,
   getFlowRunStatus,
   startFlowRun as startFlowRunService,
+  stopFlowRun,
 } from '../../flows/service.js';
 import type { FlowJsonObject } from '../../flows/types.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
@@ -585,6 +586,93 @@ test('orphaned flow lifecycle observation remains recoverable', async () => {
 });
 
 for (const mode of ['subflow', 'subflowWave'] as const) {
+  test(`stopping the parent cancels its persisted ${mode} child wait before wake`, async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), `flow-${mode}-stop-child-wait-`),
+    );
+    const scheduledWakes: Array<{ cancelled: boolean }> = [];
+    let parentConversationId: string | undefined;
+    let childConversationId: string | undefined;
+    enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
+    __setFlowWaitResumeDepsForTests({
+      scheduleWake: () => {
+        const wake = { cancelled: false };
+        scheduledWakes.push(wake);
+        return {
+          cancel: () => {
+            wake.cancelled = true;
+          },
+        };
+      },
+    });
+
+    try {
+      await writeFlowFile({
+        tmpDir,
+        flowName: `${mode}-stop-wait-child`,
+        steps: [{ type: 'wait', seconds: 900 }, llmStep('must not run')],
+      });
+      await writeFlowFile({
+        tmpDir,
+        flowName: `${mode}-stop-wait-parent`,
+        steps: [
+          mode === 'subflow'
+            ? subflowStep('Run waiting child', `${mode}-stop-wait-child`)
+            : {
+                type: 'subflowWave',
+                groups: [
+                  {
+                    kind: 'singleton',
+                    id: 'waiting-child',
+                    flowName: `${mode}-stop-wait-child`,
+                  },
+                ],
+              },
+          llmStep('must not run'),
+        ],
+      });
+      const parent = await startFlowRun({
+        flowName: `${mode}-stop-wait-parent`,
+        source: 'REST',
+      });
+      parentConversationId = parent.conversationId;
+      const [child] = await waitForActiveSubflowCount(parent.conversationId, 1);
+      childConversationId = String(child?.conversationId);
+      await waitFor(() => scheduledWakes.length === 1);
+      await waitFor(() => !getActiveRunOwnership(childConversationId!));
+
+      // The scheduler is held: stopping must finish without firing the wake.
+      const stopped = waitForAssistantStatus(parent.conversationId, 'stopped');
+      assert.equal(await stopFlowRun(parent.conversationId), true);
+      await stopped;
+      const childState = memoryConversations.get(childConversationId)?.flags
+        ?.flow as {
+        wait?: unknown;
+        runLifecycle?: { status?: string };
+      };
+      assert.equal(childState.wait, undefined);
+      assert.equal(childState.runLifecycle?.status, 'stopped');
+      assert.equal(scheduledWakes[0]?.cancelled, true);
+      assert.equal((memoryTurns.get(childConversationId) ?? []).length, 0);
+      assert.equal(
+        (memoryTurns.get(parent.conversationId) ?? []).some((turn) =>
+          turn.content.includes('must not run'),
+        ),
+        false,
+      );
+    } finally {
+      if (parentConversationId) await stopFlowRun(parentConversationId);
+      if (childConversationId) await stopFlowRun(childConversationId);
+      await waitFor(
+        () =>
+          (!parentConversationId ||
+            !getActiveRunOwnership(parentConversationId)) &&
+          (!childConversationId || !getActiveRunOwnership(childConversationId)),
+      );
+      await removeWritableTree(tmpDir);
+    }
+  });
+
   test(`${mode} child waits remain paused until their scheduled wake`, async () => {
     const tmpDir = await fs.mkdtemp(
       path.join(os.tmpdir(), `flow-${mode}-child-wait-`),
@@ -1671,8 +1759,10 @@ while true; do sleep 0.05; done
   } finally {
     if (previousModels === undefined)
       clearScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS');
-    else setScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS', previousModels);
-    if (previousCli === undefined) clearScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH');
+    else
+      setScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS', previousModels);
+    if (previousCli === undefined)
+      clearScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH');
     else setScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH', previousCli);
     if (previousMarker === undefined)
       clearScopedTestEnvValue('COPILOT_PREP_CANCEL_MARKER');

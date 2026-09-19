@@ -1,0 +1,63 @@
+{
+  "description": "Run the multi-agent reviewer inside one ordinary generic review-job workspace.",
+  "steps": [
+    {
+      "type": "reingest",
+      "label": "Re-embed the bound review target",
+      "target": "working"
+    },
+    {
+      "type": "llm",
+      "label": "Gather Deep Review Evidence",
+      "agentType": "review_agent",
+      "identifier": "reviewer_evidence",
+      "continueOnFailure": true,
+      "recordReviewUsage": true,
+      "markdownFile": "run_deep_review_evidence_workspace.md"
+    },
+    {
+      "type": "llm",
+      "label": "Find Deep Review Issues",
+      "agentType": "review_agent",
+      "identifier": "reviewer_findings",
+      "continueOnFailure": true,
+      "recordReviewUsage": true,
+      "markdownFile": "run_deep_review_findings_workspace.md"
+    },
+    {
+      "type": "llm",
+      "label": "Review Visual Design Conformance",
+      "agentType": "review_agent_lite",
+      "identifier": "reviewer_visual",
+      "continueOnFailure": true,
+      "recordReviewUsage": true,
+      "markdownFile": "run_deep_review_visual_workspace.md"
+    },
+    {
+      "type": "llm",
+      "label": "Saturate Deep Review Findings",
+      "agentType": "review_agent_lite",
+      "identifier": "reviewer_saturation",
+      "continueOnFailure": true,
+      "recordReviewUsage": true,
+      "markdownFile": "run_deep_review_saturation_workspace.md"
+    },
+    {
+      "type": "llm",
+      "label": "Challenge Deep Review Blind Spots",
+      "agentType": "review_agent_lite",
+      "identifier": "reviewer_blindspot",
+      "continueOnFailure": true,
+      "recordReviewUsage": true,
+      "markdownFile": "run_deep_review_blindspot_workspace.md"
+    },
+    {
+      "type": "llm",
+      "label": "Consolidate Multi-Agent Review",
+      "agentType": "review_agent_max",
+      "identifier": "reviewer_consolidator",
+      "recordReviewUsage": true,
+      "markdownFile": "consolidate_deep_review_workspace.md"
+    }
+  ]
+}

@@ -9463,8 +9463,8 @@ This is the sole final automated revalidation owner for the complete Story 60 su
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `current_repository`, run `npm run lint` and fix Story 60-caused issues.
-2. [ ] In `current_repository`, run `npm run format:check` and fix Story 60-caused formatting issues.
+1. [x] In `current_repository`, run `npm run lint` and fix Story 60-caused issues.
+2. [x] In `current_repository`, run `npm run format:check` and fix Story 60-caused formatting issues.
 
 #### Testing
 
@@ -9493,3 +9493,5 @@ Optional only: after the automated lifecycle, use the supported main Compose sta
 
 - Created by complete-pass settlement after auditing both immutable batches. Batch `0000060-rw-20260919T001816Z-097f5d4f` has no repair commit and no actionable survivor; batch `0000060-rw-20260919T090756Z-de25297a` is represented by completed Task 78 and its normal repair at `62bd4a3745e462f60d523fccd8ef150fd58d8e2b`.
 - This task is the only open closeout owner for cycle `0000060-rc-20260919T001815Z-1ecd1bed`; no implementation or another review was started during settlement.
+- Ran `npm run lint` successfully with no Story 60-caused lint issues.
+- Ran `npm run format:check` successfully; all matched files use Prettier code style.

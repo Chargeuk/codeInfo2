@@ -1374,8 +1374,58 @@ test('checked-in GitHub review flow is opt-in, runs after internal completion, a
   const classifierIndex = dispositionSteps.findIndex(
     (step) => step.markdownFile === 'classify_pr_review_disposition.md',
   );
+  const workflowStateRepairIndex = dispositionSteps.findIndex(
+    (step) => step.label === 'Repair Workflow State If Needed',
+  );
+  const finalTaskGuardIndex = dispositionSteps.findIndex(
+    (step) =>
+      step.label ===
+      'Generate Final Revalidation Task Unless Review Work Is Already Tasked Up',
+  );
+  const existingTaskExitIndex = dispositionSteps.findIndex(
+    (step) => step.label === 'Exit Review Loop After Serious Review Work Was Tasked Up',
+  );
+  const cleanExitIndex = dispositionSteps.findIndex(
+    (step) =>
+      step.label === 'Exit Review Loop When No Further Minor Rerun Is Needed',
+  );
   assert.ok(findingsProducerIndex > -1);
   assert.ok(classifierIndex > findingsProducerIndex);
+  assert.ok(workflowStateRepairIndex > classifierIndex);
+  assert.ok(finalTaskGuardIndex > workflowStateRepairIndex);
+  assert.ok(existingTaskExitIndex > finalTaskGuardIndex);
+  assert.ok(cleanExitIndex > existingTaskExitIndex);
+  const finalTaskGuard = dispositionSteps[finalTaskGuardIndex];
+  assert.equal(
+    finalTaskGuard?.decisionScript,
+    'scripts/flow_control/check_review_should_exit_to_main_loop.py',
+  );
+  const alreadyTaskedExit = Array.isArray(finalTaskGuard?.then)
+    ? (finalTaskGuard.then as Array<Record<string, unknown>>)
+    : [];
+  const finalTaskGenerator = Array.isArray(finalTaskGuard?.else)
+    ? (finalTaskGuard.else as Array<Record<string, unknown>>)
+    : [];
+  assert.deepEqual(
+    alreadyTaskedExit.map((step) => step.type),
+    ['break'],
+  );
+  assert.equal(
+    alreadyTaskedExit[0]?.label,
+    'Exit Review Loop Without Regenerating An Already-Tasked Review',
+  );
+  assert.deepEqual(
+    finalTaskGenerator.map((step) => step.markdownFile),
+    ['generate_or_update_pr_fix_revalidation_task.md'],
+  );
+  assert.equal(
+    flattened.filter(
+      (step) =>
+        step.markdownFile ===
+        'generate_or_update_pr_fix_revalidation_task.md',
+    ).length,
+    1,
+  );
   const findingsProducer = dispositionSteps[findingsProducerIndex];
   assert.equal(findingsProducer?.type, 'llm');
   assert.match(

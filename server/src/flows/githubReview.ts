@@ -381,6 +381,55 @@ const isContainedRelativePath = (rootPath: string, relativePath: string) =>
   !path.isAbsolute(relativePath) &&
   isPathContainedWithinRoot(rootPath, path.resolve(rootPath, relativePath));
 
+const validateGitHubReviewScratchWriteRoot = async (params: {
+  workingRepositoryRoot: string;
+  reviewsRoot: string;
+}): Promise<GitHubStepOutcome<null>> => {
+  let resolvedWorkingRepositoryRoot: string;
+  try {
+    resolvedWorkingRepositoryRoot = await githubReviewDeps.realpath(
+      params.workingRepositoryRoot,
+    );
+    for (const scratchAncestorPath of [
+      path.join(params.workingRepositoryRoot, 'codeInfoTmp'),
+      params.reviewsRoot,
+    ]) {
+      let resolvedScratchAncestorPath: string;
+      try {
+        resolvedScratchAncestorPath = await githubReviewDeps.realpath(
+          scratchAncestorPath,
+        );
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') continue;
+        throw error;
+      }
+      if (
+        !isPathContainedWithinRoot(
+          resolvedWorkingRepositoryRoot,
+          resolvedScratchAncestorPath,
+        )
+      ) {
+        return {
+          kind: 'error',
+          reason: 'SCRATCH_INVALID',
+          message:
+            'GitHub review scratch root must remain physically contained within the worked repository before filesystem access.',
+        };
+      }
+    }
+  } catch (error) {
+    return {
+      kind: 'error',
+      reason: 'SCRATCH_INVALID',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Unable to resolve the GitHub review scratch root in the worked repository.',
+    };
+  }
+  return { kind: 'ok', value: null };
+};
+
 export const buildGitHubReviewScratchPaths = (
   workingRepositoryRoot: string,
   storyNumber: string,
@@ -2380,6 +2429,11 @@ export const claimGitHubReviewScratchOwnership = async (params: {
     params.repository.workingRepositoryRoot,
     planContext.value.storyNumber,
   );
+  const scratchRoot = await validateGitHubReviewScratchWriteRoot({
+    workingRepositoryRoot: params.repository.workingRepositoryRoot,
+    reviewsRoot: scratchPaths.reviewsRoot,
+  });
+  if (scratchRoot.kind !== 'ok') return scratchRoot;
   const selector: GitHubReviewScratchSelector = {
     selector_kind: GITHUB_REVIEW_SELECTOR_KIND,
     execution_id: params.executionId,
@@ -2426,6 +2480,11 @@ export const prepareGitHubReviewScratchOwnership = async (params: {
     params.repository.workingRepositoryRoot,
     planContext.value.storyNumber,
   );
+  const scratchRoot = await validateGitHubReviewScratchWriteRoot({
+    workingRepositoryRoot: params.repository.workingRepositoryRoot,
+    reviewsRoot: scratchPaths.reviewsRoot,
+  });
+  if (scratchRoot.kind !== 'ok') return scratchRoot;
   try {
     // Reserve ordering without changing the last successfully fetched selector.
     const publicationSequence = await withExclusiveFileLock({
@@ -2500,6 +2559,11 @@ export const writeGitHubReviewScratch = async (params: {
     params.repository.workingRepositoryRoot,
     planContext.value.storyNumber,
   );
+  const scratchRoot = await validateGitHubReviewScratchWriteRoot({
+    workingRepositoryRoot: params.repository.workingRepositoryRoot,
+    reviewsRoot: scratchPaths.reviewsRoot,
+  });
+  if (scratchRoot.kind !== 'ok') return scratchRoot;
   const rawArtifactPath = scratchPaths.buildRawArtifactPath(
     params.executionId,
     params.pullRequest.number,

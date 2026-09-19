@@ -125,6 +125,46 @@ const buildExecutionScopedHandoffPath = (
     `codeInfoTmp/reviews/0000060-github-review-${executionId}-current.json`,
   );
 
+const scratchArtifact: GitHubReviewArtifact = {
+  repository: { owner: 'example', name: 'repo' },
+  pullRequest: {
+    number: 45,
+    url: 'https://github.com/example/repo/pull/45',
+    headRefName: 'feature/0000060-demo',
+    baseRefName: 'main',
+  },
+  fetchedAt: '2026-09-19T14:00:00Z',
+  reviews: [],
+  reviewComments: [],
+};
+
+const assertScratchWritersRejectEscape = async (repoRoot: string) => {
+  const repository = buildRepositoryState(repoRoot);
+  const results = await Promise.all([
+    claimGitHubReviewScratchOwnership({
+      repository,
+      executionId: 'escape-claim',
+    }),
+    prepareGitHubReviewScratchOwnership({
+      repository,
+      executionId: 'escape-prepare',
+    }),
+    writeGitHubReviewScratch({
+      repository,
+      executionId: 'escape-write',
+      pullRequest: scratchArtifact.pullRequest,
+      artifact: scratchArtifact,
+    }),
+  ]);
+  for (const result of results) {
+    assert.equal(result.kind, 'error');
+    if (result.kind === 'error') {
+      assert.equal(result.reason, 'SCRATCH_INVALID');
+      assert.match(result.message, /scratch root.*physically contained/i);
+    }
+  }
+};
+
 test('preparing GitHub review scratch context does not publish an active selector before fetch succeeds', async () => {
   const tempRepo = await createTempRepo();
   try {
@@ -170,6 +210,44 @@ test('preparing GitHub review scratch context does not publish an active selecto
     assert.equal(selector.execution_id, 'prepared');
   } finally {
     await tempRepo.cleanup();
+  }
+});
+
+test('GitHub review scratch writers reject pre-existing symlink escapes', async (t) => {
+  for (const pathSegments of [
+    ['codeInfoTmp'],
+    ['codeInfoTmp', 'reviews'],
+  ]) {
+    const tempRepo = await createTempRepo();
+    const outsideRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'github-scratch-outside-'),
+    );
+    try {
+      const escapePath = path.join(tempRepo.repoRoot, ...pathSegments);
+      await fs.mkdir(path.dirname(escapePath), { recursive: true });
+      try {
+        await fs.symlink(outsideRoot, escapePath, 'dir');
+      } catch (error) {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          ['EPERM', 'EACCES', 'ENOTSUP'].includes(
+            String((error as NodeJS.ErrnoException).code),
+          )
+        ) {
+          t.skip('symlink creation is not permitted in this environment');
+          return;
+        }
+        throw error;
+      }
+
+      await assertScratchWritersRejectEscape(tempRepo.repoRoot);
+      assert.deepEqual(await fs.readdir(outsideRoot), []);
+    } finally {
+      await fs.rm(outsideRoot, { recursive: true, force: true });
+      await tempRepo.cleanup();
+    }
   }
 });
 

@@ -8576,6 +8576,16 @@ async function runFlowUnlocked(params: {
           }
           pullRequest = createResult.value;
         }
+        if (reusingOpenPullRequest && !pullRequest.authorLogin?.trim()) {
+          const warningMessage = `GitHub review stage skipped during PR open: canonical metadata for existing pull request #${String(pullRequest.number)} did not identify the PR author. External review cannot distinguish feedback from other users.`;
+          await appendGitHubStagePlanNote(warningMessage);
+          await emitGitHubStepWarning({
+            instruction: 'GitHub open PR step',
+            message: warningMessage,
+          });
+          markGitHubReviewCycleSkipped(warningMessage);
+          return 'ok';
+        }
         append({
           level: 'info',
           message: reusingOpenPullRequest

@@ -2747,6 +2747,9 @@ for (const failure of ['lookup-failed', 'author-missing'] as const) {
 for (const lookupOutcome of [
   'existing',
   'stale',
+  'author-missing',
+  'author-blank',
+  'stale-author-missing',
   'wrong-base',
   'missing',
   'failed',
@@ -2760,6 +2763,12 @@ for (const lookupOutcome of [
     });
     enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
     const conversationId = `github-open-pr-${lookupOutcome}-failing-push`;
+    const stale =
+      lookupOutcome === 'stale' || lookupOutcome === 'stale-author-missing';
+    const authorUnavailable =
+      lookupOutcome === 'author-missing' ||
+      lookupOutcome === 'author-blank' ||
+      lookupOutcome === 'stale-author-missing';
 
     try {
       await fs.writeFile(
@@ -2807,7 +2816,7 @@ for (const lookupOutcome of [
               'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
             ) {
               operations.push('push');
-              if (lookupOutcome === 'stale') {
+              if (stale) {
                 return { exitCode: 0, stdout: '', stderr: '' };
               }
               return {
@@ -2852,7 +2861,7 @@ for (const lookupOutcome of [
                     head: {
                       ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
                       sha:
-                        lookupOutcome === 'stale' && openPullLookupCount === 1
+                        stale && openPullLookupCount === 1
                           ? 'stale-head'
                           : 'abc123',
                     },
@@ -2876,14 +2885,19 @@ for (const lookupOutcome of [
                   head: {
                     ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
                     sha:
-                      lookupOutcome === 'stale' && openPullLookupCount === 1
+                      stale && openPullLookupCount === 1
                         ? 'stale-head'
                         : 'abc123',
                   },
                   base: {
                     ref: lookupOutcome === 'wrong-base' ? 'release' : 'main',
                   },
-                  user: { login: 'reviewer' },
+                  user:
+                    lookupOutcome === 'author-blank'
+                      ? { login: '  ' }
+                      : authorUnavailable && (!stale || openPullLookupCount > 1)
+                        ? null
+                        : { login: 'reviewer' },
                 }),
                 stderr: '',
               };
@@ -2923,7 +2937,7 @@ for (const lookupOutcome of [
         | undefined;
       assert.deepEqual(
         operations,
-        lookupOutcome === 'stale'
+        stale
           ? ['lookup', 'push', 'lookup']
           : lookupOutcome === 'missing'
             ? ['lookup', 'push']
@@ -2935,6 +2949,7 @@ for (const lookupOutcome of [
         assert.equal((await getFlowRunStatus(conversationId))?.status, 'ok');
       } else {
         assert.equal(flowState?.githubReviewContext?.prNumber, undefined);
+        assert.equal(flowState?.githubReviewContext?.phase, 'skipped');
         assert.equal(
           (await getFlowRunStatus(conversationId))?.status,
           'warning',
@@ -2952,7 +2967,9 @@ for (const lookupOutcome of [
             ? /could not be pushed to its existing upstream remote/
             : lookupOutcome === 'wrong-base'
               ? /targets base branch release/
-              : /lookup unavailable/,
+              : authorUnavailable
+                ? /pull request #207.*did not identify the PR author/
+                : /lookup unavailable/,
         );
       }
       assert.equal(
@@ -2962,6 +2979,7 @@ for (const lookupOutcome of [
         lookupOutcome !== 'existing' && lookupOutcome !== 'stale',
       );
     } finally {
+      cleanupMemory(conversationId);
       await fs.rm(tempFlowsDir, { recursive: true, force: true });
       await fs.rm(repoRoot, { recursive: true, force: true });
     }

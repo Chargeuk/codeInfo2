@@ -9286,3 +9286,210 @@ Optional only: use the supported main Compose stack at `http://localhost:5001` a
 - Reran `npm run format:check` successfully; all tracked files matched Prettier formatting and no repair was required.
 - Implementation-plus-proof audit confirmed the committed final validation at `560b22458`: all Task 77 subtasks and automated checks are complete, the main validation stack was shut down, and no live blocker or unapproved user-facing behavior drift was identified. Task 77 is therefore `__done__`; optional manual/live-GitHub proof remains a documented evidence limitation rather than a completion gate.
 - Manual testing ran as final-story proof after restarting the freshness-unknown main Compose stack: build, startup, `http://localhost:5010/health`, `http://localhost:5001`, and the Flow catalog API succeeded; the Flow selector visibly exposed the opt-in `implement_next_plan_github_review` variant on desktop and mobile with zero browser-console errors. Retained latest-state proof is `codeInfoTmp/manual-testing/0000060/77/proof-01-flow-catalog.png`, `proof-02-flow-catalog-mobile.png`, `support-console.txt`, and `support-network.json`; Playwright staging initially could not create its nested output directory or use the documented bind, so the files were verified and copied from the observed `/home/node/` output of the exact `codeinfo2-playwright-mcp-local` runtime. No earlier Task 77 screenshots existed to preserve, no design contract was present, and live GitHub PR actions were not attempted because no user-authorized worked sandbox was available; that remains the task's documented evidence limitation, no further subtasks were needed, and the main stack was stopped cleanly.
+
+## Code Review Findings
+
+- Findings recorded: `September 19, 2026 at 8:08:46 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260919T001816Z-097f5d4f`
+- Review cycle: `0000060-rc-20260919T001815Z-1ecd1bed`
+- Reviews attempted:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`) — completed useful but non-exhaustive review with reconciled candidates.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 2,595
+  - open_code_review [current_repository] (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed no-supported-findings review; it is contrary coverage, not proof of no defect.
+    - Input tokens: 6,798,127
+    - Cached input tokens: 6,575,872
+    - Output tokens: 18,915
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — completed native review that generated the configured-base candidate and retained the raw-payload observation as a rejected traceability enhancement.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - cross_repository_review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — completed no-work result because the manifest assigned one repository only.
+    - Input tokens: 380,316
+    - Cached input tokens: 345,600
+    - Output tokens: 3,468
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — partial/unavailable after HTTP 402 `quota_exceeded`; no recoverable review conclusion.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+
+Usage covers only designated actual-review invocations; cached input remains separate from input. Batch totals are Input tokens: At least 7,178,443 reported; incomplete. Cached input tokens: At least 6,921,472 reported; incomplete. Output tokens: At least 24,978 reported; incomplete.
+
+### Accepted
+
+- None. Negative scope, positive authorization, and materiality were all applicable and completed; materiality removed the sole positively authorized survivor.
+
+### Ignored for This Story
+
+#### 1. Validate a configured base branch before any publishing work
+
+- Finding ID or Review reference: `Reconciliation finding 1 — Validate a configured base branch before any publishing work` (`current_repository`, `server/src/flows/githubReview.ts:947-1037`)
+- Review harnesses:
+  - codex_review [current_repository] (`codex_review`, job `target_reviews:current_repository:codex_review`) — generated and verification-corroborated the observation.
+- Simple description: A non-empty persisted base-branch value is treated as trustworthy without proving that it still exists on the selected remote. The PR path can proceed past base resolution with that unverified value.
+- Example: A handoff preserves `branched_from=main`, then the remote renames or deletes `main`; current HEAD can publish or update the intended feature branch before `gh pr create --base main` is rejected. That live-remote sequence was not executed by the immutable review job.
+- Why ignored: Materiality removed the technically supported and positively authorized finding. The evidence does not show an accidental PR, incorrect review, lost or duplicated work, a stuck flow, security exposure, or substantial operator intervention; it shows only possible premature publication of the intended branch followed by the existing warning/skip path. Adding mandatory remote validation to every PR-open attempt is not proportionate to that demonstrated impact for this completed story.
+
+#### 2. Fetch-review failures do not enter the GitHub-review recovery path
+
+- Finding ID or Review reference: `Reconciliation finding 2 — Fetch-review failures do not enter the GitHub-review recovery path` (`current_repository`, `server/src/flows/service.ts:12032-12037`)
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`) — generated and verification-corroborated the observation.
+- Simple description: A non-OK review-comment fetch returns directly instead of using the recovery helper used by other GitHub review steps. The proposed remedy would add retry/exhaustion and warning/skip behavior for fetch failures.
+- Example: A transient `gh api` failure while fetching review comments would stop the flow directly; converting it to a completed-with-warning result would require a new retry/fallback policy. No live GitHub failure sequence was run.
+- Why ignored: Negative scope removed the complete finding. The current Acceptance Criteria authorize specific warning paths but do not authorize a fetch retry/exhaustion or fetch-to-warning policy, so no narrower approved repair remains.
+
+#### 3. Script-backed `if` failures bypass GitHub-review recovery
+
+- Finding ID or Review reference: `Reconciliation finding 3 — Script-backed if failures bypass GitHub-review recovery` (`current_repository`, `server/src/flows/service.ts:11964-11968`)
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`) — generated and verification-corroborated the observation.
+- Simple description: A failed script-backed condition exits before GitHub-review recovery. The proposed remedy would turn authored decision-script hard failures into GitHub warning/skip outcomes.
+- Example: An `if.condition` script that times out, exits non-zero, or returns invalid decision data remains a hard step failure; routing it into a warning/skip would alter that behavior. The full runtime range was not live tested.
+- Why ignored: Negative scope removed the complete finding because the Acceptance Criteria expressly preserve these decision-script failures as hard failures. The proposed recovery conflicts with that contract, so there is no narrower approved repair.
+
+All three gates were applicable and completed; no later gate was inapplicable. The completed disposition is `codeInfoTmp/reviews/0000060-rc-20260919T001815Z-1ecd1bed/batches/0000060-rw-20260919T001816Z-097f5d4f--head-b9ad6ac54716/reconciliation/disposition.md`. Partial/unavailable coverage remains a limitation, not a reason to promote another finding.
+
+## Code Review Findings
+
+- Findings recorded: `September 19, 2026 at 11:47:28 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260919T090756Z-de25297a`
+- Review cycle: `0000060-rc-20260919T001815Z-1ecd1bed`
+- Reviews attempted:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — completed consolidated review, verified; one supported high finding and no visual finding, with stated evidence limits.
+    - Input tokens: 7,957,288
+    - Cached input tokens: 7,294,336
+    - Output tokens: 47,776
+
+Usage covers only the six designated reviewing-model records for this direct job; cached input is separate from input.
+
+### Accepted
+
+#### 1. Inline GitHub review fixes cannot reach final revalidation or PR close
+
+- Finding ID: `F1` (`current_repository`, `flows/implement_next_plan_github_review.json`)
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) — generated and corroborated by its candidate, blind-spot, saturation, final consolidation, and verification work.
+- Simple description: After a valid inline GitHub-review fix, the flow can require final revalidation while neither disposition-loop exit applies. The only existing final-task generator and PR-close conditional are after that loop, so the flow repeats disposition instead of finishing the required lifecycle.
+- Example: An operator uses the opt-in GitHub-review flow, fixes a valid minor reviewer comment inline, and then receives a clean classification that sets final revalidation needed while no task is marked created and clean exit remains false. The flow cannot create the final proof task, close the current PR, or restart implementation/proof.
+- Why accepted: The completed negative, positive-authorization, and materiality gates all retained F1 at the reviewed commit. Normal repair later resolved it at `62bd4a3745e462f60d523fccd8ef150fd58d8e2b` with the guarded existing-flow composition; Task 78 preserves that completed repair and focused proof. The original acceptance remains historical provenance, while the new final revalidation task owns fresh whole-story proof of the repaired head.
+
+### Ignored for This Story
+
+#### 2. Unsafe unconditional final-task-generator relocation (narrowed F1 remedy)
+
+- Finding ID or Review reference: `F1` narrowed remedy (`current_repository`, `flows/implement_next_plan_github_review.json`)
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) — generated the original F1 and its verification/corrected consolidation supports this narrowed-away mechanism.
+- Simple description: Moving the existing final-task generator before the exits without a guard would erase already-created task-up state. This is a removed remedy only, not another accepted finding.
+- Example: When task-up has already set `review_created_tasks_added_or_updated = true`, the generator’s no-task branch clears that flag; the later PR-close decision then cannot see that review work exists.
+- Why ignored: The completed negative and positive gates removed this exact mechanism because current HEAD proves it is unsafe. Only the guarded existing-seam composition is authorized; no new policy, state field, retry, timeout, fallback, or scope expansion is approved.
+
+#### 3. Superseded false-no-findings-closeout formulation of F1
+
+- Finding ID or Review reference: `F1` superseded formulation (`current_repository`, reconciliation history)
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) — its final consolidation and output verification corrected the earlier candidate/blind-spot formulation.
+- Simple description: The earlier claim said the inline-fix state could reach a false no-findings closeout. The corrected evidence shows the flow is trapped earlier in the disposition loop instead.
+- Example: With final revalidation needed and `safe_to_exit_review_loop_without_tasking = false`, the loop does not exit to the later no-findings decision. It repeats disposition, so the claimed closeout harm is not established as a separate current defect.
+- Why ignored: Reconciliation rejected this as a separate finding before scope, authorization, and materiality filtering. It is retained solely to preserve identity and prevent the disproven formulation from being resurrected as new work.
+
+All three gates were applicable and completed; no later gate was inapplicable. The completed disposition is `codeInfoTmp/reviews/0000060-rc-20260919T001815Z-1ecd1bed/batches/0000060-rw-20260919T090756Z-de25297a--head-b9ad6ac54716/reconciliation/disposition.md`. Review limits include unavailable live GitHub/`gh` proof, no final screenshot, an inconclusive focused subflow wrapper, and inherited complete-suite evidence; they do not promote another finding.
+
+### Task 78. Record Review Fixes From Batch 0000060-rw-20260919T090756Z-de25297a
+
+- Task Status: `__done__`
+- Review Task Role: `completed_review_fixes`
+- Repository Name: Current Repository
+- Affected Repositories: `current_repository`
+- Task Dependencies: Completed filtering, repeated-finding routing research, and normal repair for batch `0000060-rw-20260919T090756Z-de25297a`; stronger repair is deliberately inapplicable because normal repair resolved the sole accepted survivor.
+- Review Batch: `0000060-rw-20260919T090756Z-de25297a`
+- Review Cycle: `0000060-rc-20260919T001815Z-1ecd1bed`
+- Created: `September 19, 2026 at 1:18:35 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+This completed task records the already-committed normal repair for the sole material review finding. It preserves the no-work repeated-research result, the deliberately skipped stronger repair, and focused proof for later settlement without creating unresolved or final-revalidation work.
+
+#### Review Harnesses
+
+- review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) generated and corroborated F1 through candidate, blind-spot, saturation, final-consolidation, and verification evidence.
+
+#### Addresses Findings
+
+- `F1 — Inline GitHub review fixes cannot reach final revalidation or PR close`, owned by `current_repository`: a post-inline-fix clean classification can require final revalidation while both outer disposition-loop exits remain false, leaving the sole task generator and PR-close step unreachable.
+
+#### Subtasks
+
+1. [x] Repaired F1 in `flows/implement_next_plan_github_review.json` with the existing decision-script `if`: the already-tasked branch breaks before regeneration, while the other branch runs the existing final-revalidation generator before the retained exits; commit `62bd4a3745e462f60d523fccd8ef150fd58d8e2b`.
+2. [x] Added the direct ordering and exclusive-generator proof in `server/src/test/integration/flows.run.loop.test.ts`; commit `62bd4a3745e462f60d523fccd8ef150fd58d8e2b`.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.loop.test.ts --test-name 'checked-in GitHub review flow is opt-in, runs after internal completion, and closes once before restart'` — passed 1/1.
+2. [x] `npm run format:check` — passed; all matched files use Prettier code style.
+3. [x] `npm run lint` — passed with no warnings or errors.
+
+#### Implementation Notes
+
+- F1 was positively routed as ordinary work: repeated-finding research completed one bounded invocation with zero possible repeats. Its historical index had partial legacy coverage, but no confirmed or uncertain repeat was assigned, no research commit occurred, and F1 remained normal-repair work.
+- Normal repair at `62bd4a3745e462f60d523fccd8ef150fd58d8e2b` moved the existing generator into the copied opt-in flow's guarded `else` branch. The already-tasked branch now preserves its task-created state for the existing PR-close path; no schema, state field, retry, timeout, fallback, authentication, or classification policy changed.
+- The unsafe unconditional generator relocation and superseded false-no-findings-closeout formulation remain non-actionable reconciliation evidence. Normal repair restored neither meaning.
+- Stronger repair is deliberately inapplicable: the normal-repair audit establishes F1 is resolved and that no actionable survivor remains. The focused proof covers the guarded ordering, not live GitHub API/token/`gh` behavior or an end-to-end reviewer interaction; those batch limits remain honest evidence limits.
+- The batch reviewed `b9ad6ac547165438ec4d381276ad2fc7f1cc7bcb` and finished at new committed HEAD `62bd4a3745e462f60d523fccd8ef150fd58d8e2b`; a later review of that new implementation head is useful. The pre-existing plan modification was preserved and not committed with the repair.
+
+### Task 79. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260919T001815Z-1ecd1bed
+
+- Task Status: `__in_progress__`
+- Review Task Role: `final_revalidation`
+- Repository Name: Current Repository
+- Affected Repositories: `current_repository` — client, server, main Compose runtime, copied GitHub-review flow, workflow-support scripts, and repair commit `62bd4a3745e462f60d523fccd8ef150fd58d8e2b`.
+- Task Dependencies: Task 78 and all earlier Story 60 work
+- Review Cycle: `0000060-rc-20260919T001815Z-1ecd1bed`
+- Created: `September 19, 2026 at 1:25:32 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+This is the sole final automated revalidation owner for the complete Story 60 surface and the normal repair from batch `0000060-rw-20260919T090756Z-de25297a`. It validates the repaired copied GitHub-review flow at the post-repair HEAD without reopening gate-removed findings, the no-fix batch, or the already resolved F1 implementation work.
+
+#### Task Exit Criteria
+
+- Supported client and server builds, main Compose lifecycle, full automated client/server/Cucumber/E2E suites, stress suite, shell suite, JavaScript/Python workflow-helper suites, lint, and formatting pass after the latest Story 60 repair.
+- Task 78 remains the sole completed-review-fixes record for the sole fix-bearing batch, preserving F1 provenance, repeated-research no-work, the deliberately inapplicable stronger repair, commit `62bd4a3745e462f60d523fccd8ef150fd58d8e2b`, focused proof, and known limits.
+- The first batch's unavailable Claude review, bounded no-findings/no-work coverage, partial historical index, and absent live GitHub sandbox remain evidence limitations rather than blockers or newly actionable work.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] In `current_repository`, run `npm run lint` and fix Story 60-caused issues.
+2. [ ] In `current_repository`, run `npm run format:check` and fix Story 60-caused formatting issues.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+Repository group: `current_repository` (client, server, main Compose runtime, copied GitHub-review flow, and workflow-support scripts).
+
+1. [ ] `npm run build:summary:client` — run the supported client typecheck and production build at the repaired head.
+2. [ ] `npm run build:summary:server` — run the supported server build at the repaired head.
+3. [ ] `npm run compose:build:summary` — build the supported main Compose images.
+4. [ ] `npm run compose:up` — start the supported main Compose stack for the normal runtime smoke boundary.
+5. [ ] `npm run test:summary:all:parallel` — run the full client, server unit/integration, Cucumber, and E2E suites; Story 60 review-flow and lifecycle failures are task-owned, while unrelated failures require shared-baseline diagnosis.
+6. [ ] `npm run test:summary:all:stress` — rerun the full suite under higher server-unit concurrency to cover pressure on the repaired review-flow ordering and the Story 60 orchestration surface.
+7. [ ] `npm run test:summary:shell` — run the supported shell and Compose-wrapper suite.
+8. [ ] `node --test scripts/*.test.mjs` — run standalone JavaScript workflow-helper and wrapper tests.
+9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — run standalone Python workflow-helper tests.
+10. [ ] `npm run compose:down` — stop the main validation stack started for this task.
+11. [ ] `npm run lint` — rerun supported lint after runtime and suite proof.
+12. [ ] `npm run format:check` — rerun supported formatting after lint.
+
+#### Manual Testing Guidance
+
+Optional only: after the automated lifecycle, use the supported main Compose stack at `http://localhost:5001` and `http://localhost:5010` when safely available. For optional live flow observation, use the mounted `manual_testing/codeinfo_agents` and `manual_testing/codex_agents` catalogs with a user-authorized worked repository; do not print or create credentials. Keep optional screenshots, logs, and notes in `codeInfoTmp/manual-testing/0000060/79/` without committing them, for later curation into `codeInfoStatus/manual-proof/0000060/`. If provider login requires human-controlled two-factor authentication, record that surface as unavailable and do not attempt re-authentication. Live GitHub PR actions remain unavailable without a user-authorized sandbox; this is an evidence limitation, not an automated gate or blocker.
+
+#### Implementation Notes
+
+- Created by complete-pass settlement after auditing both immutable batches. Batch `0000060-rw-20260919T001816Z-097f5d4f` has no repair commit and no actionable survivor; batch `0000060-rw-20260919T090756Z-de25297a` is represented by completed Task 78 and its normal repair at `62bd4a3745e462f60d523fccd8ef150fd58d8e2b`.
+- This task is the only open closeout owner for cycle `0000060-rc-20260919T001815Z-1ecd1bed`; no implementation or another review was started during settlement.

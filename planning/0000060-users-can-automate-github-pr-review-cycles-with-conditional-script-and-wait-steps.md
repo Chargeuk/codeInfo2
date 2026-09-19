@@ -10019,8 +10019,8 @@ Own whole-story automated validation after the three committed review repairs. T
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `current_repository`, run `npm run lint` and fix Story 60-caused issues.
-2. [ ] In `current_repository`, run `npm run format:check` and fix Story 60-caused formatting issues.
+1. [x] In `current_repository`, run `npm run lint` and fix Story 60-caused issues.
+2. [x] In `current_repository`, run `npm run format:check` and fix Story 60-caused formatting issues.
 
 #### Testing
 
@@ -10044,3 +10044,5 @@ Optional only: after automated proof, use the supported main Compose stack at `h
 
 - Created by settlement as the only final validation owner for active cycle `0000060-rc-20260919T135941Z-702c979e`. No final suite or manual proof has run in this task yet.
 - Claude provider quota failures, partial reviewer coverage, unavailable live GitHub credentials, and browser/manual limits remain evidence limitations; they do not create additional implementation tasks or automated blockers.
+- `npm run lint` passed with exit code 0 and no Story 60-caused lint issues were found.
+- `npm run format:check` passed with exit code 0; no Story 60-caused formatting issues were found.

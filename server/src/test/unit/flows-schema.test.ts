@@ -3432,6 +3432,7 @@ describe('flow schema (v1)', () => {
       'scripts/flow_control/check_github_review_cycle_active.py',
       'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
       'scripts/flow_control/check_review_should_exit_to_main_loop.py',
+      'scripts/flow_control/check_review_should_exit_to_main_loop.py',
       'scripts/flow_control/check_github_review_should_write_no_findings_closeout.py',
     ]);
   });

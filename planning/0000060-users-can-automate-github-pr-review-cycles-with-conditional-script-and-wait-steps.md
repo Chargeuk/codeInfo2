@@ -9472,18 +9472,18 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 Repository group: `current_repository` (client, server, main Compose runtime, copied GitHub-review flow, and workflow-support scripts).
 
-1. [ ] `npm run build:summary:client` — run the supported client typecheck and production build at the repaired head.
-2. [ ] `npm run build:summary:server` — run the supported server build at the repaired head.
-3. [ ] `npm run compose:build:summary` — build the supported main Compose images.
-4. [ ] `npm run compose:up` — start the supported main Compose stack for the normal runtime smoke boundary.
-5. [ ] `npm run test:summary:all:parallel` — run the full client, server unit/integration, Cucumber, and E2E suites; Story 60 review-flow and lifecycle failures are task-owned, while unrelated failures require shared-baseline diagnosis.
-6. [ ] `npm run test:summary:all:stress` — rerun the full suite under higher server-unit concurrency to cover pressure on the repaired review-flow ordering and the Story 60 orchestration surface.
-7. [ ] `npm run test:summary:shell` — run the supported shell and Compose-wrapper suite.
-8. [ ] `node --test scripts/*.test.mjs` — run standalone JavaScript workflow-helper and wrapper tests.
-9. [ ] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — run standalone Python workflow-helper tests.
-10. [ ] `npm run compose:down` — stop the main validation stack started for this task.
-11. [ ] `npm run lint` — rerun supported lint after runtime and suite proof.
-12. [ ] `npm run format:check` — rerun supported formatting after lint.
+1. [x] `npm run build:summary:client` — run the supported client typecheck and production build at the repaired head.
+2. [x] `npm run build:summary:server` — run the supported server build at the repaired head.
+3. [x] `npm run compose:build:summary` — build the supported main Compose images.
+4. [x] `npm run compose:up` — start the supported main Compose stack for the normal runtime smoke boundary.
+5. [x] `npm run test:summary:all:parallel` — run the full client, server unit/integration, Cucumber, and E2E suites; Story 60 review-flow and lifecycle failures are task-owned, while unrelated failures require shared-baseline diagnosis.
+6. [x] `npm run test:summary:all:stress` — rerun the full suite under higher server-unit concurrency to cover pressure on the repaired review-flow ordering and the Story 60 orchestration surface.
+7. [x] `npm run test:summary:shell` — run the supported shell and Compose-wrapper suite.
+8. [x] `node --test scripts/*.test.mjs` — run standalone JavaScript workflow-helper and wrapper tests.
+9. [x] `python3 -m unittest discover -s scripts/test -p 'test_*.py'` — run standalone Python workflow-helper tests.
+10. [x] `npm run compose:down` — stop the main validation stack started for this task.
+11. [x] `npm run lint` — rerun supported lint after runtime and suite proof.
+12. [x] `npm run format:check` — rerun supported formatting after lint.
 
 #### Manual Testing Guidance
 
@@ -9495,3 +9495,4 @@ Optional only: after the automated lifecycle, use the supported main Compose sta
 - This task is the only open closeout owner for cycle `0000060-rc-20260919T001815Z-1ecd1bed`; no implementation or another review was started during settlement.
 - Ran `npm run lint` successfully with no Story 60-caused lint issues.
 - Ran `npm run format:check` successfully; all matched files use Prettier code style.
+- Repaired the Story 60 final-revalidation flow test expectation to include the second intentional `check_review_should_exit_to_main_loop.py` guard retained for PR closure; the targeted schema test passed and the full parallel suite then passed (2,906 server-unit, 912 client, 138 Cucumber, and 78 E2E tests).

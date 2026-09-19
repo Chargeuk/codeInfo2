@@ -9441,7 +9441,7 @@ This completed task records the already-committed normal repair for the sole mat
 
 ### Task 79. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260919T001815Z-1ecd1bed
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Task Role: `final_revalidation`
 - Repository Name: Current Repository
 - Affected Repositories: `current_repository` — client, server, main Compose runtime, copied GitHub-review flow, workflow-support scripts, and repair commit `62bd4a3745e462f60d523fccd8ef150fd58d8e2b`.
@@ -9496,3 +9496,4 @@ Optional only: after the automated lifecycle, use the supported main Compose sta
 - Ran `npm run lint` successfully with no Story 60-caused lint issues.
 - Ran `npm run format:check` successfully; all matched files use Prettier code style.
 - Repaired the Story 60 final-revalidation flow test expectation to include the second intentional `check_review_should_exit_to_main_loop.py` guard retained for PR closure; the targeted schema test passed and the full parallel suite then passed (2,906 server-unit, 912 client, 138 Cucumber, and 78 E2E tests).
+- Final automated-proof audit: all two subtasks and all 12 automated validation items are recorded complete, and the parser reports no live blocker. The proof-pass change only aligns a schema test with the existing intentional PR-close guard, so it introduces no user-facing behavior drift.

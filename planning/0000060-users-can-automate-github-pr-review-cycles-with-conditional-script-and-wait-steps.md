@@ -10028,13 +10028,13 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ##### current_repository — server, client, common contracts, flow catalog, and mounted agent configuration
 
-1. [ ] `npm run compose:build:summary` — build the supported main-stack artifacts that contain the worked Story 60 surfaces.
-2. [ ] `npm run compose:up` — start the supported main stack for automated smoke validation.
-3. [ ] `curl --fail --silent --show-error http://localhost:5010/health` — verify the documented main-stack health endpoint.
-4. [ ] `npm run test:summary:all:parallel` — run the canonical full automated suite, covering client tests, server unit/integration tests, Cucumber features, and E2E tests with its shared build lifecycle.
-5. [ ] `npm run compose:down` — stop the main stack started by this task.
-6. [ ] `npm run lint` — run the supported repository lint command after broad validation.
-7. [ ] `npm run format:check` — run the supported repository formatting check after lint.
+1. [x] `npm run compose:build:summary` — build the supported main-stack artifacts that contain the worked Story 60 surfaces.
+2. [x] `npm run compose:up` — start the supported main stack for automated smoke validation.
+3. [x] `curl --fail --silent --show-error http://localhost:5010/health` — verify the documented main-stack health endpoint.
+4. [x] `npm run test:summary:all:parallel` — run the canonical full automated suite, covering client tests, server unit/integration tests, Cucumber features, and E2E tests with its shared build lifecycle.
+5. [x] `npm run compose:down` — stop the main stack started by this task.
+6. [x] `npm run lint` — run the supported repository lint command after broad validation.
+7. [x] `npm run format:check` — run the supported repository formatting check after lint.
 
 #### Manual Testing Guidance
 
@@ -10046,3 +10046,10 @@ Optional only: after automated proof, use the supported main Compose stack at `h
 - Claude provider quota failures, partial reviewer coverage, unavailable live GitHub credentials, and browser/manual limits remain evidence limitations; they do not create additional implementation tasks or automated blockers.
 - `npm run lint` passed with exit code 0 and no Story 60-caused lint issues were found.
 - `npm run format:check` passed with exit code 0; no Story 60-caused formatting issues were found.
+- `npm run compose:build:summary` passed with 2 items passed and 0 failed; the supported main-stack artifacts built successfully.
+- `npm run compose:up` passed; the supported main stack reached healthy server and started client containers.
+- `curl --fail --silent --show-error http://localhost:5010/health` passed with `status: ok` and `mongoConnected: true`.
+- `npm run test:summary:all:parallel` passed: client 912/912, server unit 2,911/2,911, Cucumber 138/138, and E2E 78/78; all parallel wrapper phases exited 0.
+- `npm run compose:down` passed and removed the main stack containers and network started by this task.
+- `npm run lint` passed with exit code 0 and no warnings.
+- `npm run format:check` passed; all tracked files use Prettier code style.

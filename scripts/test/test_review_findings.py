@@ -41,8 +41,12 @@ class ReviewFindingTests(unittest.TestCase):
         self.plan.write_text(text)
         return review_findings.query(self.plan, mode, exclude, reference)
 
-    def test_excludes_current_and_ignored_without_merging_reused_ids(self):
-        text = finding() + finding("other", "secondary") + finding("current")
+    def test_only_structured_accepted_findings_are_eligible(self):
+        text = finding() + """### Rejected
+#### 3. Rejected candidate
+- Finding ID: `rejected`
+- Simple description: This must remain outside accepted history.
+""" + finding("other", "secondary") + finding("current")
         result = self.query(text)
         self.assertEqual(result["coverage"], "complete")
         self.assertEqual([r["review_id"] for r in result["findings"]], ["old", "other"])
@@ -50,6 +54,10 @@ class ReviewFindingTests(unittest.TestCase):
         self.assertEqual([r["repositories"] for r in result["findings"]], [["primary"], ["secondary"]])
         self.assertNotEqual(*[r["reference"] for r in result["findings"]])
         self.assertNotIn("markdown", result["findings"][0]["source"])
+        self.assertEqual(result["findings"][0]["acceptance_provenance"]["classification"], "accepted")
+        self.assertEqual(result["findings"][0]["acceptance_provenance"]["section"], "Accepted")
+        self.assertNotIn("rejected", json.dumps(result["findings"]))
+        self.assertNotIn("ignored", json.dumps(result["findings"]))
 
     def test_expansion_keeps_full_block_and_only_batch_linked_task_evidence(self):
         text = finding() + """
@@ -78,6 +86,8 @@ class ReviewFindingTests(unittest.TestCase):
         self.assertIn("Finding `1`", packet)
         self.assertNotIn("unrelated implementation checklist", packet)
         self.assertIn("semantic inspection", result["warnings"][0])
+        self.assertEqual(result["repair_evidence"][0]["finding_attempt_status"], "not_assessed")
+        self.assertIn("does not establish", result["repair_evidence"][0]["link_scope"])
 
     def test_missing_fields_are_retained_as_partial_evidence(self):
         text = finding().replace("- Finding ID: `R1`\n", "").replace("- Repository: `primary`\n", "").replace("- Simple description: Preserve the created PR URL.\n", "")
@@ -100,6 +110,8 @@ class ReviewFindingTests(unittest.TestCase):
         result = self.query("## Code Review Findings\n### Review Pass `legacy`\nUnstructured accepted repairs.\n")
         self.assertEqual(result["coverage"], "partial")
         self.assertIn("legacy", result["warnings"][0]["reason"])
+        self.assertEqual(result["warnings"][0]["classification"], "legacy_unclassified_non_eligible")
+        self.assertIn("not eligible", result["warnings"][0]["reason"])
 
     def test_legacy_pass_and_wrapped_bold_fields_are_preserved(self):
         text = finding().replace("- Review batch: `old`", "### Review Pass `legacy-pass`")
@@ -135,6 +147,28 @@ class ReviewFindingTests(unittest.TestCase):
         result = self.query(text, "expand", reference)
         self.assertEqual(result["repair_evidence"], [])
         self.assertEqual(result["coverage"], "partial")
+
+    def test_same_batch_unrelated_tasks_remain_evidence_without_a_finding_match(self):
+        text = finding() + """
+### Task 1. Repair a different old finding
+- Review Batch: `old`
+#### Addresses Findings
+- `another-id`: update unrelated error handling.
+#### Implementation Notes
+- Changed the unrelated path.
+### Task 2. Preserve existing behavior
+- Review Batch: `old`
+#### Implementation Notes
+- No finding is named here.
+"""
+        reference = self.query(text)["findings"][0]["reference"]
+        result = self.query(text, "expand", reference)
+        self.assertEqual([task["task_number"] for task in result["repair_evidence"]], [1, 2])
+        self.assertTrue(all(task["finding_attempt_status"] == "not_assessed"
+                            for task in result["repair_evidence"]))
+        self.assertTrue(all("does not establish" in task["link_scope"]
+                            for task in result["repair_evidence"]))
+        self.assertIn("does not establish", result["warnings"][0])
 
     def test_cli_default_handoff_and_unavailable_input_are_read_only(self):
         self.plan.write_text(finding())

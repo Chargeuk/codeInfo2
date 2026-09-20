@@ -488,10 +488,13 @@ class ProductionReviewChat extends ChatInterface {
     if (
       message.includes(
         'positively confirms no possible repeat or matching uncertainty remains',
+      ) ||
+      message.includes(
+        'at least one current accepted actionable finding plausibly matches',
       )
     ) {
-      // Candidate, clean no-candidate result, then unavailable matching evidence.
-      const answers = ['no', 'yes', 'unavailable'];
+      // Two eligible candidates, then unavailable matching evidence.
+      const answers = ['yes', 'yes', 'unavailable'];
       this.emit('final', {
         type: 'final',
         content: JSON.stringify({

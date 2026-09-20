@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -17,20 +18,29 @@ def read_text(relative_path: str) -> str:
 
 
 class ReviewPromptContractTests(unittest.TestCase):
-    def test_repeated_repair_routes_uncertainty_and_preserves_research_accounting(self):
+    def test_repeated_repair_requires_accepted_attempted_history_and_preserves_accounting(self):
         matching = read_text("codeinfo_markdown/identify_repeated_review_findings.md")
         research = read_text("codeinfo_markdown/research_and_fix_repeated_review_findings.md")
         shared = read_text("codeinfo_markdown/shared/repeated-review-repair.md")
         self.assertIn("--exclude-batch", matching)
         self.assertIn("expand --reference", matching)
-        self.assertIn("Opposite proposed remedies", matching)
-        self.assertIn("Unresolved matching uncertainty goes to research", matching)
+        self.assertIn("positive accepted provenance", matching)
+        self.assertIn("attempted repair", matching)
+        self.assertIn("do not invoke Astra for uncertainty alone", matching)
+        self.assertIn("return without querying history", matching)
         self.assertIn("false match returns to ordinary repair", research)
         self.assertIn("why the prior repair was reverted or incomplete", research)
         self.assertIn("both the reported defect", research)
+        self.assertIn("run_agent_instruction", research)
+        self.assertIn("coding_agent", research)
+        self.assertIn("automated_testing_agent", research)
+        self.assertIn("conversationId", research)
+        self.assertIn("modelId", research)
+        self.assertIn("never launch a duplicate worker", research)
         self.assertIn("One research invocation is allowed per batch", research)
         self.assertIn("never wait for human input", research)
         self.assertIn("Normal and stronger fixers must not redo", shared)
+        self.assertIn("uncertainty alone does not invoke Astra", shared)
         self.assertIn("unresolved/uncertain research outcomes never justify", shared)
         self.assertIn("research-only repair commit makes the batch fix-bearing", shared)
         self.assertIn("stronger repair opportunity for its assigned findings", shared)
@@ -46,6 +56,30 @@ class ReviewPromptContractTests(unittest.TestCase):
         ):
             with self.subTest(name=name):
                 self.assertIn("shared/repeated-review-repair.md", read_text("codeinfo_markdown/" + name))
+
+        for root in ("codeinfo_agents", "manual_testing/codeinfo_agents"):
+            with self.subTest(root=root):
+                config = read_text(f"{root}/research_agent_max/config.toml")
+                prompt = read_text(f"{root}/research_agent_max/system_prompt.txt")
+                research_config = tomllib.loads(config)
+                coding_config = tomllib.loads(
+                    read_text(f"{root}/coding_agent/config.toml")
+                )
+                testing_config = tomllib.loads(
+                    read_text(f"{root}/automated_testing_agent/config.toml")
+                )
+                self.assertEqual(research_config["model"], "gpt-6-astra")
+                self.assertNotEqual(coding_config["model"], "gpt-6-astra")
+                self.assertNotEqual(testing_config["model"], "gpt-6-astra")
+                self.assertIn('[mcp_servers.agents]', config)
+                self.assertIn('${CODEINFO_AGENTS_MCP_PORT}', config)
+                self.assertIn('tool_timeout_sec = 86400', config)
+                self.assertIn('run_agent_instruction', prompt)
+                self.assertIn('coding_agent', prompt)
+                self.assertIn('automated_testing_agent', prompt)
+                self.assertIn('Do not directly edit implementation files', prompt)
+                self.assertIn('returned worker model IDs are non-Astra', prompt)
+                self.assertIn('tester must not edit source, tests, or config', prompt)
 
     def test_github_review_prompts_keep_imperfect_evidence_non_failing(
         self,
@@ -344,14 +378,31 @@ class ReviewPromptContractTests(unittest.TestCase):
         for step in file_reading_breaks:
             with self.subTest(label=step["label"]):
                 question = step["question"]
-                self.assertIn(
-                    "Missing, malformed, incomplete, contradictory, or unexpectedly formatted files",
+                if step["label"] == "Skip Review Repair When Disposition Accepts No Findings":
+                    self.assertIn("empty accepted actionable set", question)
+                    self.assertIn("unrelated history or review coverage", question)
+                    self.assertIn("salvage every understandable fact", question.lower())
+                    self.assertTrue(step.get("continueOnFailure"))
+                    self.assertTrue(step.get("continueOnInvalidResponse"))
+                    continue
+                self.assertTrue(
+                    "Missing, malformed, incomplete, contradictory, or unexpectedly formatted files"
+                    in question
+                    or "imperfect evidence" in question,
                     question,
                 )
-                self.assertIn("salvage every understandable fact", question)
-                self.assertIn("never fail or stop because of them", question)
-                self.assertIn(
-                    "answer no when positive confirmation remains impossible",
+                normalized_question = question.lower()
+                self.assertIn("salvage every understandable fact", normalized_question)
+                self.assertTrue(
+                    "never fail or stop because of them" in normalized_question
+                    or "never fail or stop because of imperfect evidence"
+                    in normalized_question,
+                    question,
+                )
+                self.assertTrue(
+                    "answer no when positive confirmation remains impossible"
+                    in normalized_question
+                    or "cannot establish the accepted set" in normalized_question,
                     question,
                 )
                 self.assertTrue(step.get("continueOnFailure"))

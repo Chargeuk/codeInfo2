@@ -617,7 +617,7 @@ describe('flow schema (v1)', () => {
       [
         'Reset Repeated Finding Matcher',
         'Identify Repeated Review Findings',
-        'Skip Repeated Repair When No Candidates Remain',
+        'Enter Repeated Repair When Evidence Qualifies',
         'Reset Repeated Finding Researcher',
         'Research and Fix Repeated Review Findings',
         'Exit Repeated Finding Investigation',
@@ -626,9 +626,13 @@ describe('flow schema (v1)', () => {
     assert.equal(repeated?.steps?.[1]?.agentType, 'review_agent_lite');
     assert.equal(repeated?.steps?.[1]?.identifier, 'batch_repeat_matcher');
     assert.equal(repeated?.steps?.[1]?.continueOnFailure, true);
-    assert.equal(repeated?.steps?.[2]?.breakOn, 'yes');
-    assert.equal(repeated?.steps?.[2]?.continueOnFailure, true);
-    assert.equal(repeated?.steps?.[2]?.continueOnInvalidResponse, true);
+    assert.equal(repeated?.steps?.[2]?.breakOn, 'no');
+    assert.equal(repeated?.steps?.[2]?.breakOnFailure, true);
+    assert.equal(repeated?.steps?.[2]?.continueOnFailure, undefined);
+    assert.equal(repeated?.steps?.[2]?.continueOnInvalidResponse, undefined);
+    assert.match(repeated?.steps?.[2]?.question ?? '', /attempted repair/u);
+    assert.match(repeated?.steps?.[2]?.question ?? '', /uncertainty alone/u);
+    assert.match(repeated?.steps?.[2]?.question ?? '', /invalid response must exit/u);
     assert.equal(repeated?.steps?.[3]?.agentType, 'research_agent_max');
     assert.equal(repeated?.steps?.[3]?.identifier, 'batch_repeat_researcher');
     assert.equal(repeated?.steps?.[4]?.agentType, 'research_agent_max');
@@ -1081,7 +1085,8 @@ describe('flow schema (v1)', () => {
     assert.equal(noWorkGate?.breakOn, 'yes');
     assert.equal(noWorkGate?.continueOnFailure, true);
     assert.equal(noWorkGate?.continueOnInvalidResponse, true);
-    assert.match(noWorkGate?.question ?? '', /no accepted actionable finding/u);
+    assert.match(noWorkGate?.question ?? '', /empty accepted actionable set/u);
+    assert.match(noWorkGate?.question ?? '', /unrelated history or review coverage/u);
     const completionGate = optionalSteps.find(
       (step) =>
         step.label ===

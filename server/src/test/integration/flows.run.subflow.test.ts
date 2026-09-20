@@ -3155,6 +3155,81 @@ test('a malformed later review-loop decision still records the review outcome', 
   }
 });
 
+test('repeated repair gate skips empty batches, researches candidates, and preserves followup after gate failure', async () => {
+  const scenarios = [
+    { name: 'empty', gateResponse: '{"answer":"no"}', expectsResearch: false },
+    {
+      name: 'candidate',
+      gateResponse: '{"answer":"yes"}',
+      expectsResearch: true,
+    },
+    { name: 'invalid', gateResponse: 'not json', expectsResearch: false },
+    { name: 'failed', gateResponse: null, expectsResearch: false },
+  ] as const;
+
+  for (const scenario of scenarios) {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), `repeated-repair-gate-${scenario.name}-`),
+    );
+    enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
+    try {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'repeated-repair-gate',
+        steps: [
+          {
+            type: 'startLoop',
+            maxIterations: 1,
+            steps: [
+              {
+                type: 'break',
+                label: 'Enter Repeated Repair When Evidence Qualifies',
+                agentType: 'review_agent_lite',
+                identifier: 'batch_repeat_matcher',
+                question:
+                  scenario.name === 'failed'
+                    ? 'repeated repair child fail candidate gate'
+                    : 'repeated repair candidate gate',
+                breakOn: 'no',
+                breakOnFailure: true,
+              },
+              llmStep('repeated repair research'),
+            ],
+          },
+          llmStep('ordinary followup'),
+        ],
+      });
+
+      const executions: string[] = [];
+      const result = await startFlowRun({
+        flowName: 'repeated-repair-gate',
+        source: 'REST',
+        chatFactory: () =>
+          new SubflowChat(0, ({ message }) => {
+            executions.push(message);
+            if (
+              message.includes('repeated repair candidate gate') ||
+              message.includes('repeated repair child fail candidate gate')
+            ) {
+              return scenario.gateResponse ?? undefined;
+            }
+            return undefined;
+          }),
+      });
+
+      await waitForAssistantStatus(result.conversationId, 'ok');
+      assert.equal(
+        executions.includes('repeated repair research'),
+        scenario.expectsResearch,
+        JSON.stringify({ scenario, executions }),
+      );
+      assert.equal(executions.includes('ordinary followup'), true);
+    } finally {
+      await removeWritableTree(tmpDir);
+    }
+  }
+});
+
 test('subflow wave preserves a failed child launch reason in progress state', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-launch-failure-'),

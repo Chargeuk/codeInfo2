@@ -2,7 +2,8 @@
 """Read compact accepted-finding history or expand one exact source record.
 
 Run from the target repository. This helper never modifies the plan, infers a
-semantic duplicate, or treats an accepted finding as a completed repair.
+semantic duplicate, treats rejected or ignored material as an accepted finding,
+or treats same-review repair evidence as proof a finding was attempted.
 """
 
 from __future__ import annotations
@@ -43,6 +44,11 @@ def span(lines: list[str], start: int, end: int) -> dict:
     return {"start_line": start + 1, "end_line": end, "markdown": "\n".join(lines[start:end]).strip()}
 
 
+def source_range(start: int, end: int) -> dict:
+    """Return a compact, non-content-bearing source range for list output."""
+    return {"start_line": start + 1, "end_line": end}
+
+
 def history(lines: list[str], exclude_batch: str | None = None) -> dict:
     records = []
     warnings = []
@@ -62,7 +68,8 @@ def history(lines: list[str], exclude_batch: str | None = None) -> dict:
                              if start < i < end and t.casefold() == "accepted"]
         if not accepted_sections and batch != exclude_batch:
             warnings.append({"start_line": start + 1, "end_line": end,
-                             "reason": "No structured Accepted section; legacy review evidence requires bounded inspection."})
+                             "classification": "legacy_unclassified_non_eligible",
+                             "reason": "No structured Accepted section; legacy unclassified review evidence is not eligible for matching and requires bounded inspection."})
         for accepted, depth in accepted_sections:
             review = batch or next((value for i, value in reversed(pass_headers) if i < accepted), pass_id)
             if exclude_batch is not None and review == exclude_batch:
@@ -107,13 +114,18 @@ def history(lines: list[str], exclude_batch: str | None = None) -> dict:
                                 "review_id": review, "repositories": repositories,
                                 "finding_id": finding_id, "title": title,
                                 "simple_description": description,
+                                "acceptance_provenance": {
+                                    "classification": "accepted",
+                                    "section": "Accepted",
+                                    "source": source_range(accepted, section_end),
+                                },
                                 "source": source, "limitations": limitations})
     return {"coverage": "partial" if warnings or any(r["limitations"] for r in records) else "complete",
             "warnings": warnings, "findings": records}
 
 
 def repair_evidence(lines: list[str], review_id: str | None) -> list[dict]:
-    """Return bounded task evidence linked by review, never by a reused ID alone."""
+    """Return bounded same-review task evidence without inferring a finding link."""
     if not review_id:
         return []
     tasks = [(i, m[1], m[2]) for i, line in enumerate(lines) if (m := TASK.match(line))]
@@ -132,7 +144,8 @@ def repair_evidence(lines: list[str], review_id: str | None) -> list[dict]:
                 section_end = sections[section_index + 1][0] if section_index + 1 < len(sections) else end
                 packets.append(span(lines, section_start, section_end))
         results.append({"task_number": int(number), "title": title, "sections": packets,
-                        "link_scope": "same review; inspect Addresses Findings semantically, not an inferred per-finding fix"})
+                        "link_scope": "same review only; this evidence does not establish that this finding was attempted",
+                        "finding_attempt_status": "not_assessed"})
     return results
 
 
@@ -152,7 +165,7 @@ def query(plan: Path, mode: str, exclude_batch: str | None, reference: str | Non
     evidence = repair_evidence(lines, record["review_id"])
     return {"plan_path": str(plan), "coverage": "partial" if record["limitations"] or not evidence else "complete",
             "finding": record, "repair_evidence": evidence,
-            "warnings": ["Repair evidence is linked by review identity; reused or differing IDs require semantic inspection."
+            "warnings": ["Repair evidence is linked only by review identity; it does not establish that this finding was attempted and requires semantic inspection."
                          if evidence else "No related repair-task evidence found; this does not establish that the issue was never repaired."]}
 
 

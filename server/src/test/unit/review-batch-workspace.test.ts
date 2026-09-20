@@ -6,7 +6,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
-import { prepareReviewBatchWorkspace } from '../../flows/reviewBatchWorkspace.js';
+import {
+  prepareReviewBatchWorkspace,
+  resolveReviewBatchContext,
+} from '../../flows/reviewBatchWorkspace.js';
 import type { ReviewTargetSnapshot } from '../../flows/reviewTargets.js';
 import type { SubflowWaveJob } from '../../flows/subflowWave.js';
 import { removeWritableTree } from '../support/fsCleanup.js';
@@ -98,6 +101,50 @@ test('review batch workspace gives every job immutable private input and pre-cre
         },
       ],
     };
+    assert.deepEqual(resolveReviewBatchContext(snapshot), {
+      story_id: '0000064',
+      plan_path: path.join(repoRoot, 'planning', '0000064-review.md'),
+      review_cycle_id: '0000064-rc-example',
+      batch_id: '0000064-rw-example',
+      reviewed_head: headCommit,
+      batch_root: path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000064-rc-example',
+        'batches',
+        `0000064-rw-example--head-${headCommit.slice(0, 12)}`,
+      ),
+      reconciliation_dir: path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000064-rc-example',
+        'batches',
+        `0000064-rw-example--head-${headCommit.slice(0, 12)}`,
+        'reconciliation',
+      ),
+    });
+    const standaloneContext = resolveReviewBatchContext({
+      ...snapshot,
+      review_cycle_id: undefined,
+    });
+    assert.equal(
+      standaloneContext.review_cycle_id,
+      '0000064-standalone-review-pass',
+    );
+    assert.equal(
+      standaloneContext.batch_root,
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000064-standalone-review-pass',
+        'batches',
+        `0000064-rw-example--head-${headCommit.slice(0, 12)}`,
+      ),
+    );
+
     const jobs: SubflowWaveJob[] = [
       {
         instanceId: 'target_reviews:cross-repository:codex_review',
@@ -145,6 +192,17 @@ test('review batch workspace gives every job immutable private input and pre-cre
     assert.match(result.batchRoot, /batches/u);
     assert.doesNotMatch(result.batchRoot, /fast|slow/iu);
     assert.equal(result.jobs.length, 4);
+    for (const job of result.jobs) {
+      assert.deepEqual(
+        job.input?.review_batch,
+        {
+          batch_id: snapshot.review_wave_id,
+          batch_root: result.batchRoot,
+          reconciliation_dir: path.join(result.batchRoot, 'reconciliation'),
+        },
+        'preserve the child input shape and hashes used to reattach existing reviewer runs',
+      );
+    }
     const codexJob = result.jobs[0]?.input?.review_job as Record<
       string,
       unknown

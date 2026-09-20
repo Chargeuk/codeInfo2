@@ -5612,3 +5612,213 @@ test('resumed parent flow uses its persisted conversation title for new subflow 
     await removeWritableTree(tmpDir);
   }
 });
+
+test('review wave pins parent, decisions, and resumed context despite conflicting pointers', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-wave-pinned-context-'),
+  );
+  const repoDir = path.join(await fs.realpath(tmpDir), 'repo');
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
+  const executions: string[] = [];
+  let checkpoint: Conversation['flags'] | undefined;
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await fs.copyFile(
+      path.join(repoDir, 'planning/0000027-codex-review.md'),
+      path.join(repoDir, 'planning/0000060-story.md'),
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus/flow-state/current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000060-story.md',
+        branched_from: 'main',
+      }),
+    );
+    await execFile('git', ['branch', '-m', 'feature/0000060-story'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'story 60'], { cwd: repoDir });
+    const head = (
+      await execFile('git', ['rev-parse', 'HEAD'], { cwd: repoDir })
+    ).stdout.trim();
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'pinned-review-child',
+      steps: [llmStep('review child work')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'pinned-review-parent',
+      steps: [
+        { type: 'prepareReviewTargets', outputKey: 'assigned_snapshot' },
+        {
+          type: 'startLoop',
+          maxIterations: 1,
+          steps: [
+            {
+              type: 'subflowWave',
+              reviewWorkspace: { snapshotFrom: 'assigned_snapshot' },
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'reviewer',
+                  flowName: 'pinned-review-child',
+                },
+              ],
+            },
+            llmStep('parent review after wave'),
+            {
+              type: 'break',
+              agentType: 'planning_agent',
+              identifier: 'planner',
+              question: 'Does the assigned batch finish?',
+              breakOn: 'yes',
+            },
+          ],
+        },
+        llmStep('parent outcome after wave'),
+      ],
+    });
+    const chatFactory = () =>
+      new SubflowChat(0, async ({ message }) => {
+        executions.push(message);
+        if (message.endsWith('review child work')) {
+          // Simulate the wrong-story locator that caused Run E's misattribution.
+          await fs.writeFile(
+            path.join(repoDir, 'codeInfoStatus/flow-state/current-plan.json'),
+            JSON.stringify({ plan_path: 'planning/0000065-other.md' }),
+          );
+          await fs.writeFile(
+            path.join(
+              repoDir,
+              'codeInfoTmp/reviews/0000060-current-review-batch.md',
+            ),
+            'Story: 0000065\nBatch directory: /wrong-story-65\n',
+          );
+        }
+        if (message.endsWith('parent review after wave') && !checkpoint) {
+          const parent = Array.from(memoryConversations.values()).find(
+            (entry) => entry.flowName === 'pinned-review-parent',
+          );
+          assert.ok(parent);
+          checkpoint = structuredClone(parent.flags);
+        }
+      });
+    const result = await startFlowRun({
+      flowName: 'pinned-review-parent',
+      source: 'REST',
+      working_folder: repoDir,
+      input: {
+        review_batch: { story_id: '0000065', plan_path: '/wrong-story-65' },
+      },
+      chatFactory,
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() => !getActiveRunOwnership(result.conversationId));
+    assert.equal((await getFlowRunStatus(result.conversationId))?.status, 'ok');
+    assert.ok(checkpoint);
+    const savedFlow = (
+      checkpoint as {
+        flow: {
+          values: { assigned_snapshot: { review_wave_id: string } };
+          subflowWaveProgress: { stepPath: number[] };
+          stepPath: number[];
+        };
+      }
+    ).flow;
+    assert.deepEqual(savedFlow.subflowWaveProgress.stepPath, [1, 0]);
+    assert.deepEqual(savedFlow.stepPath, [1, 0]);
+    const batchRoot = path.join(
+      repoDir,
+      'codeInfoTmp/reviews/0000060-standalone-review-pass/batches',
+      `${savedFlow.values.assigned_snapshot.review_wave_id}--head-${head.slice(0, 12)}`,
+    );
+    const assertParentContexts = (messages: string[]) => {
+      assert.equal(messages.length, 3);
+      for (const message of messages) {
+        assert.match(message, /# Scheduler-assigned review batch/u);
+        assert.match(message, /"story_id": "0000060"/u);
+        assert.ok(
+          message.includes(
+            JSON.stringify(path.join(repoDir, 'planning/0000060-story.md')),
+          ),
+        );
+        assert.ok(message.includes(JSON.stringify(batchRoot)));
+        assert.ok(message.includes(JSON.stringify(head)));
+        assert.doesNotMatch(message, /0000065|wrong-story-65/u);
+      }
+    };
+    const childMessages = executions.filter((message) =>
+      message.endsWith('review child work'),
+    );
+    assert.equal(childMessages.length, 1);
+    assert.match(childMessages[0], /# Scheduler-assigned review job/u);
+    assert.match(childMessages[0], /# Scheduler-assigned review batch/u);
+    assert.ok(childMessages[0].includes(JSON.stringify(batchRoot)));
+    assertParentContexts(
+      executions.filter((message) => !message.endsWith('review child work')),
+    );
+
+    // Restore the actual persisted post-wave checkpoint, as after a server restart.
+    // Both mutable pointers are now wrong; resume must use values and the recorded wave.
+    const parent = memoryConversations.get(result.conversationId)!;
+    parent.flags = checkpoint;
+    executions.length = 0;
+    await startFlowRun({
+      flowName: 'pinned-review-parent',
+      conversationId: result.conversationId,
+      resumeStepPath: savedFlow.stepPath,
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory,
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() => !getActiveRunOwnership(result.conversationId));
+    assert.equal((await getFlowRunStatus(result.conversationId))?.status, 'ok');
+    assertParentContexts(executions);
+    assert.equal(
+      Array.from(memoryConversations.values()).filter(
+        (entry) => entry.flowName === 'pinned-review-child',
+      ).length,
+      1,
+      'resume must not relaunch the reviewer',
+    );
+    // A lost snapshot must be reported, not replaced by the stale input batch.
+    const unavailableCheckpoint = structuredClone(checkpoint) as {
+      flow: { values: FlowJsonObject };
+    };
+    unavailableCheckpoint.flow.values = {};
+    memoryConversations.get(result.conversationId)!.flags =
+      unavailableCheckpoint;
+    executions.length = 0;
+    await startFlowRun({
+      flowName: 'pinned-review-parent',
+      conversationId: result.conversationId,
+      resumeStepPath: savedFlow.stepPath,
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory,
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() => !getActiveRunOwnership(result.conversationId));
+    assert.equal((await getFlowRunStatus(result.conversationId))?.status, 'ok');
+    assert.equal(executions.length, 3);
+    for (const message of executions) {
+      assert.match(message, /"status": "unavailable"/u);
+      assert.match(message, /Do not look up or write another batch or plan/u);
+      assert.doesNotMatch(message, /0000065|wrong-story-65/u);
+    }
+  } finally {
+    await removeWritableTree(tmpDir);
+  }
+});

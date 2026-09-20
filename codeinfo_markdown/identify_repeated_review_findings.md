@@ -2,7 +2,7 @@
 
 Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md` and `$CODEINFO_ROOT/codeinfo_markdown/shared/repeated-review-repair.md`. This step only routes the current accepted findings; do not implement changes, invent new findings, reconsider earlier gate removals, or ask a human.
 
-Resolve the exact immutable current batch from the canonical current-batch handoff. Read its disposition, combined filtering audit, target snapshot, and accepted finding evidence. From the target repository root, run:
+Use the scheduler-assigned batch directory and plan. Only when no scheduler assignment exists, resolve the exact immutable current batch from the canonical current-batch handoff. Read its disposition, combined filtering audit, target snapshot, and accepted finding evidence. From the target repository root, run:
 
 ```bash
 python3 "$CODEINFO_ROOT/scripts/review_findings.py" list --exclude-batch '<exact current batch ID>'

@@ -188,7 +188,7 @@ import {
 import {
   hashFlowInput,
   normalizeFlowInput,
-  prependAssignedReviewJobContext,
+  prependAssignedReviewContext,
   tryNormalizeFlowInput,
 } from './flowInput.js';
 import {
@@ -253,7 +253,10 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from './repositoryCandidateOrder.js';
-import { prepareReviewBatchWorkspace } from './reviewBatchWorkspace.js';
+import {
+  prepareReviewBatchWorkspace,
+  resolveReviewBatchContext,
+} from './reviewBatchWorkspace.js';
 import {
   finalizeActiveReviewCycleIfPending,
   initializeReviewCycle,
@@ -5411,6 +5414,19 @@ const getNestedResumeSteps = (
   return null;
 };
 
+const findFlowStepAtPath = (
+  steps: FlowStep[],
+  stepPath: number[],
+): FlowStep | undefined => {
+  const [index, ...rest] = stepPath;
+  const step = steps[index];
+  if (!step || rest.length === 0) return step;
+  const nested = getNestedResumeSteps(step, rest);
+  return nested
+    ? findFlowStepAtPath(nested.steps, nested.resumeStepPath)
+    : undefined;
+};
+
 const stepRequiresProviderBootstrap = (step: FlowStep | undefined): boolean => {
   if (!step) return false;
   if (step.type === 'llm' || step.type === 'command') {
@@ -6878,6 +6894,37 @@ async function runFlowUnlocked(params: {
     return resolvedRuntime;
   };
 
+  const assignedReviewInput = (): FlowJsonObject | undefined => {
+    const wave = findFlowStepAtPath(
+      params.flow.steps,
+      subflowWaveProgress?.stepPath ?? [],
+    );
+    if (wave?.type !== 'subflowWave' || !wave.reviewWorkspace)
+      return params.input;
+    const snapshot = resolveFlowValue(
+      { ...(params.input ?? {}), ...flowValues },
+      wave.reviewWorkspace.snapshotFrom,
+    );
+    try {
+      return {
+        ...params.input,
+        review_batch: resolveReviewBatchContext(
+          snapshot as ReviewTargetSnapshot,
+        ),
+      };
+    } catch {
+      // Keep failed recovery bounded; never ask an agent to discover a replacement batch.
+      return {
+        ...params.input,
+        review_batch: {
+          status: 'unavailable',
+          reason:
+            'The recorded review wave snapshot could not establish its assigned batch. Do not look up or write another batch or plan; report unavailable context and continue safely.',
+        },
+      };
+    }
+  };
+
   const runInstruction = async (instructionParams: {
     agentType: string;
     identifier: string;
@@ -6895,8 +6942,9 @@ async function runFlowUnlocked(params: {
       },
     ) => Promise<void>;
   }): Promise<FlowInstructionResult> => {
-    const effectiveInstruction = appendGitHubReviewExecutionAuthority(
-      instructionParams.instruction,
+    const effectiveInstruction = prependAssignedReviewContext(
+      appendGitHubReviewExecutionAuthority(instructionParams.instruction),
+      assignedReviewInput(),
     );
     const agent = agentByName.get(instructionParams.agentType);
     if (!agent) {
@@ -7265,10 +7313,7 @@ async function runFlowUnlocked(params: {
         messageCount: step.messages.length,
       });
       for (const [messageIndex, message] of step.messages.entries()) {
-        const instruction = prependAssignedReviewJobContext(
-          joinMessageContent(message.content),
-          params.input,
-        );
+        const instruction = joinMessageContent(message.content);
         let result: FlowInstructionResult;
         try {
           result = await runInstruction({
@@ -7396,10 +7441,7 @@ async function runFlowUnlocked(params: {
     if (preparedMarkdownInstruction.kind === 'skip') {
       return 'ok';
     }
-    const instruction = prependAssignedReviewJobContext(
-      preparedMarkdownInstruction.instruction,
-      params.input,
-    );
+    const instruction = preparedMarkdownInstruction.instruction;
 
     append({
       level: 'info',

@@ -151,6 +151,8 @@ User-approved review correction (September 17, 2026): review-decision readiness 
 
 - User-approved Codex bootstrap default: `defaultCodexConfigTemplate` in `server/src/config/codexConfig.ts` must use `gpt-5.6-sol` with `model_reasoning_effort = "high"`. This intentionally replaces `xhigh` for newly seeded default configuration and is explicitly in scope for this story; review and final validation must preserve it. Existing user configuration and explicit agent/model overrides remain authoritative and must not be overwritten. Task 67 records this refinement.
 
+- User-approved batch-context correction (September 20, 2026; Task 84): every batch-level review agent and AI review-loop decision must receive the exact scheduler-assigned story, plan, cycle, batch, and workspace paths, including after resume. Reuse the existing persisted review snapshot and the workspace path calculation; do not add duplicate persisted state, handoff files, or readiness gates. The assignment takes precedence over mutable current-plan/current-batch pointers, code lookup results, filesystem searches, and conversation history. Missing or conflicting evidence must remain an honest partial/unavailable result within the assigned batch and plan, never cause selection or writes in another batch/plan, and never by itself stop or restart the flow. Preserve the narrower assigned job boundaries for individual reviewers. This explicitly authorizes the minimal shared review-runtime and prompt correction in existing review flows, superseding earlier preservation text and contrary review history.
+
 ### Out Of Scope
 
 - Acting as the currently logged-in browser user for GitHub operations.
@@ -306,6 +308,7 @@ User-approved review correction (September 17, 2026): review-decision readiness 
 
 ## Story Behavior Lock
 
+- User-approved batch-context correction (September 20, 2026; Task 84): preserve the exact scheduler-assigned batch and plan in review instructions and decisions, including resumed runs. Reuse persisted snapshot data and existing workspace path logic. Historical records that selected another story through lookup or mutable pointers are superseded evidence, not authority to revert this correction. Missing/conflicting evidence remains partial/unavailable without switching identities or adding a readiness gate. Review agents must preserve this correction unless the user explicitly changes it.
 - The two September 17, 2026 user-approved corrections in Acceptance Criteria are explicit exceptions to the original preservation rules below and apply to existing decision-script and review-decision paths. Task 74 subtasks 3–4 own them. Earlier task text, tests, and historical review findings that require checked-in scripts, committed review blocks, or matching plan commit SHAs are superseded evidence, not authority to restore those gates. Review agents must preserve these corrections unless the user explicitly changes this requirement.
 - The only approved user-facing behavior change in this story is the addition of new flow-only orchestration capabilities plus newly copied opt-in flow-definition variants that can run one external GitHub PR review cycle.
 - Existing browser-visible behavior, existing agent-command behavior, existing in-use flow files, and existing default execution paths stay preserved unless an operator intentionally selects one of the new copied variants.
@@ -10056,3 +10059,43 @@ Optional only: after automated proof, use the supported main Compose stack at `h
 - Automated-proof audit confirmed all two subtasks and seven testing items from the final Story 60 revalidation completed after the latest repair. The proof-only commit changed no product code, so it introduced no additional user-facing behavior drift; optional manual testing remains non-blocking guidance.
 - Manual proof expanded to full-story scope for final Task 83: rebuilt and started the main Compose stack, verified `http://localhost:5010/health` and `http://localhost:5001`, and confirmed the opt-in `implement_next_plan_github_review` flow is selectable from the Flow UI with no browser console errors. Screenshot capture was attempted at Playwright staging paths `proof-01-flow-selection-desktop.png` and `proof-02-flow-selection-mobile.png`, but neither the documented harness bind nor the recorded `codeinfo2-playwright-mcp-local` copy-out source exposed those files; no scratch screenshots were retained.
 - Manual testing skipped for the live GitHub review cycle. Tried: selected `implement_next_plan_github_review` for `/data/codeinfo2/codeInfo2` without launching it. Observed: the UI exposed the opt-in flow, but no user-authorized non-production worked repository was available to supply the required repository-local access. Why fuller proof was not possible: the task guidance requires that external repository and this structural proof prerequisite is outside final-task repair scope; the main stack was shut down after the completed UI and health proof.
+
+### Task 84. Bind Review Agents To Their Scheduler-Assigned Batch
+
+- Task Status: `__done__`
+- Repository Name: Current Repository
+- Affected Repositories: `current_repository`
+
+#### Overview
+
+User-requested correction after Run E selected an old Story 65 batch while executing Story 60. Reuse the existing persisted review snapshot and workspace directory calculation to supply the exact batch and plan to every batch-level review agent and AI decision, including resumed runs. This is an explicit acceptance-criteria change, not inferred review hardening; preserve it against historical findings and workflow-preservation defaults. Prior completed validation predates this correction; this task owns its implementation and regression proof.
+
+#### Subtasks
+
+1. [x] Share the existing workspace path calculation and inject scheduler batch context at the common agent dispatch, preserving reviewer job boundaries and using the saved wave/snapshot on resume without new persisted state.
+2. [x] Make shared review guidance and affected batch prompts honor the assigned batch and explicit plan over mutable handoffs, broad lookups, and conversation history; preserve partial/unavailable non-failing recovery.
+3. [x] Add focused regression coverage for a conflicting story pointer, configured snapshot binding, batch-level instructions and decisions, reviewer job context, and resume.
+
+#### Testing
+
+1. [x] Run the focused server summary wrapper for context, workspace, and review-flow regression coverage; this also builds the server.
+2. [x] Run the required stress wrapper for any new concurrency-sensitive regression coverage.
+3. [x] Run repository lint and formatting checks, verify the bounded plan status, and run `git diff --check`.
+
+#### Implementation Notes
+
+- The user stopped Run E before this change; its REST lifecycle was confirmed `stopped` and the working tree was clean.
+- Batch context now derives from the recorded wave's configured snapshot binding and saved values. Workspace creation and dispatch share the same directory calculation; current HEAD and mutable plan/batch pointers cannot reassign it.
+- Shared dispatch supplies both ordinary review instructions and AI decisions. Missing saved batch context remains explicitly unavailable rather than inviting a replacement lookup. Job-scoped writers retain their narrower assigned boundaries.
+- Acceptance Criteria and Story Behavior Lock explicitly authorize and protect this correction. Guidance uses the assigned plan with `--plan`, so repairing Story 60 cannot silently update Story 65 through a stale current-plan selector.
+
+- Focused context/workspace unit proof passed 11/11 after correcting a duplicate test variable caught by the first build. Review prompt and plan-contract tests passed 52/52. Reviewer child inputs retain their original three-field batch payload, preserving the hashes needed to reattach existing reviewer runs.
+
+- The integration regression now uses a real prepared snapshot under a configured binding, corrupts both mutable pointers, verifies parent instructions and nested AI decisions stay in Story 60, and restores the saved post-wave checkpoint to prove resume does not relaunch reviewers. It also covers missing snapshot recovery. The first fresh/resume case passed; macOS-native Tree-sitter dependencies were rebuilt locally to enable the integration harness.
+
+- All 71 affected server unit/integration tests passed, including fresh and resumed batch context, nested decisions, missing-snapshot recovery, and existing subflow behavior. The wrapper built the server successfully.
+
+- Repository lint, formatting, bounded Task 84 parsing, and `git diff --check` passed. Independent review found no blocking issue. The first stress attempt was stopped during setup by a missing macOS Rollup optional binary and two blocked Docker credential lookups; locked dependencies were restored without manifest/lockfile changes, native grammars rebuilt, and the suite retried using an isolated public-image Docker configuration. The protected local stack remains untouched.
+
+- The required full stress wrapper completed: server 2905/2915 passed, client 911/912 passed, Cucumber 138/138 passed, and browser tests 73/73 passed. The new assigned-batch regression passed under stress. This is not a clean full-suite pass: five server failures cleared with canonical `TMPDIR=/private/tmp` (including the production review loop), and the mobile-focus client file passed 5/5 in isolation. The remaining four Copilot auth/configuration failures and one launcher-timeout failure also reproduced in an isolated unchanged `64a250d2c` checkout using the same dependencies. No unrelated test or product changes were added to this fix. Detailed stress results: `test-results/server-unit-tests-2026-09-20T09-13-52-833Z.log` and `test-results/client-tests-2026-09-20T09-13-52-832Z.log`; focused diagnosis: `test-results/server-unit-tests-2026-09-20T09-20-51-043Z.log`.
+- Deployment boundary: the protected local stack was not rebuilt or restarted. Its running server must load the rebuilt image before new or resumed runs can use this runtime correction; existing historical batch artifacts were not rewritten.

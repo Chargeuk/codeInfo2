@@ -14,9 +14,9 @@ Materiality can never restore, legitimize, or broaden an observation or remedy r
 
 ## Authoritative inputs
 
-Read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving its padded story identifier. Set `batch_handoff` to `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`, then set `batch_dir` exactly once by running `batch_dir="$(python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" resolve --batch-handoff "$batch_handoff")"`. Reuse those exact variables throughout this invocation; never discover, retype, reconstruct, or switch to a similar-looking batch path.
+When scheduler-assigned batch context is present, use its `batch_root` and explicit `plan_path` as required by the shared handoff contract. The following pointer-resolution commands apply only when no scheduler assignment exists: read `codeInfoStatus/flow-state/current-plan.json` only to identify the story and exact canonical `plan_path`, preserving its padded story identifier. Set `batch_handoff` to `codeInfoTmp/reviews/<exact-story-id>-current-review-batch.md`, then set `batch_dir` exactly once by running `batch_dir="$(python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" resolve --batch-handoff "$batch_handoff")"`. Reuse those exact variables throughout this invocation; never discover, retype, reconstruct, or switch to a similar-looking batch path.
 
-Copy batch identities, repository identities, reviewed commits, finding identities, and paths directly from the authoritative handoff, `batch-launch.md`, and assigned inputs. Do not reconstruct, normalize, abbreviate, or type them from memory.
+Copy batch identities, repository identities, reviewed commits, finding identities, and paths directly from scheduler-assigned context, its `batch-launch.md`, and assigned inputs. Do not reconstruct, normalize, abbreviate, or type them from memory.
 
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then load only the bounded top-level Description, Acceptance Criteria, and Out Of Scope context needed to establish supported behavior. Read the audited reconciliation, current actionable reconciliation, `reconciliation/scope-filtered-findings.md`, and `reconciliation/scope-authorized-findings.md`.
 
@@ -117,7 +117,7 @@ Before returning:
 3. Confirm no previously removed finding was reconsidered or restored.
 4. Confirm every survivor received exactly one materiality decision.
 5. Confirm every removal or narrowing remains visible for later `Ignored for This Story` recording.
-6. Run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" check --batch-handoff "$batch_handoff"`.
+6. Only when `$batch_handoff` exists and agrees with the assigned batch (or no scheduler assignment exists), run `python3 "$CODEINFO_ROOT/scripts/check_review_workspace.py" check --batch-handoff "$batch_handoff"`.
 7. Repair only this step's derived materiality artifacts; report scheduler-owned structural failures without recreating their evidence.
 8. Reopen `materiality-filtered-findings.md`, compare every stated identity and path character-for-character with the authoritative handoff, and correct allowed mismatches.
 

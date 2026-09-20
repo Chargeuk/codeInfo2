@@ -6,7 +6,7 @@ This is an autonomous flow execution step, not a planning interview. Do not ask 
 
 ## Purpose
 
-Decide whether each remaining positively authorized finding is sufficiently realistic and materially important to justify implementation work and another review iteration. Technical correctness and positive story authorization are necessary but not sufficient. A finding remains actionable only when its realistic impact justifies changing otherwise completed code.
+Decide whether each remaining positively authorized finding is sufficiently realistic and materially important to justify implementation work and another review iteration. Technical correctness and positive story authorization are necessary but not sufficient. A finding remains actionable when it meets the unused-code exception below or its realistic impact justifies changing otherwise completed code.
 
 This gate reduces low-value review churn without suppressing credible defects. It does not decide repair difficulty, invent product policy, or reinterpret earlier scope decisions.
 
@@ -32,9 +32,15 @@ Read earlier removal records only far enough to identify exclusions, conserve id
 
 Earlier removals are an append-only audit and reporting trail, not candidates for this gate.
 
+## Unused-code exception
+
+A finding that has passed negative scope and positive authorization remains actionable when current reviewed-commit evidence demonstrates a safely removable unused import, variable, binding, or function parameter in story-modified code. Do not reject it solely as too minor, cleanup preference, or excess churn, and do not require a runtime failure or significant user-facing impact. Removal must preserve required side effects and interface contracts.
+
+For qualifying findings, record the unused code and evidence that removal is safe in place of the ordinary failure-scenario and practical-impact requirements throughout this gate, including required actions and output. This exception satisfies materiality only; it does not restore earlier removals, broaden the authorized remedy, or excuse uncertainty about whether the code is unused and safely removable.
+
 ## Materiality standard
 
-Keep a surviving finding actionable only when the available evidence convincingly demonstrates all of the following:
+For findings outside the unused-code exception, keep a surviving finding actionable only when the available evidence convincingly demonstrates all of the following:
 
 1. **Current behavior**
 

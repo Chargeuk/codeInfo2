@@ -10423,13 +10423,13 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ##### current_repository — server, client, common contracts, flow catalog, and mounted agent configuration
 
-1. [ ] `npm run compose:build:summary` — build the supported main-stack artifacts containing the worked Story 60 surfaces.
-2. [ ] `npm run compose:up` — start the supported main stack for automated smoke validation.
-3. [ ] `curl --fail --silent --show-error http://localhost:5010/health` — verify the documented main-stack health endpoint.
-4. [ ] `npm run test:summary:all:parallel` — run the canonical full automated suite covering client, server unit/integration, Cucumber, and E2E surfaces through the shared-build lifecycle.
-5. [ ] `npm run compose:down` — stop the main stack started by this task.
-6. [ ] `npm run lint` — run the supported repository lint command after broad validation.
-7. [ ] `npm run format:check` — run the supported repository formatting check after lint.
+1. [x] `npm run compose:build:summary` — build the supported main-stack artifacts containing the worked Story 60 surfaces.
+2. [x] `npm run compose:up` — start the supported main stack for automated smoke validation.
+3. [x] `curl --fail --silent --show-error http://localhost:5010/health` — verify the documented main-stack health endpoint.
+4. [x] `npm run test:summary:all:parallel` — run the canonical full automated suite covering client, server unit/integration, Cucumber, and E2E surfaces through the shared-build lifecycle.
+5. [x] `npm run compose:down` — stop the main stack started by this task.
+6. [x] `npm run lint` — run the supported repository lint command after broad validation.
+7. [x] `npm run format:check` — run the supported repository formatting check after lint.
 
 #### Manual Testing Guidance
 
@@ -10442,3 +10442,10 @@ Optional and non-blocking: after automated proof, use the supported main Compose
 - Focused repair proof already passed: adapter tests 26/26, full server unit wrapper 2915/2915, `npm run lint`, `npm run format:check`, and `git diff --check`. This task owns the broad rerun that remains stale after the repair.
 - Task 86 subtask 1 completed: `npm run lint` passed with exit code 0; no Story 60-caused lint issues required repair.
 - Task 86 subtask 2 completed: `npm run format:check` passed with exit code 0; all matched files use Prettier code style and no formatting repair was needed.
+- Task 86 testing item 1 completed: `npm run compose:build:summary` passed after one transient `ECONNRESET` retry during the server image's global npm install.
+- Task 86 testing item 2 completed: `npm run compose:up` started the supported main stack; server and client reached healthy/started state.
+- Task 86 testing item 3 completed: the documented `http://localhost:5010/health` endpoint returned `status: ok` with `mongoConnected: true`.
+- Task 86 testing item 4 completed: `npm run test:summary:all:parallel` passed after restoring the lockfile-declared Rollup optional dependency; client 912/912, server unit 2915/2915, Cucumber 138/138, and E2E 78/78 passed.
+- Task 86 testing item 5 completed: `npm run compose:down` stopped and removed the main stack started for this validation lifecycle.
+- Task 86 testing item 6 completed: `npm run lint` passed with exit code 0 after broad validation.
+- Task 86 testing item 7 completed: `npm run format:check` passed; all matched files use Prettier code style.

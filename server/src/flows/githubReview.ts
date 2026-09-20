@@ -396,9 +396,8 @@ const validateGitHubReviewScratchWriteRoot = async (params: {
     ]) {
       let resolvedScratchAncestorPath: string;
       try {
-        resolvedScratchAncestorPath = await githubReviewDeps.realpath(
-          scratchAncestorPath,
-        );
+        resolvedScratchAncestorPath =
+          await githubReviewDeps.realpath(scratchAncestorPath);
       } catch (error) {
         if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') continue;
         throw error;
@@ -1008,35 +1007,17 @@ export const resolveGitHubRepositoryState = async (params: {
     args: ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'],
     signal: params.signal,
   });
-  let upstreamRef: string;
-  let usesCurrentBranchUpstream: boolean;
-  if (upstreamResult.kind === 'ok') {
-    upstreamRef = upstreamResult.value.stdout.trim();
-    usesCurrentBranchUpstream = true;
-  } else {
-    const baseUpstreamResult = await runGitCommand({
-      workingRepositoryRoot: params.workingRepositoryRoot,
-      args: [
-        'rev-parse',
-        '--abbrev-ref',
-        '--symbolic-full-name',
-        `${baseBranch}@{u}`,
-      ],
-      signal: params.signal,
-    });
-    if (baseUpstreamResult.kind !== 'ok') {
-      return {
-        kind: 'skip',
-        reason: 'UPSTREAM_MISSING',
-        message:
-          'Neither the current branch nor its story-owned base branch has an existing upstream remote to use for GitHub review.',
-        stderr: baseUpstreamResult.stderr ?? upstreamResult.stderr,
-        exitCode: baseUpstreamResult.exitCode ?? upstreamResult.exitCode,
-      };
-    }
-    upstreamRef = baseUpstreamResult.value.stdout.trim();
-    usesCurrentBranchUpstream = false;
+  if (upstreamResult.kind !== 'ok') {
+    return {
+      kind: 'skip',
+      reason: 'UPSTREAM_MISSING',
+      message:
+        'The current branch does not have an existing upstream remote to use for GitHub review.',
+      stderr: upstreamResult.stderr,
+      exitCode: upstreamResult.exitCode,
+    };
   }
+  const upstreamRef = upstreamResult.value.stdout.trim();
   const slashIndex = upstreamRef.indexOf('/');
   if (slashIndex <= 0 || slashIndex === upstreamRef.length - 1) {
     return {
@@ -1047,9 +1028,7 @@ export const resolveGitHubRepositoryState = async (params: {
     };
   }
   const upstreamRemote = upstreamRef.slice(0, slashIndex);
-  const upstreamBranch = usesCurrentBranchUpstream
-    ? upstreamRef.slice(slashIndex + 1)
-    : currentBranch;
+  const upstreamBranch = upstreamRef.slice(slashIndex + 1);
 
   const remoteUrlResult = await runGitCommand({
     workingRepositoryRoot: params.workingRepositoryRoot,
@@ -2778,7 +2757,8 @@ export const reconcileResumedGitHubReviewPullRequest = async (params: {
       params.repository.upstreamBranch.trim() ||
     expectedPullRequest.headRefName.trim() !==
       params.repository.upstreamBranch.trim() ||
-    expectedPullRequest.baseRefName.trim() !== params.repository.baseBranch.trim()
+    expectedPullRequest.baseRefName.trim() !==
+      params.repository.baseBranch.trim()
   ) {
     return {
       kind: 'error',

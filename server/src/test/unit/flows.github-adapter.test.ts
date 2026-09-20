@@ -247,8 +247,10 @@ test('GitHub command adapter forwards cancellation and preserves an aborted comm
 test('repository-state resolution reads current branch, upstream remote, and story-owned base branch from the plan handoff', async () => {
   const tempRepo = await createTempRepo();
   try {
+    const commands: string[][] = [];
     __setGitHubReviewDepsForTests({
       runCommand: async (params) => {
+        commands.push(params.args);
         const joined = params.args.join(' ');
         if (joined === 'branch --show-current') {
           return { exitCode: 0, stdout: 'feature/0000060-demo\n', stderr: '' };
@@ -270,6 +272,9 @@ test('repository-state resolution reads current branch, upstream remote, and sto
             stderr: '',
           };
         }
+        if (joined === 'push origin HEAD:feature/0000060-demo') {
+          return { exitCode: 0, stdout: '', stderr: '' };
+        }
         throw new Error(`Unexpected command: ${joined}`);
       },
     });
@@ -282,16 +287,29 @@ test('repository-state resolution reads current branch, upstream remote, and sto
     assert.equal(resolved.value.currentBranch, 'feature/0000060-demo');
     assert.equal(resolved.value.baseBranch, 'main');
     assert.equal(resolved.value.upstreamRemote, 'origin');
+    const pushed = await pushBranchToExistingUpstream({
+      repository: resolved.value,
+    });
+    assert.deepEqual(pushed, { kind: 'ok', value: null });
+    assert.deepEqual(commands, [
+      ['branch', '--show-current'],
+      ['rev-parse', 'HEAD'],
+      ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'],
+      ['remote', 'get-url', 'origin'],
+      ['push', 'origin', 'HEAD:feature/0000060-demo'],
+    ]);
   } finally {
     await tempRepo.cleanup();
   }
 });
 
-test('repository-state resolution uses the story-owned base remote for a first push without guessing a destination', async () => {
+test('repository-state resolution skips an untracked branch even when the story base has an upstream', async () => {
   const tempRepo = await createTempRepo();
   try {
+    const commands: string[][] = [];
     __setGitHubReviewDepsForTests({
       runCommand: async (params) => {
+        commands.push(params.args);
         const joined = params.args.join(' ');
         if (joined === 'branch --show-current') {
           return { exitCode: 0, stdout: 'feature/0000060-demo\n', stderr: '' };
@@ -320,14 +338,18 @@ test('repository-state resolution uses the story-owned base remote for a first p
       workingRepositoryRoot: tempRepo.repoRoot,
     });
     assert.deepEqual(resolved, {
-      kind: 'ok',
-      value: {
-        ...baseRepositoryState(tempRepo.repoRoot),
-        currentBranch: 'feature/0000060-demo',
-        headSha: 'deadbeef',
-        upstreamBranch: 'feature/0000060-demo',
-      },
+      kind: 'skip',
+      reason: 'UPSTREAM_MISSING',
+      message:
+        'The current branch does not have an existing upstream remote to use for GitHub review.',
+      stderr: 'no upstream',
+      exitCode: 128,
     });
+    assert.deepEqual(commands, [
+      ['branch', '--show-current'],
+      ['rev-parse', 'HEAD'],
+      ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'],
+    ]);
   } finally {
     await tempRepo.cleanup();
   }
@@ -1183,7 +1205,10 @@ test('resumed GitHub review reconciliation rejects pull requests for another bas
     });
     assert.equal(persistedHandoff.kind, 'error');
     assert.equal(persistedHandoff.reason, 'SCRATCH_INVALID');
-    assert.match(persistedHandoff.message, /repository root or upstream branch/i);
+    assert.match(
+      persistedHandoff.message,
+      /repository root or upstream branch/i,
+    );
   } finally {
     await tempRepo.cleanup();
   }

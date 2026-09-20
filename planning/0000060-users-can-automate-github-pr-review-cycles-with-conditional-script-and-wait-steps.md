@@ -10380,7 +10380,7 @@ Records the completed repeated-research repair for the one material finding from
 
 ### Task 86. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260920T100352Z-0f778586
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Task Role: `final_revalidation`
 - Repository Name: Current Repository
 - Affected Repositories: `current_repository` — server, client, common contracts, flow definitions, mounted manual-testing agent catalogs, and the completed GitHub review resolver repair.
@@ -10449,3 +10449,4 @@ Optional and non-blocking: after automated proof, use the supported main Compose
 - Task 86 testing item 5 completed: `npm run compose:down` stopped and removed the main stack started for this validation lifecycle.
 - Task 86 testing item 6 completed: `npm run lint` passed with exit code 0 after broad validation.
 - Task 86 testing item 7 completed: `npm run format:check` passed; all matched files use Prettier code style.
+- Automated-proof audit: all two subtasks and seven Testing items have committed evidence; the supported stack lifecycle, health check, canonical parallel suite, lint, and formatting all passed. The `d7bacfbfc` repair preserves the story-approved no-alternate-remote boundary by skipping an untracked branch instead of substituting the base branch upstream. No live blocker or remaining automated gate exists; optional manual-testing guidance is non-blocking, so Task 86 is complete.

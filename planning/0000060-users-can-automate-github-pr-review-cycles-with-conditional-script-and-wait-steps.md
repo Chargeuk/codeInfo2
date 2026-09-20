@@ -10414,8 +10414,8 @@ Own whole-story automated validation after the fix-bearing repeated-research rep
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a Story 60-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `current_repository`, run `npm run lint` and fix Story 60-caused issues.
-2. [ ] In `current_repository`, run `npm run format:check` and fix Story 60-caused formatting issues.
+1. [x] In `current_repository`, run `npm run lint` and fix Story 60-caused issues.
+2. [x] In `current_repository`, run `npm run format:check` and fix Story 60-caused formatting issues.
 
 #### Testing
 
@@ -10440,3 +10440,5 @@ Optional and non-blocking: after automated proof, use the supported main Compose
 - Created by complete-pass settlement as the only final validation owner for active cycle `0000060-rc-20260920T100352Z-0f778586`; no final suite or manual proof has run in this task yet.
 - Task 85 remains the only completed-review-fixes record because batch `0000060-rw-20260920T100355Z-001a2907` is the sole fix-bearing immutable batch. The other two batches produced no repair commit and require no completed-fixes task.
 - Focused repair proof already passed: adapter tests 26/26, full server unit wrapper 2915/2915, `npm run lint`, `npm run format:check`, and `git diff --check`. This task owns the broad rerun that remains stale after the repair.
+- Task 86 subtask 1 completed: `npm run lint` passed with exit code 0; no Story 60-caused lint issues required repair.
+- Task 86 subtask 2 completed: `npm run format:check` passed with exit code 0; all matched files use Prettier code style and no formatting repair was needed.

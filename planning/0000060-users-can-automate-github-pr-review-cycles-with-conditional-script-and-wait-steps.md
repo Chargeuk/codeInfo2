@@ -10674,8 +10674,8 @@ Run whole-story automated revalidation after the settled review pass. This task 
 
 Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
 
-1. [ ] In `current_repository`, run `npm run lint` and fix any issues found.
-2. [ ] In `current_repository`, run `npm run format:check` and fix any issues found.
+1. [x] In `current_repository`, run `npm run lint` and fix any issues found.
+2. [x] In `current_repository`, run `npm run format:check` and fix any issues found.
 
 #### Testing
 
@@ -10699,3 +10699,5 @@ Use the checked-in main `docker-compose.yml` stack, not `codeinfo:local`, for op
 
 - Created by complete-pass settlement after verifying that Task 88 is the sole completed-review-fixes record for the only fix-bearing batch and that no material actionable finding remains.
 - No final revalidation command has run yet. The first batch's partial repeated-research proof, the second batch's unavailable malformed-path repeated-routing attempt, and the independently failing fresh-run completion-boundary test remain historical limitations, not separate implementation tasks; the whole-story wrapper is the current post-commit proof owner.
+- `npm run lint` passed with exit code 0 and no reported issues; no lint repair was needed.
+- `npm run format:check` passed with exit code 0; all matched files use Prettier code style and no formatting repair was needed.

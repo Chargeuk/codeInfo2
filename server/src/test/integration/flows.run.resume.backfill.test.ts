@@ -347,6 +347,189 @@ const updateChildExecution = (conversationId: string, executionId: string) => {
   });
 };
 
+type GitHubReviewContextFixture = {
+  executionId: string;
+  prNumber: number;
+  storyNumber: string;
+  phase: 'opened' | 'fetched';
+};
+
+const assertInitialResumePersistenceRetainsGitHubReviewContext =
+  async (params: {
+    scenario: string;
+    topLevelContext?: GitHubReviewContextFixture;
+    waitContext?: GitHubReviewContextFixture;
+    expectedContext: GitHubReviewContextFixture;
+  }) => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(
+        process.cwd(),
+        `tmp-flows-resume-github-context-${params.scenario}-`,
+      ),
+    );
+    const conversationId = `flow-resume-github-context-${params.scenario}`;
+    const executionId = `resume-github-context-${params.scenario}`;
+    const wait = {
+      kind: 'authored_wait' as const,
+      executionId,
+      stepPath: [0],
+      loopStack: [],
+      workingFolder: tmpDir,
+      resumeAt: 1_700_000_060_000,
+      continuedAfterFailure: true,
+      ...(params.waitContext
+        ? { githubReviewContext: { ...params.waitContext } }
+        : {}),
+    };
+    const expectedWait = structuredClone(wait);
+    let markInitialWriteReached: () => void = () => {};
+    const initialWriteReached = new Promise<void>((resolve) => {
+      markInitialWriteReached = resolve;
+    });
+    let releaseRuntime: () => void = () => {};
+    const runtimeGate = new Promise<void>((resolve) => {
+      releaseRuntime = resolve;
+    });
+
+    await writeResumeFlow(tmpDir);
+    memoryConversations.set(conversationId, {
+      _id: conversationId,
+      provider: 'codex',
+      model: 'gpt-5.6-terra',
+      title: 'Flow: resume-basic',
+      flowName: 'resume-basic',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId,
+          stepPath: [0],
+          loopStack: [],
+          wait,
+          ...(params.topLevelContext
+            ? { githubReviewContext: { ...params.topLevelContext } }
+            : {}),
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: new Date(),
+      archivedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    try {
+      await withFlowFixtureEnv(tmpDir, async () => {
+        try {
+          await startFlowRun({
+            flowName: 'resume-basic',
+            conversationId,
+            resumeStepPath: [0],
+            source: 'REST',
+            working_folder: tmpDir,
+            chatFactory: () => new MinimalChat(),
+            listIngestedRepositories: async () =>
+              await listSingleRepository(tmpDir),
+            onAsyncBegin: async () => {
+              markInitialWriteReached();
+              await runtimeGate;
+            },
+          });
+          await initialWriteReached;
+
+          const persistedFlow = memoryConversations.get(conversationId)?.flags
+            ?.flow as
+            | {
+                wait?: typeof wait;
+                githubReviewContext?: GitHubReviewContextFixture;
+              }
+            | undefined;
+          assert.deepEqual(persistedFlow?.wait, expectedWait);
+          assert.deepEqual(
+            persistedFlow?.githubReviewContext,
+            params.expectedContext,
+          );
+        } finally {
+          releaseRuntime();
+          await waitFor(
+            () => getActiveRunOwnership(conversationId) === null,
+            10000,
+            25,
+            () => describeResumeBackfillState(conversationId),
+          );
+        }
+      });
+    } finally {
+      const flow = memoryConversations.get(conversationId)?.flags?.flow as
+        | { agentConversations?: Record<string, string> }
+        | undefined;
+      for (const childConversationId of Object.values(
+        flow?.agentConversations ?? {},
+      )) {
+        memoryConversations.delete(childConversationId);
+        memoryTurns.delete(childConversationId);
+      }
+      memoryConversations.delete(conversationId);
+      memoryTurns.delete(conversationId);
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  };
+
+test('startFlowRun first resume persistence retains top-level GitHub review context', async () => {
+  const executionId = 'resume-github-context-top-level';
+  const topLevelContext = {
+    executionId,
+    prNumber: 401,
+    storyNumber: '0000060',
+    phase: 'fetched' as const,
+  };
+
+  await assertInitialResumePersistenceRetainsGitHubReviewContext({
+    scenario: 'top-level',
+    topLevelContext,
+    expectedContext: topLevelContext,
+  });
+});
+
+test('startFlowRun first resume persistence gives top-level GitHub review context precedence over wait context', async () => {
+  const executionId = 'resume-github-context-precedence';
+  const topLevelContext = {
+    executionId,
+    prNumber: 402,
+    storyNumber: '0000060',
+    phase: 'fetched' as const,
+  };
+  const waitContext = {
+    executionId,
+    prNumber: 403,
+    storyNumber: '0000060',
+    phase: 'opened' as const,
+  };
+
+  await assertInitialResumePersistenceRetainsGitHubReviewContext({
+    scenario: 'precedence',
+    topLevelContext,
+    waitContext,
+    expectedContext: topLevelContext,
+  });
+});
+
+test('startFlowRun first resume persistence falls back to wait-owned GitHub review context', async () => {
+  const executionId = 'resume-github-context-wait-fallback';
+  const waitContext = {
+    executionId,
+    prNumber: 404,
+    storyNumber: '0000060',
+    phase: 'opened' as const,
+  };
+
+  await assertInitialResumePersistenceRetainsGitHubReviewContext({
+    scenario: 'wait-fallback',
+    waitContext,
+    expectedContext: waitContext,
+  });
+});
+
 test('startFlowRun backfills legacy executionId on resume', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-backfill-'),

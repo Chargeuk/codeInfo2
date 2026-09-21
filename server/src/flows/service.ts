@@ -13274,6 +13274,9 @@ export async function startFlowRun(
           }
         : null,
       wait: resumeState?.wait,
+      githubReviewContext:
+        resumeState?.githubReviewContext ??
+        resumeState?.wait?.githubReviewContext,
       activeSubflows: cloneActiveSubflows(resumeState?.activeSubflows),
       subflowWaveProgress: resumeState?.subflowWaveProgress,
       terminalOutcome: resumeState?.terminalOutcome,

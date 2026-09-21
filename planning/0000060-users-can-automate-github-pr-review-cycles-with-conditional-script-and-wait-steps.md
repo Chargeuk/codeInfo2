@@ -10648,7 +10648,7 @@ Record the completed narrow repair for the resumed-flow persistence window found
 
 ### Task 89. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260920T230716Z-29ad80f1
 
-- Task Status: `__in_progress__`
+- Task Status: `__done__`
 - Review Task Role: `final_revalidation`
 - Repository Name: Current Repository
 - Affected Repositories: `current_repository` — server, client, common contracts, flow definitions, mounted manual-testing catalogs, and the committed resumed-flow persistence repair in `server/src/flows/service.ts` and `server/src/test/integration/flows.run.resume.backfill.test.ts`.
@@ -10709,3 +10709,4 @@ Use the checked-in main `docker-compose.yml` stack, not `codeinfo:local`, for op
 - Automated proof: `npm run compose:down` removed all eight containers and the main `codeinfo2_internal` network successfully.
 - Automated proof: `npm run lint` passed with exit code 0 and no reported issues; no lint repair was needed.
 - Automated proof: `npm run format:check` passed; all matched files use Prettier code style and no formatting repair was needed.
+- Implementation-plus-proof audit: verified commit `c44897aa2` changes only Task 89 proof bookkeeping. All two subtasks and seven automated checks have documented clean results, no live blocker exists, and no production or user-facing behavior drift was introduced; final automated revalidation is complete.

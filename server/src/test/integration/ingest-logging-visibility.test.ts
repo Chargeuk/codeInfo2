@@ -10,6 +10,7 @@ import {
 import { runOpenAiWithRetry } from '../../ingest/providers/openaiRetry.js';
 import { resetStore } from '../../logStore.js';
 import { createLogsRouter } from '../../routes/logs.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 test('ingest provider warning/error entries are visible via /logs and /logs/stream', async () => {
   resetStore();
@@ -82,6 +83,10 @@ test('ingest provider warning/error entries are visible via /logs and /logs/stre
     );
 
     const streamBody = await new Promise<string>((resolve, reject) => {
+      const finish = (body: string) => {
+        clearTimeout(timeoutHandle);
+        resolve(body);
+      };
       const req = http.get(
         `${baseUrl}/logs/stream?text=${encodeURIComponent(
           'DEV-0000036:T17:ingest_provider_failure',
@@ -94,16 +99,16 @@ test('ingest provider warning/error entries are visible via /logs and /logs/stre
           body += chunk;
           if (body.includes('DEV-0000036:T17:ingest_provider_failure')) {
             req.destroy();
-            resolve(body);
+            finish(body);
           }
         });
         res.on('error', reject);
       });
       req.on('error', reject);
-      setTimeout(() => {
+      const timeoutHandle = setTimeout(() => {
         req.destroy();
-        resolve('');
-      }, 1000);
+        finish('');
+      }, resolveConfiguredTestTimeoutMs(1000));
     });
 
     assert.ok(

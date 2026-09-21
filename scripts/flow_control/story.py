@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import story_workflow_status
@@ -65,3 +66,16 @@ def check_review_should_finish_cleanly() -> DecisionOutcome:
     if should_finish:
         return yes("review_loop_should_finish_cleanly", **_status_context(status))
     return no("review_loop_should_not_finish_cleanly", **_status_context(status))
+
+
+def check_github_review_should_write_no_findings_closeout() -> DecisionOutcome:
+    if os.environ.get("CODEINFO_GITHUB_REVIEW_SKIPPED") == "1":
+        return no("github_review_was_skipped")
+    required_context = (
+        "CODEINFO_GITHUB_REVIEW_EXECUTION_ID",
+        "CODEINFO_GITHUB_REVIEW_PR_NUMBER",
+        "CODEINFO_GITHUB_REVIEW_HANDOFF_PATH",
+    )
+    if any(not os.environ.get(name, "").strip() for name in required_context):
+        return no("github_review_context_missing")
+    return check_review_should_finish_cleanly()

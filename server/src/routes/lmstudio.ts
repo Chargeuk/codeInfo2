@@ -3,6 +3,7 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
@@ -19,7 +20,7 @@ export function createLmStudioRouter({
     const baseUrlParam = req.query.baseUrl;
     const baseUrl =
       (typeof baseUrlParam === 'string' ? baseUrlParam : undefined) ??
-      process.env.CODEINFO_LMSTUDIO_BASE_URL ??
+      getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ??
       '';
     const safeBase = scrubBaseUrl(baseUrl);
 

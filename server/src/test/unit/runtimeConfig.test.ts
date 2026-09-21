@@ -6,9 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, it, mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
-
 import { parse } from 'dotenv';
-
 import {
   ensureCodexConfigSeeded,
   getCodexChatConfigPathForHome,
@@ -48,7 +46,6 @@ import {
   validateRuntimeConfig,
 } from '../../config/runtimeConfig.js';
 import { loadStartupEnv } from '../../config/startupEnv.js';
-
 const originalContext7ApiKey = process.env.CODEINFO_CONTEXT7_API_KEY;
 const originalServerPort = process.env.CODEINFO_SERVER_PORT;
 const originalChatMcpPort = process.env.CODEINFO_CHAT_MCP_PORT;
@@ -60,54 +57,54 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../..',
 );
-
 afterEach(() => {
   mock.restoreAll();
   __resetProviderBootstrapStatusForTests();
   if (originalContext7ApiKey === undefined) {
-    delete process.env.CODEINFO_CONTEXT7_API_KEY;
+    clearScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY');
   } else {
-    process.env.CODEINFO_CONTEXT7_API_KEY = originalContext7ApiKey;
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', originalContext7ApiKey);
   }
   if (originalServerPort === undefined) {
-    delete process.env.CODEINFO_SERVER_PORT;
+    clearScopedTestEnvValue('CODEINFO_SERVER_PORT');
   } else {
-    process.env.CODEINFO_SERVER_PORT = originalServerPort;
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', originalServerPort);
   }
   if (originalChatMcpPort === undefined) {
-    delete process.env.CODEINFO_CHAT_MCP_PORT;
+    clearScopedTestEnvValue('CODEINFO_CHAT_MCP_PORT');
   } else {
-    process.env.CODEINFO_CHAT_MCP_PORT = originalChatMcpPort;
+    setScopedTestEnvValue('CODEINFO_CHAT_MCP_PORT', originalChatMcpPort);
   }
   if (originalLegacyMcpPort === undefined) {
-    delete process.env.CODEINFO_MCP_PORT;
+    clearScopedTestEnvValue('CODEINFO_MCP_PORT');
   } else {
-    process.env.CODEINFO_MCP_PORT = originalLegacyMcpPort;
+    setScopedTestEnvValue('CODEINFO_MCP_PORT', originalLegacyMcpPort);
   }
   if (originalAgentsMcpPort === undefined) {
-    delete process.env.CODEINFO_AGENTS_MCP_PORT;
+    clearScopedTestEnvValue('CODEINFO_AGENTS_MCP_PORT');
   } else {
-    process.env.CODEINFO_AGENTS_MCP_PORT = originalAgentsMcpPort;
+    setScopedTestEnvValue('CODEINFO_AGENTS_MCP_PORT', originalAgentsMcpPort);
   }
   if (originalWebMcpPort === undefined) {
-    delete process.env.CODEINFO_WEB_MCP_PORT;
+    clearScopedTestEnvValue('CODEINFO_WEB_MCP_PORT');
   } else {
-    process.env.CODEINFO_WEB_MCP_PORT = originalWebMcpPort;
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', originalWebMcpPort);
   }
   if (originalPlaywrightMcpUrl === undefined) {
-    delete process.env.CODEINFO_PLAYWRIGHT_MCP_URL;
+    clearScopedTestEnvValue('CODEINFO_PLAYWRIGHT_MCP_URL');
   } else {
-    process.env.CODEINFO_PLAYWRIGHT_MCP_URL = originalPlaywrightMcpUrl;
+    setScopedTestEnvValue(
+      'CODEINFO_PLAYWRIGHT_MCP_URL',
+      originalPlaywrightMcpUrl,
+    );
   }
 });
-
 describe('copilot runtime env wiring', () => {
   it('loads CODEINFO_COPILOT_HOME for development, local docker override, and e2e modes', async () => {
     const serverRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'copilot-startup-env-'),
     );
     const targetEnv: Record<string, string | undefined> = {};
-
     try {
       await fs.writeFile(
         path.join(serverRoot, '.env'),
@@ -119,7 +116,6 @@ describe('copilot runtime env wiring', () => {
         'CODEINFO_COPILOT_HOME=/app/copilot\n',
         'utf8',
       );
-
       const localDockerLoaded = loadStartupEnv({
         serverRoot,
         targetEnv,
@@ -132,7 +128,6 @@ describe('copilot runtime env wiring', () => {
         path.join(repoRoot, 'server/.env.e2e'),
         'utf8',
       );
-
       assert.equal(targetEnv.CODEINFO_COPILOT_HOME, '/app/copilot');
       assert.equal(
         localDockerLoaded.valueSources.CODEINFO_COPILOT_HOME,
@@ -144,7 +139,6 @@ describe('copilot runtime env wiring', () => {
       await fs.rm(serverRoot, { recursive: true, force: true });
     }
   });
-
   it('preserves an optional explicit Copilot CLI path override without making it mandatory', () => {
     const withCliPath = buildCopilotClientOptions({
       env: {
@@ -157,7 +151,6 @@ describe('copilot runtime env wiring', () => {
         CODEINFO_COPILOT_HOME: './tmp/copilot-home',
       },
     });
-
     assert.equal(withCliPath.clientOptions.connection?.kind, 'stdio');
     assert.equal(
       withCliPath.clientOptions.connection?.kind === 'stdio'
@@ -189,7 +182,6 @@ describe('copilot runtime env wiring', () => {
     assert.equal(withoutCliPath.cliPathOverride, 'absent');
     assert.equal(withoutCliPath.cliMode, 'path');
   });
-
   it('preserves documented Copilot credential precedence during runtime loading', () => {
     assert.equal(
       resolveCopilotCredentialSource({
@@ -214,26 +206,22 @@ describe('copilot runtime env wiring', () => {
     );
     assert.equal(resolveCopilotCredentialSource({}), 'none');
   });
-
   it('resolves derived Copilot home paths through the shared helper contract', async () => {
     const serverRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'copilot-startup-paths-'),
     );
     const targetEnv: Record<string, string | undefined> = {};
     const expectedHome = path.join(serverRoot, 'copilot-home');
-
     try {
       await fs.writeFile(
         path.join(serverRoot, '.env'),
         `CODEINFO_COPILOT_HOME=${expectedHome}\n`,
         'utf8',
       );
-
       loadStartupEnv({
         serverRoot,
         targetEnv,
       });
-
       const copilotHome = resolveCopilotHome(undefined, targetEnv);
       assert.equal(copilotHome, expectedHome);
       assert.equal(getCopilotConfigDir(targetEnv), copilotHome);
@@ -246,43 +234,35 @@ describe('copilot runtime env wiring', () => {
     }
   });
 });
-
 describe('runtimeConfig normalization', () => {
   it('normalizes legacy features.view_image_tool to tools.view_image', () => {
     const normalized = normalizeRuntimeConfig({
       features: { view_image_tool: true, keep_this: true },
     });
-
     assert.deepEqual(normalized.tools, { view_image: true });
     assert.deepEqual(normalized.features, { keep_this: true });
   });
-
   it('preserves mixed-shape tools entries while restoring view_image from the legacy alias', () => {
     const normalized = normalizeRuntimeConfig({
       features: { view_image_tool: true, keep_this: true },
       tools: { web_search: false },
     });
-
     assert.deepEqual(normalized.tools, { web_search: false, view_image: true });
     assert.deepEqual(normalized.features, { keep_this: true });
   });
-
   it('normalizes legacy web_search aliases to canonical web_search', () => {
     const normalized = normalizeRuntimeConfig({
       features: { web_search_request: false },
     });
-
     assert.equal(normalized.web_search, 'disabled');
     assert.equal(normalized.features, undefined);
   });
-
   it('keeps canonical keys when aliases conflict', () => {
     const normalized = normalizeRuntimeConfig({
       web_search: 'cached',
       features: { web_search_request: true, view_image_tool: false },
       tools: { view_image: true },
     });
-
     assert.equal(normalized.web_search, 'cached');
     assert.deepEqual(normalized.tools, { view_image: true });
     assert.equal(
@@ -294,7 +274,6 @@ describe('runtimeConfig normalization', () => {
       undefined,
     );
   });
-
   it('preserves malformed legacy alias values so validation can reject them later', () => {
     const normalized = normalizeRuntimeConfig({
       web_search: 'cached',
@@ -304,7 +283,6 @@ describe('runtimeConfig normalization', () => {
       },
       tools: { web_search: false },
     });
-
     assert.equal(normalized.web_search, 'cached');
     assert.deepEqual(normalized.tools, { web_search: false });
     assert.deepEqual(normalized.features, {
@@ -313,17 +291,14 @@ describe('runtimeConfig normalization', () => {
     });
   });
 });
-
 describe('runtimeConfig bootstrap', () => {
   const TASK9_MARKER = 'DEV_0000040_T09_CHAT_BOOTSTRAP_BRANCH';
   const TASK3_MARKER = 'DEV_0000047_T03_CHAT_CONFIG_BOOTSTRAP';
-
   it('default startup path awaits provider chat-config bootstrap before the checked-in server entrypoint begins listening', async () => {
     const indexSource = await fs.readFile(
       path.join(repoRoot, 'server/src/index.ts'),
       'utf8',
     );
-
     assert.doesNotMatch(
       indexSource,
       /void ensureAllProviderChatConfigsBootstrapped\(/u,
@@ -333,15 +308,12 @@ describe('runtimeConfig bootstrap', () => {
       /const start = async \(\) => \{[\s\S]*await ensureAllProviderChatConfigsBootstrapped\([\s\S]*const httpServer = http\.createServer\(app\);/u,
     );
   });
-
   it('writes the canonical chat template when chat config is missing', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
     try {
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const content = await fs.readFile(chatConfigPath, 'utf8');
-
       assert.equal(result.copied, false);
       assert.equal(result.generatedTemplate, true);
       assert.equal(result.branch, 'generated_template');
@@ -360,12 +332,10 @@ describe('runtimeConfig bootstrap', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('never copies base config into chat config when base already exists with different contents', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
     try {
       await fs.writeFile(
         baseConfigPath,
@@ -381,7 +351,6 @@ describe('runtimeConfig bootstrap', () => {
       );
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const chatContents = await fs.readFile(chatConfigPath, 'utf8');
-
       assert.equal(result.copied, false);
       assert.equal(result.branch, 'generated_template');
       assert.match(chatContents, /model = "gpt-5.6-sol"/u);
@@ -393,22 +362,26 @@ describe('runtimeConfig bootstrap', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('creates missing codex/chat directory before bootstrap write', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatDirPath = path.join(codexHome, 'chat');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
     try {
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const dirExists = await fs
         .stat(chatDirPath)
         .then((stat) => stat.isDirectory())
         .catch((error) => {
-          if ((error as { code?: string }).code === 'ENOENT') return false;
+          if (
+            (
+              error as {
+                code?: string;
+              }
+            ).code === 'ENOENT'
+          )
+            return false;
           throw error;
         });
-
       assert.equal(result.generatedTemplate, true);
       assert.equal(dirExists, true);
       await fs.access(chatConfigPath);
@@ -416,15 +389,13 @@ describe('runtimeConfig bootstrap', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('ignores config.toml.example and codex/chat/config copy.toml during runtime bootstrap', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const codexHome = path.join(tempRoot, 'codex-home');
     const originalCodeinfoHome = process.env.CODEINFO_CODEX_HOME;
     const originalCwd = process.cwd();
-
     try {
-      process.env.CODEINFO_CODEX_HOME = codexHome;
+      setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
       process.chdir(tempRoot);
       await fs.writeFile(
         path.join(tempRoot, 'config.toml.example'),
@@ -437,7 +408,6 @@ describe('runtimeConfig bootstrap', () => {
         'model = "from-copy-template"\n',
         'utf8',
       );
-
       const seededBasePath = ensureCodexConfigSeeded();
       const bootstrapResult = await ensureChatRuntimeConfigBootstrapped({
         codexHome: getCodexHome(),
@@ -450,7 +420,6 @@ describe('runtimeConfig bootstrap', () => {
         getCodexChatConfigPathForHome(codexHome),
         'utf8',
       );
-
       assert.equal(seededBasePath, getCodexConfigPathForHome(codexHome));
       assert.match(baseConfig, /model = "gpt-5\.6-sol"/u);
       assert.doesNotMatch(baseConfig, /from-example/u);
@@ -460,51 +429,42 @@ describe('runtimeConfig bootstrap', () => {
     } finally {
       process.chdir(originalCwd);
       if (originalCodeinfoHome === undefined) {
-        delete process.env.CODEINFO_CODEX_HOME;
+        clearScopedTestEnvValue('CODEINFO_CODEX_HOME');
       } else {
-        process.env.CODEINFO_CODEX_HOME = originalCodeinfoHome;
+        setScopedTestEnvValue('CODEINFO_CODEX_HOME', originalCodeinfoHome);
       }
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('replaces the old copied branch with direct-template seeding', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
-
     try {
       await fs.writeFile(baseConfigPath, 'model = "from-base"\n', 'utf8');
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
-
       assert.notEqual(result.branch, 'copied');
       assert.equal(result.branch, 'generated_template');
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('leaves an existing zero-byte chat config untouched', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(chatConfigPath, '', 'utf8');
-
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const chatContents = await fs.readFile(chatConfigPath, 'utf8');
-
       assert.equal(result.branch, 'existing_noop');
       assert.equal(chatContents, '');
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('augments a legacy generated chat config with reserved MCP servers', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(
@@ -521,10 +481,8 @@ describe('runtimeConfig bootstrap', () => {
         ].join('\n'),
         'utf8',
       );
-
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const chatContents = await fs.readFile(chatConfigPath, 'utf8');
-
       assert.equal(result.branch, 'existing_augmented');
       assert.match(chatContents, /\[mcp_servers\.code_info\]/u);
       assert.match(
@@ -537,7 +495,6 @@ describe('runtimeConfig bootstrap', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('treats reserved MCP augmentation write failures as a best-effort no-op', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -552,11 +509,9 @@ describe('runtimeConfig bootstrap', () => {
       'web_search = "live"',
       '',
     ].join('\n');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(chatConfigPath, legacyConfig, 'utf8');
-
       mock.method(
         fs,
         'writeFile',
@@ -572,10 +527,8 @@ describe('runtimeConfig bootstrap', () => {
           return originalWriteFile(file, data, options as never);
         },
       );
-
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const chatContents = await fs.readFile(chatConfigPath, 'utf8');
-
       assert.equal(result.branch, 'existing_augment_failed');
       assert.equal(chatContents, legacyConfig);
       assert.doesNotMatch(chatContents, /\[mcp_servers\.web_tools\]/u);
@@ -583,7 +536,6 @@ describe('runtimeConfig bootstrap', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('fails reserved MCP augmentation when the chat config changes before rename and preserves the newer file', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -609,11 +561,9 @@ describe('runtimeConfig bootstrap', () => {
       '',
     ].join('\n');
     let injectedConcurrentWrite = false;
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(chatConfigPath, legacyConfig, 'utf8');
-
       mock.method(
         fs,
         'writeFile',
@@ -632,10 +582,8 @@ describe('runtimeConfig bootstrap', () => {
           return result;
         },
       );
-
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const chatContents = await fs.readFile(chatConfigPath, 'utf8');
-
       assert.equal(result.branch, 'existing_augment_failed');
       assert.equal(chatContents, concurrentConfig);
       assert.doesNotMatch(chatContents, /\[mcp_servers\.web_tools\]/u);
@@ -643,7 +591,6 @@ describe('runtimeConfig bootstrap', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('treats reserved MCP augmentation lock timeouts as a best-effort failure branch', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -658,11 +605,9 @@ describe('runtimeConfig bootstrap', () => {
       'web_search = "live"',
       '',
     ].join('\n');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(chatConfigPath, legacyConfig, 'utf8');
-
       mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
         const [filePath] = args;
         if (String(filePath) === `${chatConfigPath}.codeinfo.lock`) {
@@ -670,10 +615,8 @@ describe('runtimeConfig bootstrap', () => {
         }
         return originalOpen(...args);
       });
-
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const chatContents = await fs.readFile(chatConfigPath, 'utf8');
-
       assert.equal(result.branch, 'existing_augment_failed');
       assert.equal(chatContents, legacyConfig);
       assert.doesNotMatch(chatContents, /\[mcp_servers\.web_tools\]/u);
@@ -681,44 +624,35 @@ describe('runtimeConfig bootstrap', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('leaves an existing invalid-TOML chat config untouched', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(chatConfigPath, '[broken', 'utf8');
-
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const chatContents = await fs.readFile(chatConfigPath, 'utf8');
-
       assert.equal(result.branch, 'existing_noop');
       assert.equal(chatContents, '[broken');
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('leaves an existing directory at the chat config path untouched', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
     try {
       await fs.mkdir(chatConfigPath, { recursive: true });
-
       const result = await ensureChatRuntimeConfigBootstrapped({ codexHome });
       const isDirectory = await fs
         .stat(chatConfigPath)
         .then((stat) => stat.isDirectory());
-
       assert.equal(result.branch, 'existing_noop');
       assert.equal(isDirectory, true);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('emits deterministic warning marker on template write failure', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const warningLogs: unknown[][] = [];
@@ -726,7 +660,6 @@ describe('runtimeConfig bootstrap', () => {
     mock.method(console, 'warn', (...args: unknown[]) => {
       warningLogs.push(args);
     });
-
     try {
       mock.method(
         fs,
@@ -746,7 +679,6 @@ describe('runtimeConfig bootstrap', () => {
           return originalWriteFile(...args);
         },
       );
-
       await assert.rejects(
         async () => ensureChatRuntimeConfigBootstrapped({ codexHome }),
         /read-only filesystem/u,
@@ -754,7 +686,10 @@ describe('runtimeConfig bootstrap', () => {
       assert(
         warningLogs.some((entry) => {
           const payload = entry[1] as
-            | { branch?: string; warningCode?: string }
+            | {
+                branch?: string;
+                warningCode?: string;
+              }
             | undefined;
           return (
             String(entry[0]) === TASK9_MARKER &&
@@ -768,7 +703,6 @@ describe('runtimeConfig bootstrap', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('emits Story 47 markers for seeded and existing chat-template branches', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -776,15 +710,17 @@ describe('runtimeConfig bootstrap', () => {
     mock.method(console, 'info', (...args: unknown[]) => {
       infoLogs.push(args);
     });
-
     try {
       await ensureChatRuntimeConfigBootstrapped({ codexHome });
       await ensureChatRuntimeConfigBootstrapped({ codexHome });
-
       assert(
         infoLogs.some((entry) => {
           const payload = entry[1] as
-            | { outcome?: string; source?: string; success?: boolean }
+            | {
+                outcome?: string;
+                source?: string;
+                success?: boolean;
+              }
             | undefined;
           return (
             String(entry[0]) === TASK3_MARKER &&
@@ -797,14 +733,22 @@ describe('runtimeConfig bootstrap', () => {
       assert(
         infoLogs.some((entry) => {
           const payload = entry[1] as
-            | { outcome?: string; source?: string; success?: boolean }
+            | {
+                outcome?: string;
+                source?: string;
+                success?: boolean;
+              }
             | undefined;
           return (
             String(entry[0]) === TASK3_MARKER &&
             payload?.outcome === 'existing' &&
             payload.source === 'chat_template' &&
             payload.success === true &&
-            (payload as { config_path?: string }).config_path === chatConfigPath
+            (
+              payload as {
+                config_path?: string;
+              }
+            ).config_path === chatConfigPath
           );
         }),
       );
@@ -814,7 +758,6 @@ describe('runtimeConfig bootstrap', () => {
     }
   });
 });
-
 describe('runtimeConfig final minimization', () => {
   it('minimizes base config to projects-only and emits deterministic T22 success log', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -828,13 +771,12 @@ describe('runtimeConfig final minimization', () => {
     mock.method(console, 'error', (...args: unknown[]) => {
       errorLogs.push(args.map(String).join(' '));
     });
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(
         baseConfigPath,
         [
-          'model = "gpt-5.3-codex-spark"',
+          'model = "gpt-5.6-luna"',
           'model_reasoning_effort = "xhigh"',
           'approval_policy = "never"',
           'sandbox_mode = "danger-full-access"',
@@ -852,10 +794,8 @@ describe('runtimeConfig final minimization', () => {
         'utf8',
       );
       await fs.writeFile(chatConfigPath, 'model = "chat-kept"\n', 'utf8');
-
       await minimizeBaseConfigToProjectsOnly({ codexHome });
       const minimized = await fs.readFile(baseConfigPath, 'utf8');
-
       assert.match(minimized, /\[projects\]/u);
       assert.match(minimized, /\[projects\."\/data"\]/u);
       assert.match(minimized, /\[projects\."\/app\/server"\]/u);
@@ -883,17 +823,15 @@ describe('runtimeConfig final minimization', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('aborts minimization without mutation when chat config is missing and emits deterministic T22 error log', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const errorLogs: string[] = [];
     const originalBase =
-      'model = "gpt-5.3-codex-spark"\n[projects]\n[projects."/data"]\ntrust_level = "trusted"\n';
+      'model = "gpt-5.6-luna"\n[projects]\n[projects."/data"]\ntrust_level = "trusted"\n';
     mock.method(console, 'error', (...args: unknown[]) => {
       errorLogs.push(args.map(String).join(' '));
     });
-
     try {
       await fs.writeFile(baseConfigPath, originalBase, 'utf8');
       await assert.rejects(
@@ -915,7 +853,6 @@ describe('runtimeConfig final minimization', () => {
     }
   });
 });
-
 describe('runtimeConfig resolver logging', () => {
   it('logs deterministic T03 success event when configs load', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -926,18 +863,15 @@ describe('runtimeConfig resolver logging', () => {
     mock.method(console, 'info', (...args: unknown[]) => {
       infoLogs.push(args.map(String).join(' '));
     });
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(baseConfigPath, 'model = "base"\n', 'utf8');
       await fs.writeFile(chatConfigPath, 'model = "chat"\n', 'utf8');
       await fs.writeFile(agentConfigPath, 'model = "agent"\n', 'utf8');
-
       const snapshot = await loadRuntimeConfigSnapshot({
         codexHome,
         agentConfigPath,
       });
-
       assert.equal(snapshot.baseConfig?.model, 'base');
       assert.equal(snapshot.chatConfig?.model, 'chat');
       assert.equal(snapshot.agentConfig?.model, 'agent');
@@ -953,7 +887,6 @@ describe('runtimeConfig resolver logging', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('logs deterministic T03 error event when parsing fails', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
@@ -961,10 +894,8 @@ describe('runtimeConfig resolver logging', () => {
     mock.method(console, 'error', (...args: unknown[]) => {
       errorLogs.push(args.map(String).join(' '));
     });
-
     try {
       await fs.writeFile(baseConfigPath, 'model = "broken', 'utf8');
-
       await assert.rejects(
         async () =>
           loadRuntimeConfigSnapshot({
@@ -973,7 +904,6 @@ describe('runtimeConfig resolver logging', () => {
           }),
         /Invalid TOML/u,
       );
-
       assert(
         errorLogs.some((line) =>
           line.includes(
@@ -986,7 +916,6 @@ describe('runtimeConfig resolver logging', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('keeps parse-failure logs secret-safe by excluding raw token-like config content', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
@@ -995,14 +924,12 @@ describe('runtimeConfig resolver logging', () => {
     mock.method(console, 'error', (...args: unknown[]) => {
       errorLogs.push(args.map(String).join(' '));
     });
-
     try {
       await fs.writeFile(
         baseConfigPath,
         `model = "broken\napi_key = "${secretLikeValue}"\n`,
         'utf8',
       );
-
       await assert.rejects(
         async () =>
           loadRuntimeConfigSnapshot({
@@ -1011,7 +938,6 @@ describe('runtimeConfig resolver logging', () => {
           }),
         /Invalid TOML/u,
       );
-
       assert.equal(
         errorLogs.some((line) => line.includes(secretLikeValue)),
         false,
@@ -1029,12 +955,10 @@ describe('runtimeConfig resolver logging', () => {
     }
   });
 });
-
 describe('runtimeConfig parser', () => {
   it('reads and normalizes a TOML file', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'runtime-config-'));
     const configPath = path.join(dir, 'config.toml');
-
     try {
       await fs.writeFile(
         configPath,
@@ -1044,7 +968,6 @@ describe('runtimeConfig parser', () => {
       const parsed = await readAndNormalizeRuntimeTomlConfig(configPath, {
         required: true,
       });
-
       assert.equal(parsed?.model, 'gpt-5.6-sol');
       assert.deepEqual(parsed?.tools, { view_image: true });
     } finally {
@@ -1052,7 +975,6 @@ describe('runtimeConfig parser', () => {
     }
   });
 });
-
 describe('runtimeConfig merge and validation', () => {
   it('merges effectiveProjects with agent projects taking precedence', () => {
     const merged = mergeProjectsFromBaseIntoRuntime(
@@ -1071,7 +993,6 @@ describe('runtimeConfig merge and validation', () => {
         },
       },
     );
-
     assert.equal(merged.model, 'agent-model');
     assert.deepEqual(merged.projects, {
       '/data': { trust_level: 'untrusted' },
@@ -1079,7 +1000,6 @@ describe('runtimeConfig merge and validation', () => {
       '/agent-only': { trust_level: 'trusted' },
     });
   });
-
   it('inherits explicit base-only runtime settings while preserving runtime overrides', () => {
     const merged = mergeRuntimeConfigWithBaseConfig(
       {
@@ -1107,7 +1027,6 @@ describe('runtimeConfig merge and validation', () => {
         },
       },
     );
-
     assert.equal(merged.merged.personality, 'base-personality');
     assert.equal(merged.merged.model_provider, 'base-provider');
     assert.deepEqual(merged.merged.model_providers, {
@@ -1133,19 +1052,16 @@ describe('runtimeConfig merge and validation', () => {
     ]);
     assert.ok(merged.runtimeOverrideKeys.includes('model'));
   });
-
   it('warns and preserves unknown top-level keys for forward compatibility', () => {
     const result = validateRuntimeConfig({
       model: 'gpt-5.6-sol',
       totally_unknown: true,
     });
-
     assert.equal(result.config.model, 'gpt-5.6-sol');
     assert.equal(result.config.totally_unknown, true);
     assert.equal(result.warnings.length, 1);
     assert.match(result.warnings[0].message, /Unknown key/u);
   });
-
   it('preserves model_provider and model_providers tables for custom provider routing', () => {
     const result = validateRuntimeConfig({
       model: 'openai/gpt-oss-20b',
@@ -1158,7 +1074,6 @@ describe('runtimeConfig merge and validation', () => {
         },
       },
     });
-
     assert.equal(result.config.model_provider, 'vllm');
     assert.deepEqual(result.config.model_providers, {
       vllm: {
@@ -1169,10 +1084,9 @@ describe('runtimeConfig merge and validation', () => {
     });
     assert.equal(result.warnings.length, 0);
   });
-
   it('accepts supported codex runtime keys without forward-compatibility warnings', () => {
     const result = validateRuntimeConfig({
-      model: 'gpt-5.4-mini',
+      model: 'gpt-5.6-luna',
       web_search_mode: 'disabled',
       model_reasoning_summary: 'concise',
       hide_agent_reasoning: false,
@@ -1193,7 +1107,6 @@ describe('runtimeConfig merge and validation', () => {
         fast_mode: false,
       },
     });
-
     assert.equal(result.config.model_reasoning_summary, 'concise');
     assert.equal(result.config.web_search, 'disabled');
     assert.equal(result.config.hide_agent_reasoning, false);
@@ -1215,7 +1128,6 @@ describe('runtimeConfig merge and validation', () => {
     });
     assert.equal(result.warnings.length, 0);
   });
-
   it('warns and preserves unknown nested keys while keeping known key validation', () => {
     const result = validateRuntimeConfig({
       model: 'gpt-5.6-sol',
@@ -1233,7 +1145,6 @@ describe('runtimeConfig merge and validation', () => {
         },
       },
     });
-
     assert.deepEqual(result.config.tools, {
       view_image: true,
       unknown_tool_field: { nested: true },
@@ -1249,7 +1160,6 @@ describe('runtimeConfig merge and validation', () => {
     });
     assert.equal(result.warnings.length, 3);
   });
-
   it('warns and ignores misplaced cli_auth_credentials_store under project path', () => {
     const result = validateRuntimeConfig({
       model: 'gpt-5.6-sol',
@@ -1260,7 +1170,6 @@ describe('runtimeConfig merge and validation', () => {
         },
       },
     });
-
     assert.equal(result.warnings.length, 1);
     assert.match(
       result.warnings[0].path,
@@ -1270,7 +1179,6 @@ describe('runtimeConfig merge and validation', () => {
     const dataProject = projects['/data'] as Record<string, unknown>;
     assert.equal('cli_auth_credentials_store' in dataProject, false);
   });
-
   it('ignores unsafe top-level keys and preserves safe unknown keys', () => {
     const config = Object.create(null) as Record<string, unknown>;
     config.model = 'gpt-5.6-sol';
@@ -1278,15 +1186,20 @@ describe('runtimeConfig merge and validation', () => {
     config['__proto__'] = { polluted: true };
     config['constructor'] = { polluted: true };
     config['prototype'] = { polluted: true };
-
     const result = validateRuntimeConfig(config);
-
     assert.equal(result.config.model, 'gpt-5.6-sol');
     assert.deepEqual(result.config.safe_unknown, { keep: true });
     assert.equal(Object.hasOwn(result.config, '__proto__'), false);
     assert.equal(Object.hasOwn(result.config, 'constructor'), false);
     assert.equal(Object.hasOwn(result.config, 'prototype'), false);
-    assert.equal(({} as { polluted?: boolean }).polluted, undefined);
+    assert.equal(
+      (
+        {} as {
+          polluted?: boolean;
+        }
+      ).polluted,
+      undefined,
+    );
     assert.equal(result.warnings.length, 4);
     assert.ok(
       result.warnings.some((warning) =>
@@ -1294,32 +1207,26 @@ describe('runtimeConfig merge and validation', () => {
       ),
     );
   });
-
   it('ignores unsafe nested unknown keys in tools/features/projects while preserving safe unknown keys', () => {
     const tools = Object.create(null) as Record<string, unknown>;
     tools.unknown_tool_field = { nested: true };
     tools['__proto__'] = { polluted: true };
-
     const features = Object.create(null) as Record<string, unknown>;
     features.unknown_feature_flag = true;
     features['constructor'] = { polluted: true };
-
     const project = Object.create(null) as Record<string, unknown>;
     project.trust_level = 'trusted';
     project.project_unknown = 'preserved';
     project['prototype'] = { polluted: true };
-
     const projects = Object.create(null) as Record<string, unknown>;
     projects['/safe'] = project;
     projects['__proto__'] = { polluted: true };
-
     const result = validateRuntimeConfig({
       model: 'gpt-5.6-sol',
       tools,
       features,
       projects,
     });
-
     assert.deepEqual(result.config.tools, {
       unknown_tool_field: { nested: true },
     });
@@ -1344,7 +1251,14 @@ describe('runtimeConfig merge and validation', () => {
       Object.hasOwn(result.config.projects as object, '__proto__'),
       false,
     );
-    assert.equal(({} as { polluted?: boolean }).polluted, undefined);
+    assert.equal(
+      (
+        {} as {
+          polluted?: boolean;
+        }
+      ).polluted,
+      undefined,
+    );
     assert.ok(
       result.warnings.some((warning) =>
         warning.message.includes('Unsafe key runtime.tools.__proto__'),
@@ -1366,7 +1280,6 @@ describe('runtimeConfig merge and validation', () => {
       ),
     );
   });
-
   it('hard-fails supported keys with invalid types', () => {
     assert.throws(
       () =>
@@ -1380,11 +1293,9 @@ describe('runtimeConfig merge and validation', () => {
     );
   });
 });
-
 describe('runtimeConfig Context7 overlay', () => {
   it('resolves CODEINFO_SERVER_PORT placeholders through the shared runtime path', () => {
-    process.env.CODEINFO_SERVER_PORT = '6510';
-
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', '6510');
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
       mcp_servers: {
         ingest: {
@@ -1392,15 +1303,12 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.deepEqual(normalized.mcp_servers, {
       ingest: { url: 'http://localhost:6510/mcp' },
     });
   });
-
   it('resolves CODEINFO_CHAT_MCP_PORT placeholders through the shared runtime path', () => {
-    process.env.CODEINFO_CHAT_MCP_PORT = '6511';
-
+    setScopedTestEnvValue('CODEINFO_CHAT_MCP_PORT', '6511');
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
       mcp_servers: {
         code_info: {
@@ -1413,7 +1321,6 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.deepEqual(normalized.mcp_servers, {
       code_info: {
         command: 'npx',
@@ -1421,10 +1328,8 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     });
   });
-
   it('resolves CODEINFO_AGENTS_MCP_PORT placeholders through the shared runtime path', () => {
-    process.env.CODEINFO_AGENTS_MCP_PORT = '6512';
-
+    setScopedTestEnvValue('CODEINFO_AGENTS_MCP_PORT', '6512');
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
       mcp_servers: {
         agents: {
@@ -1432,15 +1337,12 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.deepEqual(normalized.mcp_servers, {
       agents: { url: 'http://localhost:6512/mcp' },
     });
   });
-
   it('resolves CODEINFO_WEB_MCP_PORT placeholders through the shared runtime path', () => {
-    process.env.CODEINFO_WEB_MCP_PORT = '6513';
-
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '6513');
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
       mcp_servers: {
         web_tools: {
@@ -1448,16 +1350,15 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.deepEqual(normalized.mcp_servers, {
       web_tools: { url: 'http://localhost:6513/mcp' },
     });
   });
-
   it('resolves CODEINFO_PLAYWRIGHT_MCP_URL through the shared runtime path', () => {
-    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
-      'http://localhost:8931/mcp/playwright';
-
+    setScopedTestEnvValue(
+      'CODEINFO_PLAYWRIGHT_MCP_URL',
+      'http://localhost:8931/mcp/playwright',
+    );
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
       mcp_servers: {
         playwright: {
@@ -1465,19 +1366,17 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.deepEqual(normalized.mcp_servers, {
       playwright: { url: 'http://localhost:8931/mcp/playwright' },
     });
   });
-
   it('prefers the full Playwright MCP URL override over derived localhost contract values', () => {
-    process.env.CODEINFO_CHAT_MCP_PORT = '6511';
-    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
-      'http://localhost:8931/mcp/playwright';
-
+    setScopedTestEnvValue('CODEINFO_CHAT_MCP_PORT', '6511');
+    setScopedTestEnvValue(
+      'CODEINFO_PLAYWRIGHT_MCP_URL',
+      'http://localhost:8931/mcp/playwright',
+    );
     const endpoints = resolveCodeinfoMcpEndpointContract();
-
     assert.equal(endpoints.chatMcpUrl, 'http://localhost:6511/mcp');
     assert.equal(
       endpoints.playwrightMcpUrl,
@@ -1485,10 +1384,8 @@ describe('runtimeConfig Context7 overlay', () => {
     );
     assert.notEqual(endpoints.playwrightMcpUrl, endpoints.chatMcpUrl);
   });
-
   it('fails clearly when a required MCP placeholder remains unresolved', () => {
-    delete process.env.CODEINFO_PLAYWRIGHT_MCP_URL;
-
+    clearScopedTestEnvValue('CODEINFO_PLAYWRIGHT_MCP_URL');
     assert.throws(
       () =>
         normalizeCodeinfoRuntimeConfigPlaceholders({
@@ -1501,13 +1398,11 @@ describe('runtimeConfig Context7 overlay', () => {
       /Unresolved required MCP placeholder CODEINFO_PLAYWRIGHT_MCP_URL/u,
     );
   });
-
   it('normalizes the checked-in example config through the migrated placeholder contract', async () => {
     const configPath = path.join(repoRoot, 'config.toml.example');
     const parsed = await readAndNormalizeRuntimeTomlConfig(configPath, {
       required: true,
     });
-
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(parsed!, {
       CODEINFO_SERVER_PORT: '6010',
       CODEINFO_CHAT_MCP_PORT: '6011',
@@ -1515,7 +1410,6 @@ describe('runtimeConfig Context7 overlay', () => {
       CODEINFO_WEB_MCP_PORT: '6013',
       CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8932/mcp',
     });
-
     assert.deepEqual(normalized.mcp_servers, {
       context7: {
         command: 'npx',
@@ -1551,7 +1445,6 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     });
   });
-
   it('resolves checked-in chat MCP placeholders from CODEINFO_CHAT_MCP_PORT', async () => {
     const configPath = path.join(
       repoRoot,
@@ -1560,14 +1453,12 @@ describe('runtimeConfig Context7 overlay', () => {
     const parsed = await readAndNormalizeRuntimeTomlConfig(configPath, {
       required: true,
     });
-
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(parsed!, {
       CODEINFO_CHAT_MCP_PORT: '6511',
       CODEINFO_AGENTS_MCP_PORT: '6512',
       CODEINFO_WEB_MCP_PORT: '6513',
       CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8931/mcp',
     });
-
     assert.deepEqual(
       (normalized.mcp_servers as Record<string, unknown>).code_info,
       {
@@ -1578,7 +1469,6 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     );
   });
-
   it('resolves checked-in root .env.e2e MCP placeholders from the wrapper env file shape', async () => {
     const envText = await fs.readFile(path.join(repoRoot, '.env.e2e'), 'utf8');
     const env = parse(envText);
@@ -1586,12 +1476,10 @@ describe('runtimeConfig Context7 overlay', () => {
       path.join(repoRoot, 'codex/chat/config.toml'),
       { required: true },
     );
-
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(
       parsed!,
       env as NodeJS.ProcessEnv,
     );
-
     assert.deepEqual(
       (normalized.mcp_servers as Record<string, unknown>).code_info,
       {
@@ -1605,19 +1493,16 @@ describe('runtimeConfig Context7 overlay', () => {
       undefined,
     );
   });
-
   it('does not let legacy CODEINFO_MCP_PORT satisfy checked-in chat MCP placeholders', async () => {
     const parsed = await readAndNormalizeRuntimeTomlConfig(
       path.join(repoRoot, 'codeinfo_agents/tasking_agent/config.toml'),
       { required: true },
     );
-
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(parsed!, {
       CODEINFO_MCP_PORT: '6511',
       CODEINFO_AGENTS_MCP_PORT: '6512',
       CODEINFO_PLAYWRIGHT_MCP_URL: 'http://localhost:8931/mcp',
     });
-
     assert.deepEqual(
       (normalized.mcp_servers as Record<string, unknown>).code_info,
       {
@@ -1628,21 +1513,20 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     );
   });
-
   it('logs the checked-in MCP contract marker when chat runtime config loads', async () => {
-    process.env.CODEINFO_SERVER_PORT = '6010';
-    process.env.CODEINFO_CHAT_MCP_PORT = '6011';
-    process.env.CODEINFO_AGENTS_MCP_PORT = '6012';
-    process.env.CODEINFO_WEB_MCP_PORT = '6013';
-    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
-      'http://localhost:8932/mcp/playwright';
-
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', '6010');
+    setScopedTestEnvValue('CODEINFO_CHAT_MCP_PORT', '6011');
+    setScopedTestEnvValue('CODEINFO_AGENTS_MCP_PORT', '6012');
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '6013');
+    setScopedTestEnvValue(
+      'CODEINFO_PLAYWRIGHT_MCP_URL',
+      'http://localhost:8932/mcp/playwright',
+    );
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const infoLogs: unknown[][] = [];
     mock.method(console, 'info', (...args: unknown[]) => {
       infoLogs.push(args);
     });
-
     try {
       await fs.copyFile(
         path.join(repoRoot, 'config.toml.example'),
@@ -1653,9 +1537,7 @@ describe('runtimeConfig Context7 overlay', () => {
         path.join(repoRoot, 'codex/chat/config.toml'),
         path.join(codexHome, 'chat/config.toml'),
       );
-
       await resolveChatRuntimeConfig({ codexHome });
-
       assert(
         infoLogs.some((entry) => {
           const payload = entry[1] as
@@ -1683,22 +1565,21 @@ describe('runtimeConfig Context7 overlay', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('does not report a legacy MCP fallback when only CODEINFO_MCP_PORT is set', async () => {
-    process.env.CODEINFO_SERVER_PORT = '6010';
-    delete process.env.CODEINFO_CHAT_MCP_PORT;
-    process.env.CODEINFO_MCP_PORT = '6011';
-    process.env.CODEINFO_AGENTS_MCP_PORT = '6012';
-    process.env.CODEINFO_WEB_MCP_PORT = '6013';
-    process.env.CODEINFO_PLAYWRIGHT_MCP_URL =
-      'http://localhost:8932/mcp/playwright';
-
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', '6010');
+    clearScopedTestEnvValue('CODEINFO_CHAT_MCP_PORT');
+    setScopedTestEnvValue('CODEINFO_MCP_PORT', '6011');
+    setScopedTestEnvValue('CODEINFO_AGENTS_MCP_PORT', '6012');
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '6013');
+    setScopedTestEnvValue(
+      'CODEINFO_PLAYWRIGHT_MCP_URL',
+      'http://localhost:8932/mcp/playwright',
+    );
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const infoLogs: unknown[][] = [];
     mock.method(console, 'info', (...args: unknown[]) => {
       infoLogs.push(args);
     });
-
     try {
       await fs.copyFile(
         path.join(repoRoot, 'config.toml.example'),
@@ -1709,13 +1590,13 @@ describe('runtimeConfig Context7 overlay', () => {
         path.join(repoRoot, 'codex/chat/config.toml'),
         path.join(codexHome, 'chat/config.toml'),
       );
-
       await resolveChatRuntimeConfig({ codexHome });
-
       assert(
         infoLogs.some((entry) => {
           const payload = entry[1] as
-            | { legacyFallbackUsed?: boolean }
+            | {
+                legacyFallbackUsed?: boolean;
+              }
             | undefined;
           return (
             entry[0] === 'DEV-0000050:T07:checked_in_mcp_contract_loaded' &&
@@ -1727,14 +1608,15 @@ describe('runtimeConfig Context7 overlay', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('replaces MCP placeholder values in memory before validation', () => {
-    process.env.CODEINFO_SERVER_PORT = '5510';
-    process.env.CODEINFO_CHAT_MCP_PORT = '5511';
-    process.env.CODEINFO_AGENTS_MCP_PORT = '5512';
-    process.env.CODEINFO_WEB_MCP_PORT = '5513';
-    process.env.CODEINFO_PLAYWRIGHT_MCP_URL = 'http://localhost:8931/mcp';
-
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', '5510');
+    setScopedTestEnvValue('CODEINFO_CHAT_MCP_PORT', '5511');
+    setScopedTestEnvValue('CODEINFO_AGENTS_MCP_PORT', '5512');
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '5513');
+    setScopedTestEnvValue(
+      'CODEINFO_PLAYWRIGHT_MCP_URL',
+      'http://localhost:8931/mcp',
+    );
     const normalized = normalizeCodeinfoRuntimeConfigPlaceholders({
       mcp_servers: {
         code_info: {
@@ -1759,7 +1641,6 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.deepEqual(normalized.mcp_servers, {
       code_info: {
         command: 'npx',
@@ -1779,10 +1660,8 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     });
   });
-
   it('replaces REPLACE_WITH_CONTEXT7_API_KEY in memory from CODEINFO_CONTEXT7_API_KEY', () => {
-    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
-
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', 'ctx7sk-real');
     const normalized = normalizeContext7RuntimeConfig({
       mcp_servers: {
         context7: {
@@ -1796,7 +1675,6 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.equal(normalized.mode, 'env_overlay');
     assert.deepEqual(normalized.config.mcp_servers, {
       context7: {
@@ -1805,10 +1683,8 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     });
   });
-
   it('treats the legacy seeded Context7 key as a placeholder and overlays the env key', () => {
-    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
-
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', 'ctx7sk-real');
     const normalized = normalizeContext7RuntimeConfig({
       mcp_servers: {
         context7: {
@@ -1822,7 +1698,6 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.equal(normalized.mode, 'env_overlay');
     assert.deepEqual(normalized.config.mcp_servers, {
       context7: {
@@ -1831,10 +1706,8 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     });
   });
-
   it('preserves an explicit non-placeholder Context7 API key', () => {
-    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-env';
-
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', 'ctx7sk-env');
     const normalized = normalizeContext7RuntimeConfig({
       mcp_servers: {
         context7: {
@@ -1848,7 +1721,6 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.equal(normalized.mode, 'explicit_key_preserved');
     assert.deepEqual(normalized.config.mcp_servers, {
       context7: {
@@ -1862,10 +1734,8 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     });
   });
-
   it('appends CODEINFO_CONTEXT7_API_KEY to an already-no-key Context7 args list in memory', () => {
-    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
-
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', 'ctx7sk-real');
     const normalized = normalizeContext7RuntimeConfig({
       mcp_servers: {
         context7: {
@@ -1874,7 +1744,6 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.equal(normalized.mode, 'env_overlay');
     assert.deepEqual(normalized.config.mcp_servers, {
       context7: {
@@ -1883,10 +1752,8 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     });
   });
-
   it('leaves an already-no-key Context7 args list unchanged when the env key is blank', () => {
-    process.env.CODEINFO_CONTEXT7_API_KEY = '   ';
-
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', '   ');
     const normalized = normalizeContext7RuntimeConfig({
       mcp_servers: {
         context7: {
@@ -1895,7 +1762,6 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.equal(normalized.mode, 'no_key_fallback');
     assert.deepEqual(normalized.config.mcp_servers, {
       context7: {
@@ -1904,17 +1770,14 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     });
   });
-
   it('falls back to the no-key args form when the env key is missing empty or whitespace-only', () => {
     const variants = [undefined, '', '   '];
-
     for (const value of variants) {
       if (value === undefined) {
-        delete process.env.CODEINFO_CONTEXT7_API_KEY;
+        clearScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY');
       } else {
-        process.env.CODEINFO_CONTEXT7_API_KEY = value;
+        setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', value);
       }
-
       const normalized = normalizeContext7RuntimeConfig({
         mcp_servers: {
           context7: {
@@ -1928,7 +1791,6 @@ describe('runtimeConfig Context7 overlay', () => {
           },
         },
       });
-
       assert.equal(normalized.mode, 'no_key_fallback');
       assert.deepEqual(normalized.config.mcp_servers, {
         context7: {
@@ -1938,7 +1800,6 @@ describe('runtimeConfig Context7 overlay', () => {
       });
     }
   });
-
   it('leaves configs without a Context7 definition unchanged', () => {
     const input = {
       mcp_servers: {
@@ -1947,16 +1808,12 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     };
-
     const normalized = normalizeContext7RuntimeConfig(input);
-
     assert.equal(normalized.mode, 'no_context7_definition');
     assert.deepEqual(normalized.config, input);
   });
-
   it('removes only the api-key pair and preserves the order of unrelated args', () => {
-    delete process.env.CODEINFO_CONTEXT7_API_KEY;
-
+    clearScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY');
     const normalized = normalizeContext7RuntimeConfig({
       mcp_servers: {
         context7: {
@@ -1973,7 +1830,6 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     });
-
     assert.equal(normalized.mode, 'no_key_fallback');
     assert.deepEqual(normalized.config.mcp_servers, {
       context7: {
@@ -1988,10 +1844,8 @@ describe('runtimeConfig Context7 overlay', () => {
       },
     });
   });
-
   it('leaves remote url and http_headers Context7 definitions unchanged', () => {
-    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
-
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', 'ctx7sk-real');
     const input = {
       mcp_servers: {
         context7: {
@@ -2002,15 +1856,12 @@ describe('runtimeConfig Context7 overlay', () => {
         },
       },
     };
-
     const normalized = normalizeContext7RuntimeConfig(input);
-
     assert.equal(normalized.mode, 'no_context7_definition');
     assert.deepEqual(normalized.config, input);
   });
-
   it('does not rewrite runtime config files on disk when overlaying Context7 keys', async () => {
-    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', 'ctx7sk-real');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -2027,18 +1878,15 @@ describe('runtimeConfig Context7 overlay', () => {
         'utf8',
       );
       await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
-
       await resolveChatRuntimeConfig({ codexHome });
-
       const baseContents = await fs.readFile(baseConfigPath, 'utf8');
       assert.match(baseContents, /REPLACE_WITH_CONTEXT7_API_KEY/u);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('resolves chat runtime with the inherited overlaid Context7 definition from base config', async () => {
-    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', 'ctx7sk-real');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -2055,9 +1903,7 @@ describe('runtimeConfig Context7 overlay', () => {
         'utf8',
       );
       await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
-
       const resolved = await resolveChatRuntimeConfig({ codexHome });
-
       assert.deepEqual(resolved.config.mcp_servers, {
         context7: {
           command: 'npx',
@@ -2068,9 +1914,8 @@ describe('runtimeConfig Context7 overlay', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('resolves chat runtime with an inherited no-key Context7 definition overlaid from CODEINFO_CONTEXT7_API_KEY', async () => {
-    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', 'ctx7sk-real');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -2087,9 +1932,7 @@ describe('runtimeConfig Context7 overlay', () => {
         'utf8',
       );
       await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
-
       const resolved = await resolveChatRuntimeConfig({ codexHome });
-
       assert.deepEqual(resolved.config.mcp_servers, {
         context7: {
           command: 'npx',
@@ -2100,10 +1943,8 @@ describe('runtimeConfig Context7 overlay', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('leaves malformed local stdio Context7 shapes unchanged', () => {
-    process.env.CODEINFO_CONTEXT7_API_KEY = 'ctx7sk-real';
-
+    setScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY', 'ctx7sk-real');
     const nonArrayArgs = normalizeContext7RuntimeConfig({
       mcp_servers: {
         context7: {
@@ -2119,7 +1960,6 @@ describe('runtimeConfig Context7 overlay', () => {
         args: 'broken',
       },
     });
-
     const missingPair = normalizeContext7RuntimeConfig({
       mcp_servers: {
         context7: {
@@ -2137,7 +1977,6 @@ describe('runtimeConfig Context7 overlay', () => {
     });
   });
 });
-
 describe('runtimeConfig deterministic resolver failures', () => {
   it('hard-fails missing agent config with deterministic code', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -2161,7 +2000,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('hard-fails invalid agent TOML with deterministic code', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const agentConfigPath = path.join(codexHome, 'agent-config.toml');
@@ -2185,7 +2023,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('hard-fails unreadable agent config with deterministic code', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const agentConfigPath = path.join(codexHome, 'agent-config.toml');
@@ -2225,7 +2062,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('hard-fails missing chat config with deterministic code', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     try {
@@ -2246,7 +2082,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('treats a missing Copilot chat config as an empty overlay and still resolves base config', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'copilot-runtime-home-'),
@@ -2259,18 +2094,15 @@ describe('runtimeConfig deterministic resolver failures', () => {
         'model = "copilot-gpt-5"\n',
         'utf8',
       );
-
       const resolved = await resolveChatRuntimeConfig({
         provider: 'copilot',
         copilotHome,
       });
-
       assert.equal(resolved.config.model, 'copilot-gpt-5');
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('hard-fails invalid chat TOML with deterministic code', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -2294,7 +2126,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('hard-fails unreadable chat config with deterministic code', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -2334,7 +2165,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('classifies repository-backed chat runtime-home filesystem failures as unreadable and removes partial runtime-home state', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -2342,13 +2172,11 @@ describe('runtimeConfig deterministic resolver failures', () => {
     const authPath = path.join(codexHome, 'auth.json');
     const originalWriteFile = fs.writeFile.bind(fs);
     const runtimesRoot = path.join(codexHome, '.codeinfo-chat-runtimes');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.writeFile(baseConfigPath, '', 'utf8');
       await fs.writeFile(chatConfigPath, 'model = "gpt-5.6-sol"\n', 'utf8');
       await fs.writeFile(authPath, '{}', 'utf8');
-
       mock.method(
         fs,
         'writeFile',
@@ -2375,7 +2203,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
           );
         },
       );
-
       await assert.rejects(
         async () =>
           materializeRepositoryBackedCodexChatHome({
@@ -2392,7 +2219,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
           );
         },
       );
-
       const runtimeEntries = await fs.readdir(runtimesRoot).catch(() => []);
       assert.deepEqual(runtimeEntries, []);
     } finally {
@@ -2400,14 +2226,12 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('resolves required MCP placeholders in materialized repository-backed chat configs', async () => {
-    process.env.CODEINFO_SERVER_PORT = '7410';
-    process.env.CODEINFO_WEB_MCP_PORT = '7413';
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', '7410');
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '7413');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
     const baseConfigPath = path.join(codexHome, 'config.toml');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.copyFile(
@@ -2418,18 +2242,15 @@ describe('runtimeConfig deterministic resolver failures', () => {
         path.join(repoRoot, 'codex/chat/config.toml'),
         chatConfigPath,
       );
-
       const materialized = await materializeRepositoryBackedCodexChatHome({
         conversationId: 'conv:placeholder-resolution',
         codexHome,
         overrides: { model: 'gpt-5.6-sol' },
       });
-
       const runtimeChatConfig = await fs.readFile(
         materialized.chatConfigPath,
         'utf8',
       );
-
       assert.match(runtimeChatConfig, /http:\/\/localhost:7410\/mcp/u);
       assert.doesNotMatch(runtimeChatConfig, /http:\/\/localhost:7413\/mcp/u);
       assert.doesNotMatch(
@@ -2440,14 +2261,12 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('injects managed web_tools into materialized repository-backed chat configs when requested', async () => {
-    process.env.CODEINFO_SERVER_PORT = '7410';
-    process.env.CODEINFO_WEB_MCP_PORT = '7413';
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', '7410');
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '7413');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
     const baseConfigPath = path.join(codexHome, 'config.toml');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.copyFile(
@@ -2458,33 +2277,28 @@ describe('runtimeConfig deterministic resolver failures', () => {
         path.join(repoRoot, 'codex/chat/config.toml'),
         chatConfigPath,
       );
-
       const materialized = await materializeRepositoryBackedCodexChatHome({
         conversationId: 'conv:managed-web-tools',
         codexHome,
         overrides: { model: 'unsloth/gemma-4-26b-A4b-it-qat-GGUF' },
         injectWebTools: true,
       });
-
       const runtimeChatConfig = await fs.readFile(
         materialized.chatConfigPath,
         'utf8',
       );
-
       assert.match(runtimeChatConfig, /\[mcp_servers\.web_tools\]/u);
       assert.match(runtimeChatConfig, /http:\/\/localhost:7413\/mcp/u);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('replaces indented CRLF web_tools blocks cleanly when materialized repository-backed injection is enabled', async () => {
-    process.env.CODEINFO_SERVER_PORT = '7420';
-    process.env.CODEINFO_WEB_MCP_PORT = '7423';
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', '7420');
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '7423');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
     const baseConfigPath = path.join(codexHome, 'config.toml');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.copyFile(
@@ -2517,19 +2331,16 @@ describe('runtimeConfig deterministic resolver failures', () => {
         ].join('\r\n'),
         'utf8',
       );
-
       const materialized = await materializeRepositoryBackedCodexChatHome({
         conversationId: 'conv:managed-web-tools-crlf',
         codexHome,
         overrides: { model: 'unsloth/gemma-4-26b-A4b-it-qat-GGUF' },
         injectWebTools: true,
       });
-
       const runtimeChatConfig = await fs.readFile(
         materialized.chatConfigPath,
         'utf8',
       );
-
       assert.equal(
         runtimeChatConfig.match(/\[mcp_servers\.web_tools\]/gu)?.length ?? 0,
         1,
@@ -2540,14 +2351,12 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('removes indented CRLF web_tools blocks when repository-backed materialization does not inject them', async () => {
-    process.env.CODEINFO_SERVER_PORT = '7430';
-    process.env.CODEINFO_WEB_MCP_PORT = '7433';
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', '7430');
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '7433');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
     const baseConfigPath = path.join(codexHome, 'config.toml');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.copyFile(
@@ -2580,19 +2389,16 @@ describe('runtimeConfig deterministic resolver failures', () => {
         ].join('\r\n'),
         'utf8',
       );
-
       const materialized = await materializeRepositoryBackedCodexChatHome({
         conversationId: 'conv:managed-web-tools-crlf-removed',
         codexHome,
         overrides: { model: 'unsloth/gemma-4-26b-A4b-it-qat-GGUF' },
         injectWebTools: false,
       });
-
       const runtimeChatConfig = await fs.readFile(
         materialized.chatConfigPath,
         'utf8',
       );
-
       assert.doesNotMatch(runtimeChatConfig, /\[mcp_servers\.web_tools\]/u);
       assert.match(runtimeChatConfig, /\[mcp_servers\.code_info\]/u);
       assert.match(runtimeChatConfig, /[ \t]*\[tools\]\r?\nview_image = true/u);
@@ -2600,14 +2406,12 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('preserves manual web_tools blocks during repository-backed materialization when managed injection is disabled', async () => {
-    process.env.CODEINFO_SERVER_PORT = '7530';
-    process.env.CODEINFO_WEB_MCP_PORT = '7533';
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', '7530');
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '7533');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
     const baseConfigPath = path.join(codexHome, 'config.toml');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.copyFile(
@@ -2627,19 +2431,16 @@ describe('runtimeConfig deterministic resolver failures', () => {
         ].join('\n'),
         'utf8',
       );
-
       const materialized = await materializeRepositoryBackedCodexChatHome({
         conversationId: 'conv:manual-web-tools-kept-disabled',
         codexHome,
         overrides: { model: 'unsloth/gemma-4-26b-A4b-it-qat-GGUF' },
         injectWebTools: false,
       });
-
       const runtimeChatConfig = await fs.readFile(
         materialized.chatConfigPath,
         'utf8',
       );
-
       assert.match(runtimeChatConfig, /\[mcp_servers\.web_tools\]/u);
       assert.match(runtimeChatConfig, /command = "node"/u);
       assert.match(
@@ -2651,14 +2452,12 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('preserves manual web_tools blocks during repository-backed materialization when managed injection is enabled', async () => {
-    process.env.CODEINFO_SERVER_PORT = '7540';
-    process.env.CODEINFO_WEB_MCP_PORT = '7543';
+    setScopedTestEnvValue('CODEINFO_SERVER_PORT', '7540');
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '7543');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
     const baseConfigPath = path.join(codexHome, 'config.toml');
-
     try {
       await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
       await fs.copyFile(
@@ -2678,19 +2477,16 @@ describe('runtimeConfig deterministic resolver failures', () => {
         ].join('\n'),
         'utf8',
       );
-
       const materialized = await materializeRepositoryBackedCodexChatHome({
         conversationId: 'conv:manual-web-tools-kept-enabled',
         codexHome,
         overrides: { model: 'unsloth/gemma-4-26b-A4b-it-qat-GGUF' },
         injectWebTools: true,
       });
-
       const runtimeChatConfig = await fs.readFile(
         materialized.chatConfigPath,
         'utf8',
       );
-
       assert.match(runtimeChatConfig, /\[mcp_servers\.web_tools\]/u);
       assert.match(runtimeChatConfig, /command = "node"/u);
       assert.match(
@@ -2706,9 +2502,8 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('injects managed web_tools into copilot runtime config when web_search is live', async () => {
-    process.env.CODEINFO_WEB_MCP_PORT = '7513';
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '7513');
     const copilotHome = await fs.mkdtemp(
       path.join(os.tmpdir(), 'copilot-home-'),
     );
@@ -2716,7 +2511,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       provider: 'copilot',
       copilotHome,
     });
-
     try {
       await ensureProviderChatConfigBootstrapped({
         provider: 'copilot',
@@ -2727,12 +2521,10 @@ describe('runtimeConfig deterministic resolver failures', () => {
         ['model = "copilot-gpt-5"', 'web_search = "live"', ''].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveChatRuntimeConfig({
         provider: 'copilot',
         copilotHome,
       });
-
       assert.deepEqual(
         (resolved.config.mcp_servers as Record<string, unknown>).web_tools,
         {
@@ -2745,7 +2537,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(copilotHome, { recursive: true, force: true });
     }
   });
-
   it('omits managed web_tools from copilot runtime config and warns when web_search is cached', async () => {
     const copilotHome = await fs.mkdtemp(
       path.join(os.tmpdir(), 'copilot-home-'),
@@ -2754,7 +2545,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       provider: 'copilot',
       copilotHome,
     });
-
     try {
       await ensureProviderChatConfigBootstrapped({
         provider: 'copilot',
@@ -2765,12 +2555,10 @@ describe('runtimeConfig deterministic resolver failures', () => {
         ['model = "copilot-gpt-5"', 'web_search = "cached"', ''].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveChatRuntimeConfig({
         provider: 'copilot',
         copilotHome,
       });
-
       const resolvedMcpServers = (resolved.config.mcp_servers ?? {}) as Record<
         string,
         unknown
@@ -2787,9 +2575,8 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(copilotHome, { recursive: true, force: true });
     }
   });
-
   it('does not inject managed web_tools into lmstudio runtime config when web_search is live', async () => {
-    process.env.CODEINFO_WEB_MCP_PORT = '7523';
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '7523');
     const lmstudioHome = await fs.mkdtemp(
       path.join(os.tmpdir(), 'lmstudio-home-'),
     );
@@ -2797,7 +2584,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       provider: 'lmstudio',
       lmstudioHome,
     });
-
     try {
       await ensureProviderChatConfigBootstrapped({
         provider: 'lmstudio',
@@ -2808,12 +2594,10 @@ describe('runtimeConfig deterministic resolver failures', () => {
         ['model = "model-1"', 'web_search = "live"', ''].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveChatRuntimeConfig({
         provider: 'lmstudio',
         lmstudioHome,
       });
-
       const resolvedMcpServers = (resolved.config.mcp_servers ?? {}) as Record<
         string,
         unknown
@@ -2823,12 +2607,10 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(lmstudioHome, { recursive: true, force: true });
     }
   });
-
   it('injects managed web_tools into pinned codex external-endpoint runtime config when web_search is live', async () => {
-    process.env.CODEINFO_WEB_MCP_PORT = '7613';
+    setScopedTestEnvValue('CODEINFO_WEB_MCP_PORT', '7613');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
-
     try {
       await ensureProviderChatConfigBootstrapped({
         provider: 'codex',
@@ -2849,12 +2631,10 @@ describe('runtimeConfig deterministic resolver failures', () => {
         ].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveChatRuntimeConfig({
         provider: 'codex',
         codexHome,
       });
-
       assert.deepEqual(
         (resolved.config.mcp_servers as Record<string, unknown>).web_tools,
         {
@@ -2867,7 +2647,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('hard-fails strict runtime readers when base config TOML is invalid', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
@@ -2894,7 +2673,6 @@ describe('runtimeConfig deterministic resolver failures', () => {
     }
   });
 });
-
 describe('runtimeConfig merged happy paths and T04 logs', () => {
   it('rejects malformed runtime mcp_servers tables instead of inheriting base data', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
@@ -2917,7 +2695,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ['model = "chat-model"', 'mcp_servers = "bad"', ''].join('\n'),
         'utf8',
       );
-
       await assert.rejects(
         async () => resolveChatRuntimeConfig({ codexHome }),
         (error) => {
@@ -2935,7 +2712,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('rejects malformed runtime tools tables instead of inheriting base data', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
@@ -2952,7 +2728,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ['model = "chat-model"', 'tools = "bad"', ''].join('\n'),
         'utf8',
       );
-
       await assert.rejects(
         async () => resolveChatRuntimeConfig({ codexHome }),
         (error) => {
@@ -2970,9 +2745,8 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('still inherits valid runtime tables for Story 47 merged keys', async () => {
-    delete process.env.CODEINFO_CONTEXT7_API_KEY;
+    clearScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -2991,9 +2765,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         'utf8',
       );
       await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
-
       const resolved = await resolveChatRuntimeConfig({ codexHome });
-
       assert.equal(resolved.config.model, 'chat-model');
       assert.deepEqual(resolved.config.tools, {
         view_image: true,
@@ -3008,9 +2780,8 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('resolves chat runtime with inherited base mcp servers and provider routing', async () => {
-    delete process.env.CODEINFO_CONTEXT7_API_KEY;
+    clearScopedTestEnvValue('CODEINFO_CONTEXT7_API_KEY');
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -3031,9 +2802,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         'utf8',
       );
       await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
-
       const resolved = await resolveChatRuntimeConfig({ codexHome });
-
       assert.equal(resolved.config.model, 'chat-model');
       assert.equal(resolved.config.model_provider, 'base-provider');
       assert.deepEqual(resolved.config.model_providers, {
@@ -3052,7 +2821,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('resolves canonical agent config and inherits base execution settings', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
@@ -3079,7 +2847,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         'model = "agent-model"\n[projects]\n[projects."/base"]\ntrust_level = "untrusted"\n',
         'utf8',
       );
-
       const resolved = await resolveAgentRuntimeConfig({
         codexHome,
         agentConfigPath,
@@ -3103,7 +2870,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('resolves agent runtime with inherited base provider routing', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
@@ -3120,12 +2886,10 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         'utf8',
       );
       await fs.writeFile(agentConfigPath, 'model = "agent-model"\n', 'utf8');
-
       const resolved = await resolveAgentRuntimeConfig({
         codexHome,
         agentConfigPath,
       });
-
       assert.equal(resolved.config.model_provider, 'base-provider');
       assert.deepEqual(resolved.config.model_providers, {
         'base-provider': {
@@ -3137,7 +2901,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('resolves agent runtime without warnings for supported inherited codex compatibility keys', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
@@ -3172,12 +2935,10 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveAgentRuntimeConfig({
         codexHome,
         agentConfigPath,
       });
-
       assert.equal(resolved.config.hide_agent_reasoning, false);
       assert.equal(resolved.config.web_search, 'disabled');
       assert.equal(resolved.config.model_reasoning_summary, 'detailed');
@@ -3200,7 +2961,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('keeps runtime-specific model, approval, sandbox, and web_search overrides over base config', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
@@ -3229,9 +2989,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveChatRuntimeConfig({ codexHome });
-
       assert.equal(resolved.config.model, 'chat-model');
       assert.equal(resolved.config.approval_policy, 'on-request');
       assert.equal(resolved.config.sandbox_mode, 'read-only');
@@ -3240,7 +2998,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('merges runtime-specific projects and mcp servers without dropping unrelated base siblings', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const baseConfigPath = path.join(codexHome, 'config.toml');
@@ -3273,12 +3030,10 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveAgentRuntimeConfig({
         codexHome,
         agentConfigPath,
       });
-
       assert.deepEqual(resolved.config.mcp_servers, {
         context7: {
           command: 'node',
@@ -3299,7 +3054,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('resolves legacy alias input and normalizes to canonical keys', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -3324,7 +3078,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('rejects malformed features.view_image_tool values instead of dropping them during normalization', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -3342,7 +3095,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       await assert.rejects(
         async () => resolveChatRuntimeConfig({ codexHome }),
         (error) => {
@@ -3360,7 +3112,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('rejects malformed features.web_search_request values even when canonical web_search already exists', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
@@ -3379,7 +3130,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       await assert.rejects(
         async () => resolveChatRuntimeConfig({ codexHome }),
         (error) => {
@@ -3397,7 +3147,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('logs deterministic T04 success on merged+validated happy path', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const agentConfigPath = path.join(codexHome, 'agent-config.toml');
@@ -3428,7 +3177,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('logs deterministic T04 error on merged+validated failure path', async () => {
     const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
     const agentConfigPath = path.join(codexHome, 'agent-config.toml');
@@ -3459,20 +3207,17 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
-
   it('seeds provider-local chat defaults for codex, copilot, and lmstudio', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'provider-chat-'));
     const codexHome = path.join(tempRoot, 'codex');
     const copilotHome = path.join(tempRoot, 'copilot');
     const lmstudioHome = path.join(tempRoot, 'lmstudio');
-
     try {
       const snapshots = await ensureAllProviderChatConfigsBootstrapped({
         codexHome,
         copilotHome,
         lmstudioHome,
       });
-
       assert.equal(snapshots.length, 3);
       const codexConfig = await fs.readFile(
         getProviderChatConfigPath({ provider: 'codex', codexHome })
@@ -3493,7 +3238,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         }).chatConfigPath,
         'utf8',
       );
-
       assert.match(codexConfig, /model = "gpt-5\.6-sol"/u);
       assert.match(copilotConfig, /model = "gpt-5\.4-mini"/u);
       assert.match(lmstudioConfig, /model = "model-1"/u);
@@ -3501,7 +3245,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('records degraded provider bootstrap and still allows a live listener to bind afterward', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'provider-chat-degraded-'),
@@ -3512,7 +3255,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
     const originalWriteFile = fs.writeFile.bind(fs);
     const warningLogs: unknown[][] = [];
     let server: http.Server | null = null;
-
     mock.method(console, 'warn', (...args: unknown[]) => {
       warningLogs.push(args);
     });
@@ -3531,20 +3273,17 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         return originalWriteFile(...args);
       },
     );
-
     try {
       const snapshots = await ensureAllProviderChatConfigsBootstrapped({
         codexHome,
         copilotHome,
         lmstudioHome,
       });
-
       assert.equal(snapshots.length, 2);
       assert.deepEqual(snapshots.map((snapshot) => snapshot.provider).sort(), [
         'codex',
         'lmstudio',
       ]);
-
       const copilotStatus = getProviderBootstrapStatus('copilot');
       assert.equal(copilotStatus.healthy, false);
       assert.match(copilotStatus.reason ?? '', /copilot home read-only/u);
@@ -3559,7 +3298,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
           ),
         ),
       );
-
       server = http.createServer((_req, res) => {
         res.statusCode = 200;
         res.end('ok');
@@ -3579,7 +3317,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('provider chat-default readers reread the on-disk file on each call', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'provider-reread-'),
@@ -3589,7 +3326,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       provider: 'lmstudio',
       lmstudioHome,
     });
-
     try {
       await ensureProviderChatConfigBootstrapped({
         provider: 'lmstudio',
@@ -3605,18 +3341,15 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         provider: 'lmstudio',
         lmstudioHome,
       });
-
       assert.equal(first.config?.model, 'first-model');
       assert.equal(second.config?.model, 'second-model');
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('bootstraps the lmstudio/chat directory through the shared provider-home path', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'lmstudio-home-'));
     const lmstudioHome = path.join(tempRoot, 'lmstudio');
-
     try {
       await ensureProviderChatConfigBootstrapped({
         provider: 'lmstudio',
@@ -3628,7 +3361,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('ignores abandoned provider chat-config temp artifacts when reading the canonical file', async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'provider-temp-'));
     const lmstudioHome = path.join(tempRoot, 'lmstudio');
@@ -3636,7 +3368,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       provider: 'lmstudio',
       lmstudioHome,
     });
-
     try {
       await ensureProviderChatConfigBootstrapped({
         provider: 'lmstudio',
@@ -3644,19 +3375,16 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       });
       await fs.writeFile(chatConfigPath, 'model = "stable-model"\n', 'utf8');
       await fs.writeFile(`${chatConfigPath}.orphan.tmp`, '[broken', 'utf8');
-
       const snapshot = loadProviderChatDefaultsSnapshotSync({
         provider: 'lmstudio',
         lmstudioHome,
       });
-
       assert.equal(snapshot.config?.model, 'stable-model');
       await fs.access(`${chatConfigPath}.orphan.tmp`);
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('leaves the previous good provider chat config in place when a temp-write cleanup runs', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'provider-atomic-'),
@@ -3666,7 +3394,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       provider: 'copilot',
       copilotHome,
     });
-
     try {
       await ensureProviderChatConfigBootstrapped({
         provider: 'copilot',
@@ -3678,19 +3405,16 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         'model = "next',
         'utf8',
       );
-
       const snapshot = loadProviderChatDefaultsSnapshotSync({
         provider: 'copilot',
         copilotHome,
       });
-
       assert.equal(snapshot.config?.model, 'kept-model');
       await fs.access(`${chatConfigPath}.partial.tmp`);
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('provider chat-config bootstrap keeps a newer config that appears after the missing-state check and leaves no partial temp artifact behind', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'provider-chat-race-'),
@@ -3701,7 +3425,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       lmstudioHome,
     });
     const originalLink = fs.link;
-
     try {
       const linkMock = mock.method(
         fs,
@@ -3711,16 +3434,13 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
           return originalLink.call(fs, existingPath, newPath);
         },
       );
-
       const result = await ensureProviderChatConfigBootstrapped({
         provider: 'lmstudio',
         lmstudioHome,
       });
       linkMock.mock.restore();
-
       const seeded = await fs.readFile(chatConfigPath, 'utf8');
       const entries = await fs.readdir(path.join(lmstudioHome, 'chat'));
-
       assert.equal(result.branch, 'existing_noop');
       assert.equal(seeded, 'model = "newer-model"\n');
       assert.deepEqual(entries, ['config.toml']);
@@ -3728,7 +3448,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('treats codeinfo_config/config.toml as an optional lowest-precedence layer without creating it', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-layering-'),
@@ -3739,7 +3458,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       'codeinfo_config',
       'config.toml',
     );
-
     try {
       await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
       await fs.writeFile(
@@ -3752,16 +3470,13 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         'model = "gpt-5.6-sol"\n',
         'utf8',
       );
-
       const resolved = await resolveChatRuntimeConfig({ codexHome });
-
       assert.equal(resolved.config.personality, 'base');
       await assert.rejects(fs.access(repoLocalConfigPath), { code: 'ENOENT' });
     } finally {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('applies repo-local, provider-base, and agent precedence in order', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-order-'),
@@ -3769,12 +3484,10 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
     const codexHome = path.join(tempRoot, 'codex');
     const repoLocalDir = path.join(tempRoot, 'codeinfo_config');
     const agentConfigPath = path.join(tempRoot, 'agent', 'config.toml');
-
     try {
       await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
       await fs.mkdir(repoLocalDir, { recursive: true });
       await fs.mkdir(path.dirname(agentConfigPath), { recursive: true });
-
       await fs.writeFile(
         path.join(repoLocalDir, 'config.toml'),
         [
@@ -3815,12 +3528,10 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveAgentRuntimeConfig({
         codexHome,
         agentConfigPath,
       });
-
       assert.equal(resolved.config.model, 'agent-model');
       assert.equal(resolved.config.personality, 'agent-personality');
       assert.equal(resolved.config.cli_auth_credentials_store, 'repo-store');
@@ -3838,7 +3549,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('replaces scalar and array values from lower-precedence layers', () => {
     const merged = mergeRuntimeConfigLayers([
       {
@@ -3854,11 +3564,9 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         command_allowlist: ['agent-a', 'agent-b'],
       },
     ]);
-
     assert.equal(merged.merged.model, 'agent-model');
     assert.deepEqual(merged.merged.command_allowlist, ['agent-a', 'agent-b']);
   });
-
   it('merges named tables by key while higher-precedence values replace conflicts', () => {
     const merged = mergeRuntimeConfigLayers([
       {
@@ -3879,21 +3587,18 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         },
       },
     ]);
-
     assert.deepEqual(merged.merged.mcp_servers, {
       shared: { url: 'http://agent.example' },
       repoOnly: { url: 'http://repo-only.example' },
       providerOnly: { url: 'http://provider-only.example' },
     });
   });
-
   it('strips app-owned codeinfo metadata before provider runtime config leaves the resolver', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-metadata-'),
     );
     const codexHome = path.join(tempRoot, 'codex');
     const agentConfigPath = path.join(tempRoot, 'agent', 'config.toml');
-
     try {
       await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
       await fs.mkdir(path.dirname(agentConfigPath), { recursive: true });
@@ -3908,13 +3613,11 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveAgentRuntimeConfig({
         provider: 'copilot',
         codexHome,
         agentConfigPath,
       });
-
       assert.equal(resolved.appMetadata?.codeinfoProvider, 'copilot');
       assert.equal('codeinfo_provider' in resolved.config, false);
       assert.equal('codeinfo_hidden_note' in resolved.config, false);
@@ -3922,13 +3625,11 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('warns and ignores codeinfo_provider on non-agent config surfaces', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-chat-metadata-'),
     );
     const codexHome = path.join(tempRoot, 'codex');
-
     try {
       await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
       await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
@@ -3939,9 +3640,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ),
         'utf8',
       );
-
       const resolved = await resolveChatRuntimeConfig({ codexHome });
-
       assert.equal(resolved.appMetadata?.codeinfoProvider, undefined);
       assert.equal('codeinfo_provider' in resolved.config, false);
       assert.equal(
@@ -3956,13 +3655,11 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('reads and strips codeinfo_openai_endpoint from codex chat config metadata on the accepted path', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-chat-endpoint-'),
     );
     const codexHome = path.join(tempRoot, 'codex');
-
     try {
       await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
       await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
@@ -3975,9 +3672,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveChatRuntimeConfig({ codexHome });
-
       assert.equal(
         resolved.appMetadata?.codeinfoOpenAiEndpoint?.endpointId,
         'https://localhost:1234/v1',
@@ -3993,13 +3688,11 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('rejects blank codeinfo_openai_endpoint values in codex chat config', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-chat-endpoint-blank-'),
     );
     const codexHome = path.join(tempRoot, 'codex');
-
     try {
       await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
       await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
@@ -4010,7 +3703,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ),
         'utf8',
       );
-
       await assert.rejects(
         async () => resolveChatRuntimeConfig({ codexHome }),
         (error) => {
@@ -4028,13 +3720,11 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('rejects whitespace-only codeinfo_openai_endpoint values in copilot chat config', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-chat-endpoint-space-'),
     );
     const copilotHome = path.join(tempRoot, 'copilot');
-
     try {
       await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
       await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -4047,7 +3737,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       await assert.rejects(
         async () =>
           resolveChatRuntimeConfig({
@@ -4069,13 +3758,11 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('rejects codex chat endpoints that do not advertise responses support', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-chat-endpoint-codex-compat-'),
     );
     const codexHome = path.join(tempRoot, 'codex');
-
     try {
       await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
       await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
@@ -4088,7 +3775,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       await assert.rejects(
         async () => resolveChatRuntimeConfig({ codexHome }),
         (error) => {
@@ -4106,13 +3792,11 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('rejects copilot chat endpoints that do not advertise completions support', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-chat-endpoint-copilot-compat-'),
     );
     const copilotHome = path.join(tempRoot, 'copilot');
-
     try {
       await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
       await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -4125,7 +3809,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       await assert.rejects(
         async () =>
           resolveChatRuntimeConfig({
@@ -4147,7 +3830,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('validates codeinfo_openai_endpoint against the effective agent provider override', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-agent-endpoint-provider-'),
@@ -4155,7 +3837,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
     const codexHome = path.join(tempRoot, 'codex');
     const copilotHome = path.join(tempRoot, 'copilot');
     const agentConfigPath = path.join(tempRoot, 'agent', 'config.toml');
-
     try {
       await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
       await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
@@ -4182,14 +3863,12 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveAgentRuntimeConfig({
         provider: 'codex',
         codexHome,
         copilotHome,
         agentConfigPath,
       });
-
       assert.equal(resolved.appMetadata?.codeinfoProvider, 'copilot');
       assert.equal(
         resolved.appMetadata?.codeinfoOpenAiEndpoint?.endpointId,
@@ -4200,7 +3879,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
-
   it('keeps structured warnings when agent runtime resolution succeeds through a fallback-provider config path', async () => {
     const tempRoot = await fs.mkdtemp(
       path.join(os.tmpdir(), 'runtime-config-fallback-warnings-'),
@@ -4208,7 +3886,6 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
     const codexHome = path.join(tempRoot, 'codex');
     const copilotHome = path.join(tempRoot, 'copilot');
     const agentConfigPath = path.join(tempRoot, 'agent', 'config.toml');
-
     try {
       await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
       await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
@@ -4235,14 +3912,12 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         ].join('\n'),
         'utf8',
       );
-
       const resolved = await resolveAgentRuntimeConfig({
         provider: 'codex',
         codexHome,
         copilotHome,
         agentConfigPath,
       });
-
       assert.equal(resolved.config.model, 'copilot-gpt-5');
       assert.equal(
         resolved.warnings.some(

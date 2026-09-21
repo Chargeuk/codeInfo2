@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
 import {
   __resetAgentServiceDepsForTests,
   __setAgentServiceDepsForTests,
@@ -24,16 +25,52 @@ import {
 import { startFlowRun } from '../../flows/service.js';
 import {
   __resetFlowResumeTestDepsForTests,
+  __resetFlowWaitResumeDepsForTests,
   __setFlowResumeTestDepsForTests,
+  __setFlowWaitResumeDepsForTests,
 } from '../../flows/service.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { query } from '../../logStore.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
+  withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
@@ -42,20 +79,93 @@ beforeEach(() => {
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
   __resetProviderBootstrapStatusForTests();
+  __resetFlowWaitResumeDepsForTests();
 });
 
 const waitFor = async (
   predicate: () => boolean,
-  timeoutMs = 5000,
+  timeoutMs = 10000,
   intervalMs = 50,
+  describe?: () => string,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
-  throw new Error('Timed out waiting for predicate');
+  throw new Error(
+    describe
+      ? `Timed out waiting for predicate | ${describe()}`
+      : 'Timed out waiting for predicate',
+  );
 };
+
+const withResumeAgentRuntime = async (
+  params: {
+    agentsHome: string;
+    codexHome: string;
+    tmpDir: string;
+    compatEndpoint?: string;
+  },
+  agentServiceOverrides: Parameters<typeof __setAgentServiceDepsForTests>[0],
+  run: () => Promise<void>,
+) =>
+  await withIsolatedProviderHomeTestEnv(
+    {
+      prefix: 'flows-resume-provider-homes-',
+      overrides: {
+        CODEINFO_AGENT_HOME: params.agentsHome,
+        CODEINFO_CODEX_AGENT_HOME: params.agentsHome,
+        CODEINFO_CODEX_HOME: params.codexHome,
+        CODEX_HOME: params.codexHome,
+        FLOWS_DIR: params.tmpDir,
+        ...(params.compatEndpoint === undefined
+          ? {}
+          : {
+              CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: `${params.compatEndpoint}|responses`,
+            }),
+      },
+    },
+    async () => {
+      __setAgentServiceDepsForTests(agentServiceOverrides);
+      try {
+        await run();
+      } finally {
+        __resetAgentServiceDepsForTests();
+      }
+    },
+  );
+
+const getAssistantTurnCount = (conversationId: string) =>
+  (memoryTurns.get(conversationId) ?? []).filter(
+    (turn) => turn?.role === 'assistant',
+  ).length;
+
+const describeConversationState = (conversationId: string) =>
+  JSON.stringify({
+    flags: memoryConversations.get(conversationId)?.flags ?? null,
+    recentTurns: (memoryTurns.get(conversationId) ?? [])
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+        provider: turn.provider,
+        model: turn.model,
+      })),
+  });
+
+const describeRelevantResumeRuntimeLogs = (conversationId: string) =>
+  JSON.stringify(
+    query({ text: 'flows.test.' }, 300)
+      .filter((entry) => entry.context?.conversationId === conversationId)
+      .slice(-25)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+  );
 
 const writeResumeFlow = async (dir: string) => {
   const flow = {
@@ -105,6 +215,37 @@ const writeDualAgentResumeFlow = async (dir: string) => {
   };
   await fs.writeFile(
     path.join(dir, 'resume-dual-identity.json'),
+    JSON.stringify(flow, null, 2),
+  );
+};
+
+const writeWaitResumeFlow = async (dir: string) => {
+  const flow = {
+    description: 'Wait resume test flow',
+    steps: [
+      {
+        type: 'llm',
+        label: 'Step 1',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 1'] }],
+      },
+      {
+        type: 'wait',
+        label: 'Wait step',
+        seconds: 60,
+      },
+      {
+        type: 'llm',
+        label: 'Step 2',
+        agentType: 'coding_agent',
+        identifier: 'resume-test',
+        messages: [{ role: 'user', content: ['Step 2'] }],
+      },
+    ],
+  };
+  await fs.writeFile(
+    path.join(dir, 'wait-resume.json'),
     JSON.stringify(flow, null, 2),
   );
 };
@@ -188,30 +329,22 @@ const buildApp = () => {
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
         }),
+      ),
     }),
   );
   return { app, supertest };
 };
 
 test('startFlowRun resumes after resumeStepPath from legitimate server-owned persisted flow state', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-'),
   );
   await writeResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-conv-1';
   const childConversationId = 'agent-conv-resume-1';
@@ -238,7 +371,7 @@ test('startFlowRun resumes after resumeStepPath from legitimate server-owned per
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: originalTitle,
     flowName: 'resume-basic',
     source: 'REST',
@@ -261,7 +394,7 @@ test('startFlowRun resumes after resumeStepPath from legitimate server-owned per
   memoryConversations.set(childConversationId, {
     _id: childConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -277,43 +410,61 @@ test('startFlowRun resumes after resumeStepPath from legitimate server-owned per
   });
 
   try {
-    await startFlowRun({
-      flowName: 'resume-basic',
-      conversationId,
-      resumeStepPath: [0],
-      customTitle,
-      source: 'REST',
-      chatFactory: () => new TrackingChat(),
-    });
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        await startFlowRun({
+          flowName: 'resume-basic',
+          conversationId,
+          resumeStepPath: [0],
+          customTitle,
+          source: 'REST',
+          chatFactory: () => new TrackingChat(),
+        });
 
-    await waitFor(() => captured.length === 1);
-    assert.equal(captured[0], 'Step 2');
-    const conversation = memoryConversations.get(conversationId);
-    assert.equal(conversation?.title, originalTitle);
-    assert.equal(getFlowExecutionId(conversationId), 'resume-execution-1');
-    assert.equal(
-      (
-        (conversation?.flags ?? {}) as {
-          flow?: { agentConversations?: Record<string, string> };
-        }
-      ).flow?.agentConversations?.['coding_agent:resume-test'],
-      childConversationId,
-    );
-    assert.equal(
-      getFlowChildExecutionId(childConversationId),
-      'resume-execution-1',
+        await waitFor(
+          () => captured.length === 1,
+          10000,
+          50,
+          () =>
+            JSON.stringify({
+              phase: 'waiting_for_first_execute',
+              captured,
+              state: JSON.parse(describeConversationState(conversationId)),
+              childState: JSON.parse(
+                describeConversationState(childConversationId),
+              ),
+              runtimeLogs: JSON.parse(
+                describeRelevantResumeRuntimeLogs(conversationId),
+              ),
+            }),
+        );
+        assert.equal(captured[0], 'Step 2');
+        const conversation = memoryConversations.get(conversationId);
+        assert.equal(conversation?.title, originalTitle);
+        assert.equal(getFlowExecutionId(conversationId), 'resume-execution-1');
+        assert.equal(
+          (
+            (conversation?.flags ?? {}) as {
+              flow?: { agentConversations?: Record<string, string> };
+            }
+          ).flow?.agentConversations?.['coding_agent:resume-test'],
+          childConversationId,
+        );
+        assert.equal(
+          getFlowChildExecutionId(childConversationId),
+          'resume-execution-1',
+        );
+      },
     );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -347,19 +498,10 @@ test('startFlowRun rejects resumeStepPath without conversationId before reposito
 });
 
 test('startFlowRun keeps resumed child execution pinned to the saved provider and model', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-pinned-'),
   );
   await writeResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-pinned-conv-1';
   const childConversationId = 'agent-conv-resume-pinned-1';
@@ -383,7 +525,7 @@ test('startFlowRun keeps resumed child execution pinned to the saved provider an
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -406,7 +548,7 @@ test('startFlowRun keeps resumed child execution pinned to the saved provider an
   memoryConversations.set(childConversationId, {
     _id: childConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -422,50 +564,45 @@ test('startFlowRun keeps resumed child execution pinned to the saved provider an
   });
 
   try {
-    await startFlowRun({
-      flowName: 'resume-basic',
-      conversationId,
-      resumeStepPath: [0],
-      source: 'REST',
-      chatFactory: () => new TrackingChat(),
-    });
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        await startFlowRun({
+          flowName: 'resume-basic',
+          conversationId,
+          resumeStepPath: [0],
+          source: 'REST',
+          chatFactory: () => new TrackingChat(),
+        });
 
-    await waitFor(() => capturedModels.length === 1);
-    assert.deepEqual(capturedModels, ['gpt-5.2-codex']);
-    assert.equal(
-      memoryConversations.get(childConversationId)?.provider,
-      'codex',
+        await waitFor(() => capturedModels.length === 1, 15000);
+        assert.deepEqual(capturedModels, ['gpt-5.6-terra']);
+        assert.equal(
+          memoryConversations.get(childConversationId)?.provider,
+          'codex',
+        );
+        assert.equal(
+          memoryConversations.get(childConversationId)?.model,
+          'gpt-5.6-terra',
+        );
+        const childTurns = memoryTurns.get(childConversationId) ?? [];
+        assert.equal(childTurns.at(-1)?.model, 'gpt-5.6-terra');
+        assert.equal(childTurns.at(-1)?.provider, 'codex');
+      },
     );
-    assert.equal(
-      memoryConversations.get(childConversationId)?.model,
-      'gpt-5.2-codex',
-    );
-    const childTurns = memoryTurns.get(childConversationId) ?? [];
-    assert.equal(childTurns.at(-1)?.model, 'gpt-5.2-codex');
-    assert.equal(childTurns.at(-1)?.provider, 'codex');
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startFlowRun keeps resumed child endpoint identity pinned and fails in place when the saved endpoint disappears', async () => {
-  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const prevLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const prevRuntimeCodexHome = process.env.CODEX_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevCompatEndpoints =
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const originalInfo = console.info;
   const originalError = console.error;
   const infoLogs: string[] = [];
@@ -503,7 +640,7 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
       path.join(agentHome, 'config.toml'),
       [
         'codeinfo_provider = "codex"',
-        'model = "gpt-5.2-codex"',
+        'model = "gpt-5.6-terra"',
         `codeinfo_openai_endpoint = "${endpointId}|responses"`,
         '',
       ].join('\n'),
@@ -513,133 +650,124 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
     await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
     await fs.writeFile(
       path.join(codexHome, 'chat', 'config.toml'),
-      'model = "gpt-5.2-codex"\n',
+      'model = "gpt-5.6-terra"\n',
       'utf8',
     );
 
-    process.env.CODEINFO_AGENT_HOME = agentsHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-    process.env.CODEINFO_CODEX_HOME = codexHome;
-    process.env.CODEX_HOME = codexHome;
-    process.env.FLOWS_DIR = tmpDir;
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
-
-    await withMockedMongoConversationPersistence({
-      seedConversations: [
-        {
-          _id: conversationId,
-          provider: 'codex',
-          model: 'gpt-5.2-codex',
-          title: 'Flow: resume-basic',
-          flowName: 'resume-basic',
-          source: 'REST',
-          flags: {
-            flow: {
-              executionId: 'resume-execution-endpoint-fail',
-              stepPath: [0],
-              loopStack: [],
-              agentConversations: {
-                'coding_agent:resume-test': childConversationId,
-              },
-              agentProviders: {
-                'coding_agent:resume-test': 'codex',
-              },
-              agentModels: {
-                'coding_agent:resume-test': 'flow-current-model',
-              },
-              agentEndpointIds: {
-                'coding_agent:resume-test': endpointId,
-              },
-              agentThreads: {},
-            },
-          },
-          lastMessageAt: new Date(),
-          archivedAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        {
-          _id: childConversationId,
-          provider: 'codex',
-          model: 'gpt-5.2-codex',
-          title: 'Flow: resume-basic (resume-test)',
-          agentName: 'coding_agent',
-          source: 'REST',
-          flags: {
-            endpointId,
-            flowChild: {
-              executionId: 'resume-execution-endpoint-fail',
-            },
-          },
-          lastMessageAt: new Date(),
-          archivedAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as Conversation,
-      ],
-      run: async ({ conversations }) => {
-        const result = await startFlowRun({
-          flowName: 'resume-basic',
-          conversationId,
-          resumeStepPath: [0],
-          source: 'REST',
-          chatFactory: () => new MinimalChat(),
-        });
-        assert.equal(result.providerId, 'codex');
-        await waitFor(
-          () =>
-            [...infoLogs, ...errorLogs].some((line) =>
-              line.includes('PROVIDER_UNAVAILABLE'),
-            ),
-          5000,
-        );
-
-        assert.equal(
-          (
-            conversations.get(conversationId)?.flags as
-              | { flow?: { agentEndpointIds?: Record<string, string> } }
-              | undefined
-          )?.flow?.agentEndpointIds?.['coding_agent:resume-test'],
-          endpointId,
-        );
-        assert.equal(conversations.get(childConversationId)?.provider, 'codex');
-        assert.equal(conversations.get(childConversationId)?.model, 'gpt-5.2-codex');
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_HOME: codexHome,
+        CODEX_HOME: codexHome,
+        FLOWS_DIR: tmpDir,
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: `${endpointId}|responses`,
       },
-    });
+      async () => {
+        await withMockedMongoConversationPersistence({
+          seedConversations: [
+            {
+              _id: conversationId,
+              provider: 'codex',
+              model: 'gpt-5.6-terra',
+              title: 'Flow: resume-basic',
+              flowName: 'resume-basic',
+              source: 'REST',
+              flags: {
+                flow: {
+                  executionId: 'resume-execution-endpoint-fail',
+                  stepPath: [0],
+                  loopStack: [],
+                  agentConversations: {
+                    'coding_agent:resume-test': childConversationId,
+                  },
+                  agentProviders: {
+                    'coding_agent:resume-test': 'codex',
+                  },
+                  agentModels: {
+                    'coding_agent:resume-test': 'flow-current-model',
+                  },
+                  agentEndpointIds: {
+                    'coding_agent:resume-test': endpointId,
+                  },
+                  agentThreads: {},
+                },
+              },
+              lastMessageAt: new Date(),
+              archivedAt: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              _id: childConversationId,
+              provider: 'codex',
+              model: 'gpt-5.6-terra',
+              title: 'Flow: resume-basic (resume-test)',
+              agentName: 'coding_agent',
+              source: 'REST',
+              flags: {
+                endpointId,
+                flowChild: {
+                  executionId: 'resume-execution-endpoint-fail',
+                },
+              },
+              lastMessageAt: new Date(),
+              archivedAt: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            } as Conversation,
+          ],
+          run: async ({ conversations }) => {
+            const result = await startFlowRun({
+              flowName: 'resume-basic',
+              conversationId,
+              resumeStepPath: [0],
+              source: 'REST',
+              chatFactory: () => new MinimalChat(),
+            });
+            assert.equal(result.providerId, 'codex');
+            await waitFor(
+              () =>
+                [...infoLogs, ...errorLogs].some((line) =>
+                  line.includes('PROVIDER_UNAVAILABLE'),
+                ),
+              5000,
+              50,
+              () =>
+                JSON.stringify({
+                  infoLogs,
+                  errorLogs,
+                  parent: JSON.parse(describeConversationState(conversationId)),
+                  child: JSON.parse(
+                    describeConversationState(childConversationId),
+                  ),
+                }),
+            );
+
+            assert.equal(
+              (
+                conversations.get(conversationId)?.flags as
+                  | { flow?: { agentEndpointIds?: Record<string, string> } }
+                  | undefined
+              )?.flow?.agentEndpointIds?.['coding_agent:resume-test'],
+              endpointId,
+            );
+            assert.equal(
+              conversations.get(childConversationId)?.provider,
+              'codex',
+            );
+            assert.equal(
+              conversations.get(childConversationId)?.model,
+              'gpt-5.6-terra',
+            );
+          },
+        });
+      },
+    );
   } finally {
     console.info = originalInfo;
     console.error = originalError;
     await externalServer?.stop();
-    if (prevAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
-    }
-    if (prevLegacyAgentHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevLegacyAgentHome;
-    }
-    if (prevCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
-    }
-    if (prevRuntimeCodexHome === undefined) {
-      delete process.env.CODEX_HOME;
-    } else {
-      process.env.CODEX_HOME = prevRuntimeCodexHome;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
-    if (prevCompatEndpoints === undefined) {
-      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-    } else {
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = prevCompatEndpoints;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
@@ -647,13 +775,6 @@ test('startFlowRun keeps resumed child endpoint identity pinned and fails in pla
 });
 
 test('Task 9 resumes flow-owned child execution from the saved child endpoint identity', async () => {
-  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const prevRuntimeCodexHome = process.env.CODEX_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevCompatEndpoints =
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const tmpDir = await fs.mkdtemp(
@@ -699,61 +820,6 @@ test('Task 9 resumes flow-owned child execution from the saved child endpoint id
     endpointId,
     modelId: 'flow-current-model',
   });
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEX_HOME = codexHome;
-  process.env.FLOWS_DIR = tmpDir;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
-
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'flow-current-model',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready',
-      reason: undefined,
-      models: ['copilot-model'],
-      modelsRaw: [
-        {
-          id: 'copilot-model',
-          name: 'Copilot Model',
-          capabilities: {
-            supports: { vision: false, reasoningEffort: false },
-            limits: { max_context_window_tokens: 128000 },
-          },
-        },
-      ],
-      authSource: 'env-token',
-    }),
-  });
-
   __setFlowResumeTestDepsForTests({
     ensureFlowChildConversationOwnership: async () => ({
       needsExecutionIdBackfill: false,
@@ -809,59 +875,83 @@ test('Task 9 resumes flow-owned child execution from the saved child endpoint id
   });
 
   try {
-    const result = await startFlowRun({
-      flowName: 'resume-basic',
-      conversationId,
-      resumeStepPath: [0],
-      source: 'REST',
-      chatFactory: () => new TrackingChat(),
-    });
+    await withResumeAgentRuntime(
+      {
+        agentsHome,
+        codexHome,
+        tmpDir,
+        compatEndpoint: endpointId,
+      },
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
+            {
+              model: 'flow-current-model',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          reason: undefined,
+          models: ['copilot-model'],
+          modelsRaw: [
+            {
+              id: 'copilot-model',
+              name: 'Copilot Model',
+              capabilities: {
+                supports: { vision: false, reasoningEffort: false },
+                limits: { max_context_window_tokens: 128000 },
+              },
+            },
+          ],
+          authSource: 'env-token',
+        }),
+      },
+      async () => {
+        const result = await startFlowRun({
+          flowName: 'resume-basic',
+          conversationId,
+          resumeStepPath: [0],
+          source: 'REST',
+          chatFactory: () => new TrackingChat(),
+        });
 
-    assert.equal(result.providerId, 'codex');
-    assert.equal(result.modelId, 'flow-current-model');
-    const executedFlags = await firstExecute;
-    assert.equal(capturedFlags.length, 1);
-    assert.equal(executedFlags.endpointId, endpointId);
-    assert.equal(capturedFlags[0]?.endpointId, endpointId);
+        assert.equal(result.providerId, 'codex');
+        assert.equal(result.modelId, 'flow-current-model');
+        const executedFlags = await firstExecute;
+        assert.equal(capturedFlags.length, 1);
+        assert.equal(executedFlags.endpointId, endpointId);
+        assert.equal(capturedFlags[0]?.endpointId, endpointId);
+      },
+    );
   } finally {
     __resetFlowResumeTestDepsForTests();
-    __resetAgentServiceDepsForTests();
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
     await externalServer.stop();
-    if (prevAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
-    }
-    if (prevAgentsHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    }
-    if (prevCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
-    }
-    if (prevRuntimeCodexHome === undefined) {
-      delete process.env.CODEX_HOME;
-    } else {
-      process.env.CODEX_HOME = prevRuntimeCodexHome;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
-    if (prevCompatEndpoints === undefined) {
-      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-    } else {
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-        prevCompatEndpoints;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
@@ -869,13 +959,6 @@ test('Task 9 resumes flow-owned child execution from the saved child endpoint id
 });
 
 test('Task 15 keeps the saved child endpoint record untouched when degraded codex bootstrap forces resumed flow fallback selection', async () => {
-  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const prevLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const prevRuntimeCodexHome = process.env.CODEX_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevCompatEndpoints =
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const tmpDir = await fs.mkdtemp(
@@ -896,60 +979,6 @@ test('Task 15 keeps the saved child endpoint record untouched when degraded code
     endpointId,
     modelId: 'flow-current-model',
   });
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEX_HOME = codexHome;
-  process.env.FLOWS_DIR = tmpDir;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
-
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'flow-current-model',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready',
-      reason: undefined,
-      models: ['copilot-model'],
-      modelsRaw: [
-        {
-          id: 'copilot-model',
-          name: 'Copilot Model',
-          capabilities: {
-            supports: { vision: false, reasoningEffort: false },
-            limits: { max_context_window_tokens: 128000 },
-          },
-        },
-      ],
-      authSource: 'env-token',
-    }),
-  });
   __setFlowResumeTestDepsForTests({
     ensureFlowChildConversationOwnership: async () => ({
       needsExecutionIdBackfill: false,
@@ -961,128 +990,158 @@ test('Task 15 keeps the saved child endpoint record untouched when degraded code
   });
 
   try {
-    await withMockedMongoConversationPersistence({
-      seedConversations: [
-        {
-          _id: conversationId,
-          provider: 'codex',
-          model: 'flow-current-model',
-          title: 'Flow: resume-basic',
-          flowName: 'resume-basic',
-          source: 'REST',
-          flags: {
-            requestedProviderId: 'codex',
-            flow: {
-              executionId: 'resume-execution-endpoint-degraded',
-              stepPath: [0],
-              loopStack: [],
-              agentConversations: {
-                'coding_agent:resume-test': childConversationId,
-              },
-              agentProviders: {
-                'coding_agent:resume-test': 'codex',
-              },
-              agentModels: {
-                'coding_agent:resume-test': 'flow-current-model',
-              },
-              agentRequestedProviders: {
-                'coding_agent:resume-test': 'codex',
-              },
-              agentEndpointIds: {
-                'coding_agent:resume-test': endpointId,
-              },
-              agentThreads: {},
-            },
-          },
-          lastMessageAt: new Date(),
-          archivedAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        {
-          _id: childConversationId,
-          provider: 'codex',
-          model: 'flow-current-model',
-          title: 'Flow: resume-basic (resume-test)',
-          agentName: 'coding_agent',
-          source: 'REST',
-          flags: {
-            requestedProviderId: 'codex',
-            endpointId,
-            flowChild: {
-              executionId: 'resume-execution-endpoint-degraded',
-            },
-          },
-          lastMessageAt: new Date(),
-          archivedAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as Conversation,
-      ],
-      run: async ({ conversations }) => {
-        const result = await startFlowRun({
-          flowName: 'resume-basic',
-          conversationId,
-          resumeStepPath: [0],
-          source: 'REST',
-          chatFactory: () => new MinimalChat(),
-        });
-
-        assert.equal(result.providerId, 'copilot');
-        assert.equal(result.modelId, 'flow-current-model');
-
-        assert.equal(
-          (
-            conversations.get(conversationId)?.flags as
-              | { flow?: { agentEndpointIds?: Record<string, string> } }
-              | undefined
-          )?.flow?.agentEndpointIds?.['coding_agent:resume-test'],
-          endpointId,
-        );
-        assert.equal(conversations.get(childConversationId)?.provider, 'codex');
-        assert.equal(conversations.get(childConversationId)?.model, 'flow-current-model');
+    await withResumeAgentRuntime(
+      {
+        agentsHome,
+        codexHome,
+        tmpDir,
+        compatEndpoint: endpointId,
       },
-    });
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
+            {
+              model: 'flow-current-model',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          reason: undefined,
+          models: ['copilot-model'],
+          modelsRaw: [
+            {
+              id: 'copilot-model',
+              name: 'Copilot Model',
+              capabilities: {
+                supports: { vision: false, reasoningEffort: false },
+                limits: { max_context_window_tokens: 128000 },
+              },
+            },
+          ],
+          authSource: 'env-token',
+        }),
+      },
+      async () => {
+        await withMockedMongoConversationPersistence({
+          seedConversations: [
+            {
+              _id: conversationId,
+              provider: 'codex',
+              model: 'flow-current-model',
+              title: 'Flow: resume-basic',
+              flowName: 'resume-basic',
+              source: 'REST',
+              flags: {
+                requestedProviderId: 'codex',
+                flow: {
+                  executionId: 'resume-execution-endpoint-degraded',
+                  stepPath: [0],
+                  loopStack: [],
+                  agentConversations: {
+                    'coding_agent:resume-test': childConversationId,
+                  },
+                  agentProviders: {
+                    'coding_agent:resume-test': 'codex',
+                  },
+                  agentModels: {
+                    'coding_agent:resume-test': 'flow-current-model',
+                  },
+                  agentRequestedProviders: {
+                    'coding_agent:resume-test': 'codex',
+                  },
+                  agentEndpointIds: {
+                    'coding_agent:resume-test': endpointId,
+                  },
+                  agentThreads: {},
+                },
+              },
+              lastMessageAt: new Date(),
+              archivedAt: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              _id: childConversationId,
+              provider: 'codex',
+              model: 'flow-current-model',
+              title: 'Flow: resume-basic (resume-test)',
+              agentName: 'coding_agent',
+              source: 'REST',
+              flags: {
+                requestedProviderId: 'codex',
+                endpointId,
+                flowChild: {
+                  executionId: 'resume-execution-endpoint-degraded',
+                },
+              },
+              lastMessageAt: new Date(),
+              archivedAt: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            } as Conversation,
+          ],
+          run: async ({ conversations }) => {
+            const result = await startFlowRun({
+              flowName: 'resume-basic',
+              conversationId,
+              resumeStepPath: [0],
+              source: 'REST',
+              chatFactory: () => new MinimalChat(),
+            });
+
+            assert.equal(result.providerId, 'copilot');
+            assert.equal(result.modelId, 'flow-current-model');
+
+            assert.equal(
+              (
+                conversations.get(conversationId)?.flags as
+                  | { flow?: { agentEndpointIds?: Record<string, string> } }
+                  | undefined
+              )?.flow?.agentEndpointIds?.['coding_agent:resume-test'],
+              endpointId,
+            );
+            assert.equal(
+              conversations.get(childConversationId)?.provider,
+              'codex',
+            );
+            assert.equal(
+              conversations.get(childConversationId)?.model,
+              'flow-current-model',
+            );
+          },
+        });
+      },
+    );
   } finally {
     __resetFlowResumeTestDepsForTests();
-    __resetAgentServiceDepsForTests();
     __resetProviderBootstrapStatusForTests();
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
     await externalServer.stop();
-    if (prevAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
-    }
-    if (prevLegacyAgentHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevLegacyAgentHome;
-    }
-    if (prevCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
-    }
-    if (prevRuntimeCodexHome === undefined) {
-      delete process.env.CODEX_HOME;
-    } else {
-      process.env.CODEX_HOME = prevRuntimeCodexHome;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
-    if (prevCompatEndpoints === undefined) {
-      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-    } else {
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-        prevCompatEndpoints;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
@@ -1090,13 +1149,6 @@ test('Task 15 keeps the saved child endpoint record untouched when degraded code
 });
 
 test('Task 9 rejects stale flow replay before mutating the existing child conversation in memory', async () => {
-  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const prevRuntimeCodexHome = process.env.CODEX_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevCompatEndpoints =
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const tmpDir = await fs.mkdtemp(
@@ -1116,66 +1168,6 @@ test('Task 9 rejects stale flow replay before mutating the existing child conver
     codexHome,
     endpointId,
     modelId: 'flow-current-model',
-  });
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEX_HOME = codexHome;
-  process.env.FLOWS_DIR = tmpDir;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
-
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'flow-current-model',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready',
-      reason: undefined,
-      models: ['copilot-model'],
-      modelsRaw: [
-        {
-          id: 'copilot-model',
-          name: 'Copilot Model',
-          capabilities: {
-            supports: { vision: false, reasoningEffort: false },
-            limits: { max_context_window_tokens: 128000 },
-          },
-        },
-      ],
-      authSource: 'env-token',
-    }),
-  });
-
-  __setFlowResumeTestDepsForTests({
-    ensureFlowChildConversationOwnership: async () => {
-      throw new Error('stale replay rejected before child mutation');
-    },
   });
 
   memoryConversations.set(conversationId, {
@@ -1230,67 +1222,98 @@ test('Task 9 rejects stale flow replay before mutating the existing child conver
   );
 
   try {
-    await assert.rejects(
-      () =>
-        startFlowRun({
-          flowName: 'resume-basic',
-          conversationId,
-          resumeStepPath: [0],
-          source: 'REST',
-          chatFactory: () => new MinimalChat(),
+    await withResumeAgentRuntime(
+      {
+        agentsHome,
+        codexHome,
+        tmpDir,
+        compatEndpoint: endpointId,
+      },
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
         }),
-      (error: unknown) => {
-        assert.equal(
-          (error as { message?: string }).message,
-          'stale replay rejected before child mutation',
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
+            {
+              model: 'flow-current-model',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          reason: undefined,
+          models: ['copilot-model'],
+          modelsRaw: [
+            {
+              id: 'copilot-model',
+              name: 'Copilot Model',
+              capabilities: {
+                supports: { vision: false, reasoningEffort: false },
+                limits: { max_context_window_tokens: 128000 },
+              },
+            },
+          ],
+          authSource: 'env-token',
+        }),
+      },
+      async () => {
+        __setFlowResumeTestDepsForTests({
+          ensureFlowChildConversationOwnership: async () => {
+            throw new Error('stale replay rejected before child mutation');
+          },
+        });
+        await assert.rejects(
+          () =>
+            startFlowRun({
+              flowName: 'resume-basic',
+              conversationId,
+              resumeStepPath: [0],
+              source: 'REST',
+              chatFactory: () => new MinimalChat(),
+            }),
+          (error: unknown) => {
+            assert.equal(
+              (error as { message?: string }).message,
+              'stale replay rejected before child mutation',
+            );
+            return true;
+          },
         );
-        return true;
       },
     );
 
     assert.deepEqual(
-      snapshotFlowChildConversation(memoryConversations.get(childConversationId)),
+      snapshotFlowChildConversation(
+        memoryConversations.get(childConversationId),
+      ),
       beforeChild,
     );
   } finally {
     __resetFlowResumeTestDepsForTests();
-    __resetAgentServiceDepsForTests();
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
     await externalServer.stop();
-    if (prevAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
-    }
-    if (prevAgentsHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    }
-    if (prevCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
-    }
-    if (prevRuntimeCodexHome === undefined) {
-      delete process.env.CODEX_HOME;
-    } else {
-      process.env.CODEX_HOME = prevRuntimeCodexHome;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
-    if (prevCompatEndpoints === undefined) {
-      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-    } else {
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-        prevCompatEndpoints;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
@@ -1298,13 +1321,6 @@ test('Task 9 rejects stale flow replay before mutating the existing child conver
 });
 
 test('Task 9 rejects stale flow replay before mutating the existing child conversation in Mongo', async () => {
-  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const prevRuntimeCodexHome = process.env.CODEX_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevCompatEndpoints =
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const tmpDir = await fs.mkdtemp(
@@ -1325,13 +1341,6 @@ test('Task 9 rejects stale flow replay before mutating the existing child conver
     endpointId,
     modelId: 'flow-current-model',
   });
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEX_HOME = codexHome;
-  process.env.FLOWS_DIR = tmpDir;
-  process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses`;
 
   __setFlowResumeTestDepsForTests({
     ensureFlowChildConversationOwnership: async () => {
@@ -1389,67 +1398,50 @@ test('Task 9 rejects stale flow replay before mutating the existing child conver
   const beforeChild = snapshotFlowChildConversation(seededChildConversation);
 
   try {
-    await withMockedMongoConversationPersistence({
-      seedConversations: [seededFlowConversation, seededChildConversation],
-      run: async ({ conversations }) => {
-        await assert.rejects(
-          () =>
-            startFlowRun({
-              flowName: 'resume-basic',
-              conversationId,
-              resumeStepPath: [0],
-              source: 'REST',
-              chatFactory: () => new MinimalChat(),
-            }),
-          (error: unknown) => {
-            assert.equal(
-              (error as { message?: string }).message,
-              'stale replay rejected before child mutation',
-            );
-            return true;
-          },
-        );
-
-        assert.deepEqual(
-          snapshotFlowChildConversation(conversations.get(childConversationId)),
-          beforeChild,
-        );
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_HOME: codexHome,
+        CODEX_HOME: codexHome,
+        FLOWS_DIR: tmpDir,
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: `${endpointId}|responses`,
       },
-    });
+      async () => {
+        await withMockedMongoConversationPersistence({
+          seedConversations: [seededFlowConversation, seededChildConversation],
+          run: async ({ conversations }) => {
+            await assert.rejects(
+              () =>
+                startFlowRun({
+                  flowName: 'resume-basic',
+                  conversationId,
+                  resumeStepPath: [0],
+                  source: 'REST',
+                  chatFactory: () => new MinimalChat(),
+                }),
+              (error: unknown) => {
+                assert.equal(
+                  (error as { message?: string }).message,
+                  'stale replay rejected before child mutation',
+                );
+                return true;
+              },
+            );
+
+            assert.deepEqual(
+              snapshotFlowChildConversation(
+                conversations.get(childConversationId),
+              ),
+              beforeChild,
+            );
+          },
+        });
+      },
+    );
   } finally {
     __resetFlowResumeTestDepsForTests();
     await externalServer.stop();
-    if (prevAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = prevAgentHome;
-    }
-    if (prevAgentsHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    }
-    if (prevCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = prevCodexHome;
-    }
-    if (prevRuntimeCodexHome === undefined) {
-      delete process.env.CODEX_HOME;
-    } else {
-      process.env.CODEX_HOME = prevRuntimeCodexHome;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
-    if (prevCompatEndpoints === undefined) {
-      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-    } else {
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-        prevCompatEndpoints;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
@@ -1457,8 +1449,6 @@ test('Task 9 rejects stale flow replay before mutating the existing child conver
 });
 
 test('startFlowRun derives resumed runtime identity from the remaining step set instead of the first flow step', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -1468,16 +1458,13 @@ test('startFlowRun derives resumed runtime identity from the remaining step set 
   );
   await writeDualAgentResumeFlow(tmpDir);
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-
   const conversationId = 'flow-resume-remaining-identity-1';
   const childConversationId = 'agent-conv-resume-remaining-plan-1';
 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
     title: 'Flow: resume-dual-identity',
     flowName: 'resume-dual-identity',
     source: 'REST',
@@ -1516,168 +1503,180 @@ test('startFlowRun derives resumed runtime identity from the remaining step set 
   });
 
   try {
-    const result = await startFlowRun({
-      flowName: 'resume-dual-identity',
-      conversationId,
-      resumeStepPath: [0],
-      source: 'REST',
-      chatFactory: () => new MinimalChat(),
-    });
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        const result = await startFlowRun({
+          flowName: 'resume-dual-identity',
+          conversationId,
+          resumeStepPath: [0],
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        });
 
-    assert.equal(result.conversationId, conversationId);
-    assert.equal(
-      memoryConversations.get(conversationId)?.flowName,
-      'resume-dual-identity',
-    );
-    assert.equal(
-      memoryConversations.get(childConversationId)?.agentName,
-      'planning_agent',
+        assert.equal(result.conversationId, conversationId);
+        assert.equal(
+          memoryConversations.get(conversationId)?.flowName,
+          'resume-dual-identity',
+        );
+        assert.equal(
+          memoryConversations.get(childConversationId)?.agentName,
+          'planning_agent',
+        );
+      },
     );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startFlowRun ignores stale fresh-run retry ownership while resuming a flow', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-requested-provider-'),
   );
   await writeResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-requested-provider';
   const childConversationId = 'agent-resume-requested-provider';
   const executionId = 'resume-execution-requested-provider';
 
   try {
-    const freshRetryResult = await startFlowRun({
-      flowName: 'resume-basic',
-      conversationId: 'fresh-retry-resume-1',
-      source: 'REST',
-      retryOwnershipId: 'fresh-run-retry-1',
-      chatFactory: () => new MinimalChat(),
-    });
-
-    const seededFlowConversation: Conversation = {
-      _id: conversationId,
-      provider: 'codex',
-      model: 'gpt-5.2-codex',
-      title: 'Flow: resume-basic',
-      flowName: 'resume-basic',
-      source: 'REST',
-      flags: {
-        flow: {
-          executionId,
-          stepPath: [],
-          loopStack: [],
-          agentConversations: {
-            'coding_agent:resume-test': childConversationId,
-          },
-          agentThreads: {},
-        },
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
       },
-      lastMessageAt: new Date(),
-      archivedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    const seededChildConversation: Conversation = {
-      _id: childConversationId,
-      provider: 'codex',
-      model: 'gpt-5.2-codex',
-      title: 'Flow: resume-basic (resume-test)',
-      agentName: 'coding_agent',
-      source: 'REST',
-      flags: {
-        requestedProviderId: 'copilot',
-        flowChild: {
-          executionId,
-        },
-      },
-      lastMessageAt: new Date(),
-      archivedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await withMockedMongoConversationPersistence({
-      seedConversations: [seededFlowConversation, seededChildConversation],
-      run: async ({ conversations, turns }) => {
-        const resumedResult = await startFlowRun({
+      async () => {
+        const freshRetryResult = await startFlowRun({
           flowName: 'resume-basic',
-          conversationId,
-          resumeStepPath: [0],
+          conversationId: 'fresh-retry-resume-1',
           source: 'REST',
           retryOwnershipId: 'fresh-run-retry-1',
           chatFactory: () => new MinimalChat(),
         });
 
-        await waitFor(() => turns.length >= 2, 5000);
-        assert.equal(resumedResult.conversationId, conversationId);
-        assert.notEqual(
-          resumedResult.conversationId,
-          freshRetryResult.conversationId,
-        );
-
-        const flowConversation = conversations.get(conversationId);
-        const flowFlags = (flowConversation?.flags ?? {}) as {
-          flow?: { agentRequestedProviders?: Record<string, string> };
+        const seededFlowConversation: Conversation = {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.6-terra',
+          title: 'Flow: resume-basic',
+          flowName: 'resume-basic',
+          source: 'REST',
+          flags: {
+            flow: {
+              executionId,
+              stepPath: [],
+              loopStack: [],
+              agentConversations: {
+                'coding_agent:resume-test': childConversationId,
+              },
+              agentThreads: {},
+            },
+          },
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         };
-        assert.equal(
-          flowFlags.flow?.agentRequestedProviders?.['coding_agent:resume-test'],
-          'copilot',
-        );
-        assert.equal(
-          conversations.get(childConversationId)?.flags?.requestedProviderId,
-          'copilot',
-        );
+        const seededChildConversation: Conversation = {
+          _id: childConversationId,
+          provider: 'codex',
+          model: 'gpt-5.6-terra',
+          title: 'Flow: resume-basic (resume-test)',
+          agentName: 'coding_agent',
+          source: 'REST',
+          flags: {
+            requestedProviderId: 'copilot',
+            flowChild: {
+              executionId,
+            },
+          },
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        await withMockedMongoConversationPersistence({
+          seedConversations: [seededFlowConversation, seededChildConversation],
+          run: async ({ conversations, turns }) => {
+            const resumedResult = await startFlowRun({
+              flowName: 'resume-basic',
+              conversationId,
+              resumeStepPath: [0],
+              source: 'REST',
+              retryOwnershipId: 'fresh-run-retry-1',
+              chatFactory: () => new MinimalChat(),
+            });
+
+            await waitFor(
+              () => turns.length >= 2,
+              5000,
+              50,
+              () =>
+                JSON.stringify({
+                  phase: 'waiting_for_resumed_turns',
+                  turns: turns.map((turn) => ({
+                    role: turn.role,
+                    status: turn.status,
+                    content: turn.content,
+                    conversationId: turn.conversationId,
+                  })),
+                  parentState: JSON.parse(
+                    describeConversationState(conversationId),
+                  ),
+                  childState: JSON.parse(
+                    describeConversationState(childConversationId),
+                  ),
+                  runtimeLogs: JSON.parse(
+                    describeRelevantResumeRuntimeLogs(conversationId),
+                  ),
+                }),
+            );
+            assert.equal(resumedResult.conversationId, conversationId);
+            assert.notEqual(
+              resumedResult.conversationId,
+              freshRetryResult.conversationId,
+            );
+
+            const flowConversation = conversations.get(conversationId);
+            const flowFlags = (flowConversation?.flags ?? {}) as {
+              flow?: { agentRequestedProviders?: Record<string, string> };
+            };
+            assert.equal(
+              flowFlags.flow?.agentRequestedProviders?.[
+                'coding_agent:resume-test'
+              ],
+              'copilot',
+            );
+            assert.equal(
+              conversations.get(childConversationId)?.flags
+                ?.requestedProviderId,
+              'copilot',
+            );
+          },
+        });
       },
-    });
+    );
   } finally {
     memoryConversations.delete('fresh-retry-resume-1');
     memoryTurns.delete('fresh-retry-resume-1');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startFlowRun keeps the parent requestedProviderId authoritative over weaker child history when resuming a flow', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-parent-requested-'),
   );
   await writeResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-parent-requested';
   const childConversationId = 'agent-conv-resume-parent-requested';
@@ -1685,7 +1684,7 @@ test('startFlowRun keeps the parent requestedProviderId authoritative over weake
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -1709,7 +1708,7 @@ test('startFlowRun keeps the parent requestedProviderId authoritative over weake
   memoryConversations.set(childConversationId, {
     _id: childConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -1726,74 +1725,68 @@ test('startFlowRun keeps the parent requestedProviderId authoritative over weake
   });
 
   try {
-    const result = await startFlowRun({
-      flowName: 'resume-basic',
-      conversationId,
-      resumeStepPath: [0],
-      source: 'REST',
-      chatFactory: () => new MinimalChat(),
-    });
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        const result = await startFlowRun({
+          flowName: 'resume-basic',
+          conversationId,
+          resumeStepPath: [0],
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        });
 
-    assert.equal(result.conversationId, conversationId);
-    await waitFor(() => {
-      const conversation = memoryConversations.get(conversationId);
-      const flowFlags = (conversation?.flags ?? {}) as {
-        flow?: { agentRequestedProviders?: Record<string, string> };
-      };
-      return (
-        flowFlags.flow?.agentRequestedProviders?.[
-          'coding_agent:resume-test'
-        ] === 'codex'
-      );
-    });
-    const conversation = memoryConversations.get(conversationId);
-    const flowFlags = (conversation?.flags ?? {}) as {
-      flow?: { agentRequestedProviders?: Record<string, string> };
-    };
-    assert.equal(
-      flowFlags.flow?.agentRequestedProviders?.['coding_agent:resume-test'],
-      'codex',
-    );
-    assert.equal(conversation?.flags?.requestedProviderId, 'codex');
-    assert.equal(
-      memoryConversations.get(childConversationId)?.flags?.requestedProviderId,
-      'copilot',
+        assert.equal(result.conversationId, conversationId);
+        await waitFor(() => {
+          const conversation = memoryConversations.get(conversationId);
+          const flowFlags = (conversation?.flags ?? {}) as {
+            flow?: { agentRequestedProviders?: Record<string, string> };
+          };
+          return (
+            flowFlags.flow?.agentRequestedProviders?.[
+              'coding_agent:resume-test'
+            ] === 'codex'
+          );
+        });
+        const conversation = memoryConversations.get(conversationId);
+        const flowFlags = (conversation?.flags ?? {}) as {
+          flow?: { agentRequestedProviders?: Record<string, string> };
+        };
+        assert.equal(
+          flowFlags.flow?.agentRequestedProviders?.['coding_agent:resume-test'],
+          'codex',
+        );
+        assert.equal(conversation?.flags?.requestedProviderId, 'codex');
+        assert.equal(
+          memoryConversations.get(childConversationId)?.flags
+            ?.requestedProviderId,
+          'copilot',
+        );
+      },
     );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('startFlowRun ignores stale parent flow metadata on an ordinary conversation without flow ownership', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-stale-'),
   );
   await writeResumeFlow(tmpDir);
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-
   const conversationId = 'ordinary-conv-with-stale-flow';
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Ordinary conversation',
     source: 'REST',
     flags: {
@@ -1812,91 +1805,477 @@ test('startFlowRun ignores stale parent flow metadata on an ordinary conversatio
   });
 
   try {
-    await assert.rejects(
-      () =>
-        startFlowRun({
-          flowName: 'resume-basic',
-          conversationId,
-          resumeStepPath: [0],
-          source: 'REST',
-          chatFactory: () => new MinimalChat(),
-        }),
-      (error: unknown) => {
-        assert.deepEqual(error, {
-          code: 'INVALID_REQUEST',
-          reason: 'resumeStepPath requires saved flow state',
-        });
-        return true;
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        await assert.rejects(
+          () =>
+            startFlowRun({
+              flowName: 'resume-basic',
+              conversationId,
+              resumeStepPath: [0],
+              source: 'REST',
+              chatFactory: () => new MinimalChat(),
+            }),
+          (error: unknown) => {
+            assert.deepEqual(error, {
+              code: 'INVALID_REQUEST',
+              reason: 'resumeStepPath requires saved flow state',
+            });
+            return true;
+          },
+        );
       },
     );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run rejects invalid resumeStepPath', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-invalid-'),
   );
   await writeResumeFlow(tmpDir);
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const { app, supertest } = buildApp();
-
   try {
-    const res = await supertest(app)
-      .post('/flows/resume-basic/run')
-      .send({ resumeStepPath: [99] });
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'invalid_request');
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        const { app, supertest } = buildApp();
+        const res = await supertest(app)
+          .post('/flows/resume-basic/run')
+          .send({ resumeStepPath: [99] });
+        assert.equal(res.status, 400);
+        assert.equal(res.body.error, 'invalid_request');
+      },
+    );
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('POST /flows/:flowName/run rejects agent mismatch', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
+test('paused wait resumes the same execution after the authored delay using an explicit wake boundary', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-identity-'),
+  );
+  await writeWaitResumeFlow(tmpDir);
+
+  const conversationId = 'flow-wait-resume-identity';
+  const captured: string[] = [];
+  let wake: (() => void) | null = null;
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  __setFlowWaitResumeDepsForTests({
+    now: () => 1_700_000_000_000,
+    resumeFlowRun: async (params) =>
+      await startFlowRun({
+        ...params,
+        chatFactory: () => new TrackingChat(),
+      }),
+    scheduleWake: ({ onWake }) => {
+      wake = onWake;
+      return { cancel: () => {} };
+    },
+  });
+
+  try {
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        const result = await startFlowRun({
+          flowName: 'wait-resume',
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new TrackingChat(),
+        });
+
+        assert.equal(result.conversationId, conversationId);
+        await waitFor(
+          () => captured.length === 1,
+          10000,
+          50,
+          () =>
+            JSON.stringify({
+              phase: 'waiting_for_first_execute',
+              captured,
+              state: JSON.parse(describeConversationState(conversationId)),
+              runtimeLogs: JSON.parse(
+                describeRelevantResumeRuntimeLogs(conversationId),
+              ),
+            }),
+        );
+
+        const executionId = getFlowExecutionId(conversationId);
+        const flags = (memoryConversations.get(conversationId)?.flags ??
+          {}) as {
+          flow?: { wait?: { stepPath?: number[]; resumeAt?: number } };
+        };
+        assert.deepEqual(flags.flow?.wait?.stepPath, [1]);
+        assert.equal(flags.flow?.wait?.resumeAt, 1_700_000_060_000);
+        assert.ok(wake, 'expected wait wake callback to be captured');
+
+        (wake as () => void)();
+        await waitFor(
+          () => getAssistantTurnCount(conversationId) >= 2,
+          10000,
+          50,
+          () =>
+            JSON.stringify({
+              phase: 'waiting_for_resumed_assistant_turns',
+              captured,
+              state: JSON.parse(describeConversationState(conversationId)),
+              runtimeLogs: JSON.parse(
+                describeRelevantResumeRuntimeLogs(conversationId),
+              ),
+            }),
+        );
+
+        assert.equal(getFlowExecutionId(conversationId), executionId);
+        assert.equal(
+          (
+            (memoryConversations.get(conversationId)?.flags ?? {}) as {
+              flow?: { wait?: unknown };
+            }
+          ).flow?.wait,
+          undefined,
+        );
+      },
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('cancelled wait does not emit a later resume side effect when the persisted wait state is cleared before wake', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-cancel-'),
+  );
+  await writeWaitResumeFlow(tmpDir);
+
+  const conversationId = 'flow-wait-resume-cancel';
+  const captured: string[] = [];
+  let wake: (() => Promise<void>) | null = null;
+  let resolveWakeCompleted!: () => void;
+  const wakeCompleted = new Promise<void>((resolve) => {
+    resolveWakeCompleted = resolve;
+  });
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  __setFlowWaitResumeDepsForTests({
+    scheduleWake: ({ onWake }) => {
+      wake = async () => {
+        onWake();
+        await wakeCompleted;
+      };
+      return { cancel: resolveWakeCompleted };
+    },
+  });
+
+  try {
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        await startFlowRun({
+          flowName: 'wait-resume',
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new TrackingChat(),
+        });
+
+        await waitFor(
+          () => captured.length === 1,
+          10000,
+          50,
+          () =>
+            JSON.stringify({
+              phase: 'waiting_for_first_execute',
+              captured,
+              state: JSON.parse(describeConversationState(conversationId)),
+              runtimeLogs: JSON.parse(
+                describeRelevantResumeRuntimeLogs(conversationId),
+              ),
+            }),
+        );
+        const conversation = memoryConversations.get(conversationId);
+        assert.ok(conversation);
+        memoryConversations.set(conversationId, {
+          ...conversation,
+          flags: {
+            ...(conversation.flags ?? {}),
+            flow: {
+              ...((
+                (conversation.flags ?? {}) as {
+                  flow?: Record<string, unknown>;
+                }
+              ).flow ?? {}),
+              wait: undefined,
+            },
+          },
+          updatedAt: new Date(),
+        });
+
+        const wakeCallback = wake;
+        if (!wakeCallback) {
+          throw new Error('expected wait wake callback to be captured');
+        }
+        await (wakeCallback as () => Promise<void>)();
+        assert.equal(captured.length, 1);
+      },
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('paused repository-backed waits keep the original sourceId and retryOwnershipId barrier while excluding a conflicting fresh sourceId on resume', async () => {
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
   );
   const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-wait-resume-sourceid-'),
+  );
+  const sourceRepo = path.join(tmpDir, 'repo-source');
+  await fs.mkdir(path.join(sourceRepo, 'flows'), { recursive: true });
+  await writeWaitResumeFlow(path.join(sourceRepo, 'flows'));
+
+  const conversationId = 'flow-wait-resume-sourceid';
+  const captured: string[] = [];
+
+  class TrackingChat extends ChatInterface {
+    async execute(
+      message: string,
+      _flags: Record<string, unknown>,
+      childConversationId: string,
+      _model: string,
+    ) {
+      void _flags;
+      void _model;
+      captured.push(message);
+      this.emit('thread', { type: 'thread', threadId: childConversationId });
+      this.emit('final', { type: 'final', content: 'ok' });
+      this.emit('complete', {
+        type: 'complete',
+        threadId: childConversationId,
+      });
+    }
+  }
+
+  __setFlowWaitResumeDepsForTests({
+    now: () => 1_700_000_000_000,
+    scheduleWake: () => ({ cancel: () => {} }),
+  });
+
+  try {
+    await withDeterministicCodexAvailabilityBootstrap(async () => {
+      await withIsolatedProviderHomeTestEnv(
+        {
+          prefix: 'flows-resume-sourceid-provider-homes-',
+          overrides: {
+            CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+            FLOWS_DIR: undefined,
+          },
+        },
+        async () => {
+          const firstStart = await startFlowRun({
+            flowName: 'wait-resume',
+            conversationId,
+            sourceId: sourceRepo,
+            working_folder: sourceRepo,
+            retryOwnershipId: 'paused-retry-1',
+            source: 'REST',
+            chatFactory: () => new TrackingChat(),
+            listIngestedRepositories: async () => ({
+              repos: [buildRepoEntry(sourceRepo)],
+              lockedModelId: null,
+            }),
+          });
+
+          await waitFor(
+            () => captured.length === 1,
+            10000,
+            50,
+            () =>
+              JSON.stringify({
+                phase: 'waiting_for_first_execute',
+                captured,
+                state: JSON.parse(describeConversationState(conversationId)),
+                runtimeLogs: JSON.parse(
+                  describeRelevantResumeRuntimeLogs(conversationId),
+                ),
+              }),
+          );
+          const executionId = getFlowExecutionId(conversationId);
+          await waitFor(
+            () => {
+              const flags = (memoryConversations.get(conversationId)?.flags ??
+                {}) as {
+                flow?: { wait?: { sourceId?: string; stepPath?: number[] } };
+              };
+              return (
+                flags.flow?.wait?.sourceId === sourceRepo &&
+                Array.isArray(flags.flow?.wait?.stepPath) &&
+                flags.flow?.wait?.stepPath?.[0] === 1
+              );
+            },
+            10000,
+            50,
+            () =>
+              JSON.stringify({
+                phase: 'waiting_for_wait_state',
+                captured,
+                state: JSON.parse(describeConversationState(conversationId)),
+                runtimeLogs: JSON.parse(
+                  describeRelevantResumeRuntimeLogs(conversationId),
+                ),
+              }),
+          );
+          await waitFor(
+            () => getActiveRunOwnership(conversationId) === null,
+            10000,
+            50,
+            () =>
+              JSON.stringify({
+                phase: 'waiting_for_unlock',
+                captured,
+                state: JSON.parse(describeConversationState(conversationId)),
+                runtimeLogs: JSON.parse(
+                  describeRelevantResumeRuntimeLogs(conversationId),
+                ),
+              }),
+          );
+
+          const replayedStart = await startFlowRun({
+            flowName: 'wait-resume',
+            sourceId: sourceRepo,
+            working_folder: sourceRepo,
+            retryOwnershipId: 'paused-retry-1',
+            source: 'REST',
+            chatFactory: () => new TrackingChat(),
+            listIngestedRepositories: async () => ({
+              repos: [buildRepoEntry(sourceRepo)],
+              lockedModelId: null,
+            }),
+          });
+
+          assert.equal(replayedStart.conversationId, firstStart.conversationId);
+          assert.equal(replayedStart.inflightId, firstStart.inflightId);
+          assert.equal(captured.length, 1);
+
+          await startFlowRun({
+            flowName: 'wait-resume',
+            conversationId,
+            resumeStepPath: [1],
+            sourceId: '/data/conflicting-source',
+            working_folder: sourceRepo,
+            source: 'REST',
+            chatFactory: () => new TrackingChat(),
+            listIngestedRepositories: async () => ({
+              repos: [buildRepoEntry(sourceRepo)],
+              lockedModelId: null,
+            }),
+          });
+
+          await waitFor(
+            () => getAssistantTurnCount(conversationId) >= 2,
+            10000,
+            50,
+            () =>
+              JSON.stringify({
+                phase: 'waiting_for_resume_terminal',
+                captured,
+                state: JSON.parse(describeConversationState(conversationId)),
+                runtimeLogs: JSON.parse(
+                  describeRelevantResumeRuntimeLogs(conversationId),
+                ),
+              }),
+          );
+          assert.equal(getFlowExecutionId(conversationId), executionId);
+          assert.equal(
+            (
+              (memoryConversations.get(conversationId)?.flags ?? {}) as {
+                flow?: { wait?: unknown };
+              }
+            ).flow?.wait,
+            undefined,
+          );
+        },
+      );
+    });
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('POST /flows/:flowName/run rejects agent mismatch', async () => {
+  const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-mismatch-'),
   );
   await writeResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const { app, supertest } = buildApp();
 
   const flowConversationId = 'flow-resume-conv-2';
   const agentConversationId = 'agent-conv-1';
   memoryConversations.set(flowConversationId, {
     _id: flowConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -1919,7 +2298,7 @@ test('POST /flows/:flowName/run rejects agent mismatch', async () => {
   memoryConversations.set(agentConversationId, {
     _id: agentConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Agent: mismatch',
     agentName: 'planning_agent',
     source: 'REST',
@@ -1931,47 +2310,40 @@ test('POST /flows/:flowName/run rejects agent mismatch', async () => {
   });
 
   try {
-    const res = await supertest(app)
-      .post('/flows/resume-basic/run')
-      .send({ conversationId: flowConversationId, resumeStepPath: [0] });
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'agent_mismatch');
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        const { app, supertest } = buildApp();
+        const res = await supertest(app)
+          .post('/flows/resume-basic/run')
+          .send({ conversationId: flowConversationId, resumeStepPath: [0] });
+        assert.equal(res.status, 400);
+        assert.equal(res.body.error, 'agent_mismatch');
+      },
+    );
   } finally {
     memoryConversations.delete(flowConversationId);
     memoryConversations.delete(agentConversationId);
     memoryTurns.delete(flowConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run rejects conflicting child execution marker', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-child-conflict-'),
   );
   await writeResumeFlow(tmpDir);
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const { app, supertest } = buildApp();
 
   const flowConversationId = 'flow-resume-conv-child-conflict';
   const agentConversationId = 'agent-conv-child-conflict';
   memoryConversations.set(flowConversationId, {
     _id: flowConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -1994,7 +2366,7 @@ test('POST /flows/:flowName/run rejects conflicting child execution marker', asy
   memoryConversations.set(agentConversationId, {
     _id: agentConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Agent: conflicting-child',
     agentName: 'coding_agent',
     source: 'REST',
@@ -2010,46 +2382,39 @@ test('POST /flows/:flowName/run rejects conflicting child execution marker', asy
   });
 
   try {
-    const res = await supertest(app)
-      .post('/flows/resume-basic/run')
-      .send({ conversationId: flowConversationId, resumeStepPath: [0] });
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'invalid_request');
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        const { app, supertest } = buildApp();
+        const res = await supertest(app)
+          .post('/flows/resume-basic/run')
+          .send({ conversationId: flowConversationId, resumeStepPath: [0] });
+        assert.equal(res.status, 400);
+        assert.equal(res.body.error, 'invalid_request');
+      },
+    );
   } finally {
     memoryConversations.delete(flowConversationId);
     memoryConversations.delete(agentConversationId);
     memoryTurns.delete(flowConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run rejects missing child conversation mapping', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-child-missing-'),
   );
   await writeResumeFlow(tmpDir);
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const { app, supertest } = buildApp();
-
   const flowConversationId = 'flow-resume-conv-child-missing';
   memoryConversations.set(flowConversationId, {
     _id: flowConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-basic',
     flowName: 'resume-basic',
     source: 'REST',
@@ -2071,20 +2436,23 @@ test('POST /flows/:flowName/run rejects missing child conversation mapping', asy
   });
 
   try {
-    const res = await supertest(app)
-      .post('/flows/resume-basic/run')
-      .send({ conversationId: flowConversationId, resumeStepPath: [0] });
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'invalid_request');
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+      async () => {
+        const { app, supertest } = buildApp();
+        const res = await supertest(app)
+          .post('/flows/resume-basic/run')
+          .send({ conversationId: flowConversationId, resumeStepPath: [0] });
+        assert.equal(res.status, 400);
+        assert.equal(res.body.error, 'invalid_request');
+      },
+    );
   } finally {
     memoryConversations.delete(flowConversationId);
     memoryTurns.delete(flowConversationId);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

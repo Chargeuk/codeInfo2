@@ -19,24 +19,23 @@ import {
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
   waitForQueueManagedTerminalStatus,
-  waitForNextTurn,
+  waitForIngestRuntimeIdle,
 } from './ingest-queue-runtime.helpers.js';
-
 installQueueRuntimeTestHooks();
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
-
 test.afterEach(() => {
   if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
-    delete process.env.CODEINFO_CODEX_WORKDIR;
+    clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
   } else {
-    process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+    setScopedTestEnvValue(
+      'CODEINFO_CODEX_WORKDIR',
+      ORIGINAL_CODEINFO_CODEX_WORKDIR,
+    );
   }
 });
-
 test('startup recovery skips replay for lost-terminal-marker running rows whose durable replay barrier was already recorded before cleanup', async () => {
   const events: string[] = [];
   const deletedRequestIds: string[] = [];
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       deletedRequestIds.push(requestId);
@@ -69,11 +68,8 @@ test('startup recovery skips replay for lost-terminal-marker running rows whose 
     events.push(`started:${runId}:${input.path}`);
     release(runId);
   });
-
   const result = await recoverIngestQueueOnStartup();
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(result.recovered, true);
   assert.deepEqual(events, [
     'deleted:000000000000000000000011',
@@ -81,7 +77,6 @@ test('startup recovery skips replay for lost-terminal-marker running rows whose 
   ]);
   assert.deepEqual(deletedRequestIds, ['000000000000000000000011']);
 });
-
 test('cleanup continuation still runs after the durable replay barrier is recorded', async () => {
   const events: string[] = [];
   __setStatusForTest('run-cleanup-after-barrier', {
@@ -95,7 +90,6 @@ test('cleanup continuation still runs after the durable replay barrier is record
     'run-cleanup-after-barrier',
     'queue-cleanup-after-barrier',
   );
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async () => {
       events.push('cleanup-delete-attempted');
@@ -120,11 +114,9 @@ test('cleanup continuation still runs after the durable replay barrier is record
       });
     },
   });
-
   const cleaned = await __finalizeQueueRequestForRunForTest(
     'run-cleanup-after-barrier',
   );
-
   assert.equal(cleaned, false);
   assert.deepEqual(events, [
     'cleanup-delete-attempted',
@@ -135,7 +127,6 @@ test('cleanup continuation still runs after the durable replay barrier is record
     'cleanup-blocked',
   );
 });
-
 test('startup recovery still retries genuinely unfinished running work before newer waiting work', async () => {
   const events: string[] = [];
   const runningQueueRequest = createQueueRequest({
@@ -144,7 +135,6 @@ test('startup recovery still retries genuinely unfinished running work before ne
     queueState: 'running',
     runId: 'run-recovered',
   });
-
   __setQueueRuntimeOpsForTest({
     findOldestCleanupBlockedQueueRequest: async () => null,
     findOldestRunningQueueRequest: async () => {
@@ -160,17 +150,14 @@ test('startup recovery still retries genuinely unfinished running work before ne
     events.push(`started:${runId}:${input.path}`);
     release(runId);
   });
-
   const result = await recoverIngestQueueOnStartup();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(result.recovered, true);
   assert.deepEqual(events, [
     'running-selected',
     'started:run-recovered:/data/repo-running',
   ]);
 });
-
 test('startup recovery replays queued reembed work using persisted requestPayload.path as the executable root before discovery resumes', async () => {
   const events: string[] = [];
   const canonicalRoot = '/data/canonical-running-root';
@@ -182,7 +169,6 @@ test('startup recovery replays queued reembed work using persisted requestPayloa
     runId: 'run-recovered-split',
   });
   recoveryQueueRequest.requestPayload.path = mountedExecutionRoot;
-
   __setQueueRuntimeOpsForTest({
     findOldestCleanupBlockedQueueRequest: async () => null,
     findOldestRunningQueueRequest: async () => {
@@ -199,10 +185,8 @@ test('startup recovery replays queued reembed work using persisted requestPayloa
     events.push(`canonical:${input.canonicalTargetPath}`);
     release(runId);
   });
-
   const result = await recoverIngestQueueOnStartup();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(result.recovered, true);
   assert.deepEqual(events, [
     'running-selected',
@@ -210,7 +194,6 @@ test('startup recovery replays queued reembed work using persisted requestPayloa
     `canonical:${canonicalRoot}`,
   ]);
 });
-
 test('startup recovery rejects missing start_ingest requestPayload.name before discovery resumes', async () => {
   let getOrCreateCollectionCalls = 0;
   const deletedRequestIds: string[] = [];
@@ -222,14 +205,12 @@ test('startup recovery rejects missing start_ingest requestPayload.name before d
     runId: 'run-recovered-missing-name',
   });
   delete recoveryQueueRequest.requestPayload.name;
-
   mock.method(ChromaClient.prototype, 'getOrCreateCollection', async () => {
     getOrCreateCollectionCalls += 1;
     return {
       get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
     } as never;
   });
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       deletedRequestIds.push(requestId);
@@ -241,17 +222,13 @@ test('startup recovery rejects missing start_ingest requestPayload.name before d
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
-
   const result = await recoverIngestQueueOnStartup();
   assert.equal(result.recovered, true);
-
   const terminal = await waitForQueueManagedTerminalStatus(
     requestQueue.getQueueRequestId(recoveryQueueRequest),
-    1_000,
+    1000,
   );
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(terminal.state, 'error');
   assert.equal(terminal.lastError, 'path and name are required');
   assert.equal(terminal.error?.error, 'VALIDATION');
@@ -260,9 +237,8 @@ test('startup recovery rejects missing start_ingest requestPayload.name before d
     requestQueue.getQueueRequestId(recoveryQueueRequest),
   ]);
 });
-
 test('startup recovery rejects unrelated persisted reembed paths before discovery resumes', async () => {
-  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', '/allowed/workdir');
   const canonicalRoot = '/allowed/workdir/recover-canonical-root';
   const mismatchedPersistedPath = '/allowed/workdir/recover-other-root';
   const deletedRequestIds: string[] = [];
@@ -273,7 +249,6 @@ test('startup recovery rejects unrelated persisted reembed paths before discover
     runId: 'run-recovered-mismatched-path',
   });
   recoveryQueueRequest.requestPayload.path = mismatchedPersistedPath;
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       deletedRequestIds.push(requestId);
@@ -285,17 +260,13 @@ test('startup recovery rejects unrelated persisted reembed paths before discover
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
-
   const result = await recoverIngestQueueOnStartup();
   assert.equal(result.recovered, true);
-
   const terminal = await waitForQueueManagedTerminalStatus(
     requestQueue.getQueueRequestId(recoveryQueueRequest),
-    1_000,
+    1000,
   );
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(terminal.state, 'error');
   assert.equal(
     terminal.lastError,
@@ -309,9 +280,8 @@ test('startup recovery rejects unrelated persisted reembed paths before discover
     true,
   );
 });
-
 test('startup recovery rejects relative persisted reembed paths before discovery resumes', async () => {
-  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', '/allowed/workdir');
   const canonicalRoot = '/data/recover-relative-root';
   const deletedRequestIds: string[] = [];
   const recoveryQueueRequest = createQueueRequest({
@@ -321,7 +291,6 @@ test('startup recovery rejects relative persisted reembed paths before discovery
     runId: 'run-recovered-relative-path',
   });
   recoveryQueueRequest.requestPayload.path = 'relative/recover-root';
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       deletedRequestIds.push(requestId);
@@ -333,17 +302,13 @@ test('startup recovery rejects relative persisted reembed paths before discovery
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
-
   const result = await recoverIngestQueueOnStartup();
   assert.equal(result.recovered, true);
-
   const terminal = await waitForQueueManagedTerminalStatus(
     requestQueue.getQueueRequestId(recoveryQueueRequest),
-    1_000,
+    1000,
   );
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(terminal.state, 'error');
   assert.equal(
     terminal.lastError,
@@ -353,9 +318,8 @@ test('startup recovery rejects relative persisted reembed paths before discovery
     requestQueue.getQueueRequestId(recoveryQueueRequest),
   ]);
 });
-
 test('startup recovery rejects outside-workdir persisted reembed paths before discovery resumes', async () => {
-  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', '/allowed/workdir');
   const canonicalRoot = '/data/recover-outside-root';
   const deletedRequestIds: string[] = [];
   const recoveryQueueRequest = createQueueRequest({
@@ -365,7 +329,6 @@ test('startup recovery rejects outside-workdir persisted reembed paths before di
     runId: 'run-recovered-outside-path',
   });
   recoveryQueueRequest.requestPayload.path = '/outside/workdir/recover-root';
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       deletedRequestIds.push(requestId);
@@ -377,17 +340,13 @@ test('startup recovery rejects outside-workdir persisted reembed paths before di
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
-
   const result = await recoverIngestQueueOnStartup();
   assert.equal(result.recovered, true);
-
   const terminal = await waitForQueueManagedTerminalStatus(
     requestQueue.getQueueRequestId(recoveryQueueRequest),
-    1_000,
+    1000,
   );
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(terminal.state, 'error');
   assert.equal(
     terminal.lastError,
@@ -397,7 +356,6 @@ test('startup recovery rejects outside-workdir persisted reembed paths before di
     requestQueue.getQueueRequestId(recoveryQueueRequest),
   ]);
 });
-
 test('startup recovery uses canonicalTargetPath as the executable root when persisted requestPayload.path is missing', async () => {
   const events: string[] = [];
   const canonicalRoot = '/data/canonical-degraded-root';
@@ -407,8 +365,11 @@ test('startup recovery uses canonicalTargetPath as the executable root when pers
     queueState: 'running',
     runId: 'run-recovered-degraded',
   });
-  delete (recoveryQueueRequest.requestPayload as { path?: string }).path;
-
+  delete (
+    recoveryQueueRequest.requestPayload as {
+      path?: string;
+    }
+  ).path;
   __setQueueRuntimeOpsForTest({
     findOldestCleanupBlockedQueueRequest: async () => null,
     findOldestRunningQueueRequest: async () => {
@@ -425,10 +386,8 @@ test('startup recovery uses canonicalTargetPath as the executable root when pers
     events.push(`canonical:${input.canonicalTargetPath}`);
     release(runId);
   });
-
   const result = await recoverIngestQueueOnStartup();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(result.recovered, true);
   assert.deepEqual(events, [
     'running-selected',
@@ -436,9 +395,8 @@ test('startup recovery uses canonicalTargetPath as the executable root when pers
     `canonical:${canonicalRoot}`,
   ]);
 });
-
 test('startup recovery refuses out-of-scope persisted ingest-start paths before discovery begins', async () => {
-  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', '/allowed/workdir');
   const deletedRequestIds: string[] = [];
   let getOrCreateCollectionCalls = 0;
   const recoveryQueueRequest = createQueueRequest({
@@ -448,14 +406,12 @@ test('startup recovery refuses out-of-scope persisted ingest-start paths before 
     queueState: 'running',
     runId: 'run-recovered-invalid-root',
   });
-
   mock.method(ChromaClient.prototype, 'getOrCreateCollection', async () => {
     getOrCreateCollectionCalls += 1;
     return {
       get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
     } as never;
   });
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       deletedRequestIds.push(requestId);
@@ -467,17 +423,13 @@ test('startup recovery refuses out-of-scope persisted ingest-start paths before 
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
-
   const result = await recoverIngestQueueOnStartup();
   assert.equal(result.recovered, true);
-
   const terminal = await waitForQueueManagedTerminalStatus(
     requestQueue.getQueueRequestId(recoveryQueueRequest),
-    1_000,
+    1000,
   );
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(terminal.state, 'error');
   assert.equal(terminal.lastError, 'path must stay within /allowed/workdir');
   assert.equal(terminal.error?.error, 'VALIDATION');
@@ -486,9 +438,8 @@ test('startup recovery refuses out-of-scope persisted ingest-start paths before 
     requestQueue.getQueueRequestId(recoveryQueueRequest),
   ]);
 });
-
 test('startup recovery rejects malformed non-placeholder CODEINFO_CODEX_WORKDIR before replay starts', async () => {
-  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir/';
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', '/allowed/workdir/');
   const deletedRequestIds: string[] = [];
   let getOrCreateCollectionCalls = 0;
   const recoveryQueueRequest = createQueueRequest({
@@ -498,14 +449,12 @@ test('startup recovery rejects malformed non-placeholder CODEINFO_CODEX_WORKDIR 
     queueState: 'running',
     runId: 'run-recovered-malformed-workdir',
   });
-
   mock.method(ChromaClient.prototype, 'getOrCreateCollection', async () => {
     getOrCreateCollectionCalls += 1;
     return {
       get: async () => ({ embeddings: [[0.1, 0.2, 0.3]] }),
     } as never;
   });
-
   __setRunProcessorForTest(null);
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
@@ -518,17 +467,13 @@ test('startup recovery rejects malformed non-placeholder CODEINFO_CODEX_WORKDIR 
     markQueueRequestTerminalPublished: async () => null,
     promoteOldestWaitingQueueRequest: async () => null,
   });
-
   const result = await recoverIngestQueueOnStartup();
   assert.equal(result.recovered, true);
-
   const terminal = await waitForQueueManagedTerminalStatus(
     requestQueue.getQueueRequestId(recoveryQueueRequest),
-    1_000,
+    1000,
   );
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(terminal.state, 'error');
   assert.equal(
     terminal.lastError,
@@ -540,7 +485,6 @@ test('startup recovery rejects malformed non-placeholder CODEINFO_CODEX_WORKDIR 
     requestQueue.getQueueRequestId(recoveryQueueRequest),
   ]);
 });
-
 test('startup recovery rejects blank canonical model even when a legacy model is also present and does not leave partial running state behind', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({
@@ -561,7 +505,6 @@ test('startup recovery rejects blank canonical model even when a legacy model is
     embeddingModel: '',
     operation: 'reembed',
   };
-
   try {
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async (deletedRequestId: string) => {
@@ -574,17 +517,13 @@ test('startup recovery rejects blank canonical model even when a legacy model is
       markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async () => null,
     });
-
     const result = await recoverIngestQueueOnStartup();
     assert.equal(result.recovered, true);
-
     const terminal = await waitForQueueManagedTerminalStatus(
       requestQueue.getQueueRequestId(recoveryQueueRequest),
-      1_000,
+      1000,
     );
-    await waitForNextTurn();
-    await waitForNextTurn();
-
+    await waitForIngestRuntimeIdle();
     assert.equal(terminal.state, 'error');
     assert.equal(
       terminal.lastError,
@@ -594,9 +533,7 @@ test('startup recovery rejects blank canonical model even when a legacy model is
     assert.deepEqual(deletedRequestIds, [
       requestQueue.getQueueRequestId(recoveryQueueRequest),
     ]);
-    await waitForNextTurn();
-    await waitForNextTurn();
-
+    await waitForIngestRuntimeIdle();
     const afterRecovery = await pumpIngestQueue();
     assert.equal(afterRecovery.started, false);
     assert.equal(afterRecovery.blockedByCleanup, false);
@@ -605,7 +542,6 @@ test('startup recovery rejects blank canonical model even when a legacy model is
     await cleanup();
   }
 });
-
 test('startup recovery rejects non-string canonical provider payloads and does not leave partial running state behind', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({
@@ -627,7 +563,6 @@ test('startup recovery rejects non-string canonical provider payloads and does n
     embeddingModel: 'embed-1',
     operation: 'reembed',
   };
-
   try {
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async (deletedRequestId: string) => {
@@ -640,17 +575,13 @@ test('startup recovery rejects non-string canonical provider payloads and does n
       markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async () => null,
     });
-
     const result = await recoverIngestQueueOnStartup();
     assert.equal(result.recovered, true);
-
     const terminal = await waitForQueueManagedTerminalStatus(
       requestQueue.getQueueRequestId(recoveryQueueRequest),
-      1_000,
+      1000,
     );
-    await waitForNextTurn();
-    await waitForNextTurn();
-
+    await waitForIngestRuntimeIdle();
     assert.equal(terminal.state, 'error');
     assert.equal(
       terminal.lastError,
@@ -660,7 +591,6 @@ test('startup recovery rejects non-string canonical provider payloads and does n
     assert.deepEqual(deletedRequestIds, [
       requestQueue.getQueueRequestId(recoveryQueueRequest),
     ]);
-
     const afterRecovery = await pumpIngestQueue();
     assert.equal(afterRecovery.started, false);
     assert.equal(afterRecovery.blockedByCleanup, false);
@@ -669,7 +599,6 @@ test('startup recovery rejects non-string canonical provider payloads and does n
     await cleanup();
   }
 });
-
 test('startup recovery rejects non-string canonical model payloads and does not leave partial running state behind', async () => {
   setupIngestChromaMocks();
   const { root, cleanup } = await createTempRepo({
@@ -691,7 +620,6 @@ test('startup recovery rejects non-string canonical model payloads and does not 
     embeddingModel: 42,
     operation: 'reembed',
   };
-
   try {
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async (deletedRequestId: string) => {
@@ -704,17 +632,13 @@ test('startup recovery rejects non-string canonical model payloads and does not 
       markQueueRequestTerminalPublished: async () => null,
       promoteOldestWaitingQueueRequest: async () => null,
     });
-
     const result = await recoverIngestQueueOnStartup();
     assert.equal(result.recovered, true);
-
     const terminal = await waitForQueueManagedTerminalStatus(
       requestQueue.getQueueRequestId(recoveryQueueRequest),
-      1_000,
+      1000,
     );
-    await waitForNextTurn();
-    await waitForNextTurn();
-
+    await waitForIngestRuntimeIdle();
     assert.equal(terminal.state, 'error');
     assert.equal(
       terminal.lastError,
@@ -724,7 +648,6 @@ test('startup recovery rejects non-string canonical model payloads and does not 
     assert.deepEqual(deletedRequestIds, [
       requestQueue.getQueueRequestId(recoveryQueueRequest),
     ]);
-
     const afterRecovery = await pumpIngestQueue();
     assert.equal(afterRecovery.started, false);
     assert.equal(afterRecovery.blockedByCleanup, false);

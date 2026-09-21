@@ -263,7 +263,7 @@ const appendTurnSchema = z
       .optional(),
     usage: usageSchema.optional(),
     timing: timingSchema.optional(),
-    status: z.enum(['ok', 'stopped', 'failed']),
+    status: z.enum(['ok', 'warning', 'stopped', 'failed']),
   })
   .strict()
   .superRefine((data, ctx) => {
@@ -604,8 +604,10 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
               workingFolder: null,
               expectedWorkingFolder,
             });
-            if (updatedConversation) {
-              return updatedConversation.flags?.workingFolder?.trim();
+            const updatedWorkingFolder =
+              updatedConversation?.flags?.workingFolder?.trim();
+            if (updatedWorkingFolder) {
+              return updatedWorkingFolder;
             }
             if (shouldUseMemoryPersistence()) {
               return (

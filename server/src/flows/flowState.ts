@@ -28,6 +28,13 @@ export type FreshRunRetryOwnershipCompletion = {
   result: FlowRunStartResult;
 };
 
+export type FreshRunRetryOwnershipPending = {
+  retryOwnershipId: string;
+  sourceId?: string;
+  launchSignature: string;
+  result: FlowRunStartResult;
+};
+
 export type FlowActiveSubflow = {
   stepPath: number[];
   flowName: string;
@@ -71,6 +78,33 @@ export type FlowSubflowWaveProgress = {
   updatedAt: string;
 };
 
+export type FlowGitHubReviewContext = {
+  executionId?: string;
+  prNumber?: number;
+  storyNumber?: string;
+  branchName?: string;
+  selectorPath?: string;
+  handoffPath?: string;
+  phase?: 'opened' | 'fetched' | 'skipped';
+  selectorPublicationSequence?: number;
+  retryAttempt?: number;
+  retryStepPath?: number[];
+  warningMessage?: string;
+};
+
+export type FlowWaitState = {
+  kind?: 'authored_wait' | 'review_retry';
+  executionId: string;
+  stepPath: number[];
+  loopStack: Array<{ loopStepPath: number[]; iteration: number }>;
+  activeSubflows?: FlowActiveSubflow[];
+  workingFolder?: string;
+  sourceId?: string;
+  resumeAt: number;
+  continuedAfterFailure?: boolean;
+  githubReviewContext?: FlowGitHubReviewContext;
+};
+
 export type FlowResumeState = {
   executionId: string;
   waveInvocationGeneration?: number;
@@ -83,11 +117,12 @@ export type FlowResumeState = {
   subflowWaveProgress?: FlowSubflowWaveProgress;
   terminalOutcome?: 'not_applicable';
   runLifecycle?: {
-    status: 'running' | 'ok' | 'stopped' | 'failed' | 'orphaned';
+    status: 'running' | 'ok' | 'warning' | 'stopped' | 'failed' | 'orphaned';
     updatedAt: string;
   };
   codexReviewModelId?: string;
   workingFolder?: string;
+  sourceId?: string;
   input?: FlowJsonObject;
   inputHash?: string;
   values?: Record<string, FlowJsonValue>;
@@ -98,5 +133,8 @@ export type FlowResumeState = {
   agentModels?: Record<string, string>;
   agentRequestedProviders?: Record<string, string>;
   agentEndpointIds?: Record<string, string>;
+  wait?: FlowWaitState;
+  githubReviewContext?: FlowGitHubReviewContext;
+  retryOwnershipPending?: FreshRunRetryOwnershipPending;
   retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion;
 };

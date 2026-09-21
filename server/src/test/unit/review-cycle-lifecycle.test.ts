@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -237,7 +238,8 @@ test('flow status ignores an active review cycle owned by a different conversati
       randomHex: () => '22222222',
     },
   );
-  const conversationId = 'review-cycle-status-first-conversation';
+  const conversationId =
+    `review-cycle-status-first-conversation-${randomUUID()}`;
   const now = new Date();
   memoryConversations.set(conversationId, {
     _id: conversationId,

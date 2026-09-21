@@ -4,14 +4,12 @@ import fs from 'node:fs/promises';
 import http, { type Server } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-
 import { chatRequestFixture } from '@codeinfo2/common';
 import { After, Before, Given, Then, When } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
 import type WebSocket from 'ws';
-
 import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { createChatRouter } from '../../routes/chat.js';
@@ -23,47 +21,43 @@ import {
   type MockScenario,
 } from '../support/mockLmStudioSdk.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
-
 type ChatStartResponse = {
   status: 'started';
   conversationId: string;
   inflightId: string;
 };
-
 type ToolEvent = {
   type?: string;
   callId?: string | number;
   name?: string;
   result?: unknown;
 };
-
 type WsEvent = {
   type?: string;
   conversationId?: string;
   inflightId?: string;
-  inflight?: { inflightId?: string };
+  inflight?: {
+    inflightId?: string;
+  };
   event?: ToolEvent;
 };
-
 let server: Server | null = null;
 let wsHandle: WsServerHandle | null = null;
 let ws: WebSocket | null = null;
 let baseUrl = '';
-
 let startResponse: ChatStartResponse | null = null;
 let toolRequest: ToolEvent | null = null;
 let toolResult: ToolEvent | null = null;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForScenario: string | null = null;
-
 Before(async () => {
   resetStore();
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   tempCodexHomeForScenario = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-tools-codex-home-'),
   );
@@ -72,11 +66,10 @@ Before(async () => {
   });
   await fs.writeFile(
     path.join(tempCodexHomeForScenario, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
-  process.env.CODEINFO_CODEX_HOME = tempCodexHomeForScenario;
-
+  setScopedTestEnvValue('CODEINFO_CODEX_HOME', tempCodexHomeForScenario);
   const app = express();
   app.use(cors());
   app.use(createRequestLogger());
@@ -87,11 +80,9 @@ Before(async () => {
         new MockLMStudioClient() as unknown as LMStudioClient,
     }),
   );
-
   const httpServer = http.createServer(app);
   server = httpServer;
   wsHandle = attachWs({ httpServer });
-
   await new Promise<void>((resolve) => {
     httpServer.listen(0, () => {
       const address = httpServer.address();
@@ -103,11 +94,9 @@ Before(async () => {
     });
   });
 });
-
 After(async () => {
   stopMock();
   resetStore();
-
   if (ws) {
     await closeWs(ws);
     ws = null;
@@ -120,56 +109,60 @@ After(async () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
-
   startResponse = null;
   toolRequest = null;
   toolResult = null;
   if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
-    delete process.env.CODEINFO_CODEX_HOME;
+    clearScopedTestEnvValue('CODEINFO_CODEX_HOME');
   } else {
-    process.env.CODEINFO_CODEX_HOME = ORIGINAL_CODEINFO_CODEX_HOME;
+    setScopedTestEnvValue('CODEINFO_CODEX_HOME', ORIGINAL_CODEINFO_CODEX_HOME);
   }
   if (tempCodexHomeForScenario) {
     await fs.rm(tempCodexHomeForScenario, { recursive: true, force: true });
     tempCodexHomeForScenario = null;
   }
 });
-
 Given('chat visibility scenario {string}', (name: string) => {
   startMock({ scenario: name as MockScenario });
 });
-
 When('I start a chat run and subscribe to its WebSocket stream', async () => {
   const userMessage = Array.isArray(chatRequestFixture.messages)
     ? String(
         chatRequestFixture.messages.find(
-          (msg) => (msg as { role?: string }).role === 'user',
+          (msg) =>
+            (
+              msg as {
+                role?: string;
+              }
+            ).role === 'user',
         )?.content ?? 'Hello',
       )
     : 'Hello';
   const conversationId = `chat-visibility-fixture-${randomUUID()}`;
-
   ws = await connectWs({ baseUrl });
-  sendJson(ws, {
-    type: 'subscribe_conversation',
-    conversationId,
-  });
-
+  await subscribeConversationAndWaitReady({ ws: ws, conversationId });
   const res = await fetch(`${baseUrl}/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       provider:
-        (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
-      model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
+        (
+          chatRequestFixture as {
+            provider?: string;
+          }
+        ).provider ?? 'lmstudio',
+      model:
+        (
+          chatRequestFixture as {
+            model?: string;
+          }
+        ).model ?? 'model-1',
       conversationId,
       message: userMessage,
     }),
   });
-
   assert.equal(res.status, 202);
   startResponse = (await res.json()) as ChatStartResponse;
-
   // Wait for snapshot to ensure subscription is active before asserting tool events.
   await waitForEvent({
     ws,
@@ -182,7 +175,6 @@ When('I start a chat run and subscribe to its WebSocket stream', async () => {
       );
     },
   });
-
   // Capture at least one tool-request and one tool-result.
   while (!(toolRequest && toolResult)) {
     const next = await waitForEvent({
@@ -197,33 +189,29 @@ When('I start a chat run and subscribe to its WebSocket stream', async () => {
       },
       timeoutMs: 4000,
     });
-
     if (!next.event) continue;
     const evType = next.event.type;
     if (evType === 'tool-request' && !toolRequest) toolRequest = next.event;
     if (evType === 'tool-result' && !toolResult) toolResult = next.event;
   }
-
   const logs = query({ text: 'chat.stream.tool_event' });
   assert(logs.length > 0, 'expected tool events logged');
 });
-
 Then('the streamed tool events include call id and name', () => {
   assert.ok(toolRequest ?? toolResult, 'expected tool events');
   const request = toolResult ?? toolRequest;
   assert.ok(request);
-
   const callId = request.callId;
   assert.ok(['call-1', '1'].includes(String(callId)));
   assert.equal(request.name, 'VectorSearch');
 });
-
 Then('the streamed tool result includes path and repo metadata', () => {
   assert.ok(toolResult, 'expected tool-result event');
   const payload = toolResult.result as
-    | { results?: Array<Record<string, unknown>> }
+    | {
+        results?: Array<Record<string, unknown>>;
+      }
     | undefined;
-
   assert(payload && Array.isArray(payload.results), 'expected results array');
   const first = payload.results?.[0];
   assert.equal(first?.repo, 'repo');

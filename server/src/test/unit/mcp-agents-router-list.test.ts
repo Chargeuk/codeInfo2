@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import { handleAgentsRpc } from '../../mcpAgents/router.js';
+import {
+  closeHttpServer,
+  waitForHttpServerPort,
+} from '../support/httpServer.js';
 
 async function postJson(port: number, body: unknown) {
   const response = await fetch(`http://127.0.0.1:${port}`, {
@@ -16,7 +19,7 @@ async function postJson(port: number, body: unknown) {
 test('tools/list returns exactly list_agents, list_commands, run_agent_instruction and run_command', async () => {
   const server = http.createServer(handleAgentsRpc);
   server.listen(0);
-  const { port } = server.address() as AddressInfo;
+  const port = await waitForHttpServerPort(server);
 
   try {
     const payload = { jsonrpc: '2.0', id: 10, method: 'tools/list' };
@@ -32,6 +35,6 @@ test('tools/list returns exactly list_agents, list_commands, run_agent_instructi
       'run_command',
     ]);
   } finally {
-    server.close();
+    await closeHttpServer(server);
   }
 });

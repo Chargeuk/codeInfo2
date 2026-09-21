@@ -4,11 +4,9 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
-
 import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
-
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -24,9 +22,7 @@ import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
-
 type EnvSnapshot = Map<string, string | undefined>;
-
 const env = {
   snapshot: new Map() as EnvSnapshot,
   set(key: string, value: string | undefined) {
@@ -34,23 +30,22 @@ const env = {
       this.snapshot.set(key, process.env[key]);
     }
     if (value === undefined) {
-      delete process.env[key];
+      clearScopedTestEnvValue(key);
     } else {
-      process.env[key] = value;
+      setScopedTestEnvValue(key, value);
     }
   },
   restore() {
     for (const [key, value] of this.snapshot.entries()) {
       if (value === undefined) {
-        delete process.env[key];
+        clearScopedTestEnvValue(key);
       } else {
-        process.env[key] = value;
+        setScopedTestEnvValue(key, value);
       }
     }
     this.snapshot.clear();
   },
 };
-
 const defaultDetection = {
   available: false,
   authPresent: false,
@@ -58,8 +53,9 @@ const defaultDetection = {
   reason: 'not detected',
 };
 const tempDirs: string[] = [];
-const tempExternalServers: Array<{ stop: () => Promise<void> }> = [];
-
+const tempExternalServers: Array<{
+  stop: () => Promise<void>;
+}> = [];
 function createClient(
   models: {
     modelKey: string;
@@ -73,7 +69,6 @@ function createClient(
     },
   } as LMStudioClient;
 }
-
 async function startServer(params: {
   mcpAvailable: boolean;
   clientFactory?: () => LMStudioClient;
@@ -83,7 +78,6 @@ async function startServer(params: {
 }) {
   const app = express();
   app.use(express.json());
-
   app.post('/mcp', (_req, res) => {
     if (params.mcpAvailable) {
       res.json({ result: { ok: true } });
@@ -91,7 +85,6 @@ async function startServer(params: {
       res.status(200).json({ error: { message: 'unavailable' } });
     }
   });
-
   app.use(
     '/chat',
     createChatModelsRouter({
@@ -101,7 +94,6 @@ async function startServer(params: {
       codexCapabilityResolver: params.codexCapabilityResolver,
     }),
   );
-
   const httpServer = http.createServer(app);
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const address = httpServer.address();
@@ -112,13 +104,11 @@ async function startServer(params: {
     baseUrl: `http://127.0.0.1:${address.port}`,
   };
 }
-
 async function stopServer(server: { httpServer: http.Server }) {
   await new Promise<void>((resolve) =>
     server.httpServer.close(() => resolve()),
   );
 }
-
 async function setCodexHome(chatToml?: string) {
   env.set('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', undefined);
@@ -142,7 +132,6 @@ async function setCodexHome(chatToml?: string) {
     chatConfigPath: path.join(codexHome, 'chat', 'config.toml'),
   };
 }
-
 beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
@@ -156,7 +145,6 @@ beforeEach(() => {
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
 });
-
 afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
@@ -171,7 +159,6 @@ afterEach(async () => {
       .map((dir) => fs.rm(dir, { recursive: true, force: true })),
   );
 });
-
 test('codex env model list parsing surfaces defaults and warnings', async () => {
   await setCodexHome('model = "gamma"\n');
   env.set('Codex_model_list', 'alpha,beta');
@@ -180,14 +167,12 @@ test('codex env model list parsing surfaces defaults and warnings', async () => 
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.equal(res.body.provider, 'codex');
     assert.equal(res.body.models.length, 3);
     assert.ok(res.body.codexDefaults);
@@ -196,7 +181,6 @@ test('codex env model list parsing surfaces defaults and warnings', async () => 
     await stopServer(server);
   }
 });
-
 test('chat models marker emits the shared warning_count and warnings fields with the same values as the REST defaults surface', async () => {
   await setCodexHome();
   env.set('Codex_model_list', 'alpha,beta');
@@ -205,7 +189,6 @@ test('chat models marker emits the shared warning_count and warnings fields with
     authPresent: true,
     configPresent: true,
   });
-
   const markerPayloads: Array<Record<string, unknown>> = [];
   const originalInfo = console.info;
   console.info = (...args: unknown[]) => {
@@ -213,14 +196,12 @@ test('chat models marker emits the shared warning_count and warnings fields with
       markerPayloads.push(args[1] as Record<string, unknown>);
     }
   };
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     const marker = markerPayloads.at(-1);
     assert.ok(marker);
     assert.equal(marker.surface, '/chat/models');
@@ -233,7 +214,6 @@ test('chat models marker emits the shared warning_count and warnings fields with
     await stopServer(server);
   }
 });
-
 test('codex models include non-empty supportedReasoningEfforts arrays', async () => {
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({
@@ -241,14 +221,12 @@ test('codex models include non-empty supportedReasoningEfforts arrays', async ()
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     for (const model of res.body.models as Array<Record<string, unknown>>) {
       assert.equal(model.type, 'codex');
       assert.ok(Array.isArray(model.supportedReasoningEfforts));
@@ -262,7 +240,6 @@ test('codex models include non-empty supportedReasoningEfforts arrays', async ()
     await stopServer(server);
   }
 });
-
 test('chat models status probes use the shared endpoint contract instead of legacy MCP_URL', async () => {
   env.set('Codex_model_list', 'alpha');
   env.set('MCP_URL', 'http://127.0.0.1:9/legacy-bypass');
@@ -271,9 +248,7 @@ test('chat models status probes use the shared endpoint contract instead of lega
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
-
   try {
     const endpoints = resolveCodeinfoMcpEndpointContract();
     assert.match(endpoints.classicMcpUrl, /\/mcp$/u);
@@ -281,7 +256,6 @@ test('chat models status probes use the shared endpoint contract instead of lega
       endpoints.classicMcpUrl,
       'http://127.0.0.1:9/legacy-bypass',
     );
-
     await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
@@ -289,7 +263,6 @@ test('chat models status probes use the shared endpoint contract instead of lega
     await stopServer(server);
   }
 });
-
 test('codex models include defaultReasoningEffort present in supportedReasoningEfforts', async () => {
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({
@@ -297,14 +270,12 @@ test('codex models include defaultReasoningEffort present in supportedReasoningE
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     for (const model of res.body.models as Array<Record<string, unknown>>) {
       const supported = model.supportedReasoningEfforts as string[];
       const defaultEffort = model.defaultReasoningEffort as string;
@@ -316,7 +287,6 @@ test('codex models include defaultReasoningEffort present in supportedReasoningE
     await stopServer(server);
   }
 });
-
 test('chat models payload is derived from the shared capability resolver fixture while normalizing the provider default model to the live list', async () => {
   await setCodexHome('model = "fixture-home-model"\n');
   setCodexDetection({
@@ -324,7 +294,6 @@ test('chat models payload is derived from the shared capability resolver fixture
     authPresent: true,
     configPresent: true,
   });
-
   const fixture: CodexCapabilityResolution = {
     defaults: {
       sandboxMode: 'danger-full-access',
@@ -354,7 +323,6 @@ test('chat models payload is derived from the shared capability resolver fixture
     warnings: ['fixture warning'],
     fallbackUsed: false,
   };
-
   const server = await startServer({
     mcpAvailable: true,
     codexCapabilityResolver: async () => fixture,
@@ -364,7 +332,6 @@ test('chat models payload is derived from the shared capability resolver fixture
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.deepEqual(res.body.models, [
       {
         key: 'fixture-model',
@@ -392,7 +359,6 @@ test('chat models payload is derived from the shared capability resolver fixture
     await stopServer(server);
   }
 });
-
 test('codex response includes defaults and warnings when unavailable', async () => {
   setCodexDetection({
     available: false,
@@ -400,14 +366,12 @@ test('codex response includes defaults and warnings when unavailable', async () 
     configPresent: false,
     reason: 'missing-cli',
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.equal(res.body.available, false);
     assert.deepEqual(res.body.models, []);
     assert.ok(res.body.codexDefaults);
@@ -416,14 +380,12 @@ test('codex response includes defaults and warnings when unavailable', async () 
     await stopServer(server);
   }
 });
-
 test('codex capability resolver fallback is deterministic when metadata resolution fails', async () => {
   setCodexDetection({
     available: true,
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({
     mcpAvailable: true,
     codexCapabilityResolver: async (options) =>
@@ -439,7 +401,6 @@ test('codex capability resolver fallback is deterministic when metadata resoluti
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.ok(res.body.models.length > 0);
     for (const model of res.body.models as Array<Record<string, unknown>>) {
       assert.ok(Array.isArray(model.supportedReasoningEfforts));
@@ -455,7 +416,6 @@ test('codex capability resolver fallback is deterministic when metadata resoluti
     await stopServer(server);
   }
 });
-
 test('chat models codexDefaults and warnings come from shared resolver precedence', async () => {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codeinfo2-task7-models-'),
@@ -482,14 +442,12 @@ test('chat models codexDefaults and warnings come from shared resolver precedenc
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.equal(res.body.codexDefaults.sandboxMode, 'workspace-write');
     assert.equal(res.body.codexDefaults.approvalPolicy, 'on-request');
     assert.equal(res.body.codexDefaults.modelReasoningEffort, 'medium');
@@ -502,7 +460,6 @@ test('chat models codexDefaults and warnings come from shared resolver precedenc
     await fs.rm(root, { recursive: true, force: true });
   }
 });
-
 test('chat models parity fixture remains deterministic across resolver-backed defaults', async () => {
   const fixture: CodexCapabilityResolution = {
     defaults: {
@@ -559,7 +516,6 @@ test('chat models parity fixture remains deterministic across resolver-backed de
     await stopServer(server);
   }
 });
-
 test('codex models expose the Story 56 provider-neutral Agent Flags and workspace-write-scoped compatibility details', async () => {
   await setCodexHome(
     [
@@ -580,7 +536,6 @@ test('codex models expose the Story 56 provider-neutral Agent Flags and workspac
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
@@ -594,7 +549,6 @@ test('codex models expose the Story 56 provider-neutral Agent Flags and workspac
     );
     const verbosity = flags.find((entry) => entry.key === 'modelVerbosity');
     const webSearch = flags.find((entry) => entry.key === 'webSearchMode');
-
     assert.equal(res.body.providerInfo.defaultModel, 'gpt-5.6-sol');
     assert.equal(res.body.providerInfo.defaultModelSource, 'config');
     assert.equal(res.body.codexDefaults.sandboxMode, 'workspace-write');
@@ -612,7 +566,6 @@ test('codex models expose the Story 56 provider-neutral Agent Flags and workspac
     await stopServer(server);
   }
 });
-
 test('codex resolver warnings propagate into codexWarnings', async () => {
   env.set('Codex_network_access_enabled', 'invalid');
   setCodexDetection({
@@ -620,14 +573,12 @@ test('codex resolver warnings propagate into codexWarnings', async () => {
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('Codex_network_access_enabled'),
@@ -637,40 +588,36 @@ test('codex resolver warnings propagate into codexWarnings', async () => {
     await stopServer(server);
   }
 });
-
 test('codex model list CSV trims, drops empties, and de-duplicates', async () => {
   await setCodexHome();
   env.set(
     'Codex_model_list',
-    ' gpt-5.1-codex-max , , gpt-5.1, gpt-5.1 , gpt-5.2 ',
+    ' gpt-5.6-luna , , gpt-5.6-terra, gpt-5.6-terra , gpt-6-astra ',
   );
   setCodexDetection({
     available: true,
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
     assert.deepEqual(modelKeys, [
       'gpt-5.6-sol',
-      'gpt-5.1-codex-max',
-      'gpt-5.1',
-      'gpt-5.2',
+      'gpt-5.6-luna',
+      'gpt-5.6-terra',
+      'gpt-6-astra',
     ]);
   } finally {
     await stopServer(server);
   }
 });
-
 test('codex model list empty CSV falls back with warning', async () => {
   await setCodexHome();
   env.set('Codex_model_list', ' , , ');
@@ -679,14 +626,12 @@ test('codex model list empty CSV falls back with warning', async () => {
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
@@ -700,7 +645,6 @@ test('codex model list empty CSV falls back with warning', async () => {
     await stopServer(server);
   }
 });
-
 test('codex model list whitespace-only CSV falls back with warning', async () => {
   await setCodexHome();
   env.set('Codex_model_list', '   ');
@@ -709,14 +653,12 @@ test('codex model list whitespace-only CSV falls back with warning', async () =>
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
@@ -730,21 +672,18 @@ test('codex model list whitespace-only CSV falls back with warning', async () =>
     await stopServer(server);
   }
 });
-
 test('codex runtime warning when web search enabled but tools unavailable', async () => {
   setCodexDetection({
     available: true,
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: false });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('web search is enabled'),
@@ -754,7 +693,6 @@ test('codex runtime warning when web search enabled but tools unavailable', asyn
     await stopServer(server);
   }
 });
-
 test('codex defaults include SDK-native minimal reasoning effort when configured', async () => {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codeinfo2-task7-minimal-'),
@@ -778,24 +716,20 @@ test('codex defaults include SDK-native minimal reasoning effort when configured
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.equal(res.body.codexDefaults?.modelReasoningEffort, 'minimal');
   } finally {
     await stopServer(server);
     await fs.rm(root, { recursive: true, force: true });
   }
 });
-
 test('non-codex provider omits codex defaults fields', async () => {
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
@@ -812,7 +746,6 @@ test('non-codex provider omits codex defaults fields', async () => {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=lmstudio')
       .expect(200);
-
     assert.equal(res.body.provider, 'lmstudio');
     assert.equal(res.body.models.length, 1);
     assert.equal('codexDefaults' in res.body, false);
@@ -831,7 +764,6 @@ test('non-codex provider omits codex defaults fields', async () => {
     await stopServer(server);
   }
 });
-
 test('lmstudio models prioritize the configured default model from CODEINFO_LMSTUDIO_HOME', async () => {
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
   const root = await fs.mkdtemp(
@@ -846,7 +778,6 @@ test('lmstudio models prioritize the configured default model from CODEINFO_LMST
     'utf8',
   );
   env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
@@ -868,7 +799,6 @@ test('lmstudio models prioritize the configured default model from CODEINFO_LMST
     const res = await request(server.httpServer)
       .get('/chat/models?provider=lmstudio')
       .expect(200);
-
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
@@ -877,7 +807,6 @@ test('lmstudio models prioritize the configured default model from CODEINFO_LMST
     await stopServer(server);
   }
 });
-
 test('lmstudio discovery normalizes a stale configured default to a live model entry', async () => {
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
   const root = await fs.mkdtemp(
@@ -892,7 +821,6 @@ test('lmstudio discovery normalizes a stale configured default to a live model e
     'utf8',
   );
   env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
@@ -914,7 +842,6 @@ test('lmstudio discovery normalizes a stale configured default to a live model e
     const res = await request(server.httpServer)
       .get('/chat/models?provider=lmstudio')
       .expect(200);
-
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
@@ -926,7 +853,6 @@ test('lmstudio discovery normalizes a stale configured default to a live model e
     await stopServer(server);
   }
 });
-
 test('lmstudio discovery surfaces only bounded resolved defaults from provider-local config', async () => {
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
   const root = await fs.mkdtemp(
@@ -948,7 +874,6 @@ test('lmstudio discovery surfaces only bounded resolved defaults from provider-l
     'utf8',
   );
   env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
@@ -965,7 +890,6 @@ test('lmstudio discovery surfaces only bounded resolved defaults from provider-l
     const res = await request(server.httpServer)
       .get('/chat/models?provider=lmstudio')
       .expect(200);
-
     const agentFlags = res.body.agentFlags as Array<Record<string, unknown>>;
     const temperature = agentFlags.find((entry) => entry.key === 'temperature');
     const maxTokens = agentFlags.find((entry) => entry.key === 'maxTokens');
@@ -973,7 +897,6 @@ test('lmstudio discovery surfaces only bounded resolved defaults from provider-l
       (entry) => entry.key === 'contextOverflowPolicy',
     );
     const toolAccess = agentFlags.find((entry) => entry.key === 'toolAccess');
-
     assert.equal(temperature?.resolvedDefault, 0.2);
     assert.equal(maxTokens?.resolvedDefault, 4096);
     assert.equal(contextOverflowPolicy?.resolvedDefault, 'rollingWindow');
@@ -982,7 +905,6 @@ test('lmstudio discovery surfaces only bounded resolved defaults from provider-l
     await stopServer(server);
   }
 });
-
 test('lmstudio models route degrades malformed chat defaults to warnings instead of failing discovery', async () => {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codeinfo2-chat-models-lmstudio-malformed-'),
@@ -997,19 +919,16 @@ test('lmstudio models route degrades malformed chat defaults to warnings instead
   );
   env.set('CODEINFO_LMSTUDIO_HOME', lmstudioHome);
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=lmstudio')
       .expect(200);
-
     assert.equal(res.body.provider, 'lmstudio');
     assert.equal(res.body.available, true);
     assert.equal(res.body.defaultModel, 'model-1');
@@ -1036,7 +955,6 @@ test('lmstudio models route degrades malformed chat defaults to warnings instead
     await stopServer(server);
   }
 });
-
 test('codex models route includes external responses endpoints and filters out unsupported capability endpoints', async () => {
   const responsesServer = await startExternalOpenAiCompatServer({
     models: ['external-alpha'],
@@ -1059,15 +977,12 @@ test('codex models route includes external responses endpoints and filters out u
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
@@ -1083,7 +998,6 @@ test('codex models route includes external responses endpoints and filters out u
     await stopServer(server);
   }
 });
-
 test('codex models route preserves duplicate raw model ids and the selected endpoint identity', async () => {
   const firstServer = await startExternalOpenAiCompatServer({
     models: ['shared-model'],
@@ -1112,15 +1026,12 @@ test('codex models route preserves duplicate raw model ids and the selected endp
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     const sharedModels = (
       res.body.models as Array<Record<string, unknown>>
     ).filter((model) => model.key === 'shared-model');
@@ -1140,7 +1051,6 @@ test('codex models route preserves duplicate raw model ids and the selected endp
     await stopServer(server);
   }
 });
-
 test('codex models route serves endpoint-only models when Codex auth is missing', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['endpoint-codex-model'],
@@ -1157,14 +1067,11 @@ test('codex models route serves endpoint-only models when Codex auth is missing'
     cliPath: '/usr/bin/codex',
     reason: 'Missing auth.json in /tmp/codex',
   });
-
   const server = await startServer({ mcpAvailable: true });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.equal(res.body.provider, 'codex');
     assert.equal(res.body.available, true);
     assert.equal(res.body.toolsAvailable, true);
@@ -1187,7 +1094,6 @@ test('codex models route serves endpoint-only models when Codex auth is missing'
     await stopServer(server);
   }
 });
-
 test('codex models route keeps degraded bootstrap unavailable even when authless endpoint models exist', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['endpoint-codex-model'],
@@ -1209,14 +1115,11 @@ test('codex models route keeps degraded bootstrap unavailable even when authless
     reason: 'codex bootstrap degraded',
     warnings: ['codex bootstrap degraded warning'],
   });
-
   const server = await startServer({ mcpAvailable: true });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.equal(res.body.available, false);
     assert.equal(res.body.toolsAvailable, false);
     assert.equal(res.body.reason, 'codex bootstrap degraded');
@@ -1232,7 +1135,6 @@ test('codex models route keeps degraded bootstrap unavailable even when authless
     await stopServer(server);
   }
 });
-
 test('codex models route clears stale endpoint identity when the default normalizes back to native', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['shared-model'],
@@ -1251,15 +1153,12 @@ test('codex models route clears stale endpoint identity when the default normali
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.equal(res.body.defaultModel, 'builtin-a');
     assert.equal(res.body.defaultModelSource, 'config');
     assert.equal(res.body.selectedEndpointId, undefined);
@@ -1273,7 +1172,6 @@ test('codex models route clears stale endpoint identity when the default normali
     await stopServer(server);
   }
 });
-
 test('codex models route promotes a pinned endpoint-backed default once and removes the plain duplicate', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['unsloth/gemma-4-26B-A4B-it-qat-GGUF'],
@@ -1296,15 +1194,12 @@ test('codex models route promotes a pinned endpoint-backed default once and remo
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     const matchingModels = (
       res.body.models as Array<Record<string, unknown>>
     ).filter(
@@ -1313,7 +1208,6 @@ test('codex models route promotes a pinned endpoint-backed default once and remo
           .trim()
           .toLowerCase() === 'unsloth/gemma-4-26b-a4b-it-qat-gguf',
     );
-
     assert.equal(res.body.defaultModel, 'unsloth/gemma-4-26B-A4B-it-qat-GGUF');
     assert.equal(res.body.defaultModelSource, 'config');
     assert.equal(res.body.selectedEndpointId, `${externalServer.baseUrl}/v1`);
@@ -1332,7 +1226,6 @@ test('codex models route promotes a pinned endpoint-backed default once and remo
     await stopServer(server);
   }
 });
-
 test('codex models route keeps normalized duplicate endpoint warnings out of the response while preserving them in logs', async (t) => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['alpha'],
@@ -1355,24 +1248,19 @@ test('codex models route keeps normalized duplicate endpoint warnings out of the
     authPresent: true,
     configPresent: true,
   });
-
   const markerPayloads: Array<Record<string, unknown>> = [];
   let server: Awaited<ReturnType<typeof startServer>> | null = null;
-
   try {
     server = await startServer({ mcpAvailable: true });
     env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
     t.mock.method(console, 'info', (...args: unknown[]) => {
       if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
         markerPayloads.push(args[1] as Record<string, unknown>);
       }
     });
-
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.equal(
       (res.body.codexWarnings as string[]).some((warning) =>
         warning.includes('Skipping config-pinned endpoint'),
@@ -1385,7 +1273,6 @@ test('codex models route keeps normalized duplicate endpoint warnings out of the
       ),
       false,
     );
-
     const marker = markerPayloads.at(-1);
     assert.ok(marker);
     assert.equal(
@@ -1400,7 +1287,6 @@ test('codex models route keeps normalized duplicate endpoint warnings out of the
     }
   }
 });
-
 test('codex models route uses the configured endpoint label in endpoint-backed display names', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['shared-model'],
@@ -1415,15 +1301,12 @@ test('codex models route uses the configured endpoint label in endpoint-backed d
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     const endpointBackedModel = (
       res.body.models as Array<Record<string, unknown>>
     ).find(
@@ -1431,14 +1314,12 @@ test('codex models route uses the configured endpoint label in endpoint-backed d
         model.key === 'shared-model' &&
         model.endpointId === `${externalServer.baseUrl}/v1`,
     );
-
     assert.ok(endpointBackedModel);
     assert.equal(endpointBackedModel?.displayName, 'OpenRouter / shared-model');
   } finally {
     await stopServer(server);
   }
 });
-
 test('emits deterministic T12 success log when codex capabilities are returned', async (t) => {
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({
@@ -1446,7 +1327,6 @@ test('emits deterministic T12 success log when codex capabilities are returned',
     authPresent: true,
     configPresent: true,
   });
-
   const infoLines: string[] = [];
   const errorLines: string[] = [];
   t.mock.method(baseLogger, 'info', (...args: unknown[]) => {
@@ -1461,7 +1341,6 @@ test('emits deterministic T12 success log when codex capabilities are returned',
       | undefined;
     if (message) errorLines.push(message);
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
@@ -1487,7 +1366,6 @@ test('emits deterministic T12 success log when codex capabilities are returned',
     await stopServer(server);
   }
 });
-
 test('emits deterministic T13 success log when shared resolver is consumed by /chat/models', async (t) => {
   env.set('Codex_model_list', 'alpha,beta');
   setCodexDetection({
@@ -1495,7 +1373,6 @@ test('emits deterministic T13 success log when shared resolver is consumed by /c
     authPresent: true,
     configPresent: true,
   });
-
   const infoLines: string[] = [];
   t.mock.method(baseLogger, 'info', (...args: unknown[]) => {
     const message = args.find((arg) => typeof arg === 'string') as
@@ -1503,7 +1380,6 @@ test('emits deterministic T13 success log when shared resolver is consumed by /c
       | undefined;
     if (message) infoLines.push(message);
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
@@ -1521,7 +1397,6 @@ test('emits deterministic T13 success log when shared resolver is consumed by /c
     await stopServer(server);
   }
 });
-
 test('emits deterministic T12 error log when codex is unavailable', async (t) => {
   setCodexDetection({
     available: false,
@@ -1529,7 +1404,6 @@ test('emits deterministic T12 error log when codex is unavailable', async (t) =>
     configPresent: false,
     reason: 'missing-cli',
   });
-
   const errorLines: string[] = [];
   t.mock.method(baseLogger, 'error', (...args: unknown[]) => {
     const message = args.find((arg) => typeof arg === 'string') as
@@ -1537,7 +1411,6 @@ test('emits deterministic T12 error log when codex is unavailable', async (t) =>
       | undefined;
     if (message) errorLines.push(message);
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
@@ -1555,14 +1428,12 @@ test('emits deterministic T12 error log when codex is unavailable', async (t) =>
     await stopServer(server);
   }
 });
-
 test('emits deterministic T13 error log when shared resolver metadata path fails intentionally', async (t) => {
   setCodexDetection({
     available: true,
     authPresent: true,
     configPresent: true,
   });
-
   const errorLines: string[] = [];
   t.mock.method(baseLogger, 'error', (...args: unknown[]) => {
     const message = args.find((arg) => typeof arg === 'string') as
@@ -1570,7 +1441,6 @@ test('emits deterministic T13 error log when shared resolver metadata path fails
       | undefined;
     if (message) errorLines.push(message);
   });
-
   const server = await startServer({
     mcpAvailable: true,
     codexCapabilityResolver: (options) =>
@@ -1597,14 +1467,12 @@ test('emits deterministic T13 error log when shared resolver metadata path fails
     await stopServer(server);
   }
 });
-
 test('codex payload includes non-standard reasoning effort values from shared capability resolver', async () => {
   setCodexDetection({
     available: true,
     authPresent: true,
     configPresent: true,
   });
-
   const fixture: CodexCapabilityResolution = {
     defaults: {
       sandboxMode: 'danger-full-access',
@@ -1634,7 +1502,6 @@ test('codex payload includes non-standard reasoning effort values from shared ca
     warnings: [],
     fallbackUsed: false,
   };
-
   const server = await startServer({
     mcpAvailable: true,
     codexCapabilityResolver: async () => fixture,
@@ -1644,7 +1511,6 @@ test('codex payload includes non-standard reasoning effort values from shared ca
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.deepEqual(res.body.models[0].supportedReasoningEfforts, [
       'minimal',
       'turbo',
@@ -1654,25 +1520,22 @@ test('codex payload includes non-standard reasoning effort values from shared ca
     await stopServer(server);
   }
 });
-
 test('codex models prioritize CODEINFO_CHAT_DEFAULT_MODEL when codex is default provider', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
-  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.1');
-  env.set('Codex_model_list', 'config-model,gpt-5.1,gpt-5.2');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.6-luna');
+  env.set('Codex_model_list', 'config-model,gpt-5.6-luna,gpt-5.6-terra');
   setCodexDetection({
     available: true,
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
@@ -1681,7 +1544,6 @@ test('codex models prioritize CODEINFO_CHAT_DEFAULT_MODEL when codex is default 
     await stopServer(server);
   }
 });
-
 test('chat models route returns the merged codex model list while keeping the existing payload shape', async () => {
   await setCodexHome('model = "gamma"\n');
   env.set('Codex_model_list', 'alpha,beta');
@@ -1690,14 +1552,12 @@ test('chat models route returns the merged codex model list while keeping the ex
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.equal(res.body.provider, 'codex');
     assert.equal(typeof res.body.available, 'boolean');
     assert.equal(typeof res.body.toolsAvailable, 'boolean');
@@ -1710,7 +1570,6 @@ test('chat models route returns the merged codex model list while keeping the ex
     await stopServer(server);
   }
 });
-
 test('chat models route rereads codex chat config between requests', async () => {
   const { chatConfigPath } = await setCodexHome('model = "first-model"\n');
   env.set('Codex_model_list', 'alpha,beta');
@@ -1719,30 +1578,24 @@ test('chat models route rereads codex chat config between requests', async () =>
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({ mcpAvailable: true });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const first = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     await fs.writeFile(chatConfigPath, 'model = "second-model"\n', 'utf8');
-
     const second = await request(server.httpServer)
       .get('/chat/models?provider=codex')
       .expect(200);
-
     assert.equal(first.body.models[0].key, 'first-model');
     assert.equal(second.body.models[0].key, 'second-model');
   } finally {
     await stopServer(server);
   }
 });
-
 test('lmstudio models mark provider unavailable when no chat-capable model is returned', async () => {
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
@@ -1759,7 +1612,6 @@ test('lmstudio models mark provider unavailable when no chat-capable model is re
     const res = await request(server.httpServer)
       .get('/chat/models?provider=lmstudio')
       .expect(503);
-
     assert.equal(res.body.provider, 'lmstudio');
     assert.equal(res.body.available, false);
     assert.equal(res.body.toolsAvailable, false);

@@ -4,12 +4,10 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach, mock } from 'node:test';
-
 import type { GetAuthStatusResponse, ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
-
 import {
   __resetProviderBootstrapStatusForTests,
   __setProviderBootstrapStatusForTests,
@@ -23,9 +21,7 @@ import {
 import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
-
 type EnvSnapshot = Map<string, string | undefined>;
-
 const env = {
   snapshot: new Map() as EnvSnapshot,
   set(key: string, value: string | undefined) {
@@ -33,26 +29,31 @@ const env = {
       this.snapshot.set(key, process.env[key]);
     }
     if (value === undefined) {
-      delete process.env[key];
+      clearScopedTestEnvValue(key);
     } else {
-      process.env[key] = value;
+      setScopedTestEnvValue(key, value);
     }
   },
   restore() {
     for (const [key, value] of this.snapshot.entries()) {
       if (value === undefined) {
-        delete process.env[key];
+        clearScopedTestEnvValue(key);
       } else {
-        process.env[key] = value;
+        setScopedTestEnvValue(key, value);
       }
     }
     this.snapshot.clear();
   },
 };
-const tempExternalServers: Array<{ stop: () => Promise<void> }> = [];
-
+const tempExternalServers: Array<{
+  stop: () => Promise<void>;
+}> = [];
 function createClient(
-  models?: Array<{ modelKey: string; displayName: string; type: string }>,
+  models?: Array<{
+    modelKey: string;
+    displayName: string;
+    type: string;
+  }>,
 ): LMStudioClient {
   return {
     system: {
@@ -60,7 +61,6 @@ function createClient(
     },
   } as unknown as LMStudioClient;
 }
-
 async function startServer(params: {
   mcpAvailable?: boolean;
   copilotModels?: ModelInfo[];
@@ -74,7 +74,6 @@ async function startServer(params: {
 }) {
   const app = express();
   app.use(express.json());
-
   app.post('/mcp', (_req, res) => {
     if (params.mcpAvailable ?? true) {
       res.json({ result: { ok: true } });
@@ -82,14 +81,12 @@ async function startServer(params: {
       res.status(200).json({ error: { message: 'unavailable' } });
     }
   });
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'chat-models-copilot',
     authStatus: params.authStatus,
     models: params.copilotModels,
     startError: params.startError,
   });
-
   app.use(
     '/chat',
     createChatModelsRouter({
@@ -104,25 +101,21 @@ async function startServer(params: {
       copilotRuntimeFactory: () => copilotHarness.createLifecycle(),
     }),
   );
-
   const httpServer = http.createServer(app);
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const address = httpServer.address();
   assert(address && typeof address === 'object');
   env.set('CODEINFO_SERVER_PORT', String(address.port));
   env.set('MCP_URL', `http://127.0.0.1:${address.port}/mcp`);
-
   return {
     httpServer,
   };
 }
-
 async function stopServer(server: { httpServer: http.Server }) {
   await new Promise<void>((resolve) =>
     server.httpServer.close(() => resolve()),
   );
 }
-
 beforeEach(() => {
   resetMcpStatusCache();
   __resetProviderBootstrapStatusForTests();
@@ -135,7 +128,6 @@ beforeEach(() => {
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
 });
-
 afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
@@ -145,17 +137,14 @@ afterEach(async () => {
   }
   mock.restoreAll();
 });
-
 test('copilot models route returns readiness-driven unavailable response before discovery', async () => {
   const server = await startServer({
     startError: new Error('copilot offline'),
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=copilot')
       .expect(200);
-
     assert.equal(res.body.provider, 'copilot');
     assert.equal(res.body.available, false);
     assert.equal(res.body.toolsAvailable, false);
@@ -165,17 +154,14 @@ test('copilot models route returns readiness-driven unavailable response before 
     await stopServer(server);
   }
 });
-
 test('copilot models route handles an empty model list deterministically', async () => {
   const server = await startServer({
     copilotModels: [],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=copilot')
       .expect(200);
-
     assert.equal(res.body.provider, 'copilot');
     assert.equal(res.body.available, false);
     assert.equal(res.body.toolsAvailable, false);
@@ -185,13 +171,11 @@ test('copilot models route handles an empty model list deterministically', async
     await stopServer(server);
   }
 });
-
 test('copilot models route keeps top-level availability aligned with degraded bootstrap status', async () => {
   __setProviderBootstrapStatusForTests('copilot', {
     healthy: false,
     reason: 'copilot bootstrap degraded',
   });
-
   const server = await startServer({
     copilotModels: [
       {
@@ -200,12 +184,10 @@ test('copilot models route keeps top-level availability aligned with degraded bo
       } as ModelInfo,
     ],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=copilot')
       .expect(200);
-
     assert.equal(res.body.provider, 'copilot');
     assert.equal(res.body.available, false);
     assert.equal(res.body.toolsAvailable, false);
@@ -218,7 +200,6 @@ test('copilot models route keeps top-level availability aligned with degraded bo
     await stopServer(server);
   }
 });
-
 test('chat models route rejects malformed provider query values deterministically', async () => {
   const server = await startServer({
     copilotModels: [
@@ -228,12 +209,10 @@ test('chat models route rejects malformed provider query values deterministicall
       } as ModelInfo,
     ],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=bogus')
       .expect(400);
-
     assert.deepEqual(res.body, {
       error: 'invalid_request',
       message: 'provider must be one of: codex, copilot, lmstudio',
@@ -242,7 +221,6 @@ test('chat models route rejects malformed provider query values deterministicall
     await stopServer(server);
   }
 });
-
 test('copilot models route maps only verified shared-contract fields and logs ignored extras', async () => {
   const tempCopilotHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-models-copilot-home-'),
@@ -254,7 +232,6 @@ test('copilot models route maps only verified shared-contract fields and logs ig
       markerPayloads.push(first as Record<string, unknown>);
     }
   });
-
   const server = await startServer({
     copilotModels: [
       {
@@ -276,12 +253,10 @@ test('copilot models route maps only verified shared-contract fields and logs ig
       } as ModelInfo,
     ],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=copilot')
       .expect(200);
-
     assert.equal(res.body.provider, 'copilot');
     assert.equal(res.body.available, true);
     assert.equal(res.body.toolsAvailable, true);
@@ -321,7 +296,6 @@ test('copilot models route maps only verified shared-contract fields and logs ig
       'experimentalMetadata' in (res.body.models[0] as Record<string, unknown>),
       false,
     );
-
     const marker = markerPayloads.at(-1);
     assert.ok(marker);
     assert.equal(marker.provider, 'copilot');
@@ -332,7 +306,6 @@ test('copilot models route maps only verified shared-contract fields and logs ig
     await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }
 });
-
 test('copilot models route keeps selector-aligned default-model metadata when a stale configured model must be repaired on the same provider', async () => {
   const tempCopilotHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-models-copilot-normalized-home-'),
@@ -344,7 +317,6 @@ test('copilot models route keeps selector-aligned default-model metadata when a 
     'utf8',
   );
   env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
-
   const server = await startServer({
     copilotModels: [
       {
@@ -359,12 +331,10 @@ test('copilot models route keeps selector-aligned default-model metadata when a 
       } as ModelInfo,
     ],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=copilot')
       .expect(200);
-
     assert.equal(res.body.defaultModel, 'gpt-5-mini');
     assert.equal(res.body.providerInfo.defaultModel, 'gpt-5-mini');
     assert.equal(res.body.models[0]?.key, 'gpt-5-mini');
@@ -388,7 +358,6 @@ test('copilot models route keeps selector-aligned default-model metadata when a 
     await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }
 });
-
 test('copilot models route includes external completions endpoints and filters out unsupported capability endpoints', async () => {
   const completionsServer = await startExternalOpenAiCompatServer({
     models: ['external-copilot'],
@@ -405,7 +374,6 @@ test('copilot models route includes external completions endpoints and filters o
       '',
     ].join(';'),
   );
-
   const server = await startServer({
     copilotModels: [
       {
@@ -414,12 +382,10 @@ test('copilot models route includes external completions endpoints and filters o
       } as ModelInfo,
     ],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=copilot')
       .expect(200);
-
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
@@ -435,7 +401,6 @@ test('copilot models route includes external completions endpoints and filters o
     await stopServer(server);
   }
 });
-
 test('copilot models route preserves duplicate raw model ids across distinct endpoint identities', async () => {
   const firstServer = await startExternalOpenAiCompatServer({
     models: ['shared-copilot-model'],
@@ -451,7 +416,6 @@ test('copilot models route preserves duplicate raw model ids across distinct end
       `${secondServer.baseUrl}/v1|completions`,
     ].join(';'),
   );
-
   const server = await startServer({
     copilotModels: [
       {
@@ -460,12 +424,10 @@ test('copilot models route preserves duplicate raw model ids across distinct end
       } as ModelInfo,
     ],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=copilot')
       .expect(200);
-
     const sharedModels = (
       res.body.models as Array<Record<string, unknown>>
     ).filter((model) => model.key === 'shared-copilot-model');
@@ -478,7 +440,6 @@ test('copilot models route preserves duplicate raw model ids across distinct end
     await stopServer(server);
   }
 });
-
 test('copilot models route serves endpoint-only models when Copilot auth is missing', async () => {
   const completionsServer = await startExternalOpenAiCompatServer({
     models: ['endpoint-copilot-model'],
@@ -488,7 +449,6 @@ test('copilot models route serves endpoint-only models when Copilot auth is miss
     'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
     `${completionsServer.baseUrl}/v1|completions`,
   );
-
   const server = await startServer({
     authStatus: {
       isAuthenticated: false,
@@ -497,12 +457,10 @@ test('copilot models route serves endpoint-only models when Copilot auth is miss
     },
     copilotModels: [],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=copilot')
       .expect(200);
-
     assert.equal(res.body.provider, 'copilot');
     assert.equal(res.body.available, true);
     assert.equal(res.body.toolsAvailable, true);
@@ -526,7 +484,6 @@ test('copilot models route serves endpoint-only models when Copilot auth is miss
     await stopServer(server);
   }
 });
-
 test('copilot models route keeps connectivity failures unavailable even when endpoint models exist', async () => {
   const completionsServer = await startExternalOpenAiCompatServer({
     models: ['endpoint-copilot-model'],
@@ -536,17 +493,14 @@ test('copilot models route keeps connectivity failures unavailable even when end
     'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
     `${completionsServer.baseUrl}/v1|completions`,
   );
-
   const server = await startServer({
     startError: new Error('copilot runtime offline'),
     copilotModels: [],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=copilot')
       .expect(200);
-
     assert.equal(res.body.available, false);
     assert.equal(res.body.toolsAvailable, false);
     assert.equal(res.body.reason, 'copilot connectivity unavailable');
@@ -562,7 +516,6 @@ test('copilot models route keeps connectivity failures unavailable even when end
     await stopServer(server);
   }
 });
-
 test('chat providers route keeps same-model-first fallback metadata instead of surfacing the first advertised fallback model', async () => {
   const tempCopilotHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-providers-copilot-fallback-home-'),
@@ -575,8 +528,7 @@ test('chat providers route keeps same-model-first fallback metadata instead of s
   );
   env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
   const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
-  process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = 'copilot';
-
+  setScopedTestEnvValue('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
   const server = await startServer({
     startError: new Error('copilot offline'),
     lmstudioModels: [
@@ -592,12 +544,10 @@ test('chat providers route keeps same-model-first fallback metadata instead of s
       },
     ],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.selectedProvider, 'lmstudio');
     assert.equal(res.body.selectedModel, 'copilot-gpt-5');
     assert.equal(res.body.fallbackApplied, true);
@@ -605,15 +555,17 @@ test('chat providers route keeps same-model-first fallback metadata instead of s
     assert.equal(res.body.providers[0]?.defaultModel, 'copilot-gpt-5');
   } finally {
     if (originalDefaultProvider === undefined) {
-      delete process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+      clearScopedTestEnvValue('CODEINFO_CHAT_DEFAULT_PROVIDER');
     } else {
-      process.env.CODEINFO_CHAT_DEFAULT_PROVIDER = originalDefaultProvider;
+      setScopedTestEnvValue(
+        'CODEINFO_CHAT_DEFAULT_PROVIDER',
+        originalDefaultProvider,
+      );
     }
     await stopServer(server);
     await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }
 });
-
 test('copilot models route degrades malformed chat defaults to warnings instead of failing discovery', async () => {
   const tempCopilotHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-models-copilot-malformed-home-'),
@@ -673,7 +625,6 @@ test('copilot models route degrades malformed chat defaults to warnings instead 
     await fs.rm(tempCopilotHome, { recursive: true, force: true });
   }
 });
-
 test('copilot models route clamps unsupported configured defaults to the runtime-supported Copilot defaults', async () => {
   const tempCopilotHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'chat-models-copilot-unsupported-home-'),
@@ -685,7 +636,6 @@ test('copilot models route clamps unsupported configured defaults to the runtime
     'utf8',
   );
   env.set('CODEINFO_COPILOT_HOME', tempCopilotHome);
-
   const server = await startServer({
     copilotModels: [
       {
@@ -696,12 +646,10 @@ test('copilot models route clamps unsupported configured defaults to the runtime
       } as ModelInfo,
     ],
   });
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/models?provider=copilot')
       .expect(200);
-
     assert.equal(res.body.provider, 'copilot');
     assert.deepEqual(
       res.body.agentFlags.map(

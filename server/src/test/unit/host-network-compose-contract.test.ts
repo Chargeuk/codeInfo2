@@ -320,6 +320,31 @@ test('main-stack manual agent catalog covers every reachable production flow age
   }
 });
 
+test('main-stack sandbox publishes the approved GitHub-review flow closure with its Luna controller', () => {
+  for (const flowName of [
+    'implement_next_plan_github_review',
+    'two_phase_review_cycle',
+    'review_batch',
+    'codex_review',
+    'cross_repository_review',
+    'review_artifacts_main',
+    'copilot_review',
+  ]) {
+    assert.equal(
+      readRepoFile(`flows-sandbox/${flowName}.json`),
+      readRepoFile(`flows/${flowName}.json`),
+      `main-stack sandbox must publish ${flowName} from the approved flow closure`,
+    );
+  }
+
+  const loopController = readRepoFile(
+    'manual_testing/codeinfo_agents/loop_control_agent/config.toml',
+  );
+  assert.match(loopController, /^codeinfo_provider = "codex"$/mu);
+  assert.match(loopController, /^model = "gpt-5\.6-luna"$/mu);
+  assert.match(loopController, /^model_reasoning_effort = "low"$/mu);
+});
+
 test('e2e server host-network contract removes checked-in runtime-tree mounts', () => {
   const e2eCompose = readRepoFile('docker-compose.e2e.yml');
   const e2eServer = getServiceBlock(e2eCompose, 'server');

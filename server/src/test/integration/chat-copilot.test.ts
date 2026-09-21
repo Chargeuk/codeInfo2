@@ -1,13 +1,27 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import nodeTest from 'node:test';
 
 import request from 'supertest';
 
 import { memoryConversations } from '../../chat/memoryPersistence.js';
 import {
+  beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
+} from '../support/processEnvIsolation.js';
+import {
   startCopilotChatServer,
   waitForAssistantTurn,
 } from './support/copilotChatHarness.js';
+
+const test = (name: string, fn: () => Promise<void> | void) =>
+  nodeTest(name, async () => {
+    beginScopedTestEnvIsolation();
+    try {
+      await fn();
+    } finally {
+      endScopedTestEnvIsolation();
+    }
+  });
 
 test('copilot chat persists a conversation and resumes the same session identity on a follow-up turn', async () => {
   const server = await startCopilotChatServer({

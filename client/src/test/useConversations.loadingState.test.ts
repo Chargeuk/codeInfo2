@@ -31,7 +31,12 @@ describe('useConversations loading state', () => {
         return new Promise<Response>((resolve, reject) => {
           resolveCalls.push(resolve);
           const signal = init?.signal;
-          signal?.addEventListener('abort', () => reject(makeAbortError()), {
+          const rejectAbort = () => reject(makeAbortError());
+          if (signal?.aborted) {
+            rejectAbort();
+            return;
+          }
+          signal?.addEventListener('abort', rejectAbort, {
             once: true,
           });
         });

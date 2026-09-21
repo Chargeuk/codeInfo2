@@ -15,6 +15,7 @@ import { updateConversationThreadId } from '../../mongo/repo.js';
 import type { TurnUsageMetadata } from '../../mongo/turn.js';
 import { refreshCodexDetection } from '../../providers/codexDetection.js';
 import { getCodexDetection } from '../../providers/codexRegistry.js';
+import { getScopedEnvValue } from '../../test/support/testEnvOverrideScope.js';
 import {
   memoryConversations,
   shouldUseMemoryPersistence,
@@ -312,8 +313,8 @@ export class ChatInterfaceCodex extends ChatInterface {
 
     const codexWorkingDirectory =
       workingDirectoryOverride ??
-      process.env.CODEX_WORKDIR ??
-      process.env.CODEINFO_CODEX_WORKDIR ??
+      getScopedEnvValue('CODEX_WORKDIR') ??
+      getScopedEnvValue('CODEINFO_CODEX_WORKDIR') ??
       '/data';
 
     const effectiveRuntimeConfig =

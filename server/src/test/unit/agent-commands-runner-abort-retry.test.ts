@@ -81,6 +81,10 @@ test('command runner stops remaining steps after abortAgentCommandRun is called'
         if (params.command?.stepIndex === 1) {
           resolveStarted?.();
           await new Promise<void>((resolve) => {
+            if (params.signal?.aborted) {
+              resolve();
+              return;
+            }
             params.signal?.addEventListener('abort', () => resolve(), {
               once: true,
             });
@@ -289,6 +293,10 @@ test('command stop cleanup fallback still releases pending runtime state when lo
       runAgentInstructionUnlocked: async (params) => {
         resolveStarted?.();
         await new Promise<void>((resolve) => {
+          if (params.signal?.aborted) {
+            resolve();
+            return;
+          }
           params.signal?.addEventListener('abort', () => resolve(), {
             once: true,
           });

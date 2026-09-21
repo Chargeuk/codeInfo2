@@ -2,7 +2,7 @@ import { ChromaClient } from 'chromadb';
 
 const DEFAULT_CHROMA_URL = 'http://localhost:8300';
 const DEFAULT_ROOTS_COLLECTION = 'ingest_roots';
-const DEFAULT_EMBEDDING_DIMENSIONS = 1536;
+const DEFAULT_EMBEDDING_DIMENSIONS = 768;
 
 const trimToUndefined = (value) => {
   if (typeof value !== 'string') return undefined;

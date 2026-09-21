@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
-
 import {
   getCodexEnvDefaults,
   getCodexModelList,
   mergeCodexModelList,
 } from '../../config/codexEnvDefaults.js';
-
 const ENV_KEYS = [
   'Codex_sandbox_mode',
   'Codex_approval_policy',
@@ -15,40 +13,35 @@ const ENV_KEYS = [
   'Codex_web_search_enabled',
   'Codex_model_list',
 ];
-
 const originalEnv = new Map<string, string | undefined>();
-
 const setEnv = (values: Record<string, string | undefined>) => {
   ENV_KEYS.forEach((key) => {
     if (Object.prototype.hasOwnProperty.call(values, key)) {
       const value = values[key];
       if (value === undefined) {
-        delete process.env[key];
+        clearScopedTestEnvValue(key);
       } else {
-        process.env[key] = value;
+        setScopedTestEnvValue(key, value);
       }
     }
   });
 };
-
 beforeEach(() => {
   ENV_KEYS.forEach((key) => {
     originalEnv.set(key, process.env[key]);
-    delete process.env[key];
+    clearScopedTestEnvValue(key);
   });
 });
-
 afterEach(() => {
   ENV_KEYS.forEach((key) => {
     const value = originalEnv.get(key);
     if (value === undefined) {
-      delete process.env[key];
+      clearScopedTestEnvValue(key);
     } else {
-      process.env[key] = value;
+      setScopedTestEnvValue(key, value);
     }
   });
 });
-
 test('tracked Codex_* env values remain the live product-default contract when present', () => {
   setEnv({
     Codex_sandbox_mode: 'workspace-write',
@@ -57,9 +50,7 @@ test('tracked Codex_* env values remain the live product-default contract when p
     Codex_network_access_enabled: 'true',
     Codex_web_search_enabled: 'false',
   });
-
   const { defaults, warnings } = getCodexEnvDefaults();
-
   assert.deepEqual(defaults, {
     sandboxMode: 'workspace-write',
     approvalPolicy: 'on-request',
@@ -69,10 +60,8 @@ test('tracked Codex_* env values remain the live product-default contract when p
   });
   assert.equal(warnings.length, 0);
 });
-
 test('parser falls back cleanly when Codex_* env values are absent', () => {
   const { defaults, warnings } = getCodexEnvDefaults();
-
   assert.deepEqual(defaults, {
     sandboxMode: 'danger-full-access',
     approvalPolicy: 'on-request',
@@ -82,7 +71,6 @@ test('parser falls back cleanly when Codex_* env values are absent', () => {
   });
   assert.equal(warnings.length, 0);
 });
-
 test('invalid enum values and empty strings warn + fall back', () => {
   setEnv({
     Codex_sandbox_mode: 'invalid-mode',
@@ -90,9 +78,7 @@ test('invalid enum values and empty strings warn + fall back', () => {
     Codex_reasoning_effort: '   ',
     Codex_network_access_enabled: 'false',
   });
-
   const { defaults, warnings } = getCodexEnvDefaults();
-
   assert.equal(defaults.sandboxMode, 'danger-full-access');
   assert.equal(defaults.approvalPolicy, 'on-request');
   assert.equal(defaults.modelReasoningEffort, 'high');
@@ -112,16 +98,13 @@ test('invalid enum values and empty strings warn + fall back', () => {
     ),
   );
 });
-
 test('boolean parsing handles valid and invalid values', () => {
   setEnv({
     Codex_sandbox_mode: 'workspace-write',
     Codex_network_access_enabled: 'TRUE',
     Codex_web_search_enabled: 'not-bool',
   });
-
   const { defaults, warnings } = getCodexEnvDefaults();
-
   assert.equal(defaults.networkAccessEnabled, true);
   assert.equal(defaults.webSearchEnabled, true);
   assert.ok(
@@ -130,7 +113,6 @@ test('boolean parsing handles valid and invalid values', () => {
     ),
   );
 });
-
 test('mergeCodexModelList preserves env order and appends chat config model only when missing', () => {
   assert.deepEqual(mergeCodexModelList(['alpha', 'beta'], 'gamma'), [
     'alpha',
@@ -143,7 +125,6 @@ test('mergeCodexModelList preserves env order and appends chat config model only
     'beta',
   ]);
 });
-
 test('empty Codex_model_list still falls back to the parser-owned model defaults', () => {
   setEnv({
     Codex_model_list: '   ',
@@ -152,8 +133,12 @@ test('empty Codex_model_list still falls back to the parser-owned model defaults
   const { models, warnings, fallbackUsed } = getCodexModelList();
 
   assert.equal(fallbackUsed, true);
-  assert.equal(models.includes('gpt-5.3-codex'), false);
-  assert.equal(models.includes('gpt-5.3-codex-spark'), true);
+  assert.deepEqual(models, [
+    'gpt-5.6-sol',
+    'gpt-5.6-terra',
+    'gpt-5.6-luna',
+    'gpt-6-astra',
+  ]);
   assert.ok(
     warnings.some((warning) => warning.includes('Codex_model_list is empty')),
   );

@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { buildOpenAiCompatProxyBaseUrl } from '../chat/openaiCompatAdapter.js';
 import { baseLogger } from '../logger.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import {
   resolveCodeinfoMcpEndpointContract,
   resolveRequiredCodeinfoPlaceholderValue,
@@ -17,7 +18,7 @@ import {
 const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
 
 const defaultCodexConfigTemplate = `model = "gpt-5.6-sol"
-model_reasoning_effort = "xhigh"
+model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
 personality = "pragmatic"
@@ -54,8 +55,21 @@ trust_level = "trusted"
 `;
 
 export function resolveCodexHome(overrideHome?: string): string {
+  const testProviderHomeRoot = getScopedEnvValue(
+    'CODEINFO_TEST_PROVIDER_HOME_ROOT',
+  );
   const defaultHome =
-    process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME ?? './codex';
+    getScopedEnvValue('CODEINFO_CODEX_HOME') ??
+    getScopedEnvValue('CODEX_HOME') ??
+    (typeof testProviderHomeRoot === 'string' &&
+    testProviderHomeRoot.trim().length > 0
+      ? path.join(
+          path.resolve(testProviderHomeRoot),
+          `pid-${process.pid}`,
+          'codex',
+        )
+      : undefined) ??
+    './codex';
   return path.resolve(overrideHome ?? defaultHome);
 }
 

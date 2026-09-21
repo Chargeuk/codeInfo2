@@ -4,7 +4,8 @@ import path from 'node:path';
 
 export const SUMMARY_WRAPPER_HEARTBEAT_ENV = 'SUMMARY_WRAPPER_HEARTBEAT_MS';
 export const DEFAULT_SUMMARY_WRAPPER_HEARTBEAT_MS = 60_000;
-export const DEFAULT_SUMMARY_WRAPPER_PROGRESS_STALL_MS = 5 * 60_000;
+export const DEFAULT_SUMMARY_WRAPPER_PROGRESS_STALL_MS =
+  Number.POSITIVE_INFINITY;
 export const DEFAULT_SUMMARY_WRAPPER_TERMINAL_GRACE_MS = 30_000;
 export const SUMMARY_WRAPPER_DEBUG_LIFECYCLE_ENV =
   'CODEINFO_DEBUG_WRAPPER_LIFECYCLE';
@@ -205,6 +206,7 @@ export const runLoggedCommand = ({
   terminalSummaryPatterns = [],
   semanticProgressStallMs = DEFAULT_SUMMARY_WRAPPER_PROGRESS_STALL_MS,
   terminalSummaryGraceMs = DEFAULT_SUMMARY_WRAPPER_TERMINAL_GRACE_MS,
+  progressWatchdogIntervalMs = 15_000,
 }) =>
   new Promise((resolve) => {
     if (phase) {
@@ -259,6 +261,9 @@ export const runLoggedCommand = ({
       if (kind === 'terminal_summary') {
         terminalSummaryLine = line;
         terminalSummaryAt = lastProgressAt;
+      } else {
+        terminalSummaryLine = '';
+        terminalSummaryAt = 0;
       }
     };
 
@@ -347,7 +352,7 @@ export const runLoggedCommand = ({
         ) {
           triggerWatchdog('semantic_progress_stalled', lastProgressLine);
         }
-      }, 15_000);
+      }, progressWatchdogIntervalMs);
       progressWatchdog.unref?.();
     }
 

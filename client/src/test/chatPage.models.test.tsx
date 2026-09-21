@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -170,15 +171,15 @@ function mockCodexModelNextSendApi() {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
                 supportedReasoningEfforts: ['high', 'xhigh'],
                 defaultReasoningEffort: 'high',
               },
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 supportedReasoningEfforts: ['minimal'],
                 defaultReasoningEffort: 'minimal',
@@ -197,7 +198,7 @@ function mockCodexModelNextSendApi() {
                 conversationId: 'draft-conversation',
                 role: 'user',
                 content: 'Earlier prompt',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 provider: 'codex',
                 toolCalls: null,
                 status: 'ok',
@@ -207,7 +208,7 @@ function mockCodexModelNextSendApi() {
                 conversationId: 'draft-conversation',
                 role: 'assistant',
                 content: 'Earlier reply',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 provider: 'codex',
                 toolCalls: null,
                 status: 'ok',
@@ -242,7 +243,7 @@ function mockCodexModelNextSendApi() {
                 conversationId: 'draft-conversation',
                 title: 'Draft conversation',
                 provider: 'codex',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 source: 'REST',
                 lastMessageAt: '2025-01-01T00:00:03.000Z',
                 archived: false,
@@ -613,8 +614,8 @@ describe('Chat page models list', () => {
             toolsAvailable: true,
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],
@@ -634,7 +635,7 @@ describe('Chat page models list', () => {
     });
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5.1-codex-max/i,
+        /gpt-5.6-luna/i,
       ),
     );
 
@@ -674,7 +675,7 @@ describe('Chat page models list', () => {
               },
             ],
             selectedProvider: 'codex',
-            selectedModel: 'gpt-5.2',
+            selectedModel: 'gpt-5.6-terra',
             selectedEndpointId: 'https://alpha.example/base/v1',
           });
         }
@@ -688,18 +689,18 @@ describe('Chat page models list', () => {
               label: 'OpenAI Codex',
               available: true,
               toolsAvailable: true,
-              defaultModel: 'gpt-5.2',
+              defaultModel: 'gpt-5.6-terra',
             },
             models: [
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 endpointId: 'https://alpha.example/base/v1',
               },
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 endpointId: 'https://alpha.example/alt/v1',
               },
@@ -717,18 +718,21 @@ describe('Chat page models list', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.2 \(alpha\.example \/ base\)/i,
+        /gpt-5\.6-terra \(alpha\.example \/ base\)/i,
       ),
     );
 
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
 
     const baseOption = screen.getByRole('option', {
-      name: /gpt-5\.2 \(alpha\.example \/ base\)/i,
+      name: /gpt-5\.6-terra \(alpha\.example \/ base\)/i,
     });
     const altOption = screen.getByRole('option', {
-      name: /gpt-5\.2 \(alpha\.example \/ alt\)/i,
+      name: /gpt-5\.6-terra \(alpha\.example \/ alt\)/i,
     });
     expect(baseOption).toHaveAttribute('aria-selected', 'true');
     expect(altOption).toHaveAttribute('aria-selected', 'false');
@@ -737,16 +741,22 @@ describe('Chat page models list', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.2 \(alpha\.example \/ alt\)/i,
+        /gpt-5\.6-terra \(alpha\.example \/ alt\)/i,
       ),
     );
 
-    await user.click(screen.getByRole('combobox', { name: /model/i }));
+    const refreshedModelSelect = screen.getByRole('combobox', {
+      name: /model/i,
+    });
+    await waitFor(() =>
+      expect(refreshedModelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
+    await user.click(refreshedModelSelect);
     const refreshedBaseOption = screen.getByRole('option', {
-      name: /gpt-5\.2 \(alpha\.example \/ base\)/i,
+      name: /gpt-5\.6-terra \(alpha\.example \/ base\)/i,
     });
     const refreshedAltOption = screen.getByRole('option', {
-      name: /gpt-5\.2 \(alpha\.example \/ alt\)/i,
+      name: /gpt-5\.6-terra \(alpha\.example \/ alt\)/i,
     });
     expect(refreshedBaseOption).toHaveAttribute('aria-selected', 'false');
     expect(refreshedAltOption).toHaveAttribute('aria-selected', 'true');
@@ -868,15 +878,15 @@ describe('Chat page models list', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
                 supportedReasoningEfforts: ['minimal', 'high', 'xhigh'],
                 defaultReasoningEffort: 'minimal',
               },
               {
-                key: 'gpt-5.2-codex',
-                displayName: 'gpt-5.2-codex',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 supportedReasoningEfforts: ['minimal'],
                 defaultReasoningEffort: 'minimal',
@@ -910,9 +920,12 @@ describe('Chat page models list', () => {
     });
 
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await userEvent.click(modelSelect);
     await userEvent.click(
-      await screen.findByRole('option', { name: /gpt-5.2-codex/i }),
+      await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
     );
 
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
@@ -923,78 +936,84 @@ describe('Chat page models list', () => {
     expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
   });
 
-  it('shows provider-aware brand icons in the model selector rows', async () => {
-    mockFetch.mockImplementation(
-      asFetchImplementation(async (url: RequestInfo | URL) => {
-        const target = typeof url === 'string' ? url : url.toString();
-        if (target.includes('/health')) {
-          return mockJsonResponse({ mongoConnected: true });
-        }
-        if (target.includes('/conversations')) {
-          return mockJsonResponse({ items: [], nextCursor: null });
-        }
-        if (target.includes('/chat/providers')) {
-          return mockJsonResponse({
-            providers: [
-              {
-                id: 'copilot',
-                label: 'GitHub Copilot',
-                available: true,
-                toolsAvailable: true,
-              },
-            ],
-          });
-        }
-        if (target.includes('/chat/models')) {
-          return mockJsonResponse({
-            provider: 'copilot',
-            available: true,
-            toolsAvailable: true,
-            models: [
-              { key: 'auto', displayName: 'Auto', type: 'copilot' },
-              {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
-                type: 'copilot',
-              },
-              {
-                key: 'claude-sonnet-4.6',
-                displayName: 'Claude Sonnet 4.6',
-                type: 'copilot',
-              },
-            ],
-          });
-        }
-        return mockJsonResponse({});
-      }),
-    );
+  it(
+    'shows provider-aware brand icons in the model selector rows',
+    async () => {
+      mockFetch.mockImplementation(
+        asFetchImplementation(async (url: RequestInfo | URL) => {
+          const target = typeof url === 'string' ? url : url.toString();
+          if (target.includes('/health')) {
+            return mockJsonResponse({ mongoConnected: true });
+          }
+          if (target.includes('/conversations')) {
+            return mockJsonResponse({ items: [], nextCursor: null });
+          }
+          if (target.includes('/chat/providers')) {
+            return mockJsonResponse({
+              providers: [
+                {
+                  id: 'copilot',
+                  label: 'GitHub Copilot',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+            });
+          }
+          if (target.includes('/chat/models')) {
+            return mockJsonResponse({
+              provider: 'copilot',
+              available: true,
+              toolsAvailable: true,
+              models: [
+                { key: 'auto', displayName: 'Auto', type: 'copilot' },
+                {
+                  key: 'gpt-5.6-terra',
+                  displayName: 'gpt-5.6-terra',
+                  type: 'copilot',
+                },
+                {
+                  key: 'claude-sonnet-4.6',
+                  displayName: 'Claude Sonnet 4.6',
+                  type: 'copilot',
+                },
+              ],
+            });
+          }
+          return mockJsonResponse({});
+        }),
+      );
 
-    const router = createMemoryRouter(routes, {
-      initialEntries: ['/chat'],
-    });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, {
+        initialEntries: ['/chat'],
+      });
+      render(<RouterProvider router={router} />);
 
-    await waitFor(() =>
+      await waitFor(() =>
+        expect(
+          screen.getByRole('combobox', { name: /model/i }),
+        ).not.toHaveAttribute('aria-disabled', 'true'),
+      );
+      await userEvent.click(
+        await screen.findByRole('combobox', { name: /model/i }),
+      );
+
+      const autoOption = await screen.findByRole('option', { name: /^auto$/i });
+      const gptOption = await screen.findByRole('option', {
+        name: /gpt-5\.6-terra/i,
+      });
+      const claudeOption = await screen.findByRole('option', {
+        name: /claude sonnet 4\.6/i,
+      });
+
       expect(
-        screen.getByRole('combobox', { name: /model/i }),
-      ).not.toHaveAttribute('aria-disabled', 'true'),
-    );
-    await userEvent.click(
-      await screen.findByRole('combobox', { name: /model/i }),
-    );
-
-    const autoOption = await screen.findByRole('option', { name: /^auto$/i });
-    const gptOption = await screen.findByRole('option', { name: /gpt-5\.2/i });
-    const claudeOption = await screen.findByRole('option', {
-      name: /claude sonnet 4\.6/i,
-    });
-
-    expect(
-      within(autoOption).getByAltText(/github copilot logo/i),
-    ).toBeVisible();
-    expect(within(gptOption).getByAltText(/openai logo/i)).toBeVisible();
-    expect(within(claudeOption).getByAltText(/claude logo/i)).toBeVisible();
-  }, 30000);
+        within(autoOption).getByAltText(/github copilot logo/i),
+      ).toBeVisible();
+      expect(within(gptOption).getByAltText(/openai logo/i)).toBeVisible();
+      expect(within(claudeOption).getByAltText(/claude logo/i)).toBeVisible();
+    },
+    resolveClientTestTimeoutMs(30000),
+  );
 
   it('groups model options by source first, preserves family sections within each source, and keeps a visible search filter', async () => {
     const user = userEvent.setup();
@@ -1035,8 +1054,8 @@ describe('Chat page models list', () => {
                 type: 'copilot',
               },
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'copilot',
               },
               {
@@ -1099,6 +1118,9 @@ describe('Chat page models list', () => {
     render(<RouterProvider router={router} />);
 
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
 
     expect(await screen.findByTestId('chat-model-search')).toBeVisible();
@@ -1127,7 +1149,7 @@ describe('Chat page models list', () => {
     expect(optionNames).toEqual([
       'Claude Sonnet 4.6',
       'Auto',
-      'gpt-5.2',
+      'gpt-5.6-terra',
       'OpenRouter / moonshotai/kimi-k2.6',
       'OpenRouter / moonshotai/kimi-k2.7-code',
       'OpenRouter / nvidia/nemotron-3-super-120b-a12b',
@@ -1193,8 +1215,8 @@ describe('Chat page models list', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.3-experimental',
-                displayName: 'gpt-5.3-experimental',
+                key: 'gpt-5.6-experimental',
+                displayName: 'gpt-5.6-experimental',
                 type: 'codex',
                 supportedReasoningEfforts: ['turbo-max'],
                 defaultReasoningEffort: 'turbo-max',
@@ -1237,9 +1259,7 @@ describe('Chat page models list', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent(/gpt-5.1-codex-max/i),
-    );
+    await waitFor(() => expect(modelSelect).toHaveTextContent(/gpt-5.6-luna/i));
     const input = await screen.findByTestId('chat-input');
     await user.type(input, 'Keep this run going');
     await act(async () => {
@@ -1248,11 +1268,18 @@ describe('Chat page models list', () => {
 
     await waitFor(() => expect(chatBodies).toHaveLength(1));
 
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
-    await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+    await user.click(
+      await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
+    );
 
     await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.2/i),
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5.6-terra/i,
+      ),
     );
 
     const cancelMessages = getWsMessages().filter(
@@ -1263,103 +1290,130 @@ describe('Chat page models list', () => {
     expect(cancelMessages).toHaveLength(0);
   });
 
-  it('uses the newly selected model only for the next send while the hidden run keeps its persisted model', async () => {
-    const { chatBodies } = mockCodexModelNextSendApi();
-    const router = createMemoryRouter(routes, {
-      initialEntries: ['/chat'],
-    });
-    render(<RouterProvider router={router} />);
+  it(
+    'uses the newly selected model only for the next send while the hidden run keeps its persisted model',
+    async () => {
+      const { chatBodies } = mockCodexModelNextSendApi();
+      const router = createMemoryRouter(routes, {
+        initialEntries: ['/chat'],
+      });
+      render(<RouterProvider router={router} />);
 
-    const user = userEvent.setup();
-    const modelSelect = await screen.findByRole('combobox', {
-      name: /model/i,
-    });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent(/gpt-5.1-codex-max/i),
-    );
-    const input = await screen.findByTestId('chat-input');
-    await user.type(input, 'Start with the default model');
-    await act(async () => {
-      await user.click(screen.getByTestId('chat-send'));
-    });
+      const user = userEvent.setup();
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await waitFor(() =>
+        expect(modelSelect).toHaveTextContent(/gpt-5.6-luna/i),
+      );
+      const input = await screen.findByTestId('chat-input');
+      await user.type(input, 'Start with the default model');
+      await act(async () => {
+        await user.click(screen.getByTestId('chat-send'));
+      });
 
-    await waitFor(() => expect(chatBodies).toHaveLength(1));
-    expect(chatBodies[0]?.model).toBe('gpt-5.1-codex-max');
+      await waitFor(() => expect(chatBodies).toHaveLength(1));
+      expect(chatBodies[0]?.model).toBe('gpt-5.6-luna');
 
-    await user.click(modelSelect);
-    await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+      await waitFor(() =>
+        expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+      );
+      await user.click(modelSelect);
+      await user.click(
+        await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
+      );
 
-    await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5.2/i),
-    );
+      await waitFor(() =>
+        expect(screen.getByTestId('model-select')).toHaveTextContent(
+          /gpt-5.6-terra/i,
+        ),
+      );
 
-    await user.type(screen.getByTestId('chat-input'), 'Use the new model next');
-    await act(async () => {
-      await user.click(screen.getByTestId('chat-send'));
-    });
+      await user.type(
+        screen.getByTestId('chat-input'),
+        'Use the new model next',
+      );
+      await act(async () => {
+        await user.click(screen.getByTestId('chat-send'));
+      });
 
-    await waitFor(() => expect(chatBodies).toHaveLength(2));
-    expect(chatBodies[1]?.model).toBe('gpt-5.2');
+      await waitFor(() => expect(chatBodies).toHaveLength(2));
+      expect(chatBodies[1]?.model).toBe('gpt-5.6-terra');
 
-    await user.click(await screen.findByTestId('conversation-row'));
+      await user.click(await screen.findByTestId('conversation-row'));
 
-    await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5.1-codex-max/i,
-      ),
-    );
-    expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
-  }, 30000);
+      await waitFor(() =>
+        expect(screen.getByTestId('model-select')).toHaveTextContent(
+          /gpt-5.6-luna/i,
+        ),
+      );
+      expect(await screen.findByText('Earlier reply')).toBeInTheDocument();
+    },
+    resolveClientTestTimeoutMs(30000),
+  );
 
-  it('clears stale hidden reasoning draft values when the selected model changes', async () => {
-    const { chatBodies } = mockCodexModelNextSendApi();
-    const router = createMemoryRouter(routes, {
-      initialEntries: ['/chat'],
-    });
-    render(<RouterProvider router={router} />);
+  it(
+    'clears stale hidden reasoning draft values when the selected model changes',
+    async () => {
+      const { chatBodies } = mockCodexModelNextSendApi();
+      const router = createMemoryRouter(routes, {
+        initialEntries: ['/chat'],
+      });
+      render(<RouterProvider router={router} />);
 
-    const user = userEvent.setup();
-    await ensureAgentFlagsPanelExpanded(user);
+      const user = userEvent.setup();
+      await ensureAgentFlagsPanelExpanded(user);
 
-    const reasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    await user.click(reasoningSelect);
-    await user.click(await screen.findByRole('option', { name: /xhigh/i }));
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/xhigh/i));
+      const reasoningSelect = await screen.findByRole('combobox', {
+        name: /reasoning effort/i,
+      });
+      await user.click(reasoningSelect);
+      await user.click(await screen.findByRole('option', { name: /xhigh/i }));
+      await waitFor(() => expect(reasoningSelect).toHaveTextContent(/xhigh/i));
 
-    const modelSelect = await screen.findByRole('combobox', {
-      name: /model/i,
-    });
-    await user.click(modelSelect);
-    await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await waitFor(() =>
+        expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+      );
+      await user.click(modelSelect);
+      await user.click(
+        await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
+      );
 
-    const narrowedReasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    await waitFor(() =>
-      expect(narrowedReasoningSelect).toHaveTextContent(/minimal/i),
-    );
-    await user.click(narrowedReasoningSelect);
-    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(1));
-    await user.click(await screen.findByRole('option', { name: /minimal/i }));
-    expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
+      const narrowedReasoningSelect = await screen.findByRole('combobox', {
+        name: /reasoning effort/i,
+      });
+      await waitFor(() =>
+        expect(narrowedReasoningSelect).toHaveTextContent(/minimal/i),
+      );
+      await user.click(narrowedReasoningSelect);
+      await waitFor(() =>
+        expect(screen.getAllByRole('option')).toHaveLength(1),
+      );
+      await user.click(await screen.findByRole('option', { name: /minimal/i }));
+      expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
 
-    const input = await screen.findByTestId('chat-input');
-    await waitFor(() => expect(input).toBeEnabled());
-    await user.type(input, 'Use the narrowed draft');
-    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
-    await act(async () => {
-      await user.click(screen.getByTestId('chat-send'));
-    });
+      const input = await screen.findByTestId('chat-input');
+      await waitFor(() => expect(input).toBeEnabled());
+      await user.type(input, 'Use the narrowed draft');
+      await waitFor(() =>
+        expect(screen.getByTestId('chat-send')).toBeEnabled(),
+      );
+      await act(async () => {
+        await user.click(screen.getByTestId('chat-send'));
+      });
 
-    await waitFor(() => expect(chatBodies).toHaveLength(1));
-    expect(chatBodies[0]?.model).toBe('gpt-5.2');
-    expect(
-      (chatBodies[0]?.agentFlags as Record<string, unknown>)
-        ?.modelReasoningEffort,
-    ).toBe('minimal');
-  }, 15000);
+      await waitFor(() => expect(chatBodies).toHaveLength(1));
+      expect(chatBodies[0]?.model).toBe('gpt-5.6-terra');
+      expect(
+        (chatBodies[0]?.agentFlags as Record<string, unknown>)
+          ?.modelReasoningEffort,
+      ).toBe('minimal');
+    },
+    resolveClientTestTimeoutMs(30000),
+  );
 
   it('refreshes the displayed resolved default from the combined payload when the model changes', async () => {
     mockCodexModelNextSendApi();
@@ -1380,8 +1434,13 @@ describe('Chat page models list', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(modelSelect);
-    await user.click(await screen.findByRole('option', { name: /gpt-5.2/i }));
+    await user.click(
+      await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
+    );
 
     await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
   });

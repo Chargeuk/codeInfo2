@@ -170,8 +170,8 @@ Corporate certificate directory requirements:
 - Copilot credential precedence is runtime-owned, not committed-env-owned. Checked-in env files may set `CODEINFO_COPILOT_HOME` and the optional CLI-path override, but they do not replace or mask `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, or `gh` fallback. `/health` also stays process-only; Copilot readiness continues to surface through `/chat/providers` and `/chat/models` instead of server health.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 - Server SDK pin and runtime guard are coupled:
-  - `@openai/codex` and `@openai/codex-sdk` are pinned at `0.145.0` in `server/package.json`.
-  - startup guard requires exact `0.145.0`; pre-release, lower, and higher versions are rejected.
+  - `@openai/codex` and `@openai/codex-sdk` are pinned at `0.154.0` in `server/package.json`.
+  - startup guard requires exact `0.154.0`; pre-release, lower, and higher versions are rejected.
   - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
 
 ## GitHub Copilot and provider-neutral runtime

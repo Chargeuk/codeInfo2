@@ -123,7 +123,7 @@ function setupExecutePromptFetch(params?: {
             agentName: 'coding_agent',
             conversationId: 'c1',
             inflightId: 'i1',
-            modelId: 'gpt-5.3-codex',
+            modelId: 'gpt-5.6-luna',
             ...(params?.runResponse?.payload ?? {}),
           },
           { status: 202 },

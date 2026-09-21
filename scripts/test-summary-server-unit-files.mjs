@@ -1,4 +1,5 @@
 export const DEFAULT_SERVER_UNIT_TEST_FILES = [
+  '../scripts/test-summary-all-parallel-config.test.mjs',
   '../scripts/test-summary-server-unit-files.test.mjs',
   '../scripts/test-summary-server-unit-env.test.mjs',
   '../scripts/test-summary-server-cucumber-imports.test.mjs',

@@ -1,0 +1,9 @@
+Console sanity on the final Task 22 /flows rerun:
+
+- Informational runtime logs appeared for normal startup, conversations fetch, turns fetch, and picker sync.
+- One warning appeared while the flow selector popover was open:
+  "Blocked aria-hidden on an element because its descendant retained focus..."
+- No uncaught browser error or failed closeout-specific UI exception appeared during the default-state, selector-open, or review-selected checks.
+
+Notes:
+- The aria-hidden warning matches the same temporary MUI popover accessibility warning already seen in earlier Story 60 /flows proof and did not block selection or sending.

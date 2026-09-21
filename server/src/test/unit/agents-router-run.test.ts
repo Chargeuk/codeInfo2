@@ -209,7 +209,7 @@ test('POST /agents/:agentName/run keeps warning-bearing started responses intact
           conversationId: 'conv-warning',
           inflightId: 'inflight-warning',
           providerId: 'codex',
-          modelId: 'gpt-5.3-codex',
+          modelId: 'gpt-5.6-luna',
           warnings: [
             'Agent config requested unsupported provider "bad-provider".',
             'Agent will use fallback provider "codex" because "bad-provider" cannot execute.',

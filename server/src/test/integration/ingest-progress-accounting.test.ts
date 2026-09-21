@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import express from 'express';
 import request from 'supertest';
 import {
@@ -8,13 +8,12 @@ import {
 } from '../../ingest/ingestJob.js';
 import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
-
 afterEach(() => {
   __resetIngestJobsForTest();
 });
-
-process.env.NODE_ENV = 'test';
-
+beforeEach(() => {
+  setScopedTestEnvValue('NODE_ENV', 'test');
+});
 test('ingest status keeps partial-write progress counts and normalized error payload on failure', async () => {
   __setStatusForTest('run-partial-write-failure', {
     runId: 'run-partial-write-failure',
@@ -33,11 +32,9 @@ test('ingest status keeps partial-write progress counts and normalized error pay
     fileTotal: 10,
     percent: 70,
   });
-
   const app = express();
   app.use(express.json());
   app.use(createIngestStartRouter({ clientFactory: () => ({}) as never }));
-
   const status = await request(app).get(
     '/ingest/status/run-partial-write-failure',
   );
@@ -47,7 +44,6 @@ test('ingest status keeps partial-write progress counts and normalized error pay
   assert.equal(status.body.error.error, 'OPENAI_QUOTA_EXCEEDED');
   assert.equal(status.body.error.retryable, false);
 });
-
 test('ingest roots preserves persisted partial-write diagnostics with legacy and normalized error fields', async () => {
   const app = express();
   app.use(express.json());
@@ -80,7 +76,6 @@ test('ingest roots preserves persisted partial-write diagnostics with legacy and
       getLockedModel: async () => 'text-embedding-3-small',
     }),
   );
-
   const res = await request(app).get('/ingest/roots');
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.roots[0].counts, {

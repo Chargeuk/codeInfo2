@@ -4,6 +4,8 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -44,8 +46,8 @@ const defaultCodexDefaults: CodexDefaults = {
 
 const defaultCodexModels = [
   {
-    key: 'gpt-5.1-codex-max',
-    displayName: 'gpt-5.1-codex-max',
+    key: 'gpt-5.6-luna',
+    displayName: 'gpt-5.6-luna',
     type: 'codex',
     supportedReasoningEfforts: ['minimal', 'medium', 'high', 'xhigh'],
     defaultReasoningEffort: 'medium',
@@ -195,6 +197,7 @@ describe('Codex compatibility defaults behavior', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -224,6 +227,7 @@ describe('Codex compatibility defaults behavior', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -269,6 +273,7 @@ describe('Codex compatibility defaults behavior', () => {
       const providerSelect = await screen.findByRole('combobox', {
         name: /provider/i,
       });
+      await waitForInteractiveCombobox(providerSelect);
       await userEvent.click(providerSelect);
       await userEvent.click(
         await screen.findByRole('option', { name: /openai codex/i }),
@@ -278,6 +283,10 @@ describe('Codex compatibility defaults behavior', () => {
       const modelSelect = await screen.findByRole('combobox', {
         name: /model/i,
       });
+      await waitFor(() =>
+        expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+      );
+      await waitForInteractiveCombobox(modelSelect);
       await userEvent.click(modelSelect);
       await userEvent.click(
         await screen.findByRole('option', { name: /model b/i }),
@@ -301,201 +310,221 @@ describe('Codex compatibility defaults behavior', () => {
     }
   });
 
-  it('preserves Codex defaults behavior when changing the next-send model during an active run', async () => {
-    mockCodexReady({
-      codexModels: [
-        {
-          key: 'model-a',
-          displayName: 'Model A',
-          type: 'codex',
-          supportedReasoningEfforts: ['medium', 'high'],
-          defaultReasoningEffort: 'medium',
-        },
-        {
-          key: 'model-b',
-          displayName: 'Model B',
-          type: 'codex',
-          supportedReasoningEfforts: ['minimal'],
-          defaultReasoningEffort: 'minimal',
-        },
-      ],
-    });
+  it(
+    'preserves Codex defaults behavior when changing the next-send model during an active run',
+    async () => {
+      mockCodexReady({
+        codexModels: [
+          {
+            key: 'model-a',
+            displayName: 'Model A',
+            type: 'codex',
+            supportedReasoningEfforts: ['medium', 'high'],
+            defaultReasoningEffort: 'medium',
+          },
+          {
+            key: 'model-b',
+            displayName: 'Model B',
+            type: 'codex',
+            supportedReasoningEfforts: ['minimal'],
+            defaultReasoningEffort: 'minimal',
+          },
+        ],
+      });
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /openai codex/i }),
-    );
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /openai codex/i }),
+      );
 
-    await ensureAgentFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
-    const input = await screen.findByTestId('chat-input');
-    await userEvent.type(input, 'keep the first model running');
-    await act(async () => {
-      await userEvent.click(screen.getByTestId('chat-send'));
-    });
+      const input = await screen.findByTestId('chat-input');
+      await userEvent.type(input, 'keep the first model running');
+      await act(async () => {
+        await userEvent.click(screen.getByTestId('chat-send'));
+      });
 
-    const sandboxSelect = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    const approvalSelect = await screen.findByRole('combobox', {
-      name: /approval policy/i,
-    });
-    const modelSelect = await screen.findByRole('combobox', {
-      name: /model/i,
-    });
+      const sandboxSelect = await screen.findByRole('combobox', {
+        name: /sandbox mode/i,
+      });
+      const approvalSelect = await screen.findByRole('combobox', {
+        name: /approval policy/i,
+      });
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await waitFor(() =>
+        expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+      );
 
-    await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
-    await waitFor(() => expect(approvalSelect).toHaveTextContent(/never/i));
+      await waitFor(() =>
+        expect(sandboxSelect).toHaveTextContent(/read-only/i),
+      );
+      await waitFor(() => expect(approvalSelect).toHaveTextContent(/never/i));
 
-    await userEvent.click(modelSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /model b/i }),
-    );
+      await waitForInteractiveCombobox(modelSelect);
+      await userEvent.click(modelSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /model b/i }),
+      );
 
-    const reasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/minimal/i));
-    expect(sandboxSelect).toHaveTextContent(/read-only/i);
-    expect(approvalSelect).toHaveTextContent(/never/i);
-  }, 15000);
+      const reasoningSelect = await screen.findByRole('combobox', {
+        name: /reasoning effort/i,
+      });
+      await waitFor(() =>
+        expect(reasoningSelect).toHaveTextContent(/minimal/i),
+      );
+      expect(sandboxSelect).toHaveTextContent(/read-only/i);
+      expect(approvalSelect).toHaveTextContent(/never/i);
+    },
+    resolveClientTestTimeoutMs(15000),
+  );
 
-  it('resets invalid reasoning effort after capability payload refresh', async () => {
-    let codexModelsRequestCount = 0;
+  it(
+    'resets invalid reasoning effort after capability payload refresh',
+    async () => {
+      let codexModelsRequestCount = 0;
 
-    mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
-      const href = typeof url === 'string' ? url : url.toString();
-      if (href.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ mongoConnected: true }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/conversations')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ items: [], nextCursor: null }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            providers: [
-              {
-                id: 'lmstudio',
-                label: 'LM Studio',
-                available: true,
-                toolsAvailable: true,
-              },
-              {
-                id: 'codex',
-                label: 'OpenAI Codex',
-                available: true,
-                toolsAvailable: true,
-              },
-            ],
-          }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/chat/models') && href.includes('provider=codex')) {
-        codexModelsRequestCount += 1;
-        const models =
-          codexModelsRequestCount === 1
-            ? [
+      mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [], nextCursor: null }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              providers: [
                 {
-                  key: 'refresh-model',
-                  displayName: 'Refresh Model',
-                  type: 'codex',
-                  supportedReasoningEfforts: ['high', 'xhigh'],
-                  defaultReasoningEffort: 'high',
+                  id: 'lmstudio',
+                  label: 'LM Studio',
+                  available: true,
+                  toolsAvailable: true,
                 },
-              ]
-            : [
                 {
-                  key: 'refresh-model',
-                  displayName: 'Refresh Model',
-                  type: 'codex',
-                  supportedReasoningEfforts: ['minimal'],
-                  defaultReasoningEffort: 'minimal',
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
                 },
-              ];
+              ],
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models') && href.includes('provider=codex')) {
+          codexModelsRequestCount += 1;
+          const models =
+            codexModelsRequestCount === 1
+              ? [
+                  {
+                    key: 'refresh-model',
+                    displayName: 'Refresh Model',
+                    type: 'codex',
+                    supportedReasoningEfforts: ['high', 'xhigh'],
+                    defaultReasoningEffort: 'high',
+                  },
+                ]
+              : [
+                  {
+                    key: 'refresh-model',
+                    displayName: 'Refresh Model',
+                    type: 'codex',
+                    supportedReasoningEfforts: ['minimal'],
+                    defaultReasoningEffort: 'minimal',
+                  },
+                ];
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'codex',
+              available: true,
+              toolsAvailable: true,
+              codexDefaults: {
+                sandboxMode: 'read-only',
+                approvalPolicy: 'never',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: false,
+                webSearchEnabled: false,
+              },
+              codexWarnings: [],
+              models,
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'lmstudio',
+              available: true,
+              toolsAvailable: true,
+              models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
+            }),
+          }) as unknown as Response;
+        }
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({
-            provider: 'codex',
-            available: true,
-            toolsAvailable: true,
-            codexDefaults: {
-              sandboxMode: 'read-only',
-              approvalPolicy: 'never',
-              modelReasoningEffort: 'high',
-              networkAccessEnabled: false,
-              webSearchEnabled: false,
-            },
-            codexWarnings: [],
-            models,
-          }),
+          json: async () => ({}),
         }) as unknown as Response;
-      }
-      if (href.includes('/chat/models')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            provider: 'lmstudio',
-            available: true,
-            toolsAvailable: true,
-            models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
-          }),
-        }) as unknown as Response;
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as unknown as Response;
-    });
+      });
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /openai codex/i }),
-    );
-    await ensureAgentFlagsPanelExpanded();
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /openai codex/i }),
+      );
+      await ensureAgentFlagsPanelExpanded();
 
-    await userEvent.click(providerSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /^LM Studio$/i }),
-    );
-    await userEvent.click(providerSelect);
-    await userEvent.click(
-      await screen.findByRole('option', { name: /openai codex/i }),
-    );
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /^LM Studio$/i }),
+      );
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /openai codex/i }),
+      );
 
-    await ensureAgentFlagsPanelExpanded();
-    await waitFor(() =>
-      expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
-        /minimal/i,
-      ),
-    );
-    expect(codexModelsRequestCount).toBeGreaterThanOrEqual(2);
-  }, 15000);
+      await ensureAgentFlagsPanelExpanded();
+      await waitFor(() =>
+        expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
+          /minimal/i,
+        ),
+      );
+      expect(codexModelsRequestCount).toBeGreaterThanOrEqual(2);
+    },
+    resolveClientTestTimeoutMs(15000),
+  );
 
   it('logs deterministic error for malformed empty supportedReasoningEfforts payload', async () => {
     mockCodexReady({
@@ -517,6 +546,7 @@ describe('Codex compatibility defaults behavior', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),
@@ -556,6 +586,7 @@ describe('Codex compatibility defaults behavior', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     await userEvent.click(
       await screen.findByRole('option', { name: /openai codex/i }),

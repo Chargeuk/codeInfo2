@@ -87,11 +87,11 @@ describe('Chat citations rendering', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
     });
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -115,12 +115,12 @@ describe('Chat citations rendering', () => {
       },
     });
 
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Here is what I found',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',
@@ -184,8 +184,11 @@ describe('Chat citations rendering', () => {
       await user.click(rowOne);
     });
 
-    harness.emitInflightSnapshot({ conversationId: 'c1', inflightId: 'i1' });
-    harness.emitToolEvent({
+    await harness.emitInflightSnapshot({
+      conversationId: 'c1',
+      inflightId: 'i1',
+    });
+    await harness.emitToolEvent({
       conversationId: 'c1',
       inflightId: 'i1',
       event: {
@@ -206,12 +209,16 @@ describe('Chat citations rendering', () => {
         },
       },
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: 'c1',
       inflightId: 'i1',
       delta: 'Reply One',
     });
-    harness.emitFinal({ conversationId: 'c1', inflightId: 'i1', status: 'ok' });
+    await harness.emitFinal({
+      conversationId: 'c1',
+      inflightId: 'i1',
+      status: 'ok',
+    });
 
     const firstToggle = await screen.findByTestId('citations-toggle');
     await user.click(firstToggle);
@@ -228,8 +235,11 @@ describe('Chat citations rendering', () => {
       await user.click(rowTwo);
     });
 
-    harness.emitInflightSnapshot({ conversationId: 'c2', inflightId: 'i2' });
-    harness.emitToolEvent({
+    await harness.emitInflightSnapshot({
+      conversationId: 'c2',
+      inflightId: 'i2',
+    });
+    await harness.emitToolEvent({
       conversationId: 'c2',
       inflightId: 'i2',
       event: {
@@ -250,12 +260,16 @@ describe('Chat citations rendering', () => {
         },
       },
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: 'c2',
       inflightId: 'i2',
       delta: 'Reply Two',
     });
-    harness.emitFinal({ conversationId: 'c2', inflightId: 'i2', status: 'ok' });
+    await harness.emitFinal({
+      conversationId: 'c2',
+      inflightId: 'i2',
+      status: 'ok',
+    });
 
     const secondToggle = await screen.findByTestId('citations-toggle');
     expect(secondToggle).toHaveAttribute('aria-expanded', 'false');

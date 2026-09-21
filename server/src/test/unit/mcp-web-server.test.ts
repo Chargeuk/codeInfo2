@@ -13,6 +13,7 @@ test('startWebMcpServer is idempotent and stopWebMcpServer can be called repeate
   let closeCalls = 0;
   let listenArgs: unknown[] | undefined;
   let closeHandler: (() => void) | undefined;
+  let closeCallback: (() => void) | undefined;
 
   const buildFakeServer = () =>
     ({
@@ -34,10 +35,7 @@ test('startWebMcpServer is idempotent and stopWebMcpServer can be called repeate
       },
       close(callback?: () => void) {
         closeCalls += 1;
-        setImmediate(() => {
-          callback?.();
-          closeHandler?.();
-        });
+        closeCallback = callback;
         return this;
       },
     }) as unknown as http.Server;
@@ -57,17 +55,25 @@ test('startWebMcpServer is idempotent and stopWebMcpServer can be called repeate
   const firstStop = stopWebMcpServer();
   const secondStop = stopWebMcpServer();
   assert.equal(firstStop, secondStop);
+  closeCallback?.();
+  closeHandler?.();
   await firstStop;
   assert.equal(closeCalls, 1);
 
   const third = startWebMcpServer();
   assert.notEqual(third, first);
   assert.equal(createServerCalls, 2);
+
+  const thirdStop = stopWebMcpServer();
+  closeCallback?.();
+  closeHandler?.();
+  await thirdStop;
 });
 
 test('startWebMcpServer clears singleton state when listen emits a startup error', async () => {
   let createServerCalls = 0;
   let errorHandler: ((error: Error) => void) | undefined;
+  let closeCallback: (() => void) | undefined;
 
   const buildFakeServer = () =>
     ({
@@ -84,13 +90,10 @@ test('startWebMcpServer clears singleton state when listen emits a startup error
         return this;
       },
       listen() {
-        setImmediate(() => {
-          errorHandler?.(Object.assign(new Error('port in use'), { code: 'EADDRINUSE' }));
-        });
         return this;
       },
       close(callback?: () => void) {
-        setImmediate(() => callback?.());
+        closeCallback = callback;
         return this;
       },
     }) as unknown as http.Server;
@@ -101,18 +104,25 @@ test('startWebMcpServer clears singleton state when listen emits a startup error
   });
 
   startWebMcpServer();
-  await new Promise((resolve) => setImmediate(resolve));
+  errorHandler?.(
+    Object.assign(new Error('port in use'), { code: 'EADDRINUSE' }),
+  );
   await stopWebMcpServer();
 
   startWebMcpServer();
   assert.equal(createServerCalls, 2);
+
+  const stop = stopWebMcpServer();
+  closeCallback?.();
+  await stop;
 });
 
 test('startWebMcpServer keeps a persistent error handler after startup', async () => {
   let runtimeErrorHandler: ((error: Error) => void) | undefined;
   let listeningHandler: (() => void) | undefined;
+  let closeCallback: (() => void) | undefined;
 
-  const fakeServer = ({
+  const fakeServer = {
     on(event: string, listener: (error?: Error) => void) {
       if (event === 'error') {
         runtimeErrorHandler = listener as (error: Error) => void;
@@ -129,22 +139,23 @@ test('startWebMcpServer keeps a persistent error handler after startup', async (
       return this;
     },
     listen() {
-      setImmediate(() => listeningHandler?.());
       return this;
     },
     close(callback?: () => void) {
-      setImmediate(() => callback?.());
+      closeCallback = callback;
       return this;
     },
-  }) as unknown as http.Server;
+  } as unknown as http.Server;
 
   mock.method(http, 'createServer', () => fakeServer);
 
   startWebMcpServer();
-  await new Promise((resolve) => setImmediate(resolve));
+  listeningHandler?.();
 
   assert.ok(runtimeErrorHandler);
   runtimeErrorHandler?.(new Error('late runtime error'));
 
-  await stopWebMcpServer();
+  const stop = stopWebMcpServer();
+  closeCallback?.();
+  await stop;
 });

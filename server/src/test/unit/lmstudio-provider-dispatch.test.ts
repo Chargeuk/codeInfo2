@@ -11,6 +11,10 @@ function createConcurrentResolver() {
   let activeCalls = 0;
   let peakActiveCalls = 0;
   const releases: Array<() => void> = [];
+  let markBothCallsStarted!: () => void;
+  const bothCallsStarted = new Promise<void>((resolve) => {
+    markBothCallsStarted = resolve;
+  });
 
   const resolver: LmClientResolver = () => ({
     embedding: {
@@ -18,6 +22,7 @@ function createConcurrentResolver() {
         embed: async (text: string) => {
           activeCalls += 1;
           peakActiveCalls = Math.max(peakActiveCalls, activeCalls);
+          if (activeCalls === 2) markBothCallsStarted();
           await new Promise<void>((resolve) => {
             releases.push(resolve);
           });
@@ -32,6 +37,7 @@ function createConcurrentResolver() {
 
   return {
     resolver,
+    bothCallsStarted,
     getPeakActiveCalls: () => peakActiveCalls,
     releaseAll: () => {
       while (releases.length > 0) {
@@ -73,7 +79,7 @@ test('LM Studio single-input embedding requests can run concurrently through the
   const first = model.embedBatch(['first']);
   const second = model.embedBatch(['second']);
 
-  await new Promise((resolve) => setImmediate(resolve));
+  await double.bothCallsStarted;
   assert.equal(double.getPeakActiveCalls(), 2);
 
   double.releaseAll();

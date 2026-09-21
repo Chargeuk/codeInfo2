@@ -15,10 +15,10 @@ describe('composerFormatting', () => {
 
   it('adds a compact endpoint disambiguator only when requested', () => {
     expect(
-      formatEndpointAwareModelLabel('gpt-5.2', 'https://alpha.example/alt/v1', {
+      formatEndpointAwareModelLabel('gpt-5.6-terra', 'https://alpha.example/alt/v1', {
         includePathHint: true,
       }),
-    ).toBe('gpt-5.2 (alpha.example / alt)');
+    ).toBe('gpt-5.6-terra (alpha.example / alt)');
   });
 
   it('prefers the configured endpoint label in endpoint identity displays', () => {

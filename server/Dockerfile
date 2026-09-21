@@ -69,6 +69,7 @@ FROM node:22.21.1-slim AS runtime
 ARG HOME
 ARG CODEINFO_RUNTIME_UID=1000
 ARG CODEINFO_RUNTIME_GID=1000
+ARG GH_VERSION=2.94.0
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
 ARG CODEINFO_PIP_TRUSTED_HOST
@@ -98,6 +99,23 @@ RUN echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com \
   $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
 
+# Install the pinned GitHub CLI release directly so builds do not depend on the
+# package repository's release lag.
+RUN set -eu; \
+    GH_ARCH="$(dpkg --print-architecture)"; \
+    case "${GH_ARCH}" in \
+      amd64|arm64) ;; \
+      *) echo "Unsupported GitHub CLI architecture: ${GH_ARCH}" >&2; exit 1 ;; \
+    esac; \
+    GH_ARCHIVE="gh_${GH_VERSION}_linux_${GH_ARCH}"; \
+    curl -fsSL \
+      "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${GH_ARCHIVE}.tar.gz" \
+      -o /tmp/gh.tar.gz; \
+    tar -xzf /tmp/gh.tar.gz -C /tmp; \
+    install -m 0755 "/tmp/${GH_ARCHIVE}/bin/gh" /usr/local/bin/gh; \
+    rm -rf /tmp/gh.tar.gz "/tmp/${GH_ARCHIVE}"; \
+    gh --version
+
 # Install Docker CLI + Compose plugin
 RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
 
@@ -105,7 +123,9 @@ WORKDIR /app/server
 ENV HUSKY=0
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && apt-get install -y \
+    set -eu; \
+    apt-get update; \
+    apt-get install -y \
     curl \
     git \
     git-lfs \
@@ -134,8 +154,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     rsync \
     terraform \
     tzdata \
-    chromium \
-    && rm -rf /var/lib/apt/lists/*
+    chromium; \
+    gh --version; \
+    rm -rf /var/lib/apt/lists/*
 
 # Debian installs fd-find as fdfind; provide fd for tooling expectations.
 RUN ln -s /usr/bin/fdfind /usr/local/bin/fd

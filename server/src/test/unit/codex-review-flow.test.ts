@@ -62,7 +62,7 @@ test('Codex review flow uses the generic workspace agent and launcher prompt', (
   ]);
 
   const prompt = readRepoFile(
-    'codeInfo_markdown/run_codex_review_workspace.md',
+    'codeinfo_markdown/run_codex_review_workspace.md',
   );
   for (const required of [
     '$CODEINFO_ROOT/scripts/run-codex-review.sh',
@@ -74,6 +74,7 @@ test('Codex review flow uses the generic workspace agent and launcher prompt', (
     'work/review-usage/native-codex.md',
     "Do not include this wrapper agent's own usage",
     'Invoke it with the direct `exec_command` tool',
+    'never with `functions.exec`',
     'poll it with direct `write_stdin` until the same process result includes a numeric `exit_code`',
     'Only that direct terminal process result supplies the actual exit status',
     'native-response file only after the process exits',

@@ -2,7 +2,7 @@
 
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-wave-consumer-contract.md` first and verify every usable target-local and cross-repository finding was represented.
 
-Verify that the current review pass's accepted and ignored issue decisions were durably recorded in the canonical story plan before any minor review fix or task-up implementation begins, and repair one missing block idempotently when safe.
+Verify that the current review pass's accepted and ignored issue decisions were saved in the canonical story plan before any minor review fix or task-up implementation begins, and repair one missing block idempotently when safe.
 
 This is a bounded pre-fix recovery step. It runs immediately after `Record Review Issue Decisions In Plan` and immediately before the Minor Review Fix Path.
 
@@ -22,18 +22,18 @@ This is a bounded pre-fix recovery step. It runs immediately after `Record Revie
 1. Determine from the validated current-pass disposition state and artifacts whether the recorder contract requires a structured `## Code Review Findings` block.
 2. If no accepted, ignored, rejected, or non-adopted current-pass item exists, make no edit and report a genuine no-decisions result.
 3. If the exact current-pass structured block already exists once, gives every accepted and ignored item a valid `Found by` provenance bullet, and otherwise satisfies the recorder contract, make no edit.
-4. If a required current-pass block is missing or incomplete and identity is safe, apply `record_review_issue_decisions_in_plan.md` once in this step and commit only the canonical plan when it changes.
+4. If a required current-pass block is missing or incomplete and identity is safe, apply `record_review_issue_decisions_in_plan.md` once in this step and make its one best-effort commit attempt only when this repair changes the canonical plan.
 5. Re-open the bounded review-tasking packet after any repair and confirm the required block exists exactly once before returning.
 6. Never append a duplicate current-pass block, recreate the retired terse summary, or alter an earlier review pass's block.
 7. This pre-fix verifier must finish before the Minor Review Fix Path can consume any unresolved finding. Late task-up recovery remains only a final interrupted-execution safety net.
-8. If the repair commit fails, leave the validated plan edit in place, apply the recorder contract's retry bookkeeping, report the non-durable result normally, and let the deterministic pre-fix gate keep implementation closed when the required block is still absent or incomplete.
-9. Before returning, independently write the recorder contract's exact current-pass `review_decision_recording` outcome. Use `recorded` only for one complete committed block, `no_decisions` only for a validated genuine no-candidate pass, and `retry_required` for every other outcome. Never leave `pending` after a completed verification turn.
+8. If the recorder or repair commit failed, leave the validated plan edit in place and report that result normally. Do not retry an earlier failed commit. Commit success, Git status, and commit-SHA lookup do not affect readiness and must not stop, restart, or reroute the flow. Only an identity conflict or an absent/incomplete required block keeps the deterministic pre-fix gate closed.
+9. Before returning, independently write the recorder contract's exact current-pass `review_decision_recording` outcome. Use `recorded` for one complete saved block regardless of commit success, `no_decisions` only for a validated genuine no-candidate pass, and `retry_required` for every other outcome. Replace stale `pending` or `retry_required` outcomes with the content-based result, including when an earlier attempt only failed to commit. Never leave `pending` after a completed verification turn.
 
 </verification_and_recovery_rules>
 
 <output_contract>
 
-- Report the plan path, review pass ID, whether decisions required a block, whether the block was already valid or repaired, whether every item retained review provenance, and the plan commit SHA when repair created a commit.
+- Report the plan path, review pass ID, whether decisions required a block, whether the block was already valid or repaired, whether every item retained review provenance, and the plan commit SHA when repair created a commit and the SHA is available.
 - Finish without a plan edit only for a genuine no-decisions result, an already-valid current-pass block, or a retry-required identity conflict recorded in disposition state. Never turn a recorder/verifier failure into task-up work before a one-shot attempt.
 - Report and re-open the final `review_decision_recording` object so the following deterministic readiness control can safely choose whether to continue or restart the review pass.
 

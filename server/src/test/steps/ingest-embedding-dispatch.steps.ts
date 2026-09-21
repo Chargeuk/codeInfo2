@@ -24,7 +24,7 @@ import {
   __resetIngestJobsForTest,
   setIngestDeps,
 } from '../../ingest/ingestJob.js';
-import { query, resetStore } from '../../logStore.js';
+import { entryMatches, query, resetStore, subscribe } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import {
@@ -37,32 +37,37 @@ import {
   waitForControlledEmbeddingCalls,
 } from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
-
+import {
+  resolveConfiguredPollAttempts,
+  resolveConfiguredTestTimeoutMs,
+} from '../support/testTimeouts.js';
 let server: Server | null = null;
 let baseUrl = '';
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
-
+let capturedRuntimeLogs: ReturnType<typeof query> = [];
+let unsubscribeRuntimeLogs: (() => void) | null = null;
 Before({ tags: '@embedding-dispatch' }, async () => {
-  setDefaultTimeout(30_000);
-  process.env.NODE_ENV = 'test';
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
-  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '2';
-  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '1';
+  setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
+  setScopedTestEnvValue('NODE_ENV', 'test');
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT', '2');
+  setScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE', '1');
   __resetIngestJobsForTest();
   resetStore();
-
+  capturedRuntimeLogs = [];
+  unsubscribeRuntimeLogs = subscribe((entry) => {
+    capturedRuntimeLogs.push(entry);
+  });
   const app = express();
   app.use(cors());
   app.use(express.json());
   app.use(createRequestLogger());
-
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
     baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
-
   app.use(
     '/',
     createIngestStartRouter({
@@ -70,7 +75,6 @@ Before({ tags: '@embedding-dispatch' }, async () => {
         new MockLMStudioClient() as unknown as LMStudioClient,
     }),
   );
-
   await new Promise<void>((resolve) => {
     const listener = app.listen(0, () => {
       server = listener;
@@ -83,7 +87,6 @@ Before({ tags: '@embedding-dispatch' }, async () => {
     });
   });
 });
-
 After({ tags: '@embedding-dispatch' }, async () => {
   stopMock();
   if (server) {
@@ -104,36 +107,38 @@ After({ tags: '@embedding-dispatch' }, async () => {
   }
   lastRunId = null;
   __resetIngestJobsForTest();
+  unsubscribeRuntimeLogs?.();
+  unsubscribeRuntimeLogs = null;
+  capturedRuntimeLogs = [];
   resetStore();
   await clearRootsCollection();
   await clearVectorsCollection();
   await clearLockedModel();
-  delete process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT;
-  delete process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE;
+  clearScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT');
+  clearScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE');
 });
-
 Given('ingest embedding dispatch chroma stub is empty', async () => {
   await clearRootsCollection();
   await clearVectorsCollection();
   await clearLockedModel();
 });
-
 Given('ingest embedding dispatch models scenario {string}', (name: string) => {
-  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '2';
-  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '1';
+  setScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT', '2');
+  setScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE', '1');
   startMock({ scenario: name as MockScenario });
 });
-
 Given('ingest embedding dispatch temp repo has files:', async (table) => {
   tempDir = await createTempRepoRoot('ingest-dispatch-');
-  const rows = table.hashes() as Array<{ relPath: string; content: string }>;
+  const rows = table.hashes() as Array<{
+    relPath: string;
+    content: string;
+  }>;
   for (const row of rows) {
     const fullPath = path.join(tempDir, row.relPath);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, row.content);
   }
 });
-
 When(
   'I POST ingest embedding dispatch start with model {string}',
   async (model: string) => {
@@ -148,35 +153,31 @@ When(
     lastRunId = body.runId as string;
   },
 );
-
 Then(
   'ingest embedding dispatch waits for {int} controlled embedding calls',
   async (count: number) => {
     await waitForControlledEmbeddingCalls(count);
   },
 );
-
 When(
   'ingest embedding dispatch releases controlled embedding call {int}',
   (index: number) => {
     releaseControlledEmbeddingCall(index);
   },
 );
-
 When(
   'ingest embedding dispatch releases all controlled embedding calls',
   () => {
     releaseAllControlledEmbeddingCalls();
   },
 );
-
 Then(
   'ingest embedding dispatch status for the last run becomes {string}',
-  { timeout: 75_000 },
+  { timeout: resolveConfiguredTestTimeoutMs(75000) },
   async (state: string) => {
     assert(lastRunId, 'runId missing');
     let lastSeenState: string | undefined;
-    for (let i = 0; i < 600; i += 1) {
+    for (let i = 0; i < resolveConfiguredPollAttempts(600, 100); i += 1) {
       const res: Response = await fetch(
         `${baseUrl}/ingest/status/${lastRunId}`,
       );
@@ -203,8 +204,12 @@ Then(
     assert.fail(`did not reach state ${state}`);
   },
 );
-
 Then('ingest embedding dispatch logs include {string}', (marker: string) => {
-  const matches = query({ text: marker }, 50);
+  const matches = [
+    ...capturedRuntimeLogs.filter((entry) =>
+      entryMatches(entry, { text: marker }),
+    ),
+    ...query({ text: marker }, 50),
+  ];
   assert.ok(matches.length > 0, `expected log marker ${marker}`);
 });

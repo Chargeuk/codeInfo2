@@ -1,6 +1,7 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 type ChatModel = { key: string; displayName: string; type?: string };
 
@@ -268,7 +269,9 @@ test('cross-tab follow-up creates a new assistant bubble in passive window', asy
 
   for (const tab of [page, pageB]) {
     const modelSelect = tab.getByRole('combobox', { name: /Model/i });
-    await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+    await expect(modelSelect).toBeEnabled({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await modelSelect.click();
     const option = tab.getByRole('option', {
       name: mockModels[0].displayName,
@@ -287,7 +290,9 @@ test('cross-tab follow-up creates a new assistant bubble in passive window', asy
     const conversationRow = tab.locator('[data-testid="conversation-row"]', {
       hasText: conversation.title,
     });
-    await expect(conversationRow).toBeVisible({ timeout: 20000 });
+    await expect(conversationRow).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await conversationRow.click();
   }
 
@@ -297,24 +302,30 @@ test('cross-tab follow-up creates a new assistant bubble in passive window', asy
   await inputA.fill('Hello from page A');
   await sendA.click();
 
-  await expect(page.getByText('Assistant one')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('Assistant one')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
+  });
   await expect(pageB.getByText('Assistant one')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
 
   await inputA.fill('Follow-up from page A');
   await sendA.click();
 
-  await expect(page.getByText('Assistant two')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('Assistant two')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
+  });
   await expect(pageB.getByText('Assistant two')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
 
   // The sending tab should not overwrite the previous assistant reply when a
   // second send completes.
-  await expect(page.getByText('Assistant one')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('Assistant one')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
+  });
   await expect(pageB.getByText('Assistant one')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
 
   const assistantBubblesA = page.locator(
@@ -343,13 +354,15 @@ test('cross-tab follow-up creates a new assistant bubble in passive window', asy
     const conversationRow = tab.locator('[data-testid="conversation-row"]', {
       hasText: conversation.title,
     });
-    await expect(conversationRow).toBeVisible({ timeout: 20000 });
+    await expect(conversationRow).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await conversationRow.click();
     await expect(tab.getByText('Assistant two')).toBeVisible({
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
     });
     await expect(tab.getByText('Assistant one')).toBeVisible({
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
     });
     const transcript = tab.locator('[data-testid="chat-transcript"]');
     const transcriptText = (await transcript.textContent()) ?? '';
@@ -637,7 +650,9 @@ test('stale stop from one context does not cancel a later replacement run in ano
 
   for (const tab of [page, pageB]) {
     const modelSelect = tab.getByRole('combobox', { name: /Model/i });
-    await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+    await expect(modelSelect).toBeEnabled({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await modelSelect.click();
     const option = tab.getByRole('option', {
       name: mockModels[0].displayName,
@@ -656,83 +671,97 @@ test('stale stop from one context does not cancel a later replacement run in ano
     const conversationRow = tab.locator('[data-testid="conversation-row"]', {
       hasText: conversation.title,
     });
-    await expect(conversationRow).toBeVisible({ timeout: 20000 });
+    await expect(conversationRow).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await conversationRow.click();
   }
 
   await page.getByTestId('chat-input').fill('First run from page A');
-  await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 10000 });
+  await expect(page.getByTestId('chat-send')).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
+  });
   await page.getByTestId('chat-send').click();
   await expect(page.getByText('Assistant one complete')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
   await expect(pageB.getByText('Assistant one complete')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
 
   await pageB.getByTestId('chat-input').fill('Replacement run from page B');
   await expect(pageB.getByTestId('chat-send')).toBeEnabled({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
   await pageB.getByTestId('chat-send').click();
 
   await secondRunStarted;
   await expect(pageB.getByText('Assistant two still running')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
 
-  const staleSent = await page.evaluate(async () => {
-    const wsUrl = new URL('/ws', window.location.href);
-    wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+  const staleSent = await page.evaluate(
+    async ({ openTimeoutMs }) => {
+      const wsUrl = new URL('/ws', window.location.href);
+      wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:';
 
-    const socket = new WebSocket(wsUrl.toString());
-    await new Promise<void>((resolve, reject) => {
-      const timer = window.setTimeout(
-        () => reject(new Error('Timed out opening stale-stop websocket')),
-        5000,
-      );
-      socket.addEventListener(
-        'open',
-        () => {
-          window.clearTimeout(timer);
-          resolve();
-        },
-        { once: true },
-      );
-      socket.addEventListener(
-        'error',
-        () => {
-          window.clearTimeout(timer);
-          reject(new Error('Failed to open stale-stop websocket'));
-        },
-        { once: true },
-      );
-    });
+      const socket = new WebSocket(wsUrl.toString());
+      await new Promise<void>((resolve, reject) => {
+        const timer = window.setTimeout(
+          () => reject(new Error('Timed out opening stale-stop websocket')),
+          openTimeoutMs,
+        );
+        socket.addEventListener(
+          'open',
+          () => {
+            window.clearTimeout(timer);
+            resolve();
+          },
+          { once: true },
+        );
+        socket.addEventListener(
+          'error',
+          () => {
+            window.clearTimeout(timer);
+            reject(new Error('Failed to open stale-stop websocket'));
+          },
+          { once: true },
+        );
+      });
 
-    socket.send(
-      JSON.stringify({
-        protocolVersion: 'v1',
-        type: 'cancel_inflight',
-        requestId: 'stale-stop-request',
-        conversationId: 'c-stale-stop',
-        inflightId: 'i-1',
-      }),
-    );
-    await new Promise((resolve) => window.setTimeout(resolve, 50));
-    socket.close();
-    return true;
-  });
+      socket.send(
+        JSON.stringify({
+          protocolVersion: 'v1',
+          type: 'cancel_inflight',
+          requestId: 'stale-stop-request',
+          conversationId: 'c-stale-stop',
+          inflightId: 'i-1',
+        }),
+      );
+      (
+        window as typeof window & { __staleStopSocket?: WebSocket }
+      ).__staleStopSocket = socket;
+      return true;
+    },
+    { openTimeoutMs: resolveConfiguredE2eTimeoutMs(5000) },
+  );
   expect(staleSent).toBe(true);
 
   await expect
     .poll(() => mockWsA.getLastCancel(), {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message: 'expected stale cancel to reach mock WS A',
     })
     .toMatchObject({
       conversationId: conversation.conversationId,
       inflightId: 'i-1',
     });
+
+  await page.evaluate(() => {
+    const target = window as typeof window & { __staleStopSocket?: WebSocket };
+    target.__staleStopSocket?.close();
+    delete target.__staleStopSocket;
+  });
 
   await mockWsA.sendFinal({
     conversationId: conversation.conversationId,
@@ -765,14 +794,14 @@ test('stale stop from one context does not cancel a later replacement run in ano
   });
 
   await expect(pageB.getByText('Assistant two still running')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
   await expect(pageB.getByText('Stopped')).toHaveCount(0);
   await expect(
     pageB.getByText('Stale stop request ignored for the replacement run'),
   ).toHaveCount(0);
   await expect(page.getByText('Assistant two still running')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
   await expect(
     page.getByText('Stale stop request ignored for the replacement run'),

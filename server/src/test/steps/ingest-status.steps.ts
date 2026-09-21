@@ -26,29 +26,28 @@ import {
   type MockScenario,
 } from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
-
-setDefaultTimeout(30_000);
-
+import {
+  resolveConfiguredPollAttempts,
+  resolveConfiguredTestTimeoutMs,
+} from '../support/testTimeouts.js';
+setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 let server: Server | null = null;
 let baseUrl = '';
 let lastRunId: string | null = null;
 let tempDir: string | null = null;
 let expectedFiles = 0;
-
 Before(async () => {
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
-  delete process.env.CODEINFO_CODEX_WORKDIR;
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
   const app = express();
   app.use(cors());
   app.use(express.json());
   app.use(createRequestLogger());
-
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
     baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
-
   app.use(
     '/',
     createIngestStartRouter({
@@ -56,7 +55,6 @@ Before(async () => {
         new MockLMStudioClient() as unknown as LMStudioClient,
     }),
   );
-
   await new Promise<void>((resolve) => {
     const listener = app.listen(0, () => {
       server = listener;
@@ -69,7 +67,6 @@ Before(async () => {
     });
   });
 });
-
 After(async () => {
   stopMock();
   if (server) {
@@ -82,14 +79,12 @@ After(async () => {
   }
   lastRunId = null;
   expectedFiles = 0;
-  delete process.env.CODEINFO_CODEX_WORKDIR;
+  clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
   await clearLockedModel();
 });
-
 Given('ingest status models scenario {string}', (name: string) => {
   startMock({ scenario: name as MockScenario });
 });
-
 Given('temp repo for ingest status with {int} files', async (count: number) => {
   expectedFiles = count;
   tempDir = await createTempRepoRoot('ingest-status-');
@@ -99,7 +94,6 @@ Given('temp repo for ingest status with {int} files', async (count: number) => {
     await fs.writeFile(filePath, `content ${i}`);
   }
 });
-
 When(
   'I POST ingest start for status with model {string}',
   async (model: string) => {
@@ -108,14 +102,14 @@ When(
       expectedFiles = 1;
       await fs.writeFile(path.join(tempDir, 'file-1.txt'), 'content');
     }
-
     const res = await fetch(`${baseUrl}/ingest/start`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ path: tempDir, name: 'tmp', model }),
     });
-
-    const body = (await res.json()) as { runId?: string };
+    const body = (await res.json()) as {
+      runId?: string;
+    };
     if (res.status !== 202) {
       assert.fail(`ingest start failed with ${res.status}`);
     }
@@ -123,42 +117,33 @@ When(
     assert.ok(lastRunId, 'runId missing from ingest start');
   },
 );
-
 Then(
   'ingest status eventually includes progress fields and AST counts for {int} files',
   async (expected: number) => {
     assert.equal(expected, expectedFiles);
     assert(lastRunId, 'runId missing');
-
     let snapshot: Record<string, unknown> | null = null;
-
-    for (let i = 0; i < 50; i += 1) {
+    for (let i = 0; i < resolveConfiguredPollAttempts(50, 100); i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = (await res.json()) as Record<string, unknown>;
-
       if (body.state === 'error') {
         assert.fail(
           `ingest errored: ${(body.lastError as string) ?? body.message}`,
         );
       }
-
       const hasFields =
         typeof body.fileTotal === 'number' &&
         typeof body.fileIndex === 'number' &&
         typeof body.percent === 'number' &&
         typeof body.currentFile === 'string' &&
         (body.currentFile as string).length > 0;
-
       if (hasFields) {
         snapshot = body;
         break;
       }
-
       await new Promise((r) => setTimeout(r, 100));
     }
-
     assert(snapshot, 'expected status snapshot with progress fields');
-
     assert.equal(snapshot?.fileTotal, expectedFiles);
     const fileIndex = snapshot?.fileIndex as number;
     const fileTotal = snapshot?.fileTotal as number;

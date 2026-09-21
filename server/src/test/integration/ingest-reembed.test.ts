@@ -22,13 +22,6 @@ import type {
 } from '../../ingest/requestQueue.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
-
-function waitForNextTurn() {
-  return new Promise<void>((resolve) => {
-    setImmediate(resolve);
-  });
-}
-
 function setNoopQueueRuntimeOps() {
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async () => null,
@@ -41,7 +34,6 @@ function setNoopQueueRuntimeOps() {
     promoteOldestWaitingQueueRequest: async () => null,
   });
 }
-
 function buildReembedRepo(): RepoEntry {
   return {
     id: 'repo',
@@ -66,7 +58,6 @@ function buildReembedRepo(): RepoEntry {
     lastError: null,
   };
 }
-
 function buildReembedApp(options?: {
   listIngestedRepositories?: () => Promise<ListReposResult>;
   enqueueOrReuseIngestRequest?: () => Promise<EnqueueIngestRequestResult>;
@@ -123,9 +114,8 @@ function buildReembedApp(options?: {
   );
   return app;
 }
-
 test.beforeEach(() => {
-  process.env.NODE_ENV = 'test';
+  setScopedTestEnvValue('NODE_ENV', 'test');
   __resetIngestJobsForTest();
   release();
   setIngestDeps({
@@ -133,17 +123,14 @@ test.beforeEach(() => {
     baseUrl: 'ws://host.docker.internal:1234',
   });
 });
-
 test.afterEach(() => {
   setNoopQueueRuntimeOps();
   __setRunProcessorForTest(null);
   __resetIngestJobsForTest();
   release();
 });
-
 test('startup recovery does not replay committed-before-cleanup running work', async () => {
   const events: string[] = [];
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async () =>
       ({
@@ -184,16 +171,16 @@ test('startup recovery does not replay committed-before-cleanup running work', a
     events.push(`started:${runId}:${input.path}`);
     release(runId);
   });
-
   const result = await recoverIngestQueueOnStartup();
-  await waitForNextTurn();
-
   assert.equal(result.recovered, true);
   assert.deepEqual(events, ['waiting-promoted']);
 });
-
 test('startup recovery still retries leftover running work before newer waiting work', async () => {
   const events: string[] = [];
+  let markProcessorStarted!: () => void;
+  const processorStarted = new Promise<void>((resolve) => {
+    markProcessorStarted = resolve;
+  });
   __setQueueRuntimeOpsForTest({
     findOldestCleanupBlockedQueueRequest: async () => null,
     findOldestRunningQueueRequest: async () =>
@@ -216,17 +203,23 @@ test('startup recovery still retries leftover running work before newer waiting 
   });
   __setRunProcessorForTest(async (runId, input) => {
     events.push(`started:${runId}:${input.path}`);
+    markProcessorStarted();
     release(runId);
   });
-
   const result = await recoverIngestQueueOnStartup();
-  await waitForNextTurn();
-
+  await processorStarted;
   assert.equal(result.recovered, true);
   assert.deepEqual(events, ['started:run-recovered:/data/repo-running']);
 });
-
 test('cleanup boundary exposes a deterministic next-item-not-started state before queue advancement', async () => {
+  let markDeleteStarted!: () => void;
+  const deleteStarted = new Promise<void>((resolve) => {
+    markDeleteStarted = resolve;
+  });
+  let markProcessorStarted!: () => void;
+  const processorStarted = new Promise<void>((resolve) => {
+    markProcessorStarted = resolve;
+  });
   const deleteGate = (() => {
     let resolve!: () => void;
     const promise = new Promise<void>((nextResolve) => {
@@ -235,7 +228,6 @@ test('cleanup boundary exposes a deterministic next-item-not-started state befor
     return { promise, resolve };
   })();
   const events: string[] = [];
-
   __setStatusForTest('run-finished', {
     runId: 'run-finished',
     state: 'completed',
@@ -247,6 +239,7 @@ test('cleanup boundary exposes a deterministic next-item-not-started state befor
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async () => {
       events.push('delete-start');
+      markDeleteStarted();
       await deleteGate.promise;
       events.push('delete-complete');
       return {
@@ -275,35 +268,27 @@ test('cleanup boundary exposes a deterministic next-item-not-started state befor
   });
   __setRunProcessorForTest(async (runId, input) => {
     events.push(`start:${input.path}`);
+    markProcessorStarted();
     release(runId);
   });
-
   const finalizePromise = __finalizeQueueRequestForRunForTest('run-finished');
-  await waitForNextTurn();
-
+  await deleteStarted;
   assert.deepEqual(events, ['delete-start']);
   assert.equal(getActiveStatus(), null);
-
   const stalledWhileCleanupPending = await pumpIngestQueue();
   assert.equal(stalledWhileCleanupPending.started, false);
   assert.equal(stalledWhileCleanupPending.blockedByCleanup, true);
-
   deleteGate.resolve();
   await finalizePromise;
-  for (let attempt = 0; attempt < 10 && events.length < 3; attempt += 1) {
-    await waitForNextTurn();
-  }
-
+  await processorStarted;
   assert.deepEqual(events, [
     'delete-start',
     'delete-complete',
     'start:/data/repo-next',
   ]);
 });
-
 test('ingest-reembed rejects a dot-segment root alias through the public route before queue admission', async () => {
   let enqueueCalled = false;
-
   const response = await request(
     buildReembedApp({
       enqueueOrReuseIngestRequest: async () => {
@@ -321,34 +306,32 @@ test('ingest-reembed rejects a dot-segment root alias through the public route b
       },
     }),
   ).post('/ingest/reembed/%2Ftmp%2Freembed-root%2F..%2Freembed-root');
-
   assert.equal(response.status, 404);
   assert.equal(response.body.code, 'NOT_FOUND');
   assert.equal(enqueueCalled, false);
 });
-
 test('ingest-reembed rejects a whitespace-only root through the public route before repo-list dependency I/O can run', async () => {
   let listCalls = 0;
-
   const response = await request(
     buildReembedApp({
       listIngestedRepositories: async () => {
         listCalls += 1;
         const error = new Error('repo list should not run');
-        (error as { code?: string }).code = 'QUEUE_UNAVAILABLE';
+        (
+          error as {
+            code?: string;
+          }
+        ).code = 'QUEUE_UNAVAILABLE';
         throw error;
       },
     }),
   ).post('/ingest/reembed/%20%20%20');
-
   assert.equal(response.status, 404);
   assert.equal(response.body.code, 'NOT_FOUND');
   assert.equal(listCalls, 0);
 });
-
 test('ingest-reembed keeps OPENAI_MODEL_UNAVAILABLE as a structured pre-run route contract without queuing work', async () => {
   let enqueueCalled = false;
-
   const response = await request(
     buildReembedApp({
       listIngestedRepositories: async () => ({
@@ -385,7 +368,6 @@ test('ingest-reembed keeps OPENAI_MODEL_UNAVAILABLE as a structured pre-run rout
       },
     }),
   ).post('/ingest/reembed/%2Ftmp%2Freembed-root');
-
   assert.equal(response.status, 409);
   assert.deepEqual(response.body, {
     status: 'error',
@@ -393,10 +375,8 @@ test('ingest-reembed keeps OPENAI_MODEL_UNAVAILABLE as a structured pre-run rout
   });
   assert.equal(enqueueCalled, false);
 });
-
 test('ingest-reembed keeps the queue-aware acceptance contract for valid requests after the admission guard repair', async () => {
   let enqueueCalled = false;
-
   const response = await request(
     buildReembedApp({
       enqueueOrReuseIngestRequest: async () => {
@@ -414,7 +394,6 @@ test('ingest-reembed keeps the queue-aware acceptance contract for valid request
       },
     }),
   ).post('/ingest/reembed/%2Ftmp%2Freembed-root');
-
   assert.equal(response.status, 202);
   assert.deepEqual(response.body, {
     queued: true,

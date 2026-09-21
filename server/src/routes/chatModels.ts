@@ -5,7 +5,7 @@ import {
 } from '@codeinfo2/common';
 import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import {
   resolveCodexCapabilities,
   type CodexCapabilityResolution,
@@ -28,6 +28,11 @@ import {
   type CopilotReadinessRuntime,
 } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
+import {
+  bindCurrentTestEnvOverrides,
+  getScopedEnvValue,
+  getScopedProcessEnv,
+} from '../test/support/testEnvOverrideScope.js';
 import {
   buildEndpointOnlyProviderWarning,
   buildCodexAgentFlags,
@@ -298,8 +303,12 @@ export function createChatModelsRouter({
     return kind !== 'embedding' && kind !== 'vector';
   };
 
-  router.get('/models', async (req, res) => {
-    const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
+  router.get(
+    '/models',
+    bindCurrentTestEnvOverrides(async (req: Request, res: Response) => {
+    const env = getScopedProcessEnv();
+    const codexHome =
+      getScopedEnvValue('CODEINFO_CODEX_HOME') ?? getScopedEnvValue('CODEX_HOME');
     const codexBootstrapHealthy = isProviderBootstrapHealthy('codex');
     const copilotBootstrapHealthy = isProviderBootstrapHealthy('copilot');
     const lmstudioBootstrapHealthy = isProviderBootstrapHealthy('lmstudio');
@@ -317,8 +326,8 @@ export function createChatModelsRouter({
         ? await resolveOpenAiCompatProviderDiscovery({
             provider,
             codexHome,
-            copilotHome: process.env.CODEINFO_COPILOT_HOME,
-            env: process.env,
+            copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+            env,
           })
         : {
             models: [],
@@ -343,8 +352,8 @@ export function createChatModelsRouter({
       requestedDefaults = resolveChatDefaults({
         requestProvider: provider,
         codexHome,
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+        copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+        lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
       });
     } catch (error) {
       if (!(error instanceof ChatDefaultsResolutionError)) {
@@ -474,14 +483,14 @@ export function createChatModelsRouter({
 
     const readiness = await resolveCopilotReadiness({
       createRuntime: copilotRuntimeFactory,
-      env: process.env,
+      env,
       toolsAvailable: mcp.available,
       toolsReason: mcp.reason,
     });
     const copilotRawModels = readiness.modelsRaw as ModelInfo[];
     const copilotAgentFlags = buildCopilotAgentFlags({
       models: copilotRawModels,
-      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+      copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
     });
     const { mapped: mappedCopilotModels, ignoredUnsupportedFields } =
       mapCopilotModels(copilotRawModels);
@@ -551,7 +560,7 @@ export function createChatModelsRouter({
           : copilotAvailable
           ? readiness.reason
           : (readiness.reason ?? COPILOT_MODELS_REASON)),
-      copilotHome: process.env.CODEINFO_COPILOT_HOME,
+      copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
       warnings: copilotWarnings,
       liveModels: copilotLiveModels,
       modelMetadata:
@@ -586,7 +595,7 @@ export function createChatModelsRouter({
       blockingStage: copilotAvailable ? readiness.blockingStage : 'models',
     });
 
-    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
     let lmstudioAvailable = false;
     let lmstudioReason: string | undefined;
@@ -615,7 +624,7 @@ export function createChatModelsRouter({
         const models = await client.system.listDownloadedModels();
         const lmstudioPreferredModel = resolveProviderRuntimePreferredModel({
           provider: 'lmstudio',
-          lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+          lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
         }).model;
         const prioritizedLmstudioModel = prioritizeRuntimeProviderModels(
           models.filter(isChatModel).map((model) => model.modelKey),
@@ -691,7 +700,7 @@ export function createChatModelsRouter({
         toolsAvailable: lmstudioAvailable && lmstudioBootstrapHealthy,
         endpointOnly: false,
         reason: getProviderBootstrapReason('lmstudio') ?? lmstudioReason,
-        lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+        lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
         warnings: lmstudioWarnings,
         liveModels: lmstudioModels.map((model) => model.key),
         modelMetadata: lmstudioModelMetadata,
@@ -829,8 +838,9 @@ export function createChatModelsRouter({
       providerInfo: providerMap.lmstudio,
       selectedEndpointId: undefined,
     });
-    return res.json(response);
-  });
+      return res.json(response);
+    }),
+  );
 
   return router;
 }

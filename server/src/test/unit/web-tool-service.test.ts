@@ -218,11 +218,13 @@ test('webSearch aborts the DuckDuckGo HTML fallback when it exceeds the timeout'
                 reject(new Error('signal missing'));
                 return;
               }
-              signal.addEventListener(
-                'abort',
-                () => reject(signal.reason ?? new Error('aborted')),
-                { once: true },
-              );
+              const rejectAbort = () =>
+                reject(signal.reason ?? new Error('aborted'));
+              if (signal.aborted) {
+                rejectAbort();
+                return;
+              }
+              signal.addEventListener('abort', rejectAbort, { once: true });
             }),
         },
       ),

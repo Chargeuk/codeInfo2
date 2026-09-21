@@ -14,6 +14,7 @@ import {
   type SubflowWaveJob,
 } from '../../flows/subflowWave.js';
 import type { FlowJsonValue } from '../../flows/types.js';
+import { removeWritableTree } from '../support/fsCleanup.js';
 
 const execFile = promisify(execFileCb);
 
@@ -65,7 +66,9 @@ const initializeGitRepository = async (root: string, branch: string) => {
 Given(
   'a generic review batch with {int} pinned target\\(s\\)',
   async (targetCount: number) => {
-    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'review-batch-cucumber-'));
+    tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'review-batch-cucumber-'),
+    );
     const planPath = 'planning/0000064-review.md';
     await fs.mkdir(path.join(tempRoot, 'planning'), { recursive: true });
     await fs.mkdir(path.join(tempRoot, 'codeInfoStatus', 'flow-state'), {
@@ -82,7 +85,8 @@ Given(
     await initializeGitRepository(tempRoot, 'feature/0000064-review');
     const targets = await Promise.all(
       Array.from({ length: targetCount }, async (_, index) => {
-        const repoRoot = index === 0 ? tempRoot! : path.join(tempRoot!, `repo-${index}`);
+        const repoRoot =
+          index === 0 ? tempRoot! : path.join(tempRoot!, `repo-${index}`);
         await fs.mkdir(repoRoot, { recursive: true });
         if (repoRoot !== tempRoot) {
           await initializeGitRepository(repoRoot, 'feature/0000064-review');
@@ -168,8 +172,10 @@ When(
       path.join(String(first.output_dir), 'anything the reviewer chose.txt'),
       'useful evidence\n',
     );
-    flexibleOutputVisible = (await fs.readdir(String(first.output_dir))).length === 1;
-    emptyOutputVisible = (await fs.readdir(String(second.output_dir))).length === 0;
+    flexibleOutputVisible =
+      (await fs.readdir(String(first.output_dir))).length === 1;
+    emptyOutputVisible =
+      (await fs.readdir(String(second.output_dir))).length === 0;
   },
 );
 
@@ -220,7 +226,7 @@ Then('both scheduled jobs expose the same common workspace fields', () => {
 
 After(async () => {
   if (tempRoot) {
-    await fs.rm(tempRoot, { recursive: true, force: true });
+    await removeWritableTree(tempRoot);
   }
   tempRoot = undefined;
   snapshot = undefined;

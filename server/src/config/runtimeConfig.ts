@@ -10,6 +10,12 @@ import toml from 'toml';
 
 import { discoverAgents } from '../agents/discovery.js';
 import { append } from '../logStore.js';
+import {
+  enterTestOverrideScope,
+  getScopedProcessEnv,
+  getScopedProviderBootstrapStatusOverride,
+  hasActiveTestOverrideScope,
+} from '../test/support/testOverrideScope.js';
 
 import {
   buildDefaultCodexConfig,
@@ -204,6 +210,22 @@ const CODE_INFO_MCP_SERVER_BLOCK = [
   'startup_timeout_sec = 60',
   '',
 ].join('\n');
+const runtimeTestDiagnosticsEnabled =
+  process.env.CODEINFO_TEST_RUNTIME_DIAGNOSTICS === '1';
+
+const appendRuntimeTestDiagnostic = (
+  message: string,
+  context: Record<string, unknown>,
+) => {
+  if (!runtimeTestDiagnosticsEnabled) return;
+  append({
+    level: 'info',
+    message,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context,
+  });
+};
 const WEB_TOOLS_MCP_SERVER_BLOCK = [
   '[mcp_servers.web_tools]',
   'command = "npx"',
@@ -397,16 +419,55 @@ function buildChatConfigTempPath(chatConfigPath: string): string {
 
 const CHAT_CONFIG_LOCK_RETRY_DELAY_MS = 25;
 const CHAT_CONFIG_LOCK_MAX_RETRIES = 20;
+const TEST_CHAT_CONFIG_LOCK_RETRY_DELAY_MS = 50;
+const TEST_CHAT_CONFIG_LOCK_MAX_RETRIES = 500;
+
+function getChatConfigLockRetryPolicy() {
+  return hasActiveTestOverrideScope()
+    ? {
+        retryDelayMs: TEST_CHAT_CONFIG_LOCK_RETRY_DELAY_MS,
+        maxRetries: TEST_CHAT_CONFIG_LOCK_MAX_RETRIES,
+      }
+    : {
+        retryDelayMs: CHAT_CONFIG_LOCK_RETRY_DELAY_MS,
+        maxRetries: CHAT_CONFIG_LOCK_MAX_RETRIES,
+      };
+}
 
 async function acquireChatConfigLock(
   chatConfigPath: string,
 ): Promise<() => Promise<void>> {
   const lockPath = `${chatConfigPath}.codeinfo.lock`;
+  const startedAt = Date.now();
+  const { maxRetries, retryDelayMs } = getChatConfigLockRetryPolicy();
+  appendRuntimeTestDiagnostic('runtime.chat_config_lock_acquire_begin', {
+    chatConfigPath,
+    lockPath,
+    maxRetries,
+    retryDelayMs,
+    pid: process.pid,
+  });
 
-  for (let attempt = 0; attempt < CHAT_CONFIG_LOCK_MAX_RETRIES; attempt += 1) {
+  for (let attempt = 0; attempt < maxRetries; attempt += 1) {
     let handle: FileHandle | undefined;
     try {
       handle = await fs.open(lockPath, 'wx');
+      appendRuntimeTestDiagnostic('runtime.chat_config_lock_acquire_success', {
+        chatConfigPath,
+        lockPath,
+        attempts: attempt + 1,
+        waitedMs: Date.now() - startedAt,
+        pid: process.pid,
+      });
+      if (attempt > 0) {
+        appendRuntimeTestDiagnostic('runtime.chat_config_lock_acquired_after_retry', {
+          chatConfigPath,
+          lockPath,
+          attempts: attempt + 1,
+          waitedMs: Date.now() - startedAt,
+          pid: process.pid,
+        });
+      }
       return async () => {
         await handle?.close().catch(() => {});
         await fs.rm(lockPath, { force: true }).catch(() => {});
@@ -416,9 +477,25 @@ async function acquireChatConfigLock(
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw error;
       }
-      await delay(CHAT_CONFIG_LOCK_RETRY_DELAY_MS);
+      appendRuntimeTestDiagnostic('runtime.chat_config_lock_retry', {
+        chatConfigPath,
+        lockPath,
+        attempt: attempt + 1,
+        waitedMs: Date.now() - startedAt,
+        retryDelayMs,
+        pid: process.pid,
+      });
+      await delay(retryDelayMs);
     }
   }
+
+  appendRuntimeTestDiagnostic('runtime.chat_config_lock_timeout', {
+    chatConfigPath,
+    lockPath,
+    attempts: maxRetries,
+    waitedMs: Date.now() - startedAt,
+    pid: process.pid,
+  });
 
   throw Object.assign(
     new Error(`Timed out acquiring chat config lock for ${chatConfigPath}`),
@@ -1698,6 +1775,16 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       copilotHome: params.copilotHome,
       lmstudioHome: params.lmstudioHome,
     });
+  const startedAt = Date.now();
+  appendRuntimeTestDiagnostic('runtime.runtime_config_resolution_begin', {
+    surface: params.surface,
+    provider,
+    providerHome,
+    runtimeConfigPath: params.runtimeConfigPath,
+    repoLocalConfigPath,
+    baseConfigPath,
+    runtimeConfigRequired: params.runtimeConfigRequired ?? true,
+  });
   try {
     const [repoLocalConfig, baseConfig, runtimeConfig] = await Promise.all([
       readAndNormalizeRuntimeTomlConfig(repoLocalConfigPath),
@@ -1730,8 +1817,10 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
         pathLabel: `${params.surface}.${CODEINFO_OPENAI_ENDPOINT_METADATA_KEY}`,
       });
     }
+    const scopedEnv = getScopedProcessEnv(process.env);
     const placeholderResult = normalizeCodeinfoRuntimeConfigPlaceholders(
       stripped.config,
+      scopedEnv,
     );
     const context7Result = normalizeContext7RuntimeConfig(placeholderResult);
     const validated = validateRuntimeConfig(context7Result.config, {
@@ -1743,7 +1832,7 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       config: validated.config,
       provider: effectiveProvider,
       appMetadata: stripped.appMetadata,
-      env: process.env,
+      env: scopedEnv,
       warningPath: `${params.surface}.mcp_servers.web_tools`,
     });
     validated.config = managedWebToolsResult.config;
@@ -1772,6 +1861,14 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
       runtimeConfigPath: params.runtimeConfigPath,
       warningCount: validated.warnings.length,
     });
+    appendRuntimeTestDiagnostic('runtime.runtime_config_resolution_complete', {
+      surface: params.surface,
+      provider,
+      providerHome,
+      runtimeConfigPath: params.runtimeConfigPath,
+      warningCount: validated.warnings.length,
+      durationMs: Date.now() - startedAt,
+    });
     return validated;
   } catch (error) {
     const mapped = mapResolutionError(error, {
@@ -1781,6 +1878,15 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
     console.error(
       `${T04_ERROR_LOG} surface=${mapped.surface} code=${mapped.code}`,
     );
+    appendRuntimeTestDiagnostic('runtime.runtime_config_resolution_failed', {
+      surface: mapped.surface,
+      provider,
+      providerHome,
+      runtimeConfigPath: params.runtimeConfigPath,
+      code: mapped.code,
+      reason: mapped.message,
+      durationMs: Date.now() - startedAt,
+    });
     throw mapped;
   }
 }
@@ -1875,6 +1981,29 @@ export async function ensureProviderChatConfigBootstrapped(params: {
     params.provider === 'codex'
       ? getCodexConfigPathForHome(providerHome)
       : chatConfigPath;
+  appendRuntimeTestDiagnostic('runtime.chat_config_bootstrap_begin', {
+    provider: params.provider,
+    providerHome,
+    baseConfigPath,
+    chatConfigPath,
+  });
+  const emitBootstrapComplete = (paramsForLog: {
+    branch: ChatBootstrapBranch;
+    generatedTemplate: boolean;
+    warning?: string;
+    warningCode?: string;
+  }) => {
+    appendRuntimeTestDiagnostic('runtime.chat_config_bootstrap_complete', {
+      provider: params.provider,
+      providerHome,
+      baseConfigPath,
+      chatConfigPath,
+      branch: paramsForLog.branch,
+      generatedTemplate: paramsForLog.generatedTemplate,
+      warning: paramsForLog.warning ?? null,
+      warningCode: paramsForLog.warningCode ?? null,
+    });
+  };
 
   const chatExists = await fs.stat(chatConfigPath).then(
     () => true,
@@ -1922,6 +2051,12 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       chatConfigPath,
       outcome: 'existing',
       success: augmentResult.outcome !== 'failed',
+      warning: augmentResult.warning,
+      warningCode: augmentResult.warningCode,
+    });
+    emitBootstrapComplete({
+      branch,
+      generatedTemplate: false,
       warning: augmentResult.warning,
       warningCode: augmentResult.warningCode,
     });
@@ -1979,6 +2114,10 @@ export async function ensureProviderChatConfigBootstrapped(params: {
         outcome: 'existing',
         success: true,
       });
+      emitBootstrapComplete({
+        branch: 'existing_noop',
+        generatedTemplate: false,
+      });
       return {
         provider: params.provider,
         providerHome,
@@ -1999,6 +2138,10 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       chatConfigPath,
       outcome: 'seeded',
       success: true,
+    });
+    emitBootstrapComplete({
+      branch: 'generated_template',
+      generatedTemplate: true,
     });
     return {
       provider: params.provider,
@@ -2021,6 +2164,10 @@ export async function ensureProviderChatConfigBootstrapped(params: {
         chatConfigPath,
         outcome: 'existing',
         success: true,
+      });
+      emitBootstrapComplete({
+        branch: 'existing_noop',
+        generatedTemplate: false,
       });
       return {
         provider: params.provider,
@@ -2048,6 +2195,12 @@ export async function ensureProviderChatConfigBootstrapped(params: {
       outcome: 'seeded',
       source: 'chat_template',
       success: false,
+      warning,
+      warningCode: code,
+    });
+    emitBootstrapComplete({
+      branch: 'template_write_failed',
+      generatedTemplate: false,
       warning,
       warningCode: code,
     });
@@ -2219,6 +2372,15 @@ export async function ensureAllProviderChatConfigsBootstrapped(params?: {
 export function getProviderBootstrapStatus(
   provider: ChatProviderId,
 ): ProviderBootstrapStatus {
+  const scoped = getScopedProviderBootstrapStatusOverride(provider);
+  if (scoped) {
+    return {
+      provider,
+      healthy: scoped.healthy ?? true,
+      ...(scoped.reason ? { reason: scoped.reason } : {}),
+      warnings: [...(scoped.warnings ?? [])],
+    };
+  }
   const status = providerBootstrapStatuses[provider];
   return {
     provider,
@@ -2232,6 +2394,18 @@ export function __setProviderBootstrapStatusForTests(
   provider: ChatProviderId,
   status: Partial<ProviderBootstrapStatus>,
 ) {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      providerBootstrapStatuses: {
+        [provider]: {
+          healthy: status.healthy ?? true,
+          reason: status.reason,
+          warnings: [...(status.warnings ?? [])],
+        },
+      },
+    });
+    return;
+  }
   providerBootstrapStatuses[provider] = {
     provider,
     healthy: status.healthy ?? true,
@@ -2241,6 +2415,16 @@ export function __setProviderBootstrapStatusForTests(
 }
 
 export function __resetProviderBootstrapStatusForTests() {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      providerBootstrapStatuses: {
+        codex: null,
+        copilot: null,
+        lmstudio: null,
+      },
+    });
+    return;
+  }
   for (const provider of ['codex', 'copilot', 'lmstudio'] as const) {
     providerBootstrapStatuses[provider] = {
       provider,

@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -88,8 +89,8 @@ function mockCodexReady() {
           codexWarnings: [],
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
             },
           ],
@@ -120,6 +121,7 @@ async function selectProvider(optionName: RegExp) {
   const providerSelect = await screen.findByRole('combobox', {
     name: /provider/i,
   });
+  await waitForInteractiveCombobox(providerSelect);
   await userEvent.click(providerSelect);
   const option = await screen.findByRole('option', {
     name: optionName,

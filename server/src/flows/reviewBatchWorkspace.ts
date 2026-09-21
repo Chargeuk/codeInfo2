@@ -375,6 +375,36 @@ export type ReviewBatchWorkspace = {
   jobs: SubflowWaveJob[];
 };
 
+export const resolveReviewBatchContext = (snapshot: ReviewTargetSnapshot) => {
+  const primary = snapshot.targets.find((target) => target.is_primary);
+  if (!primary) {
+    throw new Error('Review batch snapshot lacks a primary target.');
+  }
+  const passId =
+    snapshot.review_cycle_id ?? `${snapshot.story_id}-standalone-review-pass`;
+  const batchId = `${snapshot.review_wave_id}--head-${primary.head_commit.slice(0, 12)}`;
+  const reviewRoot = path.join(
+    snapshot.plan_host_root,
+    'codeInfoTmp',
+    'reviews',
+  );
+  const batchRoot = path.join(
+    reviewRoot,
+    safeSegment(passId),
+    'batches',
+    safeSegment(batchId),
+  );
+  return {
+    story_id: snapshot.story_id,
+    plan_path: path.resolve(snapshot.plan_host_root, snapshot.plan_path),
+    review_cycle_id: passId,
+    batch_id: snapshot.review_wave_id,
+    reviewed_head: primary.head_commit,
+    batch_root: batchRoot,
+    reconciliation_dir: path.join(batchRoot, 'reconciliation'),
+  };
+};
+
 export async function prepareReviewBatchWorkspace(params: {
   snapshot: ReviewTargetSnapshot;
   jobs: SubflowWaveJob[];
@@ -385,20 +415,13 @@ export async function prepareReviewBatchWorkspace(params: {
   if (!primary) {
     throw new Error('Review batch snapshot lacks a primary target.');
   }
-  const passId =
-    params.snapshot.review_cycle_id ??
-    `${params.snapshot.story_id}-standalone-review-pass`;
-  const batchId = `${params.snapshot.review_wave_id}--head-${primary.head_commit.slice(0, 12)}`;
+  const reviewBatch = resolveReviewBatchContext(params.snapshot);
+  const batchRoot = reviewBatch.batch_root;
+  const passId = reviewBatch.review_cycle_id;
   const reviewRoot = path.join(
     params.snapshot.plan_host_root,
     'codeInfoTmp',
     'reviews',
-  );
-  const batchRoot = path.join(
-    reviewRoot,
-    safeSegment(passId),
-    'batches',
-    safeSegment(batchId),
   );
   const batchParent = path.dirname(batchRoot);
   const inputsRoot = path.join(batchRoot, 'inputs');

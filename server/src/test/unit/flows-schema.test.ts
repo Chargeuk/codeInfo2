@@ -4,7 +4,10 @@ import path from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { parseFlowFile } from '../../flows/flowSchema.js';
+import {
+  MAX_FLOW_WAIT_SECONDS,
+  parseFlowFile,
+} from '../../flows/flowSchema.js';
 import { query, resetStore } from '../../logStore.js';
 
 describe('flow schema (v1)', () => {
@@ -591,6 +594,7 @@ describe('flow schema (v1)', () => {
       repair?.steps?.map((step) => step.label),
       [
         'Skip Review Repair When Disposition Accepts No Findings',
+        'Investigate Repeated Review Findings',
         'Re-embed Plan Scope Before Direct Review Fixes',
         'Reset Direct Review Fixer',
         'Implement Direct Review Fixes',
@@ -604,6 +608,51 @@ describe('flow schema (v1)', () => {
     assert.equal(repair?.steps?.[0]?.continueOnFailure, true);
     assert.equal(repair?.steps?.[0]?.continueOnInvalidResponse, true);
     assert.equal(repair?.steps?.at(-1)?.breakOnFailure, true);
+
+    const repeated = repair?.steps?.[1];
+    assert.equal(repeated?.type, 'startLoop');
+    assert.equal(repeated?.maxIterations, 1);
+    assert.deepEqual(
+      repeated?.steps?.map((step) => step.label),
+      [
+        'Reset Repeated Finding Matcher',
+        'Identify Repeated Review Findings',
+        'Enter Repeated Repair When Evidence Qualifies',
+        'Reset Repeated Finding Researcher',
+        'Research and Fix Repeated Review Findings',
+        'Exit Repeated Finding Investigation',
+      ],
+    );
+    assert.equal(repeated?.steps?.[1]?.agentType, 'review_agent_lite');
+    assert.equal(repeated?.steps?.[1]?.identifier, 'batch_repeat_matcher');
+    assert.equal(repeated?.steps?.[1]?.continueOnFailure, true);
+    assert.equal(repeated?.steps?.[2]?.breakOn, 'no');
+    assert.equal(repeated?.steps?.[2]?.breakOnFailure, true);
+    assert.equal(repeated?.steps?.[2]?.continueOnFailure, undefined);
+    assert.equal(repeated?.steps?.[2]?.continueOnInvalidResponse, undefined);
+    assert.match(repeated?.steps?.[2]?.question ?? '', /attempted repair/u);
+    assert.match(repeated?.steps?.[2]?.question ?? '', /uncertainty alone/u);
+    assert.match(repeated?.steps?.[2]?.question ?? '', /invalid response must exit/u);
+    assert.equal(repeated?.steps?.[3]?.agentType, 'research_agent_max');
+    assert.equal(repeated?.steps?.[3]?.identifier, 'batch_repeat_researcher');
+    assert.equal(repeated?.steps?.[4]?.agentType, 'research_agent_max');
+    assert.equal(repeated?.steps?.[4]?.identifier, 'batch_repeat_researcher');
+    assert.equal(repeated?.steps?.[4]?.continueOnFailure, true);
+    assert.equal(repeated?.steps?.at(-1)?.agentType, 'loop_control_agent');
+    assert.equal(
+      repeated?.steps?.at(-1)?.identifier,
+      'batch_research_loop_controller',
+    );
+    assert.equal(
+      repeated?.steps?.at(-1)?.question,
+      'Return exact JSON only: {"answer":"yes"}.',
+    );
+    assert.equal(repeated?.steps?.at(-1)?.breakOn, 'yes');
+    assert.equal(repeated?.steps?.at(-1)?.breakOnFailure, true);
+    assert.equal(
+      flattenSteps(repeated?.steps ?? []).some((step) => step.type === 'if'),
+      false,
+    );
 
     const filteringIndex = labels.indexOf('Optional Review Filtering');
     const auditIndex = labels.indexOf('Audit Review Batch Filtering Gates');
@@ -649,7 +698,7 @@ describe('flow schema (v1)', () => {
     assert.equal(consolidator?.continueOnFailure, undefined);
   });
 
-  test('review capability tiers reserve Sol maximum review for high-consequence synthesis and audits without changing fixers', async () => {
+  test('review capability tiers reserve Sol maximum review for high-consequence synthesis and audits while preserving ordinary fixers', async () => {
     const batch = JSON.parse(
       await fs.readFile(path.join(repoRoot, 'flows/review_batch.json'), 'utf8'),
     ) as { steps?: FlowStep[] };
@@ -795,7 +844,7 @@ describe('flow schema (v1)', () => {
       true,
     );
     assert.match(repeatedExit?.question ?? '', /every target repository/u);
-    assert.match(repeatedExit?.question ?? '', /stronger attempt/u);
+    assert.match(repeatedExit?.question ?? '', /stronger opportunity/u);
     assert.equal(oneShotBatches.length, 1);
     const serialized = JSON.stringify({ repeatedBatch, oneShotBatches });
     assert.match(serialized, /codex_review/u);
@@ -1019,6 +1068,7 @@ describe('flow schema (v1)', () => {
       optionalSteps.map((step) => step.label),
       [
         'Skip Review Repair When Disposition Accepts No Findings',
+        'Investigate Repeated Review Findings',
         'Re-embed Plan Scope Before Direct Review Fixes',
         'Reset Direct Review Fixer',
         'Implement Direct Review Fixes',
@@ -1035,8 +1085,13 @@ describe('flow schema (v1)', () => {
     assert.equal(noWorkGate?.breakOn, 'yes');
     assert.equal(noWorkGate?.continueOnFailure, true);
     assert.equal(noWorkGate?.continueOnInvalidResponse, true);
-    assert.match(noWorkGate?.question ?? '', /no accepted actionable finding/u);
-    const completionGate = optionalSteps[4];
+    assert.match(noWorkGate?.question ?? '', /empty accepted actionable set/u);
+    assert.match(noWorkGate?.question ?? '', /unrelated history or review coverage/u);
+    const completionGate = optionalSteps.find(
+      (step) =>
+        step.label ===
+        'Skip Stronger Repair When Normal Fixer Completed All Findings',
+    );
     assert.equal(completionGate?.type, 'break');
     assert.equal(completionGate?.agentType, 'coding_agent');
     assert.equal(completionGate?.identifier, 'batch_fixer');
@@ -1047,10 +1102,15 @@ describe('flow schema (v1)', () => {
     assert.match(completionGate?.question ?? '', /positively confirmed/u);
     assert.match(completionGate?.question ?? '', /materiality survivor/u);
     assert.match(completionGate?.question ?? '', /evidence is uncertain/u);
-    const strongerReset = optionalSteps[5];
-    const strongerFix = optionalSteps[6];
+    const strongerReset = optionalSteps.find(
+      (step) => step.label === 'Reset Stronger Review Fixer',
+    );
+    const strongerFix = optionalSteps.find(
+      (step) => step.label === 'Implement Remaining Review Fixes',
+    );
     assert.equal(
-      optionalSteps.indexOf(strongerFix) - optionalSteps.indexOf(strongerReset),
+      optionalSteps.findIndex((step) => step === strongerFix) -
+        optionalSteps.findIndex((step) => step === strongerReset),
       1,
     );
     assert.equal(strongerReset?.type, 'reset');
@@ -1064,7 +1124,7 @@ describe('flow schema (v1)', () => {
       strongerFix?.markdownFile,
       'implement_review_batch_remaining_fixes.md',
     );
-    const exitGate = optionalSteps[8];
+    const exitGate = optionalSteps.at(-1);
     assert.equal(exitGate?.type, 'break');
     assert.equal(exitGate?.agentType, 'loop_control_agent');
     assert.equal(exitGate?.breakOn, 'yes');
@@ -1527,6 +1587,7 @@ describe('flow schema (v1)', () => {
     for (const relativePath of [
       'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
+      'flows/implement_next_plan_github_review.json',
       'flows/task_and_implement_plan.json',
       'flows/improve_task_implement_plan.json',
     ]) {
@@ -3132,5 +3193,493 @@ describe('flow schema (v1)', () => {
     assert.equal(logs[1]?.context?.definitionIndex, 0);
     assert.equal(logs[1]?.context?.outcome, 'rejected_removed_target');
     assert.equal(logs[1]?.context?.removedTarget, 'all');
+  });
+  test('script-backed flow decisions do not require an AI agent', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'break',
+            question: 'flow-control/decision-yes.py',
+            breakOn: 'yes',
+          },
+          {
+            type: 'break',
+            question: 'Use the explicit decision script.',
+            decisionScript: 'scripts/flow_control/check_complete.py',
+            breakOn: 'yes',
+          },
+          {
+            type: 'continue',
+            question: 'flow-control/decision-no.py',
+            continueOn: 'no',
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+  });
+
+  test('if-step schema accepts valid then and optional else shapes', () => {
+    resetStore();
+
+    // Valid if-step with then only
+    const jsonWithThen = JSON.stringify({
+      steps: [
+        {
+          type: 'if',
+          label: 'Check condition',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          condition: 'has_review_feedback',
+          then: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [{ role: 'user', content: ['Fix issues'] }],
+            },
+          ],
+        },
+      ],
+    });
+    const parsedThen = parseFlowFile(jsonWithThen);
+    assert.equal(parsedThen.ok, true);
+    if (!parsedThen.ok) return;
+    assert.equal(parsedThen.flow.steps[0].type, 'if');
+    const ifStep = parsedThen.flow.steps[0];
+    assert.equal(ifStep.type, 'if');
+    assert.equal(ifStep.condition, 'has_review_feedback');
+    assert.equal(ifStep.then.length, 1);
+
+    // Valid if-step with then and else
+    const jsonWithElse = JSON.stringify({
+      steps: [
+        {
+          type: 'if',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          condition: 'has_review_feedback',
+          then: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [{ role: 'user', content: ['Fix issues'] }],
+            },
+          ],
+          else: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [{ role: 'user', content: ['No feedback, continue'] }],
+            },
+          ],
+        },
+      ],
+    });
+    const parsedElse = parseFlowFile(jsonWithElse);
+    assert.equal(parsedElse.ok, true);
+    if (!parsedElse.ok) return;
+    const ifStepElse = parsedElse.flow.steps[0];
+    assert.equal(ifStepElse.type, 'if');
+    assert.ok('else' in ifStepElse && ifStepElse.else !== undefined);
+    assert.equal(ifStepElse.else!.length, 1);
+
+    // if-step with nested startLoop in then
+    const jsonWithNested = JSON.stringify({
+      steps: [
+        {
+          type: 'if',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          condition: 'needs_loop',
+          then: [
+            {
+              type: 'startLoop',
+              steps: [
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [{ role: 'user', content: ['Loop work'] }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const parsedNested = parseFlowFile(jsonWithNested);
+    assert.equal(parsedNested.ok, true);
+  });
+
+  test('if-step schema accepts an explicit GitHub review recovery boundary', () => {
+    resetStore();
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'if',
+            githubReviewRecovery: true,
+            condition: 'scripts/check-review.py',
+            then: [{ type: 'wait', seconds: 1 }],
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const step = parsed.flow.steps[0];
+    assert.equal(step.type, 'if');
+    if (step.type !== 'if') return;
+    assert.equal(step.githubReviewRecovery, true);
+  });
+
+  test('if-step schema accepts explicit harness scripts without an AI agent', () => {
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'if',
+            condition: 'Check the story.',
+            decisionScript:
+              'scripts/flow_control/check_plan_scope_story_complete.py',
+            then: [{ type: 'wait', seconds: 1 }],
+          },
+        ],
+      }),
+    );
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const step = parsed.flow.steps[0];
+    assert.equal(step.type, 'if');
+    if (step.type !== 'if') return;
+    assert.equal(
+      step.decisionScript,
+      'scripts/flow_control/check_plan_scope_story_complete.py',
+    );
+  });
+
+  for (const decisionScript of [
+    '',
+    '/outside.py',
+    '../outside.py',
+    'helper.sh',
+    42,
+  ]) {
+    test(`if-step schema rejects invalid explicit script ${JSON.stringify(decisionScript)}`, () => {
+      assert.equal(
+        parseFlowFile(
+          JSON.stringify({
+            steps: [
+              {
+                type: 'if',
+                condition: 'Check the story.',
+                decisionScript,
+                then: [{ type: 'wait', seconds: 1 }],
+              },
+            ],
+          }),
+        ).ok,
+        false,
+      );
+    });
+  }
+
+  test('if-step schema rejects two competing script owners', () => {
+    assert.equal(
+      parseFlowFile(
+        JSON.stringify({
+          steps: [
+            {
+              type: 'if',
+              condition: 'scripts/target.py',
+              decisionScript: 'scripts/harness.py',
+              then: [{ type: 'wait', seconds: 1 }],
+            },
+          ],
+        }),
+      ).ok,
+      false,
+    );
+  });
+
+  test('GitHub review variant explicitly owns its harness predicates', async () => {
+    const parsed = parseFlowFile(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/implement_next_plan_github_review.json'),
+        'utf8',
+      ),
+    );
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const predicates: string[] = [];
+    const visit = (steps: import('../../flows/flowSchema.js').FlowStep[]) => {
+      for (const step of steps) {
+        if (step.type === 'startLoop') visit(step.steps);
+        if (step.type === 'if') {
+          if (step.decisionScript || step.condition.endsWith('.py')) {
+            assert.ok(step.decisionScript);
+            predicates.push(step.decisionScript);
+          }
+          visit(step.then);
+          if (step.else) visit(step.else);
+        }
+      }
+    };
+    visit(parsed.flow.steps);
+    assert.deepEqual(predicates, [
+      'scripts/flow_control/check_plan_scope_story_complete.py',
+      'scripts/flow_control/check_github_review_cycle_active.py',
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+      'scripts/flow_control/check_review_should_exit_to_main_loop.py',
+      'scripts/flow_control/check_review_should_exit_to_main_loop.py',
+      'scripts/flow_control/check_github_review_should_write_no_findings_closeout.py',
+    ]);
+  });
+
+  test('if-step schema rejects a non-boolean GitHub review recovery boundary', () => {
+    resetStore();
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'if',
+            githubReviewRecovery: 'yes',
+            condition: 'scripts/check-review.py',
+            then: [{ type: 'wait', seconds: 1 }],
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
+  test('if-step schema rejects missing then array', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'if',
+          condition: 'has_review_feedback',
+        },
+      ],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('if-step schema rejects empty then array', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [
+        {
+          type: 'if',
+          condition: 'has_review_feedback',
+          then: [],
+        },
+      ],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('if-step schema requires an AI decision agent when condition is not a script', () => {
+    resetStore();
+    const parsed = parseFlowFile(
+      JSON.stringify({
+        steps: [
+          {
+            type: 'if',
+            condition: 'has_review_feedback',
+            then: [{ type: 'wait', seconds: 1 }],
+          },
+        ],
+      }),
+    );
+
+    assert.equal(parsed.ok, false);
+  });
+
+  // Story 60: wait-step schema tests (subtask 10)
+  test('wait-step schema accepts positive-integer seconds', () => {
+    resetStore();
+
+    const json = JSON.stringify({
+      steps: [
+        { type: 'wait', seconds: 1 },
+        { type: 'wait', seconds: 60 },
+        { type: 'wait', seconds: 900 },
+        { type: 'wait', seconds: 3600 },
+      ],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.flow.steps[0].type, 'wait');
+    assert.equal(parsed.flow.steps[1].type, 'wait');
+    assert.equal(parsed.flow.steps[2].type, 'wait');
+    assert.equal(parsed.flow.steps[3].type, 'wait');
+    if (
+      parsed.flow.steps[0].type !== 'wait' ||
+      parsed.flow.steps[1].type !== 'wait' ||
+      parsed.flow.steps[2].type !== 'wait' ||
+      parsed.flow.steps[3].type !== 'wait'
+    ) {
+      throw new Error('Expected wait steps');
+    }
+    assert.equal(parsed.flow.steps[0].seconds, 1);
+    assert.equal(parsed.flow.steps[1].seconds, 60);
+    assert.equal(parsed.flow.steps[2].seconds, 900);
+    assert.equal(parsed.flow.steps[3].seconds, 3600);
+  });
+
+  test('wait-step schema rejects zero seconds', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [{ type: 'wait', seconds: 0 }],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('wait-step schema rejects negative seconds', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [{ type: 'wait', seconds: -1 }],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('wait-step schema rejects fractional seconds', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [{ type: 'wait', seconds: 1.5 }],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('wait-step schema rejects non-numeric seconds', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [{ type: 'wait', seconds: '60' }],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('wait-step schema rejects string seconds', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [{ type: 'wait', seconds: 'one minute' }],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, false);
+  });
+
+  test('wait-step schema bounds seconds to one safe Node timer', () => {
+    resetStore();
+    assert.equal(
+      parseFlowFile(
+        JSON.stringify({
+          steps: [{ type: 'wait', seconds: MAX_FLOW_WAIT_SECONDS }],
+        }),
+      ).ok,
+      true,
+    );
+    assert.equal(
+      parseFlowFile(
+        JSON.stringify({
+          steps: [{ type: 'wait', seconds: MAX_FLOW_WAIT_SECONDS + 1 }],
+        }),
+      ).ok,
+      false,
+    );
+  });
+
+  // Story 60: GitHub PR step schema tests (subtask 11)
+  test('GitHub PR open step schema validates open action', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [
+        { type: 'github_open_pr', label: 'Open PR' },
+        { type: 'github_open_pr' },
+      ],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.flow.steps[0].type, 'github_open_pr');
+    assert.equal(parsed.flow.steps[0].label, 'Open PR');
+    assert.equal(parsed.flow.steps[1].type, 'github_open_pr');
+  });
+
+  test('GitHub PR fetch-reviews step schema validates fetch action', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [
+        { type: 'github_fetch_reviews', label: 'Fetch reviews' },
+        { type: 'github_fetch_reviews' },
+      ],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.flow.steps[0].type, 'github_fetch_reviews');
+    assert.equal(parsed.flow.steps[1].type, 'github_fetch_reviews');
+  });
+
+  test('GitHub PR close step schema validates close action', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [
+        { type: 'github_close_pr', label: 'Close PR' },
+        { type: 'github_close_pr' },
+      ],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.flow.steps[0].type, 'github_close_pr');
+    assert.equal(parsed.flow.steps[1].type, 'github_close_pr');
+  });
+
+  test('GitHub PR steps reject invalid action types', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [
+        { type: 'github_open_pr', label: 'Open PR' },
+        { type: 'github_fetch_reviews' },
+        { type: 'github_close_pr' },
+      ],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.flow.steps.length, 3);
+  });
+
+  test('GitHub PR steps are rejected when mixed with agent commands', () => {
+    resetStore();
+    const json = JSON.stringify({
+      steps: [
+        { type: 'github_open_pr' },
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'main',
+          messages: [{ role: 'user', content: ['Review PR'] }],
+        },
+      ],
+    });
+    const parsed = parseFlowFile(json);
+    assert.equal(parsed.ok, true);
   });
 });

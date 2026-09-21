@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import { handleRpc } from '../../mcp2/router.js';
+import {
+  closeHttpServer,
+  waitForHttpServerPort,
+} from '../support/httpServer.js';
 
 function postInvalidJson(port: number, body: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -37,7 +40,7 @@ function postInvalidJson(port: number, body: string): Promise<unknown> {
 test('invalid JSON request body returns parse error -32700 with id null', async () => {
   const server = http.createServer(handleRpc);
   server.listen(0);
-  const { port } = server.address() as AddressInfo;
+  const port = await waitForHttpServerPort(server);
 
   try {
     const body = await postInvalidJson(port, '{ not valid json');
@@ -47,6 +50,6 @@ test('invalid JSON request body returns parse error -32700 with id null', async 
       error: { code: -32700, message: 'Parse error' },
     });
   } finally {
-    server.close();
+    await closeHttpServer(server);
   }
 });

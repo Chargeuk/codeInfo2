@@ -19,15 +19,18 @@ async function pathExists(p: string): Promise<boolean> {
 }
 
 export async function findRepoRoot(startPath: string): Promise<string> {
-  let current = path.resolve(startPath);
-  while (true) {
-    const gitDir = path.join(current, '.git');
-    if (await pathExists(gitDir)) {
-      return current;
-    }
-    const parent = path.dirname(current);
-    if (parent === current) return path.resolve(startPath);
-    current = parent;
+  const resolvedStartPath = path.resolve(startPath);
+  try {
+    const { stdout } = await execFile('git', [
+      '-C',
+      resolvedStartPath,
+      'rev-parse',
+      '--show-toplevel',
+    ]);
+    const repoRoot = stdout.trim();
+    return repoRoot.length > 0 ? path.resolve(repoRoot) : resolvedStartPath;
+  } catch {
+    return resolvedStartPath;
   }
 }
 

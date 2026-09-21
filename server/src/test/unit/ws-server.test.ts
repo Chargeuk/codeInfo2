@@ -4,11 +4,9 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-
 import express from 'express';
 import request from 'supertest';
 import WebSocket, { type RawData } from 'ws';
-
 import { runAgentCommandRunner } from '../../agents/commandsRunner.js';
 import {
   getActiveRunOwnership,
@@ -38,16 +36,19 @@ import {
   type ConversationEventSummary,
 } from '../../mongo/events.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
+import { socketsSubscribedToIngest } from '../../ws/registry.js';
 import { attachWs, publishTurnFinal } from '../../ws/server.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
+  peekBufferedEvents,
   sendJson,
+  waitForClose,
   waitForEvent,
 } from '../support/wsClient.js';
-
 const ORIGINAL_ENV = process.env.NODE_ENV;
-
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: 'repo-' + containerPath,
   description: null,
@@ -61,15 +62,12 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
   counts: { files: 0, chunks: 0, embedded: 0 },
   lastError: null,
 });
-
 async function startServer(app = express()) {
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
-
   await new Promise<void>((resolve) => {
     httpServer.listen(0, () => resolve());
   });
-
   const address = httpServer.address();
   assert(address && typeof address === 'object');
   return {
@@ -79,24 +77,24 @@ async function startServer(app = express()) {
     wsHandle,
   };
 }
-
 async function stopServer(params: {
   httpServer: http.Server;
-  wsHandle: { close: () => Promise<void> };
+  wsHandle: {
+    close: () => Promise<void>;
+  };
 }) {
   await params.wsHandle.close();
   await new Promise<void>((resolve) =>
     params.httpServer.close(() => resolve()),
   );
 }
-
 function waitForMessage(ws: WebSocket) {
   return new Promise<string>((resolve, reject) => {
+    const timeoutMs = resolveConfiguredTestTimeoutMs(2000);
     const timeout = setTimeout(() => {
       cleanup();
       reject(new Error('Timed out waiting for WS message'));
-    }, 2000);
-
+    }, timeoutMs);
     const onMessage = (data: RawData) => {
       cleanup();
       resolve(rawDataToString(data));
@@ -114,9 +112,8 @@ function waitForMessage(ws: WebSocket) {
     ws.on('error', onError);
   });
 }
-
 async function waitForSidebarSubscriptionReady(timeoutMs = 1000) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     if (query({ text: 'chat.ws.subscribe_sidebar' }).length > 0) {
       return;
@@ -125,58 +122,61 @@ async function waitForSidebarSubscriptionReady(timeoutMs = 1000) {
   }
   throw new Error('Timed out waiting for sidebar subscription');
 }
-
+async function waitForLogText(text: string, timeoutMs = 1000) {
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
+  while (Date.now() < deadline) {
+    if (query({ text }).length > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`Timed out waiting for log entry: ${text}`);
+}
+async function waitForIngestSubscriptionCount(
+  expectedCount: number,
+  timeoutMs = 1000,
+) {
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
+  while (Date.now() < deadline) {
+    if (socketsSubscribedToIngest().length === expectedCount) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(
+    `Timed out waiting for ${expectedCount} ingest subscriptions`,
+  );
+}
 async function waitForSidebarMessageDuring(
   ws: WebSocket,
-  action: () => Promise<unknown>,
+  action: () => unknown | Promise<unknown>,
 ) {
   const responsePromise = waitForMessage(ws);
-  const [, payload] = await Promise.all([action(), responsePromise]);
+  const [, payload] = await Promise.all([
+    Promise.resolve().then(action),
+    responsePromise,
+  ]);
   return payload;
 }
-
 function rawDataToString(data: RawData): string {
   if (typeof data === 'string') return data;
   if (Array.isArray(data)) return Buffer.concat(data).toString('utf8');
   if (data instanceof ArrayBuffer) return Buffer.from(data).toString('utf8');
   return data.toString('utf8');
 }
-
-function waitForClose(ws: WebSocket) {
-  return new Promise<{ code: number; reason: string }>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      ws.removeAllListeners('close');
-      reject(new Error('Timed out waiting for WS close'));
-    }, 1000);
-
-    ws.once('close', (code, rawReason) => {
-      clearTimeout(timeout);
-      resolve({ code, reason: rawReason.toString() });
-    });
-  });
-}
-
 test.beforeEach(() => {
   resetStore();
-  process.env.NODE_ENV = 'test';
+  setScopedTestEnvValue('NODE_ENV', 'test');
   __resetIngestJobsForTest();
 });
-
 test.afterEach(() => {
   __resetIngestJobsForTest();
-  process.env.NODE_ENV = ORIGINAL_ENV;
+  setScopedTestEnvValue('NODE_ENV', ORIGINAL_ENV);
 });
-
 test('WS accepts connection on /ws and processes JSON message (happy path)', async () => {
   const server = await startServer();
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
-
   try {
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
       ws.once('error', reject);
     });
-
     ws.send(
       JSON.stringify({
         protocolVersion: 'v1',
@@ -184,9 +184,7 @@ test('WS accepts connection on /ws and processes JSON message (happy path)', asy
         type: 'subscribe_sidebar',
       }),
     );
-
     await waitForSidebarSubscriptionReady();
-
     const conversation: ConversationEventSummary = {
       conversationId: 'c-1',
       provider: 'lmstudio',
@@ -198,11 +196,10 @@ test('WS accepts connection on /ws and processes JSON message (happy path)', asy
       archived: false,
       flags: {},
     };
-
-    emitConversationUpsert(conversation);
-    const payload = await waitForMessage(ws);
+    const payload = await waitForSidebarMessageDuring(ws, () =>
+      emitConversationUpsert(conversation),
+    );
     const event = JSON.parse(payload) as Record<string, unknown>;
-
     assert.equal(event.protocolVersion, 'v1');
     assert.equal(event.type, 'conversation_upsert');
     assert.equal(typeof event.seq, 'number');
@@ -215,46 +212,39 @@ test('WS accepts connection on /ws and processes JSON message (happy path)', asy
       'flow-alpha',
     );
   } finally {
-    ws.close();
-    await waitForClose(ws);
+    await closeWs(ws);
     await stopServer(server);
   }
 });
-
 test('WS invalid/missing protocolVersion closes socket', async () => {
   const server = await startServer();
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
-
   try {
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
       ws.once('error', reject);
     });
-
+    const closePromise = waitForClose(ws, 1000);
     ws.send(
       JSON.stringify({
         requestId: 'req-1',
         type: 'subscribe_sidebar',
       }),
     );
-
-    const closed = await waitForClose(ws);
+    const closed = await closePromise;
     assert.equal(closed.code, 1008);
   } finally {
     await stopServer(server);
   }
 });
-
 test('WS conversation_upsert payload preserves flags.workingFolder', async () => {
   const server = await startServer();
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
-
   try {
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
       ws.once('error', reject);
     });
-
     ws.send(
       JSON.stringify({
         protocolVersion: 'v1',
@@ -262,40 +252,37 @@ test('WS conversation_upsert payload preserves flags.workingFolder', async () =>
         type: 'subscribe_sidebar',
       }),
     );
-
     await waitForSidebarSubscriptionReady();
-
-    emitConversationUpsert({
-      conversationId: 'c-working-folder',
-      provider: 'lmstudio',
-      model: 'model',
-      title: 'Title',
-      source: 'REST',
-      lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
-      archived: false,
-      flags: { workingFolder: '/repos/working-root' },
-    });
-
-    const payload = await waitForMessage(ws);
+    const payload = await waitForSidebarMessageDuring(ws, () =>
+      emitConversationUpsert({
+        conversationId: 'c-working-folder',
+        provider: 'lmstudio',
+        model: 'model',
+        title: 'Title',
+        source: 'REST',
+        lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+        archived: false,
+        flags: { workingFolder: '/repos/working-root' },
+      }),
+    );
     const event = JSON.parse(payload) as {
-      conversation: { flags: Record<string, unknown> };
+      conversation: {
+        flags: Record<string, unknown>;
+      };
     };
-
     assert.deepEqual(event.conversation.flags, {
       workingFolder: '/repos/working-root',
     });
   } finally {
-    ws.close();
-    await waitForClose(ws);
+    await closeWs(ws);
     await stopServer(server);
   }
 });
-
 test('WS conversation edit save emits conversation_upsert with updated flags.workingFolder', async () => {
   memoryConversations.set('conv-edit-save', {
     _id: 'conv-edit-save',
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Title',
     source: 'REST',
     lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
@@ -316,13 +303,11 @@ test('WS conversation edit save emits conversation_upsert with updated flags.wor
   );
   const server = await startServer(app);
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
-
   try {
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
       ws.once('error', reject);
     });
-
     ws.send(
       JSON.stringify({
         protocolVersion: 'v1',
@@ -331,7 +316,6 @@ test('WS conversation edit save emits conversation_upsert with updated flags.wor
       }),
     );
     await waitForSidebarSubscriptionReady();
-
     const payload = await waitForSidebarMessageDuring(ws, () =>
       request(server.app)
         .post('/conversations/conv-edit-save/working-folder')
@@ -339,23 +323,23 @@ test('WS conversation edit save emits conversation_upsert with updated flags.wor
         .expect(200),
     );
     const event = JSON.parse(payload) as {
-      conversation: { flags: Record<string, unknown> };
+      conversation: {
+        flags: Record<string, unknown>;
+      };
     };
     assert.equal(event.conversation.flags.workingFolder, process.cwd());
   } finally {
     memoryConversations.delete('conv-edit-save');
     memoryTurns.delete('conv-edit-save');
-    ws.close();
-    await waitForClose(ws);
+    await closeWs(ws);
     await stopServer(server);
   }
 });
-
 test('WS conversation edit clear emits conversation_upsert with cleared flags.workingFolder', async () => {
   memoryConversations.set('conv-edit-clear', {
     _id: 'conv-edit-clear',
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Title',
     source: 'REST',
     lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
@@ -369,13 +353,11 @@ test('WS conversation edit clear emits conversation_upsert with cleared flags.wo
   app.use(createConversationsRouter());
   const server = await startServer(app);
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
-
   try {
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
       ws.once('error', reject);
     });
-
     ws.send(
       JSON.stringify({
         protocolVersion: 'v1',
@@ -384,7 +366,6 @@ test('WS conversation edit clear emits conversation_upsert with cleared flags.wo
       }),
     );
     await waitForSidebarSubscriptionReady();
-
     const payload = await waitForSidebarMessageDuring(ws, () =>
       request(server.app)
         .post('/conversations/conv-edit-clear/working-folder')
@@ -392,7 +373,9 @@ test('WS conversation edit clear emits conversation_upsert with cleared flags.wo
         .expect(200),
     );
     const event = JSON.parse(payload) as {
-      conversation: { flags: Record<string, unknown> };
+      conversation: {
+        flags: Record<string, unknown>;
+      };
     };
     assert.equal(
       Object.prototype.hasOwnProperty.call(
@@ -404,41 +387,34 @@ test('WS conversation edit clear emits conversation_upsert with cleared flags.wo
   } finally {
     memoryConversations.delete('conv-edit-clear');
     memoryTurns.delete('conv-edit-clear');
-    ws.close();
-    await waitForClose(ws);
+    await closeWs(ws);
     await stopServer(server);
   }
 });
-
 test('WS malformed JSON closes socket', async () => {
   const server = await startServer();
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
-
   try {
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
       ws.once('error', reject);
     });
-
+    const closePromise = waitForClose(ws, 1000);
     ws.send('{');
-
-    const closed = await waitForClose(ws);
+    const closed = await closePromise;
     assert.equal(closed.code, 1008);
   } finally {
     await stopServer(server);
   }
 });
-
 test('WS unknown message type is ignored (connection stays open)', async () => {
   const server = await startServer();
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
-
   try {
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
       ws.once('error', reject);
     });
-
     ws.send(
       JSON.stringify({
         protocolVersion: 'v1',
@@ -446,10 +422,6 @@ test('WS unknown message type is ignored (connection stays open)', async () => {
         type: 'future_message',
       }),
     );
-
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    assert.equal(ws.readyState, WebSocket.OPEN);
-
     ws.send(
       JSON.stringify({
         protocolVersion: 'v1',
@@ -457,40 +429,36 @@ test('WS unknown message type is ignored (connection stays open)', async () => {
         type: 'subscribe_sidebar',
       }),
     );
-
-    await new Promise((resolve) => setTimeout(resolve, 25));
-
-    emitConversationUpsert({
-      conversationId: 'c-2',
-      provider: 'lmstudio',
-      model: 'model',
-      title: 'Title',
-      source: 'REST',
-      lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
-      archived: false,
-      flags: {},
-    });
-
-    const payload = await waitForMessage(ws);
+    await waitForSidebarSubscriptionReady();
+    assert.equal(ws.readyState, WebSocket.OPEN);
+    const payload = await waitForSidebarMessageDuring(ws, () =>
+      emitConversationUpsert({
+        conversationId: 'c-2',
+        provider: 'lmstudio',
+        model: 'model',
+        title: 'Title',
+        source: 'REST',
+        lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
+        archived: false,
+        flags: {},
+      }),
+    );
     const event = JSON.parse(payload) as Record<string, unknown>;
     assert.equal(event.type, 'conversation_upsert');
   } finally {
-    ws.close();
-    await waitForClose(ws);
+    await closeWs(ws);
     await stopServer(server);
   }
 });
-
 test('WS subscribe_conversation missing conversationId is rejected', async () => {
   const server = await startServer();
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
-
   try {
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
       ws.once('error', reject);
     });
-
+    const closePromise = waitForClose(ws, 1000);
     ws.send(
       JSON.stringify({
         protocolVersion: 'v1',
@@ -498,29 +466,28 @@ test('WS subscribe_conversation missing conversationId is rejected', async () =>
         type: 'subscribe_conversation',
       }),
     );
-
-    const closed = await waitForClose(ws);
+    const closed = await closePromise;
     assert.equal(closed.code, 1008);
   } finally {
     await stopServer(server);
   }
 });
-
 test('WS cancel_inflight accepts payload with conversationId only', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
-
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId: 'c-only' });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({
+      ws: ws,
+      conversationId: 'c-only',
+    });
     sendJson(ws, {
       type: 'cancel_inflight',
       conversationId: 'c-only',
     });
-
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitForLogText(
+      '[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=c-only inflightId=none',
+    );
     assert.equal(ws.readyState, WebSocket.OPEN);
     assert.ok(
       query({
@@ -532,30 +499,37 @@ test('WS cancel_inflight accepts payload with conversationId only', async () => 
     await stopServer(server);
   }
 });
-
 test('WS cancel_inflight accepts payload with conversationId and inflightId', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
-
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId: 'c-both' });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({
+      ws: ws,
+      conversationId: 'c-both',
+    });
     sendJson(ws, {
       type: 'cancel_inflight',
       conversationId: 'c-both',
       inflightId: 'i-both',
     });
-
     const final = await waitForEvent({
       ws,
       predicate: (
         payload,
-      ): payload is { type: string; error?: { code?: string } } =>
+      ): payload is {
+        type: string;
+        error?: {
+          code?: string;
+        };
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'turn_final',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'turn_final',
       timeoutMs: 1000,
     });
     assert.equal(final.error?.code, 'INFLIGHT_NOT_FOUND');
@@ -564,39 +538,41 @@ test('WS cancel_inflight accepts payload with conversationId and inflightId', as
     await stopServer(server);
   }
 });
-
 test('WS cancel_inflight with wrong active inflightId keeps explicit invalid-target failure behavior', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'c-wrong-active-target';
-
   createInflight({
     conversationId,
     inflightId: 'active-inflight',
   });
-
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     sendJson(ws, {
       type: 'cancel_inflight',
       conversationId,
       inflightId: 'wrong-inflight',
     });
-
     const final = await waitForEvent({
       ws,
       predicate: (
         payload,
-      ): payload is { type: string; error?: { code?: string } } =>
+      ): payload is {
+        type: string;
+        error?: {
+          code?: string;
+        };
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'turn_final',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'turn_final',
       timeoutMs: 1000,
     });
-
     assert.equal(final.error?.code, 'INFLIGHT_NOT_FOUND');
   } finally {
     cleanupInflight({ conversationId });
@@ -604,7 +580,6 @@ test('WS cancel_inflight with wrong active inflightId keeps explicit invalid-tar
     await stopServer(server);
   }
 });
-
 test('WS cancel_inflight rejects malformed payloads', async () => {
   {
     const server = await startServer();
@@ -614,6 +589,7 @@ test('WS cancel_inflight rejects malformed payloads', async () => {
         ws.once('open', () => resolve());
         ws.once('error', reject);
       });
+      const closePromise = waitForClose(ws, 1000);
       ws.send(
         JSON.stringify({
           protocolVersion: 'v1',
@@ -621,13 +597,12 @@ test('WS cancel_inflight rejects malformed payloads', async () => {
           type: 'cancel_inflight',
         }),
       );
-      const closed = await waitForClose(ws);
+      const closed = await closePromise;
       assert.equal(closed.code, 1008);
     } finally {
       await stopServer(server);
     }
   }
-
   {
     const server = await startServer();
     const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
@@ -636,6 +611,7 @@ test('WS cancel_inflight rejects malformed payloads', async () => {
         ws.once('open', () => resolve());
         ws.once('error', reject);
       });
+      const closePromise = waitForClose(ws, 1000);
       ws.send(
         JSON.stringify({
           protocolVersion: 'v1',
@@ -645,13 +621,12 @@ test('WS cancel_inflight rejects malformed payloads', async () => {
           inflightId: '',
         }),
       );
-      const closed = await waitForClose(ws);
+      const closed = await closePromise;
       assert.equal(closed.code, 1008);
     } finally {
       await stopServer(server);
     }
   }
-
   assert.equal(
     query({
       text: '[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED',
@@ -659,19 +634,14 @@ test('WS cancel_inflight rejects malformed payloads', async () => {
     0,
   );
 });
-
 test('WS conversation-only cancel does not emit INFLIGHT_NOT_FOUND turn_final', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'c-no-inflight-final';
-
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     sendJson(ws, { type: 'cancel_inflight', conversationId });
-
     const ack = await waitForEvent({
       ws,
       predicate: (
@@ -683,57 +653,58 @@ test('WS conversation-only cancel does not emit INFLIGHT_NOT_FOUND turn_final', 
       } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'cancel_ack',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'cancel_ack',
       timeoutMs: 1000,
     });
-
     assert.equal(ack.conversationId, conversationId);
     assert.equal(ack.result, 'noop');
-
-    await assert.rejects(
-      waitForEvent({
-        ws,
-        predicate: (
-          payload,
-        ): payload is { type: string; error?: { code?: string } } =>
-          typeof payload === 'object' &&
-          payload !== null &&
-          (payload as { type?: string }).type === 'turn_final',
-        timeoutMs: 300,
-      }),
+    assert.equal(
+      peekBufferedEvents(ws).some(
+        (event) =>
+          typeof event === 'object' &&
+          event !== null &&
+          (event as { type?: string }).type === 'turn_final',
+      ),
+      false,
     );
   } finally {
     await closeWs(ws);
     await stopServer(server);
   }
 });
-
 test('WS conversation-only cancel_ack requestId matches the initiating request', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'c-noop-request-correlation';
-
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const { requestId } = sendJson(ws, {
       type: 'cancel_inflight',
       conversationId,
     });
-
     const ack = await waitForEvent({
       ws,
       predicate: (
         payload,
-      ): payload is { type: string; requestId?: string; result?: string } =>
+      ): payload is {
+        type: string;
+        requestId?: string;
+        result?: string;
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'cancel_ack',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'cancel_ack',
       timeoutMs: 1000,
     });
-
     assert.equal(ack.requestId, requestId);
     assert.equal(ack.result, 'noop');
   } finally {
@@ -741,24 +712,18 @@ test('WS conversation-only cancel_ack requestId matches the initiating request',
     await stopServer(server);
   }
 });
-
 test('WS conversation-only cancel preserves pending stop when only run ownership remains', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'c-pending-run-stop';
-
   assert.equal(tryAcquireConversationLock(conversationId), true);
   const ownership = getActiveRunOwnership(conversationId);
   assert.ok(ownership);
-
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     sendJson(ws, { type: 'cancel_inflight', conversationId });
-
-    const deadline = Date.now() + 1000;
+    const deadline = Date.now() + resolveConfiguredTestTimeoutMs(1000);
     while (Date.now() < deadline) {
       const pending = getPendingConversationCancel(conversationId);
       if (pending) {
@@ -768,7 +733,6 @@ test('WS conversation-only cancel preserves pending stop when only run ownership
       }
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
-
     assert.fail('Expected conversation-only cancel to preserve a pending stop');
   } finally {
     cleanupPendingConversationCancel({
@@ -780,20 +744,17 @@ test('WS conversation-only cancel preserves pending stop when only run ownership
     await stopServer(server);
   }
 });
-
 test('WS conversation-only cancel attempts command abort by conversationId', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'c-conversation-only-abort';
-
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     sendJson(ws, { type: 'cancel_inflight', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 25));
-
+    await waitForLogText(
+      `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=${conversationId}`,
+    );
     assert.ok(
       query({
         text: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=${conversationId}`,
@@ -804,7 +765,6 @@ test('WS conversation-only cancel attempts command abort by conversationId', asy
     await stopServer(server);
   }
 });
-
 test('WS conversation-only cancel emits no invalid-target final while an agent command run is active', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'ws-server-command-cancel-'),
@@ -813,7 +773,6 @@ test('WS conversation-only cancel emits no invalid-target final while an agent c
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'c-command-active-cancel';
-
   try {
     const agentHome = path.join(tmpDir, 'agent-a');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
@@ -825,7 +784,6 @@ test('WS conversation-only cancel emits no invalid-target final while an agent c
       }),
       'utf-8',
     );
-
     let resolveAbortWait: (() => void) | undefined;
     let started: (() => void) | undefined;
     const stepStarted = new Promise<void>((resolve) => {
@@ -834,7 +792,6 @@ test('WS conversation-only cancel emits no invalid-target final while an agent c
     const abortObserved = new Promise<void>((resolve) => {
       resolveAbortWait = resolve;
     });
-
     const runPromise = runAgentCommandRunner({
       agentName: 'agent-a',
       agentHome,
@@ -843,37 +800,42 @@ test('WS conversation-only cancel emits no invalid-target final while an agent c
       source: 'REST',
       runAgentInstructionUnlocked: async (params) => {
         started?.();
-        params.signal?.addEventListener('abort', () => resolveAbortWait?.(), {
-          once: true,
-        });
+        if (params.signal?.aborted) {
+          resolveAbortWait?.();
+        } else {
+          params.signal?.addEventListener('abort', () => resolveAbortWait?.(), {
+            once: true,
+          });
+        }
         await abortObserved;
         return { modelId: 'm1' };
       },
     });
-
     await stepStarted;
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     sendJson(ws, { type: 'cancel_inflight', conversationId });
     await runPromise;
-
     assert.ok(
       query({
         text: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=${conversationId}`,
       }).length > 0,
     );
-    await assert.rejects(
-      waitForEvent({
-        ws,
-        predicate: (
-          payload,
-        ): payload is { type: string; error?: { code?: string } } =>
-          typeof payload === 'object' &&
-          payload !== null &&
-          (payload as { type?: string }).type === 'turn_final',
-        timeoutMs: 300,
-      }),
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+    await waitForEvent({
+      ws,
+      predicate: (payload): payload is { type: string; result?: string } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'cancel_ack',
+    });
+    assert.equal(
+      peekBufferedEvents(ws).some(
+        (event) =>
+          typeof event === 'object' &&
+          event !== null &&
+          (event as { type?: string }).type === 'turn_final',
+      ),
+      false,
     );
   } finally {
     await closeWs(ws);
@@ -881,7 +843,6 @@ test('WS conversation-only cancel emits no invalid-target final while an agent c
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
-
 test('WS explicit cancel for an active command-step inflight stops the command run completely', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'ws-server-command-explicit-stop-'),
@@ -891,7 +852,6 @@ test('WS explicit cancel for an active command-step inflight stops the command r
   const ws = await connectWs({ baseUrl });
   const conversationId = 'c-command-explicit-stop';
   const inflightId = 'command-step-1';
-
   try {
     const agentHome = path.join(tmpDir, 'agent-a');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
@@ -906,13 +866,11 @@ test('WS explicit cancel for an active command-step inflight stops the command r
       }),
       'utf-8',
     );
-
     let startedStepOne: (() => void) | undefined;
     const stepOneStarted = new Promise<void>((resolve) => {
       startedStepOne = resolve;
     });
     const calls: number[] = [];
-
     const runPromise = runAgentCommandRunner({
       agentName: 'agent-a',
       agentHome,
@@ -930,43 +888,47 @@ test('WS explicit cancel for an active command-step inflight stops the command r
           });
           startedStepOne?.();
           await new Promise<void>((resolve) => {
-            params.signal?.addEventListener(
-              'abort',
-              () => {
-                cleanupInflight({ conversationId });
-                resolve();
-              },
-              { once: true },
-            );
+            const finishAbort = () => {
+              cleanupInflight({ conversationId });
+              resolve();
+            };
+            if (params.signal?.aborted) {
+              finishAbort();
+              return;
+            }
+            params.signal?.addEventListener('abort', finishAbort, {
+              once: true,
+            });
           });
         }
         return { modelId: 'm1' };
       },
     });
-
     await stepOneStarted;
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     sendJson(ws, {
       type: 'cancel_inflight',
       conversationId,
       inflightId,
     });
-
     await runPromise;
     assert.deepEqual(calls, [1]);
-    await assert.rejects(
-      waitForEvent({
-        ws,
-        predicate: (
-          payload,
-        ): payload is { type: string; error?: { code?: string } } =>
-          typeof payload === 'object' &&
-          payload !== null &&
-          (payload as { type?: string }).type === 'turn_final',
-        timeoutMs: 300,
-      }),
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+    await waitForEvent({
+      ws,
+      predicate: (payload): payload is { type: string; result?: string } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'cancel_ack',
+    });
+    assert.equal(
+      peekBufferedEvents(ws).some(
+        (event) =>
+          typeof event === 'object' &&
+          event !== null &&
+          (event as { type?: string }).type === 'turn_final',
+      ),
+      false,
     );
   } finally {
     cleanupInflight({ conversationId });
@@ -975,45 +937,35 @@ test('WS explicit cancel for an active command-step inflight stops the command r
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
-
 test('WS conversation-only cancel keeps pending stop across aborted inflight cleanup while ownership remains', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'c-conversation-pending-handoff';
   const inflightId = 'inflight-pending-handoff';
-
   try {
     assert.equal(tryAcquireConversationLock(conversationId), true);
     const ownership = getActiveRunOwnership(conversationId);
     assert.ok(ownership);
-
     const inflight = createInflight({
       conversationId,
       inflightId,
       provider: 'codex',
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-luna',
       source: 'REST',
     });
-
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     sendJson(ws, { type: 'cancel_inflight', conversationId });
-
-    const deadline = Date.now() + 1000;
+    const deadline = Date.now() + resolveConfiguredTestTimeoutMs(1000);
     while (!inflight.abortController.signal.aborted && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
     assert.equal(inflight.abortController.signal.aborted, true);
-
     const pendingBeforeCleanup = getPendingConversationCancel(conversationId);
     assert.ok(pendingBeforeCleanup);
     assert.equal(pendingBeforeCleanup.runToken, ownership.runToken);
     assert.equal(pendingBeforeCleanup.boundInflightId, undefined);
-
     cleanupInflight({ conversationId, inflightId });
-
     const pendingAfterCleanup = getPendingConversationCancel(conversationId);
     assert.ok(pendingAfterCleanup);
     assert.equal(pendingAfterCleanup.runToken, ownership.runToken);
@@ -1025,7 +977,6 @@ test('WS conversation-only cancel keeps pending stop across aborted inflight cle
     await stopServer(server);
   }
 });
-
 test('WS explicit cancel with wrong inflightId does not abort an active command run', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'ws-server-command-wrong-explicit-stop-'),
@@ -1035,7 +986,6 @@ test('WS explicit cancel with wrong inflightId does not abort an active command 
   const ws = await connectWs({ baseUrl });
   const conversationId = 'c-command-wrong-explicit-stop';
   const activeInflightId = 'command-step-1-active';
-
   try {
     const agentHome = path.join(tmpDir, 'agent-a');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
@@ -1050,7 +1000,6 @@ test('WS explicit cancel with wrong inflightId does not abort an active command 
       }),
       'utf-8',
     );
-
     let startedStepOne: (() => void) | undefined;
     let allowStepOneToFinish: (() => void) | undefined;
     const stepOneStarted = new Promise<void>((resolve) => {
@@ -1060,7 +1009,6 @@ test('WS explicit cancel with wrong inflightId does not abort an active command 
       allowStepOneToFinish = resolve;
     });
     const calls: number[] = [];
-
     const runPromise = runAgentCommandRunner({
       agentName: 'agent-a',
       agentHome,
@@ -1083,28 +1031,32 @@ test('WS explicit cancel with wrong inflightId does not abort an active command 
         return { modelId: 'm1' };
       },
     });
-
     await stepOneStarted;
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     sendJson(ws, {
       type: 'cancel_inflight',
       conversationId,
       inflightId: 'wrong-inflight-id',
     });
-
     const final = await waitForEvent({
       ws,
       predicate: (
         payload,
-      ): payload is { type: string; error?: { code?: string } } =>
+      ): payload is {
+        type: string;
+        error?: {
+          code?: string;
+        };
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'turn_final',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'turn_final',
       timeoutMs: 1000,
     });
-
     assert.equal(final.error?.code, 'INFLIGHT_NOT_FOUND');
     allowStepOneToFinish?.();
     await runPromise;
@@ -1116,35 +1068,36 @@ test('WS explicit cancel with wrong inflightId does not abort an active command 
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
-
 test('publishTurnFinal omits usage/timing when not provided', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'ws-turn-final-omit-1';
   const inflightId = 'inflight-omit-1';
-
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     publishTurnFinal({
       conversationId,
       inflightId,
       status: 'ok',
     });
-
     const event = await waitForEvent({
       ws,
       predicate: (payload): payload is Record<string, unknown> =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string; conversationId?: string }).type ===
-          'turn_final' &&
-        (payload as { conversationId?: string }).conversationId ===
-          conversationId,
+        (
+          payload as {
+            type?: string;
+            conversationId?: string;
+          }
+        ).type === 'turn_final' &&
+        (
+          payload as {
+            conversationId?: string;
+          }
+        ).conversationId === conversationId,
     });
-
     assert.ok(!('usage' in event));
     assert.ok(!('timing' in event));
   } finally {
@@ -1152,29 +1105,34 @@ test('publishTurnFinal omits usage/timing when not provided', async () => {
     await stopServer(server);
   }
 });
-
 test('WS subscribe_ingest sends placeholder ingest_snapshot', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
-
   try {
     sendJson(ws, { type: 'subscribe_ingest' });
     const event = await waitForEvent({
       ws,
-      predicate: (payload): payload is { type: string; status: null } =>
+      predicate: (
+        payload,
+      ): payload is {
+        type: string;
+        status: null;
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'ingest_snapshot',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'ingest_snapshot',
     });
-
     assert.equal(event.status, null);
   } finally {
     await closeWs(ws);
     await stopServer(server);
   }
 });
-
 test('WS subscribe_ingest sends active ingest snapshot', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
@@ -1188,19 +1146,24 @@ test('WS subscribe_ingest sends active ingest snapshot', async () => {
     message: 'Embedding',
     lastError: null,
   });
-
   try {
     sendJson(ws, { type: 'subscribe_ingest' });
     const event = await waitForEvent({
       ws,
       predicate: (
         payload,
-      ): payload is { type: string; status: IngestJobStatus } =>
+      ): payload is {
+        type: string;
+        status: IngestJobStatus;
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'ingest_snapshot',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'ingest_snapshot',
     });
-
     assert.equal(event.status.runId, runId);
     assert.equal(event.status.ast?.supportedFileCount, 2);
     assert.equal(event.status.ast?.skippedFileCount, 0);
@@ -1210,23 +1173,28 @@ test('WS subscribe_ingest sends active ingest snapshot', async () => {
     await stopServer(server);
   }
 });
-
 test('WS ingest_update emitted on status change', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
   const runId = 'run-update';
-
   try {
     sendJson(ws, { type: 'subscribe_ingest' });
     await waitForEvent({
       ws,
-      predicate: (payload): payload is { type: string } =>
+      predicate: (
+        payload,
+      ): payload is {
+        type: string;
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'ingest_snapshot',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'ingest_snapshot',
     });
-
     __setStatusAndPublishForTest(runId, {
       runId,
       state: 'embedding',
@@ -1235,17 +1203,22 @@ test('WS ingest_update emitted on status change', async () => {
       message: 'Embedding',
       lastError: null,
     });
-
     const event = await waitForEvent({
       ws,
       predicate: (
         payload,
-      ): payload is { type: string; status: IngestJobStatus } =>
+      ): payload is {
+        type: string;
+        status: IngestJobStatus;
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'ingest_update',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'ingest_update',
     });
-
     assert.equal(event.status.state, 'embedding');
     assert.equal(event.status.ast?.supportedFileCount, 1);
     assert.equal(event.status.ast?.skippedFileCount, 0);
@@ -1255,23 +1228,28 @@ test('WS ingest_update emitted on status change', async () => {
     await stopServer(server);
   }
 });
-
 test('WS ingest_update seq increases on subsequent updates', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
   const runId = 'run-seq';
-
   try {
     sendJson(ws, { type: 'subscribe_ingest' });
     await waitForEvent({
       ws,
-      predicate: (payload): payload is { type: string } =>
+      predicate: (
+        payload,
+      ): payload is {
+        type: string;
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'ingest_snapshot',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'ingest_snapshot',
     });
-
     __setStatusAndPublishForTest(runId, {
       runId,
       state: 'scanning',
@@ -1279,15 +1257,22 @@ test('WS ingest_update seq increases on subsequent updates', async () => {
       message: 'Scanning',
       lastError: null,
     });
-
     const first = await waitForEvent({
       ws,
-      predicate: (payload): payload is { type: string; seq: number } =>
+      predicate: (
+        payload,
+      ): payload is {
+        type: string;
+        seq: number;
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'ingest_update',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'ingest_update',
     });
-
     __setStatusAndPublishForTest(runId, {
       runId,
       state: 'embedding',
@@ -1295,28 +1280,33 @@ test('WS ingest_update seq increases on subsequent updates', async () => {
       message: 'Embedding',
       lastError: null,
     });
-
     const second = await waitForEvent({
       ws,
-      predicate: (payload): payload is { type: string; seq: number } =>
+      predicate: (
+        payload,
+      ): payload is {
+        type: string;
+        seq: number;
+      } =>
         typeof payload === 'object' &&
         payload !== null &&
-        (payload as { type?: string }).type === 'ingest_update',
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'ingest_update',
     });
-
     assert.ok(second.seq > first.seq);
   } finally {
     await closeWs(ws);
     await stopServer(server);
   }
 });
-
-test('WS unsubscribe_ingest stops ingest_update events', async () => {
+test('concurrent WS waiters preserve unmatched buffered events', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;
   const ws = await connectWs({ baseUrl });
-  const runId = 'run-unsubscribe';
-
+  const runId = 'run-concurrent-waiters';
   try {
     sendJson(ws, { type: 'subscribe_ingest' });
     await waitForEvent({
@@ -1326,20 +1316,30 @@ test('WS unsubscribe_ingest stops ingest_update events', async () => {
         payload !== null &&
         (payload as { type?: string }).type === 'ingest_snapshot',
     });
-
-    sendJson(ws, { type: 'unsubscribe_ingest' });
-
-    await new Promise((resolve) => setTimeout(resolve, 25));
-
-    let updateReceived = false;
-    const onMessage = (raw: RawData) => {
-      const payload = JSON.parse(rawDataToString(raw)) as { type?: string };
-      if (payload.type === 'ingest_update') {
-        updateReceived = true;
-      }
-    };
-
-    ws.on('message', onMessage);
+    const scanning = waitForEvent({
+      ws,
+      predicate: (
+        payload,
+      ): payload is { type: string; status: { state: string } } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string; status?: { state?: string } }).type ===
+          'ingest_update' &&
+        (payload as { status?: { state?: string } }).status?.state ===
+          'scanning',
+    });
+    const embedding = waitForEvent({
+      ws,
+      predicate: (
+        payload,
+      ): payload is { type: string; status: { state: string } } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string; status?: { state?: string } }).type ===
+          'ingest_update' &&
+        (payload as { status?: { state?: string } }).status?.state ===
+          'embedding',
+    });
     __setStatusAndPublishForTest(runId, {
       runId,
       state: 'embedding',
@@ -1347,11 +1347,56 @@ test('WS unsubscribe_ingest stops ingest_update events', async () => {
       message: 'Embedding',
       lastError: null,
     });
-
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    ws.off('message', onMessage);
-
-    assert.equal(updateReceived, false);
+    __setStatusAndPublishForTest(runId, {
+      runId,
+      state: 'scanning',
+      counts: { files: 1, chunks: 0, embedded: 0 },
+      message: 'Scanning',
+      lastError: null,
+    });
+    const [scanningEvent, embeddingEvent] = await Promise.all([
+      scanning,
+      embedding,
+    ]);
+    assert.equal(scanningEvent.status.state, 'scanning');
+    assert.equal(embeddingEvent.status.state, 'embedding');
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+test('WS unsubscribe_ingest stops ingest_update events', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const runId = 'run-unsubscribe';
+  try {
+    sendJson(ws, { type: 'subscribe_ingest' });
+    await waitForEvent({
+      ws,
+      predicate: (
+        payload,
+      ): payload is {
+        type: string;
+      } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (
+          payload as {
+            type?: string;
+          }
+        ).type === 'ingest_snapshot',
+    });
+    sendJson(ws, { type: 'unsubscribe_ingest' });
+    await waitForIngestSubscriptionCount(0);
+    __setStatusAndPublishForTest(runId, {
+      runId,
+      state: 'embedding',
+      counts: { files: 1, chunks: 1, embedded: 0 },
+      message: 'Embedding',
+      lastError: null,
+    });
+    assert.equal(socketsSubscribedToIngest().length, 0);
   } finally {
     await closeWs(ws);
     await stopServer(server);

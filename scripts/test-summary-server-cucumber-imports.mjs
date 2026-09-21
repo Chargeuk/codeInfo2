@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const CUCUMBER_SUPPORT_IMPORTS = [
+  'src/test/support/registerCucumberEnvIsolation.ts',
   'src/test/support/chromaContainer.ts',
   'src/test/support/mongoContainer.ts',
 ];

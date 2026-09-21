@@ -11,6 +11,7 @@ import supertest from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
 
 import {
+  getActiveRunOwnership,
   tryAcquireConversationLock,
   releaseConversationLock,
 } from '../../agents/runLock.js';
@@ -29,17 +30,25 @@ import type {
   CopilotReviewLauncherResult,
 } from '../../copilot/reviewLauncher.js';
 import {
+  __resetGitHubReviewDepsForTests,
+  __setGitHubReviewDepsForTests,
+} from '../../flows/githubReview.js';
+import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
 import {
+  __resetFlowWaitResumeDepsForTests,
   __getPersistedFreshRunRetryOwnershipCompletionForTests,
   __resetFreshRunRetryOwnershipCompletionForTests,
   __resetFlowServiceDepsForTests,
   __setFlowServiceDepsForTests,
+  getFlowRunStatus,
   startFlowRun,
+  stopFlowRun,
 } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
+import { query } from '../../logStore.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Turn } from '../../mongo/turn.js';
@@ -49,12 +58,21 @@ import { attachWs } from '../../ws/server.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
+  withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
+import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js';
 import {
+  enterTestEnvOverrides,
+  getScopedEnvValue,
+  runWithTestEnvOverrides,
+} from '../support/testEnvOverrideScope.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 
@@ -62,6 +80,10 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
+);
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
 );
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
@@ -100,8 +122,10 @@ test('native Copilot flow step uses persisted inputs and waits for launcher comp
   const workDir = path.join(workspace, 'work');
   const outputDir = path.join(workspace, 'output');
   const verificationDir = path.join(workspace, 'verification');
-  const previousFlowsDir = process.env.FLOWS_DIR;
-  const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousFlowsDir = getScopedEnvValue('FLOWS_DIR');
+  const previousCodexAgentsHome = getScopedEnvValue(
+    'CODEINFO_CODEX_AGENT_HOME',
+  );
   let conversationId: string | undefined;
 
   await Promise.all(
@@ -199,8 +223,10 @@ test('native Copilot flow step uses persisted inputs and waits for launcher comp
       return pendingLaunch;
     },
   });
-  process.env.FLOWS_DIR = flowsRoot;
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  enterTestEnvOverrides({
+    FLOWS_DIR: flowsRoot,
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+  });
 
   try {
     const started = await startFlowRun({
@@ -221,7 +247,6 @@ test('native Copilot flow step uses persisted inputs and waits for launcher comp
     assert.equal(capturedOptions?.repositoryPath, repoRoot);
     assert.equal(capturedOptions?.modelId, spec.modelId);
     assert.equal(capturedOptions?.signal?.aborted, false);
-    await delay(50);
     assert.equal(
       (memoryTurns.get(conversationId) ?? []).some(
         (turn) => turn.role === 'assistant',
@@ -247,16 +272,10 @@ test('native Copilot flow step uses persisted inputs and waits for launcher comp
     assert.equal(turns.filter((turn) => turn.role === 'assistant').length, 1);
   } finally {
     cleanupMemory(conversationId);
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
-    if (previousCodexAgentsHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
-    }
+    enterTestEnvOverrides({
+      FLOWS_DIR: previousFlowsDir,
+      CODEINFO_CODEX_AGENT_HOME: previousCodexAgentsHome,
+    });
     await fs.rm(temporaryRoot, { recursive: true, force: true });
   }
 });
@@ -356,55 +375,129 @@ const waitFor = async (
   predicate: () => boolean | Promise<boolean>,
   timeoutMs = 4000,
 ): Promise<void> => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (await predicate()) return;
     await delay(20);
   }
   throw new Error('Timed out waiting for flow condition');
 };
 
+const describeRelevantFlowRuntimeLogs = (conversationId: string): string =>
+  JSON.stringify({
+    runtimeLogs: query({ text: 'flows.test.' }, 300)
+      .filter((entry) => entry.context?.conversationId === conversationId)
+      .slice(-25)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+    runtimeResolutionLogs: query(
+      { text: 'flows.test.runtime_resolution_' },
+      120,
+    )
+      .filter((entry) => entry.context?.conversationId === conversationId)
+      .slice(-25)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+    runtimeConfigLogs: query({ text: 'runtime.' }, 120)
+      .filter(
+        (entry) =>
+          entry.message.startsWith('runtime.chat_config_') ||
+          entry.message.startsWith('runtime.runtime_config_resolution_'),
+      )
+      .slice(-25)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+  });
+
+const summarizeFlowChildAgentConversations = (
+  conversationId: string,
+): string => {
+  const conversation = memoryConversations.get(conversationId);
+  const flowFlags = (conversation?.flags ?? {}) as {
+    flow?: { agentConversations?: Record<string, string> };
+  };
+  return JSON.stringify(
+    Object.entries(flowFlags.flow?.agentConversations ?? {}).map(
+      ([agentKey, childConversationId]) => ({
+        agentKey,
+        childConversationId,
+        childFlags: memoryConversations.get(childConversationId)?.flags ?? null,
+        recentTurns: (memoryTurns.get(childConversationId) ?? [])
+          .slice(-6)
+          .map((turn) => ({
+            role: turn.role,
+            status: turn.status,
+            content: turn.content,
+          })),
+      }),
+    ),
+  );
+};
+
 const waitForTurns = async (
   conversationId: string,
   predicate: (turns: Turn[]) => boolean,
   timeoutMs = 4000,
+  describe?: () => string,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     const turns = memoryTurns.get(conversationId) ?? [];
     if (predicate(turns)) return turns;
     await delay(20);
   }
-  throw new Error('Timed out waiting for flow turns');
+  const turns = memoryTurns.get(conversationId) ?? [];
+  const conversation = memoryConversations.get(conversationId);
+  throw new Error(
+    [
+      `Timed out waiting for flow turns for ${conversationId}`,
+      `turnCount=${turns.length}`,
+      `conversationFlags=${JSON.stringify(conversation?.flags ?? null)}`,
+      `recentTurns=${JSON.stringify(
+        turns.slice(-8).map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      )}`,
+      `childAgentConversations=${summarizeFlowChildAgentConversations(
+        conversationId,
+      )}`,
+      `runtimeLogs=${describeRelevantFlowRuntimeLogs(conversationId)}`,
+      describe ? `details=${describe()}` : '',
+    ].join(' | '),
+  );
 };
 
-const waitForTurnCountToStay = async (
-  conversationId: string,
-  expectedCount: number,
-  quietWindowMs = 150,
-  timeoutMs = 4000,
-) => {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const initialCount = (memoryTurns.get(conversationId) ?? []).length;
-    if (initialCount === expectedCount) {
-      await delay(quietWindowMs);
-      const finalCount = (memoryTurns.get(conversationId) ?? []).length;
-      if (finalCount === expectedCount) {
-        return;
-      }
+const withScopedAgentRuntime = async (
+  envOverrides: Record<string, string | undefined>,
+  agentServiceOverrides: Parameters<typeof __setAgentServiceDepsForTests>[0],
+  run: () => Promise<void>,
+) =>
+  await runWithTestEnvOverrides(envOverrides, async () => {
+    __setAgentServiceDepsForTests(agentServiceOverrides);
+    try {
+      await run();
+    } finally {
+      __resetAgentServiceDepsForTests();
     }
-    await delay(20);
-  }
-  throw new Error('Timed out waiting for flow turn count to stay stable');
-};
+  });
 
 const waitForConversationUnlocked = async (
   conversationId: string,
   timeoutMs = 4000,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     const acquired = tryAcquireConversationLock(conversationId);
     if (acquired) {
       releaseConversationLock(conversationId);
@@ -412,7 +505,14 @@ const waitForConversationUnlocked = async (
     }
     await delay(20);
   }
-  throw new Error('Timed out waiting for flow unlock');
+  throw new Error(
+    [
+      `Timed out waiting for flow unlock for ${conversationId}`,
+      `conversationFlags=${JSON.stringify(
+        memoryConversations.get(conversationId)?.flags ?? null,
+      )}`,
+    ].join(' | '),
+  );
 };
 
 const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
@@ -423,24 +523,29 @@ const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
   });
 };
 
-let previousPreferredAgentsHome: string | undefined;
+let providerHomes: Awaited<
+  ReturnType<typeof createIsolatedProviderHomeEnv>
+> | null = null;
 
-beforeEach(() => {
-  previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
-  delete process.env.CODEINFO_AGENT_HOME;
+beforeEach(async () => {
+  providerHomes = await createIsolatedProviderHomeEnv(
+    'flow-basic-provider-homes-',
+  );
   installDeterministicCodexAvailabilityBootstrap();
+  enterTestEnvOverrides({
+    CODEINFO_AGENT_HOME: undefined,
+    ...providerHomes.envOverrides,
+  });
 });
 
-afterEach(() => {
+afterEach(async () => {
   resetDeterministicCodexAvailabilityBootstrap();
   __resetFlowServiceDepsForTests();
   __resetFreshRunRetryOwnershipCompletionForTests();
-  if (previousPreferredAgentsHome === undefined) {
-    delete process.env.CODEINFO_AGENT_HOME;
-  } else {
-    process.env.CODEINFO_AGENT_HOME = previousPreferredAgentsHome;
-  }
-  previousPreferredAgentsHome = undefined;
+  __resetGitHubReviewDepsForTests();
+  __resetFlowWaitResumeDepsForTests();
+  await providerHomes?.cleanup();
+  providerHomes = null;
 });
 
 const writeAgentScaffold = async (params: {
@@ -507,6 +612,86 @@ const writeMarkdownFile = async (params: {
   return filePath;
 };
 
+const createGitHubReviewRepoFixture = async (params?: {
+  repoRoot?: string;
+  flowTaskNumber?: number;
+}) => {
+  const repoRoot =
+    params?.repoRoot ??
+    (await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-repo-')));
+  const taskNumber = params?.flowTaskNumber ?? 4;
+  await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
+    recursive: true,
+  });
+  await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, 'scripts/flow_control'), {
+    recursive: true,
+  });
+  const planPath =
+    'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md';
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        branched_from: 'main',
+        additional_repositories: [],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-task.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        selected_task: {
+          number: taskNumber,
+          title: `Task ${taskNumber}`,
+          status: '__in_progress__',
+        },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(
+      repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    [
+      '# Story 0000060 - Users can automate GitHub PR review cycles with conditional, script, and wait steps',
+      '',
+      `### Task ${taskNumber}. Fixture task`,
+      '',
+      '- Task Status: `__in_progress__`',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Starts empty.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.copyFile(
+    path.join(
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        '../../../../scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+      ),
+    ),
+    path.join(
+      repoRoot,
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+  );
+  return repoRoot;
+};
+
 const getAgentConversationId = (conversationId: string) => {
   const conversation = memoryConversations.get(conversationId);
   const flags = (conversation?.flags ?? {}) as {
@@ -525,6 +710,75 @@ const collectAgentConversationIds = (conversationId: string) => {
   };
   return Object.values(flags.flow?.agentConversations ?? {});
 };
+
+const describeConversationRuntime = (conversationId: string): string => {
+  const conversation = memoryConversations.get(conversationId);
+  const flags = (conversation?.flags ?? {}) as {
+    flow?: { agentConversations?: Record<string, string> };
+  };
+  const agentConversationEntries = Object.entries(
+    flags.flow?.agentConversations ?? {},
+  ).map(([agentKey, agentConversationId]) => ({
+    agentKey,
+    agentConversationId,
+    recentTurns: (memoryTurns.get(agentConversationId) ?? [])
+      .slice(-6)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+      })),
+  }));
+  const seen = new Set<string>();
+  const runtimeLogs = query({ text: 'flows.test.' }, 400)
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .concat(query({ text: 'runtime.chat_config_lock_' }, 40))
+    .filter((entry) => {
+      const dedupeKey = `${entry.timestamp}|${entry.message}|${JSON.stringify(entry.context ?? null)}`;
+      if (seen.has(dedupeKey)) {
+        return false;
+      }
+      seen.add(dedupeKey);
+      return true;
+    })
+    .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
+    .slice(-120)
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
+  const runtimeResolutionLogs = query(
+    { text: 'flows.test.runtime_resolution_' },
+    120,
+  )
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
+  const runtimeConfigLogs = query({ text: 'runtime.' }, 120)
+    .filter(
+      (entry) =>
+        entry.message.startsWith('runtime.chat_config_') ||
+        entry.message.startsWith('runtime.runtime_config_resolution_'),
+    )
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
+  return JSON.stringify({
+    ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
+    agentConversationEntries,
+    runtimeLogs,
+    runtimeResolutionLogs,
+    runtimeConfigLogs,
+  });
+};
+
+const getLatestAssistantTurn = (conversationId: string) =>
+  [...(memoryTurns.get(conversationId) ?? [])]
+    .reverse()
+    .find((turn) => turn?.role === 'assistant');
 
 const getFlowExecutionId = (conversationId: string) => {
   const conversation = memoryConversations.get(conversationId);
@@ -567,101 +821,102 @@ const withMarkdownFlowHarness = async (
     }) => Promise<{ messages: string[]; turns: Turn[] }>;
   }) => Promise<void>,
 ) => {
-  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousFlowsDir = process.env.FLOWS_DIR;
-  const tempRoot = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'flows-markdown-file-'),
-  );
-  const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
-  const localFlowsDir = path.join(codeInfo2Root, 'flows');
-  const agentsHome = path.join(codeInfo2Root, 'codex_agents');
-  const codexHome = path.join(tempRoot, 'codex-home');
-  await fs.mkdir(localFlowsDir, { recursive: true });
-  await writeAgentScaffold({
-    agentsHome,
-    agentName: 'coding_agent',
-    codexHome,
-  });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.FLOWS_DIR = localFlowsDir;
-
-  const conversations = new Set<string>();
-
-  try {
-    await task({
-      tempRoot,
-      codeInfo2Root,
-      localFlowsDir,
-      buildRepoEntry,
-      writeFlowFile,
-      writeMarkdownFile,
-      runFlow: async ({
-        flowName,
-        conversationId,
-        listedRepos = [],
-        sourceId,
-        finalContent,
-        resolverListRepos,
-        resolverReadFile,
-        turnsPredicate,
-      }) => {
-        conversations.add(conversationId);
-        const messages: string[] = [];
-        const repoResult = {
-          repos: listedRepos,
-          lockedModelId: null,
-        };
-        __setMarkdownFileResolverDepsForTests({
-          listIngestedRepositories:
-            resolverListRepos ??
-            (async () => ({ repos: listedRepos, lockedModelId: null })),
-          ...(resolverReadFile ? { readFile: resolverReadFile } : {}),
-        });
-
-        await startFlowRun({
-          flowName,
-          conversationId,
-          source: 'REST',
-          sourceId,
-          chatFactory: () => new CapturingChat(messages, finalContent),
-          listIngestedRepositories: async () => repoResult,
-        });
-
-        const turns = await waitForTurns(conversationId, turnsPredicate);
-        collectAgentConversationIds(conversationId).forEach((id) =>
-          conversations.add(id),
-        );
-        await waitFor(
-          () =>
-            messages.length > 0 ||
-            turns.some((turn) => turn.role === 'assistant'),
-        );
-        return { messages, turns };
-      },
+  await withDeterministicCodexAvailabilityBootstrap(async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'flows-markdown-file-'),
+    );
+    const codeInfo2Root = path.join(tempRoot, 'codeinfo2');
+    const localFlowsDir = path.join(codeInfo2Root, 'flows');
+    const agentsHome = path.join(codeInfo2Root, 'codex_agents');
+    const codexHome = path.join(tempRoot, 'codex-home');
+    await fs.mkdir(localFlowsDir, { recursive: true });
+    await writeAgentScaffold({
+      agentsHome,
+      agentName: 'coding_agent',
+      codexHome,
     });
-  } finally {
-    __resetMarkdownFileResolverDepsForTests();
-    cleanupMemory(...conversations);
-    if (previousAgentsHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+
+    const conversations = new Set<string>();
+
+    try {
+      await runWithTestEnvOverrides(
+        {
+          CODEINFO_AGENT_HOME: agentsHome,
+          CODEINFO_CODEX_AGENT_HOME: agentsHome,
+          CODEINFO_CODEX_HOME: codexHome,
+          FLOWS_DIR: localFlowsDir,
+        },
+        async () => {
+          await task({
+            tempRoot,
+            codeInfo2Root,
+            localFlowsDir,
+            buildRepoEntry,
+            writeFlowFile,
+            writeMarkdownFile,
+            runFlow: async ({
+              flowName,
+              conversationId,
+              listedRepos = [],
+              sourceId,
+              finalContent,
+              resolverListRepos,
+              resolverReadFile,
+              turnsPredicate,
+            }) => {
+              conversations.add(conversationId);
+              const messages: string[] = [];
+              const repoResult = {
+                repos: listedRepos,
+                lockedModelId: null,
+              };
+              __setMarkdownFileResolverDepsForTests({
+                listIngestedRepositories:
+                  resolverListRepos ??
+                  (async () => ({ repos: listedRepos, lockedModelId: null })),
+                ...(resolverReadFile ? { readFile: resolverReadFile } : {}),
+              });
+
+              await startFlowRun({
+                flowName,
+                conversationId,
+                source: 'REST',
+                sourceId,
+                chatFactory: () => new CapturingChat(messages, finalContent),
+                listIngestedRepositories: async () => repoResult,
+              });
+
+              const turns = await waitForTurns(
+                conversationId,
+                turnsPredicate,
+                4000,
+                () =>
+                  JSON.stringify({
+                    messages,
+                    runtime: JSON.parse(
+                      describeConversationRuntime(conversationId),
+                    ),
+                  }),
+              );
+              collectAgentConversationIds(conversationId).forEach((id) =>
+                conversations.add(id),
+              );
+              await waitFor(
+                () =>
+                  messages.length > 0 ||
+                  turns.some((turn) => turn.role === 'assistant'),
+              );
+              return { messages, turns };
+            },
+          });
+        },
+      );
+    } finally {
+      __resetMarkdownFileResolverDepsForTests();
+      cleanupMemory(...conversations);
+      await fs.rm(tempRoot, { recursive: true, force: true });
     }
-    if (previousCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    }
-    if (previousFlowsDir) {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
-    await fs.rm(tempRoot, { recursive: true, force: true });
-  }
+  });
 };
 
 test('POST /flows/:flowName/run starts a flow run and streams events', async () => {
@@ -669,30 +924,22 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
     pkg.dependencies?.['@openai/codex-sdk'],
     DEV_0000037_T01_REQUIRED_VERSION,
   );
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  const fixturesDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../fixtures/flows',
-  );
   const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-run-'));
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new StreamingChat(),
         }),
+      ),
     }),
   );
 
@@ -708,9 +955,20 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
   const customTitle = 'Custom Flow Title';
 
   try {
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
 
-    const userTurnPromise = waitForEvent({
+    const res = await supertest(baseUrl)
+      .post('/flows/llm-basic/run')
+      .send({ conversationId, customTitle })
+      .expect(202);
+
+    assert.equal(res.body.status, 'started');
+    assert.equal(res.body.flowName, 'llm-basic');
+    assert.equal(res.body.conversationId, conversationId);
+    assert.equal(typeof res.body.inflightId, 'string');
+    assert.equal(typeof res.body.modelId, 'string');
+
+    const userTurn = await waitForEvent({
       ws,
       predicate: (
         event: unknown,
@@ -724,8 +982,7 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
       },
       timeoutMs: 8000,
     });
-
-    const deltaPromise = waitForEvent({
+    const delta = await waitForEvent({
       ws,
       predicate: (
         event: unknown,
@@ -742,8 +999,9 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
       },
       timeoutMs: 8000,
     });
+    assert.equal(userTurn.inflightId, delta.inflightId);
 
-    const finalPromise = waitForEvent({
+    const final = await waitForEvent({
       ws,
       predicate: (
         event: unknown,
@@ -753,23 +1011,6 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
       },
       timeoutMs: 8000,
     });
-
-    const res = await supertest(baseUrl)
-      .post('/flows/llm-basic/run')
-      .send({ conversationId, customTitle })
-      .expect(202);
-
-    assert.equal(res.body.status, 'started');
-    assert.equal(res.body.flowName, 'llm-basic');
-    assert.equal(res.body.conversationId, conversationId);
-    assert.equal(typeof res.body.inflightId, 'string');
-    assert.equal(typeof res.body.modelId, 'string');
-
-    const userTurn = await userTurnPromise;
-    const delta = await deltaPromise;
-    assert.equal(userTurn.inflightId, delta.inflightId);
-
-    const final = await finalPromise;
     assert.equal(final.status, 'ok');
 
     const conversation = memoryConversations.get(conversationId);
@@ -786,43 +1027,29 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  const fixturesDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../fixtures/flows',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-whitespace-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new StreamingChat(),
         }),
+      ),
     }),
   );
 
@@ -849,12 +1076,6 @@ test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
     memoryTurns.delete(conversationId);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -917,30 +1138,21 @@ test('POST /flows/:flowName/run normalizes blank optional identifiers to omissio
 });
 
 test('fresh flow start creates a new parent conversation when an older conversationId is supplied', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  const localFixturesDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../fixtures/flows',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-fresh-parent-'),
   );
-  await fs.cp(localFixturesDir, tmpDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   const oldConversationId = 'flow-basic-existing-parent';
   let newConversationId: string | undefined;
   memoryConversations.set(oldConversationId, {
     _id: oldConversationId,
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
@@ -993,21 +1205,11 @@ test('fresh flow start creates a new parent conversation when an older conversat
         ...collectAgentConversationIds(newConversationId),
       );
     }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('initial flow-owned execution repairs the requested provider model before first run turns persist', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousFlowsDir = process.env.FLOWS_DIR;
   const tempRoot = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-provider-repair-'),
   );
@@ -1048,119 +1250,95 @@ test('initial flow-owned execution repairs the requested provider model before f
     ],
   });
 
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.FLOWS_DIR = localFlowsDir;
-
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'codex-repaired',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready',
-      models: ['copilot-model'],
-      modelsRaw: [
-        {
-          id: 'copilot-model',
-          name: 'Copilot Model',
-          capabilities: {
-            supports: { vision: false, reasoningEffort: false },
-            limits: { max_context_window_tokens: 128000 },
-          },
-        },
-      ],
-      authSource: 'env-token',
-    }),
-  });
-
   try {
-    const result = await startFlowRun({
-      flowName,
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new InstantChat(),
-    });
+    await withScopedAgentRuntime(
+      {
+        CODEINFO_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_HOME: codexHome,
+        FLOWS_DIR: localFlowsDir,
+      },
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
+            {
+              model: 'codex-repaired',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          models: ['copilot-model'],
+          modelsRaw: [
+            {
+              id: 'copilot-model',
+              name: 'Copilot Model',
+              capabilities: {
+                supports: { vision: false, reasoningEffort: false },
+                limits: { max_context_window_tokens: 128000 },
+              },
+            },
+          ],
+          authSource: 'env-token',
+        }),
+      },
+      async () => {
+        const result = await startFlowRun({
+          flowName,
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new InstantChat(),
+        });
 
-    assert.equal(result.conversationId, conversationId);
-    assert.equal(result.modelId, 'codex-repaired');
+        assert.equal(result.conversationId, conversationId);
+        assert.equal(result.modelId, 'codex-repaired');
 
-    await waitForTurns(conversationId, (turns) =>
-      turns.some((turn) => turn.role === 'assistant'),
+        await waitForTurns(conversationId, (turns) =>
+          turns.some((turn) => turn.role === 'assistant'),
+        );
+
+        const flowConversation = memoryConversations.get(conversationId);
+        assert.equal(flowConversation?.provider, 'codex');
+        assert.equal(flowConversation?.model, 'codex-repaired');
+
+        const childConversation = memoryConversations.get(
+          getAgentConversationId(conversationId),
+        );
+        assert.equal(childConversation?.provider, 'codex');
+        assert.equal(childConversation?.model, 'codex-repaired');
+      },
     );
-
-    const flowConversation = memoryConversations.get(conversationId);
-    assert.equal(flowConversation?.provider, 'codex');
-    assert.equal(flowConversation?.model, 'codex-repaired');
-
-    const childConversation = memoryConversations.get(
-      getAgentConversationId(conversationId),
-    );
-    assert.equal(childConversation?.provider, 'codex');
-    assert.equal(childConversation?.model, 'codex-repaired');
   } finally {
-    __resetAgentServiceDepsForTests();
     cleanupMemory(
       conversationId,
       ...collectAgentConversationIds(conversationId),
     );
-    if (previousAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    }
-    if (previousCodexAgentsHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
-    }
-    if (previousCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    }
-    if (previousFlowsDir) {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
 test('initial flow-owned execution falls back to another provider and persists the actual provider-model pair', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousCodexAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  const previousFlowsDir = process.env.FLOWS_DIR;
-  const previousFallbackOrder =
-    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
   const tempRoot = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-provider-fallback-'),
   );
@@ -1207,137 +1385,100 @@ test('initial flow-owned execution falls back to another provider and persists t
     ],
   });
 
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'copilot,codex';
-  process.env.FLOWS_DIR = localFlowsDir;
-
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: false,
-      authPresent: false,
-      configPresent: true,
-      reason: 'codex unavailable',
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready',
-      models: ['copilot-model'],
-      modelsRaw: [
-        {
-          id: 'copilot-model',
-          name: 'Copilot Model',
-          capabilities: {
-            supports: { vision: false, reasoningEffort: false },
-            limits: { max_context_window_tokens: 128000 },
-          },
-        },
-      ],
-      authSource: 'env-token',
-    }),
-  });
-
   try {
-    const result = await startFlowRun({
-      flowName,
-      conversationId,
-      source: 'REST',
-      chatFactory: () => new InstantChat(),
-    });
+    await withScopedAgentRuntime(
+      {
+        CODEINFO_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_HOME: codexHome,
+        CODEINFO_COPILOT_HOME: copilotHome,
+        CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER: 'copilot,codex',
+        FLOWS_DIR: localFlowsDir,
+      },
+      {
+        getCodexDetection: () => ({
+          available: false,
+          authPresent: false,
+          configPresent: true,
+          reason: 'codex unavailable',
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          models: ['copilot-model'],
+          modelsRaw: [
+            {
+              id: 'copilot-model',
+              name: 'Copilot Model',
+              capabilities: {
+                supports: { vision: false, reasoningEffort: false },
+                limits: { max_context_window_tokens: 128000 },
+              },
+            },
+          ],
+          authSource: 'env-token',
+        }),
+      },
+      async () => {
+        const result = await startFlowRun({
+          flowName,
+          conversationId,
+          source: 'REST',
+          chatFactory: () => new InstantChat(),
+        });
 
-    assert.equal(result.conversationId, conversationId);
-    assert.equal(result.modelId, 'copilot-model');
+        assert.equal(result.conversationId, conversationId);
+        assert.equal(result.modelId, 'copilot-model');
 
-    await waitForTurns(conversationId, (turns) =>
-      turns.some((turn) => turn.role === 'assistant'),
+        await waitForTurns(conversationId, (turns) =>
+          turns.some((turn) => turn.role === 'assistant'),
+        );
+
+        const flowConversation = memoryConversations.get(conversationId);
+        assert.equal(flowConversation?.provider, 'copilot');
+        assert.equal(flowConversation?.model, 'copilot-model');
+
+        const childConversation = memoryConversations.get(
+          getAgentConversationId(conversationId),
+        );
+        assert.equal(childConversation?.provider, 'copilot');
+        assert.equal(childConversation?.model, 'copilot-model');
+      },
     );
-
-    const flowConversation = memoryConversations.get(conversationId);
-    assert.equal(flowConversation?.provider, 'copilot');
-    assert.equal(flowConversation?.model, 'copilot-model');
-
-    const childConversation = memoryConversations.get(
-      getAgentConversationId(conversationId),
-    );
-    assert.equal(childConversation?.provider, 'copilot');
-    assert.equal(childConversation?.model, 'copilot-model');
   } finally {
-    __resetAgentServiceDepsForTests();
     cleanupMemory(
       conversationId,
       ...collectAgentConversationIds(conversationId),
     );
-    if (previousAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    }
-    if (previousCodexAgentsHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousCodexAgentsHome;
-    }
-    if (previousCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    }
-    if (previousCopilotHome === undefined) {
-      delete process.env.CODEINFO_COPILOT_HOME;
-    } else {
-      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-    }
-    if (previousFallbackOrder === undefined) {
-      delete process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
-    } else {
-      process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER =
-        previousFallbackOrder;
-    }
-    if (previousFlowsDir) {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
 test('fresh executions of the same flow can run concurrently in different parent conversations', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  const localFixturesDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../fixtures/flows',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-concurrent-'),
   );
-  await fs.cp(localFixturesDir, tmpDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   const flowRunA = startFlowRun({
     flowName: 'llm-basic',
@@ -1376,104 +1517,66 @@ test('fresh executions of the same flow can run concurrently in different parent
       'flow-concurrent-b',
       ...collectAgentConversationIds('flow-concurrent-b'),
     );
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
-test('durable retryOwnershipId replay reuses the accepted launch after completed-cache loss', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevNodeEnv = process.env.NODE_ENV;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
-  const localFixturesDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../fixtures/flows',
-  );
+test('retryOwnershipPending replay distinguishes still running, finished, and accepted-then-died-before-terminal cleanup', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-retry-ownership-'),
   );
-  await fs.cp(localFixturesDir, tmpDir, { recursive: true });
-
-  process.env.NODE_ENV = 'test';
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  enterTestEnvOverrides({
+    NODE_ENV: 'test',
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
   const customTitle = 'Accepted Retry Launch';
-
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new InstantChat(),
-        }),
-    }),
-  );
-  const httpServer = http.createServer(app);
-  const wsHandle = attachWs({ httpServer });
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const ws = await connectWs({ baseUrl });
 
   try {
     const firstConversationId = 'flow-retry-ownership-a';
-    sendJson(ws, {
-      type: 'subscribe_conversation',
+    const retryOwnershipId = 'fresh-run-retry-1';
+    const launchSignature = JSON.stringify({
+      flowName: 'llm-basic',
+      source: 'REST',
+      customTitle,
+    });
+    const firstResult = await startFlowRun({
+      flowName: 'llm-basic',
       conversationId: firstConversationId,
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new DelayedInstantChat(250),
     });
-    const firstResultPromise = supertest(baseUrl)
-      .post('/flows/llm-basic/run')
-      .send({
-        conversationId: firstConversationId,
-        retryOwnershipId: 'fresh-run-retry-1',
-        customTitle,
-      })
-      .expect(202);
-    const firstFinalPromise = waitForEvent({
-      ws,
-      predicate: (
-        event: unknown,
-      ): event is { type: 'turn_final'; status: string } => {
-        const candidate = event as {
-          type?: string;
-          conversationId?: string;
-          status?: string;
-        };
-        return (
-          candidate.type === 'turn_final' &&
-          candidate.conversationId === firstConversationId &&
-          candidate.status === 'ok'
-        );
-      },
-      timeoutMs: 8000,
+    await waitFor(() => Boolean(getActiveRunOwnership(firstConversationId)));
+    await waitFor(() =>
+      Boolean(
+        (
+          (memoryConversations.get(firstConversationId)?.flags ?? {}) as {
+            flow?: { retryOwnershipPending?: unknown };
+          }
+        ).flow?.retryOwnershipPending,
+      ),
+    );
+
+    const replayWhileRunning = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-running',
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
     });
-    const firstResult = (await firstResultPromise).body as {
-      flowName: string;
-      conversationId: string;
-      inflightId: string;
-      providerId: string;
-      modelId: string;
-      warnings?: string[];
-    };
-    await firstFinalPromise;
+    assert.deepEqual(replayWhileRunning, firstResult);
+
     await waitForConversationUnlocked(firstResult.conversationId);
     await waitFor(
       async () =>
         Boolean(
           await __getPersistedFreshRunRetryOwnershipCompletionForTests({
             flowName: 'llm-basic',
-            retryOwnershipId: 'fresh-run-retry-1',
+            retryOwnershipId,
             launch: {
               flowName: 'llm-basic',
               source: 'REST',
@@ -1489,52 +1592,81 @@ test('durable retryOwnershipId replay reuses the accepted launch after completed
     );
     __resetFreshRunRetryOwnershipCompletionForTests();
 
-    const replayConversationId = 'flow-retry-ownership-b';
-    sendJson(ws, {
-      type: 'subscribe_conversation',
-      conversationId: replayConversationId,
+    const replayAfterCompletion = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-finished',
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
     });
-    const replayResult = (
-      await supertest(baseUrl)
-        .post('/flows/llm-basic/run')
-        .send({
-          conversationId: replayConversationId,
-          retryOwnershipId: 'fresh-run-retry-1',
-          customTitle,
-        })
-        .expect(202)
-    ).body as typeof firstResult;
-    assert.deepEqual(replayResult, firstResult);
-    await waitForTurnCountToStay(firstResult.conversationId, 2);
+    assert.deepEqual(replayAfterCompletion, firstResult);
+    assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
+
+    const firstConversation = memoryConversations.get(
+      firstResult.conversationId,
+    );
+    assert.ok(firstConversation, 'expected original retry conversation');
+    const originalFlow = (
+      (firstConversation.flags ?? {}) as {
+        flow?: Record<string, unknown>;
+      }
+    ).flow;
+    assert.ok(originalFlow, 'expected persisted flow state');
+
+    memoryConversations.set(firstResult.conversationId, {
+      ...firstConversation,
+      flags: {
+        ...(firstConversation.flags ?? {}),
+        flow: {
+          ...originalFlow,
+          retryOwnershipPending: {
+            retryOwnershipId,
+            launchSignature,
+            result: firstResult,
+          },
+        },
+      },
+    });
+    const stalePendingFlow = (
+      (memoryConversations.get(firstResult.conversationId)?.flags ?? {}) as {
+        flow?: Record<string, unknown>;
+      }
+    ).flow;
+    if (stalePendingFlow) {
+      delete stalePendingFlow.retryOwnershipCompletion;
+    }
+
+    __resetFreshRunRetryOwnershipCompletionForTests();
+
+    const replayAfterCrash = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 'flow-retry-ownership-crash-retry',
+      retryOwnershipId,
+      customTitle,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+    });
+    assert.equal(
+      replayAfterCrash.conversationId,
+      'flow-retry-ownership-crash-retry',
+    );
+    assert.notEqual(replayAfterCrash.inflightId, firstResult.inflightId);
+    await waitForConversationUnlocked(replayAfterCrash.conversationId);
   } finally {
+    cleanupMemory(
+      'flow-retry-ownership-a',
+      'flow-retry-ownership-running',
+      'flow-retry-ownership-finished',
+      'flow-retry-ownership-crash-retry',
+    );
     cleanupMemory('flow-retry-ownership-a', 'flow-retry-ownership-b');
     __resetFreshRunRetryOwnershipCompletionForTests();
-    await closeWs(ws);
-    await wsHandle.close();
-    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    if (prevNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = prevNodeEnv;
-    }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('retryOwnershipId replay stays scoped to sourceId for ingested flows that share the same flow name', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevNodeEnv = process.env.NODE_ENV;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpLocalDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-retry-source-local-'),
   );
@@ -1544,15 +1676,16 @@ test('retryOwnershipId replay stays scoped to sourceId for ingested flows that s
   await fs.mkdir(path.join(repoB, 'flows'), { recursive: true });
   await fs.cp(fixturesDir, path.join(repoA, 'flows'), { recursive: true });
   await fs.cp(fixturesDir, path.join(repoB, 'flows'), { recursive: true });
-
-  process.env.NODE_ENV = 'test';
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpLocalDir;
+  enterTestEnvOverrides({
+    NODE_ENV: 'test',
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpLocalDir,
+  });
 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
@@ -1561,6 +1694,7 @@ test('retryOwnershipId replay stays scoped to sourceId for ingested flows that s
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
@@ -1608,17 +1742,6 @@ test('retryOwnershipId replay stays scoped to sourceId for ingested flows that s
   } finally {
     cleanupMemory('flow-retry-source-a', 'flow-retry-source-b');
     __resetFreshRunRetryOwnershipCompletionForTests();
-    if (prevNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = prevNodeEnv;
-    }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(repoA, { recursive: true, force: true });
     await fs.rm(repoB, { recursive: true, force: true });
@@ -1626,13 +1749,6 @@ test('retryOwnershipId replay stays scoped to sourceId for ingested flows that s
 });
 
 test('flow run stops before turn persistence when metadata retries exhaust', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevNodeEnv = process.env.NODE_ENV;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-metadata-exhaust-'),
   );
@@ -1642,10 +1758,11 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
   const originalFindOneAndUpdate = ConversationModel.findOneAndUpdate;
   const originalSave = ConversationModel.prototype.save;
   let updateAttempts = 0;
-
-  process.env.NODE_ENV = 'test';
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    NODE_ENV: 'test',
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   try {
     await withMockedMongoConversationPersistence({
@@ -1679,6 +1796,8 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
         });
 
         assert.equal(result.conversationId, conversationId);
+        await waitFor(() => updateAttempts > 0, 30000);
+        await waitForConversationUnlocked(conversationId, 30000);
         await waitFor(() => updateAttempts > 0, 20000);
         await waitForConversationUnlocked(conversationId, 20000);
 
@@ -1696,38 +1815,23 @@ test('flow run stops before turn persistence when metadata retries exhaust', asy
       ...collectAgentConversationIds(conversationId),
     );
     __resetFreshRunRetryOwnershipCompletionForTests();
-    if (prevNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = prevNodeEnv;
-    }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-unknown-source-'),
   );
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
@@ -1736,6 +1840,7 @@ test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
@@ -1745,19 +1850,11 @@ test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
       .send({ sourceId: '/data/unknown-repo' })
       .expect(404);
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run fails on invalid agent config supported key types (resolver regression guard)', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
   const tmpAgentsHome = await fs.mkdtemp(
     path.join(os.tmpdir(), 'agents-home-'),
   );
@@ -1769,22 +1866,25 @@ test('POST /flows/:flowName/run fails on invalid agent config supported key type
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
-    ['model = "gpt-5.1-codex-max"', 'approval_policy = 42'].join('\n'),
+    ['model = "gpt-5.6-luna"', 'approval_policy = 42'].join('\n'),
     'utf8',
   );
   await fs.cp(fixturesDir, tmpFlowsDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = tmpAgentsHome;
-  process.env.FLOWS_DIR = tmpFlowsDir;
+  enterTestEnvOverrides({
+    CODEINFO_AGENT_HOME: tmpAgentsHome,
+    CODEINFO_CODEX_AGENT_HOME: tmpAgentsHome,
+    FLOWS_DIR: tmpFlowsDir,
+  });
 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
         }),
+      ),
     }),
   );
 
@@ -1798,24 +1898,12 @@ test('POST /flows/:flowName/run fails on invalid agent config supported key type
     assert.equal(typeof res.body.message, 'string');
     assert.equal(res.body.message.length > 0, true);
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpFlowsDir, { recursive: true, force: true });
     await fs.rm(tmpAgentsHome, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run uses ingested flow when sourceId provided', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpLocalDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-local-'),
   );
@@ -1825,14 +1913,15 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
   const tmpRepoFlows = path.join(tmpRepoRoot, 'flows');
   await fs.mkdir(tmpRepoFlows, { recursive: true });
   await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpLocalDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpLocalDir,
+  });
 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
@@ -1841,6 +1930,7 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
@@ -1856,24 +1946,12 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(tmpRepoRoot, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run requires the canonical sourceId instead of a host alias payload', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpLocalDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-local-legacy-'),
   );
@@ -1884,14 +1962,15 @@ test('POST /flows/:flowName/run requires the canonical sourceId instead of a hos
   const hostAliasPath = path.join('/host-alias', path.basename(tmpRepoRoot));
   await fs.mkdir(tmpRepoFlows, { recursive: true });
   await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpLocalDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpLocalDir,
+  });
 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
@@ -1912,6 +1991,7 @@ test('POST /flows/:flowName/run requires the canonical sourceId instead of a hos
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
@@ -1941,25 +2021,12 @@ test('POST /flows/:flowName/run requires the canonical sourceId instead of a hos
     memoryConversations.delete('flow-ingested-conv-legacy-canonical');
     memoryTurns.delete('flow-ingested-conv-legacy-canonical');
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(tmpRepoRoot, { recursive: true, force: true });
   }
 });
 
 test('flow llm.basic stops before replay completion when persisted metadata reports not_found after a concurrent delete', async () => {
-  const prevNodeEnv = process.env.NODE_ENV;
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-not-found-'),
   );
@@ -1971,10 +2038,11 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
 
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   await fs.mkdir(workingFolder, { recursive: true });
-
-  process.env.NODE_ENV = 'test';
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    NODE_ENV: 'test',
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
 
   try {
     await withMockedMongoConversationPersistence({
@@ -2000,7 +2068,7 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
         const app = express();
         app.use(
           createFlowsRunRouter({
-            startFlowRun: (params) =>
+            startFlowRun: bindCurrentTestOverrides((params) =>
               startFlowRun({
                 ...params,
                 chatFactory: () => new InstantChat(),
@@ -2009,6 +2077,7 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
                   lockedModelId: null,
                 }),
               }),
+            ),
           }),
         );
 
@@ -2044,28 +2113,11 @@ test('flow llm.basic stops before replay completion when persisted metadata repo
   } finally {
     ConversationModel.findOneAndUpdate = originalFindOneAndUpdate;
     ConversationModel.prototype.save = originalSave;
-    if (prevNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = prevNodeEnv;
-    }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run uses local flows when sourceId omitted', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpLocalDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-local-only-'),
   );
@@ -2076,14 +2128,15 @@ test('POST /flows/:flowName/run uses local flows when sourceId omitted', async (
   const tmpRepoFlows = path.join(tmpRepoRoot, 'flows');
   await fs.mkdir(tmpRepoFlows, { recursive: true });
   await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpLocalDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpLocalDir,
+  });
 
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new InstantChat(),
@@ -2092,6 +2145,7 @@ test('POST /flows/:flowName/run uses local flows when sourceId omitted', async (
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
 
@@ -2107,24 +2161,12 @@ test('POST /flows/:flowName/run uses local flows when sourceId omitted', async (
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(tmpRepoRoot, { recursive: true, force: true });
   }
 });
 
 test('memory-backed flow runs preserve saved workingFolder while updating flow resume snapshots', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-working-folder-state-'),
   );
@@ -2133,13 +2175,16 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
 
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
   await fs.mkdir(workingFolder, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
+  let executeStarted = false;
 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
@@ -2156,7 +2201,29 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
       conversationId,
       working_folder: workingFolder,
       source: 'REST',
-      chatFactory: () => new InstantChat(),
+      chatFactory: () =>
+        new (class extends ChatInterface {
+          async execute(
+            _message: string,
+            _flags: Record<string, unknown>,
+            childConversationId: string,
+            _model: string,
+          ) {
+            void _message;
+            void _flags;
+            void _model;
+            executeStarted = true;
+            this.emit('thread', {
+              type: 'thread',
+              threadId: childConversationId,
+            });
+            this.emit('final', { type: 'final', content: 'ok' });
+            this.emit('complete', {
+              type: 'complete',
+              threadId: childConversationId,
+            });
+          }
+        })(),
       listIngestedRepositories: async () => ({
         repos: [buildRepoEntry(workingFolder)],
         lockedModelId: null,
@@ -2164,10 +2231,17 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
     });
 
     assert.notEqual(result.conversationId, conversationId);
+    await waitFor(() => executeStarted, 4000);
 
     await waitForTurns(
       result.conversationId,
       (turns) => turns.filter((turn) => turn.role === 'assistant').length > 0,
+      4000,
+      () =>
+        JSON.stringify({
+          phase: 'waiting_for_first_assistant_turn',
+          executeStarted,
+        }),
     );
 
     const conversation = memoryConversations.get(result.conversationId);
@@ -2199,12 +2273,6 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
       conversationId,
       ...collectAgentConversationIds(conversationId),
     );
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -2259,6 +2327,1211 @@ test('flow llm.markdownFile prefers the parent flow repository before codeInfo2'
       assert.deepEqual(messages, ['source markdown']);
     },
   );
+});
+
+test('ingested flows execute with the agent configuration that made them discoverable', async () => {
+  await withMarkdownFlowHarness(
+    async ({ tempRoot, buildRepoEntry, writeFlowFile, runFlow }) => {
+      const sourceRepo = path.join(tempRoot, 'repo-agent-owner');
+      const flowName = 'repository-agent-flow';
+      const conversationId = 'flow-repository-agent-owner';
+      const agentHome = path.join(
+        sourceRepo,
+        'codeinfo_agents',
+        'repository_agent',
+      );
+      await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+      await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+      await fs.writeFile(
+        path.join(agentHome, 'config.toml'),
+        ['model = "agent-model-1"', 'approval_policy = "never"'].join('\n'),
+        'utf8',
+      );
+      await writeFlowFile({
+        flowsRoot: path.join(sourceRepo, 'flows'),
+        flowName,
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'repository_agent',
+            identifier: 'owner',
+            messages: [
+              { role: 'user', content: ['use the owning agent home'] },
+            ],
+          },
+        ],
+      });
+
+      const { messages } = await runFlow({
+        flowName,
+        conversationId,
+        sourceId: sourceRepo,
+        listedRepos: [buildRepoEntry(sourceRepo)],
+        turnsPredicate: (turns) =>
+          turns.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'ok',
+          ),
+      });
+
+      assert.deepEqual(messages, ['use the owning agent home']);
+    },
+  );
+});
+test('github review skip publishes a warning, records a durable plan note, and preserves a later authored wait', async () => {
+  const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-flow-'));
+  const repoRoot = await createGitHubReviewRepoFixture();
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
+  const conversationId = 'github-skip-conversation';
+
+  try {
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-skip',
+      steps: [
+        { type: 'github_open_pr', label: 'Open PR' },
+        { type: 'wait', label: 'Unrelated authored wait', seconds: 60 },
+      ],
+    });
+
+    await startFlowRun({
+      flowName: 'github-skip',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitFor(async () => {
+      const planRaw = await fs.readFile(
+        path.join(
+          repoRoot,
+          'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+        ),
+        'utf8',
+      );
+      return planRaw.includes(
+        'GitHub review stage skipped during PR open: The repository-local GitHub token file `.env.local` is missing.',
+      );
+    }, 4000);
+
+    const warningTurns = await waitForTurns(
+      conversationId,
+      (turns) =>
+        turns.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
+        ),
+      4000,
+    );
+    const warningTurn = [...warningTurns]
+      .reverse()
+      .find((turn) => turn.role === 'assistant' && turn.status === 'warning');
+    assert.ok(warningTurn);
+    assert.match(
+      warningTurn.content,
+      /GitHub review stage skipped during PR open:/,
+    );
+    const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+      | { wait?: { stepPath?: number[] } }
+      | undefined;
+    assert.deepEqual(flowState?.wait?.stepPath, [1]);
+  } finally {
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('Stop cancels a stalled GitHub PR command and preserves the stopped flow outcome', async () => {
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-open-pr-stop-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
+  const conversationId = 'github-open-pr-stop';
+  let markPushStarted: (() => void) | undefined;
+  const pushStarted = new Promise<void>((resolve) => {
+    markPushStarted = resolve;
+  });
+
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-open-pr-stop',
+      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+    });
+    __setGitHubReviewDepsForTests({
+      runCommand: async ({ command, args, signal }) => {
+        if (
+          command === 'gh' &&
+          args[0] === 'api' &&
+          (args.at(-1) ?? '').includes('pulls?state=open')
+        ) {
+          return { exitCode: 0, stdout: '[]', stderr: '' };
+        }
+        if (command !== 'git') {
+          throw new Error(`Unexpected command: ${command}`);
+        }
+        const joined = args.join(' ');
+        if (joined === 'branch --show-current') {
+          return {
+            exitCode: 0,
+            stdout:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'rev-parse HEAD') {
+          return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+        }
+        if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+          return {
+            exitCode: 0,
+            stdout:
+              'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'remote get-url origin') {
+          return {
+            exitCode: 0,
+            stdout: 'https://github.com/test-owner/test-repo.git\n',
+            stderr: '',
+          };
+        }
+        if (
+          joined ===
+          'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+        ) {
+          markPushStarted?.();
+          return await new Promise((_resolve, reject) => {
+            const rejectAbort = () => {
+              const error = new Error('aborted');
+              error.name = 'AbortError';
+              reject(error);
+            };
+            if (signal?.aborted) {
+              rejectAbort();
+              return;
+            }
+            signal?.addEventListener('abort', rejectAbort, { once: true });
+            if (signal?.aborted) rejectAbort();
+          });
+        }
+        throw new Error(`Unexpected git command: ${joined}`);
+      },
+    });
+
+    await startFlowRun({
+      flowName: 'github-open-pr-stop',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+    await pushStarted;
+
+    assert.equal(await stopFlowRun(conversationId), true);
+    await waitForConversationUnlocked(conversationId);
+    assert.equal((await getFlowRunStatus(conversationId))?.status, 'stopped');
+  } finally {
+    __resetGitHubReviewDepsForTests();
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+for (const failure of ['lookup-failed', 'author-missing'] as const) {
+  test(`github review open PR preserves creation evidence and skips when canonical identity is ${failure}`, async () => {
+    const tempFlowsDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'github-open-pr-flow-'),
+    );
+    const repoRoot = await createGitHubReviewRepoFixture({
+      flowTaskNumber: 23,
+    });
+    enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
+    const conversationId = 'github-open-pr-retry-failure';
+
+    try {
+      await fs.writeFile(
+        path.join(repoRoot, '.env.local'),
+        'CODEINFO_PR_TOKEN=test-token\n',
+        'utf8',
+      );
+      let lookupAttempts = 0;
+      let createAttempts = 0;
+      __setGitHubReviewDepsForTests({
+        readFile: async (filePath, encoding) =>
+          await fs.readFile(filePath, encoding),
+        sleep: async () => {},
+        runCommand: async ({ command, args }) => {
+          if (command === 'git') {
+            const joined = args.join(' ');
+            if (joined === 'branch --show-current') {
+              return {
+                exitCode: 0,
+                stdout:
+                  'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+                stderr: '',
+              };
+            }
+            if (joined === 'rev-parse HEAD') {
+              return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+            }
+            if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+              return {
+                exitCode: 0,
+                stdout:
+                  'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+                stderr: '',
+              };
+            }
+            if (joined === 'remote get-url origin') {
+              return {
+                exitCode: 0,
+                stdout: 'https://github.com/test-owner/test-repo.git\n',
+                stderr: '',
+              };
+            }
+            if (
+              joined ===
+              'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+            ) {
+              return { exitCode: 0, stdout: '', stderr: '' };
+            }
+            return {
+              exitCode: 1,
+              stdout: '',
+              stderr: `unexpected git command: ${joined}`,
+            };
+          }
+          if (command === 'gh') {
+            if (
+              args[0] === 'api' &&
+              (args.at(-1) ?? '').includes('pulls?state=open')
+            ) {
+              return { exitCode: 0, stdout: '[]', stderr: '' };
+            }
+            if (args[0] === 'pr' && args[1] === 'create') {
+              createAttempts += 1;
+              return {
+                exitCode: 0,
+                stdout: 'https://github.com/test-owner/test-repo/pull/206\n',
+                stderr: '',
+              };
+            }
+            assert.equal(args.at(-1), 'repos/test-owner/test-repo/pulls/206');
+            lookupAttempts += 1;
+            if (failure === 'author-missing') {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  number: 206,
+                  html_url: 'https://github.com/test-owner/test-repo/pull/206',
+                  state: 'open',
+                  head: {
+                    ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                  },
+                  base: { ref: 'main' },
+                  user: null,
+                }),
+                stderr: '',
+              };
+            }
+            return {
+              exitCode: 1,
+              stdout: '',
+              stderr: `lookup attempt ${lookupAttempts} failed`,
+            };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected command: ${command}`,
+          };
+        },
+      });
+
+      await writeFlowFile({
+        flowsRoot: tempFlowsDir,
+        flowName: 'github-open-pr-retry-failure',
+        steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+      });
+
+      await startFlowRun({
+        flowName: 'github-open-pr-retry-failure',
+        conversationId,
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () => new InstantChat(),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
+        }),
+      });
+
+      await waitForConversationUnlocked(conversationId);
+
+      const assistantTurns = [
+        ...(memoryTurns.get(conversationId) ?? []),
+      ].filter((turn) => turn.role === 'assistant');
+      const warningTurns = assistantTurns.filter(
+        (turn) => turn.status === 'warning',
+      );
+      assert.equal(warningTurns.length, 1);
+      assert.match(
+        warningTurns[0].content,
+        /Pull request created at https:\/\/github.com\/test-owner\/test-repo\/pull\/206/,
+      );
+      const retryLogs = query({
+        text: 'flows.github.open_pr.lookup_retry_failed',
+      }).filter(
+        (entry) => entry.context?.flowName === 'github-open-pr-retry-failure',
+      );
+      assert.deepEqual(retryLogs, []);
+      assert.equal(lookupAttempts, 1);
+      assert.equal(createAttempts, 1);
+
+      assert.equal(
+        assistantTurns.some((turn) => turn.status === 'failed'),
+        false,
+      );
+      const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+        | {
+            githubReviewContext?: {
+              prNumber?: number;
+              phase?: string;
+            };
+          }
+        | undefined;
+      assert.equal(flowState?.githubReviewContext?.prNumber, undefined);
+      assert.equal(flowState?.githubReviewContext?.phase, 'skipped');
+      assert.equal((await getFlowRunStatus(conversationId))?.status, 'warning');
+
+      const planRaw = await fs.readFile(
+        path.join(
+          repoRoot,
+          'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+        ),
+        'utf8',
+      );
+      assert.match(
+        planRaw,
+        /Pull request created at https:\/\/github.com\/test-owner\/test-repo\/pull\/206/,
+      );
+      assert.doesNotMatch(planRaw, /lookup retry/);
+      if (failure === 'lookup-failed') {
+        assert.match(planRaw, /stderr: lookup attempt 1 failed/i);
+      } else {
+        assert.match(planRaw, /did not identify the PR author/);
+      }
+    } finally {
+      cleanupMemory(conversationId);
+      await fs.rm(tempFlowsDir, { recursive: true, force: true });
+      await fs.rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+}
+
+for (const lookupOutcome of [
+  'existing',
+  'stale',
+  'author-missing',
+  'author-blank',
+  'stale-author-missing',
+  'wrong-base',
+  'missing',
+  'failed',
+] as const) {
+  test(`github review open PR handles ${lookupOutcome} lookup and publication state`, async () => {
+    const tempFlowsDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'github-open-pr-existing-flow-'),
+    );
+    const repoRoot = await createGitHubReviewRepoFixture({
+      flowTaskNumber: 23,
+    });
+    enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
+    const conversationId = `github-open-pr-${lookupOutcome}-failing-push`;
+    const stale =
+      lookupOutcome === 'stale' || lookupOutcome === 'stale-author-missing';
+    const authorUnavailable =
+      lookupOutcome === 'author-missing' ||
+      lookupOutcome === 'author-blank' ||
+      lookupOutcome === 'stale-author-missing';
+
+    try {
+      await fs.writeFile(
+        path.join(repoRoot, '.env.local'),
+        'CODEINFO_PR_TOKEN=test-token\n',
+        'utf8',
+      );
+      let createAttempts = 0;
+      let openPullLookupCount = 0;
+      const operations: string[] = [];
+      __setGitHubReviewDepsForTests({
+        readFile: async (filePath, encoding) =>
+          await fs.readFile(filePath, encoding),
+        runCommand: async ({ command, args }) => {
+          if (command === 'git') {
+            const joined = args.join(' ');
+            if (joined === 'branch --show-current') {
+              return {
+                exitCode: 0,
+                stdout:
+                  'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+                stderr: '',
+              };
+            }
+            if (joined === 'rev-parse HEAD') {
+              return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+            }
+            if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+              return {
+                exitCode: 0,
+                stdout:
+                  'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+                stderr: '',
+              };
+            }
+            if (joined === 'remote get-url origin') {
+              return {
+                exitCode: 0,
+                stdout: 'https://github.com/test-owner/test-repo.git\n',
+                stderr: '',
+              };
+            }
+            if (
+              joined ===
+              'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+            ) {
+              operations.push('push');
+              if (stale) {
+                return { exitCode: 0, stdout: '', stderr: '' };
+              }
+              return {
+                exitCode: 1,
+                stdout: '',
+                stderr: 'push credentials unavailable',
+              };
+            }
+          }
+          if (command === 'gh') {
+            const endpoint = args.at(-1) ?? '';
+            if (args[0] === 'pr' && args[1] === 'create') {
+              createAttempts += 1;
+              return {
+                exitCode: 1,
+                stdout: '',
+                stderr: 'create should not run when an open PR exists',
+              };
+            }
+            if (endpoint.includes('pulls?state=open')) {
+              operations.push('lookup');
+              openPullLookupCount += 1;
+              if (lookupOutcome === 'failed') {
+                return {
+                  exitCode: 1,
+                  stdout: '',
+                  stderr: 'lookup unavailable',
+                };
+              }
+              if (lookupOutcome === 'missing') {
+                return { exitCode: 0, stdout: '[]', stderr: '' };
+              }
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify([
+                  {
+                    number: 207,
+                    html_url:
+                      'https://github.com/test-owner/test-repo/pull/207',
+                    state: 'open',
+                    created_at: '2026-08-03T12:00:00.000Z',
+                    head: {
+                      ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                      sha:
+                        stale && openPullLookupCount === 1
+                          ? 'stale-head'
+                          : 'abc123',
+                    },
+                    base: {
+                      ref: lookupOutcome === 'wrong-base' ? 'release' : 'main',
+                    },
+                    user: { login: 'reviewer' },
+                  },
+                ]),
+                stderr: '',
+              };
+            }
+            if (endpoint.endsWith('/pulls/207')) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  number: 207,
+                  html_url: 'https://github.com/test-owner/test-repo/pull/207',
+                  state: 'open',
+                  created_at: '2026-08-03T12:00:00.000Z',
+                  head: {
+                    ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                    sha:
+                      stale && openPullLookupCount === 1
+                        ? 'stale-head'
+                        : 'abc123',
+                  },
+                  base: {
+                    ref: lookupOutcome === 'wrong-base' ? 'release' : 'main',
+                  },
+                  user:
+                    lookupOutcome === 'author-blank'
+                      ? { login: '  ' }
+                      : authorUnavailable && (!stale || openPullLookupCount > 1)
+                        ? null
+                        : { login: 'reviewer' },
+                }),
+                stderr: '',
+              };
+            }
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected command: ${command} ${args.join(' ')}`,
+          };
+        },
+      });
+
+      await writeFlowFile({
+        flowsRoot: tempFlowsDir,
+        flowName: 'github-open-pr-existing',
+        steps: [
+          { type: 'github_open_pr', label: 'Open GitHub Review Pull Request' },
+        ],
+      });
+      await startFlowRun({
+        flowName: 'github-open-pr-existing',
+        conversationId,
+        source: 'REST',
+        working_folder: repoRoot,
+        chatFactory: () => new InstantChat(),
+        listIngestedRepositories: async () => ({
+          repos: [buildRepoEntry(repoRoot)],
+          lockedModelId: null,
+        }),
+      });
+      await waitForConversationUnlocked(conversationId);
+
+      assert.equal(createAttempts, 0);
+      const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+        | { githubReviewContext?: { prNumber?: number; phase?: string } }
+        | undefined;
+      assert.deepEqual(
+        operations,
+        stale
+          ? ['lookup', 'push', 'lookup']
+          : lookupOutcome === 'missing'
+            ? ['lookup', 'push']
+            : ['lookup'],
+      );
+      if (lookupOutcome === 'existing' || lookupOutcome === 'stale') {
+        assert.equal(flowState?.githubReviewContext?.prNumber, 207);
+        assert.equal(flowState?.githubReviewContext?.phase, 'opened');
+        assert.equal((await getFlowRunStatus(conversationId))?.status, 'ok');
+      } else {
+        assert.equal(flowState?.githubReviewContext?.prNumber, undefined);
+        assert.equal(flowState?.githubReviewContext?.phase, 'skipped');
+        assert.equal(
+          (await getFlowRunStatus(conversationId))?.status,
+          'warning',
+        );
+        const planRaw = await fs.readFile(
+          path.join(
+            repoRoot,
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          ),
+          'utf8',
+        );
+        assert.match(
+          planRaw,
+          lookupOutcome === 'missing'
+            ? /could not be pushed to its existing upstream remote/
+            : lookupOutcome === 'wrong-base'
+              ? /targets base branch release/
+              : authorUnavailable
+                ? /pull request #207.*did not identify the PR author/
+                : /lookup unavailable/,
+        );
+      }
+      assert.equal(
+        [...(memoryTurns.get(conversationId) ?? [])].some(
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
+        ),
+        lookupOutcome !== 'existing' && lookupOutcome !== 'stale',
+      );
+    } finally {
+      cleanupMemory(conversationId);
+      await fs.rm(tempFlowsDir, { recursive: true, force: true });
+      await fs.rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+}
+
+test('github review open PR skips the cycle when gh pr create fails', async () => {
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-open-pr-ambiguous-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 23 });
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
+  const conversationId = 'github-open-pr-ambiguous-success';
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    const latestPullPage = JSON.stringify([
+      {
+        number: 45,
+        html_url: 'https://github.com/test-owner/test-repo/pull/45',
+        title: 'latest pull request',
+        created_at: '2026-06-24T10:00:00Z',
+        head: {
+          ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+        },
+        base: { ref: 'main' },
+        user: { login: 'review-bot' },
+      },
+    ]);
+    let openPullLookupCount = 0;
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) =>
+        await fs.readFile(filePath, encoding),
+      sleep: async () => {},
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (
+            joined ===
+            'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+          ) {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          if (args[0] === 'pr' && args[1] === 'create') {
+            return {
+              exitCode: 1,
+              stdout: '',
+              stderr: 'connection dropped after create',
+            };
+          }
+          const endpoint = args.at(-1) ?? '';
+          if (endpoint.includes('pulls?state=open')) {
+            openPullLookupCount += 1;
+            return {
+              exitCode: 0,
+              stdout: openPullLookupCount === 1 ? '[]' : latestPullPage,
+              stderr: '',
+            };
+          }
+          if (endpoint.endsWith('/pulls/45')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({
+                number: 45,
+                html_url: 'https://github.com/test-owner/test-repo/pull/45',
+                title: 'latest pull request',
+                created_at: '2026-06-24T10:00:00Z',
+                state: 'open',
+                head: {
+                  ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                },
+                base: { ref: 'main' },
+                user: { login: 'review-bot' },
+              }),
+              stderr: '',
+            };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected gh command: ${args.join(' ')}`,
+          };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-open-pr-ambiguous-success',
+      steps: [{ type: 'github_open_pr', label: 'Open PR' }],
+    });
+
+    await startFlowRun({
+      flowName: 'github-open-pr-ambiguous-success',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForConversationUnlocked(conversationId);
+    const assistantTurns = [...(memoryTurns.get(conversationId) ?? [])].filter(
+      (turn) => turn.role === 'assistant',
+    );
+    assert.equal(
+      assistantTurns.filter((turn) => turn.status === 'warning').length,
+      1,
+    );
+    assert.equal(
+      assistantTurns.some((turn) => turn.status === 'failed'),
+      false,
+    );
+
+    const planRaw = await fs.readFile(
+      path.join(
+        repoRoot,
+        'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+      ),
+      'utf8',
+    );
+    assert.match(planRaw, /GitHub review stage failed during PR open\./);
+    assert.match(planRaw, /stderr: connection dropped after create/i);
+  } finally {
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review skips persist warning status directly and through a parent subflow while adjacent non-GitHub flows complete with ok status', async () => {
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-fetch-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture();
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) =>
+        await fs.readFile(filePath, encoding),
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout: 'feature/0000060-test\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+            return {
+              exitCode: 0,
+              stdout: 'origin/feature/0000060-test\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'symbolic-ref refs/remotes/origin/HEAD') {
+            return {
+              exitCode: 0,
+              stdout: 'refs/remotes/origin/main\n',
+              stderr: '',
+            };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          return { exitCode: 0, stdout: '[]', stderr: '' };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-no-open-pr',
+      steps: [{ type: 'github_fetch_reviews', label: 'Fetch reviews' }],
+    });
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-adjacent-ok',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          messages: [{ role: 'user', content: ['Still OK'] }],
+        },
+      ],
+    });
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-warning-child',
+      steps: [{ type: 'github_fetch_reviews', label: 'Fetch reviews' }],
+    });
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-warning-parent',
+      steps: [{ type: 'subflow', flowNames: ['github-warning-child'] }],
+    });
+
+    const warningConversationId = 'github-no-open-pr-conversation';
+    await startFlowRun({
+      flowName: 'github-no-open-pr',
+      conversationId: warningConversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      warningConversationId,
+      (turns) =>
+        turns.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
+        ),
+      4000,
+    );
+    const warningTurn = getLatestAssistantTurn(warningConversationId);
+    assert.ok(warningTurn);
+    assert.equal(warningTurn.status, 'warning');
+    assert.match(warningTurn.content, /no latest open pull request/i);
+    await waitForConversationUnlocked(warningConversationId);
+    const directWarningStatus = await getFlowRunStatus(warningConversationId);
+    assert.equal(directWarningStatus?.status, 'warning');
+    assert.equal(directWarningStatus?.terminal, true);
+
+    const retryOwnershipId = 'github-warning-retry-ownership';
+    const retryOwnedWarning = await startFlowRun({
+      flowName: 'github-no-open-pr',
+      conversationId: 'github-warning-retry-owned-conversation',
+      retryOwnershipId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+    await waitForConversationUnlocked(retryOwnedWarning.conversationId);
+    assert.equal(
+      (await getFlowRunStatus(retryOwnedWarning.conversationId))?.status,
+      'warning',
+    );
+
+    const retryOwnedWarningReplay = await startFlowRun({
+      flowName: 'github-no-open-pr',
+      conversationId: 'github-warning-retry-owned-replay',
+      retryOwnershipId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+    assert.deepEqual(retryOwnedWarningReplay, retryOwnedWarning);
+    assert.equal(
+      (memoryTurns.get(retryOwnedWarning.conversationId) ?? []).length,
+      2,
+    );
+
+    const parentWarningConversationId = 'github-warning-parent-conversation';
+    await startFlowRun({
+      flowName: 'github-warning-parent',
+      conversationId: parentWarningConversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+    await waitForTurns(
+      parentWarningConversationId,
+      (turns) =>
+        turns.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'warning',
+        ),
+      4000,
+    );
+    await waitForConversationUnlocked(parentWarningConversationId);
+    const parentWarningStatus = await getFlowRunStatus(
+      parentWarningConversationId,
+    );
+    assert.equal(parentWarningStatus?.status, 'warning');
+    assert.equal(parentWarningStatus?.terminal, true);
+
+    const okConversationId = 'github-adjacent-ok-conversation';
+    await startFlowRun({
+      flowName: 'github-adjacent-ok',
+      conversationId: okConversationId,
+      source: 'REST',
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      okConversationId,
+      (turns) =>
+        turns.some((turn) => turn.role === 'assistant' && turn.status === 'ok'),
+      4000,
+    );
+    const okTurn = getLatestAssistantTurn(okConversationId);
+    assert.ok(okTurn);
+    assert.equal(okTurn.status, 'ok');
+  } finally {
+    __resetGitHubReviewDepsForTests();
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('resumed github review warning-stop stays provider-free until a later provider-backed step is actually needed', async () => {
+  const tempFlowsDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-resume-warning-flow-'),
+  );
+  const repoRoot = await createGitHubReviewRepoFixture({ flowTaskNumber: 26 });
+  enterTestEnvOverrides({ FLOWS_DIR: tempFlowsDir });
+  const conversationId = 'github-resume-warning-conversation';
+
+  try {
+    await fs.writeFile(
+      path.join(repoRoot, '.env.local'),
+      'CODEINFO_PR_TOKEN=test-token\n',
+      'utf8',
+    );
+    __setGitHubReviewDepsForTests({
+      readFile: async (filePath, encoding) =>
+        await fs.readFile(filePath, encoding),
+      runCommand: async ({ command, args }) => {
+        if (command === 'git') {
+          const joined = args.join(' ');
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout: 'feature/0000060-test\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+          }
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+            return {
+              exitCode: 0,
+              stdout: 'origin/feature/0000060-test\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/test-owner/test-repo.git\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'symbolic-ref refs/remotes/origin/HEAD') {
+            return {
+              exitCode: 0,
+              stdout: 'refs/remotes/origin/main\n',
+              stderr: '',
+            };
+          }
+          return {
+            exitCode: 1,
+            stdout: '',
+            stderr: `unexpected git command: ${joined}`,
+          };
+        }
+        if (command === 'gh') {
+          return { exitCode: 0, stdout: '[]', stderr: '' };
+        }
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: `unexpected command: ${command}`,
+        };
+      },
+    });
+
+    await writeFlowFile({
+      flowsRoot: tempFlowsDir,
+      flowName: 'github-resume-warning-stop',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          messages: [{ role: 'user', content: ['Prime run state'] }],
+        },
+        { type: 'wait', label: 'Wait for review', seconds: 60 },
+        { type: 'github_fetch_reviews', label: 'Fetch reviews' },
+        {
+          type: 'llm',
+          agentType: 'coding_agent',
+          identifier: 'basic',
+          messages: [
+            { role: 'user', content: ['Should never run after warning'] },
+          ],
+        },
+      ],
+    });
+
+    await startFlowRun({
+      flowName: 'github-resume-warning-stop',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForConversationUnlocked(conversationId);
+    const persistedWait = (
+      (memoryConversations.get(conversationId)?.flags ?? {}) as {
+        flow?: { wait?: { stepPath?: number[] } };
+      }
+    ).flow?.wait;
+    assert.ok(Array.isArray(persistedWait?.stepPath));
+
+    setCodexDetection({
+      available: false,
+      authPresent: false,
+      configPresent: true,
+      reason: 'Missing auth.json',
+    });
+
+    await startFlowRun({
+      flowName: 'github-resume-warning-stop',
+      conversationId,
+      source: 'REST',
+      working_folder: repoRoot,
+      resumeStepPath: [...(persistedWait?.stepPath ?? [])],
+      chatFactory: () => new InstantChat(),
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoRoot)],
+        lockedModelId: null,
+      }),
+    });
+
+    await waitForTurns(
+      conversationId,
+      (turns) =>
+        turns.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'warning' &&
+            /no latest open pull request/i.test(turn.content),
+        ),
+      4000,
+    );
+
+    const latestAssistantTurn = getLatestAssistantTurn(conversationId);
+    assert.ok(latestAssistantTurn);
+    assert.equal(latestAssistantTurn.status, 'warning');
+    assert.match(latestAssistantTurn.content, /no latest open pull request/i);
+    assert.equal(
+      collectAgentConversationIds(conversationId).length,
+      1,
+      'resume should not bootstrap a second provider-backed step before the warning-stop seam finishes',
+    );
+  } finally {
+    cleanupMemory(
+      conversationId,
+      ...collectAgentConversationIds(conversationId),
+    );
+    __resetGitHubReviewDepsForTests();
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
 });
 
 test('flow llm.markdownFile passes loaded markdown through verbatim as one instruction', async () => {
@@ -2698,14 +3971,11 @@ test('flow llm.markdownFile reports AGENT_NOT_FOUND before markdown resolution f
 
 test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution failures', async () => {
   resetDeterministicCodexAvailabilityBootstrap();
-  const previousFallbackOrder =
-    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
   await withMarkdownFlowHarness(
     async ({ tempRoot, buildRepoEntry, writeFlowFile, runFlow }) => {
       const sourceRepo = path.join(tempRoot, 'repo-source');
       const flowName = 'markdown-codex-precheck';
       const conversationId = 'flow-markdown-codex-precheck';
-      const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
       const unavailableCodexHome = path.join(tempRoot, 'codex-home-missing');
       await fs.mkdir(unavailableCodexHome, { recursive: true });
       await writeFlowFile({
@@ -2721,48 +3991,42 @@ test('flow llm.markdownFile reports CODEX_UNAVAILABLE before markdown resolution
         ],
       });
 
-      try {
-        process.env.CODEINFO_CODEX_HOME = unavailableCodexHome;
-        process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = 'codex';
-        setCodexDetection({
-          available: false,
-          authPresent: false,
-          configPresent: true,
-          reason: 'Missing auth.json',
-        });
-        await assert.rejects(
-          async () =>
-            runFlow({
-              flowName,
-              conversationId,
-              sourceId: sourceRepo,
-              listedRepos: [buildRepoEntry(sourceRepo)],
-              turnsPredicate: () => false,
-            }),
-          (error) => {
-            const code = (error as { code?: string; reason?: string }).code;
-            const reason = (error as { code?: string; reason?: string }).reason;
-            return (
-              (code === 'CODEX_UNAVAILABLE' ||
-                code === 'PROVIDER_UNAVAILABLE') &&
-              /Missing auth\.json/i.test(reason ?? '')
-            );
-          },
-        );
-      } finally {
-        if (previousCodexHome === undefined) {
-          delete process.env.CODEINFO_CODEX_HOME;
-        } else {
-          process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-        }
-      }
+      await runWithTestEnvOverrides(
+        {
+          CODEINFO_CODEX_HOME: unavailableCodexHome,
+          CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER: 'codex',
+        },
+        async () => {
+          setCodexDetection({
+            available: false,
+            authPresent: false,
+            configPresent: true,
+            reason: 'Missing auth.json',
+          });
+          await assert.rejects(
+            async () =>
+              runFlow({
+                flowName,
+                conversationId,
+                sourceId: sourceRepo,
+                listedRepos: [buildRepoEntry(sourceRepo)],
+                turnsPredicate: () => false,
+              }),
+            (error) => {
+              const code = (error as { code?: string; reason?: string }).code;
+              const reason = (error as { code?: string; reason?: string })
+                .reason;
+              return (
+                (code === 'CODEX_UNAVAILABLE' ||
+                  code === 'PROVIDER_UNAVAILABLE') &&
+                /Missing auth\.json/i.test(reason ?? '')
+              );
+            },
+          );
+        },
+      );
     },
   );
-  if (previousFallbackOrder === undefined) {
-    delete process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER;
-  } else {
-    process.env.CODEINFO_AGENT_PROVIDER_FALLBACK_ORDER = previousFallbackOrder;
-  }
 });
 
 test('flow continues to later steps after a successful llm.markdownFile step', async () => {

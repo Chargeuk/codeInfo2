@@ -8,7 +8,11 @@ import {
   type APIRequestContext,
   type Route,
 } from '@playwright/test';
-import { acquireE2eResourceLock } from './support/e2eResourceLock';
+import {
+  acquireE2eResourceLock,
+  E2E_RESOURCE_LOCK_TIMEOUT_MS,
+} from './support/e2eResourceLock';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -51,7 +55,7 @@ async function saveGeneratedScreenshot(
 async function ensureCleanRoots() {
   const ctx = await request.newContext();
   try {
-    const deadline = Date.now() + 240_000;
+    const deadline = Date.now() + resolveConfiguredE2eTimeoutMs(240_000);
     let lastBusyRoot: string | undefined;
     let lastRemainingRoots: string[] = [];
 
@@ -245,7 +249,7 @@ async function waitForStory54Marker(
         });
       },
       {
-        timeout: 60_000,
+        timeout: resolveConfiguredE2eTimeoutMs(60_000),
         message: `waiting for ${options.marker} for run ${options.runId}`,
       },
     )
@@ -259,10 +263,10 @@ const waitForCompletion = async (
   const activeHeading = page.getByRole('heading', { name: /Active ingest/i });
   const row = page.getByRole('row', { name: rowMatcher }).first();
   await expect(row).toBeVisible({
-    timeout: 180_000,
+    timeout: resolveConfiguredE2eTimeoutMs(180_000),
   });
   await expect(activeHeading).toBeHidden({
-    timeout: 180_000,
+    timeout: resolveConfiguredE2eTimeoutMs(180_000),
   });
 };
 
@@ -272,14 +276,16 @@ const waitForQueuedRow = async (
   queuePosition?: number,
 ) => {
   const row = page.getByRole('row', { name: rowMatcher }).first();
-  await expect(row).toBeVisible({ timeout: 60_000 });
+  await expect(row).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(60_000),
+  });
   await expect(
     row.getByText(
       queuePosition
         ? new RegExp(`queued \\(#${queuePosition}\\)`, 'i')
         : /queued/i,
     ),
-  ).toBeVisible({ timeout: 60_000 });
+  ).toBeVisible({ timeout: resolveConfiguredE2eTimeoutMs(60_000) });
   return row;
 };
 
@@ -296,7 +302,10 @@ const waitForInProgress = async (page: Parameters<typeof test>[0]['page']) => {
           .catch(() => '');
         return label?.toLowerCase().trim() ?? '';
       },
-      { timeout: 30_000, message: 'waiting for ingest to start' },
+      {
+        timeout: resolveConfiguredE2eTimeoutMs(30_000),
+        message: 'waiting for ingest to start',
+      },
     )
     .toMatch(/(queued|scanning|embedding|completed)/);
 };
@@ -310,12 +319,18 @@ const waitForCancelableInProgress = async (
   const cancelButton = page.getByRole('button', { name: /cancel ingest/i });
 
   await waitForInProgress(page);
-  await expect(activeHeading).toBeVisible({ timeout: 30_000 });
-  await expect(runIdLabel).toBeVisible({ timeout: 30_000 });
-  await expect(currentFile).toHaveText(/\S+/, {
-    timeout: 60_000,
+  await expect(activeHeading).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(30_000),
   });
-  await expect(cancelButton).toBeEnabled({ timeout: 10_000 });
+  await expect(runIdLabel).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(30_000),
+  });
+  await expect(currentFile).toHaveText(/\S+/, {
+    timeout: resolveConfiguredE2eTimeoutMs(60_000),
+  });
+  await expect(cancelButton).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(10_000),
+  });
   await expect
     .poll(
       async () => {
@@ -326,7 +341,7 @@ const waitForCancelableInProgress = async (
         return label?.toLowerCase().trim() ?? '';
       },
       {
-        timeout: 30_000,
+        timeout: resolveConfiguredE2eTimeoutMs(30_000),
         message: 'waiting for a non-terminal in-progress status before cancel',
       },
     )
@@ -347,7 +362,7 @@ const startIngestAndCaptureOutcome = async (
       await page.getByTestId('start-ingest').click();
       return startResponsePromise;
     },
-    { timeout: 30_000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(30_000) },
   );
   const responseBody = (await response.json().catch(() => ({}))) as {
     runId?: string;
@@ -396,7 +411,7 @@ const startIngestAndCaptureOutcome = async (
             });
           },
           {
-            timeout: 30_000,
+            timeout: resolveConfiguredE2eTimeoutMs(30_000),
             message:
               'waiting for remove-flow submit phase to resolve before later owner markers',
           },
@@ -439,7 +454,7 @@ const startIngestAndCaptureOutcome = async (
       })();
       return resolution;
     },
-    { timeout: 30_000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(30_000) },
   );
 
   if (submitResolution === 'page-closed') {
@@ -513,18 +528,20 @@ const selectEmbeddingModel = async (
 
 test.describe.serial('Ingest flows', () => {
   let releaseIngestLock: (() => Promise<void>) | undefined;
-  const ingestLockTimeoutMs = 60_000;
+  const ingestLockTimeoutMs = E2E_RESOURCE_LOCK_TIMEOUT_MS;
 
-  test.setTimeout(240_000);
+  test.setTimeout(resolveConfiguredE2eTimeoutMs(240_000));
   test.beforeAll(async () => {
     await checkPrereqs();
   });
 
   test.beforeEach(async ({}, testInfo) => {
-    releaseIngestLock = await acquireE2eResourceLock(
-      'ingest-root-fixtures-repo',
-      { timeoutMs: ingestLockTimeoutMs },
-    );
+    await test.step('acquire shared ingest fixture lock', async () => {
+      releaseIngestLock = await acquireE2eResourceLock(
+        'ingest-root-fixtures-repo',
+        { timeoutMs: ingestLockTimeoutMs },
+      );
+    });
     test.skip(Boolean(skipReason), skipReason ?? 'prerequisites missing');
     const requiresLiveIngestPrereqs =
       testInfo.title !== overlappingRefreshRetainsVisibleRowsScenario;
@@ -536,8 +553,10 @@ test.describe.serial('Ingest flows', () => {
   });
 
   test.afterEach(async () => {
-    await releaseIngestLock?.();
-    releaseIngestLock = undefined;
+    await test.step('release shared ingest fixture lock', async () => {
+      await releaseIngestLock?.();
+      releaseIngestLock = undefined;
+    });
   });
 
   test('ingest status shows per-file progress updates', async ({ page }) => {
@@ -550,7 +569,11 @@ test.describe.serial('Ingest flows', () => {
     await page.getByTestId('start-ingest').click();
 
     const submitError = page.getByTestId('submit-error');
-    if (await submitError.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (
+      await submitError
+        .isVisible({ timeout: resolveConfiguredE2eTimeoutMs(5000) })
+        .catch(() => false)
+    ) {
       const message = (await submitError.textContent())?.trim() ?? 'unknown';
       ingestSkip = `ingest start failed: ${message}`;
       test.skip(ingestSkip);
@@ -561,7 +584,11 @@ test.describe.serial('Ingest flows', () => {
     const currentFile = page.getByTestId('ingest-current-file').first();
     const progressLine = page.locator('text=/\\d+ \/ \\d+ .*% .*ETA/i').first();
 
-    const firstPath = (await currentFile.textContent({ timeout: 120_000 }))
+    const firstPath = (
+      await currentFile.textContent({
+        timeout: resolveConfiguredE2eTimeoutMs(120_000),
+      })
+    )
       ?.trim()
       .toLowerCase();
 
@@ -606,7 +633,11 @@ test.describe.serial('Ingest flows', () => {
     const runId = startBody.runId;
 
     const submitError = page.getByTestId('submit-error');
-    if (await submitError.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (
+      await submitError
+        .isVisible({ timeout: resolveConfiguredE2eTimeoutMs(5000) })
+        .catch(() => false)
+    ) {
       const message = (await submitError.textContent())?.trim() ?? 'unknown';
       ingestSkip = `ingest start failed: ${message}`;
       test.skip(ingestSkip);
@@ -629,7 +660,7 @@ test.describe.serial('Ingest flows', () => {
             ?.trim()
             .toLowerCase() ?? '',
         {
-          timeout: 120_000,
+          timeout: resolveConfiguredE2eTimeoutMs(120_000),
           message: `waiting for active ingest to reach ${largeFixtureRelPath}`,
         },
       )
@@ -647,9 +678,11 @@ test.describe.serial('Ingest flows', () => {
     const row = page
       .getByRole('row', { name: new RegExp(`${fixtureName}-large-text`, 'i') })
       .first();
-    await expect(row).toBeVisible({ timeout: 30_000 });
+    await expect(row).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(30_000),
+    });
     await expect(row.getByText(/completed/i)).toBeVisible({
-      timeout: 30_000,
+      timeout: resolveConfiguredE2eTimeoutMs(30_000),
     });
 
     const ctx = await request.newContext();
@@ -692,16 +725,16 @@ test.describe.serial('Ingest flows', () => {
       await expect(
         page.getByRole('heading', { name: /Active ingest/i }),
       ).toBeHidden({
-        timeout: 180_000,
+        timeout: resolveConfiguredE2eTimeoutMs(180_000),
       });
       const cancelRow = page
         .getByRole('row', { name: new RegExp(fixtureName, 'i') })
         .first();
       await expect(cancelRow).toBeVisible({
-        timeout: 30_000,
+        timeout: resolveConfiguredE2eTimeoutMs(30_000),
       });
       await expect(cancelRow.getByText(/cancelled|completed/i)).toBeVisible({
-        timeout: 120_000,
+        timeout: resolveConfiguredE2eTimeoutMs(120_000),
       });
     });
   });
@@ -731,26 +764,34 @@ test.describe.serial('Ingest flows', () => {
               : 'missing';
           },
           {
-            timeout: 180_000,
+            timeout: resolveConfiguredE2eTimeoutMs(180_000),
             message: 'waiting for seeded ingest to reach a completed root',
           },
         )
-        .toMatch(/^completed:/i);
+        .toBe('completed:none');
     } finally {
       await statusCtx.dispose();
     }
+
+    await page.getByRole('button', { name: 'Refresh' }).click();
 
     const row = page
       .getByRole('row', {
         name: new RegExp(`^Select ${fixtureName} `, 'i'),
       })
       .first();
-    await expect(row).toBeVisible({ timeout: 30_000 });
+    await expect(row).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(30_000),
+    });
 
-    await row.getByRole('button', { name: /re-embed/i }).click();
+    const reembedButton = row.getByRole('button', { name: /re-embed/i });
+    await expect(reembedButton).toBeEnabled({
+      timeout: resolveConfiguredE2eTimeoutMs(30_000),
+    });
+    await reembedButton.click();
     await waitForCompletion(page, new RegExp(fixtureName, 'i'));
     await expect(row.getByText(/^(completed|skipped)$/i)).toBeVisible({
-      timeout: 120_000,
+      timeout: resolveConfiguredE2eTimeoutMs(120_000),
     });
     await expect(page.getByTestId('roots-lock-chip')).toBeVisible();
 
@@ -977,7 +1018,7 @@ test.describe.serial('Ingest flows', () => {
             return queuedRoot.status ?? 'present';
           },
           {
-            timeout: 120_000,
+            timeout: resolveConfiguredE2eTimeoutMs(120_000),
             message:
               'waiting for the queued follow-up request to survive in /ingest/roots with a request owner',
           },
@@ -1016,7 +1057,7 @@ test.describe.serial('Ingest flows', () => {
               : 'survived';
           },
           {
-            timeout: 120_000,
+            timeout: resolveConfiguredE2eTimeoutMs(120_000),
             message:
               'waiting for the queued follow-up request to survive as the same request after handoff',
           },
@@ -1040,7 +1081,7 @@ test.describe.serial('Ingest flows', () => {
               : `${await queuedRows.count()}:${normalized}`;
           },
           {
-            timeout: 60_000,
+            timeout: resolveConfiguredE2eTimeoutMs(60_000),
             message:
               'waiting for the queued follow-up row to survive the refresh without queue or ENOENT state',
           },
@@ -1150,7 +1191,7 @@ test.describe.serial('Ingest flows', () => {
 
     await expect
       .poll(() => reembedRequests.length, {
-        timeout: 10_000,
+        timeout: resolveConfiguredE2eTimeoutMs(10_000),
         message: 'waiting for bulk re-embed to issue the eligible request only',
       })
       .toBe(1);
@@ -1236,7 +1277,7 @@ test.describe.serial('Ingest flows', () => {
 
     await expect
       .poll(() => removeRequests.length, {
-        timeout: 10_000,
+        timeout: resolveConfiguredE2eTimeoutMs(10_000),
         message: 'waiting for bulk remove to issue the removable request only',
       })
       .toBe(1);
@@ -1324,7 +1365,7 @@ test.describe.serial('Ingest flows', () => {
 
     await expect
       .poll(() => removeRequests.length, {
-        timeout: 10_000,
+        timeout: resolveConfiguredE2eTimeoutMs(10_000),
         message: 'waiting for bulk remove mixed-success requests',
       })
       .toBe(2);
@@ -1390,7 +1431,7 @@ test.describe.serial('Ingest flows', () => {
         if (outcome.status === 429 && attempt < 2) {
           await expect
             .poll(async () => (await fetchRoots(cleanupCtx)).length, {
-              timeout: 60_000,
+              timeout: resolveConfiguredE2eTimeoutMs(60_000),
               message:
                 'waiting for existing ingest roots to clear before retrying remove-flow setup',
             })
@@ -1438,14 +1479,14 @@ test.describe.serial('Ingest flows', () => {
                   : 'missing';
               },
               {
-                timeout: 180_000,
+                timeout: resolveConfiguredE2eTimeoutMs(180_000),
                 message:
                   'waiting for remove-flow ingest to reach a completed root',
               },
             )
             .toMatch(/^completed:/i);
         },
-        { timeout: 180_000 },
+        { timeout: resolveConfiguredE2eTimeoutMs(180_000) },
       );
     } finally {
       await statusCtx.dispose();
@@ -1480,14 +1521,14 @@ test.describe.serial('Ingest flows', () => {
               return `stable-ready ${stableText ?? 'missing'}`;
             },
             {
-              timeout: 30_000,
+              timeout: resolveConfiguredE2eTimeoutMs(30_000),
               message:
                 'waiting for a stable remove-flow row-selection contract before remove',
             },
           )
           .toMatch(/^stable-ready /);
       },
-      { timeout: 30_000 },
+      { timeout: resolveConfiguredE2eTimeoutMs(30_000) },
     );
 
     await test.step(
@@ -1496,14 +1537,14 @@ test.describe.serial('Ingest flows', () => {
         const row = getStableRemoveRows().first();
         await row.getByRole('button', { name: /^Remove$/i }).click();
         await expect(page.getByText(/Removed/i).first()).toBeVisible({
-          timeout: 30_000,
+          timeout: resolveConfiguredE2eTimeoutMs(30_000),
         });
 
         await expect(page.getByText(/No embedded folders yet/i)).toBeVisible({
-          timeout: 30_000,
+          timeout: resolveConfiguredE2eTimeoutMs(30_000),
         });
       },
-      { timeout: 30_000 },
+      { timeout: resolveConfiguredE2eTimeoutMs(30_000) },
     );
   });
 });

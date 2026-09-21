@@ -4,11 +4,9 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach, mock } from 'node:test';
-
 import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
-
 import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
@@ -26,9 +24,7 @@ import {
   createMockCopilotSdkHarness,
   type MockCopilotSdkHarness,
 } from '../support/mockCopilotSdk.js';
-
 type EnvSnapshot = Map<string, string | undefined>;
-
 const env = {
   snapshot: new Map() as EnvSnapshot,
   set(key: string, value: string | undefined) {
@@ -36,23 +32,22 @@ const env = {
       this.snapshot.set(key, process.env[key]);
     }
     if (value === undefined) {
-      delete process.env[key];
+      clearScopedTestEnvValue(key);
     } else {
-      process.env[key] = value;
+      setScopedTestEnvValue(key, value);
     }
   },
   restore() {
     for (const [key, value] of this.snapshot.entries()) {
       if (value === undefined) {
-        delete process.env[key];
+        clearScopedTestEnvValue(key);
       } else {
-        process.env[key] = value;
+        setScopedTestEnvValue(key, value);
       }
     }
     this.snapshot.clear();
   },
 };
-
 const defaultDetection = {
   available: false,
   authPresent: false,
@@ -60,8 +55,9 @@ const defaultDetection = {
   reason: 'not detected',
 };
 const tempDirs: string[] = [];
-const tempExternalServers: Array<{ stop: () => Promise<void> }> = [];
-
+const tempExternalServers: Array<{
+  stop: () => Promise<void>;
+}> = [];
 function createClient(
   models: {
     modelKey: string;
@@ -75,7 +71,6 @@ function createClient(
     },
   } as LMStudioClient;
 }
-
 async function startServer(params: {
   mcpAvailable: boolean;
   clientFactory: () => LMStudioClient;
@@ -96,7 +91,6 @@ async function startServer(params: {
     });
   const app = express();
   app.use(express.json());
-
   app.post('/mcp', (_req, res) => {
     if (params.mcpAvailable) {
       res.json({ result: { ok: true } });
@@ -104,7 +98,6 @@ async function startServer(params: {
       res.status(200).json({ error: { message: 'unavailable' } });
     }
   });
-
   app.use(
     '/chat',
     createChatProvidersRouter({
@@ -113,7 +106,6 @@ async function startServer(params: {
       copilotRuntimeFactory: () => copilotHarness.createLifecycle(),
     }),
   );
-
   const httpServer = http.createServer(app);
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const address = httpServer.address();
@@ -124,13 +116,11 @@ async function startServer(params: {
     baseUrl: `http://127.0.0.1:${address.port}`,
   };
 }
-
 async function stopServer(server: { httpServer: http.Server }) {
   await new Promise<void>((resolve) =>
     server.httpServer.close(() => resolve()),
   );
 }
-
 async function setCodexHome(chatToml?: string) {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codeinfo2-chat-providers-codex-'),
@@ -148,7 +138,6 @@ async function setCodexHome(chatToml?: string) {
   env.set('CODEX_HOME', codexHome);
   env.set('CODEINFO_CODEX_HOME', codexHome);
 }
-
 async function setCopilotHome(chatToml?: string) {
   const root = await fs.mkdtemp(
     path.join(os.tmpdir(), 'codeinfo2-chat-providers-copilot-'),
@@ -165,7 +154,6 @@ async function setCopilotHome(chatToml?: string) {
   }
   env.set('CODEINFO_COPILOT_HOME', copilotHome);
 }
-
 beforeEach(() => {
   resetMcpStatusCache();
   setCodexDetection(defaultDetection);
@@ -178,8 +166,8 @@ beforeEach(() => {
   env.set('CODEINFO_CHAT_DEFAULT_MODEL', undefined);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS', undefined);
   env.set('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINT_KEYS', undefined);
+  env.set('COPILOT_GITHUB_TOKEN', undefined);
 });
-
 afterEach(async () => {
   env.restore();
   resetMcpStatusCache();
@@ -194,7 +182,6 @@ afterEach(async () => {
       .map((dir) => fs.rm(dir, { recursive: true, force: true })),
   );
 });
-
 test('providers route orders lmstudio first when codex default is unavailable and lmstudio is available', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
@@ -206,19 +193,16 @@ test('providers route orders lmstudio first when codex default is unavailable an
     configPresent: false,
     reason: 'CODE_INFO_LLM_UNAVAILABLE',
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.deepEqual(
       res.body.providers.map((provider: { id: string }) => provider.id),
       ['lmstudio', 'codex', 'copilot'],
@@ -237,7 +221,6 @@ test('providers route orders lmstudio first when codex default is unavailable an
     await stopServer(server);
   }
 });
-
 test('providers route keeps copilot visible in the shared provider order when unavailable', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
@@ -248,19 +231,16 @@ test('providers route keeps copilot visible in the shared provider order when un
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.deepEqual(
       res.body.providers.map((provider: { id: string }) => provider.id),
       ['codex', 'copilot', 'lmstudio'],
@@ -275,7 +255,6 @@ test('providers route keeps copilot visible in the shared provider order when un
     await stopServer(server);
   }
 });
-
 test('providers route surfaces unauthenticated Copilot with a stable blocking reason', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
@@ -286,7 +265,6 @@ test('providers route surfaces unauthenticated Copilot with a stable blocking re
     authPresent: true,
     configPresent: true,
   });
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'unauthenticated',
     authStatus: {
@@ -303,12 +281,10 @@ test('providers route surfaces unauthenticated Copilot with a stable blocking re
     copilotHarness,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.providers[0].id, 'codex');
     assert.equal(res.body.providers[1].id, 'copilot');
     assert.equal(res.body.providers[1].available, false);
@@ -321,7 +297,6 @@ test('providers route surfaces unauthenticated Copilot with a stable blocking re
     await stopServer(server);
   }
 });
-
 test('providers route keeps degraded LM Studio bootstrap reason authoritative even when models are present', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'lmstudio');
@@ -335,19 +310,16 @@ test('providers route keeps degraded LM Studio bootstrap reason authoritative ev
     healthy: false,
     reason: 'lmstudio bootstrap degraded',
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.providers[0].id, 'codex');
     assert.equal(res.body.providers[2].id, 'lmstudio');
     assert.equal(res.body.providers[2].available, false);
@@ -357,7 +329,6 @@ test('providers route keeps degraded LM Studio bootstrap reason authoritative ev
     await stopServer(server);
   }
 });
-
 test('providers route treats Copilot env-token authentication as ready without device auth', async () => {
   await setCodexHome('model = "config-model"\n');
   await setCopilotHome('model = "copilot-gpt-5"\n');
@@ -369,7 +340,6 @@ test('providers route treats Copilot env-token authentication as ready without d
     authPresent: true,
     configPresent: true,
   });
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'env-token-auth',
     authStatus: {
@@ -386,12 +356,10 @@ test('providers route treats Copilot env-token authentication as ready without d
     copilotHarness,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.providers[0].id, 'copilot');
     assert.equal(res.body.providers[0].available, true);
     assert.equal(res.body.providers[0].toolsAvailable, true);
@@ -400,7 +368,6 @@ test('providers route treats Copilot env-token authentication as ready without d
     await stopServer(server);
   }
 });
-
 test('providers route treats Copilot gh fallback authentication as ready', async () => {
   await setCodexHome('model = "config-model"\n');
   await setCopilotHome('model = "copilot-gpt-5"\n');
@@ -412,7 +379,6 @@ test('providers route treats Copilot gh fallback authentication as ready', async
     authPresent: true,
     configPresent: true,
   });
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'gh-cli-auth',
     authStatus: {
@@ -429,12 +395,10 @@ test('providers route treats Copilot gh fallback authentication as ready', async
     copilotHarness,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.providers[0].id, 'copilot');
     assert.equal(res.body.providers[0].available, true);
     assert.equal(res.body.providers[0].toolsAvailable, true);
@@ -443,7 +407,6 @@ test('providers route treats Copilot gh fallback authentication as ready', async
     await stopServer(server);
   }
 });
-
 test('providers route keeps Codex and Copilot available in endpoint-only mode when native auth is missing', async () => {
   await setCodexHome('model = "endpoint-codex-model"\n');
   await setCopilotHome('model = "endpoint-copilot-model"\n');
@@ -456,7 +419,6 @@ test('providers route keeps Codex and Copilot available in endpoint-only mode wh
     cliPath: '/usr/bin/codex',
     reason: 'Missing auth.json in /tmp/codex',
   });
-
   const codexEndpoint = await startExternalOpenAiCompatServer({
     models: ['endpoint-codex-model'],
   });
@@ -471,7 +433,6 @@ test('providers route keeps Codex and Copilot available in endpoint-only mode wh
       `${copilotEndpoint.baseUrl}/v1|completions`,
     ].join(';'),
   );
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'endpoint-only-copilot',
     authStatus: {
@@ -488,19 +449,16 @@ test('providers route keeps Codex and Copilot available in endpoint-only mode wh
     copilotHarness,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     const codexProvider = res.body.providers.find(
       (provider: { id: string }) => provider.id === 'codex',
     );
     const copilotProvider = res.body.providers.find(
       (provider: { id: string }) => provider.id === 'copilot',
     );
-
     assert.equal(codexProvider?.available, true);
     assert.equal(codexProvider?.toolsAvailable, true);
     assert.equal(codexProvider?.endpointOnly, true);
@@ -510,7 +468,6 @@ test('providers route keeps Codex and Copilot available in endpoint-only mode wh
       (codexProvider?.warnings ?? []).join('\n'),
       /Codex authentication is unavailable; showing external OpenAI-compatible endpoint models only\./u,
     );
-
     assert.equal(copilotProvider?.available, true);
     assert.equal(copilotProvider?.toolsAvailable, true);
     assert.equal(copilotProvider?.endpointOnly, true);
@@ -524,7 +481,6 @@ test('providers route keeps Codex and Copilot available in endpoint-only mode wh
     await stopServer(server);
   }
 });
-
 test('providers route keeps degraded bootstrap authoritative even when authless endpoint models exist', async () => {
   await setCodexHome('model = "endpoint-codex-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
@@ -541,7 +497,6 @@ test('providers route keeps degraded bootstrap authoritative even when authless 
     reason: 'codex bootstrap degraded',
     warnings: ['codex bootstrap degraded warning'],
   });
-
   const codexEndpoint = await startExternalOpenAiCompatServer({
     models: ['endpoint-codex-model'],
   });
@@ -550,23 +505,19 @@ test('providers route keeps degraded bootstrap authoritative even when authless 
     'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
     `${codexEndpoint.baseUrl}/v1|responses`,
   );
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     const codexProvider = res.body.providers.find(
       (provider: { id: string }) => provider.id === 'codex',
     );
-
     assert.equal(codexProvider?.available, false);
     assert.equal(codexProvider?.toolsAvailable, false);
     assert.equal(codexProvider?.endpointOnly, false);
@@ -581,7 +532,6 @@ test('providers route keeps degraded bootstrap authoritative even when authless 
     await stopServer(server);
   }
 });
-
 test('providers route surfaces the first startup-stage Copilot failure before later readiness checks', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
@@ -593,7 +543,6 @@ test('providers route surfaces the first startup-stage Copilot failure before la
     authPresent: true,
     configPresent: true,
   });
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'startup-failure',
     startError: new Error('ghu_secret_value_that_must_not_log startup failed'),
@@ -620,12 +569,10 @@ test('providers route surfaces the first startup-stage Copilot failure before la
     copilotHarness,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.providers[0].id, 'codex');
     assert.equal(res.body.providers[1].id, 'copilot');
     assert.equal(res.body.providers[1].available, false);
@@ -633,7 +580,6 @@ test('providers route surfaces the first startup-stage Copilot failure before la
       res.body.providers[1].reason,
       'copilot connectivity unavailable',
     );
-
     const readinessLog = infoEntries.at(-1);
     assert.ok(readinessLog);
     assert.equal(readinessLog?.blockingStage, 'connectivity');
@@ -652,7 +598,6 @@ test('providers route surfaces the first startup-stage Copilot failure before la
     await stopServer(server);
   }
 });
-
 test('providers route logs model-stage precedence ahead of tool-surface failures without leaking token-like data', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
@@ -664,7 +609,6 @@ test('providers route logs model-stage precedence ahead of tool-surface failures
     authPresent: true,
     configPresent: true,
   });
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'model-stage-blocked',
     authStatus: {
@@ -691,18 +635,15 @@ test('providers route logs model-stage precedence ahead of tool-surface failures
     copilotHarness,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.providers[0].id, 'codex');
     assert.equal(res.body.providers[1].id, 'copilot');
     assert.equal(res.body.providers[1].available, false);
     assert.equal(res.body.providers[1].toolsAvailable, false);
     assert.equal(res.body.providers[1].reason, 'copilot models unavailable');
-
     const readinessLog = infoEntries.at(-1);
     assert.ok(readinessLog);
     assert.equal(readinessLog?.blockingStage, 'models');
@@ -713,7 +654,6 @@ test('providers route logs model-stage precedence ahead of tool-surface failures
     await stopServer(server);
   }
 });
-
 test('providers marker emits the shared warning_count and warnings fields with the same values as the REST defaults surface', async () => {
   await setCodexHome();
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', undefined);
@@ -724,11 +664,9 @@ test('providers marker emits the shared warning_count and warnings fields with t
     authPresent: true,
     configPresent: true,
   });
-
   const markerPayloads: Array<Record<string, unknown>> = [];
   let server: Awaited<ReturnType<typeof startServer>> | null = null;
   let originalInfo: typeof console.info = console.info;
-
   try {
     server = await startServer({
       mcpAvailable: true,
@@ -736,18 +674,15 @@ test('providers marker emits the shared warning_count and warnings fields with t
         createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
     });
     env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
     originalInfo = console.info;
     console.info = (...args: unknown[]) => {
       if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
         markerPayloads.push(args[1] as Record<string, unknown>);
       }
     };
-
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     const marker = markerPayloads.at(-1);
     assert.ok(marker);
     assert.equal(marker.surface, '/chat/providers');
@@ -762,7 +697,6 @@ test('providers marker emits the shared warning_count and warnings fields with t
     }
   }
 });
-
 test('providers route keeps browser navigation urls separate from MCP control-channel urls', async () => {
   await setCodexHome('model = "config-model"\n');
   setCodexDetection({
@@ -770,23 +704,19 @@ test('providers route keeps browser navigation urls separate from MCP control-ch
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
-
   try {
     const endpoints = resolveCodeinfoMcpEndpointContract();
     assert.notEqual(server.baseUrl, endpoints.classicMcpUrl);
-
     await request(server.httpServer).get('/chat/providers').expect(200);
   } finally {
     await stopServer(server);
   }
 });
-
 test('providers route keeps codex first when lmstudio has no selectable model', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'lmstudio');
@@ -797,18 +727,15 @@ test('providers route keeps codex first when lmstudio has no selectable model', 
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () => createClient([]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.deepEqual(
       res.body.providers.map((provider: { id: string }) => provider.id),
       ['codex', 'copilot', 'lmstudio'],
@@ -827,7 +754,6 @@ test('providers route keeps codex first when lmstudio has no selectable model', 
     await stopServer(server);
   }
 });
-
 test('providers route exposes the chat-config-aware Codex default and falls back cleanly when chat config is missing', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
@@ -838,22 +764,18 @@ test('providers route exposes the chat-config-aware Codex default and falls back
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const configured = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
     assert.equal(configured.body.providers[0].id, 'codex');
-
     await setCodexHome();
-
     const fallback = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
@@ -863,7 +785,6 @@ test('providers route exposes the chat-config-aware Codex default and falls back
     await stopServer(server);
   }
 });
-
 test('providers route exposes shared resolver-backed codex defaults and warnings parity while normalizing the provider default model to the live list', async () => {
   await setCodexHome();
   const fixture: CodexCapabilityResolution = {
@@ -928,7 +849,6 @@ test('providers route exposes shared resolver-backed codex defaults and warnings
     await stopServer(server);
   }
 });
-
 test('providers route exposes provider-local default-model ownership without using compatibility fields as the primary contract', async () => {
   await setCodexHome('model = "config-model"\n');
   await setCopilotHome(
@@ -942,7 +862,6 @@ test('providers route exposes provider-local default-model ownership without usi
     authPresent: true,
     configPresent: true,
   });
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'provider-default-ownership',
     authStatus: {
@@ -959,12 +878,10 @@ test('providers route exposes provider-local default-model ownership without usi
     copilotHarness,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.selectedProvider, 'copilot');
     assert.equal(res.body.providers[0].id, 'copilot');
     assert.equal(res.body.providers[0].defaultModel, 'copilot-gpt-5');
@@ -975,7 +892,6 @@ test('providers route exposes provider-local default-model ownership without usi
     await stopServer(server);
   }
 });
-
 test('providers route includes a config-pinned external endpoint that is absent from the env list for the selected provider', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['alpha'],
@@ -995,19 +911,16 @@ test('providers route includes a config-pinned external endpoint that is absent 
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.selectedProvider, 'codex');
     assert.equal(res.body.selectedModel, 'alpha');
     assert.equal(res.body.selectedEndpointId, `${externalServer.baseUrl}/v1`);
@@ -1019,7 +932,6 @@ test('providers route includes a config-pinned external endpoint that is absent 
     await stopServer(server);
   }
 });
-
 test('providers route collapses env-backed and config-backed copies of the same normalized endpoint into one discovery pass', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['alpha'],
@@ -1044,19 +956,16 @@ test('providers route collapses env-backed and config-backed copies of the same 
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.selectedProvider, 'codex');
     assert.equal(res.body.selectedModel, 'alpha');
     assert.equal(res.body.selectedEndpointId, `${externalServer.baseUrl}/v1`);
@@ -1066,7 +975,6 @@ test('providers route collapses env-backed and config-backed copies of the same 
     await stopServer(server);
   }
 });
-
 test('providers route keeps normalized duplicate endpoint warnings out of the response while preserving them in logs', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['alpha'],
@@ -1090,11 +998,9 @@ test('providers route keeps normalized duplicate endpoint warnings out of the re
     authPresent: true,
     configPresent: true,
   });
-
   const markerPayloads: Array<Record<string, unknown>> = [];
   let server: Awaited<ReturnType<typeof startServer>> | null = null;
   let originalInfo: typeof console.info = console.info;
-
   try {
     server = await startServer({
       mcpAvailable: true,
@@ -1102,18 +1008,15 @@ test('providers route keeps normalized duplicate endpoint warnings out of the re
         createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
     });
     env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
     originalInfo = console.info;
     console.info = (...args: unknown[]) => {
       if (args[0] === STORY_47_TASK_1_LOG_MARKER && args[1]) {
         markerPayloads.push(args[1] as Record<string, unknown>);
       }
     };
-
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(
       (res.body.codexWarnings as string[]).some((warning) =>
         warning.includes('Skipping config-pinned endpoint'),
@@ -1126,7 +1029,6 @@ test('providers route keeps normalized duplicate endpoint warnings out of the re
       ),
       false,
     );
-
     const marker = markerPayloads.at(-1);
     assert.ok(marker);
     assert.equal(
@@ -1142,7 +1044,6 @@ test('providers route keeps normalized duplicate endpoint warnings out of the re
     }
   }
 });
-
 test('providers route preserves endpoint identity for a pinned Codex default when the discovered model casing differs from config', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     models: ['unsloth/gemma-4-26B-A4B-it-qat-GGUF'],
@@ -1166,19 +1067,16 @@ test('providers route preserves endpoint identity for a pinned Codex default whe
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     assert.equal(res.body.selectedProvider, 'codex');
     assert.equal(res.body.selectedModel, 'unsloth/gemma-4-26B-A4B-it-qat-GGUF');
     assert.equal(res.body.selectedEndpointId, `${externalServer.baseUrl}/v1`);
@@ -1192,7 +1090,6 @@ test('providers route preserves endpoint identity for a pinned Codex default whe
     await stopServer(server);
   }
 });
-
 test('providers route degrades malformed Copilot chat defaults to warnings instead of failing discovery', async () => {
   await setCodexHome('model = "config-model"\n');
   await setCopilotHome('reasoning_effort = [\n');
@@ -1204,7 +1101,6 @@ test('providers route degrades malformed Copilot chat defaults to warnings inste
     authPresent: true,
     configPresent: true,
   });
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'provider-malformed-copilot-config',
     authStatus: {
@@ -1224,12 +1120,10 @@ test('providers route degrades malformed Copilot chat defaults to warnings inste
     copilotHarness,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     const copilot = (res.body.providers as Array<Record<string, unknown>>).find(
       (provider) => provider.id === 'copilot',
     );
@@ -1240,7 +1134,10 @@ test('providers route degrades malformed Copilot chat defaults to warnings inste
     assert.equal(copilot.defaultModelSource, 'hardcoded');
     assert.deepEqual(
       (
-        copilot.agentFlags as Array<{ key: string; resolvedDefault: unknown }>
+        copilot.agentFlags as Array<{
+          key: string;
+          resolvedDefault: unknown;
+        }>
       ).map((entry) => ({
         key: entry.key,
         resolvedDefault: entry.resolvedDefault,
@@ -1262,7 +1159,6 @@ test('providers route degrades malformed Copilot chat defaults to warnings inste
     await stopServer(server);
   }
 });
-
 test('providers route warns when a pinned Copilot endpoint is filtered out by provider capability mismatch', async () => {
   await setCodexHome('model = "config-model"\n');
   await setCopilotHome(
@@ -1280,7 +1176,6 @@ test('providers route warns when a pinned Copilot endpoint is filtered out by pr
     authPresent: true,
     configPresent: true,
   });
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'provider-copilot-capability-mismatch',
     authStatus: {
@@ -1297,12 +1192,10 @@ test('providers route warns when a pinned Copilot endpoint is filtered out by pr
     copilotHarness,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     const copilot = (res.body.providers as Array<Record<string, unknown>>).find(
       (provider) => provider.id === 'copilot',
     );
@@ -1316,7 +1209,6 @@ test('providers route warns when a pinned Copilot endpoint is filtered out by pr
     await stopServer(server);
   }
 });
-
 test('providers route clamps unsupported Copilot config defaults to the runtime-supported values', async () => {
   await setCodexHome('model = "config-model"\n');
   await setCopilotHome(
@@ -1330,7 +1222,6 @@ test('providers route clamps unsupported Copilot config defaults to the runtime-
     authPresent: true,
     configPresent: true,
   });
-
   const copilotHarness = createMockCopilotSdkHarness({
     name: 'provider-unsupported-copilot-config',
     authStatus: {
@@ -1347,19 +1238,20 @@ test('providers route clamps unsupported Copilot config defaults to the runtime-
     copilotHarness,
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     const copilot = (res.body.providers as Array<Record<string, unknown>>).find(
       (provider) => provider.id === 'copilot',
     );
     assert.ok(copilot);
     assert.deepEqual(
       (
-        copilot.agentFlags as Array<{ key: string; resolvedDefault: unknown }>
+        copilot.agentFlags as Array<{
+          key: string;
+          resolvedDefault: unknown;
+        }>
       ).map((entry) => ({
         key: entry.key,
         resolvedDefault: entry.resolvedDefault,
@@ -1369,12 +1261,15 @@ test('providers route clamps unsupported Copilot config defaults to the runtime-
         { key: 'toolAccess', resolvedDefault: 'on' },
       ],
     );
-    assert.equal((copilot.warnings as string[]).length, 0);
+    assert.equal(
+      (copilot.warnings as string[]).length,
+      0,
+      JSON.stringify(copilot.warnings),
+    );
   } finally {
     await stopServer(server);
   }
 });
-
 test('providers route degrades malformed Codex chat defaults to warnings instead of failing discovery', async () => {
   await setCodexHome('sandbox_mode = [\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
@@ -1384,19 +1279,16 @@ test('providers route degrades malformed Codex chat defaults to warnings instead
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
       .expect(200);
-
     const codex = (res.body.providers as Array<Record<string, unknown>>).find(
       (provider) => provider.id === 'codex',
     );
@@ -1419,7 +1311,6 @@ test('providers route degrades malformed Codex chat defaults to warnings instead
     await stopServer(server);
   }
 });
-
 test('providers route keeps seed defaults separate from config-resolved defaults in Agent Flag descriptors', async () => {
   await setCodexHome(
     [
@@ -1437,14 +1328,12 @@ test('providers route keeps seed defaults separate from config-resolved defaults
     authPresent: true,
     configPresent: true,
   });
-
   const server = await startServer({
     mcpAvailable: true,
     clientFactory: () =>
       createClient([{ modelKey: 'model-1', displayName: 'model-1' }]),
   });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
-
   try {
     const res = await request(server.httpServer)
       .get('/chat/providers')
@@ -1457,7 +1346,6 @@ test('providers route keeps seed defaults separate from config-resolved defaults
       (entry) => entry.key === 'modelReasoningEffort',
     );
     const webSearch = codexFlags.find((entry) => entry.key === 'webSearchMode');
-
     assert.ok(approval);
     assert.equal(approval.seedDefault, 'on-request');
     assert.equal(approval.resolvedDefault, 'never');

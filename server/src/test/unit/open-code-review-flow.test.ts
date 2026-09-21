@@ -21,7 +21,7 @@ test('sandbox OpenCode flow uses the same generic workspace reviewer', () => {
     {
       type: 'llm',
       label: 'Run OpenCode Workspace Review',
-      agentType: 'review_agent_max',
+      agentType: 'review_agent_heavy',
       identifier: 'ocr_reviewer',
       continueOnFailure: true,
       recordReviewUsage: true,
@@ -40,7 +40,7 @@ test('production OpenCode flow uses only the scheduler-provided workspace', () =
     {
       type: 'llm',
       label: 'Run OpenCode Workspace Review',
-      agentType: 'review_agent_max',
+      agentType: 'review_agent_heavy',
       identifier: 'ocr_reviewer',
       recordReviewUsage: true,
       markdownFile: 'run_open_code_review_workspace.md',
@@ -61,8 +61,11 @@ test('OpenCode workspace prompt locks the agent-owned output contract', () => {
     'ocr agent report',
     'review_job_workspace_contract.md',
     'output/',
-    'running cell or session handle',
-    'continue waiting on that exact handle',
+    'direct `exec_command`',
+    'never with `functions.exec`',
+    '`session_id`',
+    '`write_stdin`',
+    'numeric `exit_code`',
     "before reading that command's output as complete",
     'Do not invoke `publish_open_code_review.py`',
     'do not write `current-open-code-review.json`',
@@ -130,7 +133,7 @@ test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex 
   assert.match(manualTestingIgnore, /^\*\*\/auth\.json$/mu);
 });
 
-test('source heavy and maximum review agents share the review boundary while retaining distinct model tiers', () => {
+test('source heavy and maximum review agents share the review boundary while retaining Terra/high and Sol/high model tiers', () => {
   const heavyConfig = readRepoFile(
     'codeinfo_agents/review_agent_heavy/config.toml',
   );

@@ -16,6 +16,7 @@ import {
   recordIngestQueueStartupMongoUnavailable,
   recoverIngestQueueForStartup,
 } from '../../startup/ingestQueueStartup.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   createQueueRequest,
   createTempRepo,
@@ -30,7 +31,7 @@ async function waitForDeletedRequestIds(
   deletedRequestIds: string[],
   expectedIds: readonly string[],
 ) {
-  const deadline = Date.now() + 1_000;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(1_000);
   while (Date.now() < deadline) {
     if (
       expectedIds.every((expectedId) => deletedRequestIds.includes(expectedId))
@@ -39,6 +40,9 @@ async function waitForDeletedRequestIds(
     }
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
+  assert.fail(
+    `Timed out waiting for deleted request ids ${expectedIds.join(', ')}; observed ${deletedRequestIds.join(', ')}`,
+  );
 }
 
 test('startup recovery rejects error root drift before queued reembed delta work resumes', async () => {

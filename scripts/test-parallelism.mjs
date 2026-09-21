@@ -53,11 +53,15 @@ export const formatWorkerSummaryLine = ({
   `${label}=${workerCount} available_cores=${availableCores} source=${source}`;
 
 export const allocateWeightedParallelBudget = ({
+  availableCores: requestedAvailableCores = availableParallelism(),
   budgetFraction = 0.75,
   weights,
   reservedWorkers = {},
 }) => {
-  const availableCores = Math.max(1, availableParallelism());
+  const availableCores = Math.max(
+    1,
+    Math.floor(Number(requestedAvailableCores)) || 1,
+  );
   const entries = Object.entries(weights);
   const reservedEntries = Object.entries(reservedWorkers).map(
     ([label, count]) => [

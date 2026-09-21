@@ -1,6 +1,7 @@
 import { TextDecoder, TextEncoder } from 'util';
 import { jest } from '@jest/globals';
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
 import {
   asFetchImplementation,
   getFetchMock,
@@ -12,6 +13,17 @@ import {
   SimpleResponse,
 } from './support/fetchPolyfills';
 import { installMockWebSocket } from './support/mockWebSocket';
+import {
+  beginClientTestEnvIsolation,
+  installClientTestEnvGlobals,
+  installClientTestProcessEnvIsolation,
+} from './support/processEnvIsolation';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
+
+// The full stress harness deliberately saturates the host with server workers.
+// Keep Testing Library's polling budget aligned with the stress harness so
+// scheduled React effects are not constrained by a smaller fixed deadline.
+configure({ asyncUtilTimeout: resolveClientTestTimeoutMs(5_000) });
 
 // React 19 uses this global to decide whether it should warn about act().
 // In Jest + JSDOM the check is sensitive to where the flag is attached.
@@ -25,6 +37,13 @@ globalThis.__CODEINFO_TEST__ = true;
 if (windowRef) {
   windowRef.__CODEINFO_TEST__ = true;
 }
+
+installClientTestProcessEnvIsolation();
+installClientTestEnvGlobals();
+
+beforeEach(() => {
+  beginClientTestEnvIsolation();
+});
 
 const nodeGlobals = globalThis as typeof globalThis & {
   TextEncoder?: typeof globalThis.TextEncoder;

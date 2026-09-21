@@ -1390,9 +1390,11 @@ export default function AgentsPage() {
             streamStatus:
               turn.status === 'failed'
                 ? 'failed'
-                : turn.status === 'stopped'
-                  ? 'stopped'
-                  : 'complete',
+                : turn.status === 'warning'
+                  ? 'warning'
+                  : turn.status === 'stopped'
+                    ? 'stopped'
+                    : 'complete',
             command: turn.command,
             usage: turn.usage,
             timing: turn.timing,

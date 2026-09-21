@@ -1,7 +1,11 @@
 import { mkdirSync } from 'fs';
 import { expect, test, type APIRequestContext } from '@playwright/test';
-import { acquireE2eResourceLock } from './support/e2eResourceLock';
+import {
+  acquireE2eResourceLock,
+  E2E_RESOURCE_LOCK_TIMEOUT_MS,
+} from './support/e2eResourceLock';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -56,20 +60,32 @@ async function startIngest(request: APIRequestContext, modelId: string) {
 }
 
 async function waitForIngest(request: APIRequestContext, runId: string) {
-  for (let i = 0; i < 90; i += 1) {
+  let lastState = 'unknown';
+  let lastError: string | null = null;
+  const pollIntervalMs = 2000;
+  const attempts = Math.ceil(
+    resolveConfiguredE2eTimeoutMs(90 * pollIntervalMs) / pollIntervalMs,
+  );
+  for (let i = 0; i < attempts; i += 1) {
     const statusRes = await request.get(`${apiBase}/ingest/status/${runId}`);
     if (!statusRes.ok()) {
       throw new Error(`status check failed (${statusRes.status()})`);
     }
     const status = await statusRes.json();
     const state = (status.state as string)?.toLowerCase();
+    lastState = state || 'unknown';
+    lastError = (status.lastError as string | null | undefined) ?? null;
     if (state === 'completed') return status;
     if (state === 'error') {
-      throw new Error(`ingest error: ${status.lastError ?? 'unknown'}`);
+      throw new Error(
+        `ingest error for run ${runId}: ${lastError ?? 'unknown'}`,
+      );
     }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
-  throw new Error('ingest did not complete within timeout');
+  throw new Error(
+    `ingest did not complete within timeout for run ${runId}; last state=${lastState}; last error=${lastError ?? 'none'}`,
+  );
 }
 
 async function vectorSearch(
@@ -90,16 +106,23 @@ test.describe.serial('Chat tools citations', () => {
   let releaseIngestLock: (() => Promise<void>) | undefined;
 
   test.beforeEach(async () => {
-    releaseIngestLock = await acquireE2eResourceLock('ingest-root-fixtures-repo');
+    await test.step('acquire shared ingest fixture lock', async () => {
+      releaseIngestLock = await acquireE2eResourceLock(
+        'ingest-root-fixtures-repo',
+        { timeoutMs: E2E_RESOURCE_LOCK_TIMEOUT_MS },
+      );
+    });
   });
 
   test.afterEach(async () => {
-    await releaseIngestLock?.();
-    releaseIngestLock = undefined;
+    await test.step('release shared ingest fixture lock', async () => {
+      await releaseIngestLock?.();
+      releaseIngestLock = undefined;
+    });
   });
 
   test('shows vector search citation with host path', async ({ page }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(resolveConfiguredE2eTimeoutMs(240_000));
     const mockWs = await installMockChatWs(page);
 
     // This proof pays the full compose-backed ingest setup cost before it
@@ -107,7 +130,9 @@ test.describe.serial('Chat tools citations', () => {
     const model = await pickEmbeddingModel(page.request);
     await clearRoots(page.request);
     const runId = await startIngest(page.request, model.id);
-    await waitForIngest(page.request, runId);
+    await test.step('wait for ingest terminal state', async () => {
+      await waitForIngest(page.request, runId);
+    });
 
     let searchPayload: Awaited<ReturnType<typeof vectorSearch>> | undefined;
     try {
@@ -215,8 +240,8 @@ test.describe.serial('Chat tools citations', () => {
       });
 
       await mockWs.waitForConversationSubscription(conversationId);
-      mockWs.sendInflightSnapshot({ conversationId, inflightId });
-      mockWs.sendToolEvent({
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      await mockWs.sendToolEvent({
         conversationId,
         inflightId,
         event: {
@@ -225,7 +250,7 @@ test.describe.serial('Chat tools citations', () => {
           name: 'VectorSearch',
         },
       });
-      mockWs.sendToolEvent({
+      await mockWs.sendToolEvent({
         conversationId,
         inflightId,
         event: {
@@ -239,12 +264,12 @@ test.describe.serial('Chat tools citations', () => {
           },
         },
       });
-      mockWs.sendAssistantDelta({
+      await mockWs.sendAssistantDelta({
         conversationId,
         inflightId,
         delta: `I found this in ${firstResult.repo}/${firstResult.relPath}: ${firstResult.chunk}`,
       });
-      mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+      await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
     });
 
     await page.goto(`${baseUrl}/chat`);
@@ -257,9 +282,13 @@ test.describe.serial('Chat tools citations', () => {
     await input.fill('What does main.txt say about the project?');
     await send.click();
 
+    await expect(page.getByTestId('status-chip')).toContainText('Complete', {
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     const toolToggle = page.getByTestId('tool-toggle');
-    await toolToggle.waitFor({ timeout: 20000 });
+    await toolToggle.waitFor({ timeout: resolveConfiguredE2eTimeoutMs(20000) });
     await toolToggle.click();
+    await expect(toolToggle).toHaveAttribute('aria-expanded', 'true');
 
     const pathLabel = `${firstResult.repo}/${firstResult.relPath}`;
     const hostSuffix = firstResult.hostPath ? ` (${firstResult.hostPath})` : '';
@@ -270,7 +299,9 @@ test.describe.serial('Chat tools citations', () => {
     await citationsToggle.click();
 
     const citations = page.getByTestId('citations');
-    await expect(citations).toBeVisible({ timeout: 20000 });
+    await expect(citations).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await expect(page.getByTestId('citation-path').first()).toHaveText(
       pathLabel + hostSuffix,
     );
@@ -376,8 +407,8 @@ test.describe.serial('Chat tools citations', () => {
       });
 
       await mockWs.waitForConversationSubscription(conversationId);
-      mockWs.sendInflightSnapshot({ conversationId, inflightId });
-      mockWs.sendToolEvent({
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      await mockWs.sendToolEvent({
         conversationId,
         inflightId,
         event: {
@@ -386,7 +417,7 @@ test.describe.serial('Chat tools citations', () => {
           name: 'VectorSearch',
         },
       });
-      mockWs.sendToolEvent({
+      await mockWs.sendToolEvent({
         conversationId,
         inflightId,
         event: {
@@ -400,12 +431,12 @@ test.describe.serial('Chat tools citations', () => {
           },
         },
       });
-      mockWs.sendAssistantDelta({
+      await mockWs.sendAssistantDelta({
         conversationId,
         inflightId,
         delta: 'Here is the answer after the tool.',
       });
-      mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+      await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
     });
 
     await page.goto(`${baseUrl}/chat`);
@@ -417,11 +448,15 @@ test.describe.serial('Chat tools citations', () => {
     await send.click();
 
     const toolRow = page.getByTestId('tool-row');
-    await expect(toolRow).toBeVisible({ timeout: 20000 });
+    await expect(toolRow).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     const answer = page.getByText('Here is the answer after the tool.');
-    await expect(answer).toBeVisible({ timeout: 20000 });
+    await expect(answer).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await expect(page.getByTestId('tool-spinner')).not.toBeVisible({
-      timeout: 20000,
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
     });
 
     // Verify the tool row exists and the assistant answer is visible.

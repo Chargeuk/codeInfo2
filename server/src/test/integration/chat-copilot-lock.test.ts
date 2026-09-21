@@ -1,10 +1,25 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import nodeTest from 'node:test';
 
 import request from 'supertest';
 
 import { getActiveRunOwnership } from '../../agents/runLock.js';
+import {
+  beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
+} from '../support/processEnvIsolation.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import { startCopilotChatServer } from './support/copilotChatHarness.js';
+
+const test = (name: string, fn: () => Promise<void> | void) =>
+  nodeTest(name, async () => {
+    beginScopedTestEnvIsolation();
+    try {
+      await fn();
+    } finally {
+      endScopedTestEnvIsolation();
+    }
+  });
 
 function createDeferred() {
   let resolve!: () => void;
@@ -18,7 +33,7 @@ async function waitForConversationLock(
   conversationId: string,
   timeoutMs = 4000,
 ) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     if (getActiveRunOwnership(conversationId)) {
       return;

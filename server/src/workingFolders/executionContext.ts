@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import type { TurnRuntimeMetadata } from '../mongo/turn.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 
 type WorkingFolderValidationError = {
   code:
@@ -93,10 +94,10 @@ export type SharedExecutionContext = {
 export const resolveDefaultExecutionRoot = (
   env: NodeJS.ProcessEnv = process.env,
 ): string => {
-  const preferred = env.CODEX_WORKDIR?.trim();
+  const preferred = getScopedEnvValue('CODEX_WORKDIR', env)?.trim();
   if (preferred) return preferred;
 
-  const legacy = env.CODEINFO_CODEX_WORKDIR?.trim();
+  const legacy = getScopedEnvValue('CODEINFO_CODEX_WORKDIR', env)?.trim();
   if (legacy) return legacy;
 
   return '/data';
@@ -119,7 +120,7 @@ export async function resolveWorkingFolderWorkingDirectory(
     } as const satisfies WorkingFolderValidationError;
   }
 
-  const hostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
+  const hostIngestDir = getScopedEnvValue('CODEINFO_HOST_INGEST_DIR');
   const defaultExecutionRoot = resolveDefaultExecutionRoot();
 
   if (hostIngestDir && hostIngestDir.length > 0) {

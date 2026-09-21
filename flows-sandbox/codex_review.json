@@ -1,0 +1,12 @@
+{
+  "description": "Run an agent-owned Codex review inside its assigned generic review-job workspace.",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Run Codex Workspace Review",
+      "agentType": "review_agent_heavy",
+      "identifier": "codex_workspace_reviewer",
+      "markdownFile": "run_codex_review_workspace.md"
+    }
+  ]
+}

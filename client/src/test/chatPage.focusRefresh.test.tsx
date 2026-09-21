@@ -95,12 +95,12 @@ describe('Chat snapshot refresh on focus/visibility + reconnect', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Partial response',
@@ -217,7 +217,7 @@ describe('Chat snapshot refresh on focus/visibility + reconnect', () => {
     const conversationId = harness.getConversationId();
     expect(conversationId).toBeTruthy();
 
-    harness.emitSidebarUpsert({
+    const sidebarUpsertPromise = harness.emitSidebarUpsert({
       conversationId: conversationId!,
       title: 'Hello',
       provider: 'lmstudio',
@@ -226,6 +226,8 @@ describe('Chat snapshot refresh on focus/visibility + reconnect', () => {
       lastMessageAt: '2025-01-01T00:00:00.000Z',
       archived: false,
     });
+    jest.advanceTimersByTime(0);
+    await sidebarUpsertPromise;
 
     await waitFor(() =>
       expect(

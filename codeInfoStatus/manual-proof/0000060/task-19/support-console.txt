@@ -1,0 +1,2 @@
+Playwright surfaced new console-entry log paths during the /flows rerun, but this session's Playwright sandbox did not expose the underlying .playwright-mcp files to the host shell for copy-out.
+Observed browser behavior still showed the final /flows surface loading and interacting normally, and no failed network requests appeared in the Playwright network summary.

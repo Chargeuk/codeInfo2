@@ -6,6 +6,7 @@ import test from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { ChromaClient } from 'chromadb';
 import express from 'express';
+import mongoose from 'mongoose';
 import request from 'supertest';
 import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
 import { createEmbeddingDispatcher } from '../../ingest/embeddingDispatcher.js';
@@ -18,6 +19,7 @@ import {
   __setRunProcessorForTest,
   __resetIngestJobsForTest,
   __setStatusForTest,
+  __waitForIngestRuntimeIdleForTest,
   cancelRun,
   getStatus,
   setIngestDeps,
@@ -27,12 +29,15 @@ import { release } from '../../ingest/lock.js';
 import { query, resetStore } from '../../logStore.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
-
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 function buildApp(options?: {
-  cancelRun?: (
-    runId: string,
-  ) => Promise<{ cleanupState: 'complete'; found: boolean }>;
-  getStatus?: (runId: string) => { runId: string } | null;
+  cancelRun?: (runId: string) => Promise<{
+    cleanupState: 'complete';
+    found: boolean;
+  }>;
+  getStatus?: (runId: string) => {
+    runId: string;
+  } | null;
 }) {
   const app = express();
   app.use(express.json());
@@ -45,15 +50,13 @@ function buildApp(options?: {
   );
   return app;
 }
-
 test.beforeEach(() => {
-  process.env.NODE_ENV = 'test';
+  setScopedTestEnvValue('NODE_ENV', 'test');
   resetStore();
   __resetIngestJobsForTest();
   resetCollectionsForTests();
   release();
 });
-
 test.afterEach(() => {
   __setBeforeTerminalStatusPublishHookForTest(null);
   __setQueueRuntimeOpsForTest({
@@ -70,12 +73,11 @@ test.afterEach(() => {
   __resetIngestJobsForTest();
   resetCollectionsForTests();
   release();
-  delete process.env.CODEINFO_INGEST_FLUSH_EVERY;
-  delete process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT;
-  delete process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE;
-  delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
+  clearScopedTestEnvValue('CODEINFO_INGEST_FLUSH_EVERY');
+  clearScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT');
+  clearScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE');
+  clearScopedTestEnvValue('CODEINFO_INGEST_TEST_GIT_PATHS');
 });
-
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;
@@ -85,7 +87,6 @@ function createDeferred<T>() {
   });
   return { promise, resolve, reject };
 }
-
 async function createTempRepo(files: Record<string, string>) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codeinfo2-cancel-'));
   await fs.mkdir(path.join(root, '.git'));
@@ -96,7 +97,10 @@ async function createTempRepo(files: Record<string, string>) {
       await fs.writeFile(fullPath, contents, 'utf8');
     }),
   );
-  process.env.CODEINFO_INGEST_TEST_GIT_PATHS = Object.keys(files).join(',');
+  setScopedTestEnvValue(
+    'CODEINFO_INGEST_TEST_GIT_PATHS',
+    Object.keys(files).join(','),
+  );
   return {
     root,
     cleanup: async () => {
@@ -104,48 +108,55 @@ async function createTempRepo(files: Record<string, string>) {
     },
   };
 }
-
 async function waitForTerminal(runId: string) {
   const terminal = new Set(['completed', 'skipped', 'cancelled', 'error']);
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(2000);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     const status = getStatus(runId);
     if (status && terminal.has(status.state)) {
       return status;
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(`Timed out waiting for terminal status for ${runId}`);
+  throw new Error(
+    `Timed out waiting for terminal status for ${runId} after ${resolvedTimeoutMs}ms`,
+  );
 }
-
 async function waitForStatus(
   runId: string,
   predicate: (status: ReturnType<typeof getStatus>) => boolean,
 ) {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(2000);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     const status = getStatus(runId);
     if (predicate(status)) {
       return status;
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(`Timed out waiting for matching status for ${runId}`);
+  throw new Error(
+    `Timed out waiting for matching status for ${runId} after ${resolvedTimeoutMs}ms`,
+  );
 }
-
 async function waitForCondition(
   label: string,
   predicate: () => boolean,
-  timeoutMs = 2_000,
+  timeoutMs = 2000,
 ) {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     if (predicate()) {
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(`Timed out waiting for ${label}`);
+  throw new Error(
+    `Timed out waiting for ${label} after ${resolvedTimeoutMs}ms`,
+  );
 }
-
 function setupChromaMocks() {
   const storedVectors = new Map<string, Record<string, unknown>>();
   const extractWhereValue = (
@@ -167,8 +178,12 @@ function setupChromaMocks() {
     return undefined;
   };
   const vectors = {
-    addCalls: [] as Array<{ ids: string[] }>,
-    deleteCalls: [] as Array<{ where?: Record<string, unknown> }>,
+    addCalls: [] as Array<{
+      ids: string[];
+    }>,
+    deleteCalls: [] as Array<{
+      where?: Record<string, unknown>;
+    }>,
     metadata: { lockedModelId: null as string | null },
     add: async (payload: {
       ids: string[];
@@ -199,7 +214,9 @@ function setupChromaMocks() {
       vectors.metadata = {
         ...(vectors.metadata ?? {}),
         ...(metadata ?? {}),
-      } as { lockedModelId: string | null };
+      } as {
+        lockedModelId: string | null;
+      };
     },
     count: async () => storedVectors.size,
     storedVectors,
@@ -221,7 +238,6 @@ function setupChromaMocks() {
     },
     delete: async () => {},
   };
-
   test.mock.method(
     ChromaClient.prototype,
     'getOrCreateCollection',
@@ -231,16 +247,18 @@ function setupChromaMocks() {
     },
   );
   test.mock.method(ChromaClient.prototype, 'deleteCollection', async () => {});
-
   return { vectors, roots };
 }
-
 function buildDeps(options: {
   onEmbedStart?: (text: string) => void;
   embedPromiseFactory: (
     text: string,
-    options?: { signal?: AbortSignal },
-  ) => Promise<{ embedding: number[] }>;
+    options?: {
+      signal?: AbortSignal;
+    },
+  ) => Promise<{
+    embedding: number[];
+  }>;
 }) {
   let embedCalls = 0;
   return {
@@ -251,7 +269,9 @@ function buildDeps(options: {
           model: async () => ({
             embed: async (
               text: string,
-              requestOptions?: { signal?: AbortSignal },
+              requestOptions?: {
+                signal?: AbortSignal;
+              },
             ) => {
               embedCalls += 1;
               options.onEmbedStart?.(text);
@@ -266,21 +286,22 @@ function buildDeps(options: {
     getEmbedCalls: () => embedCalls,
   };
 }
-
 test('ingest-cancel catch path logs retryable failures as warn', async () => {
   const response = await request(
     buildApp({
       cancelRun: async () => {
         const error = new Error('temporary unavailable');
-        (error as { code?: string }).code = 'BUSY';
+        (
+          error as {
+            code?: string;
+          }
+        ).code = 'BUSY';
         throw error;
       },
     }),
   ).post('/ingest/cancel/run-1');
-
   assert.equal(response.status, 429);
   assert.equal(response.body.code, 'BUSY');
-
   const entries = query(
     { text: 'DEV-0000036:T17:ingest_provider_failure' },
     20,
@@ -294,21 +315,22 @@ test('ingest-cancel catch path logs retryable failures as warn', async () => {
   assert.ok(warnEntry, 'expected warn-level cancel failure log');
   assert.equal(warnEntry?.context?.retryable, true);
 });
-
 test('ingest-cancel catch path logs non-retryable failures as error', async () => {
   const response = await request(
     buildApp({
       cancelRun: async () => {
         const error = new Error('lock metadata invalid');
-        (error as { code?: string }).code = 'INVALID_LOCK_METADATA';
+        (
+          error as {
+            code?: string;
+          }
+        ).code = 'INVALID_LOCK_METADATA';
         throw error;
       },
     }),
   ).post('/ingest/cancel/run-2');
-
   assert.equal(response.status, 500);
   assert.equal(response.body.code, 'INVALID_LOCK_METADATA');
-
   const entries = query(
     { text: 'DEV-0000036:T17:ingest_provider_failure' },
     20,
@@ -322,11 +344,10 @@ test('ingest-cancel catch path logs non-retryable failures as error', async () =
   assert.ok(errorEntry, 'expected error-level cancel failure log');
   assert.equal(errorEntry?.context?.retryable, false);
 });
-
 test('cancel waits on an unresolved cleanup gate before newer queued work advances', async () => {
   const deleteGate = createDeferred<void>();
+  const nextProcessorStarted = createDeferred<void>();
   const events: string[] = [];
-
   __setStatusForTest('run-cancel', {
     runId: 'run-cancel',
     state: 'embedding',
@@ -377,29 +398,25 @@ test('cancel waits on an unresolved cleanup gate before newer queued work advanc
   });
   __setRunProcessorForTest(async (runId, input) => {
     events.push(`start:${input.path}`);
+    nextProcessorStarted.resolve();
     release(runId);
   });
-
   const cancelPromise = cancelRun('run-cancel');
   await waitForStatus(
     'run-cancel',
     (status) =>
       status?.state === 'cancelled' && events.includes('delete-start'),
   );
-
   let resolvedEarly = false;
   void cancelPromise.then(() => {
     resolvedEarly = true;
   });
   await Promise.resolve();
-
   assert.equal(resolvedEarly, false);
   assert.deepEqual(events, ['delete-start']);
-
   deleteGate.resolve();
   const result = await cancelPromise;
-  await new Promise((resolve) => setImmediate(resolve));
-
+  await nextProcessorStarted.promise;
   assert.deepEqual(result, { cleanupState: 'complete', found: true });
   assert.deepEqual(events, [
     'delete-start',
@@ -407,12 +424,13 @@ test('cancel waits on an unresolved cleanup gate before newer queued work advanc
     'start:/data/repo-next',
   ]);
 });
-
 test('cancel stops new embedding work immediately once dispatch has started', async () => {
   const { vectors } = setupChromaMocks();
-  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
-  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '0';
-  const firstEmbedding = createDeferred<{ embedding: number[] }>();
+  setScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT', '1');
+  setScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE', '0');
+  const firstEmbedding = createDeferred<{
+    embedding: number[];
+  }>();
   const embedStarted = createDeferred<void>();
   const deps = buildDeps({
     onEmbedStart: () => {
@@ -425,7 +443,6 @@ test('cancel stops new embedding work immediately once dispatch has started', as
     'b.txt': 'delta epsilon zeta',
     'c.txt': 'eta theta iota',
   });
-
   try {
     const runId = await startIngest(
       {
@@ -435,12 +452,10 @@ test('cancel stops new embedding work immediately once dispatch has started', as
       },
       deps,
     );
-
     await embedStarted.promise;
     await cancelRun(runId);
     firstEmbedding.resolve({ embedding: [0.1, 0.2, 0.3] });
     const finalStatus = await waitForTerminal(runId);
-
     assert.equal(finalStatus?.state, 'cancelled');
     assert.equal(
       deps.getEmbedCalls(),
@@ -456,12 +471,13 @@ test('cancel stops new embedding work immediately once dispatch has started', as
     await cleanup();
   }
 });
-
 test('cancel after production completes still reaches cancelled cleanup with queued work', async () => {
   const { vectors } = setupChromaMocks();
-  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
-  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '-1';
-  const firstEmbedding = createDeferred<{ embedding: number[] }>();
+  setScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT', '1');
+  setScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE', '-1');
+  const firstEmbedding = createDeferred<{
+    embedding: number[];
+  }>();
   const embedStarted = createDeferred<void>();
   const deps = buildDeps({
     onEmbedStart: () => {
@@ -473,7 +489,6 @@ test('cancel after production completes still reaches cancelled cleanup with que
     'a.txt': 'alpha beta gamma',
     'b.txt': 'delta epsilon zeta',
   });
-
   try {
     const runId = await startIngest(
       {
@@ -483,19 +498,15 @@ test('cancel after production completes still reaches cancelled cleanup with que
       },
       deps,
     );
-
     await embedStarted.promise;
     await waitForStatus(
       runId,
       (status) =>
         (status?.counts.chunks ?? 0) >= 2 && status?.state === 'embedding',
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
     await cancelRun(runId);
     firstEmbedding.resolve({ embedding: [0.1, 0.2, 0.3] });
     const finalStatus = await waitForTerminal(runId);
-
     assert.equal(finalStatus?.state, 'cancelled');
     assert.equal(
       deps.getEmbedCalls(),
@@ -511,12 +522,11 @@ test('cancel after production completes still reaches cancelled cleanup with que
     await cleanup();
   }
 });
-
 test('cancel after provider result resolution does not leave vectors behind', async () => {
   const { vectors } = setupChromaMocks();
-  process.env.CODEINFO_INGEST_FLUSH_EVERY = '1';
-  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
-  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '-1';
+  setScopedTestEnvValue('CODEINFO_INGEST_FLUSH_EVERY', '1');
+  setScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT', '1');
+  setScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE', '-1');
   const persistStarted = createDeferred<void>();
   const releasePersist = createDeferred<void>();
   const originalAdd = vectors.add;
@@ -525,14 +535,12 @@ test('cancel after provider result resolution does not leave vectors behind', as
     await releasePersist.promise;
     await originalAdd(payload);
   };
-
   const deps = buildDeps({
     embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
   });
   const { root, cleanup } = await createTempRepo({
     'a.txt': 'alpha beta gamma',
   });
-
   try {
     const runId = await startIngest(
       {
@@ -542,23 +550,19 @@ test('cancel after provider result resolution does not leave vectors behind', as
       },
       deps,
     );
-
     await persistStarted.promise;
     const cancelPromise = cancelRun(runId);
-    await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(
       vectors.storedVectors.size,
       0,
       'persist should still be blocked when cancel cleanup starts',
     );
-
     releasePersist.resolve();
     await cancelPromise;
     const finalStatus = await waitForTerminal(runId);
     await waitForCondition('cancelled vector cleanup', () => {
       return vectors.storedVectors.size === 0;
     });
-
     assert.equal(finalStatus?.state, 'cancelled');
     assert.equal(
       vectors.storedVectors.size,
@@ -581,7 +585,6 @@ test('cancel after provider result resolution does not leave vectors behind', as
     await cleanup();
   }
 });
-
 test('cancel after dispatcher drain does not overwrite terminal state back to completed', async () => {
   const { roots } = setupChromaMocks();
   const completedRootWriteStarted = createDeferred<void>();
@@ -595,14 +598,12 @@ test('cancel after dispatcher drain does not overwrite terminal state back to co
     }
     await originalRootsAdd(payload);
   };
-
   const deps = buildDeps({
     embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
   });
   const { root, cleanup } = await createTempRepo({
     'a.txt': 'alpha beta gamma',
   });
-
   try {
     const runId = await startIngest(
       {
@@ -612,15 +613,11 @@ test('cancel after dispatcher drain does not overwrite terminal state back to co
       },
       deps,
     );
-
     await completedRootWriteStarted.promise;
     const cancelPromise = cancelRun(runId);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
     releaseCompletedRootWrite.resolve();
     await cancelPromise;
     const finalStatus = await waitForTerminal(runId);
-
     assert.equal(finalStatus?.state, 'cancelled');
     assert.equal(
       roots.addCalls.at(-1)?.metadatas?.[0]?.state,
@@ -638,7 +635,6 @@ test('cancel after dispatcher drain does not overwrite terminal state back to co
     await cleanup();
   }
 });
-
 test('cancel after the last fenced finalization step does not publish completed or skipped', async () => {
   const { roots } = setupChromaMocks();
   const beforeTerminalPublishStarted = createDeferred<void>();
@@ -647,14 +643,12 @@ test('cancel after the last fenced finalization step does not publish completed 
     beforeTerminalPublishStarted.resolve();
     await releaseTerminalPublish.promise;
   });
-
   const deps = buildDeps({
     embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
   });
   const { root, cleanup } = await createTempRepo({
     'a.txt': 'alpha beta gamma',
   });
-
   try {
     const runId = await startIngest(
       {
@@ -664,15 +658,11 @@ test('cancel after the last fenced finalization step does not publish completed 
       },
       deps,
     );
-
     await beforeTerminalPublishStarted.promise;
     const cancelPromise = cancelRun(runId);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
     releaseTerminalPublish.resolve();
     await cancelPromise;
     const finalStatus = await waitForTerminal(runId);
-
     assert.equal(finalStatus?.state, 'cancelled');
     assert.equal(
       roots.addCalls.at(-1)?.metadatas?.[0]?.state,
@@ -698,7 +688,6 @@ test('cancel after the last fenced finalization step does not publish completed 
     await cleanup();
   }
 });
-
 test('late cancel on delta no-op reembed does not overwrite terminal state back to completed', async () => {
   const { roots } = setupChromaMocks();
   const completedRootWriteStarted = createDeferred<void>();
@@ -712,11 +701,9 @@ test('late cancel on delta no-op reembed does not overwrite terminal state back 
     }
     await originalRootsAdd(payload);
   };
-
   const { root, cleanup } = await createTempRepo({
     'docs/notes.txt': 'alpha beta gamma\n',
   });
-
   try {
     const fileHash = await hashFile(path.join(root, 'docs/notes.txt'));
     test.mock.method(IngestFileModel, 'find', () => ({
@@ -726,7 +713,6 @@ test('late cancel on delta no-op reembed does not overwrite terminal state back 
         }),
       }),
     }));
-
     const runId = await startIngest(
       {
         path: root,
@@ -738,15 +724,11 @@ test('late cancel on delta no-op reembed does not overwrite terminal state back 
         embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
       }),
     );
-
     await completedRootWriteStarted.promise;
     const cancelPromise = cancelRun(runId);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
     releaseCompletedRootWrite.resolve();
     await cancelPromise;
     const finalStatus = await waitForTerminal(runId);
-
     assert.equal(finalStatus?.state, 'cancelled');
     assert.equal(
       roots.addCalls.at(-1)?.metadatas?.[0]?.state,
@@ -764,7 +746,70 @@ test('late cancel on delta no-op reembed does not overwrite terminal state back 
     await cleanup();
   }
 });
-
+test('cancelled delta no-op reembed does not regress back to embedding after the worker resumes', async () => {
+  setupChromaMocks();
+  const previousIndexGate = createDeferred<void>();
+  const { root, cleanup } = await createTempRepo({
+    'docs/notes.txt': 'alpha beta gamma\n',
+  });
+  const previousReadyState = (
+    mongoose.connection as unknown as {
+      readyState: number;
+    }
+  ).readyState;
+  try {
+    (
+      mongoose.connection as unknown as {
+        readyState: number;
+      }
+    ).readyState = 1;
+    const fileHash = await hashFile(path.join(root, 'docs/notes.txt'));
+    test.mock.method(IngestFileModel, 'find', () => ({
+      select: () => ({
+        lean: () => ({
+          exec: async () => {
+            await previousIndexGate.promise;
+            return [{ root, relPath: 'docs/notes.txt', fileHash }];
+          },
+        }),
+      }),
+    }));
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'cancel-delta-noop-status-monotonic',
+        model: 'embed-1',
+        operation: 'reembed',
+      },
+      buildDeps({
+        embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+      }),
+    );
+    await waitForStatus(runId, (status) => status?.state === 'scanning');
+    await cancelRun(runId);
+    assert.equal(getStatus(runId)?.state, 'cancelled');
+    previousIndexGate.resolve();
+    await waitForCondition('delta no-op worker resume', () => {
+      return query({ text: 'REEMBED_NO_CHANGE_EARLY_RETURN' }, 20).some(
+        (entry) => entry.context?.runId === runId,
+      );
+    });
+    await __waitForIngestRuntimeIdleForTest();
+    assert.equal(
+      getStatus(runId)?.state,
+      'cancelled',
+      'expected cancelled to remain monotonic after worker completion',
+    );
+  } finally {
+    (
+      mongoose.connection as unknown as {
+        readyState: number;
+      }
+    ).readyState = previousReadyState;
+    previousIndexGate.resolve();
+    await cleanup();
+  }
+});
 test('late cancel on deletions-only reembed does not publish completed or skipped', async () => {
   const { roots } = setupChromaMocks();
   const beforeTerminalPublishStarted = createDeferred<void>();
@@ -773,11 +818,9 @@ test('late cancel on deletions-only reembed does not publish completed or skippe
     beforeTerminalPublishStarted.resolve();
     await releaseTerminalPublish.promise;
   });
-
   const { root, cleanup } = await createTempRepo({
     'docs/deleted.txt': 'to be removed\n',
   });
-
   try {
     test.mock.method(IngestFileModel, 'find', () => ({
       select: () => ({
@@ -789,8 +832,7 @@ test('late cancel on deletions-only reembed does not publish completed or skippe
       }),
     }));
     await fs.rm(path.join(root, 'docs/deleted.txt'));
-    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = '';
-
+    setScopedTestEnvValue('CODEINFO_INGEST_TEST_GIT_PATHS', '');
     const runId = await startIngest(
       {
         path: root,
@@ -802,15 +844,11 @@ test('late cancel on deletions-only reembed does not publish completed or skippe
         embedPromiseFactory: async () => ({ embedding: [0.1, 0.2, 0.3] }),
       }),
     );
-
     await beforeTerminalPublishStarted.promise;
     const cancelPromise = cancelRun(runId);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
     releaseTerminalPublish.resolve();
     await cancelPromise;
     const finalStatus = await waitForTerminal(runId);
-
     assert.equal(finalStatus?.state, 'cancelled');
     assert.equal(
       roots.addCalls.at(-1)?.metadatas?.[0]?.state,
@@ -836,16 +874,16 @@ test('late cancel on deletions-only reembed does not publish completed or skippe
     await cleanup();
   }
 });
-
 test('cancel does not issue a fresh dimension probe when lookup fails', async () => {
   const { roots } = setupChromaMocks();
-  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
-  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '0';
-  const firstEmbedding = createDeferred<{ embedding: number[] }>();
+  setScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT', '1');
+  setScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE', '0');
+  const firstEmbedding = createDeferred<{
+    embedding: number[];
+  }>();
   const embedStarted = createDeferred<void>();
   roots.get = async () => ({ embeddings: [] });
   Reflect.deleteProperty(roots, 'dimension');
-
   const deps = buildDeps({
     onEmbedStart: () => {
       embedStarted.resolve();
@@ -855,7 +893,6 @@ test('cancel does not issue a fresh dimension probe when lookup fails', async ()
   const { root, cleanup } = await createTempRepo({
     'a.txt': 'alpha beta gamma',
   });
-
   try {
     const runId = await startIngest(
       {
@@ -865,12 +902,10 @@ test('cancel does not issue a fresh dimension probe when lookup fails', async ()
       },
       deps,
     );
-
     await embedStarted.promise;
     await cancelRun(runId);
     firstEmbedding.resolve({ embedding: [0.1, 0.2, 0.3] });
     const finalStatus = await waitForTerminal(runId);
-
     assert.equal(finalStatus?.state, 'cancelled');
     assert.equal(
       deps.getEmbedCalls(),
@@ -884,12 +919,13 @@ test('cancel does not issue a fresh dimension probe when lookup fails', async ()
     await cleanup();
   }
 });
-
 test('cancel reuses the roots collection dimension when rows were removed first', async () => {
   const { roots } = setupChromaMocks();
-  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
-  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '0';
-  const firstEmbedding = createDeferred<{ embedding: number[] }>();
+  setScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT', '1');
+  setScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE', '0');
+  const firstEmbedding = createDeferred<{
+    embedding: number[];
+  }>();
   const embedStarted = createDeferred<void>();
   let rootsCleared = false;
   roots.dimension = 2560;
@@ -899,7 +935,6 @@ test('cancel reuses the roots collection dimension when rows were removed first'
   roots.delete = async () => {
     rootsCleared = true;
   };
-
   const deps = buildDeps({
     onEmbedStart: () => {
       embedStarted.resolve();
@@ -909,7 +944,6 @@ test('cancel reuses the roots collection dimension when rows were removed first'
   const { root, cleanup } = await createTempRepo({
     'large.md': '# heading\n\n' + 'alpha beta gamma '.repeat(5000),
   });
-
   try {
     const runId = await startIngest(
       {
@@ -919,12 +953,10 @@ test('cancel reuses the roots collection dimension when rows were removed first'
       },
       deps,
     );
-
     await embedStarted.promise;
     await cancelRun(runId);
     firstEmbedding.resolve({ embedding: [0.1, 0.2, 0.3] });
     const finalStatus = await waitForTerminal(runId);
-
     assert.equal(finalStatus?.state, 'cancelled');
     assert.equal(roots.addCalls.length, 1);
     assert.equal(roots.addCalls[0]?.embeddings[0]?.length, 2560);
@@ -933,9 +965,9 @@ test('cancel reuses the roots collection dimension when rows were removed first'
     await cleanup();
   }
 });
-
 test('late provider results are ignored after cancel instead of being written', async () => {
   const resultDeferred = createDeferred<number[][]>();
+  const dispatchStarted = createDeferred<void>();
   let cancelled = false;
   const persisted: string[] = [];
   let lateResultIgnored = false;
@@ -948,6 +980,7 @@ test('late provider results are ignored after cancel instead of being written', 
         return [0.1];
       },
       async embedBatch() {
+        dispatchStarted.resolve();
         return resultDeferred.promise;
       },
       async countTokens(text: string) {
@@ -969,20 +1002,17 @@ test('late provider results are ignored after cancel instead of being written', 
       lateResultIgnored = true;
     },
   });
-
   await dispatcher.enqueue({
     sequence: 0,
     text: 'alpha beta gamma',
     meta: null,
   });
   dispatcher.completeProduction();
-  await new Promise((resolve) => setTimeout(resolve, 0));
-
+  await dispatchStarted.promise;
   cancelled = true;
   dispatcher.cancel();
   resultDeferred.resolve([[0.4, 0.5, 0.6]]);
   await dispatcher.waitForIdle();
-
   assert.deepEqual(
     persisted,
     [],
@@ -990,7 +1020,6 @@ test('late provider results are ignored after cancel instead of being written', 
   );
   assert.equal(lateResultIgnored, true);
 });
-
 test('wrapped abort errors from LM Studio still converge to cancelled after cancel', async () => {
   const embedStarted = createDeferred<void>();
   const deps = buildDeps({
@@ -998,15 +1027,15 @@ test('wrapped abort errors from LM Studio still converge to cancelled after canc
       embedStarted.resolve();
     },
     embedPromiseFactory: async (_text, options) =>
-      await new Promise<{ embedding: number[] }>((_resolve, reject) => {
+      await new Promise<{
+        embedding: number[];
+      }>((_resolve, reject) => {
         const abortError = new Error('aborted');
         abortError.name = 'AbortError';
-
         if (options?.signal?.aborted) {
           reject(abortError);
           return;
         }
-
         options?.signal?.addEventListener('abort', () => reject(abortError), {
           once: true,
         });
@@ -1016,7 +1045,6 @@ test('wrapped abort errors from LM Studio still converge to cancelled after canc
     'a.txt': 'alpha beta gamma',
     'b.txt': 'delta epsilon zeta',
   });
-
   try {
     const runId = await startIngest(
       {
@@ -1026,11 +1054,9 @@ test('wrapped abort errors from LM Studio still converge to cancelled after canc
       },
       deps,
     );
-
     await embedStarted.promise;
     await cancelRun(runId);
     const finalStatus = await waitForTerminal(runId);
-
     assert.equal(finalStatus?.state, 'cancelled');
   } finally {
     await cleanup();

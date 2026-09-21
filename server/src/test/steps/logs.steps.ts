@@ -15,6 +15,7 @@ import fetch, { type Response as FetchResponse } from 'node-fetch';
 import { resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { createLogsRouter } from '../../routes/logs.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 let server: Server | null = null;
 let baseUrl = '';
@@ -102,11 +103,16 @@ async function getPath(path: string) {
 
 function waitFor(predicate: () => boolean, timeoutMs = 3000) {
   return new Promise<void>((resolve, reject) => {
+    const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
     const start = Date.now();
     const check = () => {
       if (predicate()) return resolve();
-      if (Date.now() - start > timeoutMs)
-        return reject(new Error('Timed out waiting for condition'));
+      if (Date.now() - start > resolvedTimeoutMs)
+        return reject(
+          new Error(
+            `Timed out waiting for condition after ${resolvedTimeoutMs}ms`,
+          ),
+        );
       setTimeout(check, 50);
     };
     check();

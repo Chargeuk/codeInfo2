@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach, beforeEach } from 'node:test';
+import nodeTest from 'node:test';
 import {
   SYSTEM_CONTEXT,
   VECTORSEARCH_PROTOCOL_REMINDER,
@@ -30,25 +30,31 @@ import { createChatProvidersRouter } from '../../routes/chatProviders.js';
 import { attachWs } from '../../ws/server.js';
 import { createMockCopilotSdkHarness } from '../support/mockCopilotSdk.js';
 import {
+  beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
+} from '../support/processEnvIsolation.js';
+import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
-
 class MockThread {
   id: string | null;
   lastPrompt?: string;
   omitName: boolean;
-
-  constructor(id: string, opts: { omitName?: boolean } = {}) {
+  constructor(
+    id: string,
+    opts: {
+      omitName?: boolean;
+    } = {},
+  ) {
     this.id = id;
     this.omitName = opts.omitName ?? false;
   }
-
-  async runStreamed(
-    input: string,
-  ): Promise<{ events: AsyncGenerator<ThreadEvent> }> {
+  async runStreamed(input: string): Promise<{
+    events: AsyncGenerator<ThreadEvent>;
+  }> {
     this.lastPrompt = input;
     const threadId = this.id;
     const omitName = this.omitName;
@@ -61,14 +67,12 @@ class MockThread {
         status: 'started',
         arguments: { query: 'hello', limit: 3 },
       };
-
       yield {
         type: 'item.started',
         item: omitName
           ? (baseTool as unknown)
           : ({ ...baseTool, name: 'VectorSearch' } as unknown),
       } as ThreadEvent;
-
       const completedTool = {
         ...baseTool,
         status: 'completed',
@@ -105,14 +109,12 @@ class MockThread {
           ],
         },
       };
-
       yield {
         type: 'item.completed',
         item: omitName
           ? (completedTool as unknown)
           : ({ ...completedTool, name: 'VectorSearch' } as unknown),
       } as ThreadEvent;
-
       yield {
         type: 'item.updated',
         item: {
@@ -121,12 +123,10 @@ class MockThread {
           text: 'Thinking about the answer',
         },
       } as unknown as ThreadEvent;
-
       yield {
         type: 'item.completed',
         item: { type: 'agent_message', text: 'Here you go' },
       } as ThreadEvent;
-
       yield {
         type: 'turn.completed',
         thread_id: threadId,
@@ -139,11 +139,9 @@ class MockThread {
         },
       } as ThreadEvent;
     }
-
     return { events: generator() };
   }
 }
-
 function createUnavailableCopilotLifecycle() {
   return createMockCopilotSdkHarness({
     name: 'integration-mcp-copilot-auth-required',
@@ -154,112 +152,125 @@ function createUnavailableCopilotLifecycle() {
     },
   }).createLifecycle();
 }
-
 class MockCodex {
   id: string;
   lastStartOptions?: CodexThreadOptions;
   lastResumeOptions?: CodexThreadOptions;
   lastThread?: MockThread;
-  threadOpts?: { omitName?: boolean };
-
-  constructor(id = 'thread-mcp', threadOpts?: { omitName?: boolean }) {
+  threadOpts?: {
+    omitName?: boolean;
+  };
+  constructor(
+    id = 'thread-mcp',
+    threadOpts?: {
+      omitName?: boolean;
+    },
+  ) {
     this.id = id;
     this.threadOpts = threadOpts;
   }
-
   startThread(opts?: CodexThreadOptions) {
     this.lastStartOptions = opts;
     this.lastThread = new MockThread(this.id, this.threadOpts);
     return this.lastThread;
   }
-
   resumeThread(threadId: string, opts?: CodexThreadOptions) {
     this.lastResumeOptions = opts;
     this.lastThread = new MockThread(threadId, this.threadOpts);
     return this.lastThread;
   }
 }
-
 const dummyClientFactory = () =>
   ({
     llm: { model: async () => ({ act: async () => undefined }) },
   }) as unknown as LMStudioClient;
-
 const ORIGINAL_CODEX_HOME = process.env.CODEX_HOME;
 const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForTest: string | undefined;
-
-beforeEach(async () => {
-  resetToolDeps();
-  delete process.env.CODEX_HOME;
-  delete process.env.CODEX_WORKDIR;
-  delete process.env.CODEINFO_CODEX_WORKDIR;
-  tempCodexHomeForTest = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'chat-codex-mcp-home-'),
-  );
-  await fs.mkdir(path.join(tempCodexHomeForTest, 'chat'), { recursive: true });
-  await fs.writeFile(
-    path.join(tempCodexHomeForTest, 'chat', 'config.toml'),
-    'model = "gpt-5.1-codex-max"\n',
-    'utf8',
-  );
-  process.env.CODEX_HOME = tempCodexHomeForTest;
-  process.env.CODEINFO_CODEX_HOME = tempCodexHomeForTest;
-  memoryConversations.clear();
-  memoryTurns.clear();
-  setCodexDetection({
-    available: false,
-    authPresent: false,
-    configPresent: false,
-    reason: 'not detected',
+const test = (name: string, fn: () => Promise<void> | void) =>
+  nodeTest(name, async () => {
+    beginScopedTestEnvIsolation();
+    resetToolDeps();
+    clearScopedTestEnvValue('CODEX_HOME');
+    clearScopedTestEnvValue('CODEX_WORKDIR');
+    clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
+    tempCodexHomeForTest = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'chat-codex-mcp-home-'),
+    );
+    await fs.mkdir(path.join(tempCodexHomeForTest, 'chat'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(tempCodexHomeForTest, 'config.toml'),
+      '',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(tempCodexHomeForTest, 'chat', 'config.toml'),
+      'model = "gpt-5.6-luna"\n',
+      'utf8',
+    );
+    setScopedTestEnvValue('CODEX_HOME', tempCodexHomeForTest);
+    setScopedTestEnvValue('CODEINFO_CODEX_HOME', tempCodexHomeForTest);
+    memoryConversations.clear();
+    memoryTurns.clear();
+    setCodexDetection({
+      available: false,
+      authPresent: false,
+      configPresent: false,
+      reason: 'not detected',
+    });
+    resetStore();
+    conversationCounter = 0;
+    try {
+      await fn();
+    } finally {
+      resetToolDeps();
+      if (ORIGINAL_CODEX_HOME === undefined) {
+        clearScopedTestEnvValue('CODEX_HOME');
+      } else {
+        setScopedTestEnvValue('CODEX_HOME', ORIGINAL_CODEX_HOME);
+      }
+      if (ORIGINAL_CODEX_WORKDIR === undefined) {
+        clearScopedTestEnvValue('CODEX_WORKDIR');
+      } else {
+        setScopedTestEnvValue('CODEX_WORKDIR', ORIGINAL_CODEX_WORKDIR);
+      }
+      if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
+        clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
+      } else {
+        setScopedTestEnvValue(
+          'CODEINFO_CODEX_WORKDIR',
+          ORIGINAL_CODEINFO_CODEX_WORKDIR,
+        );
+      }
+      if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
+        clearScopedTestEnvValue('CODEINFO_CODEX_HOME');
+      } else {
+        setScopedTestEnvValue(
+          'CODEINFO_CODEX_HOME',
+          ORIGINAL_CODEINFO_CODEX_HOME,
+        );
+      }
+      if (tempCodexHomeForTest) {
+        await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
+        tempCodexHomeForTest = undefined;
+      }
+      memoryConversations.clear();
+      memoryTurns.clear();
+      endScopedTestEnvIsolation();
+    }
   });
-  resetStore();
-  conversationCounter = 0;
-});
-
-afterEach(async () => {
-  resetToolDeps();
-  if (ORIGINAL_CODEX_HOME === undefined) {
-    delete process.env.CODEX_HOME;
-  } else {
-    process.env.CODEX_HOME = ORIGINAL_CODEX_HOME;
-  }
-
-  if (ORIGINAL_CODEX_WORKDIR === undefined) {
-    delete process.env.CODEX_WORKDIR;
-  } else {
-    process.env.CODEX_WORKDIR = ORIGINAL_CODEX_WORKDIR;
-  }
-
-  if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
-    delete process.env.CODEINFO_CODEX_WORKDIR;
-  } else {
-    process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
-  }
-  if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
-    delete process.env.CODEINFO_CODEX_HOME;
-  } else {
-    process.env.CODEINFO_CODEX_HOME = ORIGINAL_CODEINFO_CODEX_HOME;
-  }
-  if (tempCodexHomeForTest) {
-    await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
-    tempCodexHomeForTest = undefined;
-  }
-  memoryConversations.clear();
-  memoryTurns.clear();
-});
-
 let conversationCounter = 0;
 const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
   provider: 'codex',
-  model: 'gpt-5.1-codex-max',
+  model: 'gpt-5.6-luna',
   conversationId: `conv-codex-${++conversationCounter}`,
   message: 'Find the index file',
   ...overrides,
 });
-
 test('codex chat injects system context and emits MCP tool request/result', async () => {
   setCodexDetection({
     available: true,
@@ -267,45 +278,45 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-  process.env.CODEINFO_CODEX_WORKDIR = '/mounted/default-root';
-
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', '/mounted/default-root');
   const mockCodex = new MockCodex('thread-mcp');
   const codexFactory = () => mockCodex;
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const address = httpServer.address();
   assert(address && typeof address === 'object');
   const baseUrl = `http://127.0.0.1:${address.port}`;
-
   const ws = await connectWs({ baseUrl });
-
   try {
-    sendJson(ws, {
-      type: 'subscribe_conversation',
+    await subscribeConversationAndWaitReady({
+      ws: ws,
       conversationId: 'thread-mcp',
     });
-
     // Start WS waits before triggering the HTTP request to avoid missing early frames.
     const snapshotPromise = waitForEvent({
       ws,
-      predicate: (event: unknown): event is { type: string } => {
-        const e = event as { type?: string; conversationId?: string };
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+        };
         return (
           e.type === 'inflight_snapshot' && e.conversationId === 'thread-mcp'
         );
       },
       timeoutMs: 5000,
     });
-
     const toolRequestPromise = waitForEvent({
       ws,
       predicate: (
@@ -314,12 +325,18 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
         type: string;
         conversationId: string;
         inflightId: string;
-        event: { type: string; callId?: string; name?: string };
+        event: {
+          type: string;
+          callId?: string;
+          name?: string;
+        };
       } => {
         const e = event as {
           type?: string;
           conversationId?: string;
-          event?: { type?: string };
+          event?: {
+            type?: string;
+          };
         };
         return (
           e.type === 'tool_event' &&
@@ -329,7 +346,6 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
       },
       timeoutMs: 5000,
     });
-
     const toolResultPromise = waitForEvent({
       ws,
       predicate: (
@@ -349,7 +365,9 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
         const e = event as {
           type?: string;
           conversationId?: string;
-          event?: { type?: string };
+          event?: {
+            type?: string;
+          };
         };
         return (
           e.type === 'tool_event' &&
@@ -359,7 +377,6 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
       },
       timeoutMs: 5000,
     });
-
     const analysisPromise = waitForEvent({
       ws,
       predicate: (
@@ -379,7 +396,6 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
       },
       timeoutMs: 5000,
     });
-
     const finalPromise = waitForEvent({
       ws,
       predicate: (
@@ -399,38 +415,30 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
       },
       timeoutMs: 5000,
     });
-
     const res = await request(httpServer)
       .post('/chat')
       .send(buildCodexBody({ conversationId: 'thread-mcp' }))
       .expect(202);
-
     const inflightId = res.body.inflightId as string;
     assert.equal(res.body.status, 'started');
     assert.equal(res.body.conversationId, 'thread-mcp');
     assert.equal(typeof inflightId, 'string');
-
     await snapshotPromise;
-
     const toolRequest = await toolRequestPromise;
     assert.equal(toolRequest.inflightId, inflightId);
     assert.equal(toolRequest.event.callId, 'tool-1');
     assert.equal(toolRequest.event.name, 'VectorSearch');
-
     const toolResult = await toolResultPromise;
     assert.equal(toolResult.inflightId, inflightId);
     assert.equal(toolResult.event.callId, 'tool-1');
     assert.equal(toolResult.event.stage, 'success');
     assert.deepEqual(toolResult.event.parameters, { query: 'hello', limit: 3 });
-
     const resultPayload = toolResult.event.result ?? {};
     assert.ok(Array.isArray(resultPayload.results));
     assert.ok(Array.isArray(resultPayload.files));
-
     const analysis = await analysisPromise;
     assert.equal(analysis.inflightId, inflightId);
     assert.match(String(analysis.delta ?? ''), /Thinking about the answer/);
-
     const final = await finalPromise;
     assert.equal(final.inflightId, inflightId);
     assert.equal(final.status, 'ok');
@@ -439,7 +447,6 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
   }
-
   assert.ok(mockCodex.lastThread?.lastPrompt);
   assert.ok(
     mockCodex.lastThread?.lastPrompt?.startsWith(
@@ -455,9 +462,7 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     mockCodex.lastThread?.lastPrompt?.includes(VECTORSEARCH_PROTOCOL_REMINDER),
     'prompt should include the stricter VectorSearch-first reminder',
   );
-
   const { defaults: codexDefaults } = getCodexEnvDefaults();
-
   assert.equal(
     mockCodex.lastStartOptions?.sandboxMode,
     codexDefaults.sandboxMode,
@@ -479,7 +484,6 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
   );
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
 });
-
 test('codex tool requests fall back to tool name when Codex omits name field', async () => {
   setCodexDetection({
     available: true,
@@ -487,29 +491,24 @@ test('codex tool requests fall back to tool name when Codex omits name field', a
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   const mockCodex = new MockCodex('thread-mcp', { omitName: true });
   const codexFactory = () => mockCodex;
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const address = httpServer.address();
   assert(address && typeof address === 'object');
   const baseUrl = `http://127.0.0.1:${address.port}`;
-
   const ws = await connectWs({ baseUrl });
   try {
     const conversationId = 'thread-mcp-omit-name';
-    sendJson(ws, { type: 'subscribe_conversation', conversationId });
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const toolRequestPromise = waitForEvent({
       ws,
       predicate: (
@@ -518,12 +517,18 @@ test('codex tool requests fall back to tool name when Codex omits name field', a
         type: string;
         conversationId: string;
         inflightId: string;
-        event: { type: string; callId?: string; name?: string };
+        event: {
+          type: string;
+          callId?: string;
+          name?: string;
+        };
       } => {
         const e = event as {
           type?: string;
           conversationId?: string;
-          event?: { type?: string };
+          event?: {
+            type?: string;
+          };
         };
         return (
           e.type === 'tool_event' &&
@@ -533,7 +538,6 @@ test('codex tool requests fall back to tool name when Codex omits name field', a
       },
       timeoutMs: 5000,
     });
-
     const toolResultPromise = waitForEvent({
       ws,
       predicate: (
@@ -542,12 +546,18 @@ test('codex tool requests fall back to tool name when Codex omits name field', a
         type: string;
         conversationId: string;
         inflightId: string;
-        event: { type: string; callId?: string; name?: string };
+        event: {
+          type: string;
+          callId?: string;
+          name?: string;
+        };
       } => {
         const e = event as {
           type?: string;
           conversationId?: string;
-          event?: { type?: string };
+          event?: {
+            type?: string;
+          };
         };
         return (
           e.type === 'tool_event' &&
@@ -557,23 +567,17 @@ test('codex tool requests fall back to tool name when Codex omits name field', a
       },
       timeoutMs: 5000,
     });
-
     const res = await request(httpServer)
       .post('/chat')
       .send(buildCodexBody({ conversationId }))
       .expect(202);
-
     const inflightId = res.body.inflightId as string;
-
     const toolRequest = await toolRequestPromise;
     assert.equal(toolRequest.inflightId, inflightId);
-
     assert.equal(toolRequest.event.callId, 'tool-1');
     assert.equal(toolRequest.event.name, 'VectorSearch');
-
     const toolResult = await toolResultPromise;
     assert.equal(toolResult.inflightId, inflightId);
-
     assert.equal(toolResult.event.callId, 'tool-1');
     assert.equal(toolResult.event.name, 'VectorSearch');
   } finally {
@@ -582,7 +586,6 @@ test('codex tool requests fall back to tool name when Codex omits name field', a
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
   }
 });
-
 test('codex chat rejects invalid sandbox mode early', async () => {
   setCodexDetection({
     available: true,
@@ -590,27 +593,29 @@ test('codex chat rejects invalid sandbox mode early', async () => {
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   let codexFactoryCalled = 0;
   const codexFactory = () => {
     codexFactoryCalled += 1;
     return new MockCodex('thread-invalid');
   };
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   const res = await request(app)
     .post('/chat')
     .send(buildCodexBody({ sandboxMode: 'not-a-mode' }))
     .expect(400);
-
   assert.match(
-    String((res.body as { message?: unknown })?.message ?? ''),
+    String(
+      (
+        res.body as {
+          message?: unknown;
+        }
+      )?.message ?? '',
+    ),
     /sandboxMode/i,
   );
   assert.equal(
@@ -619,7 +624,6 @@ test('codex chat rejects invalid sandbox mode early', async () => {
     'codexFactory should not be invoked on invalid sandbox input',
   );
 });
-
 test('codex chat rejects invalid networkAccessEnabled input early', async () => {
   setCodexDetection({
     available: true,
@@ -627,27 +631,29 @@ test('codex chat rejects invalid networkAccessEnabled input early', async () => 
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   let codexFactoryCalled = 0;
   const codexFactory = () => {
     codexFactoryCalled += 1;
     return new MockCodex('thread-invalid-network');
   };
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   const res = await request(app)
     .post('/chat')
     .send(buildCodexBody({ networkAccessEnabled: 'yes' }))
     .expect(400);
-
   assert.match(
-    String((res.body as { message?: unknown })?.message ?? ''),
+    String(
+      (
+        res.body as {
+          message?: unknown;
+        }
+      )?.message ?? '',
+    ),
     /networkAccessEnabled/i,
   );
   assert.equal(
@@ -656,7 +662,6 @@ test('codex chat rejects invalid networkAccessEnabled input early', async () => 
     'codexFactory should not be invoked on invalid networkAccessEnabled',
   );
 });
-
 test('codex chat rejects invalid webSearchEnabled input early', async () => {
   setCodexDetection({
     available: true,
@@ -664,27 +669,29 @@ test('codex chat rejects invalid webSearchEnabled input early', async () => {
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   let codexFactoryCalled = 0;
   const codexFactory = () => {
     codexFactoryCalled += 1;
     return new MockCodex('thread-invalid-websearch');
   };
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   const res = await request(app)
     .post('/chat')
     .send(buildCodexBody({ webSearchEnabled: 'yes' }))
     .expect(400);
-
   assert.match(
-    String((res.body as { message?: unknown })?.message ?? ''),
+    String(
+      (
+        res.body as {
+          message?: unknown;
+        }
+      )?.message ?? '',
+    ),
     /webSearchEnabled/i,
   );
   assert.equal(
@@ -693,7 +700,6 @@ test('codex chat rejects invalid webSearchEnabled input early', async () => {
     'codexFactory should not be invoked on invalid webSearchEnabled',
   );
 });
-
 test('codex chat forwards non-default sandbox mode to codex thread', async () => {
   setCodexDetection({
     available: true,
@@ -701,17 +707,14 @@ test('codex chat forwards non-default sandbox mode to codex thread', async () =>
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   const mockCodex = new MockCodex('thread-custom-sandbox');
   const codexFactory = () => mockCodex;
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   await request(app)
     .post('/chat')
     .send(
@@ -720,14 +723,12 @@ test('codex chat forwards non-default sandbox mode to codex thread', async () =>
       }),
     )
     .expect(202);
-
   assert.equal(
     mockCodex.lastStartOptions?.sandboxMode,
     'danger-full-access',
     'explicit sandbox mode should be forwarded',
   );
 });
-
 test('codex chat defaults approvalPolicy when omitted', async () => {
   setCodexDetection({
     available: true,
@@ -735,27 +736,22 @@ test('codex chat defaults approvalPolicy when omitted', async () => {
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   const mockCodex = new MockCodex('thread-default-approval');
   const codexFactory = () => mockCodex;
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   await request(app).post('/chat').send(buildCodexBody()).expect(202);
   const { defaults: codexDefaults } = getCodexEnvDefaults();
-
   assert.equal(
     mockCodex.lastStartOptions?.approvalPolicy,
     codexDefaults.approvalPolicy,
     'approvalPolicy should default to configured codex defaults',
   );
 });
-
 test('codex chat rejects invalid approvalPolicy input early', async () => {
   setCodexDetection({
     available: true,
@@ -763,27 +759,29 @@ test('codex chat rejects invalid approvalPolicy input early', async () => {
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   let codexFactoryCalled = 0;
   const codexFactory = () => {
     codexFactoryCalled += 1;
     return new MockCodex('thread-invalid-approval');
   };
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   const res = await request(app)
     .post('/chat')
     .send(buildCodexBody({ approvalPolicy: 'sometimes' }))
     .expect(400);
-
   assert.match(
-    String((res.body as { message?: unknown })?.message ?? ''),
+    String(
+      (
+        res.body as {
+          message?: unknown;
+        }
+      )?.message ?? '',
+    ),
     /approvalPolicy/i,
   );
   assert.equal(
@@ -792,7 +790,6 @@ test('codex chat rejects invalid approvalPolicy input early', async () => {
     'codexFactory should not be invoked on invalid approvalPolicy',
   );
 });
-
 test('codex chat defaults modelReasoningEffort when omitted', async () => {
   setCodexDetection({
     available: true,
@@ -800,27 +797,22 @@ test('codex chat defaults modelReasoningEffort when omitted', async () => {
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   const mockCodex = new MockCodex('thread-default-reasoning');
   const codexFactory = () => mockCodex;
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   await request(app).post('/chat').send(buildCodexBody()).expect(202);
   const { defaults: codexDefaults } = getCodexEnvDefaults();
-
   assert.equal(
     mockCodex.lastStartOptions?.modelReasoningEffort,
     codexDefaults.modelReasoningEffort,
     'modelReasoningEffort should default to configured codex defaults',
   );
 });
-
 test('codex chat rejects invalid modelReasoningEffort input early', async () => {
   setCodexDetection({
     available: true,
@@ -828,27 +820,29 @@ test('codex chat rejects invalid modelReasoningEffort input early', async () => 
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   let codexFactoryCalled = 0;
   const codexFactory = () => {
     codexFactoryCalled += 1;
     return new MockCodex('thread-invalid-reasoning');
   };
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   const res = await request(app)
     .post('/chat')
     .send(buildCodexBody({ modelReasoningEffort: 'extreme' }))
     .expect(400);
-
   assert.match(
-    String((res.body as { message?: unknown })?.message ?? ''),
+    String(
+      (
+        res.body as {
+          message?: unknown;
+        }
+      )?.message ?? '',
+    ),
     /modelReasoningEffort/i,
   );
   assert.equal(
@@ -857,7 +851,6 @@ test('codex chat rejects invalid modelReasoningEffort input early', async () => 
     'codexFactory should not be invoked on invalid modelReasoningEffort',
   );
 });
-
 test('codex chat forwards xhigh modelReasoningEffort flag to codex thread', async () => {
   setCodexDetection({
     available: true,
@@ -865,17 +858,14 @@ test('codex chat forwards xhigh modelReasoningEffort flag to codex thread', asyn
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   const mockCodex = new MockCodex('thread-reasoning');
   const codexFactory = () => mockCodex;
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   await request(app)
     .post('/chat')
     .send(
@@ -884,14 +874,12 @@ test('codex chat forwards xhigh modelReasoningEffort flag to codex thread', asyn
       }),
     )
     .expect(202);
-
   assert.equal(
     mockCodex.lastStartOptions?.modelReasoningEffort,
     'xhigh',
     'explicit modelReasoningEffort should be forwarded',
   );
 });
-
 test('codex chat forwards approvalPolicy flag to codex thread', async () => {
   setCodexDetection({
     available: true,
@@ -899,17 +887,14 @@ test('codex chat forwards approvalPolicy flag to codex thread', async () => {
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   const mockCodex = new MockCodex('thread-approval');
   const codexFactory = () => mockCodex;
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   await request(app)
     .post('/chat')
     .send(
@@ -918,14 +903,12 @@ test('codex chat forwards approvalPolicy flag to codex thread', async () => {
       }),
     )
     .expect(202);
-
   assert.equal(
     mockCodex.lastStartOptions?.approvalPolicy,
     'on-request',
     'explicit approvalPolicy should be forwarded',
   );
 });
-
 test('codex chat forwards networkAccessEnabled flag to codex thread', async () => {
   setCodexDetection({
     available: true,
@@ -933,17 +916,14 @@ test('codex chat forwards networkAccessEnabled flag to codex thread', async () =
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   const mockCodex = new MockCodex('thread-network');
   const codexFactory = () => mockCodex;
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   await request(app)
     .post('/chat')
     .send(
@@ -952,14 +932,12 @@ test('codex chat forwards networkAccessEnabled flag to codex thread', async () =
       }),
     )
     .expect(202);
-
   assert.equal(
     mockCodex.lastStartOptions?.networkAccessEnabled,
     false,
     'explicit networkAccessEnabled should be forwarded',
   );
 });
-
 test('codex chat preserves cached webSearchMode flag on the codex thread', async () => {
   setCodexDetection({
     available: true,
@@ -967,17 +945,14 @@ test('codex chat preserves cached webSearchMode flag on the codex thread', async
     configPresent: true,
     cliPath: '/usr/bin/codex',
   });
-
   const mockCodex = new MockCodex('thread-websearch');
   const codexFactory = () => mockCodex;
-
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
-
   await request(app)
     .post('/chat')
     .send(
@@ -986,17 +961,15 @@ test('codex chat preserves cached webSearchMode flag on the codex thread', async
       }),
     )
     .expect(202);
-
   assert.equal(
     mockCodex.lastStartOptions?.webSearchMode,
     'cached',
     'explicit webSearchMode should be preserved for Codex',
   );
 });
-
 test('lmstudio requests reject stale codex-only flags after Task 3 validation tightening', async () => {
   const originalBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
   try {
     const app = express();
     app.use(express.json());
@@ -1019,7 +992,6 @@ test('lmstudio requests reject stale codex-only flags after Task 3 validation ti
         codexFactory: () => new MockCodex(),
       }),
     );
-
     const response = await request(app)
       .post('/chat')
       .send({
@@ -1030,25 +1002,22 @@ test('lmstudio requests reject stale codex-only flags after Task 3 validation ti
         sandboxMode: 'read-only',
       })
       .expect(400);
-
     assert.match(
       String(response.body?.message ?? ''),
       /legacy top-level chat flag "sandboxMode".*agentFlags\.sandboxMode/i,
     );
   } finally {
-    process.env.CODEINFO_LMSTUDIO_BASE_URL = originalBaseUrl;
+    setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', originalBaseUrl);
   }
 });
-
 test('explicit codex requests fail instead of silently falling back and do not mutate stale thread state', async () => {
   const originalBaseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL;
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'http://localhost:1234');
   const conversationId = 'conv-fallback-thread-safety';
-
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.3-codex',
+    model: 'gpt-5.6-luna',
     title: 'existing',
     source: 'REST',
     flags: { threadId: 'thread-stale' },
@@ -1057,7 +1026,6 @@ test('explicit codex requests fail instead of silently falling back and do not m
     createdAt: new Date(),
     updatedAt: new Date(),
   } as never);
-
   try {
     const app = express();
     app.use(express.json());
@@ -1088,29 +1056,25 @@ test('explicit codex requests fail instead of silently falling back and do not m
         copilotLifecycleFactory: createUnavailableCopilotLifecycle,
       }),
     );
-
     const response = await request(app)
       .post('/chat')
       .send({
         provider: 'codex',
-        model: 'gpt-5.3-codex',
+        model: 'gpt-5.6-luna',
         conversationId,
         message: 'hi',
       })
       .expect(503);
-
     assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
-
     const stored = memoryConversations.get(conversationId);
     assert.ok(stored);
     assert.equal(stored?.provider, 'codex');
-    assert.equal(stored?.model, 'gpt-5.3-codex');
+    assert.equal(stored?.model, 'gpt-5.6-luna');
     assert.equal(stored?.flags?.threadId, 'thread-stale');
   } finally {
-    process.env.CODEINFO_LMSTUDIO_BASE_URL = originalBaseUrl;
+    setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', originalBaseUrl);
   }
 });
-
 test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtures', async () => {
   const originalForce = process.env.MCP_FORCE_CODEX_AVAILABLE;
   const originalCodeHome = process.env.CODEX_HOME;
@@ -1125,13 +1089,13 @@ test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtu
     '# empty\n',
     'utf8',
   );
-  process.env.CODEX_HOME = codexHome;
-  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'invalid-url';
-  process.env.Codex_sandbox_mode = 'workspace-write';
-  process.env.Codex_approval_policy = 'on-request';
-  process.env.Codex_reasoning_effort = 'medium';
-  process.env.Codex_web_search_enabled = 'false';
+  setScopedTestEnvValue('CODEX_HOME', codexHome);
+  setScopedTestEnvValue('MCP_FORCE_CODEX_AVAILABLE', 'true');
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'invalid-url');
+  setScopedTestEnvValue('Codex_sandbox_mode', 'workspace-write');
+  setScopedTestEnvValue('Codex_approval_policy', 'on-request');
+  setScopedTestEnvValue('Codex_reasoning_effort', 'medium');
+  setScopedTestEnvValue('Codex_web_search_enabled', 'false');
   resetStore();
   setCodexDetection({
     available: true,
@@ -1141,7 +1105,6 @@ test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtu
   });
   const mockCodex = new MockCodex('thread-rest-mcp-parity');
   setToolDeps({ codexFactory: () => mockCodex });
-
   const restApp = express();
   restApp.use(
     '/chat',
@@ -1157,10 +1120,8 @@ test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtu
   );
   const restServer = http.createServer(restApp);
   await new Promise<void>((resolve) => restServer.listen(0, resolve));
-
   const rpcServer = http.createServer(handleRpc);
   await new Promise<void>((resolve) => rpcServer.listen(0, resolve));
-
   try {
     const restModels = await request(restServer)
       .get('/chat/models?provider=codex')
@@ -1184,10 +1145,14 @@ test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtu
       }),
     });
     const rpcBody = (await rpcResponse.json()) as {
-      result?: { content: Array<{ type: string; text: string }> };
+      result?: {
+        content: Array<{
+          type: string;
+          text: string;
+        }>;
+      };
     };
     assert.equal(rpcBody.result?.content[0]?.type, 'text');
-
     const marker = query({
       source: ['server'],
       text: 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED',
@@ -1227,17 +1192,17 @@ test('REST and MCP codex defaults/warnings remain aligned for env fallback fixtu
   } finally {
     resetToolDeps();
     if (originalForce === undefined)
-      delete process.env.MCP_FORCE_CODEX_AVAILABLE;
-    else process.env.MCP_FORCE_CODEX_AVAILABLE = originalForce;
-    if (originalCodeHome === undefined) delete process.env.CODEX_HOME;
-    else process.env.CODEX_HOME = originalCodeHome;
+      clearScopedTestEnvValue('MCP_FORCE_CODEX_AVAILABLE');
+    else setScopedTestEnvValue('MCP_FORCE_CODEX_AVAILABLE', originalForce);
+    if (originalCodeHome === undefined) clearScopedTestEnvValue('CODEX_HOME');
+    else setScopedTestEnvValue('CODEX_HOME', originalCodeHome);
     if (originalLmBase === undefined)
-      delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
-    else process.env.CODEINFO_LMSTUDIO_BASE_URL = originalLmBase;
-    delete process.env.Codex_sandbox_mode;
-    delete process.env.Codex_approval_policy;
-    delete process.env.Codex_reasoning_effort;
-    delete process.env.Codex_web_search_enabled;
+      clearScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL');
+    else setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', originalLmBase);
+    clearScopedTestEnvValue('Codex_sandbox_mode');
+    clearScopedTestEnvValue('Codex_approval_policy');
+    clearScopedTestEnvValue('Codex_reasoning_effort');
+    clearScopedTestEnvValue('Codex_web_search_enabled');
     await fs.rm(root, { recursive: true, force: true });
     await new Promise<void>((resolve) => restServer.close(() => resolve()));
     await new Promise<void>((resolve) => rpcServer.close(() => resolve()));

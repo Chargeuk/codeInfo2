@@ -88,8 +88,8 @@ function mockProviderNextSendApi() {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],
@@ -258,15 +258,15 @@ function mockModelNextSendApi() {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
                 supportedReasoningEfforts: ['high', 'xhigh'],
                 defaultReasoningEffort: 'high',
               },
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 supportedReasoningEfforts: ['minimal'],
                 defaultReasoningEffort: 'minimal',
@@ -286,7 +286,7 @@ function mockModelNextSendApi() {
                 conversationId: 'c1',
                 role: 'user',
                 content: 'Earlier prompt',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 provider: 'codex',
                 toolCalls: null,
                 status: 'ok',
@@ -296,7 +296,7 @@ function mockModelNextSendApi() {
                 conversationId: 'c1',
                 role: 'assistant',
                 content: 'Earlier reply',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 provider: 'codex',
                 toolCalls: null,
                 status: 'ok',
@@ -333,7 +333,7 @@ function mockModelNextSendApi() {
                 conversationId: 'c1',
                 title: 'Conversation 1',
                 provider: 'codex',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 source: 'REST',
                 lastMessageAt: '2025-01-01T00:00:03.000Z',
                 archived: false,
@@ -489,7 +489,7 @@ test('navigating away/back during inflight keeps persisted history + inflight', 
   expect(assistantTextsAfter.join('\n')).toContain('Snapshot partial');
 
   await act(async () => {
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: 'c1',
       inflightId: 'i1',
       delta: ' + delta',
@@ -592,7 +592,7 @@ test('hidden-conversation inflight snapshots do not overwrite the visible draft 
     expect(visibleConversationId).not.toBe('c1');
 
     await act(async () => {
-      harness.emitInflightSnapshot({
+      await harness.emitInflightSnapshot({
         conversationId: 'c1',
         inflightId: 'i1',
         assistantText: 'Hidden late snapshot',

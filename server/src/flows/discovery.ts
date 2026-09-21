@@ -26,7 +26,12 @@ import {
   resolveConfiguredFlowsRoot,
   type FlowDefinitionCatalog,
 } from './flowDefinitionCatalog.js';
-import { parseFlowFile, type FlowFile, type FlowStep } from './flowSchema.js';
+import {
+  isFlowDecisionScriptPath,
+  parseFlowFile,
+  type FlowFile,
+  type FlowStep,
+} from './flowSchema.js';
 import {
   buildRepositoryCandidateOrder,
   normalizeRepositoryCandidateLabel,
@@ -162,6 +167,25 @@ const collectSubflowReferenceWarnings = async (params: {
       });
       continue;
     }
+    if (step.type === 'if') {
+      await collectSubflowReferenceWarnings({
+        ...params,
+        steps: step.then,
+        warnings,
+        warningDetails,
+        visited,
+      });
+      if (step.else) {
+        await collectSubflowReferenceWarnings({
+          ...params,
+          steps: step.else,
+          warnings,
+          warningDetails,
+          visited,
+        });
+      }
+      continue;
+    }
     const childFlowNames =
       step.type === 'subflow'
         ? step.flowNames
@@ -231,10 +255,31 @@ const collectAgentTypes = (params: {
   for (const step of params.steps) {
     switch (step.type) {
       case 'llm':
-      case 'break':
-      case 'continue':
       case 'command':
         names.add(step.agentType);
+        break;
+      case 'break':
+      case 'continue':
+        if (
+          step.agentType?.trim() &&
+          !('decisionScript' in step && step.decisionScript) &&
+          !isFlowDecisionScriptPath(step.question)
+        ) {
+          names.add(step.agentType);
+        }
+        break;
+      case 'if':
+        if (
+          step.agentType?.trim() &&
+          !step.decisionScript &&
+          !isFlowDecisionScriptPath(step.condition)
+        ) {
+          names.add(step.agentType);
+        }
+        collectAgentTypes({ ...params, steps: step.then, names });
+        if (step.else) {
+          collectAgentTypes({ ...params, steps: step.else, names });
+        }
         break;
       case 'startLoop':
         collectAgentTypes({
@@ -273,6 +318,85 @@ const collectFlowWarnings = async (params: {
     }
   }
   return warnings.size > 0 ? [...warnings] : undefined;
+};
+
+export const resolveFlowAgentForDiscovery = async (params: {
+  agentName: string;
+  discoveredAgentsByName: Map<
+    string,
+    Awaited<ReturnType<typeof discoverAgents>>[number]
+  >;
+  flowSourceId?: string;
+  flowSourceLabel?: string;
+  codeInfo2Root: string;
+  repos: Array<{ sourceId: string; sourceLabel: string }>;
+}) => {
+  const validatedAgentType = validateRepositoryBackedAgentType(
+    params.agentName,
+  );
+  if (!validatedAgentType.ok) {
+    return {
+      ok: false as const,
+      message: `Flow agent "${params.agentName}" ${validatedAgentType.message}.`,
+    };
+  }
+
+  const ownerRepositoryPath = params.flowSourceId?.trim()
+    ? path.resolve(params.flowSourceId)
+    : params.codeInfo2Root;
+  const ownerRepositoryLabel = params.flowSourceId?.trim()
+    ? params.flowSourceLabel
+    : normalizeRepositoryCandidateLabel({ sourceId: params.codeInfo2Root });
+  const orderedCandidates = buildRepositoryCandidateOrder({
+    caller: 'flow-agent-discovery',
+    codeInfo2Root: params.codeInfo2Root,
+    ownerRepositoryPath,
+    ownerRepositoryLabel,
+    otherRepositoryRoots: params.repos,
+  });
+
+  for (const candidate of orderedCandidates.candidates) {
+    const resolvedAgentHome = await resolveAgentHomeForRepository({
+      repositoryRoot: candidate.sourceId,
+      agentName: validatedAgentType.agentType,
+    });
+    if (!resolvedAgentHome.home) continue;
+
+    const configPath = path.join(resolvedAgentHome.home, 'config.toml');
+    const configStat = await fs.stat(configPath).catch((error) => {
+      if ((error as { code?: string }).code === 'ENOENT') return null;
+      return error;
+    });
+    if (configStat instanceof Error) {
+      return {
+        ok: false as const,
+        message: `Flow agent "${params.agentName}" runtime config could not be read.`,
+      };
+    }
+    if (!configStat?.isFile()) continue;
+
+    return {
+      ok: true as const,
+      configPath,
+      warnings: resolvedAgentHome.warnings,
+    };
+  }
+
+  const discovered = params.discoveredAgentsByName.get(
+    validatedAgentType.agentType,
+  );
+  if (discovered) {
+    return {
+      ok: true as const,
+      configPath: discovered.configPath,
+      warnings: discovered.warnings,
+    };
+  }
+
+  return {
+    ok: false as const,
+    message: `Flow agent "${params.agentName}" is not available in the configured agent homes.`,
+  };
 };
 
 const resolveFlowCommandForDiscovery = async (params: {
@@ -488,11 +612,11 @@ const collectFlowAvailability = async (params: {
       repos: params.repos,
     });
     if (resolved.ok) continue;
-      warningDetails.push({
-        code: 'discovery_warning',
-        message: resolved.message,
-        visibility: 'details',
-      });
+    warningDetails.push({
+      code: 'discovery_warning',
+      message: resolved.message,
+      visibility: 'details',
+    });
     disabledReason ??= {
       code: 'agent_not_found',
       message: resolved.message,
@@ -549,6 +673,24 @@ const collectCommandSteps = (params: {
         }),
       );
       continue;
+    }
+    if (step.type === 'if') {
+      collected.push(
+        ...collectCommandSteps({
+          flowName: params.flowName,
+          steps: step.then,
+          flowsDir: params.flowsDir,
+        }),
+      );
+      if (step.else) {
+        collected.push(
+          ...collectCommandSteps({
+            flowName: params.flowName,
+            steps: step.else,
+            flowsDir: params.flowsDir,
+          }),
+        );
+      }
     }
   }
 

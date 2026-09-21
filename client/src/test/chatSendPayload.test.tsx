@@ -270,7 +270,7 @@ test('chat send payload includes endpointId when the selected model is endpoint-
             },
           ],
           selectedProvider: 'codex',
-          selectedModel: 'gpt-5.1-codex-max',
+          selectedModel: 'gpt-5.6-luna',
           selectedEndpointId: 'https://alpha.example/v1',
         });
       }
@@ -281,8 +281,8 @@ test('chat send payload includes endpointId when the selected model is endpoint-
           toolsAvailable: true,
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/v1',
             },
@@ -326,7 +326,7 @@ test('chat send payload includes endpointId when the selected model is endpoint-
   );
   await waitFor(() =>
     expect(screen.getByTestId('model-select')).toHaveTextContent(
-      /gpt-5\.1-codex-max/i,
+      /gpt-5\.6-luna/i,
     ),
   );
 
@@ -344,7 +344,7 @@ test('chat send payload includes endpointId when the selected model is endpoint-
 
   expect(chatBody).toMatchObject({
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     endpointId: 'https://alpha.example/v1',
   });
 });
@@ -382,7 +382,7 @@ test('chat send payload clears stale endpointId after switching to LM Studio', a
             },
           ],
           selectedProvider: 'codex',
-          selectedModel: 'gpt-5.1-codex-max',
+          selectedModel: 'gpt-5.6-luna',
           selectedEndpointId: 'https://alpha.example/v1',
         });
       }
@@ -393,8 +393,8 @@ test('chat send payload clears stale endpointId after switching to LM Studio', a
           toolsAvailable: true,
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/v1',
             },
@@ -500,7 +500,7 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
             },
           ],
           selectedProvider: 'codex',
-          selectedModel: 'gpt-5.2',
+          selectedModel: 'gpt-5.6-terra',
           selectedEndpointId: 'https://alpha.example/stale/v1',
         });
       }
@@ -514,18 +514,18 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
             label: 'OpenAI Codex',
             available: true,
             toolsAvailable: true,
-            defaultModel: 'gpt-5.2',
+            defaultModel: 'gpt-5.6-terra',
             defaultModelSource: 'config',
           },
           models: [
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
             },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
               endpointId: 'https://alpha.example/alt/v1',
             },
@@ -577,7 +577,7 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
     await waitFor(() => {
       const modelInput = modelButton.querySelector('input');
       expect(modelInput).not.toBeNull();
-      expect(modelInput).toHaveValue('gpt-5.2');
+      expect(modelInput).toHaveValue('gpt-5.6-terra');
     });
 
     const input = await screen.findByTestId('chat-input');
@@ -596,7 +596,7 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
 
     expect(chatBody).toMatchObject({
       provider: 'codex',
-      model: 'gpt-5.2',
+      model: 'gpt-5.6-terra',
     });
     expect(chatBody).not.toHaveProperty('endpointId');
   } finally {
@@ -840,8 +840,8 @@ test('chat send payload keeps the Copilot request provider-neutral without legac
           codexWarnings: [],
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
             },
           ],
@@ -1079,8 +1079,8 @@ test('chat send payload omits hidden incompatible Codex values after switching t
           codexWarnings: [],
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
             },
           ],
@@ -1181,4 +1181,4 @@ test('chat send payload omits hidden incompatible Codex values after switching t
   expect(submittedBody).not.toHaveProperty('modelReasoningEffort');
   expect(submittedBody).not.toHaveProperty('networkAccessEnabled');
   expect(submittedBody).not.toHaveProperty('webSearchEnabled');
-}, 10000);
+});

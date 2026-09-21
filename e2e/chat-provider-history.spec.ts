@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { logPlaywrightCopilotScenarioRegistration } from './support/copilotFakeScenario';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -95,7 +96,7 @@ test('resumed chat history rehydrates the stored provider before showing turns',
 
   const codexConversationId = await seedConversation(
     'codex',
-    'gpt-5.1-codex-max',
+    'gpt-5.6-luna',
     codexTitle,
     'codex reply',
   );
@@ -118,7 +119,7 @@ test('resumed chat history rehydrates the stored provider before showing turns',
 
   await page.goto(`${baseUrl}/chat`);
   await hideMcpOverlay(page);
-  await page.waitForTimeout(500);
+  await expect(page.getByTestId('conversation-refresh')).toBeVisible();
 
   const apiData = await page.evaluate(async (apiUrl) => {
     const res = await fetch(`${apiUrl}/conversations?limit=5`);
@@ -133,7 +134,9 @@ test('resumed chat history rehydrates the stored provider before showing turns',
   );
   console.log('conversation rows found', rowTexts);
 
-  await expect(page.getByText(codexTitle)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(codexTitle)).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(15000),
+  });
 
   // Click the Codex conversation.
   const turnsResponsePromise = page.waitForResponse(
@@ -279,7 +282,9 @@ test('cross-provider history selection keeps Copilot pinned in the selector and 
   const conversationRow = page.locator('[data-testid="conversation-row"]', {
     hasText: copilotConversation.title,
   });
-  await expect(conversationRow).toBeVisible({ timeout: 20000 });
+  await expect(conversationRow).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await conversationRow.click();
 
   await expect(page.getByTestId('provider-select')).toContainText(
@@ -345,8 +350,8 @@ test('fresh chat after selecting history ignores restored resume-only provider s
           toolsAvailable: true,
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
             },
           ],
@@ -435,7 +440,7 @@ test('fresh chat after selecting history ignores restored resume-only provider s
     },
   );
   await expect(historyConversationRow).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await historyConversationRow.click();
   await expect(page.getByTestId('provider-select')).toContainText(/LM Studio/i);
@@ -454,13 +459,13 @@ test('fresh chat after selecting history ignores restored resume-only provider s
 
   await expect
     .poll(() => chatBodies.length, {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message: 'Expected fresh chat submission to be sent',
     })
     .toBe(1);
 
   expect(chatBodies[0]?.provider).toBe('codex');
-  expect(chatBodies[0]?.model).toBe('gpt-5.1-codex-max');
+  expect(chatBodies[0]?.model).toBe('gpt-5.6-luna');
   expect(chatBodies[0]?.conversationId).not.toBe('history-1');
 });
 
@@ -494,7 +499,7 @@ test('mobile endpoint-backed history selection through the conversations overlay
           },
         ],
         selectedProvider: 'codex',
-        selectedModel: 'gpt-5.2',
+        selectedModel: 'gpt-5.6-terra',
         selectedEndpointId: 'https://alpha.example/base/v1',
       }),
     }),
@@ -516,31 +521,31 @@ test('mobile endpoint-backed history selection through the conversations overlay
             label: 'OpenAI Codex',
             available: true,
             toolsAvailable: true,
-            defaultModel: 'gpt-5.2',
+            defaultModel: 'gpt-5.6-terra',
             defaultModelSource: 'config',
           },
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/base/v1',
             },
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/alt/v1',
             },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
               endpointId: 'https://alpha.example/base/v1',
             },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
               endpointId: 'https://alpha.example/alt/v1',
             },
@@ -570,7 +575,7 @@ test('mobile endpoint-backed history selection through the conversations overlay
             conversationId: 'endpoint-history-conversation',
             title: 'Endpoint history conversation',
             provider: 'codex',
-            model: 'gpt-5.1-codex-max',
+            model: 'gpt-5.6-luna',
             source: 'REST',
             lastMessageAt: '2025-01-01T00:00:00.000Z',
             archived: false,
@@ -594,7 +599,7 @@ test('mobile endpoint-backed history selection through the conversations overlay
               role: 'user',
               content: 'Earlier prompt',
               provider: 'codex',
-              model: 'gpt-5.1-codex-max',
+              model: 'gpt-5.6-luna',
               status: 'ok',
               createdAt: '2025-01-01T00:00:00.000Z',
             },
@@ -603,7 +608,7 @@ test('mobile endpoint-backed history selection through the conversations overlay
               role: 'assistant',
               content: 'Earlier reply',
               provider: 'codex',
-              model: 'gpt-5.1-codex-max',
+              model: 'gpt-5.6-luna',
               status: 'ok',
               createdAt: '2025-01-01T00:00:01.000Z',
             },
@@ -658,7 +663,7 @@ test('mobile endpoint-backed history selection through the conversations overlay
     },
   );
   await expect(historyConversationRow).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await historyConversationRow.click();
   await expect(
@@ -668,7 +673,7 @@ test('mobile endpoint-backed history selection through the conversations overlay
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
+    /gpt-5\.6-luna \(alpha\.example \/ alt\)/i,
   );
 });
 
@@ -703,7 +708,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
           },
         ],
         selectedProvider: 'codex',
-        selectedModel: 'gpt-5.2',
+        selectedModel: 'gpt-5.6-terra',
         selectedEndpointId: 'https://alpha.example/base/v1',
       }),
     }),
@@ -725,31 +730,31 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
             label: 'OpenAI Codex',
             available: true,
             toolsAvailable: true,
-            defaultModel: 'gpt-5.2',
+            defaultModel: 'gpt-5.6-terra',
             defaultModelSource: 'config',
           },
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/base/v1',
             },
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/alt/v1',
             },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
               endpointId: 'https://alpha.example/base/v1',
             },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
               endpointId: 'https://alpha.example/alt/v1',
             },
@@ -779,7 +784,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
             conversationId: 'endpoint-history-conversation',
             title: 'Endpoint history conversation',
             provider: 'codex',
-            model: 'gpt-5.1-codex-max',
+            model: 'gpt-5.6-luna',
             source: 'REST',
             lastMessageAt: '2025-01-01T00:00:00.000Z',
             archived: false,
@@ -803,7 +808,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
               role: 'user',
               content: 'Earlier prompt',
               provider: 'codex',
-              model: 'gpt-5.1-codex-max',
+              model: 'gpt-5.6-luna',
               status: 'ok',
               createdAt: '2025-01-01T00:00:00.000Z',
             },
@@ -812,7 +817,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
               role: 'assistant',
               content: 'Earlier reply',
               provider: 'codex',
-              model: 'gpt-5.1-codex-max',
+              model: 'gpt-5.6-luna',
               status: 'ok',
               createdAt: '2025-01-01T00:00:01.000Z',
             },
@@ -868,7 +873,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
     },
   );
   await expect(historyConversationRow).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await historyConversationRow.click();
   await expect(
@@ -878,7 +883,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
+    /gpt-5\.6-luna \(alpha\.example \/ alt\)/i,
   );
 
   await page.getByRole('button', { name: /new conversation/i }).click();
@@ -886,7 +891,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.2 \(alpha\.example \/ base\)/i,
+    /gpt-5\.6-terra \(alpha\.example \/ base\)/i,
   );
 
   await page.getByTestId('chat-input').fill('Fresh run after endpoint history');
@@ -894,7 +899,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
 
   await expect.poll(() => chatBodies.length).toBe(1);
   expect(chatBodies[0]?.provider).toBe('codex');
-  expect(chatBodies[0]?.model).toBe('gpt-5.2');
+  expect(chatBodies[0]?.model).toBe('gpt-5.6-terra');
   expect(chatBodies[0]?.endpointId).toBe('https://alpha.example/base/v1');
   expect(chatBodies[0]?.conversationId).not.toBe(
     'endpoint-history-conversation',

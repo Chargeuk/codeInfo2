@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict';
+import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import express from 'express';
 import supertest from 'supertest';
 import type WebSocket from 'ws';
+
+const execFile = promisify(execFileCb);
 
 import { AbortError, delayWithAbort } from '../../agents/retry.js';
 import {
@@ -15,32 +20,66 @@ import {
   releaseConversationLock,
 } from '../../agents/runLock.js';
 import {
+  __setAgentServiceDepsForTests,
+  prepareFlowOwnedAgentExecution,
+} from '../../agents/service.js';
+import {
   cleanupInflight,
   getInflight,
   getPendingConversationCancel,
+  registerPendingConversationCancel,
 } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { getFlowRunStatus, startFlowRun } from '../../flows/service.js';
+import {
+  __resetGitHubReviewDepsForTests,
+  __setGitHubReviewDepsForTests,
+  readGitHubReviewScratch,
+  prepareGitHubReviewScratchOwnership,
+  type GitHubRepositoryState,
+  materializeGitHubExternalReviewInput,
+  writeGitHubReviewScratch,
+} from '../../flows/githubReview.js';
+import {
+  __resetFlowWaitResumeDepsForTests,
+  startFlowRun,
+} from '../../flows/service.js';
+import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
+import { query } from '../../logStore.js';
 import type { Turn } from '../../mongo/turn.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import { attachWs } from '../../ws/server.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
+  withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
+  peekBufferedEvents,
   sendJson,
   waitForEvent,
   waitForClose,
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const waitForAbort = async (signal?: AbortSignal) => {
+  assert.ok(signal, 'expected flow run AbortSignal');
+  if (signal.aborted) return;
+  await new Promise<void>((resolve) => {
+    signal.addEventListener('abort', () => resolve(), { once: true });
+  });
+};
 
 beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
@@ -48,6 +87,8 @@ beforeEach(() => {
 
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
+  __resetGitHubReviewDepsForTests();
+  __resetFlowWaitResumeDepsForTests();
 });
 
 const withTimeout = async <T>(
@@ -55,12 +96,16 @@ const withTimeout = async <T>(
   timeoutMs: number,
   message: string,
 ): Promise<T> => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   let timeoutHandle: NodeJS.Timeout | undefined;
   try {
     return await Promise.race([
       promise,
       new Promise<T>((_, reject) => {
-        timeoutHandle = setTimeout(() => reject(new Error(message)), timeoutMs);
+        timeoutHandle = setTimeout(
+          () => reject(new Error(message)),
+          resolvedTimeoutMs,
+        );
       }),
     ]);
   } finally {
@@ -68,6 +113,24 @@ const withTimeout = async <T>(
       clearTimeout(timeoutHandle);
     }
   }
+};
+
+const waitFor = async (
+  predicate: () => boolean,
+  timeoutMs = 10000,
+  describe?: () => string,
+): Promise<void> => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
+  const started = Date.now();
+  while (Date.now() - started < resolvedTimeoutMs) {
+    if (predicate()) return;
+    await delay(20);
+  }
+  throw new Error(
+    describe
+      ? `Timed out waiting for condition | ${describe()}`
+      : 'Timed out waiting for condition',
+  );
 };
 
 const closeHttpServer = async (
@@ -107,8 +170,9 @@ const closeFlowHarness = async (params: {
     );
   } catch {
     try {
+      const forcedClose = waitForClose(params.ws, 500);
       params.ws.terminate();
-      await waitForClose(params.ws, 500);
+      await forcedClose;
     } catch {
       // Ignore forced-close failures and continue draining the server.
     }
@@ -135,7 +199,16 @@ const closeFlowHarness = async (params: {
 };
 
 class ScriptedChat extends ChatInterface {
-  constructor(private readonly responder: (message: string) => string) {
+  constructor(
+    private readonly responder: (message: string) => string,
+    private readonly options: {
+      onExecute?: (params: {
+        message: string;
+        flags: Record<string, unknown>;
+        conversationId: string;
+      }) => void;
+    } = {},
+  ) {
     super();
   }
 
@@ -151,10 +224,13 @@ class ScriptedChat extends ChatInterface {
       this.emit('error', { type: 'error', message: 'aborted' });
       return;
     }
+    this.options.onExecute?.({ message, flags, conversationId });
     this.emit('thread', { type: 'thread', threadId: conversationId });
     const rawResponse = this.responder(message);
-    if (rawResponse === '__throw') {
-      throw new Error('scripted chat failure');
+    if (rawResponse === '__wait_for_abort__') {
+      await waitForAbort(signal);
+      this.emit('error', { type: 'error', message: 'aborted' });
+      return;
     }
     const delayedMatch = rawResponse.match(/^__delay:(\d+)::([\s\S]*)$/);
     if (delayedMatch) {
@@ -186,15 +262,263 @@ const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
 );
+const githubReviewFixturesDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../fixtures/flows/github-review',
+);
+
+const initializeTrackedFixtureRepository = async (
+  repositoryRoot: string,
+  branch = 'test-flow',
+) => {
+  await execFile('git', ['init', '-b', branch], { cwd: repositoryRoot });
+  await execFile('git', ['config', 'user.email', 'tests@example.com'], {
+    cwd: repositoryRoot,
+  });
+  await execFile('git', ['config', 'user.name', 'Tests'], {
+    cwd: repositoryRoot,
+  });
+  await execFile('git', ['add', '--all'], { cwd: repositoryRoot });
+  await execFile('git', ['commit', '-m', 'fixture'], {
+    cwd: repositoryRoot,
+  });
+};
+
+const createGitHubReviewRepoFixture = async () => {
+  const repoRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'github-loop-repo-'),
+  );
+  const planPath =
+    'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md';
+  await fs.mkdir(path.join(repoRoot, 'codeInfoStatus/flow-state'), {
+    recursive: true,
+  });
+  await fs.mkdir(path.join(repoRoot, 'planning'), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, 'scripts/flow_control'), {
+    recursive: true,
+  });
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-plan.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        branched_from: 'main',
+        additional_repositories: [],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(repoRoot, 'codeInfoStatus/flow-state/current-task.json'),
+    JSON.stringify(
+      {
+        plan_path: planPath,
+        selected_task: {
+          number: 4,
+          title: 'Task 4',
+          status: '__in_progress__',
+        },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(
+      repoRoot,
+      'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+    ),
+    [
+      '# Story 0000060 - Users can automate GitHub PR review cycles with conditional, script, and wait steps',
+      '',
+      '### Task 4. Compose The Opt-In GitHub Review-Cycle Flow Variant And Preserve Default Entrypoints',
+      '',
+      '- Task Status: `__in_progress__`',
+      '',
+      '#### Implementation notes',
+      '',
+      '- Starts empty.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.copyFile(
+    path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../../../scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+    path.join(
+      repoRoot,
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    ),
+  );
+  await fs.writeFile(
+    path.join(repoRoot, '.env.local'),
+    'CODEINFO_PR_TOKEN=secret\n',
+    'utf8',
+  );
+  await initializeTrackedFixtureRepository(repoRoot, 'feature/0000060-demo');
+  return repoRoot;
+};
+
+const writeGitHubReviewHandoff = async (params: {
+  repoRoot: string;
+  executionId?: string;
+  reviewCount: number;
+  commentCount?: number;
+  legacyReviewCount?: number;
+  legacyCommentCount?: number;
+}) => {
+  const reviewsDir = path.join(params.repoRoot, 'codeInfoTmp/reviews');
+  await fs.mkdir(reviewsDir, { recursive: true });
+  const executionId = params.executionId ?? 'exec-1';
+
+  const writeHandoff = async (reviewCount: number, commentCount: number) => {
+    const handoffPath = path.join(
+      reviewsDir,
+      `0000060-github-review-${executionId}-current.json`,
+    );
+    await fs.writeFile(
+      path.join(reviewsDir, '0000060-github-review-current.json'),
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: executionId,
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: params.repoRoot,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: executionId,
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: params.repoRoot,
+          filtered_review_count: reviewCount,
+          filtered_review_comment_count: commentCount,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+  };
+
+  await writeHandoff(params.reviewCount, params.commentCount ?? 0);
+  if (
+    params.legacyReviewCount !== undefined ||
+    params.legacyCommentCount !== undefined
+  ) {
+    await fs.writeFile(
+      path.join(reviewsDir, '0000060-current-review.json'),
+      JSON.stringify(
+        {
+          filtered_review_count: params.legacyReviewCount ?? 0,
+          filtered_review_comment_count: params.legacyCommentCount ?? 0,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+  }
+};
+
+const writeGitHubReviewRuntimeFlow = async (params: {
+  dir: string;
+  flowName: string;
+  includeWait?: boolean;
+  thenSteps: Array<Record<string, unknown>>;
+  elseSteps: Array<Record<string, unknown>>;
+}) => {
+  const steps: Array<Record<string, unknown>> = [];
+  if (params.includeWait) {
+    steps.push({
+      type: 'wait',
+      label: 'Wait for review feedback',
+      seconds: 60,
+    });
+  }
+  steps.push({
+    type: 'if',
+    condition:
+      'scripts/flow_control/check_github_review_has_reviewer_feedback.py',
+    then: params.thenSteps,
+    else: params.elseSteps,
+  });
+
+  await fs.writeFile(
+    path.join(params.dir, `${params.flowName}.json`),
+    JSON.stringify(
+      {
+        description: 'GitHub review runtime branch-authority fixture',
+        steps,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+};
+
+const buildHarnessRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.basename(containerPath) || 'flow-test-repo',
+  description: null,
+  containerPath,
+  hostPath: `/host${containerPath}`,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 1, chunks: 1, embedded: 1 },
+  lastError: null,
+});
+
+const listHarnessRepo = async (
+  containerPath: string,
+): Promise<ListReposResult> => ({
+  repos: [buildHarnessRepoEntry(containerPath)],
+  lockedModelId: null,
+});
 
 const withFlowServer = async (
   responder: (message: string) => string,
-  task: (params: { baseUrl: string; wsUrl: WebSocket }) => Promise<void>,
+  task: (params: {
+    baseUrl: string;
+    wsUrl: WebSocket;
+    tmpDir: string;
+  }) => Promise<void>,
   options?: {
+    chatFactory?: () => ChatInterface;
     cleanupInflightFn?: (params: {
       conversationId: string;
       inflightId?: string;
     }) => void;
+    listIngestedRepositoriesFn?: () => Promise<ListReposResult>;
     releaseConversationLockFn?: (
       conversationId: string,
       expectedRunToken?: string,
@@ -204,64 +528,103 @@ const withFlowServer = async (
       conversationId: string;
       detail?: string;
     }) => void | Promise<void>;
+    registerTmpDirAsRepo?: boolean;
   },
 ) => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-loop-'));
-  await fs.cp(fixturesDir, tmpDir, { recursive: true });
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new ScriptedChat(responder),
-          onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
-          cleanupInflightFn: options?.cleanupInflightFn,
-          releaseConversationLockFn: options?.releaseConversationLockFn,
-        }),
-    }),
-  );
-
-  const httpServer = http.createServer(app);
-  const wsHandle = attachWs({ httpServer });
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const ws = await connectWs({ baseUrl });
-
-  try {
-    await task({ baseUrl, wsUrl: ws });
-  } finally {
-    await closeFlowHarness({ ws, wsHandle, httpServer });
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
+  await withDeterministicCodexAvailabilityBootstrap(async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-loop-'),
+    );
+    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+    if (options?.registerTmpDirAsRepo) {
+      await initializeTrackedFixtureRepository(tmpDir);
     }
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  }
+
+    try {
+      await withIsolatedProviderHomeTestEnv(
+        {
+          prefix: 'flows-loop-provider-homes-',
+          overrides: {
+            CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+            FLOWS_DIR: tmpDir,
+          },
+        },
+        async () => {
+          const app = express();
+          app.use(
+            createFlowsRunRouter({
+              startFlowRun: bindCurrentTestOverrides((params) =>
+                startFlowRun({
+                  ...params,
+                  chatFactory:
+                    options?.chatFactory ?? (() => new ScriptedChat(responder)),
+                  listIngestedRepositories:
+                    options?.listIngestedRepositoriesFn ??
+                    (options?.registerTmpDirAsRepo
+                      ? () => listHarnessRepo(tmpDir)
+                      : async () => ({
+                          repos: [],
+                          lockedModelId: null,
+                        })),
+                  onStopUnwindCheckpoint: options?.onStopUnwindCheckpoint,
+                  cleanupInflightFn: options?.cleanupInflightFn,
+                  releaseConversationLockFn: options?.releaseConversationLockFn,
+                }),
+              ),
+            }),
+          );
+
+          const httpServer = http.createServer(app);
+          const wsHandle = attachWs({ httpServer });
+          await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+          const address = httpServer.address();
+          assert(address && typeof address === 'object');
+          const baseUrl = `http://127.0.0.1:${address.port}`;
+          const ws = await connectWs({ baseUrl });
+
+          try {
+            await task({ baseUrl, wsUrl: ws, tmpDir });
+          } finally {
+            await closeFlowHarness({ ws, wsHandle, httpServer });
+          }
+        },
+      );
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
 };
 
 const waitForTurns = async (
   conversationId: string,
   predicate: (turns: Turn[]) => boolean,
   timeoutMs = 2000,
+  describe?: () => string,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     const turns = memoryTurns.get(conversationId) ?? [];
     if (predicate(turns)) return turns;
     await delay(20);
   }
-  throw new Error('Timed out waiting for flow turns');
+  const turns = memoryTurns.get(conversationId) ?? [];
+  const conversation = memoryConversations.get(conversationId);
+  throw new Error(
+    [
+      `Timed out waiting for flow turns for ${conversationId}`,
+      `turnCount=${turns.length}`,
+      `conversationFlags=${JSON.stringify(conversation?.flags ?? null)}`,
+      `recentTurns=${JSON.stringify(
+        turns.slice(-8).map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      )}`,
+      describe ? `details=${describe()}` : '',
+    ].join(' | '),
+  );
 };
 
 const getAgentConversationId = (
@@ -273,7 +636,14 @@ const getAgentConversationId = (
     flow?: { agentConversations?: Record<string, string> };
   };
   const agentConversationId = flowFlags.flow?.agentConversations?.[agentKey];
-  assert.ok(agentConversationId, `Missing agent conversation for ${agentKey}`);
+  assert.ok(
+    agentConversationId,
+    [
+      `Missing agent conversation for ${agentKey}`,
+      `conversationId=${conversationId}`,
+      `state=${describeFlowRuntimeState(conversationId, [agentKey])}`,
+    ].join(' | '),
+  );
   return agentConversationId;
 };
 
@@ -300,6 +670,257 @@ const getLoopContinueAgentConversationIds = (conversationId: string) =>
     'coding_agent:post-continue',
     'coding_agent:outer-break',
   ]);
+
+const getConversationScopedRuntimeLogs = (
+  conversationId: string,
+  options?: {
+    flowLogLimit?: number;
+    runtimeLockLogLimit?: number;
+    tailSize?: number;
+  },
+) => {
+  const flowLogLimit = options?.flowLogLimit ?? 400;
+  const runtimeLockLogLimit = options?.runtimeLockLogLimit ?? 40;
+  const tailSize = options?.tailSize ?? 120;
+  const seen = new Set<string>();
+  const combined = query({ text: 'flows.test.' }, flowLogLimit)
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .concat(query({ text: 'runtime.chat_config_lock_' }, runtimeLockLogLimit))
+    .filter((entry) => {
+      const dedupeKey = `${entry.timestamp}|${entry.message}|${JSON.stringify(entry.context ?? null)}`;
+      if (seen.has(dedupeKey)) {
+        return false;
+      }
+      seen.add(dedupeKey);
+      return true;
+    })
+    .sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+
+  return combined.slice(-tailSize).map((entry) => ({
+    message: entry.message,
+    context: entry.context,
+  }));
+};
+
+const getConversationScopedRuntimeResolutionLogs = (
+  conversationId: string,
+  limit = 80,
+) =>
+  query({ text: 'flows.test.runtime_resolution_' }, limit)
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
+
+const getGlobalRuntimeConfigLogs = (limit = 80) =>
+  query({ text: 'runtime.' }, limit)
+    .filter(
+      (entry) =>
+        entry.message.startsWith('runtime.chat_config_') ||
+        entry.message.startsWith('runtime.runtime_config_resolution_'),
+    )
+    .map((entry) => ({
+      message: entry.message,
+      context: entry.context,
+    }));
+
+const describeFlowRuntimeState = (
+  conversationId: string,
+  agentKeys: string[] = [],
+  options?: {
+    expectedNextStepPath?: number[];
+    scriptedMessages?: string[];
+    stopUnwindCheckpoints?: StopUnwindCheckpoint[];
+  },
+): string =>
+  JSON.stringify({
+    inflightId: getInflight(conversationId)?.inflightId ?? null,
+    ownershipRunToken: getActiveRunOwnership(conversationId)?.runToken ?? null,
+    pendingCancelState: snapshotRuntimeCleanupState(conversationId),
+    conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
+    expectedNextStepPath: options?.expectedNextStepPath ?? null,
+    agentConversations: getAgentConversationIds(conversationId, agentKeys).map(
+      (agentConversationId) => ({
+        agentConversationId,
+        recentTurns: (memoryTurns.get(agentConversationId) ?? [])
+          .slice(-6)
+          .map((turn) => ({
+            role: turn.role,
+            status: turn.status,
+            content: turn.content,
+          })),
+      }),
+    ),
+    scriptedMessages: options?.scriptedMessages
+      ? {
+          totalMessages: options.scriptedMessages.length,
+          recentMessages: options.scriptedMessages.slice(-12),
+        }
+      : undefined,
+    stopUnwind: options?.stopUnwindCheckpoints
+      ? {
+          totalCheckpoints: options.stopUnwindCheckpoints.length,
+          recentCheckpoints: options.stopUnwindCheckpoints.slice(-12),
+        }
+      : undefined,
+    runtimeLogs: getConversationScopedRuntimeLogs(conversationId),
+    runtimeResolutionLogs:
+      getConversationScopedRuntimeResolutionLogs(conversationId),
+    runtimeConfigLogs: getGlobalRuntimeConfigLogs(),
+  });
+
+const describeLoopContinueResumeState = (conversationId: string): string =>
+  JSON.stringify({
+    flowState: JSON.parse(
+      describeFlowRuntimeState(conversationId, [
+        'coding_agent:outer',
+        'coding_agent:outer-continue',
+        'coding_agent:post-continue',
+        'coding_agent:outer-break',
+      ]),
+    ),
+    turns: (memoryTurns.get(conversationId) ?? []).map((turn) => ({
+      role: turn.role,
+      status: turn.status,
+      content: turn.content,
+    })),
+  });
+
+type ObservedLoopTerminalOutcome = {
+  status: string;
+  errorCode: string | null;
+  errorMessage: string | null;
+  source: 'ws' | 'persisted';
+};
+
+const getLatestLoopTerminalTurn = (
+  conversationId: string,
+): Turn | undefined => {
+  const turns = memoryTurns.get(conversationId) ?? [];
+  return [...turns].reverse().find((turn) => turn.role === 'assistant');
+};
+
+const getLatestPublishedTurnFinalLog = (conversationId: string) =>
+  query({ text: 'chat.ws.server_publish_turn_final' }, 120)
+    .filter((entry) => entry.context?.conversationId === conversationId)
+    .at(-1);
+
+const getPersistedLoopTerminalOutcome = (
+  conversationId: string,
+): ObservedLoopTerminalOutcome | null => {
+  const terminalTurn = getLatestLoopTerminalTurn(conversationId);
+  const publishedTurnFinal = getLatestPublishedTurnFinalLog(conversationId);
+  const statusFromLog = publishedTurnFinal?.context?.status;
+  const errorCodeFromLog = publishedTurnFinal?.context?.errorCode;
+  const status =
+    typeof statusFromLog === 'string'
+      ? statusFromLog
+      : (terminalTurn?.status ?? null);
+
+  if (!status) {
+    return null;
+  }
+
+  return {
+    status,
+    errorCode: typeof errorCodeFromLog === 'string' ? errorCodeFromLog : null,
+    errorMessage: terminalTurn?.content ?? null,
+    source: 'persisted',
+  };
+};
+
+const waitForLoopTerminalOutcome = async (params: {
+  ws: WebSocket;
+  conversationId: string;
+  expectedStatus: string | string[];
+  timeoutMs?: number;
+  describe?: () => string;
+}): Promise<ObservedLoopTerminalOutcome> => {
+  const expectedStatuses = Array.isArray(params.expectedStatus)
+    ? params.expectedStatus
+    : [params.expectedStatus];
+  const persistedFallbackTimeoutMs = Math.max(
+    2000,
+    Math.min(5000, params.timeoutMs ?? 4000),
+  );
+  const alreadyPersisted = getPersistedLoopTerminalOutcome(
+    params.conversationId,
+  );
+  if (alreadyPersisted && expectedStatuses.includes(alreadyPersisted.status)) {
+    return alreadyPersisted;
+  }
+  try {
+    const final = await waitForEvent({
+      ws: params.ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        status: string;
+        error?: { code?: string; message?: string };
+      } => {
+        const candidate = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+          error?: { code?: string; message?: string };
+        };
+        return (
+          candidate.type === 'turn_final' &&
+          candidate.conversationId === params.conversationId &&
+          expectedStatuses.includes(candidate.status ?? '')
+        );
+      },
+      timeoutMs: params.timeoutMs,
+      describe: params.describe,
+      inspectCurrent: () =>
+        describeFlowRuntimeState(params.conversationId, [
+          'coding_agent:outer',
+          'coding_agent:inner',
+          'coding_agent:inner-break',
+          'coding_agent:outer-break',
+        ]),
+      describeEvent: (event) => JSON.stringify(event),
+    });
+
+    return {
+      status: final.status,
+      errorCode: final.error?.code ?? null,
+      errorMessage: final.error?.message ?? null,
+      source: 'ws',
+    };
+  } catch (error) {
+    await waitFor(
+      () =>
+        expectedStatuses.includes(
+          getPersistedLoopTerminalOutcome(params.conversationId)?.status ?? '',
+        ),
+      persistedFallbackTimeoutMs,
+      () =>
+        [
+          params.describe?.(),
+          `runtimeState=${describeFlowRuntimeState(params.conversationId, [
+            'coding_agent:outer',
+            'coding_agent:inner',
+            'coding_agent:inner-break',
+            'coding_agent:outer-break',
+          ])}`,
+        ]
+          .filter((part): part is string => Boolean(part))
+          .join(' | '),
+    ).catch(() => {
+      throw error;
+    });
+
+    const persisted = getPersistedLoopTerminalOutcome(params.conversationId);
+    assert.ok(
+      persisted,
+      `Missing persisted loop terminal outcome for ${params.conversationId}`,
+    );
+    return persisted;
+  }
+};
 
 const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
   conversationIds.forEach((conversationId) => {
@@ -348,6 +969,24 @@ const snapshotRuntimeCleanupState = (
   };
 };
 
+const pushStopUnwindCheckpoint = (
+  checkpoints: StopUnwindCheckpoint[],
+  params: {
+    checkpoint: string;
+    conversationId: string;
+    detail?: string;
+  },
+  limit = 20,
+) => {
+  checkpoints.push({
+    ...params,
+    state: snapshotRuntimeCleanupState(params.conversationId),
+  });
+  if (checkpoints.length > limit) {
+    checkpoints.splice(0, checkpoints.length - limit);
+  }
+};
+
 const cleanupConversationRuntime = async (
   conversationId: string | undefined,
   ...conversationIds: Array<string | undefined>
@@ -364,9 +1003,11 @@ const cleanupConversationRuntime = async (
 const waitForRuntimeCleanup = async (
   conversationId: string,
   timeoutMs = 8000,
+  describe?: () => string,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (
       !getInflight(conversationId) &&
       !getActiveRunOwnership(conversationId)
@@ -378,7 +1019,12 @@ const waitForRuntimeCleanup = async (
   const inflight = getInflight(conversationId);
   const ownership = getActiveRunOwnership(conversationId);
   throw new Error(
-    `Timed out waiting for flow runtime cleanup (inflight=${String(Boolean(inflight))}, ownership=${String(Boolean(ownership))}, inflightId=${inflight?.inflightId ?? 'none'}, runToken=${ownership?.runToken ?? 'none'})`,
+    [
+      `Timed out waiting for flow runtime cleanup (inflight=${String(Boolean(inflight))}, ownership=${String(Boolean(ownership))}, inflightId=${inflight?.inflightId ?? 'none'}, runToken=${ownership?.runToken ?? 'none'})`,
+      describe ? `details=${describe()}` : '',
+    ]
+      .filter(Boolean)
+      .join(' | '),
   );
 };
 
@@ -387,43 +1033,22 @@ const waitForPredicate = async (
   timeoutMs: number,
   message: string,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (predicate()) return;
     await delay(25);
   }
   throw new Error(message);
 };
 
-const expectNoTerminalFinal = async (
-  ws: WebSocket,
-  conversationId: string,
-  waitMs = 300,
-) => {
-  await assert.rejects(
-    () =>
-      waitForEvent({
-        ws,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return e.type === 'turn_final' && e.conversationId === conversationId;
-        },
-        timeoutMs: waitMs,
-      }),
-    /Timed out waiting for WebSocket event/,
-  );
-};
-
 test('flow loops until break answer matches breakOn', async () => {
   let outerBreakCount = 0;
+  const scriptedMessages: string[] = [];
+  const stopUnwindCheckpoints: StopUnwindCheckpoint[] = [];
   await withFlowServer(
     (message) => {
+      scriptedMessages.push(message);
       if (message.includes('Exit inner loop?')) {
         return JSON.stringify({ answer: 'yes' });
       }
@@ -436,7 +1061,7 @@ test('flow loops until break answer matches breakOn', async () => {
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-1';
       const customTitle = 'Loop Custom Title';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
@@ -450,7 +1075,27 @@ test('flow loops until break answer matches breakOn', async () => {
             (turn) =>
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 2,
-        15000,
+        35000,
+        () =>
+          JSON.stringify({
+            outerBreakCount,
+            state: JSON.parse(
+              describeFlowRuntimeState(
+                conversationId,
+                [
+                  'coding_agent:outer',
+                  'coding_agent:inner',
+                  'coding_agent:inner-break',
+                  'coding_agent:outer-break',
+                ],
+                {
+                  expectedNextStepPath: [0, 1],
+                  scriptedMessages,
+                  stopUnwindCheckpoints,
+                },
+              ),
+            ),
+          }),
       );
 
       const outerBreakTurns = turns.filter(
@@ -478,279 +1123,643 @@ test('flow loops until break answer matches breakOn', async () => {
       assert.equal(agentConversation?.title, `${customTitle} (outer)`);
       await cleanupConversationRuntime(conversationId, agentConversationId);
     },
-  );
-});
-
-test('haltFlow break stops the complete flow instead of advancing outer steps', async () => {
-  await withFlowServer(
-    (message) =>
-      message.includes('Halt complete flow?')
-        ? JSON.stringify({ answer: 'yes' })
-        : 'unexpected',
-    async ({ baseUrl }) => {
-      const conversationId = 'flow-halt-break';
-      await supertest(baseUrl)
-        .post('/flows/halt-break/run')
-        .send({ conversationId })
-        .expect(202);
-
-      const turns = await waitForTurns(
-        conversationId,
-        (items) =>
-          items.some(
-            (turn) =>
-              turn.role === 'assistant' && turn.content.includes('"yes"'),
-          ),
-        15000,
-      );
-      await waitForRuntimeCleanup(conversationId);
-
-      const status = await getFlowRunStatus(conversationId);
-      assert.equal(status?.status, 'stopped');
-      assert.equal(status?.terminal, true);
-
-      assert.equal(
-        turns.some((turn) =>
-          turn.content.includes('This step must not execute'),
-        ),
-        false,
-      );
-      assert.equal(
-        turns.some((turn) =>
-          turn.content.includes('This top-level step must not execute'),
-        ),
-        false,
-      );
-      await cleanupConversationRuntime(conversationId);
+    {
+      onStopUnwindCheckpoint: (params) => {
+        pushStopUnwindCheckpoint(stopUnwindCheckpoints, params);
+      },
     },
   );
 });
 
-test('exitFlow break exits the complete flow as a successful best-effort result', async () => {
-  await withFlowServer(
-    (message) =>
-      message.includes('Exit complete flow successfully?')
-        ? JSON.stringify({ answer: 'yes' })
-        : 'unexpected',
-    async ({ baseUrl }) => {
-      const conversationId = 'flow-exit-break';
-      await supertest(baseUrl)
-        .post('/flows/exit-break/run')
-        .send({ conversationId })
-        .expect(202);
+test('github review complete corpus scratch replacement stays authoritative before classification', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    const selectorPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-current.json',
+    );
+    const handoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-1-current.json',
+    );
+    const rawArtifactPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-1-pr-45.json',
+    );
+    await fs.mkdir(path.dirname(handoffPath), { recursive: true });
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp/reviews/0000060-github-review-exec-1-external-review-input.md',
+      ),
+      'stale input\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: 'exec-1',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name: 'feature/0000060-demo',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-1',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name: 'feature/0000060-demo',
+          head_sha: 'deadbeef',
+          raw_review_artifact_path: rawArtifactPath,
+          pull_request: {
+            number: 45,
+            url: 'https://github.com/example/repo/pull/45',
+            headRefName: 'feature/0000060-demo',
+            baseRefName: 'main',
+            authorLogin: 'review-author',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    const reviewCount = 205;
+    const commentCount = 205;
+    const reviews = Array.from({ length: reviewCount }, (_, index) => ({
+      id: 3000 + index + 1,
+      user: { login: `reviewer-${String(index + 1)}` },
+      body:
+        index === 0
+          ? 'Fresh complete review entry one.'
+          : index === reviewCount - 1
+            ? 'Fresh complete review entry final.'
+            : `Fresh complete review entry ${String(index + 1)}.`,
+      state: 'COMMENTED',
+      submitted_at: new Date(
+        Date.UTC(2026, 5, 24, 10, 0, index + 1),
+      ).toISOString(),
+    }));
+    const reviewComments = Array.from({ length: commentCount }, (_, index) => ({
+      id: 4000 + index + 1,
+      pull_request_review_id: 3000 + index + 1,
+      user: { login: `inline-reviewer-${String(index + 1)}` },
+      body:
+        index === 0
+          ? 'Fresh complete inline entry one.'
+          : index === commentCount - 1
+            ? 'Fresh complete inline entry final.'
+            : `Fresh complete inline entry ${String(index + 1)}.`,
+      path: 'server/src/flows/githubReview.ts',
+      line: index + 1,
+      created_at: new Date(
+        Date.UTC(2026, 5, 24, 11, 0, index + 1),
+      ).toISOString(),
+    }));
+    await fs.writeFile(
+      rawArtifactPath,
+      JSON.stringify(
+        {
+          repository: { owner: 'example', name: 'repo' },
+          pullRequest: {
+            number: 45,
+            url: 'https://github.com/example/repo/pull/45',
+            headRefName: 'feature/0000060-demo',
+            baseRefName: 'main',
+            authorLogin: 'review-author',
+          },
+          fetchedAt: '2026-06-24T12:00:00.000Z',
+          reviews,
+          reviewComments,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
 
-      const turns = await waitForTurns(
-        conversationId,
-        (items) =>
-          items.some(
-            (turn) =>
-              turn.role === 'assistant' && turn.content.includes('"yes"'),
-          ),
-        15000,
-      );
-      await waitForRuntimeCleanup(conversationId);
+    const result = await materializeGitHubExternalReviewInput({
+      handoff: await (async () => {
+        const parsed = await readGitHubReviewScratch({
+          handoffPath: selectorPath,
+        });
+        assert.equal(parsed.kind, 'ok');
+        return parsed.value;
+      })(),
+    });
+    assert.equal(result.kind, 'ok');
 
-      const status = await getFlowRunStatus(conversationId);
-      assert.equal(status?.status, 'ok');
-      assert.equal(status?.terminal, true);
-      assert.equal(status?.terminalOutcome, 'not_applicable');
-      assert.equal(
-        turns.some((turn) =>
-          turn.content.includes(
-            'This step must not execute after a best-effort exit',
-          ),
-        ),
-        false,
-      );
-      assert.equal(
-        turns.some((turn) =>
-          turn.content.includes(
-            'This top-level step must not execute after a best-effort exit',
-          ),
-        ),
-        false,
-      );
-      await cleanupConversationRuntime(conversationId);
-    },
+    const updatedHandoff = JSON.parse(
+      await fs.readFile(handoffPath, 'utf8'),
+    ) as {
+      filtered_review_count?: number;
+      filtered_review_comment_count?: number;
+      external_review_input_file?: string;
+    };
+    const externalInput = await fs.readFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp/reviews/0000060-github-review-exec-1-external-review-input.md',
+      ),
+      'utf8',
+    );
+    assert.equal(updatedHandoff.filtered_review_count, reviewCount);
+    assert.equal(updatedHandoff.filtered_review_comment_count, commentCount);
+    assert.match(
+      updatedHandoff.external_review_input_file ?? '',
+      /0000060-github-review-exec-1-external-review-input\.md$/,
+    );
+    assert.match(externalInput, /Fresh complete review entry one\./);
+    assert.match(externalInput, /Fresh complete review entry final\./);
+    assert.match(externalInput, /Fresh complete inline entry one\./);
+    assert.match(externalInput, /Fresh complete inline entry final\./);
+    assert.doesNotMatch(externalInput, /stale input/);
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('checked-in GitHub review flow is opt-in, runs after internal completion, and closes once before restart', async () => {
+  const variant = JSON.parse(
+    await fs.readFile(
+      path.join(repoRoot, 'flows/implement_next_plan_github_review.json'),
+      'utf8',
+    ),
+  ) as {
+    steps: Array<Record<string, unknown>>;
+  };
+
+  const flattenSteps = (
+    steps: Array<Record<string, unknown>>,
+  ): Array<Record<string, unknown>> =>
+    steps.flatMap((step) => {
+      const nested = Array.isArray(step.steps)
+        ? flattenSteps(step.steps as Array<Record<string, unknown>>)
+        : [];
+      const thenBranch = Array.isArray(step.then)
+        ? flattenSteps(step.then as Array<Record<string, unknown>>)
+        : [];
+      const elseBranch = Array.isArray(step.else)
+        ? flattenSteps(step.else as Array<Record<string, unknown>>)
+        : [];
+      return [step, ...nested, ...thenBranch, ...elseBranch];
+    });
+
+  const flattened = flattenSteps(variant.steps);
+  const openIndex = flattened.findIndex(
+    (step) => step.type === 'github_open_pr',
+  );
+  const waitIndex = flattened.findIndex((step) => step.type === 'wait');
+  const fetchIndex = flattened.findIndex(
+    (step) => step.type === 'github_fetch_reviews',
+  );
+  const waitGateIndex = flattened.findIndex(
+    (step) => step.label === 'Only Wait When The GitHub Review Cycle Is Active',
+  );
+  const dispositionIfIndex = flattened.findIndex(
+    (step) =>
+      step.label ===
+      'Only Enter External Review Disposition When Reviewer Feedback Exists',
+  );
+  const internalCompletionIndex = flattened.findIndex(
+    (step) => step.label === 'Check for completion',
+  );
+  const closeLabels = flattened
+    .filter((step) => step.type === 'github_close_pr')
+    .map((step) => step.label);
+
+  assert.ok(openIndex > -1);
+  assert.ok(internalCompletionIndex > -1);
+  assert.ok(openIndex > internalCompletionIndex);
+  assert.ok(waitGateIndex > openIndex);
+  assert.ok(waitIndex > waitGateIndex);
+  assert.ok(fetchIndex > waitIndex);
+  assert.ok(dispositionIfIndex > fetchIndex);
+  assert.deepEqual(closeLabels, [
+    'Close GitHub Review Pull Request Before Internal Review Restart',
+  ]);
+  assert.ok(
+    flattened.some(
+      (step) => step.markdownFile === 'classify_pr_review_disposition.md',
+    ),
+  );
+  const dispositionIf = flattened[dispositionIfIndex];
+  const dispositionBranch = Array.isArray(dispositionIf?.then)
+    ? (dispositionIf.then as Array<Record<string, unknown>>)
+    : [];
+  const dispositionLoop = dispositionBranch.find(
+    (step) => step.type === 'startLoop',
+  );
+  const dispositionSteps = Array.isArray(dispositionLoop?.steps)
+    ? (dispositionLoop.steps as Array<Record<string, unknown>>)
+    : [];
+  const findingsProducerIndex = dispositionSteps.findIndex(
+    (step) => step.label === 'Produce Canonical GitHub Review Findings',
+  );
+  const classifierIndex = dispositionSteps.findIndex(
+    (step) => step.markdownFile === 'classify_pr_review_disposition.md',
+  );
+  const workflowStateRepairIndex = dispositionSteps.findIndex(
+    (step) => step.label === 'Repair Workflow State If Needed',
+  );
+  const finalTaskGuardIndex = dispositionSteps.findIndex(
+    (step) =>
+      step.label ===
+      'Generate Final Revalidation Task Unless Review Work Is Already Tasked Up',
+  );
+  const existingTaskExitIndex = dispositionSteps.findIndex(
+    (step) => step.label === 'Exit Review Loop After Serious Review Work Was Tasked Up',
+  );
+  const cleanExitIndex = dispositionSteps.findIndex(
+    (step) =>
+      step.label === 'Exit Review Loop When No Further Minor Rerun Is Needed',
+  );
+  assert.ok(findingsProducerIndex > -1);
+  assert.ok(classifierIndex > findingsProducerIndex);
+  assert.ok(workflowStateRepairIndex > classifierIndex);
+  assert.ok(finalTaskGuardIndex > workflowStateRepairIndex);
+  assert.ok(existingTaskExitIndex > finalTaskGuardIndex);
+  assert.ok(cleanExitIndex > existingTaskExitIndex);
+  const finalTaskGuard = dispositionSteps[finalTaskGuardIndex];
+  assert.equal(
+    finalTaskGuard?.decisionScript,
+    'scripts/flow_control/check_review_should_exit_to_main_loop.py',
+  );
+  const alreadyTaskedExit = Array.isArray(finalTaskGuard?.then)
+    ? (finalTaskGuard.then as Array<Record<string, unknown>>)
+    : [];
+  const finalTaskGenerator = Array.isArray(finalTaskGuard?.else)
+    ? (finalTaskGuard.else as Array<Record<string, unknown>>)
+    : [];
+  assert.deepEqual(
+    alreadyTaskedExit.map((step) => step.type),
+    ['break'],
+  );
+  assert.equal(
+    alreadyTaskedExit[0]?.label,
+    'Exit Review Loop Without Regenerating An Already-Tasked Review',
+  );
+  assert.deepEqual(
+    finalTaskGenerator.map((step) => step.markdownFile),
+    ['generate_or_update_pr_fix_revalidation_task.md'],
+  );
+  assert.equal(
+    flattened.filter(
+      (step) =>
+        step.markdownFile ===
+        'generate_or_update_pr_fix_revalidation_task.md',
+    ).length,
+    1,
+  );
+  const findingsProducer = dispositionSteps[findingsProducerIndex];
+  assert.equal(findingsProducer?.type, 'llm');
+  assert.match(
+    JSON.stringify(findingsProducer?.messages),
+    /CODEINFO_GITHUB_REVIEW_HANDOFF_PATH/u,
+  );
+  assert.match(JSON.stringify(findingsProducer?.messages), /findings_file/u);
+  const classifierInstructions = await fs.readFile(
+    path.join(repoRoot, 'codeinfo_markdown/classify_pr_review_disposition.md'),
+    'utf8',
+  );
+  assert.match(classifierInstructions, /minor_batchable_rules/u);
+  assert.match(classifierInstructions, /unresolved_task_required_findings/u);
+  assert.match(classifierInstructions, /needs_task_up_path/u);
+  assert.doesNotMatch(
+    classifierInstructions,
+    /Do not classify any actionable PR-review finding as task-up work/u,
+  );
+  for (const commandName of [
+    'external_review_evidence_gate',
+    'external_review_findings',
+    'external_review_findings_saturation',
+    'external_review_blind_spot_challenge',
+  ]) {
+    assert.equal(
+      flattened.some((step) => step.commandName === commandName),
+      false,
+      `GitHub feedback disposition must not rerun ${commandName}`,
+    );
+  }
+
+  for (const defaultFlowName of [
+    'implement_next_plan.json',
+    'improve_task_implement_plan.json',
+    'task_and_implement_plan.json',
+  ]) {
+    const defaultFlow = await fs.readFile(
+      path.join(repoRoot, 'flows', defaultFlowName),
+      'utf8',
+    );
+    assert.doesNotMatch(
+      defaultFlow,
+      /github_(?:open_pr|fetch_reviews|close_pr)/u,
+    );
+  }
+  await assert.rejects(
+    fs.stat(
+      path.join(repoRoot, 'flows/implement_next_plan_github_review_test.json'),
+    ),
+    /ENOENT/u,
   );
 });
 
-test('startLoop maxIterations exits normally and advances to the next step', async () => {
-  await withFlowServer(
-    () => 'ok',
-    async ({ baseUrl }) => {
-      const conversationId = 'flow-loop-max-iterations';
-      await supertest(baseUrl)
-        .post('/flows/loop-max-iterations/run')
-        .send({ conversationId })
-        .expect(202);
+test('github review runtime keeps clean-cycle reachable before untaken findings agent validation', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await writeGitHubReviewHandoff({
+      repoRoot: workingRepo,
+      reviewCount: 0,
+    });
 
-      const turns = await waitForTurns(
-        conversationId,
-        (items) =>
-          items.some(
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-clean',
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'missing_agent',
+              identifier: 'untaken-findings',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Untaken findings branch should stay excluded.'],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Clean-cycle branch stayed reachable.'],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-clean/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('Clean-cycle branch stayed reachable.'),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
             (turn) =>
               turn.role === 'user' &&
-              turn.content.includes('After bounded loop.'),
-          ),
-        15000,
-      );
-      await waitForRuntimeCleanup(conversationId);
-
-      assert.equal(
-        turns.filter(
-          (turn) =>
-            turn.role === 'user' &&
-            turn.content.includes('Bounded loop iteration.'),
-        ).length,
-        2,
-      );
-      assert.equal(
-        turns.filter(
-          (turn) =>
-            turn.role === 'user' &&
-            turn.content.includes('After bounded loop.'),
-        ).length,
-        1,
-      );
-      const flowState = memoryConversations.get(conversationId)?.flags?.flow as
-        | {
-            lastLoopExit?: {
-              loopStepPath?: number[];
-              iteration?: number;
-              reason?: string;
-            };
-          }
-        | undefined;
-      assert.deepEqual(flowState?.lastLoopExit, {
-        loopStepPath: [0],
-        iteration: 2,
-        reason: 'max_iterations',
-      });
-      await cleanupConversationRuntime(conversationId);
-    },
-  );
+              turn.content.includes('Clean-cycle branch stayed reachable.'),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Untaken findings branch should stay excluded.',
+              ),
+          ).length,
+          0,
+        );
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
+      },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
 });
 
-test('bounded implementation blocker escalation skips, repairs, and continues after stronger failure', async () => {
-  const scenarios = [
-    {
-      name: 'normal repair cleared blocker',
-      normalGate: 'yes',
-      exitGate: 'yes',
-      blockerRemains: 'no',
-      normalResponse: 'ok',
-      researchResponse: 'ok',
-      expectedResearchCalls: 0,
-      expectedNormalContinuation: 1,
-    },
-    {
-      name: 'normal repair left blocker for stronger repair',
-      normalGate: 'no',
-      exitGate: 'yes',
-      blockerRemains: 'no',
-      normalResponse: 'ok',
-      researchResponse: 'ok',
-      expectedResearchCalls: 1,
-      expectedNormalContinuation: 1,
-    },
-    {
-      name: 'normal repair failure still reaches stronger repair and blocker gate',
-      normalGate: 'no',
-      exitGate: 'yes',
-      blockerRemains: 'no',
-      normalResponse: '__throw',
-      researchResponse: 'ok',
-      expectedResearchCalls: 1,
-      expectedNormalContinuation: 1,
-    },
-    {
-      name: 'invalid normal completion still reaches stronger repair and blocker gate',
-      normalGate: 'invalid',
-      exitGate: 'yes',
-      blockerRemains: 'no',
-      normalResponse: 'ok',
-      researchResponse: 'ok',
-      expectedResearchCalls: 1,
-      expectedNormalContinuation: 1,
-    },
-    {
-      name: 'stronger repair failure preserves authoritative blocker routing',
-      normalGate: 'no',
-      exitGate: 'yes',
-      blockerRemains: 'yes',
-      normalResponse: 'ok',
-      researchResponse: '__throw',
-      expectedResearchCalls: 1,
-      expectedNormalContinuation: 0,
-    },
-    {
-      name: 'post-research control failure preserves authoritative blocker routing',
-      normalGate: 'no',
-      exitGate: 'invalid',
-      blockerRemains: 'yes',
-      normalResponse: 'ok',
-      researchResponse: 'ok',
-      expectedResearchCalls: 1,
-      expectedNormalContinuation: 0,
-    },
-    {
-      name: 'post-research provider failure preserves authoritative blocker routing',
-      normalGate: 'no',
-      exitGate: '__throw',
-      blockerRemains: 'yes',
-      normalResponse: 'ok',
-      researchResponse: 'ok',
-      expectedResearchCalls: 1,
-      expectedNormalContinuation: 0,
-    },
-  ] as const;
+test('github review runtime keeps findings-present reachable before untaken clean-branch command validation', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await writeGitHubReviewHandoff({
+      repoRoot: workingRepo,
+      reviewCount: 2,
+      commentCount: 1,
+    });
 
-  for (const [index, scenario] of scenarios.entries()) {
-    let researchCalls = 0;
     await withFlowServer(
-      (message) => {
-        if (
-          message.includes(
-            'Did normal repair clear the implementation blocker?',
-          )
-        ) {
-          if (scenario.normalGate === 'invalid') {
-            return 'normal completion evidence was malformed';
-          }
-          return JSON.stringify({ answer: scenario.normalGate });
-        }
-        if (message.includes('Normal deep blocker repair.')) {
-          return scenario.normalResponse;
-        }
-        if (message.includes('Stronger implementation blocker repair.')) {
-          researchCalls += 1;
-          return scenario.researchResponse;
-        }
-        if (
-          message.includes('Exit the bounded stronger implementation repair?')
-        ) {
-          if (scenario.exitGate === 'invalid') {
-            return 'post-research control evidence was malformed';
-          }
-          if (scenario.exitGate === '__throw') return '__throw';
-          return JSON.stringify({ answer: scenario.exitGate });
-        }
-        if (
-          message.includes(
-            'Does the authoritative implementation blocker remain?',
-          )
-        ) {
-          return JSON.stringify({ answer: scenario.blockerRemains });
-        }
-        return 'ok';
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-findings',
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Findings branch stayed reachable.'],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'command',
+              agentType: 'planning_agent',
+              identifier: 'untaken-clean',
+              commandName: 'missing_command',
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Untaken clean branch should stay excluded.'],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-findings/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('Findings branch stayed reachable.'),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Findings branch stayed reachable.'),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Untaken clean branch should stay excluded.',
+              ),
+          ).length,
+          0,
+        );
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
       },
-      async ({ baseUrl }) => {
-        const conversationId = `flow-implementation-blocker-escalation-${index}`;
-        await supertest(baseUrl)
-          .post('/flows/implementation-blocker-escalation/run')
-          .send({ conversationId })
-          .expect(202);
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
+});
+
+test('github review runtime resumes through repaired wait and review handoff state before untaken branch validation', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await writeGitHubReviewHandoff({
+      repoRoot: workingRepo,
+      reviewCount: 1,
+      commentCount: 1,
+      legacyReviewCount: 0,
+      legacyCommentCount: 0,
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-resume',
+          includeWait: true,
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    'Resumed review context stayed on findings branch.',
+                  ],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'command',
+              agentType: 'planning_agent',
+              identifier: 'untaken-clean',
+              commandName: 'missing_command',
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Stale clean-cycle scratch should stay excluded.'],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-resume/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+            retryOwnershipId: 'review-resume-retry',
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: {
+                wait?: { stepPath?: number[] };
+              };
+            };
+            return (
+              Array.isArray(flowState.flow?.wait?.stepPath) &&
+              flowState.flow?.wait?.stepPath?.[0] === 0
+            );
+          },
+          4000,
+          'Timed out waiting for persisted review wait state',
+        );
+        const resumed = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-resume/run')
+          .send({
+            conversationId,
+            source: 'REST',
+            working_folder: workingRepo,
+            resumeStepPath: [0],
+          });
+        assert.equal(resumed.status, 202);
 
         const turns = await waitForTurns(
           conversationId,
@@ -758,64 +1767,1621 @@ test('bounded implementation blocker escalation skips, repairs, and continues af
             items.some(
               (turn) =>
                 turn.role === 'user' &&
-                turn.content.includes('After blocker routing.'),
+                turn.content.includes(
+                  'Resumed review context stayed on findings branch.',
+                ),
             ),
-          15000,
-        );
-        await waitForRuntimeCleanup(conversationId);
-
-        if (scenario.expectedResearchCalls === 0) {
-          assert.equal(researchCalls, 0, scenario.name);
-        } else {
-          assert.ok(researchCalls >= 1, scenario.name);
-        }
-        assert.equal(
-          turns.filter(
-            (turn) =>
-              turn.role === 'user' &&
-              turn.content.includes('Stronger implementation blocker repair.'),
-          ).length,
-          scenario.expectedResearchCalls,
-          scenario.name,
-        );
-        assert.equal(
-          turns.filter(
-            (turn) =>
-              turn.role === 'user' &&
-              turn.content.includes('Normal implementation continued.'),
-          ).length,
-          scenario.expectedNormalContinuation,
-          scenario.name,
+          4000,
+          () =>
+            describeFlowRuntimeState(conversationId, [
+              'planning_agent:main',
+              'planning_agent:untaken-clean',
+            ]),
         );
         assert.equal(
           turns.filter(
             (turn) =>
               turn.role === 'user' &&
               turn.content.includes(
-                'Does the authoritative implementation blocker remain?',
+                'Resumed review context stayed on findings branch.',
               ),
           ).length,
           1,
-          scenario.name,
         );
         assert.equal(
-          (await getFlowRunStatus(conversationId))?.status,
-          'ok',
-          scenario.name,
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Stale clean-cycle scratch should stay excluded.',
+              ),
+          ).length,
+          0,
+        );
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: { wait?: unknown };
+            };
+            return flowState.flow?.wait === undefined;
+          },
+          4000,
+          'Timed out waiting for resumed review wait state to clear',
         );
         await cleanupConversationRuntime(
           conversationId,
-          ...getAgentConversationIds(conversationId, [
-            'coding_agent:coder',
-            'research_agent:implementation_blocker_researcher',
-            'loop_control_agent:implementation_research_loop_controller',
-            'loop_control_agent:loop_controller',
-            'coding_agent_lite:lite_coder',
-            'planning_agent:planner',
-          ]),
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
         );
       },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
     );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
+});
+
+test('github review runtime re-derives canonical execution-scoped handoff authority before helper launch reads disk', async () => {
+  const workingRepo = await createGitHubReviewRepoFixture();
+  try {
+    await withFlowServer(
+      () => 'ok',
+      async ({ tmpDir, wsUrl, baseUrl }) => {
+        await writeGitHubReviewRuntimeFlow({
+          dir: tmpDir,
+          flowName: 'github-review-runtime-canonical-resume-authority',
+          includeWait: true,
+          thenSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    'Canonical resumed handoff authority stayed on the findings branch.',
+                  ],
+                },
+              ],
+            },
+          ],
+          elseSteps: [
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'untaken-clean',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    'Foreign resumed handoff path should stay excluded before helper reads disk.',
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+
+        const result = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-canonical-resume-authority/run')
+          .send({
+            source: 'REST',
+            working_folder: workingRepo,
+            retryOwnershipId: 'canonical-review-resume-retry',
+          });
+        assert.equal(result.status, 202);
+
+        const conversationId = result.body.conversationId;
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: { wait?: { stepPath?: number[] } };
+            };
+            return (
+              Array.isArray(flowState.flow?.wait?.stepPath) &&
+              flowState.flow?.wait?.stepPath?.[0] === 0
+            );
+          },
+          4000,
+          'Timed out waiting for persisted canonical review wait state',
+        );
+
+        const foreignHandoffDir = path.join(
+          workingRepo,
+          'codeInfoTmp/reviews/foreign-handoff-dir',
+        );
+        const foreignSelectorDir = path.join(
+          workingRepo,
+          'codeInfoTmp/reviews/foreign-selector-dir',
+        );
+        await fs.mkdir(foreignHandoffDir, { recursive: true });
+        await fs.mkdir(foreignSelectorDir, { recursive: true });
+
+        const flowFlags = (memoryConversations.get(conversationId)?.flags ??
+          {}) as {
+          flow?: {
+            executionId?: string;
+            wait?: {
+              githubReviewContext?: {
+                executionId?: string;
+                prNumber?: number;
+                storyNumber?: string;
+                branchName?: string;
+                selectorPath?: string;
+                handoffPath?: string;
+              };
+            };
+          };
+        };
+        assert.ok(flowFlags.flow?.executionId);
+        await writeGitHubReviewHandoff({
+          repoRoot: workingRepo,
+          executionId: flowFlags.flow!.executionId,
+          reviewCount: 1,
+          commentCount: 1,
+          legacyReviewCount: 0,
+          legacyCommentCount: 0,
+        });
+        flowFlags.flow!.wait!.githubReviewContext = {
+          executionId: flowFlags.flow!.executionId,
+          storyNumber: '0000060',
+          branchName: 'feature/0000060-demo',
+          selectorPath: foreignSelectorDir,
+          handoffPath: foreignHandoffDir,
+        };
+        memoryConversations.get(conversationId)!.flags = flowFlags;
+
+        const resumed = await supertest(baseUrl)
+          .post('/flows/github-review-runtime-canonical-resume-authority/run')
+          .send({
+            conversationId,
+            source: 'REST',
+            working_folder: workingRepo,
+            resumeStepPath: [0],
+          });
+        assert.equal(resumed.status, 202);
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes(
+                  'Canonical resumed handoff authority stayed on the findings branch.',
+                ),
+            ),
+          4000,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Canonical resumed handoff authority stayed on the findings branch.',
+              ),
+          ).length,
+          1,
+        );
+        assert.equal(
+          turns.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Foreign resumed handoff path should stay excluded before helper reads disk.',
+              ),
+          ).length,
+          0,
+        );
+        assert.equal(
+          turns.some(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.status === 'failed' &&
+              turn.content.includes(
+                'canonical execution-scoped ownership contract',
+              ),
+          ),
+          false,
+        );
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: { wait?: unknown };
+            };
+            return flowState.flow?.wait === undefined;
+          },
+          4000,
+          'Timed out waiting for canonical resumed review wait state to clear',
+        );
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        );
+      },
+      { listIngestedRepositoriesFn: async () => listHarnessRepo(workingRepo) },
+    );
+  } finally {
+    await fs.rm(workingRepo, { recursive: true, force: true });
+  }
+});
+
+const assertGitHubReviewPublicationOrder = async (
+  publishNewerWhilePaused: boolean,
+) => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    await fs.mkdir(path.join(repoRoot, 'codeInfoTmp/reviews'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(repoRoot, 'codeInfoTmp/reviews/0000060-current-review.json'),
+      JSON.stringify(
+        {
+          pull_request: { number: 12 },
+          stale: true,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(
+        repoRoot,
+        'codeInfoTmp/reviews/0000060-external-review-input.md',
+      ),
+      'stale input\n',
+      'utf8',
+    );
+
+    const latestPullPage = JSON.stringify([
+      {
+        number: 45,
+        html_url: 'https://github.com/example/repo/pull/45',
+        title: 'latest pull request',
+        created_at: '2026-06-24T10:00:00Z',
+        head: {
+          ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          sha: 'deadbeef',
+        },
+        base: { ref: 'main' },
+        user: { login: 'review-bot' },
+      },
+    ]);
+    const reviewsSlurp = await fs.readFile(
+      path.join(githubReviewFixturesDir, 'reviews-slurp.json'),
+      'utf8',
+    );
+    const commentsSlurp = await fs.readFile(
+      path.join(githubReviewFixturesDir, 'comments-slurp.json'),
+      'utf8',
+    );
+
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        if (joined === 'branch --show-current') {
+          return {
+            exitCode: 0,
+            stdout:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'rev-parse HEAD') {
+          return { exitCode: 0, stdout: 'deadbeef\n', stderr: '' };
+        }
+        if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+          return {
+            exitCode: 0,
+            stdout:
+              'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+            stderr: '',
+          };
+        }
+        if (joined === 'remote get-url origin') {
+          return {
+            exitCode: 0,
+            stdout: 'https://github.com/example/repo.git\n',
+            stderr: '',
+          };
+        }
+        if (
+          joined ===
+          'push origin HEAD:feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps'
+        ) {
+          return { exitCode: 0, stdout: '', stderr: '' };
+        }
+        if (params.args[0] === 'pr' && params.args[1] === 'create') {
+          return {
+            exitCode: 0,
+            stdout: 'https://github.com/example/repo/pull/45\n',
+            stderr: '',
+          };
+        }
+        const endpoint = params.args.at(-1) ?? '';
+        if (endpoint.includes('/pulls?state=open&head=')) {
+          return { exitCode: 0, stdout: latestPullPage, stderr: '' };
+        }
+        if (endpoint.endsWith('/pulls/45')) {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({
+              number: 45,
+              html_url: 'https://github.com/example/repo/pull/45',
+              state: 'open',
+              head: {
+                ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                sha: 'deadbeef',
+              },
+              base: { ref: 'main' },
+              user: { login: 'review-bot' },
+            }),
+            stderr: '',
+          };
+        }
+        if (endpoint.includes('/reviews?')) {
+          return { exitCode: 0, stdout: reviewsSlurp, stderr: '' };
+        }
+        if (endpoint.includes('/comments?')) {
+          return { exitCode: 0, stdout: commentsSlurp, stderr: '' };
+        }
+        throw new Error(`Unexpected command: ${joined}`);
+      },
+      sleep: async () => {},
+    });
+    const capturedInstructions: string[] = [];
+
+    await withFlowServer(
+      (message) => {
+        capturedInstructions.push(message);
+        return 'ok';
+      },
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-runtime-conv';
+        await subscribeConversationAndWaitReady({
+          ws: wsUrl,
+          conversationId,
+        });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-runtime.json'),
+          JSON.stringify(
+            {
+              description: 'Minimal GitHub review runtime proof',
+              steps: [
+                {
+                  type: 'github_open_pr',
+                  label: 'Open GitHub Review Pull Request',
+                },
+                {
+                  type: 'wait',
+                  label: 'Wait For External GitHub Review Feedback',
+                  seconds: 60,
+                },
+                {
+                  type: 'github_fetch_reviews',
+                  label: 'Fetch GitHub Review Feedback',
+                },
+                {
+                  type: 'llm',
+                  label: 'Inspect External Review Evidence',
+                  agentType: 'review_agent',
+                  identifier: 'reviewer',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Inspect the external review evidence.'],
+                    },
+                  ],
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-runtime/run')
+          .send({ conversationId, working_folder: repoRoot })
+          .expect(202);
+
+        await waitForPredicate(
+          () => {
+            const flowState = (memoryConversations.get(conversationId)?.flags ??
+              {}) as {
+              flow?: { wait?: { stepPath?: number[] } };
+            };
+            return (
+              Array.isArray(flowState.flow?.wait?.stepPath) &&
+              flowState.flow.wait.stepPath[0] === 1
+            );
+          },
+          4000,
+          'Timed out waiting for recovered PR creation to reach its wait',
+        );
+        const turnsBeforeWake = memoryTurns.get(conversationId) ?? [];
+        assert.equal(
+          turnsBeforeWake.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'warning',
+          ),
+          false,
+        );
+        await waitForRuntimeCleanup(conversationId);
+        const pausedContext = (
+          memoryConversations.get(conversationId)?.flags as {
+            flow: {
+              wait: {
+                githubReviewContext: {
+                  executionId: string;
+                  handoffPath: string;
+                  selectorPublicationSequence: number;
+                };
+              };
+            };
+          }
+        ).flow.wait.githubReviewContext;
+        assert.ok(pausedContext.selectorPublicationSequence > 0);
+        const publicationRepository: GitHubRepositoryState = {
+          workingRepositoryRoot: repoRoot,
+          repositoryHost: 'github.com',
+          repositoryOwner: 'example',
+          repositoryName: 'repo',
+          repositoryFullName: 'example/repo',
+          currentBranch: JSON.parse(latestPullPage)[0].head.ref,
+          upstreamBranch: JSON.parse(latestPullPage)[0].head.ref,
+          headSha: 'newer-head',
+          upstreamRemote: 'origin',
+          baseBranch: 'main',
+          remoteUrl: 'https://github.com/example/repo.git',
+        };
+        if (publishNewerWhilePaused) {
+          const newer = await prepareGitHubReviewScratchOwnership({
+            repository: publicationRepository,
+            executionId: 'newer-cycle',
+          });
+          assert.equal(newer.kind, 'ok');
+          assert.ok(
+            newer.value.publication_sequence! >
+              pausedContext.selectorPublicationSequence,
+          );
+          const pullRequest = {
+            number: 88,
+            url: 'https://github.com/example/repo/pull/88',
+            headRefName: publicationRepository.upstreamBranch,
+            baseRefName: 'main',
+          };
+          const published = await writeGitHubReviewScratch({
+            repository: publicationRepository,
+            executionId: 'newer-cycle',
+            pullRequest,
+            publicationSequence: newer.value.publication_sequence,
+            artifact: {
+              repository: { owner: 'example', name: 'repo' },
+              pullRequest,
+              fetchedAt: '2026-09-17T00:00:00Z',
+              reviews: [],
+              reviewComments: [],
+            },
+          });
+          assert.equal(published.kind, 'ok');
+        }
+        await supertest(baseUrl)
+          .post('/flows/github-review-runtime/run')
+          .send({
+            conversationId,
+            working_folder: repoRoot,
+            resumeStepPath: [1],
+          })
+          .expect(202);
+
+        const selectorPath = path.join(
+          repoRoot,
+          'codeInfoTmp/reviews/0000060-github-review-current.json',
+        );
+        let handoff:
+          | {
+              handoff_kind?: string;
+              execution_id?: string;
+              pull_request: { number: number };
+              external_review_input_file?: string;
+            }
+          | undefined;
+        let externalInput = '';
+        const started = Date.now();
+        while (Date.now() - started < resolveConfiguredTestTimeoutMs(4000)) {
+          try {
+            const parsed = await readGitHubReviewScratch({
+              handoffPath: pausedContext.handoffPath,
+            });
+            if (parsed.kind !== 'ok') {
+              throw new Error(parsed.message);
+            }
+            const currentHandoff = parsed.value;
+            handoff = currentHandoff as typeof handoff;
+            externalInput = await fs.readFile(
+              currentHandoff.external_review_input_file ?? '',
+              'utf8',
+            );
+            if (
+              currentHandoff.pull_request.number === 45 &&
+              /Please revisit the retry wording\./u.test(externalInput)
+            ) {
+              break;
+            }
+          } catch {
+            // Keep polling until the runtime publishes the fresh Task 7 scratch.
+          }
+          await delay(25);
+        }
+
+        assert.ok(
+          handoff,
+          JSON.stringify({
+            turns: memoryTurns.get(conversationId) ?? [],
+            flags: memoryConversations.get(conversationId)?.flags ?? null,
+            capturedInstructions,
+          }),
+        );
+        assert.equal(handoff.handoff_kind, 'github-review-handoff-v1');
+        assert.ok(handoff.execution_id);
+        assert.equal(handoff.pull_request.number, 45);
+        assert.match(
+          handoff.external_review_input_file ?? '',
+          /0000060-github-review-.*-external-review-input\.md$/,
+        );
+        assert.match(externalInput, /Please revisit the retry wording\./);
+        assert.doesNotMatch(externalInput, /stale input/);
+        await waitForTurns(
+          conversationId,
+          (turns) =>
+            turns.some(
+              (turn) => turn.role === 'assistant' && turn.status === 'ok',
+            ),
+          4000,
+        );
+        assert.ok(
+          capturedInstructions.some(
+            (instruction) =>
+              instruction.includes('execution-scoped GitHub review state') &&
+              instruction.includes('external_review_input_file'),
+          ),
+          JSON.stringify(capturedInstructions),
+        );
+
+        const reclaimAttempt = await writeGitHubReviewScratch({
+          repository: {
+            workingRepositoryRoot: repoRoot,
+            repositoryHost: 'github.com',
+            repositoryOwner: 'example',
+            repositoryName: 'repo',
+            repositoryFullName: 'example/repo',
+            currentBranch:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            headSha: 'cafebabe',
+            upstreamRemote: 'origin',
+            upstreamBranch:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseBranch: 'main',
+            remoteUrl: 'https://github.com/example/repo.git',
+          },
+          executionId: 'older-execution',
+          pullRequest: {
+            number: 12,
+            url: 'https://github.com/example/repo/pull/12',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+            authorLogin: 'review-author',
+          },
+          artifact: {
+            repository: { owner: 'example', name: 'repo' },
+            pullRequest: {
+              number: 12,
+              url: 'https://github.com/example/repo/pull/12',
+              headRefName:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+              baseRefName: 'main',
+            },
+            fetchedAt: '2026-06-27T11:00:00Z',
+            reviews: [],
+            reviewComments: [],
+          },
+        });
+        assert.equal(reclaimAttempt.kind, 'error');
+        assert.match(
+          reclaimAttempt.message,
+          /newer or foreign flow execution/i,
+        );
+
+        const stillAuthoritative = await readGitHubReviewScratch({
+          handoffPath: selectorPath,
+        });
+        assert.equal(stillAuthoritative.kind, 'ok');
+        assert.equal(
+          stillAuthoritative.value.execution_id,
+          publishNewerWhilePaused ? 'newer-cycle' : handoff.execution_id,
+        );
+        assert.equal(
+          stillAuthoritative.value.pull_request.number,
+          publishNewerWhilePaused ? 88 : 45,
+        );
+        const selector = JSON.parse(await fs.readFile(selectorPath, 'utf8'));
+        if (!publishNewerWhilePaused) {
+          assert.equal(
+            selector.publication_sequence,
+            pausedContext.selectorPublicationSequence,
+          );
+        }
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+};
+
+for (const publishNewerWhilePaused of [false, true]) {
+  test(`github review runtime preserves persisted publication order after wait (newer cycle: ${publishNewerWhilePaused})`, async () => {
+    await assertGitHubReviewPublicationOrder(publishNewerWhilePaused);
+  });
+}
+
+test('github review runtime records producer-side token loader failures as skip warnings without stopping the flow', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    await fs.rm(path.join(repoRoot, '.env.local'), { force: true });
+    await fs.mkdir(path.join(repoRoot, '.env.local'));
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-runtime-token-loader-failure';
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-runtime-token-loader-failure.json'),
+          JSON.stringify(
+            {
+              description: 'Minimal GitHub review runtime failure proof',
+              steps: [
+                {
+                  type: 'github_open_pr',
+                  label: 'Open GitHub Review Pull Request',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-runtime-token-loader-failure/run')
+          .send({ conversationId, working_folder: repoRoot })
+          .expect(202);
+
+        const turns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'assistant' &&
+                turn.status === 'warning' &&
+                turn.content.includes('after setup failed'),
+            ),
+          4000,
+        );
+        await waitForPredicate(
+          () => getActiveRunOwnership(conversationId) === null,
+          4000,
+          'Timed out waiting for skipped GitHub review flow to release ownership',
+        );
+        assert.equal(
+          turns.some((turn) => turn.status === 'failed'),
+          false,
+        );
+        assert.match(
+          turns.find((turn) => turn.status === 'warning')?.content ?? '',
+          /(?:\.env\.local|EISDIR|permission denied)/u,
+        );
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review resume keeps execution-scoped fetch and close authority even when a newer run owns the shared selector', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    const selectorPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-current.json',
+    );
+    const oldHandoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-old-current.json',
+    );
+    const newHandoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-new-current.json',
+    );
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
+    await fs.writeFile(
+      oldHandoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-old',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          head_sha: 'oldsha',
+          raw_review_artifact_path: path.join(
+            repoRoot,
+            'codeInfoTmp/reviews/0000060-github-review-exec-old-pr-77.json',
+          ),
+          pull_request: {
+            number: 77,
+            url: 'https://github.com/example/repo/pull/77',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+            authorLogin: 'review-author',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      newHandoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-new',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          head_sha: 'newsha',
+          raw_review_artifact_path: path.join(
+            repoRoot,
+            'codeInfoTmp/reviews/0000060-github-review-exec-new-pr-88.json',
+          ),
+          pull_request: {
+            number: 88,
+            url: 'https://github.com/example/repo/pull/88',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: 'exec-new',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          handoff_path: newHandoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const commandLog: string[] = [];
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        commandLog.push(`${params.command} ${joined}`);
+        if (params.command === 'git') {
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'cafebabe\n', stderr: '' };
+          }
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/example/repo.git\n',
+              stderr: '',
+            };
+          }
+        }
+        if (params.command === 'gh') {
+          const endpoint = params.args.at(-1) ?? '';
+          if (endpoint.includes('/pulls?state=open&head=')) {
+            throw new Error(
+              'resumed execution should not fall back to branch-latest PR lookup',
+            );
+          }
+          if (endpoint.includes('/pulls/77/reviews?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 101,
+                    user: { login: 'reviewer' },
+                    body: 'Persist the older execution authority.',
+                    state: 'COMMENTED',
+                    submitted_at: '2026-06-27T18:45:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (endpoint.includes('/pulls/77/comments?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 202,
+                    user: { login: 'reviewer' },
+                    body: 'Inline reminder',
+                    path: 'server/src/flows/service.ts',
+                    line: 1,
+                    created_at: '2026-06-27T18:46:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (joined === 'pr close 77 --repo example/repo') {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+        }
+        throw new Error(`Unexpected command: ${params.command} ${joined}`);
+      },
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-resume-authority-conv';
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+
+        memoryConversations.set(conversationId, {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.6-terra',
+          title: 'Flow: github-review-resume-authority',
+          flowName: 'github-review-resume-authority',
+          source: 'REST',
+          flags: {
+            flow: {
+              executionId: 'exec-old',
+              stepPath: [0],
+              loopStack: [],
+              agentConversations: {},
+              agentThreads: {},
+              wait: {
+                executionId: 'exec-old',
+                stepPath: [0],
+                loopStack: [],
+                workingFolder: repoRoot,
+                resumeAt: Date.now() - 1000,
+                githubReviewContext: {
+                  executionId: 'exec-old',
+                  prNumber: 77,
+                  selectorPublicationPending: true,
+                  storyNumber: '0000060',
+                  branchName:
+                    'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                  selectorPath,
+                  handoffPath: oldHandoffPath,
+                },
+              },
+            },
+          },
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-resume-authority.json'),
+          JSON.stringify(
+            {
+              description:
+                'Resume GitHub review with execution-scoped authority',
+              steps: [
+                {
+                  type: 'wait',
+                  label: 'Wait before resuming review authority',
+                  seconds: 60,
+                },
+                {
+                  type: 'github_fetch_reviews',
+                  label: 'Fetch persisted GitHub review feedback',
+                },
+                {
+                  type: 'github_close_pr',
+                  label: 'Close persisted GitHub review pull request',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-resume-authority/run')
+          .send({
+            conversationId,
+            working_folder: repoRoot,
+            resumeStepPath: [0],
+          })
+          .expect(202);
+
+        const started = Date.now();
+        while (Date.now() - started < resolveConfiguredTestTimeoutMs(4000)) {
+          const currentHandoff = await readGitHubReviewScratch({
+            handoffPath: oldHandoffPath,
+            expectedExecutionId: 'exec-old',
+          });
+          if (
+            currentHandoff.kind === 'ok' &&
+            currentHandoff.value.filtered_review_count === 1 &&
+            currentHandoff.value.filtered_review_comment_count === 1 &&
+            commandLog.some((entry) => entry.includes('gh pr close 77 --repo'))
+          ) {
+            break;
+          }
+          await delay(25);
+        }
+
+        const selector = JSON.parse(
+          await fs.readFile(selectorPath, 'utf8'),
+        ) as { execution_id: string };
+        assert.equal(selector.execution_id, 'exec-new');
+        const handoff = await readGitHubReviewScratch({
+          handoffPath: oldHandoffPath,
+          expectedExecutionId: 'exec-old',
+        });
+        assert.equal(handoff.kind, 'ok');
+        assert.equal(handoff.value.pull_request.number, 77);
+        assert.equal(handoff.value.filtered_review_count, 1);
+        assert.equal(handoff.value.filtered_review_comment_count, 1);
+        assert.ok(
+          commandLog.some((entry) => entry.includes('gh pr close 77 --repo')),
+        );
+        assert.equal(
+          commandLog.some((entry) => entry.includes('/pulls?state=open&head=')),
+          false,
+        );
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review fetch failure rejects a persisted and resumed PR identity mismatch without scheduling a retry wait', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    const selectorPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-current.json',
+    );
+    const handoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-mismatch-current.json',
+    );
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
+    await fs.writeFile(
+      handoffPath,
+      JSON.stringify(
+        {
+          handoff_kind: 'github-review-handoff-v1',
+          execution_id: 'exec-mismatch',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          head_sha: 'oldsha',
+          raw_review_artifact_path: path.join(
+            repoRoot,
+            'codeInfoTmp/reviews/0000060-github-review-exec-mismatch-pr-77.json',
+          ),
+          pull_request: {
+            number: 77,
+            url: 'https://github.com/example/repo/pull/77',
+            headRefName:
+              'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+            baseRefName: 'main',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: 'exec-mismatch',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const commandLog: string[] = [];
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        commandLog.push(`${params.command} ${joined}`);
+        if (params.command === 'git') {
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'cafebabe\n', stderr: '' };
+          }
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/example/repo.git\n',
+              stderr: '',
+            };
+          }
+        }
+        if (params.command === 'gh') {
+          const endpoint = params.args.at(-1) ?? '';
+          if (endpoint.includes('/pulls?state=open&head=')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    number: 79,
+                    html_url: 'https://github.com/example/repo/pull/79',
+                    head: {
+                      ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                    },
+                    base: { ref: 'main' },
+                    created_at: '2026-06-28T19:00:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (endpoint.includes('/pulls/79/reviews?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 301,
+                    user: { login: 'reviewer' },
+                    body: 'Use the newer same-branch PR.',
+                    state: 'COMMENTED',
+                    submitted_at: '2026-06-28T19:10:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (endpoint.includes('/pulls/79/comments?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 302,
+                    user: { login: 'reviewer' },
+                    body: 'Inline reminder on the newer PR.',
+                    path: 'server/src/flows/service.ts',
+                    line: 1,
+                    created_at: '2026-06-28T19:11:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (joined === 'pr close 79 --repo example/repo') {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+        }
+        throw new Error(`Unexpected command: ${params.command} ${joined}`);
+      },
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-resume-mismatch-conv';
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+
+        memoryConversations.set(conversationId, {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.6-terra',
+          title: 'Flow: github-review-resume-mismatch',
+          flowName: 'github-review-resume-mismatch',
+          source: 'REST',
+          flags: {
+            flow: {
+              executionId: 'exec-mismatch',
+              stepPath: [0],
+              loopStack: [],
+              agentConversations: {},
+              agentThreads: {},
+              wait: {
+                executionId: 'exec-mismatch',
+                stepPath: [0],
+                loopStack: [],
+                workingFolder: repoRoot,
+                resumeAt: Date.now() - 1000,
+                githubReviewContext: {
+                  executionId: 'exec-mismatch',
+                  prNumber: 78,
+                  storyNumber: '0000060',
+                  branchName:
+                    'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                  selectorPath,
+                  handoffPath,
+                  phase: 'fetched',
+                },
+              },
+            },
+          },
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-resume-mismatch.json'),
+          JSON.stringify(
+            {
+              description:
+                'Resume GitHub review with mismatch recovery to newer PR',
+              steps: [
+                {
+                  type: 'wait',
+                  label: 'Wait before resuming review mismatch flow',
+                  seconds: 60,
+                },
+                {
+                  type: 'github_fetch_reviews',
+                  label: 'Fetch reconciled GitHub review feedback',
+                },
+                {
+                  type: 'github_close_pr',
+                  label: 'Close reconciled GitHub review pull request',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-resume-mismatch/run')
+          .send({
+            conversationId,
+            working_folder: repoRoot,
+            resumeStepPath: [0],
+          })
+          .expect(202);
+
+        const failedTurns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'assistant' &&
+                turn.status === 'failed' &&
+                turn.content.includes('owns persisted pull request #77'),
+            ),
+          4000,
+        );
+        assert.equal(
+          failedTurns.filter(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.status === 'failed' &&
+              turn.content.includes('resumed execution context carried #78'),
+          ).length,
+          1,
+        );
+        await waitForRuntimeCleanup(conversationId);
+        const retryWait = (
+          (memoryConversations.get(conversationId)?.flags ?? {}) as {
+            flow?: { wait?: { kind?: string; stepPath?: number[] } };
+          }
+        ).flow?.wait;
+        assert.notEqual(retryWait?.kind, 'review_retry');
+
+        const updatedHandoff = await readGitHubReviewScratch({
+          handoffPath,
+          expectedExecutionId: 'exec-mismatch',
+        });
+        assert.equal(updatedHandoff.kind, 'ok');
+        assert.equal(updatedHandoff.value.pull_request.number, 77);
+        assert.equal(
+          commandLog.some((entry) => entry.startsWith('gh ')),
+          false,
+        );
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test('github review resume verifies the exact resumed PR when the execution-scoped handoff is missing', async () => {
+  const repoRoot = await createGitHubReviewRepoFixture();
+  try {
+    const selectorPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-current.json',
+    );
+    const handoffPath = path.join(
+      repoRoot,
+      'codeInfoTmp/reviews/0000060-github-review-exec-missing-current.json',
+    );
+    await fs.mkdir(path.dirname(selectorPath), { recursive: true });
+    await fs.writeFile(
+      selectorPath,
+      JSON.stringify(
+        {
+          selector_kind: 'github-review-selector-v1',
+          execution_id: 'exec-missing',
+          plan_path:
+            'planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md',
+          story_number: '0000060',
+          repository_root: repoRoot,
+          branch_name:
+            'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+          handoff_path: handoffPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const commandLog: string[] = [];
+    __setGitHubReviewDepsForTests({
+      runCommand: async (params) => {
+        const joined = params.args.join(' ');
+        commandLog.push(`${params.command} ${joined}`);
+        if (params.command === 'git') {
+          if (joined === 'branch --show-current') {
+            return {
+              exitCode: 0,
+              stdout:
+                'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'rev-parse HEAD') {
+            return { exitCode: 0, stdout: 'cafebabe\n', stderr: '' };
+          }
+          if (joined === 'rev-parse --abbrev-ref --symbolic-full-name @{u}') {
+            return {
+              exitCode: 0,
+              stdout:
+                'origin/feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps\n',
+              stderr: '',
+            };
+          }
+          if (joined === 'remote get-url origin') {
+            return {
+              exitCode: 0,
+              stdout: 'https://github.com/example/repo.git\n',
+              stderr: '',
+            };
+          }
+        }
+        if (params.command === 'gh') {
+          const endpoint = params.args.at(-1) ?? '';
+          if (endpoint.endsWith('/pulls/78')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({
+                number: 78,
+                html_url: 'https://github.com/example/repo/pull/78',
+                state: 'open',
+                head: {
+                  ref: 'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                },
+                base: { ref: 'main' },
+                user: { login: 'review-author' },
+              }),
+              stderr: '',
+            };
+          }
+          if (endpoint.includes('/pulls/78/reviews?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 401,
+                    user: { login: 'reviewer' },
+                    body: 'Use the exact resumed PR.',
+                    state: 'COMMENTED',
+                    submitted_at: '2026-06-28T19:20:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (endpoint.includes('/pulls/78/comments?')) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([
+                [
+                  {
+                    id: 402,
+                    user: { login: 'reviewer' },
+                    body: 'Inline on the exact resumed PR.',
+                    path: 'server/src/flows/service.ts',
+                    line: 1,
+                    created_at: '2026-06-28T19:21:00Z',
+                  },
+                ],
+              ]),
+              stderr: '',
+            };
+          }
+          if (joined === 'pr close 78 --repo example/repo') {
+            return { exitCode: 0, stdout: '', stderr: '' };
+          }
+        }
+        throw new Error(`Unexpected command: ${params.command} ${joined}`);
+      },
+    });
+
+    await withFlowServer(
+      () => 'ok',
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = 'github-review-resume-missing-handoff-conv';
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+
+        memoryConversations.set(conversationId, {
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-5.6-terra',
+          title: 'Flow: github-review-resume-missing-handoff',
+          flowName: 'github-review-resume-missing-handoff',
+          source: 'REST',
+          flags: {
+            flow: {
+              executionId: 'exec-missing',
+              stepPath: [0],
+              loopStack: [],
+              agentConversations: {},
+              agentThreads: {},
+              wait: {
+                executionId: 'exec-missing',
+                stepPath: [0],
+                loopStack: [],
+                workingFolder: repoRoot,
+                resumeAt: Date.now() - 1000,
+                githubReviewContext: {
+                  executionId: 'exec-missing',
+                  prNumber: 78,
+                  storyNumber: '0000060',
+                  branchName:
+                    'feature/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps',
+                  selectorPath,
+                  handoffPath,
+                  phase: 'fetched',
+                },
+              },
+            },
+          },
+          lastMessageAt: new Date(),
+          archivedAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        await fs.writeFile(
+          path.join(tmpDir, 'github-review-resume-missing-handoff.json'),
+          JSON.stringify(
+            {
+              description:
+                'Resume GitHub review after losing the execution-scoped handoff',
+              steps: [
+                {
+                  type: 'wait',
+                  label: 'Wait before resuming review after handoff loss',
+                  seconds: 60,
+                },
+                {
+                  type: 'github_fetch_reviews',
+                  label: 'Fetch recovered GitHub review feedback',
+                },
+                {
+                  type: 'github_close_pr',
+                  label: 'Close recovered GitHub review pull request',
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+
+        await supertest(baseUrl)
+          .post('/flows/github-review-resume-missing-handoff/run')
+          .send({
+            conversationId,
+            working_folder: repoRoot,
+            resumeStepPath: [0],
+          })
+          .expect(202);
+
+        const warningTurns = await waitForTurns(
+          conversationId,
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'assistant' &&
+                turn.status === 'warning' &&
+                turn.content.includes('lost its execution-scoped handoff'),
+            ),
+          4000,
+        );
+        assert.equal(
+          warningTurns.filter(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.status === 'warning' &&
+              turn.content.includes('lost its execution-scoped handoff'),
+          ).length,
+          1,
+        );
+
+        const started = Date.now();
+        while (Date.now() - started < resolveConfiguredTestTimeoutMs(4000)) {
+          const currentHandoff = await readGitHubReviewScratch({
+            handoffPath,
+            expectedExecutionId: 'exec-missing',
+          });
+          if (
+            currentHandoff.kind === 'ok' &&
+            currentHandoff.value.pull_request.number === 78 &&
+            currentHandoff.value.filtered_review_count === 1 &&
+            currentHandoff.value.filtered_review_comment_count === 1 &&
+            commandLog.some((entry) => entry.includes('gh pr close 78 --repo'))
+          ) {
+            break;
+          }
+          await delay(25);
+        }
+
+        const updatedHandoff = await readGitHubReviewScratch({
+          handoffPath,
+          expectedExecutionId: 'exec-missing',
+        });
+        assert.equal(updatedHandoff.kind, 'ok');
+        assert.equal(updatedHandoff.value.pull_request.number, 78);
+        assert.equal(updatedHandoff.value.filtered_review_count, 1);
+        assert.equal(updatedHandoff.value.filtered_review_comment_count, 1);
+        assert.ok(commandLog.some((entry) => entry.includes('/pulls/78')));
+        assert.equal(
+          commandLog.some((entry) => entry.includes('/pulls?state=open&head=')),
+          false,
+        );
+        assert.ok(
+          commandLog.some((entry) => entry.includes('gh pr close 78 --repo')),
+        );
+
+        await cleanupConversationRuntime(conversationId);
+      },
+      {
+        listIngestedRepositoriesFn: async () => listHarnessRepo(repoRoot),
+      },
+    );
+  } finally {
+    await fs.rm(repoRoot, { recursive: true, force: true });
   }
 });
 
@@ -836,30 +3402,25 @@ test('continue step skips remaining iteration steps and starts the next iteratio
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-continue-conv-1';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
+        describe: () =>
+          describeFlowRuntimeState(conversationId, [
+            'coding_agent:outer',
+            'coding_agent:outer-continue',
+            'coding_agent:post-continue',
+            'coding_agent:outer-break',
+          ]),
       });
 
       assert.equal(final.status, 'ok');
@@ -938,7 +3499,7 @@ test('continue resume starts the next iteration instead of replaying skipped ste
       memoryConversations.set(conversationId, {
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.2-codex',
+        model: 'gpt-5.6-terra',
         title: 'Flow: loop-continue',
         flowName: 'loop-continue',
         source: 'REST',
@@ -966,7 +3527,7 @@ test('continue resume starts the next iteration instead of replaying skipped ste
       memoryConversations.set(outerConversationId, {
         _id: outerConversationId,
         provider: 'codex',
-        model: 'gpt-5.2-codex',
+        model: 'gpt-5.6-terra',
         title: 'Flow: loop-continue (outer)',
         agentName: 'coding_agent',
         source: 'REST',
@@ -983,7 +3544,7 @@ test('continue resume starts the next iteration instead of replaying skipped ste
       memoryConversations.set(continueConversationId, {
         _id: continueConversationId,
         provider: 'codex',
-        model: 'gpt-5.2-codex',
+        model: 'gpt-5.6-terra',
         title: 'Flow: loop-continue (outer-continue)',
         agentName: 'coding_agent',
         source: 'REST',
@@ -998,30 +3559,19 @@ test('continue resume starts the next iteration instead of replaying skipped ste
         updatedAt: new Date(),
       });
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
         .send({ conversationId, resumeStepPath: [0, 1] })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
+        describe: () => describeLoopContinueResumeState(conversationId),
       });
 
       assert.equal(final.status, 'ok');
@@ -1047,6 +3597,13 @@ test('continue resume starts the next iteration instead of replaying skipped ste
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 1,
         4000,
+        () =>
+          describeFlowRuntimeState(conversationId, [
+            'coding_agent:outer',
+            'coding_agent:outer-continue',
+            'coding_agent:post-continue',
+            'coding_agent:outer-break',
+          ]),
       );
 
       assert.equal(
@@ -1097,6 +3654,10 @@ test('continue resume starts the next iteration instead of replaying skipped ste
 
 test('continue resume keeps its boundary marker until the next iteration makes progress', async () => {
   let runPhase: 'stop' | 'finish' = 'stop';
+  let stopRegisteredAtOuterStepStart = false;
+  const conversationId = 'flow-loop-continue-resume-stop-conv';
+  const outerConversationId = 'flow-loop-continue-resume-stop-outer';
+  const continueConversationId = 'flow-loop-continue-resume-stop-continue';
   await withFlowServer(
     (message) => {
       if (message.includes('Outer loop step.')) {
@@ -1111,14 +3672,10 @@ test('continue resume keeps its boundary marker until the next iteration makes p
       return 'ok';
     },
     async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-loop-continue-resume-stop-conv';
-      const outerConversationId = 'flow-loop-continue-resume-stop-outer';
-      const continueConversationId = 'flow-loop-continue-resume-stop-continue';
-
       memoryConversations.set(conversationId, {
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.2-codex',
+        model: 'gpt-5.6-terra',
         title: 'Flow: loop-continue',
         flowName: 'loop-continue',
         source: 'REST',
@@ -1146,7 +3703,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
       memoryConversations.set(outerConversationId, {
         _id: outerConversationId,
         provider: 'codex',
-        model: 'gpt-5.2-codex',
+        model: 'gpt-5.6-terra',
         title: 'Flow: loop-continue (outer)',
         agentName: 'coding_agent',
         source: 'REST',
@@ -1163,7 +3720,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
       memoryConversations.set(continueConversationId, {
         _id: continueConversationId,
         provider: 'codex',
-        model: 'gpt-5.2-codex',
+        model: 'gpt-5.6-terra',
         title: 'Flow: loop-continue (outer-continue)',
         agentName: 'coding_agent',
         source: 'REST',
@@ -1178,34 +3735,37 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         updatedAt: new Date(),
       });
 
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       const firstRun = await supertest(baseUrl)
         .post('/flows/loop-continue/run')
         .send({ conversationId, resumeStepPath: [0, 1] })
         .expect(202);
 
-      await delay(100);
+      await waitFor(
+        () => stopRegisteredAtOuterStepStart,
+        8000,
+        () =>
+          JSON.stringify({
+            phase: 'waiting_for_stop_registration',
+            firstRunInflightId: firstRun.body.inflightId as string,
+            stopRegisteredAtOuterStepStart,
+            state: JSON.parse(describeLoopContinueResumeState(conversationId)),
+          }),
+      );
 
-      sendJson(wsUrl, {
-        type: 'cancel_inflight',
-        conversationId,
-        inflightId: firstRun.body.inflightId as string,
-      });
-
-      const stopped = await waitForEvent({
+      const stopped = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return e.type === 'turn_final' && e.conversationId === conversationId;
-        },
+        conversationId,
+        expectedStatus: ['stopped', 'failed'],
         timeoutMs: 8000,
+        describe: () =>
+          JSON.stringify({
+            phase: 'waiting_for_stopped_terminal_event',
+            current: JSON.parse(
+              describeLoopContinueResumeState(conversationId),
+            ),
+          }),
       });
 
       assert.ok(stopped.status === 'stopped' || stopped.status === 'failed');
@@ -1235,6 +3795,9 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         (turn) =>
           turn.role === 'user' && turn.content.includes('Exit outer loop?'),
       ).length;
+      const stopSnapshot = JSON.parse(
+        describeLoopContinueResumeState(conversationId),
+      ) as Record<string, unknown>;
 
       assert.ok(continueCountAfterStop <= 1);
       assert.ok(postContinueCountAfterStop <= 1);
@@ -1247,23 +3810,19 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         .send({ conversationId, resumeStepPath: [0, 1] })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
-        timeoutMs: 5000,
+        conversationId,
+        expectedStatus: 'ok',
+        timeoutMs: 10000,
+        describe: () =>
+          JSON.stringify({
+            phase: 'waiting_for_ok_terminal_event',
+            stopSnapshot,
+            current: JSON.parse(
+              describeLoopContinueResumeState(conversationId),
+            ),
+          }),
       });
 
       assert.equal(final.status, 'ok');
@@ -1290,6 +3849,42 @@ test('continue resume keeps its boundary marker until the next iteration makes p
               turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ).length === 1,
         15000,
+        () =>
+          JSON.stringify({
+            phase: 'waiting_for_next_iteration_progress',
+            stopSnapshot,
+            afterStop: {
+              outerCountAfterStop,
+              continueCountAfterStop,
+              postContinueCountAfterStop,
+              breakCountAfterStop,
+            },
+            current: {
+              snapshot: JSON.parse(
+                describeLoopContinueResumeState(conversationId),
+              ),
+              outerCount: (memoryTurns.get(conversationId) ?? []).filter(
+                (turn) =>
+                  turn.role === 'user' &&
+                  turn.content.includes('Outer loop step.'),
+              ).length,
+              continueCount: (memoryTurns.get(conversationId) ?? []).filter(
+                (turn) =>
+                  turn.role === 'user' &&
+                  turn.content.includes('Skip remaining loop steps?'),
+              ).length,
+              postContinueCount: (memoryTurns.get(conversationId) ?? []).filter(
+                (turn) =>
+                  turn.role === 'user' &&
+                  turn.content.includes('Reached post-continue step.'),
+              ).length,
+              breakCount: (memoryTurns.get(conversationId) ?? []).filter(
+                (turn) =>
+                  turn.role === 'user' &&
+                  turn.content.includes('Exit outer loop?'),
+              ).length,
+            },
+          }),
       );
 
       assert.equal(
@@ -1336,6 +3931,44 @@ test('continue resume keeps its boundary marker until the next iteration makes p
         ...getLoopContinueAgentConversationIds(conversationId),
       );
     },
+    {
+      chatFactory: () =>
+        new ScriptedChat(
+          (message) => {
+            if (message.includes('Outer loop step.')) {
+              return runPhase === 'stop' ? '__delay:1000::ok' : 'ok';
+            }
+            if (message.includes('Skip remaining loop steps?')) {
+              return JSON.stringify({ answer: 'no' });
+            }
+            if (message.includes('Exit outer loop?')) {
+              return JSON.stringify({ answer: 'yes' });
+            }
+            return 'ok';
+          },
+          {
+            onExecute: ({ message, conversationId: activeConversationId }) => {
+              if (
+                runPhase === 'stop' &&
+                message.includes('Outer loop step.') &&
+                activeConversationId === outerConversationId &&
+                !stopRegisteredAtOuterStepStart
+              ) {
+                const parentRunToken =
+                  getActiveRunOwnership(conversationId)?.runToken;
+                if (!parentRunToken) {
+                  return;
+                }
+                stopRegisteredAtOuterStepStart = true;
+                registerPendingConversationCancel({
+                  conversationId,
+                  runToken: parentRunToken,
+                });
+              }
+            },
+          },
+        ),
+    },
   );
 });
 
@@ -1349,41 +3982,28 @@ test('continue step fails on invalid JSON response', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-continue-invalid-json';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string; message?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string; message?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
-        timeoutMs: 4000,
+        conversationId,
+        expectedStatus: 'failed',
+        timeoutMs: 8000,
+        describe: () =>
+          describeFlowRuntimeState(conversationId, [
+            'coding_agent:outer-break',
+          ]),
       });
 
       assert.equal(final.status, 'failed');
-      assert.equal(final.error?.code, 'INVALID_CONTINUE_RESPONSE');
+      assert.equal(final.errorCode, 'INVALID_CONTINUE_RESPONSE');
       assert.equal(
-        final.error?.message,
+        final.errorMessage,
         'Continue response must be valid JSON with {"answer":"yes"|"no"}.',
       );
       await cleanupConversationRuntime(
@@ -1407,29 +4027,17 @@ test('continue step recovers from wrapper output containing json fence', async (
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-continue-wrapper-json';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
       });
 
@@ -1494,41 +4102,31 @@ test('continue step fails with INVALID_CONTINUE_RESPONSE when wrappers contain n
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-continue-wrapper-invalid';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string; message?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string; message?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
-        timeoutMs: 4000,
+        conversationId,
+        expectedStatus: 'failed',
+        timeoutMs: 8000,
+        describe: () =>
+          describeFlowRuntimeState(conversationId, [
+            'coding_agent:outer',
+            'coding_agent:inner',
+            'coding_agent:inner-break',
+            'coding_agent:outer-break',
+          ]),
       });
 
       assert.equal(final.status, 'failed');
-      assert.equal(final.error?.code, 'INVALID_CONTINUE_RESPONSE');
+      assert.equal(final.errorCode, 'INVALID_CONTINUE_RESPONSE');
       assert.equal(
-        final.error?.message,
+        final.errorMessage,
         'Continue response must include answer "yes" or "no".',
       );
       await cleanupConversationRuntime(
@@ -1549,41 +4147,24 @@ test('continue step fails on invalid answer value', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-continue-invalid-answer';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-continue/run')
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string; message?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string; message?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
-        timeoutMs: 4000,
+        conversationId,
+        expectedStatus: 'failed',
+        timeoutMs: 8000,
       });
 
       assert.equal(final.status, 'failed');
-      assert.equal(final.error?.code, 'INVALID_CONTINUE_RESPONSE');
+      assert.equal(final.errorCode, 'INVALID_CONTINUE_RESPONSE');
       assert.equal(
-        final.error?.message,
+        final.errorMessage,
         'Continue response must include answer "yes" or "no".',
       );
       await cleanupConversationRuntime(
@@ -1607,41 +4188,24 @@ test('break step fails on invalid JSON response', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-invalid-json';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string; message?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string; message?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
-        timeoutMs: 4000,
+        conversationId,
+        expectedStatus: 'failed',
+        timeoutMs: 8000,
       });
 
       assert.equal(final.status, 'failed');
-      assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
+      assert.equal(final.errorCode, 'INVALID_BREAK_RESPONSE');
       assert.equal(
-        final.error?.message,
+        final.errorMessage,
         'Break response must be valid JSON with {"answer":"yes"|"no"}.',
       );
       await cleanupConversationRuntime(conversationId);
@@ -1662,29 +4226,17 @@ test('break step recovers from wrapper output containing json fence', async () =
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-wrapper-json';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'ok'
-          );
-        },
+        conversationId,
+        expectedStatus: 'ok',
         timeoutMs: 4000,
       });
 
@@ -1707,122 +4259,25 @@ test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no vali
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-wrapper-invalid';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string; message?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string; message?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 4000,
       });
 
       assert.equal(final.status, 'failed');
-      assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
+      assert.equal(final.errorCode, 'INVALID_BREAK_RESPONSE');
       assert.equal(
-        final.error?.message,
+        final.errorMessage,
         'Break response must include answer "yes" or "no".',
-      );
-      await cleanupConversationRuntime(conversationId);
-    },
-  );
-});
-
-test('break step does not continue after an invalid response', async () => {
-  await withFlowServer(
-    (message) => {
-      if (message.includes('Exit best-effort loop?')) {
-        return 'I cannot produce the requested decision format.';
-      }
-      return 'ok';
-    },
-    async ({ baseUrl }) => {
-      const conversationId = 'flow-loop-conv-break-on-failure';
-
-      await supertest(baseUrl)
-        .post('/flows/loop-break-on-failure/run')
-        .send({ conversationId })
-        .expect(202);
-
-      await waitForRuntimeCleanup(conversationId, 15000);
-      const turns = await waitForTurns(
-        conversationId,
-        (items) =>
-          items.some(
-            (turn) =>
-              turn.role === 'assistant' &&
-              turn.status === 'failed' &&
-              turn.content.includes('Break response must be'),
-          ),
-        10000,
-      );
-      const status = await getFlowRunStatus(conversationId);
-
-      assert.equal(status?.status, 'failed');
-      assert.equal(status?.terminal, true);
-      assert.equal(
-        turns.some((turn) =>
-          turn.content.includes('Continue after loop.'),
-        ),
-        false,
-      );
-      await cleanupConversationRuntime(conversationId);
-    },
-  );
-});
-
-test('break step continues after provider execution failure', async () => {
-  await withFlowServer(
-    (message) =>
-      message.includes('Exit best-effort loop?') ? '__throw' : 'ok',
-    async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-loop-conv-break-execution-failure';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-
-      await supertest(baseUrl)
-        .post('/flows/loop-break-on-failure/run')
-        .send({ conversationId })
-        .expect(202);
-
-      await waitForRuntimeCleanup(conversationId, 15000);
-      const status = await getFlowRunStatus(conversationId);
-      const turns = memoryTurns.get(conversationId) ?? [];
-      assert.equal(
-        status?.status,
-        'ok',
-        JSON.stringify(
-          turns.map((turn) => ({
-            role: turn.role,
-            status: turn.status,
-            content: turn.content,
-            label: (turn.command as { label?: string } | null)?.label,
-          })),
-        ),
-      );
-      assert.equal(
-        turns.some((turn) => turn.content.includes('Continue after loop.')),
-        true,
       );
       await cleanupConversationRuntime(conversationId);
     },
@@ -1842,29 +4297,17 @@ test('break step fails on invalid answer value', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-invalid-answer';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
         .send({ conversationId })
         .expect(202);
 
-      const final = await waitForEvent({
+      const final = await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 4000,
       });
 
@@ -1879,7 +4322,7 @@ test('flow step persists per-agent transcript', async () => {
     () => 'Flow agent response',
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-agent-single-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/llm-basic/run')
@@ -1924,7 +4367,7 @@ test('flow agent transcripts stay isolated by agent', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-agent-multi-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/multi-agent/run')
@@ -1935,6 +4378,12 @@ test('flow agent transcripts stay isolated by agent', async () => {
         conversationId,
         (items) =>
           items.filter((turn) => turn.role === 'assistant').length === 2,
+        2000,
+        () =>
+          describeFlowRuntimeState(conversationId, [
+            'coding_agent:alpha',
+            'planning_agent:beta',
+          ]),
       );
 
       const alphaConversationId = getAgentConversationId(
@@ -1981,7 +4430,7 @@ test('flow conversation remains merged with command metadata', async () => {
     (message) => `${message} response`,
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-agent-merged-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/multi-agent/run')
@@ -2025,29 +4474,17 @@ test('failed flow step persists to agent conversation', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-agent-failed-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
         .send({ conversationId })
         .expect(202);
 
-      await waitForEvent({
+      await waitForLoopTerminalOutcome({
         ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
+        conversationId,
+        expectedStatus: 'failed',
         timeoutMs: 4000,
       });
 
@@ -2077,180 +4514,384 @@ test('failed flow step persists to agent conversation', async () => {
 });
 
 test('flow step retries transient failures and eventually succeeds', async () => {
-  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
-  process.env.FLOW_AND_COMMAND_RETRIES = '3';
   let outerBreakAttempts = 0;
-  await withFlowServer(
-    (message) => {
-      if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
-      if (message.includes('Exit outer loop?')) {
-        outerBreakAttempts += 1;
-        if (outerBreakAttempts < 2) return '{"answer":"maybe"}';
-        return '{"answer":"yes"}';
-      }
-      return 'ok';
-    },
-    async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-loop-retry-success';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      await supertest(baseUrl)
-        .post('/flows/loop-break/run')
-        .send({ conversationId })
-        .expect(202);
-
-      await waitForTurns(
-        conversationId,
-        (items) =>
-          items.some(
-            (turn) =>
-              turn.role === 'user' && turn.content.includes('Exit outer loop?'),
-          ) &&
-          items.some(
-            (turn) =>
-              turn.role === 'assistant' &&
-              turn.content.includes('{"answer":"yes"}'),
-          ),
-        5000,
-      );
-      assert.equal(outerBreakAttempts, 2);
-      await cleanupConversationRuntime(conversationId);
-    },
-  );
-  if (previousRetries === undefined) {
-    delete process.env.FLOW_AND_COMMAND_RETRIES;
-  } else {
-    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
-  }
-});
-
-test('flow step retries to exhaustion and emits one terminal failure', async () => {
-  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
-  process.env.FLOW_AND_COMMAND_RETRIES = '2';
-  let outerBreakAttempts = 0;
-  await withFlowServer(
-    (message) => {
-      if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
-      if (message.includes('Exit outer loop?')) {
-        outerBreakAttempts += 1;
-        return '{"answer":"maybe"}';
-      }
-      return 'ok';
-    },
-    async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-loop-retry-exhausted';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      await supertest(baseUrl)
-        .post('/flows/loop-break/run')
-        .send({ conversationId })
-        .expect(202);
-
-      const final = await waitForEvent({
-        ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'turn_final';
-          status: string;
-          error?: { code?: string };
-        } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-            error?: { code?: string };
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
-        timeoutMs: 5000,
-      });
-
-      assert.equal(final.status, 'failed');
-      assert.equal(outerBreakAttempts, 2);
-      await expectNoTerminalFinal(wsUrl, conversationId);
-      await cleanupConversationRuntime(conversationId);
-    },
-  );
-  if (previousRetries === undefined) {
-    delete process.env.FLOW_AND_COMMAND_RETRIES;
-  } else {
-    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
-  }
-});
-
-test('aborted flow step is not retried', async () => {
-  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
-  process.env.FLOW_AND_COMMAND_RETRIES = '3';
-  let outerBreakAttempts = 0;
-  await withFlowServer(
-    (message) => {
-      if (message.includes('Say hello from a flow step.')) {
-        outerBreakAttempts += 1;
-        return '__delay:1000::Flow agent response';
-      }
-      return 'ok';
-    },
-    async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-loop-retry-aborted';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-      try {
-        const response = await supertest(baseUrl)
-          .post('/flows/llm-basic/run')
+  await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '3' }, async () => {
+    await withFlowServer(
+      (message) => {
+        if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
+        if (message.includes('Exit outer loop?')) {
+          outerBreakAttempts += 1;
+          if (outerBreakAttempts < 2) return '{"answer":"maybe"}';
+          return '{"answer":"yes"}';
+        }
+        return 'ok';
+      },
+      async ({ baseUrl, wsUrl }) => {
+        const conversationId = 'flow-loop-retry-success';
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+        await supertest(baseUrl)
+          .post('/flows/loop-break/run')
           .send({ conversationId })
           .expect(202);
 
-        const inflightId = response.body.inflightId as string;
-        sendJson(wsUrl, {
-          type: 'cancel_inflight',
+        await waitForTurns(
           conversationId,
-          inflightId,
-        });
+          (items) =>
+            items.some(
+              (turn) =>
+                turn.role === 'user' &&
+                turn.content.includes('Exit outer loop?'),
+            ) &&
+            items.some(
+              (turn) =>
+                turn.role === 'assistant' &&
+                turn.content.includes('{"answer":"yes"}'),
+            ),
+          5000,
+          () =>
+            JSON.stringify({
+              outerBreakAttempts,
+              state: JSON.parse(
+                describeFlowRuntimeState(conversationId, [
+                  'coding_agent:outer-break',
+                ]),
+              ),
+            }),
+        );
+        assert.equal(outerBreakAttempts, 2);
+        await cleanupConversationRuntime(conversationId);
+      },
+    );
+  });
+});
 
-        const final = await waitForEvent({
+test('flow step retries to exhaustion and emits one terminal failure', async () => {
+  let outerBreakAttempts = 0;
+  await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '2' }, async () => {
+    await withFlowServer(
+      (message) => {
+        if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
+        if (message.includes('Exit outer loop?')) {
+          outerBreakAttempts += 1;
+          return '{"answer":"maybe"}';
+        }
+        return 'ok';
+      },
+      async ({ baseUrl, wsUrl }) => {
+        const conversationId = 'flow-loop-retry-exhausted';
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+        await supertest(baseUrl)
+          .post('/flows/loop-break/run')
+          .send({ conversationId })
+          .expect(202);
+
+        const final = await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' && e.conversationId === conversationId
-            );
-          },
+          conversationId,
+          expectedStatus: 'failed',
           timeoutMs: 5000,
         });
 
-        assert.ok(final.status === 'stopped' || final.status === 'failed');
-        assert.equal(outerBreakAttempts <= 1, true);
-      } finally {
+        assert.equal(final.status, 'failed');
+        assert.equal(outerBreakAttempts, 2);
+        await waitForRuntimeCleanup(conversationId);
+        const terminalFailures = query(
+          { text: 'chat.ws.server_publish_turn_final' },
+          1000,
+        ).filter(
+          (entry) =>
+            entry.context?.conversationId === conversationId &&
+            entry.context?.status === 'failed',
+        );
+        assert.equal(terminalFailures.length, 1);
         await cleanupConversationRuntime(conversationId);
-      }
+      },
+    );
+  });
+});
+
+test('scoped deterministic Codex overrides stay isolated across concurrent runtime resolution work', async () => {
+  const configPath = path.join(
+    repoRoot,
+    'codeinfo_agents/coding_agent/config.toml',
+  );
+  let markSuccessReady!: () => void;
+  let markUnavailableReady!: () => void;
+  let releaseBoth!: () => void;
+  const successReady = new Promise<void>((resolve) => {
+    markSuccessReady = resolve;
+  });
+  const unavailableReady = new Promise<void>((resolve) => {
+    markUnavailableReady = resolve;
+  });
+  const bothReady = new Promise<void>((resolve) => {
+    releaseBoth = resolve;
+  });
+
+  const concurrentWork = Promise.all([
+    withDeterministicCodexAvailabilityBootstrap(async () => {
+      markSuccessReady();
+      await bothReady;
+      const result = await prepareFlowOwnedAgentExecution({
+        agentName: 'coding_agent',
+        configPath,
+        source: 'REST',
+        allowFallback: false,
+      });
+      return result.executionProviderId;
+    }),
+    withDeterministicCodexAvailabilityBootstrap(async () => {
+      setCodexDetection({
+        available: false,
+        authPresent: false,
+        configPresent: true,
+        reason: 'Missing auth.json',
+      });
+      markUnavailableReady();
+      await bothReady;
+      await assert.rejects(
+        async () =>
+          prepareFlowOwnedAgentExecution({
+            agentName: 'coding_agent',
+            configPath,
+            source: 'REST',
+            allowFallback: false,
+          }),
+        (error) =>
+          (error as { code?: string; reason?: string }).code ===
+            'PROVIDER_UNAVAILABLE' &&
+          /Missing auth\.json/i.test(
+            (error as { reason?: string }).reason ?? '',
+          ),
+      );
+    }),
+  ]);
+
+  await withTimeout(
+    Promise.all([successReady, unavailableReady]),
+    1000,
+    'Timed out waiting for concurrent Codex overrides to become ready',
+  );
+  releaseBoth();
+
+  const [successProviderId] = await concurrentWork;
+
+  assert.equal(successProviderId, 'codex');
+});
+
+test('deterministic runtime resolution ignores an ambient LM Studio URL', async () => {
+  const configPath = path.join(
+    repoRoot,
+    'codeinfo_agents/coding_agent/config.toml',
+  );
+  let lmstudioClientFactoryCalls = 0;
+
+  await runWithTestEnvOverrides(
+    { CODEINFO_LMSTUDIO_BASE_URL: 'ws://127.0.0.1:1234' },
+    async () => {
+      await withDeterministicCodexAvailabilityBootstrap(async () => {
+        __setAgentServiceDepsForTests({
+          lmstudioClientFactory: () => {
+            lmstudioClientFactoryCalls += 1;
+            throw new Error('unexpected LM Studio client creation');
+          },
+        });
+        const result = await prepareFlowOwnedAgentExecution({
+          agentName: 'coding_agent',
+          configPath,
+          source: 'REST',
+          allowFallback: false,
+        });
+
+        assert.equal(result.executionProviderId, 'codex');
+      });
     },
   );
-  if (previousRetries === undefined) {
-    delete process.env.FLOW_AND_COMMAND_RETRIES;
-  } else {
-    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
-  }
+
+  assert.equal(lmstudioClientFactoryCalls, 0);
+});
+
+test('aborted flow step is not retried', async () => {
+  let outerBreakAttempts = 0;
+  let stopRegisteredAtStepStart = false;
+  const conversationId = 'flow-loop-retry-aborted';
+  const cleanupEvents: Array<{
+    label: string;
+    conversationId: string;
+    detail?: string;
+    state: RuntimeCleanupSnapshot;
+  }> = [];
+  const ownershipReleaseCalls: OwnershipReleaseCall[] = [];
+  const stopUnwindCheckpoints: StopUnwindCheckpoint[] = [];
+  const recordCleanupEvent = (
+    label: string,
+    conversationId: string,
+    detail?: string,
+  ) => {
+    cleanupEvents.push({
+      label,
+      conversationId,
+      detail,
+      state: snapshotRuntimeCleanupState(conversationId),
+    });
+    if (cleanupEvents.length > 20) {
+      cleanupEvents.splice(0, cleanupEvents.length - 20);
+    }
+  };
+  const recordStopUnwindCheckpoint = (params: {
+    checkpoint: string;
+    conversationId: string;
+    detail?: string;
+  }) => {
+    stopUnwindCheckpoints.push({
+      checkpoint: params.checkpoint,
+      conversationId: params.conversationId,
+      detail: params.detail,
+      state: snapshotRuntimeCleanupState(params.conversationId),
+    });
+    if (stopUnwindCheckpoints.length > 20) {
+      stopUnwindCheckpoints.splice(0, stopUnwindCheckpoints.length - 20);
+    }
+  };
+  const describeAbortedRetryState = (conversationId: string) =>
+    JSON.stringify({
+      outerBreakAttempts,
+      flowState: JSON.parse(describeFlowRuntimeState(conversationId)),
+      recentTurns: (memoryTurns.get(conversationId) ?? [])
+        .slice(-8)
+        .map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      cleanupEvents,
+      ownershipReleaseCalls,
+      stopUnwindCheckpoints,
+    });
+  await runWithTestEnvOverrides({ FLOW_AND_COMMAND_RETRIES: '3' }, async () => {
+    await withFlowServer(
+      (message) => {
+        if (message.includes('Say hello from a flow step.')) {
+          outerBreakAttempts += 1;
+          return '__delay:1000::Flow agent response';
+        }
+        return 'ok';
+      },
+      async ({ baseUrl, wsUrl }) => {
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+        try {
+          const response = await supertest(baseUrl)
+            .post('/flows/llm-basic/run')
+            .send({ conversationId })
+            .expect(202);
+
+          await waitFor(
+            () => stopRegisteredAtStepStart,
+            5000,
+            () =>
+              JSON.stringify({
+                responseInflightId: response.body.inflightId as string,
+                stopRegisteredAtStepStart,
+                state: JSON.parse(describeAbortedRetryState(conversationId)),
+              }),
+          );
+
+          const final = await waitForLoopTerminalOutcome({
+            ws: wsUrl,
+            conversationId,
+            expectedStatus: ['stopped', 'failed'],
+            timeoutMs: 5000,
+          });
+
+          assert.ok(final.status === 'stopped' || final.status === 'failed');
+          assert.equal(outerBreakAttempts <= 1, true);
+        } finally {
+          await waitForRuntimeCleanup(conversationId, 15000, () =>
+            describeAbortedRetryState(conversationId),
+          );
+          cleanupMemory(conversationId);
+        }
+      },
+      {
+        chatFactory: () =>
+          new ScriptedChat(
+            (message) => {
+              if (message.includes('Say hello from a flow step.')) {
+                outerBreakAttempts += 1;
+                return '__delay:1000::Flow agent response';
+              }
+              return 'ok';
+            },
+            {
+              onExecute: ({ message }) => {
+                if (
+                  !stopRegisteredAtStepStart &&
+                  message.includes('Say hello from a flow step.')
+                ) {
+                  const runToken =
+                    getActiveRunOwnership(conversationId)?.runToken;
+                  if (!runToken) {
+                    return;
+                  }
+                  stopRegisteredAtStepStart = true;
+                  registerPendingConversationCancel({
+                    conversationId,
+                    runToken,
+                  });
+                }
+              },
+            },
+          ),
+        cleanupInflightFn: (params) => {
+          recordCleanupEvent(
+            'before cleanupInflightFn',
+            params.conversationId,
+            `inflightId=${params.inflightId ?? 'none'}`,
+          );
+          cleanupInflight(params);
+          recordCleanupEvent(
+            'after cleanupInflightFn',
+            params.conversationId,
+            `inflightId=${params.inflightId ?? 'none'}`,
+          );
+        },
+        releaseConversationLockFn: (conversationId, expectedRunToken) => {
+          const beforeState = snapshotRuntimeCleanupState(conversationId);
+          const released = releaseConversationLock(
+            conversationId,
+            expectedRunToken,
+          );
+          const afterState = snapshotRuntimeCleanupState(conversationId);
+          ownershipReleaseCalls.push({
+            expectedRunToken,
+            released,
+            beforeState,
+            afterState,
+          });
+          if (ownershipReleaseCalls.length > 12) {
+            ownershipReleaseCalls.splice(0, ownershipReleaseCalls.length - 12);
+          }
+          return released;
+        },
+        onStopUnwindCheckpoint: (params) => {
+          recordStopUnwindCheckpoint(params);
+        },
+      },
+    );
+  });
 });
 
 test('startup-race conversation-only stop still terminalizes a flow as stopped', async () => {
   await withFlowServer(
     (message) => {
       if (message.includes('Say hello from a flow step.')) {
-        return '__delay:1000::Flow agent response';
+        return '__wait_for_abort__';
       }
       return 'ok';
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-startup-stop-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       try {
         await supertest(baseUrl)
           .post('/flows/llm-basic/run')
@@ -2259,22 +4900,10 @@ test('startup-race conversation-only stop still terminalizes a flow as stopped',
 
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-        const final = await waitForEvent({
+        const final = await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
-              e.status === 'stopped'
-            );
-          },
+          conversationId,
+          expectedStatus: 'stopped',
           timeoutMs: 5000,
         });
 
@@ -2292,13 +4921,13 @@ test('duplicate flow stop requests emit one terminal stopped event', async () =>
   await withFlowServer(
     (message) => {
       if (message.includes('Say hello from a flow step.')) {
-        return '__delay:1000::Flow agent response';
+        return '__wait_for_abort__';
       }
       return 'ok';
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-duplicate-stop-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
 
       wsUrl.on('message', (raw) => {
         const parsed = JSON.parse(String(raw)) as {
@@ -2317,26 +4946,14 @@ test('duplicate flow stop requests emit one terminal stopped event', async () =>
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-        await waitForEvent({
+        await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
-              e.status === 'stopped'
-            );
-          },
+          conversationId,
+          expectedStatus: 'stopped',
           timeoutMs: 5000,
         });
 
-        await delay(200);
+        await waitForRuntimeCleanup(conversationId);
 
         const finals = events.filter(
           (event) =>
@@ -2352,17 +4969,18 @@ test('duplicate flow stop requests emit one terminal stopped event', async () =>
 });
 
 test('flow stop cleanup fallback still releases runtime state', async () => {
+  let blockFirstRun = true;
   await withFlowServer(
     (message) => {
       if (message.includes('Say hello from a flow step.')) {
-        return '__delay:1000::Flow agent response';
+        return blockFirstRun ? '__wait_for_abort__' : 'Flow agent response';
       }
       return 'ok';
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-cleanup-fallback-conv';
       let secondConversationId: string | undefined;
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       try {
         const firstRun = await supertest(baseUrl)
           .post('/flows/llm-basic/run')
@@ -2372,54 +4990,46 @@ test('flow stop cleanup fallback still releases runtime state', async () => {
 
         sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
 
-        await waitForEvent({
+        const stopOutcome = await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === conversationId &&
-              e.status === 'stopped'
-            );
-          },
+          conversationId,
+          expectedStatus: 'stopped',
           timeoutMs: 5000,
         });
 
-        await waitForRuntimeCleanup(conversationId);
+        await waitForRuntimeCleanup(conversationId, 8000, () =>
+          JSON.stringify({
+            stopOutcome,
+            recentEvents: peekBufferedEvents(wsUrl).slice(-12),
+            runtimeState: JSON.parse(
+              describeFlowRuntimeState(conversationId, [
+                'coding_agent:outer',
+                'coding_agent:inner',
+                'coding_agent:inner-break',
+                'coding_agent:outer-break',
+              ]),
+            ),
+          }),
+        );
 
+        assert.equal(stopOutcome.status, 'stopped');
+
+        blockFirstRun = false;
         const secondRun = await supertest(baseUrl)
           .post('/flows/llm-basic/run')
           .send({ conversationId })
           .expect(202);
         secondConversationId = secondRun.body.conversationId as string;
         assert.notEqual(secondConversationId, conversationId);
-        sendJson(wsUrl, {
-          type: 'subscribe_conversation',
+        await subscribeConversationAndWaitReady({
+          ws: wsUrl,
           conversationId: secondConversationId,
         });
 
-        await waitForEvent({
+        await waitForLoopTerminalOutcome({
           ws: wsUrl,
-          predicate: (
-            event: unknown,
-          ): event is { type: 'turn_final'; status: string } => {
-            const e = event as {
-              type?: string;
-              conversationId?: string;
-              status?: string;
-            };
-            return (
-              e.type === 'turn_final' &&
-              e.conversationId === secondConversationId &&
-              e.status === 'ok'
-            );
-          },
+          conversationId: secondConversationId,
+          expectedStatus: 'ok',
           timeoutMs: 5000,
         });
       } finally {
@@ -2595,7 +5205,7 @@ test('flow stop during a looped flow prevents later iterations from continuing',
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-stop-boundary-conv';
       stopWs = wsUrl;
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
       try {
         await supertest(baseUrl)
           .post('/flows/loop-break/run')
@@ -2763,5 +5373,460 @@ test('flow stop during a looped flow prevents later iterations from continuing',
         }
       },
     },
+  );
+});
+
+test('parallel subflow batch stop reports mixed child outcomes instead of a clean stopped parent status', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('slow child')) {
+        return '__wait_for_abort__';
+      }
+      return 'ok';
+    },
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      const writeFlow = async (flowName: string, steps: unknown[]) => {
+        await fs.writeFile(
+          path.join(tmpDir, `${flowName}.json`),
+          JSON.stringify(
+            {
+              description: flowName,
+              steps,
+            },
+            null,
+            2,
+          ),
+          'utf8',
+        );
+      };
+      const childStep = (content: string) => ({
+        type: 'llm' as const,
+        label: 'Child Step',
+        agentType: 'planning_agent',
+        identifier: 'main',
+        messages: [{ role: 'user' as const, content: [content] }],
+      });
+
+      await writeFlow('child-fast-ok', [childStep('child ok')]);
+      await writeFlow('child-slow-ok', [childStep('slow child')]);
+      await writeFlow('parent-mixed-subflow-stop', [
+        {
+          type: 'subflow',
+          label: 'Run Slow Batch',
+          flowNames: ['child-fast-ok', 'child-slow-ok'],
+        },
+      ]);
+
+      const conversationId = 'flow-subflow-mixed-stop-conv';
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+      await supertest(baseUrl)
+        .post('/flows/parent-mixed-subflow-stop/run')
+        .send({ conversationId, customTitle: 'Parent Review' })
+        .expect(202);
+
+      await waitForPredicate(
+        () => {
+          const activeSubflows = (
+            (memoryConversations.get(conversationId)?.flags ?? {}) as {
+              flow?: {
+                activeSubflows?: Array<{
+                  flowName?: string;
+                  conversationId?: string;
+                }>;
+              };
+            }
+          ).flow?.activeSubflows;
+          return Array.isArray(activeSubflows) && activeSubflows.length === 2;
+        },
+        4000,
+        'Timed out waiting for active parallel subflows',
+      );
+
+      const activeSubflows = (
+        (memoryConversations.get(conversationId)?.flags ?? {}) as {
+          flow?: {
+            activeSubflows?: Array<{
+              flowName?: string;
+              conversationId?: string;
+            }>;
+          };
+        }
+      ).flow?.activeSubflows;
+      assert.ok(Array.isArray(activeSubflows));
+      const fastChildConversationId = String(
+        activeSubflows.find((child) => child.flowName === 'child-fast-ok')
+          ?.conversationId ?? '',
+      );
+      const slowChildConversationId = String(
+        activeSubflows.find((child) => child.flowName === 'child-slow-ok')
+          ?.conversationId ?? '',
+      );
+      assert.ok(fastChildConversationId);
+      assert.ok(slowChildConversationId);
+
+      await waitForTurns(
+        fastChildConversationId,
+        (items) =>
+          items.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'ok',
+          ),
+        4000,
+      );
+
+      sendJson(wsUrl, { type: 'cancel_inflight', conversationId });
+
+      const final = await waitForLoopTerminalOutcome({
+        ws: wsUrl,
+        conversationId,
+        expectedStatus: ['warning', 'failed'],
+        timeoutMs: 4000,
+      });
+      assert.equal(final.status, 'warning');
+
+      await waitForTurns(
+        slowChildConversationId,
+        (items) =>
+          items.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'stopped',
+          ),
+        4000,
+      );
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) => turn.role === 'assistant' && turn.status === 'warning',
+          ),
+        4000,
+      );
+      const finalAssistant = [...turns]
+        .reverse()
+        .find((turn) => turn.role === 'assistant');
+      assert.equal(finalAssistant?.status, 'warning');
+      assert.equal(
+        finalAssistant?.content,
+        'Subflow batch stop had mixed child outcomes (stopped: Parent Review-Run Slow Batch-child-slow-ok; completed: Parent Review-Run Slow Batch-child-fast-ok)',
+      );
+
+      await cleanupConversationRuntime(
+        conversationId,
+        fastChildConversationId,
+        slowChildConversationId,
+      );
+    },
+  );
+});
+
+test('shared decision seam follows valid script-driven if branch through happy path', async () => {
+  await withFlowServer(
+    () => 'ok',
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'shared-decision-if-flow.json'),
+        JSON.stringify({
+          description: 'Flow with if-step using script decision',
+          steps: [
+            {
+              type: 'if',
+              condition: 'flow-control/decision-yes.py',
+              then: [
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: [
+                        'Decision was yes, proceeding with then branch.',
+                      ],
+                    },
+                  ],
+                },
+              ],
+              else: [
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Else branch should not run.'],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const result = await supertest(baseUrl)
+        .post('/flows/shared-decision-if-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+      await waitForLoopTerminalOutcome({
+        ws: wsUrl,
+        conversationId,
+        expectedStatus: 'ok',
+        timeoutMs: 8000,
+      });
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes(
+                'Decision was yes, proceeding with then branch.',
+              ),
+          ),
+        4000,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes(
+              'Decision was yes, proceeding with then branch.',
+            ),
+        ).length,
+        1,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Else branch should not run.'),
+        ).length,
+        0,
+      );
+      await cleanupConversationRuntime(
+        conversationId,
+        ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        ...getLoopContinueAgentConversationIds(conversationId),
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+test('shared decision seam follows valid script-driven break branch through happy path', async () => {
+  await withFlowServer(
+    () => 'ok',
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'shared-decision-break-flow.json'),
+        JSON.stringify({
+          description: 'Flow with break-step using script decision',
+          steps: [
+            {
+              type: 'startLoop',
+              steps: [
+                {
+                  type: 'break',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  question: 'flow-control/decision-yes.py',
+                  breakOn: 'yes',
+                },
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Loop body should stop before this step.'],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'llm',
+              agentType: 'planning_agent',
+              identifier: 'main',
+              messages: [
+                {
+                  role: 'user',
+                  content: ['Break exited the loop cleanly.'],
+                },
+              ],
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const result = await supertest(baseUrl)
+        .post('/flows/shared-decision-break-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+      await waitForLoopTerminalOutcome({
+        ws: wsUrl,
+        conversationId,
+        expectedStatus: 'ok',
+        timeoutMs: 4000,
+      });
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Break exited the loop cleanly.'),
+          ),
+        8000,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Loop body should stop before this step.'),
+        ).length,
+        0,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Break exited the loop cleanly.'),
+        ).length,
+        1,
+      );
+      await cleanupConversationRuntime(
+        conversationId,
+        ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        ...getLoopContinueAgentConversationIds(conversationId),
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam follows valid script-driven continue branch through happy path', async () => {
+  await withFlowServer(
+    () => 'ok',
+    async ({ tmpDir, wsUrl, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'flow-control', 'decision-continue-once.py'),
+        [
+          '#!/usr/bin/env python3',
+          'import json',
+          'from pathlib import Path',
+          '',
+          "state_file = Path('.continue-once-state')",
+          'count = int(state_file.read_text()) if state_file.exists() else 0',
+          'count += 1',
+          'state_file.write_text(str(count))',
+          "answer = 'yes' if count == 1 else 'no'",
+          'print(json.dumps({"answer": answer}))',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await execFile(
+        'git',
+        ['add', '--', 'flow-control/decision-continue-once.py'],
+        { cwd: tmpDir },
+      );
+      await fs.writeFile(
+        path.join(tmpDir, 'shared-decision-continue-flow.json'),
+        JSON.stringify({
+          description: 'Flow with continue-step using script decision',
+          steps: [
+            {
+              type: 'startLoop',
+              steps: [
+                {
+                  type: 'continue',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  question: 'flow-control/decision-continue-once.py',
+                  continueOn: 'yes',
+                },
+                {
+                  type: 'llm',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  messages: [
+                    {
+                      role: 'user',
+                      content: ['Reached post-continue step.'],
+                    },
+                  ],
+                },
+                {
+                  type: 'break',
+                  agentType: 'planning_agent',
+                  identifier: 'main',
+                  question: 'flow-control/decision-yes.py',
+                  breakOn: 'yes',
+                },
+              ],
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const result = await supertest(baseUrl)
+        .post('/flows/shared-decision-continue-flow/run')
+        .send({
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const conversationId = result.body.conversationId;
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+      await waitForLoopTerminalOutcome({
+        ws: wsUrl,
+        conversationId,
+        expectedStatus: 'ok',
+        timeoutMs: 4000,
+      });
+
+      const turns = await waitForTurns(
+        conversationId,
+        (items) =>
+          items.filter(
+            (turn) =>
+              turn.role === 'user' &&
+              turn.content.includes('Reached post-continue step.'),
+          ).length === 1,
+        4000,
+      );
+      assert.equal(
+        turns.filter(
+          (turn) =>
+            turn.role === 'user' &&
+            turn.content.includes('Reached post-continue step.'),
+        ).length,
+        1,
+      );
+      await cleanupConversationRuntime(
+        conversationId,
+        ...getAgentConversationIds(conversationId, ['planning_agent:main']),
+        ...getLoopContinueAgentConversationIds(conversationId),
+      );
+    },
+    { registerTmpDirAsRepo: true },
   );
 });

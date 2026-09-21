@@ -73,6 +73,7 @@ import {
   type RepositoryCandidateOrderResult,
   type RepositoryCandidateOrderSlot,
 } from '../flows/repositoryCandidateOrder.js';
+import { disposeClient } from '../lmstudio/clientPool.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -102,6 +103,13 @@ import { TurnModel } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
+import {
+  enterTestOverrideScope,
+  getCurrentTestOverrideScopeId,
+  getScopedAgentServiceDepsOverride,
+  getScopedEnvValue,
+  hasActiveTestOverrideScope,
+} from '../test/support/testOverrideScope.js';
 import {
   resolveSharedExecutionContext,
   resolveWorkingFolderWorkingDirectory,
@@ -138,6 +146,23 @@ import {
   tryAcquireConversationLock,
 } from './runLock.js';
 import type { AgentDetails, AgentSummary } from './types.js';
+
+const agentRuntimeDiagnosticsEnabled =
+  process.env.CODEINFO_TEST_RUNTIME_DIAGNOSTICS === '1';
+
+const appendAgentRuntimeDiagnostic = (
+  message: string,
+  context: Record<string, unknown>,
+) => {
+  if (!agentRuntimeDiagnosticsEnabled) return;
+  append({
+    level: 'info',
+    message,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context,
+  });
+};
 
 export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
   const discovered = await discoverAgents();
@@ -291,16 +316,41 @@ const agentServiceDeps: AgentServiceDeps = {
     new LMStudioClient({
       baseUrl,
     } as LMStudioClientConstructorOpts),
-  getLmStudioBaseUrl: () => process.env.CODEINFO_LMSTUDIO_BASE_URL,
+  getLmStudioBaseUrl: () => getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL'),
+};
+
+const getEffectiveAgentServiceDeps = (): AgentServiceDeps => {
+  const scoped = getScopedAgentServiceDepsOverride() as
+    | Partial<AgentServiceDeps>
+    | undefined;
+  if (!scoped) {
+    return agentServiceDeps;
+  }
+  return {
+    ...agentServiceDeps,
+    ...scoped,
+  };
 };
 
 export function __setAgentServiceDepsForTests(
   overrides: Partial<AgentServiceDeps>,
 ) {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      agentServiceDeps: overrides as Record<string, unknown>,
+    });
+    return;
+  }
   Object.assign(agentServiceDeps, overrides);
 }
 
 export function __resetAgentServiceDepsForTests() {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      agentServiceDeps: null,
+    });
+    return;
+  }
   agentServiceDeps.listIngestedRepositories = listIngestedRepositories;
   agentServiceDeps.getCodexDetection = getCodexDetection;
   agentServiceDeps.resolveCodexCapabilities = resolveCodexCapabilities;
@@ -316,7 +366,7 @@ export function __resetAgentServiceDepsForTests() {
       baseUrl,
     } as LMStudioClientConstructorOpts);
   agentServiceDeps.getLmStudioBaseUrl = () =>
-    process.env.CODEINFO_LMSTUDIO_BASE_URL;
+    getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL');
 }
 
 type DirectAgentProviderState = {
@@ -340,6 +390,11 @@ type DirectAgentPreparedExecution = {
   repositoryContext: RepositoryExecutionContextMetadata;
   workingDirectoryOverride?: string;
   copilotModels: ModelInfo[];
+};
+
+type RuntimePreparationDiagnostics = {
+  emit: (message: string, context: Record<string, unknown>) => void;
+  baseContext?: Record<string, unknown>;
 };
 
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
@@ -529,22 +584,52 @@ async function persistDirectAgentConversation(params: {
   return persisted;
 }
 
-async function collectDirectAgentProviderStates(): Promise<
-  Record<ChatProviderId, DirectAgentProviderState>
-> {
-  const codexDetection = agentServiceDeps.getCodexDetection();
-  const codexCapabilities = await agentServiceDeps.resolveCodexCapabilities({
-    consumer: 'chat_validation',
-  });
-  const mcp = await agentServiceDeps.getMcpStatus();
-  const [copilotReadiness, lmstudioState] = await Promise.all([
-    agentServiceDeps.resolveCopilotReadiness({
-      env: process.env,
-      toolsAvailable: mcp.available,
-      toolsReason: mcp.reason,
+async function collectDirectAgentProviderStates(
+  diagnostics?: RuntimePreparationDiagnostics,
+  deps: AgentServiceDeps = getEffectiveAgentServiceDeps(),
+): Promise<Record<ChatProviderId, DirectAgentProviderState>> {
+  const startedAt = Date.now();
+  const emit = (operation: string, phase: 'begin' | 'complete' | 'failed') =>
+    diagnostics?.emit(
+      `flows.test.runtime_resolution_provider_states_${operation}_${phase}`,
+      {
+        ...(diagnostics.baseContext ?? {}),
+        elapsedMs: Date.now() - startedAt,
+        testOverrideScopeId: getCurrentTestOverrideScopeId() ?? null,
+      },
+    );
+  const traceAsync = <T>(
+    operation: string,
+    run: () => Promise<T>,
+  ): Promise<T> => {
+    if (!diagnostics) {
+      return run();
+    }
+    emit(operation, 'begin');
+    const promise = run();
+    void promise.then(
+      () => emit(operation, 'complete'),
+      () => emit(operation, 'failed'),
+    );
+    return promise;
+  };
+  const codexDetection = deps.getCodexDetection();
+  const codexCapabilities = await traceAsync('codex_capabilities', () =>
+    deps.resolveCodexCapabilities({
+      consumer: 'chat_validation',
     }),
-    (async (): Promise<DirectAgentProviderState> => {
-      const baseUrl = agentServiceDeps.getLmStudioBaseUrl()?.trim();
+  );
+  const mcp = await traceAsync('mcp_status', deps.getMcpStatus);
+  const [copilotReadiness, lmstudioState] = await Promise.all([
+    traceAsync('copilot_readiness', () =>
+      deps.resolveCopilotReadiness({
+        env: process.env,
+        toolsAvailable: mcp.available,
+        toolsReason: mcp.reason,
+      }),
+    ),
+    traceAsync('lmstudio', async (): Promise<DirectAgentProviderState> => {
+      const baseUrl = deps.getLmStudioBaseUrl()?.trim();
       if (!baseUrl || !BASE_URL_REGEX.test(baseUrl)) {
         return {
           available: false,
@@ -553,20 +638,22 @@ async function collectDirectAgentProviderStates(): Promise<
         };
       }
       try {
-        const client = agentServiceDeps.lmstudioClientFactory(
-          toWsBaseUrl(baseUrl),
-        );
-        const models = await client.system.listDownloadedModels();
-        const availableModels = models
-          .filter(isChatModel)
-          .map((entry) => normalizeModel(entry.modelKey))
-          .filter((entry): entry is string => entry !== undefined);
-        return {
-          available: availableModels.length > 0,
-          models: availableModels,
-          reason:
-            availableModels.length > 0 ? undefined : 'lmstudio unavailable',
-        };
+        const client = deps.lmstudioClientFactory(toWsBaseUrl(baseUrl));
+        try {
+          const models = await client.system.listDownloadedModels();
+          const availableModels = models
+            .filter(isChatModel)
+            .map((entry) => normalizeModel(entry.modelKey))
+            .filter((entry): entry is string => entry !== undefined);
+          return {
+            available: availableModels.length > 0,
+            models: availableModels,
+            reason:
+              availableModels.length > 0 ? undefined : 'lmstudio unavailable',
+          };
+        } finally {
+          await disposeClient(client);
+        }
       } catch (error) {
         return {
           available: false,
@@ -574,7 +661,7 @@ async function collectDirectAgentProviderStates(): Promise<
           reason: (error as Error)?.message ?? 'lmstudio unavailable',
         };
       }
-    })(),
+    }),
   ]);
 
   return {
@@ -754,28 +841,56 @@ function resolveProviderModelForExecution(params: {
   return null;
 }
 
-async function prepareDirectAgentExecution(params: {
-  agentName: string;
-  configPath: string;
-  workingFolder?: string;
-  defaultRepositoryRoot?: string;
-  source: 'REST' | 'MCP';
-  surface:
-    | 'agents.run'
-    | 'agents.commands.run'
-    | 'mcp.agents.run'
-    | 'flows.run';
-  pinnedProviderId?: ConversationProvider;
-  pinnedModelId?: string;
-  pinnedRequestedProviderId?: string;
-  pinnedEndpointId?: string | null;
-  allowFallback: boolean;
-}): Promise<DirectAgentPreparedExecution> {
+async function prepareDirectAgentExecution(
+  params: {
+    agentName: string;
+    configPath: string;
+    workingFolder?: string;
+    defaultRepositoryRoot?: string;
+    source: 'REST' | 'MCP';
+    surface:
+      | 'agents.run'
+      | 'agents.commands.run'
+      | 'mcp.agents.run'
+      | 'flows.run';
+    pinnedProviderId?: ConversationProvider;
+    pinnedModelId?: string;
+    pinnedRequestedProviderId?: string;
+    pinnedEndpointId?: string | null;
+    allowFallback: boolean;
+    diagnostics?: RuntimePreparationDiagnostics;
+  },
+  deps: AgentServiceDeps = getEffectiveAgentServiceDeps(),
+): Promise<DirectAgentPreparedExecution> {
+  const emitPreparationDiagnostic = (
+    message: string,
+    context: Record<string, unknown> = {},
+  ) => {
+    params.diagnostics?.emit(message, {
+      agentName: params.agentName,
+      configPath: params.configPath,
+      source: params.source,
+      surface: params.surface,
+      ...(params.diagnostics?.baseContext ?? {}),
+      ...context,
+    });
+  };
+
   let requestedMetadata;
   try {
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_requested_metadata_begin',
+    );
     requestedMetadata = await readAgentRequestedProviderMetadata({
       configPath: params.configPath,
     });
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_requested_metadata_complete',
+      {
+        requestedProviderId: requestedMetadata.requestedProviderId ?? null,
+        warningCount: requestedMetadata.warnings.length,
+      },
+    );
   } catch (error) {
     const code =
       error instanceof RuntimeConfigResolutionError
@@ -790,17 +905,51 @@ async function prepareDirectAgentExecution(params: {
         `${T07_ERROR_LOG} surface=${params.surface} source=${params.source} code=${code}`,
       );
     }
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_requested_metadata_failed',
+      {
+        code,
+        reason: error instanceof Error ? error.message : String(error),
+      },
+    );
     throw error;
   }
-  const availabilityContext =
-    await agentServiceDeps.createAgentAvailabilityContext();
-  const availability = await agentServiceDeps.evaluateAgentAvailability({
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_availability_begin',
+  );
+  const availabilityContext = await deps.createAgentAvailabilityContext();
+  const availability = await deps.evaluateAgentAvailability({
     agentName: params.agentName,
     configPath: params.configPath,
     entrypoint: 'agents.service',
     context: availabilityContext,
   });
-  const providerStates = await collectDirectAgentProviderStates();
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_availability_complete',
+    {
+      requestedProviderId: availability.requestedProviderId ?? null,
+      executionProviderId: availability.executionProviderId ?? null,
+      disabledReason: availability.disabledReason?.message ?? null,
+    },
+  );
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_provider_states_begin',
+  );
+  const providerStates = await collectDirectAgentProviderStates(
+    agentRuntimeDiagnosticsEnabled ? params.diagnostics : undefined,
+    deps,
+  );
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_provider_states_complete',
+    {
+      codexAvailable: providerStates.codex.available,
+      codexModels: providerStates.codex.models.length,
+      copilotAvailable: providerStates.copilot.available,
+      copilotModels: providerStates.copilot.models.length,
+      lmstudioAvailable: providerStates.lmstudio.available,
+      lmstudioModels: providerStates.lmstudio.models.length,
+    },
+  );
   const runtimeProviderStates = {
     codex: applyBootstrapStatusToDirectAgentProviderState(
       'codex',
@@ -815,11 +964,45 @@ async function prepareDirectAgentExecution(params: {
       providerStates.lmstudio,
     ),
   };
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_runtime_provider_states_complete',
+    {
+      codexAvailable: runtimeProviderStates.codex.available,
+      codexReason: runtimeProviderStates.codex.reason ?? null,
+      copilotAvailable: runtimeProviderStates.copilot.available,
+      copilotReason: runtimeProviderStates.copilot.reason ?? null,
+      lmstudioAvailable: runtimeProviderStates.lmstudio.available,
+      lmstudioReason: runtimeProviderStates.lmstudio.reason ?? null,
+    },
+  );
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_execution_context_begin',
+  );
   const executionContext = await resolveSharedExecutionContext({
     workingFolder: params.workingFolder,
   });
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_execution_context_complete',
+    {
+      workingDirectoryOverride:
+        executionContext.workingDirectoryOverride ?? null,
+      selectedRepositoryPath:
+        executionContext.repositoryMetadata.selectedRepositoryPath ?? null,
+      defaultExecutionRoot:
+        executionContext.repositoryMetadata.defaultExecutionRoot ?? null,
+      workingRepositoryAvailable:
+        executionContext.repositoryMetadata.workingRepositoryAvailable,
+    },
+  );
   if (params.pinnedProviderId) {
     const providerState = runtimeProviderStates[params.pinnedProviderId];
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_provider_runtime_config_begin',
+      {
+        providerId: params.pinnedProviderId,
+        pinned: true,
+      },
+    );
     const providerRuntimeResolution =
       await resolveProviderRuntimeConfigForExecution({
         configPath: params.configPath,
@@ -827,6 +1010,15 @@ async function prepareDirectAgentExecution(params: {
         source: params.source,
         surface: params.surface,
       });
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_provider_runtime_config_complete',
+      {
+        providerId: params.pinnedProviderId,
+        pinned: true,
+        warningCount: providerRuntimeResolution.warnings.length,
+        hasEndpoint: providerRuntimeResolution.endpoint !== undefined,
+      },
+    );
     const configuredEndpointId =
       providerRuntimeResolution.endpoint?.endpointId?.trim() || undefined;
     if (
@@ -858,6 +1050,17 @@ async function prepareDirectAgentExecution(params: {
               reason: `Endpoint "${params.pinnedEndpointId}" is unavailable.`,
             }
           : undefined;
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_endpoint_state_complete',
+      {
+        providerId: params.pinnedProviderId,
+        pinned: true,
+        endpointId: endpointState?.endpointId ?? null,
+        endpointAvailable: endpointState?.available ?? null,
+        endpointModels: endpointState?.models.length ?? 0,
+        endpointReason: endpointState?.reason ?? null,
+      },
+    );
     const requestedModel =
       params.pinnedModelId ??
       normalizeModel(
@@ -890,6 +1093,19 @@ async function prepareDirectAgentExecution(params: {
       copilot: runtimeProviderStates.copilot,
       lmstudio: runtimeProviderStates.lmstudio,
     });
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_selection_complete',
+      {
+        providerId: params.pinnedProviderId,
+        pinned: true,
+        unavailable: runtimeSelection.unavailable,
+        executionProvider: runtimeSelection.executionProvider,
+        executionModel: runtimeSelection.executionModel,
+        executionPath: runtimeSelection.executionPath ?? null,
+        fallbackApplied: runtimeSelection.fallbackApplied ?? false,
+        requestedReason: runtimeSelection.requestedReason ?? null,
+      },
+    );
     if (runtimeSelection.unavailable) {
       throw toRunAgentError(
         'PROVIDER_UNAVAILABLE',
@@ -964,7 +1180,8 @@ async function prepareDirectAgentExecution(params: {
   const requestedProviderId =
     requestedMetadata.requestedProviderId ?? availability.requestedProviderId;
   const fallbackOrder =
-    agentServiceDeps.resolveAgentProviderFallbackOrder().normalizedProviders;
+    getEffectiveAgentServiceDeps().resolveAgentProviderFallbackOrder()
+      .normalizedProviders;
   const configuredRequestedProvider =
     requestedProviderId && isChatProviderId(requestedProviderId)
       ? requestedProviderId
@@ -1004,6 +1221,13 @@ async function prepareDirectAgentExecution(params: {
         }
       | undefined;
     try {
+      emitPreparationDiagnostic(
+        'flows.test.runtime_resolution_prepare_provider_runtime_config_begin',
+        {
+          providerId,
+          pinned: false,
+        },
+      );
       providerRuntimeResolution =
         await resolveProviderRuntimeConfigForExecution({
           configPath: params.configPath,
@@ -1011,11 +1235,28 @@ async function prepareDirectAgentExecution(params: {
           source: params.source,
           surface: params.surface,
         });
+      emitPreparationDiagnostic(
+        'flows.test.runtime_resolution_prepare_provider_runtime_config_complete',
+        {
+          providerId,
+          pinned: false,
+          warningCount: providerRuntimeResolution.warnings.length,
+          hasEndpoint: providerRuntimeResolution.endpoint !== undefined,
+        },
+      );
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : String(error ?? 'unknown error');
+      emitPreparationDiagnostic(
+        'flows.test.runtime_resolution_prepare_provider_runtime_config_failed',
+        {
+          providerId,
+          pinned: false,
+          reason: message,
+        },
+      );
       runtimeWarnings.push(
         providerId === configuredRequestedProvider
           ? `Agent could not execute on requested provider "${providerId}" because its runtime config could not load: ${message}`
@@ -1040,6 +1281,17 @@ async function prepareDirectAgentExecution(params: {
             reason: `Endpoint "${params.pinnedEndpointId}" is unavailable.`,
           }
         : undefined;
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_endpoint_state_complete',
+      {
+        providerId,
+        pinned: false,
+        endpointId: endpointState?.endpointId ?? null,
+        endpointAvailable: endpointState?.available ?? null,
+        endpointModels: endpointState?.models.length ?? 0,
+        endpointReason: endpointState?.reason ?? null,
+      },
+    );
     const configuredModel = normalizeModel(
       (providerRuntimeResolution.config as Record<string, unknown>)?.model,
     );
@@ -1065,6 +1317,19 @@ async function prepareDirectAgentExecution(params: {
       copilot: runtimeProviderStates.copilot,
       lmstudio: runtimeProviderStates.lmstudio,
     });
+    emitPreparationDiagnostic(
+      'flows.test.runtime_resolution_prepare_selection_complete',
+      {
+        providerId,
+        pinned: false,
+        unavailable: runtimeSelection.unavailable,
+        executionProvider: runtimeSelection.executionProvider,
+        executionModel: runtimeSelection.executionModel,
+        executionPath: runtimeSelection.executionPath ?? null,
+        fallbackApplied: runtimeSelection.fallbackApplied ?? false,
+        requestedReason: runtimeSelection.requestedReason ?? null,
+      },
+    );
     if (runtimeSelection.unavailable) {
       if (
         params.pinnedEndpointId &&
@@ -1161,6 +1426,20 @@ async function prepareDirectAgentExecution(params: {
     };
   }
 
+  emitPreparationDiagnostic(
+    'flows.test.runtime_resolution_prepare_selection_failed',
+    {
+      requestedProviderId: requestedProviderId ?? null,
+      configuredRequestedProvider,
+      invalidProviderReason: invalidProviderReason ?? null,
+      lastRuntimeConfigFailure:
+        lastRuntimeConfigFailure === undefined
+          ? null
+          : lastRuntimeConfigFailure,
+      requestedProviderReason:
+        providerStates[configuredRequestedProvider]?.reason ?? null,
+    },
+  );
   if (invalidProviderReason) {
     throw toRunAgentError('INVALID_PROVIDER', invalidProviderReason);
   }
@@ -1187,6 +1466,7 @@ export async function prepareFlowOwnedAgentExecution(params: {
   pinnedRequestedProviderId?: string;
   pinnedEndpointId?: string | null;
   allowFallback: boolean;
+  diagnostics?: RuntimePreparationDiagnostics;
 }): Promise<DirectAgentPreparedExecution> {
   return prepareDirectAgentExecution({
     ...params,
@@ -1875,22 +2155,60 @@ export async function startAgentInstruction(
     throw err;
   }
 
+  const agentServiceDepsSnapshot = getEffectiveAgentServiceDeps();
   void (async () => {
     try {
-      await runAgentInstructionUnlocked({
-        ...params,
-        conversationId,
-        mustExist,
-        startPathWasNewConversation,
-        inflightId,
-        // Intentionally omit any request-bound signal; cancellation happens only
-        // via explicit WS cancel_inflight.
-        signal: undefined,
-        runToken,
-        cleanupInflightFn: params.cleanupInflightFn,
-        releaseConversationLockFn: params.releaseConversationLockFn,
-      });
+      appendAgentRuntimeDiagnostic(
+        'agents.test.start_instruction.background_entered',
+        {
+          agentName: params.agentName,
+          conversationId,
+          inflightId,
+          source: params.source,
+          runToken,
+          startPathWasNewConversation,
+          workingFolder: params.working_folder ?? null,
+        },
+      );
+      await runAgentInstructionUnlockedWithDeps(
+        {
+          ...params,
+          conversationId,
+          mustExist,
+          startPathWasNewConversation,
+          inflightId,
+          // Intentionally omit any request-bound signal; cancellation happens only
+          // via explicit WS cancel_inflight.
+          signal: undefined,
+          runToken,
+          cleanupInflightFn: params.cleanupInflightFn,
+          releaseConversationLockFn: params.releaseConversationLockFn,
+        },
+        agentServiceDepsSnapshot,
+      );
+      appendAgentRuntimeDiagnostic(
+        'agents.test.start_instruction.background_complete',
+        {
+          agentName: params.agentName,
+          conversationId,
+          inflightId,
+          source: params.source,
+          runToken,
+        },
+      );
     } catch (err) {
+      appendAgentRuntimeDiagnostic(
+        'agents.test.start_instruction.background_failed',
+        {
+          agentName: params.agentName,
+          conversationId,
+          inflightId,
+          source: params.source,
+          runToken,
+          error:
+            err instanceof Error ? err.message : String(err ?? 'unknown error'),
+        },
+      );
       baseLogger.error(
         { agentName: params.agentName, conversationId, inflightId, err },
         'agents run failed (background)',
@@ -1898,6 +2216,17 @@ export async function startAgentInstruction(
     }
   })();
 
+  appendAgentRuntimeDiagnostic('agents.test.start_instruction.accepted', {
+    agentName: params.agentName,
+    conversationId,
+    inflightId,
+    providerId,
+    modelId,
+    source: params.source,
+    runToken,
+    warningCount: warnings.length,
+    workingFolder: params.working_folder ?? null,
+  });
   return {
     conversationId,
     inflightId,
@@ -1970,7 +2299,7 @@ function isSafeAgentCommandName(raw: string): boolean {
 const FALLBACK_COMMAND_MODEL_ID = 'gpt-5.6-sol';
 
 const loadKnownRepositoryPathsStateForAgentRuns = async () =>
-  await agentServiceDeps
+  await getEffectiveAgentServiceDeps()
     .listIngestedRepositories()
     .then((result) => ({
       repos: result.repos,
@@ -2327,9 +2656,59 @@ export async function startAgentCommand(params: {
     }
 
     backgroundScheduled = true;
+    appendAgentRuntimeDiagnostic('agents.test.start_command.accepted', {
+      agentName: params.agentName,
+      commandName,
+      conversationId,
+      providerId,
+      modelId,
+      source: params.source,
+      runToken,
+      startStep,
+      warningCount: warnings.length,
+      selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
+      workingFolder: effectiveWorkingFolder ?? null,
+    });
+    appendAgentRuntimeDiagnostic(
+      'agents.test.start_command.background_scheduled',
+      {
+        agentName: params.agentName,
+        commandName,
+        conversationId,
+        source: params.source,
+        runToken,
+        startStep,
+        selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
+        workingFolder: effectiveWorkingFolder ?? null,
+      },
+    );
 
+    const agentServiceDepsSnapshot = getEffectiveAgentServiceDeps();
     void (async () => {
       try {
+        appendAgentRuntimeDiagnostic(
+          'agents.test.start_command.background_entered',
+          {
+            agentName: params.agentName,
+            commandName,
+            conversationId,
+            source: params.source,
+            runToken,
+            startStep,
+            selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
+            workingFolder: effectiveWorkingFolder ?? null,
+          },
+        );
+        appendAgentRuntimeDiagnostic('agents.test.start_command.runner_begin', {
+          agentName: params.agentName,
+          commandName,
+          conversationId,
+          source: params.source,
+          runToken,
+          startStep,
+          selectedRepositoryPath: resolution.selectedRepositoryPath ?? null,
+          workingFolder: effectiveWorkingFolder ?? null,
+        });
         await runAgentCommandRunner({
           agentName: params.agentName,
           agentHome: agent.home,
@@ -2339,7 +2718,8 @@ export async function startAgentCommand(params: {
           startStep,
           conversationId,
           sourceId: resolution.selectedRepositoryPath,
-          listIngestedRepositories: agentServiceDeps.listIngestedRepositories,
+          listIngestedRepositories:
+            agentServiceDepsSnapshot.listIngestedRepositories,
           working_folder: effectiveWorkingFolder,
           signal: undefined,
           source: params.source,
@@ -2347,6 +2727,21 @@ export async function startAgentCommand(params: {
           lookupSummary: resolution.lookupSummary,
           runtimeLookupSummary: resolution.runtimeLookupSummary,
           onPrestartFailure: async (failure) => {
+            appendAgentRuntimeDiagnostic(
+              'agents.test.start_command.prestart_failure',
+              {
+                agentName: params.agentName,
+                commandName,
+                conversationId,
+                source: params.source,
+                runToken,
+                startStep,
+                stepIndex: failure.command.stepIndex,
+                totalSteps: failure.command.totalSteps,
+                errorCode: failure.errorCode ?? null,
+                message: failure.message,
+              },
+            );
             await emitFailedAgentCommandStep({
               conversationId,
               inflightId: crypto.randomUUID(),
@@ -2360,14 +2755,43 @@ export async function startAgentCommand(params: {
             });
           },
           runAgentInstructionUnlocked: (runParams) =>
-            runAgentInstructionUnlocked({
-              ...runParams,
-              chatFactory: params.chatFactory,
-            }),
+            runAgentInstructionUnlockedWithDeps(
+              {
+                ...runParams,
+                chatFactory: params.chatFactory,
+              },
+              agentServiceDepsSnapshot,
+            ),
           lockAlreadyHeld: true,
           runToken,
         });
+        appendAgentRuntimeDiagnostic(
+          'agents.test.start_command.runner_complete',
+          {
+            agentName: params.agentName,
+            commandName,
+            conversationId,
+            source: params.source,
+            runToken,
+            startStep,
+          },
+        );
       } catch (err) {
+        appendAgentRuntimeDiagnostic(
+          'agents.test.start_command.runner_failed',
+          {
+            agentName: params.agentName,
+            commandName,
+            conversationId,
+            source: params.source,
+            runToken,
+            startStep,
+            error:
+              err instanceof Error
+                ? err.message
+                : String(err ?? 'unknown error'),
+          },
+        );
         baseLogger.error(
           { agentName: params.agentName, commandName, conversationId, err },
           'agents command run failed (background)',
@@ -2502,6 +2926,7 @@ export async function runAgentCommand(params: {
     workingFolder: effectiveWorkingFolder,
   });
 
+  const agentServiceDepsSnapshot = getEffectiveAgentServiceDeps();
   const result = await runAgentCommandRunner({
     agentName: params.agentName,
     agentHome: agent.home,
@@ -2511,7 +2936,7 @@ export async function runAgentCommand(params: {
     startStep,
     conversationId,
     sourceId: resolution.selectedRepositoryPath,
-    listIngestedRepositories: agentServiceDeps.listIngestedRepositories,
+    listIngestedRepositories: agentServiceDepsSnapshot.listIngestedRepositories,
     working_folder: effectiveWorkingFolder,
     signal: params.signal,
     source: params.source,
@@ -2519,10 +2944,13 @@ export async function runAgentCommand(params: {
     lookupSummary: resolution.lookupSummary,
     runtimeLookupSummary: resolution.runtimeLookupSummary,
     runAgentInstructionUnlocked: (runParams) =>
-      runAgentInstructionUnlocked({
-        ...runParams,
-        chatFactory: params.chatFactory,
-      }),
+      runAgentInstructionUnlockedWithDeps(
+        {
+          ...runParams,
+          chatFactory: params.chatFactory,
+        },
+        agentServiceDepsSnapshot,
+      ),
   });
   const conversation = await getConversation(conversationId);
   return {
@@ -2533,7 +2961,7 @@ export async function runAgentCommand(params: {
   };
 }
 
-export async function runAgentInstructionUnlocked(params: {
+export type RunAgentInstructionUnlockedParams = {
   agentName: string;
   instruction: string;
   working_folder?: string;
@@ -2550,7 +2978,12 @@ export async function runAgentInstructionUnlocked(params: {
   runToken?: string;
   cleanupInflightFn?: InstructionRuntimeCleanupFn;
   releaseConversationLockFn?: InstructionReleaseLockFn;
-}): Promise<RunAgentInstructionResult> {
+};
+
+async function runAgentInstructionUnlockedWithDeps(
+  params: RunAgentInstructionUnlockedParams,
+  agentServiceDepsSnapshot: AgentServiceDeps,
+): Promise<RunAgentInstructionResult> {
   const managesInstructionLifecycle =
     !params.command && typeof params.runToken === 'string';
   const cleanupInflightFn = params.cleanupInflightFn ?? cleanupInflight;
@@ -2656,19 +3089,22 @@ export async function runAgentInstructionUnlocked(params: {
       (typeof existingConversation?.flags?.workingFolder === 'string'
         ? existingConversation.flags.workingFolder
         : undefined);
-    const preparedExecution = await prepareDirectAgentExecution({
-      agentName: params.agentName,
-      configPath: agent.configPath,
-      workingFolder: effectiveWorkingFolder,
-      source: params.source,
-      surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.run',
-      pinnedProviderId: existingConversation?.provider,
-      pinnedModelId: existingConversation?.model,
-      pinnedRequestedProviderId:
-        getSavedRequestedProviderId(existingConversation),
-      pinnedEndpointId: existingConversation?.flags?.endpointId,
-      allowFallback: !existingConversation,
-    });
+    const preparedExecution = await prepareDirectAgentExecution(
+      {
+        agentName: params.agentName,
+        configPath: agent.configPath,
+        workingFolder: effectiveWorkingFolder,
+        source: params.source,
+        surface: params.source === 'MCP' ? 'mcp.agents.run' : 'agents.run',
+        pinnedProviderId: existingConversation?.provider,
+        pinnedModelId: existingConversation?.model,
+        pinnedRequestedProviderId:
+          getSavedRequestedProviderId(existingConversation),
+        pinnedEndpointId: existingConversation?.flags?.endpointId,
+        allowFallback: !existingConversation,
+      },
+      agentServiceDepsSnapshot,
+    );
     const executionProviderId = preparedExecution.executionProviderId;
     const modelId = preparedExecution.modelId;
     const title =
@@ -2942,6 +3378,15 @@ export async function runAgentInstructionUnlocked(params: {
     finalizeInstructionRuntime();
     throw err;
   }
+}
+
+export async function runAgentInstructionUnlocked(
+  params: RunAgentInstructionUnlockedParams,
+): Promise<RunAgentInstructionResult> {
+  return await runAgentInstructionUnlockedWithDeps(
+    params,
+    getEffectiveAgentServiceDeps(),
+  );
 }
 
 export type AgentCommandSummary = {

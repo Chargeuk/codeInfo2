@@ -30,6 +30,13 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { removeWritableTree } from '../support/fsCleanup.js';
+import {
+  enterTestEnvOverrides,
+  getScopedEnvValue,
+  getScopedProcessEnv,
+} from '../support/testEnvOverrideScope.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const execFile = promisify(execFileCallback);
 const repositoryRoot = path.resolve(
@@ -149,7 +156,7 @@ test('production generic batch pre-creates every multi-target reviewer job witho
       assert.deepEqual(await fs.readdir(String(reviewJob.output_dir)), []);
     }
   } finally {
-    await fs.rm(fixture.root, { recursive: true, force: true });
+    await removeWritableTree(fixture.root);
   }
 });
 
@@ -198,7 +205,7 @@ test('reviewer regrouping does not change the job workspace or consumer boundary
     assert.equal(JSON.stringify(repeatedContract).includes('fast'), false);
     assert.equal(JSON.stringify(movedContract).includes('slow'), false);
   } finally {
-    await fs.rm(fixture.root, { recursive: true, force: true });
+    await removeWritableTree(fixture.root);
   }
 });
 
@@ -208,6 +215,8 @@ type ProductionReviewProbe = {
   repeatedHeads: string[];
   oneShotHeads: string[];
   directFixCalls: number;
+  repeatMatchCalls: number;
+  repeatResearchCalls: number;
   normalCompletionGateCalls: number;
   researchFixCalls: number;
   optionalExitCalls: number;
@@ -473,6 +482,44 @@ class ProductionReviewChat extends ChatInterface {
       );
     }
 
+    if (message.includes('# Identify previously accepted review findings')) {
+      this.probe.repeatMatchCalls += 1;
+    }
+    if (
+      message.includes(
+        'positively confirms no possible repeat or matching uncertainty remains',
+      ) ||
+      message.includes(
+        'at least one current accepted actionable finding plausibly matches',
+      )
+    ) {
+      // Two eligible candidates, then unavailable matching evidence.
+      const answers = ['yes', 'yes', 'unavailable'];
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({
+          answer: answers[this.probe.repeatMatchCalls - 1],
+        }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+    if (message.includes('# Research and repair recurring review findings')) {
+      this.probe.repeatResearchCalls += 1;
+    }
+    if (
+      message.includes(
+        'The repeated-finding section has completed its single research opportunity.',
+      )
+    ) {
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({ answer: 'yes' }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
     if (
       message.includes('# Implement direct fixes from the current review batch')
     ) {
@@ -510,7 +557,7 @@ class ProductionReviewChat extends ChatInterface {
         [path.join(repositoryRoot, 'scripts', 'select_current_task.py')],
         {
           cwd: this.probe.repo,
-          env: { ...process.env, CODEINFO_ROOT: repositoryRoot },
+          env: { ...getScopedProcessEnv(), CODEINFO_ROOT: repositoryRoot },
         },
       );
     }
@@ -574,7 +621,7 @@ class ProductionReviewChat extends ChatInterface {
         ],
         {
           cwd: this.probe.repo,
-          env: { ...process.env, CODEINFO_ROOT: repositoryRoot },
+          env: { ...getScopedProcessEnv(), CODEINFO_ROOT: repositoryRoot },
         },
       );
       this.emit('final', { type: 'final', content: result.stdout });
@@ -659,7 +706,7 @@ class ProductionReviewChat extends ChatInterface {
 
     if (
       message.includes(
-        'Findings explicitly left after the stronger attempt for complete-pass settlement do not keep this repeated group running.',
+        'Findings explicitly left after their repeated-research or ordinary stronger opportunity (including honestly unavailable attempts) for complete-pass settlement do not keep this repeated group running.',
       )
     ) {
       this.probe.breakCalls += 1;
@@ -737,7 +784,7 @@ class ProductionReviewChat extends ChatInterface {
 
 const waitForTerminalFlowStatus = async (conversationId: string) => {
   const started = Date.now();
-  while (Date.now() - started < 30_000) {
+  while (Date.now() - started < resolveConfiguredTestTimeoutMs(30_000)) {
     const conversation = memoryConversations.get(conversationId);
     const flow = conversation?.flags?.flow as
       | { runLifecycle?: { status?: string } }
@@ -781,10 +828,10 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
   const repo = path.join(temporary, 'repo');
   const secondaryRepo = path.join(temporary, 'secondary-repo');
   const flowDirectory = path.join(temporary, 'flows');
-  const previousFlowsDirectory = process.env.FLOWS_DIR;
-  const previousPreferredAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodeInfoRoot = process.env.CODEINFO_ROOT;
+  const previousFlowsDirectory = getScopedEnvValue('FLOWS_DIR');
+  const previousPreferredAgentHome = getScopedEnvValue('CODEINFO_AGENT_HOME');
+  const previousAgentHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const previousCodeInfoRoot = getScopedEnvValue('CODEINFO_ROOT');
   await fs.mkdir(repo, { recursive: true });
   await fs.mkdir(secondaryRepo, { recursive: true });
   await fs.mkdir(flowDirectory, { recursive: true });
@@ -801,6 +848,11 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     await fs.mkdir(path.join(repo, 'codeInfoStatus', 'flow-state'), {
       recursive: true,
     });
+    await fs.cp(
+      path.join(repositoryRoot, 'scripts'),
+      path.join(repo, 'scripts'),
+      { recursive: true },
+    );
     await fs.writeFile(path.join(repo, '.gitignore'), 'codeInfoTmp/\n');
     await fs.writeFile(path.join(repo, 'feature.txt'), 'initial\n');
     await execFile('git', ['init', '-b', 'main'], { cwd: secondaryRepo });
@@ -885,9 +937,15 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     };
     const repeatedWave = repeatedLoop.steps[0] as {
       groups: Array<{
-        bindings: { inputValues: { review_groups: unknown[] } };
+        bindings: {
+          inputValues: {
+            copilot_reviews_enabled?: boolean;
+            review_groups: unknown[];
+          };
+        };
       }>;
     };
+    repeatedWave.groups[0]!.bindings.inputValues.copilot_reviews_enabled = false;
     repeatedWave.groups[0]!.bindings.inputValues.review_groups = [
       {
         kind: 'matrix',
@@ -958,16 +1016,12 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       }),
     );
 
-    process.env.FLOWS_DIR = flowDirectory;
-    process.env.CODEINFO_ROOT = repositoryRoot;
-    process.env.CODEINFO_AGENT_HOME = path.join(
-      repositoryRoot,
-      'codeinfo_agents',
-    );
-    process.env.CODEINFO_CODEX_AGENT_HOME = path.join(
-      repositoryRoot,
-      'codex_agents',
-    );
+    enterTestEnvOverrides({
+      FLOWS_DIR: flowDirectory,
+      CODEINFO_ROOT: repositoryRoot,
+      CODEINFO_AGENT_HOME: path.join(repositoryRoot, 'codeinfo_agents'),
+      CODEINFO_CODEX_AGENT_HOME: path.join(repositoryRoot, 'codex_agents'),
+    });
     installDeterministicCodexAvailabilityBootstrap();
     __setFlowServiceDepsForTests({
       runReingestRepository: async ({ sourceId }) => ({
@@ -1011,6 +1065,8 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       repeatedHeads: [],
       oneShotHeads: [],
       directFixCalls: 0,
+      repeatMatchCalls: 0,
+      repeatResearchCalls: 0,
       normalCompletionGateCalls: 0,
       researchFixCalls: 0,
       optionalExitCalls: 0,
@@ -1041,7 +1097,22 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     const terminalStatus = await waitForTerminalFlowStatus(
       result.conversationId,
     );
-    assert.equal(terminalStatus, 'ok');
+    assert.equal(
+      terminalStatus,
+      'ok',
+      JSON.stringify({
+        probe,
+        flowFlags:
+          memoryConversations.get(result.conversationId)?.flags?.flow ?? null,
+        recentTurns: (memoryTurns.get(result.conversationId) ?? [])
+          .slice(-12)
+          .map((turn) => ({
+            role: turn.role,
+            status: turn.status,
+            content: turn.content,
+          })),
+      }),
+    );
 
     const fixedHead = await currentHead(repo);
     const fixedSecondaryHead = await currentHead(secondaryRepo);
@@ -1053,6 +1124,8 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
     );
     assert.equal(probe.breakCalls, 2, JSON.stringify(probe));
     assert.equal(probe.directFixCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.repeatMatchCalls, 3, JSON.stringify(probe));
+    assert.equal(probe.repeatResearchCalls, 2, JSON.stringify(probe));
     assert.equal(probe.normalCompletionGateCalls, 3, JSON.stringify(probe));
     assert.equal(probe.researchFixCalls, 1, JSON.stringify(probe));
     assert.equal(probe.optionalExitCalls, 1, JSON.stringify(probe));
@@ -1142,7 +1215,7 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       ],
       {
         cwd: repo,
-        env: { ...process.env, CODEINFO_ROOT: repositoryRoot },
+        env: { ...getScopedProcessEnv(), CODEINFO_ROOT: repositoryRoot },
       },
     );
     assert.match(outerDecision.stdout, /"answer":\s*"no"/u);
@@ -1160,7 +1233,25 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
         lockedModelId: null,
       }),
     });
-    assert.equal(await waitForTerminalFlowStatus(reentry.conversationId), 'ok');
+    const reentryStatus = await waitForTerminalFlowStatus(
+      reentry.conversationId,
+    );
+    assert.equal(
+      reentryStatus,
+      'ok',
+      JSON.stringify({
+        probe,
+        flowFlags:
+          memoryConversations.get(reentry.conversationId)?.flags?.flow ?? null,
+        recentTurns: (memoryTurns.get(reentry.conversationId) ?? [])
+          .slice(-12)
+          .map((turn) => ({
+            role: turn.role,
+            status: turn.status,
+            content: turn.content,
+          })),
+      }),
+    );
     assert.equal(probe.implementationPasses, 1, JSON.stringify(probe));
 
     const completedPlan = await fs.readFile(path.join(repo, planPath), 'utf8');
@@ -1183,21 +1274,17 @@ test('production two-phase path reviews a direct-fix commit on a new HEAD before
       ],
       {
         cwd: repo,
-        env: { ...process.env, CODEINFO_ROOT: repositoryRoot },
+        env: { ...getScopedProcessEnv(), CODEINFO_ROOT: repositoryRoot },
       },
     );
     assert.match(terminalDecision.stdout, /"answer":\s*"yes"/u);
   } finally {
-    if (previousFlowsDirectory === undefined) delete process.env.FLOWS_DIR;
-    else process.env.FLOWS_DIR = previousFlowsDirectory;
-    if (previousPreferredAgentHome === undefined)
-      delete process.env.CODEINFO_AGENT_HOME;
-    else process.env.CODEINFO_AGENT_HOME = previousPreferredAgentHome;
-    if (previousAgentHome === undefined)
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    else process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentHome;
-    if (previousCodeInfoRoot === undefined) delete process.env.CODEINFO_ROOT;
-    else process.env.CODEINFO_ROOT = previousCodeInfoRoot;
-    await fs.rm(temporary, { recursive: true, force: true });
+    enterTestEnvOverrides({
+      FLOWS_DIR: previousFlowsDirectory,
+      CODEINFO_AGENT_HOME: previousPreferredAgentHome,
+      CODEINFO_CODEX_AGENT_HOME: previousAgentHome,
+      CODEINFO_ROOT: previousCodeInfoRoot,
+    });
+    await removeWritableTree(temporary);
   }
 });

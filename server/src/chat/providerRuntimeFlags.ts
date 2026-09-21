@@ -1,4 +1,5 @@
 import { loadProviderChatDefaultsSnapshotSync } from '../config/runtimeConfig.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 
 const COPILOT_REASONING_EFFORTS = ['low', 'medium', 'high'] as const;
 const TOOL_ACCESS_MODES = ['on', 'off'] as const;
@@ -135,9 +136,9 @@ export const loadProviderConfigForAgentFlags = (
       ...(options?.lmstudioHome
         ? { lmstudioHome: options.lmstudioHome }
         : provider === 'lmstudio' &&
-            typeof process.env.CODEINFO_LMSTUDIO_HOME === 'string' &&
-            process.env.CODEINFO_LMSTUDIO_HOME.trim().length > 0
-          ? { lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME }
+            typeof getScopedEnvValue('CODEINFO_LMSTUDIO_HOME') === 'string' &&
+            getScopedEnvValue('CODEINFO_LMSTUDIO_HOME')!.trim().length > 0
+          ? { lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME') }
           : {}),
     });
     return snapshot.config ?? {};

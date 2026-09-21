@@ -50,7 +50,7 @@ test('shared-home refresh detection stays available when auth lives in the runti
   const containerHome = makeTempDir('codex-container-');
   const configPath = path.join(containerHome, 'config.toml');
 
-  fs.writeFileSync(configPath, 'model = "gpt-5.3-codex"\n');
+  fs.writeFileSync(configPath, 'model = "gpt-5.6-luna"\n');
   fs.writeFileSync(path.join(containerHome, 'auth.json'), '{"token":"shared"}');
 
   ensureCodexAuthFromHost({
@@ -132,7 +132,7 @@ test('read-only split host auth seeds the runtime home before detection runs', (
   const hostHome = makeTempDir('codex-host-');
   const configPath = path.join(containerHome, 'config.toml');
 
-  fs.writeFileSync(configPath, 'model = "gpt-5.3-codex"\n');
+  fs.writeFileSync(configPath, 'model = "gpt-5.6-luna"\n');
   fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
   fs.chmodSync(hostHome, 0o555);
 

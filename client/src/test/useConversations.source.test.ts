@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useConversations } from '../hooks/useConversations';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const originalFetch = global.fetch;
 const mockFetch = getFetchMock();
@@ -42,7 +43,7 @@ describe('useConversations source metadata', () => {
     const { result } = renderHook(() => useConversations());
 
     await waitFor(() => expect(result.current.conversations.length).toBe(2), {
-      timeout: 5000,
+      timeout: resolveClientTestTimeoutMs(5000),
     });
 
     const restItem = result.current.conversations.find(
@@ -199,7 +200,7 @@ describe('useConversations source metadata', () => {
     );
 
     await waitFor(() => expect(result.current.conversations.length).toBe(1), {
-      timeout: 5000,
+      timeout: resolveClientTestTimeoutMs(5000),
     });
 
     act(() => {
@@ -317,7 +318,7 @@ describe('useConversations source metadata', () => {
     const { result } = renderHook(() => useConversations());
 
     await waitFor(() => expect(result.current.conversations.length).toBe(1), {
-      timeout: 5000,
+      timeout: resolveClientTestTimeoutMs(5000),
     });
 
     act(() => {
@@ -384,7 +385,7 @@ describe('useConversations source metadata', () => {
     const { result } = renderHook(() => useConversations());
 
     await waitFor(() => expect(result.current.conversations.length).toBe(1), {
-      timeout: 5000,
+      timeout: resolveClientTestTimeoutMs(5000),
     });
 
     await act(async () => {

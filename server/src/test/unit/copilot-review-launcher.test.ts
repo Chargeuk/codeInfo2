@@ -15,6 +15,7 @@ import {
   runCopilotReview,
   type CopilotReviewLauncherOptions,
 } from '../../copilot/reviewLauncher.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const git = (repo: string, ...args: string[]): string =>
   execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
@@ -146,6 +147,23 @@ const fakeEnvironment = (
 
 const nulArgs = async (filePath: string): Promise<string[]> =>
   (await fs.readFile(filePath)).toString('utf8').split('\0').filter(Boolean);
+
+const waitForFileContents = async (
+  filePath: string,
+  expected: string,
+  timeoutMs = 5_000,
+) => {
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
+  while (Date.now() < deadline) {
+    try {
+      if ((await fs.readFile(filePath, 'utf8')).trim() === expected) return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`Timed out waiting for ${filePath} to contain ${expected}`);
+};
 
 const assertFullAccessArguments = (args: string[]) => {
   assert.equal(args.filter((argument) => argument === '--allow-all').length, 1);
@@ -851,13 +869,15 @@ test('abort terminates one launched Copilot process without losing diagnostics',
     FAKE_COPILOT_WAIT: '1',
   });
   const controller = new AbortController();
-  setTimeout(() => controller.abort(), 50);
-  const result = await runCopilotReview(
+  const execution = runCopilotReview(
     launcherOptions(fixture, env, {
       signal: controller.signal,
       timeoutMs: 5_000,
     }),
   );
+  await waitForFileContents(String(env.FAKE_COPILOT_COUNT_FILE), 'launch');
+  controller.abort();
+  const result = await execution;
   assert.equal(result.launched, true);
   assert.equal(result.exitStatus, 130);
   assert.equal(result.status, 'cancelled');
@@ -932,6 +952,7 @@ test('abort during external setup returns cancelled without spawning Copilot', a
 });
 
 test('force-kill cancellation waits for the child close event', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
   const fakeCopilot = await makeFakeCopilot(fixture.root);
@@ -966,7 +987,7 @@ test('force-kill cancellation waits for the child close event', async (t) => {
 
   await childSpawnedSignal;
   controller.abort();
-  await new Promise<void>((resolve) => setTimeout(resolve, 5_100));
+  t.mock.timers.tick(5_000);
 
   assert.deepEqual(child.killCalls, ['SIGTERM', 'SIGKILL']);
   assert.equal(settled, false);

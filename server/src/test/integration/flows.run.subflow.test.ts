@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCb } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -26,9 +27,14 @@ import {
 import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
 import {
+  __resumePendingFlowWaitsForTests,
+  __resetFlowWaitResumeDepsForTests,
+  __setFlowWaitResumeDepsForTests,
   getFlowConversationLifecycleStatus,
   getFlowRunStatus,
-  startFlowRun,
+  resumeInterruptedParentsWithPersistedChildWaitsForStartup,
+  startFlowRun as startFlowRunService,
+  stopFlowRun,
 } from '../../flows/service.js';
 import type { FlowJsonObject } from '../../flows/types.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
@@ -37,8 +43,33 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { removeWritableTree } from '../support/fsCleanup.js';
+import {
+  clearScopedTestEnvValue,
+  setScopedTestEnvValue,
+} from '../support/processEnvIsolation.js';
+import {
+  createIsolatedProviderHomeEnv,
+  type IsolatedProviderHomeEnv,
+} from '../support/providerHomeHarness.js';
+import {
+  enterTestEnvOverrides,
+  getScopedEnvValue,
+} from '../support/testEnvOverrideScope.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const createSlowChildControl = () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let markStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+  return { gate, markStarted, release, started };
+};
 const execFile = promisify(execFileCb);
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
@@ -62,6 +93,17 @@ const buildRepoEntry = (containerPath: string): RepoEntry => ({
   counts: { files: 0, chunks: 0, embedded: 0 },
   lastError: null,
 });
+
+const startFlowRun = async (
+  params: Parameters<typeof startFlowRunService>[0],
+) =>
+  await startFlowRunService({
+    listIngestedRepositories: async () => ({
+      repos: [],
+      lockedModelId: null,
+    }),
+    ...params,
+  });
 
 class SubflowChat extends ChatInterface {
   constructor(
@@ -99,8 +141,17 @@ class SubflowChat extends ChatInterface {
     this.emit('thread', { type: 'thread', threadId: conversationId });
 
     if (message.includes('slow child')) {
-      if (this.slowChildGate) await this.slowChildGate;
-      else await delay(this.slowDelayMs);
+      if (this.slowChildGate) {
+        await new Promise<void>((resolve) => {
+          const finish = () => {
+            signal?.removeEventListener('abort', finish);
+            resolve();
+          };
+          signal?.addEventListener('abort', finish, { once: true });
+          void this.slowChildGate?.then(finish);
+          if (signal?.aborted) finish();
+        });
+      } else await delay(this.slowDelayMs);
       if (abortIfNeeded()) return;
     }
 
@@ -150,12 +201,21 @@ const waitFor = async (
   predicate: () => boolean,
   timeoutMs = 5000,
 ): Promise<void> => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (predicate()) return;
     await delay(20);
   }
-  throw new Error('Timed out waiting for condition');
+  throw new Error(
+    `Timed out waiting for condition | conversations=${JSON.stringify(
+      [...memoryConversations.values()].map((conversation) => ({
+        id: conversation._id,
+        flowName: conversation.flowName,
+        flags: conversation.flags,
+      })),
+    )} | turns=${JSON.stringify([...memoryTurns.entries()])}`,
+  );
 };
 
 const waitForAssistantStatus = async (
@@ -373,29 +433,33 @@ const findChildFlowConversations = (params: {
 
 let previousAgentsHome: string | undefined;
 let previousFlowsDir: string | undefined;
+let providerHomes: IsolatedProviderHomeEnv | undefined;
 
-beforeEach(() => {
-  previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  previousFlowsDir = process.env.FLOWS_DIR;
+beforeEach(async () => {
+  previousAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  previousFlowsDir = getScopedEnvValue('FLOWS_DIR');
+  providerHomes = await createIsolatedProviderHomeEnv(
+    'flow-subflow-provider-homes-',
+  );
   installDeterministicCodexAvailabilityBootstrap();
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  enterTestEnvOverrides({
+    ...providerHomes.envOverrides,
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+  });
   memoryConversations.clear();
   memoryTurns.clear();
 });
 
 afterEach(async () => {
+  __resetFlowWaitResumeDepsForTests();
   resetDeterministicCodexAvailabilityBootstrap();
   __resetProviderBootstrapStatusForTests();
-  if (previousAgentsHome === undefined) {
-    delete process.env.CODEINFO_CODEX_AGENT_HOME;
-  } else {
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-  }
-  if (previousFlowsDir === undefined) {
-    delete process.env.FLOWS_DIR;
-  } else {
-    process.env.FLOWS_DIR = previousFlowsDir;
-  }
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: previousAgentsHome,
+    FLOWS_DIR: previousFlowsDir,
+  });
+  await providerHomes?.cleanup();
+  providerHomes = undefined;
   memoryConversations.clear();
   memoryTurns.clear();
 });
@@ -406,7 +470,7 @@ test('child lifecycle observation stays coherent across terminal persistence and
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Child lifecycle transition',
     flowName: 'child-lifecycle-transition',
     source: 'REST',
@@ -462,7 +526,7 @@ test('child lifecycle observation stays coherent across terminal persistence and
       conversationId,
       role: 'assistant',
       content: 'child completed',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       provider: 'codex',
       toolCalls: null,
       status: 'ok',
@@ -490,12 +554,12 @@ test('child lifecycle observation stays coherent across terminal persistence and
 });
 
 test('orphaned flow lifecycle observation remains recoverable', async () => {
-  const conversationId = 'orphaned-lifecycle-observation';
+  const conversationId = `orphaned-lifecycle-observation-${randomUUID()}`;
   const now = new Date();
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Orphaned lifecycle observation',
     flowName: 'orphaned-lifecycle-observation',
     source: 'REST',
@@ -523,12 +587,329 @@ test('orphaned flow lifecycle observation remains recoverable', async () => {
   assert.equal(observed?.terminal, false);
 });
 
+for (const mode of ['subflow', 'subflowWave'] as const) {
+  test(`stopping the parent cancels its persisted ${mode} child wait before wake`, async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), `flow-${mode}-stop-child-wait-`),
+    );
+    const scheduledWakes: Array<{ cancelled: boolean }> = [];
+    let parentConversationId: string | undefined;
+    let childConversationId: string | undefined;
+    enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
+    __setFlowWaitResumeDepsForTests({
+      scheduleWake: () => {
+        const wake = { cancelled: false };
+        scheduledWakes.push(wake);
+        return {
+          cancel: () => {
+            wake.cancelled = true;
+          },
+        };
+      },
+    });
+
+    try {
+      await writeFlowFile({
+        tmpDir,
+        flowName: `${mode}-stop-wait-child`,
+        steps: [{ type: 'wait', seconds: 900 }, llmStep('must not run')],
+      });
+      await writeFlowFile({
+        tmpDir,
+        flowName: `${mode}-stop-wait-parent`,
+        steps: [
+          mode === 'subflow'
+            ? subflowStep('Run waiting child', `${mode}-stop-wait-child`)
+            : {
+                type: 'subflowWave',
+                groups: [
+                  {
+                    kind: 'singleton',
+                    id: 'waiting-child',
+                    flowName: `${mode}-stop-wait-child`,
+                  },
+                ],
+              },
+          llmStep('must not run'),
+        ],
+      });
+      const parent = await startFlowRun({
+        flowName: `${mode}-stop-wait-parent`,
+        source: 'REST',
+      });
+      parentConversationId = parent.conversationId;
+      const [child] = await waitForActiveSubflowCount(parent.conversationId, 1);
+      childConversationId = String(child?.conversationId);
+      await waitFor(() => scheduledWakes.length === 1);
+      await waitFor(() => !getActiveRunOwnership(childConversationId!));
+
+      // The scheduler is held: stopping must finish without firing the wake.
+      const stopped = waitForAssistantStatus(parent.conversationId, 'stopped');
+      assert.equal(await stopFlowRun(parent.conversationId), true);
+      await stopped;
+      const childState = memoryConversations.get(childConversationId)?.flags
+        ?.flow as {
+        wait?: unknown;
+        runLifecycle?: { status?: string };
+      };
+      assert.equal(childState.wait, undefined);
+      assert.equal(childState.runLifecycle?.status, 'stopped');
+      assert.equal(scheduledWakes[0]?.cancelled, true);
+      assert.equal((memoryTurns.get(childConversationId) ?? []).length, 0);
+      assert.equal(
+        (memoryTurns.get(parent.conversationId) ?? []).some((turn) =>
+          turn.content.includes('must not run'),
+        ),
+        false,
+      );
+    } finally {
+      if (parentConversationId) await stopFlowRun(parentConversationId);
+      if (childConversationId) await stopFlowRun(childConversationId);
+      await waitFor(
+        () =>
+          (!parentConversationId ||
+            !getActiveRunOwnership(parentConversationId)) &&
+          (!childConversationId || !getActiveRunOwnership(childConversationId)),
+      );
+      await removeWritableTree(tmpDir);
+    }
+  });
+
+  test(`${mode} child waits remain paused until their scheduled wake`, async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), `flow-${mode}-child-wait-`),
+    );
+    const now = 1_800_000_000_000;
+    const scheduledWakes: Array<{ resumeAt: number; onWake: () => void }> = [];
+    enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
+    __setFlowWaitResumeDepsForTests({
+      now: () => now,
+      nowIso: () => new Date(now).toISOString(),
+      scheduleWake: ({ resumeAt, onWake }) => {
+        scheduledWakes.push({ resumeAt, onWake });
+        return { cancel: () => undefined };
+      },
+    });
+
+    try {
+      await writeFlowFile({
+        tmpDir,
+        flowName: `${mode}-wait-child`,
+        steps: [{ type: 'wait', label: 'Hold child work', seconds: 60 }],
+      });
+      await writeFlowFile({
+        tmpDir,
+        flowName: `${mode}-wait-parent`,
+        steps:
+          mode === 'subflow'
+            ? [subflowStep('Run waiting child', `${mode}-wait-child`)]
+            : [
+                {
+                  type: 'subflowWave',
+                  groups: [
+                    {
+                      kind: 'singleton',
+                      id: 'waiting-child',
+                      flowName: `${mode}-wait-child`,
+                    },
+                  ],
+                },
+              ],
+      });
+
+      const parent = await startFlowRun({
+        flowName: `${mode}-wait-parent`,
+        source: 'REST',
+      });
+      const [activeChild] = await waitForActiveSubflowCount(
+        parent.conversationId,
+        1,
+      );
+      assert.ok(activeChild?.conversationId);
+      assert.ok(activeChild?.runToken);
+      const childConversationId = String(activeChild.conversationId);
+      const childRunToken = String(activeChild.runToken);
+      await waitFor(() => scheduledWakes.length === 1);
+      await waitFor(() => !getActiveRunOwnership(childConversationId));
+
+      const childState = (
+        memoryConversations.get(childConversationId)?.flags as {
+          flow?: { wait?: { resumeAt?: number } };
+        }
+      ).flow;
+      assert.equal(childState?.wait?.resumeAt, now + 60_000);
+      assert.equal(scheduledWakes[0]?.resumeAt, now + 60_000);
+      assert.equal(
+        await getFlowConversationLifecycleStatus({
+          conversationId: childConversationId,
+          runToken: childRunToken,
+        }),
+        'running',
+      );
+
+      scheduledWakes[0]?.onWake();
+      await waitFor(() => {
+        const flow = (
+          memoryConversations.get(childConversationId)?.flags as {
+            flow?: { runLifecycle?: { status?: string } };
+          }
+        ).flow;
+        return flow?.runLifecycle?.status === 'ok';
+      });
+      await waitForAssistantStatus(parent.conversationId, 'ok');
+      const children = findChildFlowConversations({
+        parentConversationId: parent.conversationId,
+        childFlowNames: [`${mode}-wait-child`],
+      });
+      assert.equal(children.length, 1);
+      assert.equal(children[0]?._id, childConversationId);
+    } finally {
+      await removeWritableTree(tmpDir);
+    }
+  });
+}
+
+test('startup reattaches an interrupted parent while its persisted child wait resumes', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-parent-restart-child-wait-'),
+  );
+  const wakes: Array<() => void> = [];
+  const parentConversationId = 'parent-restart-child-wait';
+  const childConversationId = 'child-restart-child-wait';
+  const parentExecutionId = 'parent-restart-child-wait-execution';
+  const now = new Date();
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
+  __setFlowWaitResumeDepsForTests({
+    scheduleWake: ({ onWake }) => {
+      wakes.push(onWake);
+      return { cancel: () => undefined };
+    },
+  });
+
+  try {
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'restart-child-wait',
+      steps: [{ type: 'wait', seconds: 60 }],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'restart-parent-wait',
+      steps: [subflowStep('Run waiting child', 'restart-child-wait')],
+    });
+    memoryConversations.set(childConversationId, {
+      _id: childConversationId,
+      provider: 'codex',
+      model: 'gpt-5.6-luna',
+      title: 'Restarted waiting child',
+      flowName: 'restart-child-wait',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: 'child-restart-child-wait-execution',
+          stepPath: [0],
+          loopStack: [],
+          wait: {
+            executionId: 'child-restart-child-wait-execution',
+            stepPath: [0],
+            loopStack: [],
+            resumeAt: Date.now() + 60_000,
+          },
+          runLifecycle: { status: 'running', updatedAt: now.toISOString() },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+    memoryConversations.set(parentConversationId, {
+      _id: parentConversationId,
+      provider: 'codex',
+      model: 'gpt-5.6-luna',
+      title: 'Restarted parent',
+      flowName: 'restart-parent-wait',
+      source: 'REST',
+      flags: {
+        flow: {
+          executionId: parentExecutionId,
+          stepPath: [0],
+          loopStack: [],
+          activeSubflows: [
+            activeSubflowState({
+              stepPath: [0],
+              flowName: 'restart-child-wait',
+              conversationId: childConversationId,
+              runToken: 'released-child-run-token',
+              title: 'Restarted waiting child',
+            }),
+          ],
+          restartReconciliation: {
+            status: 'interrupted',
+            reconciledAt: now.toISOString(),
+            resumeStepPath: [0],
+            interruptedSubflowCount: 1,
+            interruptedWaveRunningCount: 0,
+          },
+          runLifecycle: { status: 'orphaned', updatedAt: now.toISOString() },
+          agentConversations: {},
+          agentThreads: {},
+        },
+      },
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    } as Conversation);
+
+    assert.equal(
+      await resumeInterruptedParentsWithPersistedChildWaitsForStartup(),
+      1,
+    );
+    assert.equal(await __resumePendingFlowWaitsForTests(), 1);
+    assert.equal(wakes.length, 1);
+
+    wakes[0]?.();
+    await waitFor(() => {
+      const flow = memoryConversations.get(parentConversationId)?.flags
+        ?.flow as { runLifecycle?: { status?: string } } | undefined;
+      return flow?.runLifecycle?.status === 'ok';
+    });
+    assert.equal(
+      (
+        memoryConversations.get(parentConversationId)?.flags as {
+          flow?: { executionId?: string; restartReconciliation?: unknown };
+        }
+      ).flow?.executionId,
+      parentExecutionId,
+    );
+    assert.equal(
+      (
+        memoryConversations.get(parentConversationId)?.flags as {
+          flow?: { restartReconciliation?: unknown };
+        }
+      ).flow?.restartReconciliation,
+      undefined,
+    );
+    assert.equal(
+      Array.from(memoryConversations.values()).filter(
+        (conversation) => conversation.flowName === 'restart-child-wait',
+      ).length,
+      1,
+    );
+  } finally {
+    await removeWritableTree(tmpDir);
+  }
+});
+
 test('review initialization failures fail the flow instead of silently skipping the review cycle', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-review-initialization-failure-'),
   );
   const repoDir = path.join(tmpDir, 'repo');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await initializeCodexReviewRepo(repoDir);
@@ -587,7 +968,7 @@ test('review initialization failures fail the flow instead of silently skipping 
     assert.equal(failure.status, 'failed');
     assert.equal('parent_execution_id' in failure, false);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -596,7 +977,7 @@ test('a final review runs despite incomplete Markdown task markers', async () =>
     path.join(os.tmpdir(), 'flow-review-skipped-incomplete-story-'),
   );
   const repoDir = path.join(tmpDir, 'repo');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await initializeCodexReviewRepo(repoDir);
@@ -671,7 +1052,7 @@ test('a final review runs despite incomplete Markdown task markers', async () =>
       priorCycle.review_cycle_id,
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -680,7 +1061,7 @@ test('a failed two-phase review marks its cycle incomplete while the parent cont
     path.join(os.tmpdir(), 'flow-review-incomplete-cycle-'),
   );
   const repoDir = path.join(tmpDir, 'repo');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await initializeCodexReviewRepo(repoDir);
@@ -744,7 +1125,7 @@ test('a failed two-phase review marks its cycle incomplete while the parent cont
     assert.equal(active.status, 'incomplete');
     assert.match(String(active.incomplete_reason), /status failed/u);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -753,7 +1134,7 @@ test('successful flow cleanup preserves the settlement auditor explicit incomple
     path.join(os.tmpdir(), 'flow-review-explicit-incomplete-cycle-'),
   );
   const repoDir = path.join(tmpDir, 'repo');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await initializeCodexReviewRepo(repoDir);
@@ -828,7 +1209,7 @@ test('successful flow cleanup preserves the settlement auditor explicit incomple
     );
     assert.equal(active.completed_at, '2026-07-21T12:05:00.000Z');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -837,7 +1218,7 @@ test('an orphaned execution-owned review cycle cannot block a later best-effort 
     path.join(os.tmpdir(), 'flow-review-orphaned-cycle-'),
   );
   const repoDir = path.join(tmpDir, 'repo');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await initializeCodexReviewRepo(repoDir);
@@ -915,13 +1296,13 @@ test('an orphaned execution-owned review cycle cannot block a later best-effort 
     );
     assert.equal('parent_execution_id' in active, false);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
 test('subflow step launches a child flow, waits for completion, and uses the generated child title', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-ok-'));
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -980,7 +1361,7 @@ test('subflow step launches a child flow, waits for completion, and uses the gen
   } finally {
     resetDeterministicCodexAvailabilityBootstrap();
     installDeterministicCodexAvailabilityBootstrap();
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -988,7 +1369,7 @@ test('subflow step launches multiple child flows in parallel and waits for all o
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-parallel-ok-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1091,7 +1472,7 @@ test('subflow step launches multiple child flows in parallel and waits for all o
       undefined,
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -1099,7 +1480,7 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-parallel-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     for (const flowName of ['main-review', 'codex-review', 'cross-review']) {
@@ -1259,7 +1640,7 @@ test('subflow wave launches every matrix cell and singleton concurrently with im
     ).flow?.subflowWaveProgress;
     assert.equal(finalProgress?.completed, 5);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -1267,11 +1648,14 @@ test('prepared Copilot repository-model cells join the existing wave and persist
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-copilot-review-wave-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
   const previousModels = process.env.CODEINFO_COPILOT_REVIEW_MODELS;
   const previousCli = process.env.CODEINFO_COPILOT_CLI_PATH;
-  process.env.CODEINFO_COPILOT_REVIEW_MODELS = 'missing-model|low';
-  process.env.CODEINFO_COPILOT_CLI_PATH = path.join(tmpDir, 'missing-copilot');
+  setScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS', 'missing-model|low');
+  setScopedTestEnvValue(
+    'CODEINFO_COPILOT_CLI_PATH',
+    path.join(tmpDir, 'missing-copilot'),
+  );
   let releaseChildren: (() => void) | undefined;
   const childGate = new Promise<void>((resolve) => {
     releaseChildren = resolve;
@@ -1404,14 +1788,14 @@ test('prepared Copilot repository-model cells join the existing wave and persist
   } finally {
     releaseChildren?.();
     if (previousModels === undefined) {
-      delete process.env.CODEINFO_COPILOT_REVIEW_MODELS;
+      clearScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS');
     } else {
-      process.env.CODEINFO_COPILOT_REVIEW_MODELS = previousModels;
+      setScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS', previousModels);
     }
     if (previousCli === undefined) {
-      delete process.env.CODEINFO_COPILOT_CLI_PATH;
+      clearScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH');
     } else {
-      process.env.CODEINFO_COPILOT_CLI_PATH = previousCli;
+      setScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH', previousCli);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -1426,10 +1810,12 @@ test('cancelling Copilot group preparation interrupts readiness before any child
   const previousMarker = process.env.COPILOT_PREP_CANCEL_MARKER;
   const marker = path.join(tmpDir, 'readiness-started');
   const cli = path.join(tmpDir, 'blocking-copilot.sh');
-  process.env.FLOWS_DIR = tmpDir;
-  process.env.CODEINFO_COPILOT_REVIEW_MODELS = 'gpt-5.4|low';
-  process.env.CODEINFO_COPILOT_CLI_PATH = cli;
-  process.env.COPILOT_PREP_CANCEL_MARKER = marker;
+  enterTestEnvOverrides({
+    FLOWS_DIR: tmpDir,
+    CODEINFO_COPILOT_REVIEW_MODELS: 'gpt-5.4|low',
+    CODEINFO_COPILOT_CLI_PATH: cli,
+    COPILOT_PREP_CANCEL_MARKER: marker,
+  });
 
   try {
     await fs.writeFile(
@@ -1509,13 +1895,15 @@ while true; do sleep 0.05; done
     assert.equal(flow?.values?.effective_review_groups, undefined);
   } finally {
     if (previousModels === undefined)
-      delete process.env.CODEINFO_COPILOT_REVIEW_MODELS;
-    else process.env.CODEINFO_COPILOT_REVIEW_MODELS = previousModels;
-    if (previousCli === undefined) delete process.env.CODEINFO_COPILOT_CLI_PATH;
-    else process.env.CODEINFO_COPILOT_CLI_PATH = previousCli;
+      clearScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS');
+    else
+      setScopedTestEnvValue('CODEINFO_COPILOT_REVIEW_MODELS', previousModels);
+    if (previousCli === undefined)
+      clearScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH');
+    else setScopedTestEnvValue('CODEINFO_COPILOT_CLI_PATH', previousCli);
     if (previousMarker === undefined)
-      delete process.env.COPILOT_PREP_CANCEL_MARKER;
-    else process.env.COPILOT_PREP_CANCEL_MARKER = previousMarker;
+      clearScopedTestEnvValue('COPILOT_PREP_CANCEL_MARKER');
+    else setScopedTestEnvValue('COPILOT_PREP_CANCEL_MARKER', previousMarker);
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -1524,7 +1912,7 @@ test('an active subflow wave recovers an orphaned child in place', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-orphan-recovery-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   let releaseChildGate: (() => void) | undefined;
   const slowChildGate = new Promise<void>((resolve) => {
@@ -1595,7 +1983,7 @@ test('an active subflow wave recovers an orphaned child in place', async () => {
     );
   } finally {
     releaseChildGate?.();
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -1603,7 +1991,7 @@ test('stopping a subflow wave recovers and stops an orphaned child', async () =>
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-orphan-stop-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   let releaseChildGate: (() => void) | undefined;
   const slowChildGate = new Promise<void>((resolve) => {
@@ -1684,7 +2072,7 @@ test('stopping a subflow wave recovers and stops an orphaned child', async () =>
     await waitForAssistantStatus(parent.conversationId, 'stopped');
   } finally {
     releaseChildGate?.();
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -1692,7 +2080,7 @@ test('stopping a subflow wave settles a missing child', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-missing-stop-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   let releaseChildGate: (() => void) | undefined;
   const slowChildGate = new Promise<void>((resolve) => {
@@ -1774,7 +2162,7 @@ test('stopping a subflow wave settles a missing child', async () => {
     await waitForAssistantStatus(parent.conversationId, 'stopped');
   } finally {
     releaseChildGate?.();
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -1782,7 +2170,7 @@ test('repeated subflow wave titles show their loop iteration', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-title-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -1840,7 +2228,7 @@ test('repeated subflow wave titles show their loop iteration', async () => {
       'Repeated Review-Run Repeated Review Wave (wave 2)',
     ]);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -1848,7 +2236,11 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-stop-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  let releaseSlowChildren = () => {};
+  const slowChildrenGate = new Promise<void>((resolve) => {
+    releaseSlowChildren = resolve;
+  });
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     for (const flowName of ['wave-local', 'wave-cross']) {
@@ -1888,7 +2280,7 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
       flowName: 'parent-wave-stop',
       source: 'REST',
       input: { targets: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] },
-      chatFactory: () => new SubflowChat(500),
+      chatFactory: () => new SubflowChat(500, undefined, slowChildrenGate),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -1947,7 +2339,8 @@ test('stopping a subflow wave stops every repeated matrix and singleton child', 
       ),
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    releaseSlowChildren();
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -1955,7 +2348,11 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-cancel-resume-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  let releaseSlowChildren = () => {};
+  const slowChildrenGate = new Promise<void>((resolve) => {
+    releaseSlowChildren = resolve;
+  });
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     for (const flowName of ['wave-resume-local', 'wave-resume-cross']) {
@@ -1996,7 +2393,7 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
       flowName: 'parent-wave-cancel-resume',
       source: 'REST',
       input,
-      chatFactory: () => new SubflowChat(500),
+      chatFactory: () => new SubflowChat(500, undefined, slowChildrenGate),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -2079,7 +2476,8 @@ test('resuming a cancelled subflow wave restarts every stopped child in place', 
       { target: { id: 'b' } },
     ]);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    releaseSlowChildren();
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2087,7 +2485,7 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-resume-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     for (const flowName of ['wave-resume-local', 'wave-resume-cross']) {
@@ -2168,7 +2566,7 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Wave Resume Parent',
       flowName: 'parent-wave-resume',
       source: 'REST',
@@ -2207,7 +2605,7 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
     );
     assert.equal(childConversations.length, 3);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2215,7 +2613,7 @@ test('rewinding before a completed subflow launches a fresh child without retain
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-rewind-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2249,7 +2647,7 @@ test('rewinding before a completed subflow launches a fresh child without retain
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Rewind Parent',
       flowName: 'rewind-parent',
       source: 'REST',
@@ -2308,7 +2706,7 @@ test('rewinding before a completed subflow launches a fresh child without retain
     assert.equal(resumedFlowState?.terminalOutcome, undefined);
     assert.equal(resumedFlowState?.restartReconciliation, undefined);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2316,7 +2714,7 @@ test('rewinding before a completed subflow wave launches a fresh wave generation
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-rewind-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2369,7 +2767,7 @@ test('rewinding before a completed subflow wave launches a fresh wave generation
     );
     assert.equal(childConversations.length, 2);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2377,7 +2775,7 @@ test('failed flow runs persist failed lifecycle state from the complete flags wr
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-failed-lifecycle-state-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2397,7 +2795,7 @@ test('failed flow runs persist failed lifecycle state from the complete flags wr
       ?.flow as { runLifecycle?: { status?: unknown } } | undefined;
     assert.equal(flowState?.runLifecycle?.status, 'failed');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2405,7 +2803,7 @@ test('parent flows continue best-effort when child command steps are invalid', a
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-command-validation-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2459,7 +2857,7 @@ test('parent flows continue best-effort when child command steps are invalid', a
     );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2467,7 +2865,7 @@ test('resume skips validating child subflow commands that are already behind res
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-command-resume-validation-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2500,7 +2898,7 @@ test('resume skips validating child subflow commands that are already behind res
     memoryConversations.set(conversationId, {
       _id: conversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Resume Child Command Validation',
       flowName: 'parent-command-resume-validation',
       source: 'REST',
@@ -2540,7 +2938,7 @@ test('resume skips validating child subflow commands that are already behind res
     await waitForAssistantStatus(conversationId, 'ok');
     assert.deepEqual(executions, ['after resumed child subflow']);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2548,7 +2946,7 @@ test('parallel subflow waits for every child and continues best-effort when one 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-parallel-fail-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2615,7 +3013,7 @@ test('parallel subflow waits for every child and continues best-effort when one 
     );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2623,7 +3021,7 @@ test('a review wave starts before an unavailable later loop controller is resolv
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-loop-controller-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2684,7 +3082,7 @@ test('a review wave starts before an unavailable later loop controller is resolv
     );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2692,7 +3090,7 @@ test('a malformed later review-loop decision still records the review outcome', 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-malformed-loop-controller-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2753,7 +3151,82 @@ test('a malformed later review-loop decision still records the review outcome', 
     );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
+  }
+});
+
+test('repeated repair gate skips empty batches, researches candidates, and preserves followup after gate failure', async () => {
+  const scenarios = [
+    { name: 'empty', gateResponse: '{"answer":"no"}', expectsResearch: false },
+    {
+      name: 'candidate',
+      gateResponse: '{"answer":"yes"}',
+      expectsResearch: true,
+    },
+    { name: 'invalid', gateResponse: 'not json', expectsResearch: false },
+    { name: 'failed', gateResponse: null, expectsResearch: false },
+  ] as const;
+
+  for (const scenario of scenarios) {
+    const tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), `repeated-repair-gate-${scenario.name}-`),
+    );
+    enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
+    try {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'repeated-repair-gate',
+        steps: [
+          {
+            type: 'startLoop',
+            maxIterations: 1,
+            steps: [
+              {
+                type: 'break',
+                label: 'Enter Repeated Repair When Evidence Qualifies',
+                agentType: 'review_agent_lite',
+                identifier: 'batch_repeat_matcher',
+                question:
+                  scenario.name === 'failed'
+                    ? 'repeated repair child fail candidate gate'
+                    : 'repeated repair candidate gate',
+                breakOn: 'no',
+                breakOnFailure: true,
+              },
+              llmStep('repeated repair research'),
+            ],
+          },
+          llmStep('ordinary followup'),
+        ],
+      });
+
+      const executions: string[] = [];
+      const result = await startFlowRun({
+        flowName: 'repeated-repair-gate',
+        source: 'REST',
+        chatFactory: () =>
+          new SubflowChat(0, ({ message }) => {
+            executions.push(message);
+            if (
+              message.includes('repeated repair candidate gate') ||
+              message.includes('repeated repair child fail candidate gate')
+            ) {
+              return scenario.gateResponse ?? undefined;
+            }
+            return undefined;
+          }),
+      });
+
+      await waitForAssistantStatus(result.conversationId, 'ok');
+      assert.equal(
+        executions.includes('repeated repair research'),
+        scenario.expectsResearch,
+        JSON.stringify({ scenario, executions }),
+      );
+      assert.equal(executions.includes('ordinary followup'), true);
+    } finally {
+      await removeWritableTree(tmpDir);
+    }
   }
 });
 
@@ -2761,7 +3234,7 @@ test('subflow wave preserves a failed child launch reason in progress state', as
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-launch-failure-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -2814,7 +3287,7 @@ test('subflow wave preserves a failed child launch reason in progress state', as
     assert.match(progress?.jobs?.[0]?.reason ?? '', /FLOW_NOT_FOUND/u);
     assert.equal(typeof progress?.jobs?.[0]?.conversationId, 'string');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2823,7 +3296,7 @@ test('review workspace records attempts for a configured reviewer with a non-rev
     path.join(os.tmpdir(), 'flow-review-workspace-generic-attempt-'),
   );
   const repoDir = path.join(tmpDir, 'repo');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await initializeCodexReviewRepo(repoDir);
@@ -2960,7 +3433,7 @@ test('review workspace records attempts for a configured reviewer with a non-rev
       /Review batch snapshot lacks a primary target/u,
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -2969,7 +3442,7 @@ test('outer review_batch launch failures leave attempt evidence before a workspa
     path.join(os.tmpdir(), 'flow-outer-review-batch-attempt-'),
   );
   const repoDir = path.join(tmpDir, 'repo');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await initializeCodexReviewRepo(repoDir);
@@ -3038,7 +3511,7 @@ test('outer review_batch launch failures leave attempt evidence before a workspa
     assert.match(evidence, /Status: failed/u);
     assert.match(evidence, /FLOW_NOT_FOUND/u);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3046,7 +3519,7 @@ test('nested subflows track only direct children per conversation and still comp
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-nested-parallel-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3101,7 +3574,7 @@ test('nested subflows track only direct children per conversation and still comp
       ?.flags as { flow?: { activeSubflows?: unknown } } | undefined;
     assert.equal(nestedFlags?.flow?.activeSubflows, undefined);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3109,7 +3582,7 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-inflight-rotation-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3154,13 +3627,13 @@ test('parent step after a successful subflow gets a fresh inflight id', async ()
     assert.equal(typeof parentFollowUpExecution?.inflightId, 'string');
     assert.notEqual(parentFollowUpExecution?.inflightId, result.inflightId);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
 test('subflow step keeps the parent flow running when a single child fails', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-fail-'));
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3201,7 +3674,7 @@ test('subflow step keeps the parent flow running when a single child fails', asy
     );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3209,7 +3682,7 @@ test('subflow waits for the full child flow and still continues best-effort afte
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-fail-later-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3286,7 +3759,7 @@ test('subflow waits for the full child flow and still continues best-effort afte
     );
     await waitForAssistantStatus(result.conversationId, 'ok');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3294,7 +3767,7 @@ test('subflow continues best-effort when the child crashes after a prior success
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stale-ok-crash-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3345,7 +3818,7 @@ test('subflow continues best-effort when the child crashes after a prior success
       'A continue step was reached outside of a startLoop context.',
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3353,7 +3826,7 @@ test('subflow keeps the parent running when child flows reference each other rec
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-recursive-cycle-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3403,13 +3876,14 @@ test('subflow keeps the parent running when child flows reference each other rec
       .map((conversation) => conversation._id);
     assert.deepEqual(childCycleConversations, [result.conversationId]);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
 test('stopping the parent flow stops the running child subflow', async () => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-subflow-stop-'));
-  process.env.FLOWS_DIR = tmpDir;
+  const slowChild = createSlowChildControl();
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3428,7 +3902,14 @@ test('stopping the parent flow stops the running child subflow', async () => {
       flowName: 'parent-stop',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(250),
+      chatFactory: () =>
+        new SubflowChat(
+          250,
+          ({ message }) => {
+            if (message.includes('slow child')) slowChild.markStarted();
+          },
+          slowChild.gate,
+        ),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -3442,6 +3923,7 @@ test('stopping the parent flow stops the running child subflow', async () => {
       String(activeSubflow?.conversationId),
       'ok',
     );
+    await slowChild.started;
 
     registerPendingConversationCancel({
       conversationId: result.conversationId,
@@ -3454,7 +3936,8 @@ test('stopping the parent flow stops the running child subflow', async () => {
       'stopped',
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    slowChild.release();
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3462,7 +3945,11 @@ test('stopping the parent flow stops every running child in a parallel subflow s
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stop-parallel-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  let releaseSlowChildren = () => {};
+  const slowChildrenGate = new Promise<void>((resolve) => {
+    releaseSlowChildren = resolve;
+  });
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3486,7 +3973,7 @@ test('stopping the parent flow stops every running child in a parallel subflow s
       flowName: 'parent-stop-parallel',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () => new SubflowChat(250),
+      chatFactory: () => new SubflowChat(250, undefined, slowChildrenGate),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -3527,7 +4014,8 @@ test('stopping the parent flow stops every running child in a parallel subflow s
       ),
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    releaseSlowChildren();
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3535,7 +4023,7 @@ test('parent stop stays stopped even if the child reports ok after cancel', asyn
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-sticky-parent-stop-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3552,16 +4040,40 @@ test('parent stop stays stopped even if the child reports ok after cancel', asyn
       ],
     });
 
+    let releaseChild!: () => void;
+    const childGate = new Promise<void>((resolve) => {
+      releaseChild = resolve;
+    });
+    let markChildStarted!: () => void;
+    const childStarted = new Promise<void>((resolve) => {
+      markChildStarted = resolve;
+    });
+    class CompletionAfterCancelChat extends ChatInterface {
+      async execute(
+        message: string,
+        flags: Record<string, unknown>,
+        conversationId: string,
+        _model: string,
+      ) {
+        void _model;
+        executions.push(message);
+        childSignal = (flags as { signal?: AbortSignal }).signal;
+        this.emit('thread', { type: 'thread', threadId: conversationId });
+        markChildStarted();
+        await childGate;
+        this.emit('final', { type: 'final', content: 'child ok' });
+        this.emit('complete', { type: 'complete', threadId: conversationId });
+      }
+    }
+
     let parentRunToken: string | undefined;
+    let childSignal: AbortSignal | undefined;
     const executions: string[] = [];
     const result = await startFlowRun({
       flowName: 'parent-sticky-stop',
       customTitle: 'Parent Review',
       source: 'REST',
-      chatFactory: () =>
-        new SubflowChat(10, ({ message }) => {
-          executions.push(message);
-        }),
+      chatFactory: () => new CompletionAfterCancelChat(),
       onOwnershipReady: ({ runToken }) => {
         parentRunToken = runToken;
       },
@@ -3570,21 +4082,14 @@ test('parent stop stays stopped even if the child reports ok after cancel', asyn
     const activeSubflow = await waitForActiveSubflow(result.conversationId);
     assert.ok(activeSubflow);
     assert.ok(parentRunToken);
-
-    await waitForConversationAssistantStatus(
-      String(activeSubflow?.conversationId),
-      'ok',
-    );
-    const parentTurnsBeforeStop = memoryTurns.get(result.conversationId) ?? [];
-    assert.equal(
-      parentTurnsBeforeStop.some((turn) => turn.role === 'assistant'),
-      false,
-    );
+    await childStarted;
 
     registerPendingConversationCancel({
       conversationId: result.conversationId,
       runToken: parentRunToken as string,
     });
+    await waitFor(() => childSignal?.aborted === true);
+    releaseChild();
 
     const finalAssistant = await waitForAssistantStatus(
       result.conversationId,
@@ -3599,7 +4104,7 @@ test('parent stop stays stopped even if the child reports ok after cancel', asyn
       false,
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3607,7 +4112,7 @@ test('pending parent stop prevents launching a new child subflow', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-stop-before-launch-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3660,7 +4165,7 @@ test('pending parent stop prevents launching a new child subflow', async () => {
     );
     assert.equal(childFlowConversations.length, 0);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3668,7 +4173,8 @@ test('resume reattaches to an already running child subflow instead of launching
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  const slowChild = createSlowChildControl();
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3687,19 +4193,28 @@ test('resume reattaches to an already running child subflow instead of launching
       flowName: 'child-resume',
       customTitle: 'Resume Parent-Run Slow Child',
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () =>
+        new SubflowChat(
+          180,
+          ({ message }) => {
+            if (message.includes('slow child')) slowChild.markStarted();
+          },
+          slowChild.gate,
+        ),
       onOwnershipReady: ({ runToken }) => {
         childRunToken = runToken;
       },
     });
     assert.ok(childRunToken);
+    await slowChild.started;
+    assert.ok(getActiveRunOwnership(childStart.conversationId));
 
     const parentConversationId = 'resume-parent-conversation';
     const now = new Date();
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Resume Parent',
       flowName: 'parent-resume',
       source: 'REST',
@@ -3732,10 +4247,12 @@ test('resume reattaches to an already running child subflow instead of launching
       conversationId: parentConversationId,
       resumeStepPath: [],
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () => new SubflowChat(180, undefined, slowChild.gate),
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
+    assert.ok(getActiveRunOwnership(childStart.conversationId));
+    slowChild.release();
     await waitForAssistantStatus(parentConversationId, 'ok');
 
     const childFlowConversations = Array.from(
@@ -3743,7 +4260,8 @@ test('resume reattaches to an already running child subflow instead of launching
     ).filter((conversation) => conversation.flowName === 'child-resume');
     assert.equal(childFlowConversations.length, 1);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    slowChild.release();
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3751,7 +4269,8 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-legacy-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  const slowChild = createSlowChildControl();
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3770,19 +4289,28 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
       flowName: 'child-resume-legacy',
       customTitle: 'Resume Parent-Run Slow Child',
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () =>
+        new SubflowChat(
+          180,
+          ({ message }) => {
+            if (message.includes('slow child')) slowChild.markStarted();
+          },
+          slowChild.gate,
+        ),
       onOwnershipReady: ({ runToken }) => {
         childRunToken = runToken;
       },
     });
     assert.ok(childRunToken);
+    await slowChild.started;
+    assert.ok(getActiveRunOwnership(childStart.conversationId));
 
     const parentConversationId = 'resume-parent-legacy-conversation';
     const now = new Date();
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Resume Parent',
       flowName: 'parent-resume-legacy',
       source: 'REST',
@@ -3813,10 +4341,12 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
       conversationId: parentConversationId,
       resumeStepPath: [],
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () => new SubflowChat(180, undefined, slowChild.gate),
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
+    assert.ok(getActiveRunOwnership(childStart.conversationId));
+    slowChild.release();
     await waitForAssistantStatus(parentConversationId, 'ok');
 
     const childFlowConversations = Array.from(
@@ -3824,7 +4354,8 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
     ).filter((conversation) => conversation.flowName === 'child-resume-legacy');
     assert.equal(childFlowConversations.length, 1);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    slowChild.release();
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3832,7 +4363,8 @@ test('resume reattaches to already running parallel child subflows instead of la
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-parallel-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  const slowChildren = createSlowChildControl();
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3859,7 +4391,14 @@ test('resume reattaches to already running parallel child subflows instead of la
       flowName: 'child-resume-a',
       customTitle: 'Resume Parent-Run Slow Batch-child-resume-a',
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () =>
+        new SubflowChat(
+          180,
+          ({ message }) => {
+            if (message.includes('slow child')) slowChildren.markStarted();
+          },
+          slowChildren.gate,
+        ),
       onOwnershipReady: ({ runToken }) => {
         childRunTokenA = runToken;
       },
@@ -3868,20 +4407,30 @@ test('resume reattaches to already running parallel child subflows instead of la
       flowName: 'child-resume-b',
       customTitle: 'Resume Parent-Run Slow Batch-child-resume-b',
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () =>
+        new SubflowChat(
+          180,
+          ({ message }) => {
+            if (message.includes('slow child')) slowChildren.markStarted();
+          },
+          slowChildren.gate,
+        ),
       onOwnershipReady: ({ runToken }) => {
         childRunTokenB = runToken;
       },
     });
     assert.ok(childRunTokenA);
     assert.ok(childRunTokenB);
+    await slowChildren.started;
+    assert.ok(getActiveRunOwnership(childStartA.conversationId));
+    assert.ok(getActiveRunOwnership(childStartB.conversationId));
 
     const parentConversationId = 'resume-parent-parallel-conversation';
     const now = new Date();
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Resume Parent',
       flowName: 'parent-resume-parallel',
       source: 'REST',
@@ -3921,10 +4470,13 @@ test('resume reattaches to already running parallel child subflows instead of la
       conversationId: parentConversationId,
       resumeStepPath: [],
       source: 'REST',
-      chatFactory: () => new SubflowChat(180),
+      chatFactory: () => new SubflowChat(180, undefined, slowChildren.gate),
     });
 
     assert.equal(resumed.conversationId, parentConversationId);
+    assert.ok(getActiveRunOwnership(childStartA.conversationId));
+    assert.ok(getActiveRunOwnership(childStartB.conversationId));
+    slowChildren.release();
     await waitForAssistantStatus(parentConversationId, 'ok');
 
     const childAConversations = Array.from(memoryConversations.values()).filter(
@@ -3936,7 +4488,8 @@ test('resume reattaches to already running parallel child subflows instead of la
     assert.equal(childAConversations.length, 1);
     assert.equal(childBConversations.length, 1);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    slowChildren.release();
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -3944,7 +4497,7 @@ test('resumed parent stop wins when the restored child already finished', async 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-terminal-stop-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -3976,7 +4529,7 @@ test('resumed parent stop wins when the restored child already finished', async 
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Resume Parent',
       flowName: 'parent-resume-terminal',
       source: 'REST',
@@ -4025,7 +4578,7 @@ test('resumed parent stop wins when the restored child already finished', async 
     );
     assert.equal(finalAssistant?.content, 'Stopped');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -4033,7 +4586,7 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-terminal-parallel-stop-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -4088,7 +4641,7 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Resume Parent',
       flowName: 'parent-resume-terminal-parallel',
       source: 'REST',
@@ -4155,7 +4708,7 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
       undefined,
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -4163,7 +4716,7 @@ test('resume tolerates stale subflows that have no active child run or terminal 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -4184,7 +4737,7 @@ test('resume tolerates stale subflows that have no active child run or terminal 
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Stale Child',
       flowName: 'child-stale',
       source: 'REST',
@@ -4206,7 +4759,7 @@ test('resume tolerates stale subflows that have no active child run or terminal 
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Stale Parent',
       flowName: 'parent-stale',
       source: 'REST',
@@ -4252,7 +4805,7 @@ test('resume tolerates stale subflows that have no active child run or terminal 
       /best effort: 0 succeeded, 1 failed/u,
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -4260,7 +4813,7 @@ test('resume rejects malformed persisted wave progress instead of discarding its
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-malformed-recovery-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -4285,7 +4838,7 @@ test('resume rejects malformed persisted wave progress instead of discarding its
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Malformed Wave Recovery Parent',
       flowName: 'parent-wave-malformed-recovery',
       source: 'REST',
@@ -4337,7 +4890,7 @@ test('resume rejects malformed persisted wave progress instead of discarding its
           'resumeStepPath requires saved flow state',
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -4345,7 +4898,7 @@ test('resume rejects malformed persisted child inputs and prior flow values', as
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-malformed-resume-inputs-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -4376,7 +4929,7 @@ test('resume rejects malformed persisted child inputs and prior flow values', as
       memoryConversations.set(conversationId, {
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.1-codex-max',
+        model: 'gpt-5.6-luna',
         title: `Malformed Resume ${suffix}`,
         flowName: 'parent-malformed-resume-inputs',
         source: 'REST',
@@ -4412,7 +4965,7 @@ test('resume rejects malformed persisted child inputs and prior flow values', as
       );
     }
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -4420,7 +4973,7 @@ test('restart recovery rejects a stale wave input hash and launches the current 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-restart-recovery-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -4452,7 +5005,7 @@ test('restart recovery rejects a stale wave input hash and launches the current 
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Restarted Wave Child',
       flowName: 'child-wave-restart',
       source: 'REST',
@@ -4475,7 +5028,7 @@ test('restart recovery rejects a stale wave input hash and launches the current 
       conversationId: childConversationId,
       role: 'assistant',
       content: 'stale terminal assistant result',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       provider: 'codex',
       toolCalls: null,
       status: 'ok',
@@ -4485,7 +5038,7 @@ test('restart recovery rejects a stale wave input hash and launches the current 
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Restarted Wave Parent',
       flowName: 'parent-wave-restart',
       source: 'REST',
@@ -4566,7 +5119,7 @@ test('restart recovery rejects a stale wave input hash and launches the current 
       1,
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -4574,7 +5127,7 @@ test('restart recovery re-enters an interrupted later-loop wave with its existin
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-later-loop-restart-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -4617,7 +5170,7 @@ test('restart recovery re-enters an interrupted later-loop wave with its existin
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Later Loop Restarted Wave Child',
       flowName: 'child-wave-later-loop-restart',
       source: 'REST',
@@ -4645,7 +5198,7 @@ test('restart recovery re-enters an interrupted later-loop wave with its existin
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Later Loop Restarted Wave Parent',
       flowName: 'parent-wave-later-loop-restart',
       source: 'REST',
@@ -4719,7 +5272,7 @@ test('restart recovery re-enters an interrupted later-loop wave with its existin
       1,
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -4727,7 +5280,7 @@ test('restart recovery reattaches only the matching wave invocation when the par
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-wave-crash-window-recovery-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -4761,7 +5314,7 @@ test('restart recovery reattaches only the matching wave invocation when the par
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Crash Window Wave Child',
       flowName: 'child-wave-crash-window',
       source: 'REST',
@@ -4805,7 +5358,7 @@ test('restart recovery reattaches only the matching wave invocation when the par
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Crash Window Wave Parent',
       flowName: 'parent-wave-crash-window',
       source: 'REST',
@@ -4868,7 +5421,7 @@ test('restart recovery reattaches only the matching wave invocation when the par
     );
     assert.equal(memoryTurns.get(earlierChildConversationId)?.length ?? 0, 0);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -4876,7 +5429,7 @@ test('resume tolerates stale legacy activeSubflow state that has no active child
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-legacy-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -4897,7 +5450,7 @@ test('resume tolerates stale legacy activeSubflow state that has no active child
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Stale Child',
       flowName: 'child-stale-legacy',
       source: 'REST',
@@ -4919,7 +5472,7 @@ test('resume tolerates stale legacy activeSubflow state that has no active child
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Stale Parent',
       flowName: 'parent-stale-legacy',
       source: 'REST',
@@ -4963,7 +5516,7 @@ test('resume tolerates stale legacy activeSubflow state that has no active child
       /best effort: 0 succeeded, 1 failed/u,
     );
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -4971,7 +5524,7 @@ test('resume tolerates stale remembered subflows before launching missing parall
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-resume-stale-before-launch-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -4997,7 +5550,7 @@ test('resume tolerates stale remembered subflows before launching missing parall
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Stale Child',
       flowName: 'child-stale',
       source: 'REST',
@@ -5019,7 +5572,7 @@ test('resume tolerates stale remembered subflows before launching missing parall
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Stale Parent',
       flowName: 'parent-stale-parallel',
       source: 'REST',
@@ -5070,7 +5623,7 @@ test('resume tolerates stale remembered subflows before launching missing parall
     ).filter((conversation) => conversation.flowName === 'child-missing');
     assert.equal(missingChildConversations.length, 1);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
   }
 });
 
@@ -5078,7 +5631,7 @@ test('resumed parent flow uses its persisted conversation title for new subflow 
   const tmpDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'flow-subflow-persisted-title-'),
   );
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
 
   try {
     await writeFlowFile({
@@ -5097,7 +5650,7 @@ test('resumed parent flow uses its persisted conversation title for new subflow 
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-luna',
       title: 'Persisted Parent Title',
       flowName: 'parent-title',
       source: 'REST',
@@ -5131,6 +5684,216 @@ test('resumed parent flow uses its persisted conversation title for new subflow 
     });
     assert.equal(childConversation?.title, 'Persisted Parent Title-Run Child');
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await removeWritableTree(tmpDir);
+  }
+});
+
+test('review wave pins parent, decisions, and resumed context despite conflicting pointers', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'flow-review-wave-pinned-context-'),
+  );
+  const repoDir = path.join(await fs.realpath(tmpDir), 'repo');
+  enterTestEnvOverrides({ FLOWS_DIR: tmpDir });
+  const executions: string[] = [];
+  let checkpoint: Conversation['flags'] | undefined;
+  try {
+    await initializeCodexReviewRepo(repoDir);
+    await fs.copyFile(
+      path.join(repoDir, 'planning/0000027-codex-review.md'),
+      path.join(repoDir, 'planning/0000060-story.md'),
+    );
+    await fs.writeFile(
+      path.join(repoDir, 'codeInfoStatus/flow-state/current-plan.json'),
+      JSON.stringify({
+        plan_path: 'planning/0000060-story.md',
+        branched_from: 'main',
+      }),
+    );
+    await execFile('git', ['branch', '-m', 'feature/0000060-story'], {
+      cwd: repoDir,
+    });
+    await execFile('git', ['add', '.'], { cwd: repoDir });
+    await execFile('git', ['commit', '-m', 'story 60'], { cwd: repoDir });
+    const head = (
+      await execFile('git', ['rev-parse', 'HEAD'], { cwd: repoDir })
+    ).stdout.trim();
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'pinned-review-child',
+      steps: [llmStep('review child work')],
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName: 'pinned-review-parent',
+      steps: [
+        { type: 'prepareReviewTargets', outputKey: 'assigned_snapshot' },
+        {
+          type: 'startLoop',
+          maxIterations: 1,
+          steps: [
+            {
+              type: 'subflowWave',
+              reviewWorkspace: { snapshotFrom: 'assigned_snapshot' },
+              groups: [
+                {
+                  kind: 'singleton',
+                  id: 'reviewer',
+                  flowName: 'pinned-review-child',
+                },
+              ],
+            },
+            llmStep('parent review after wave'),
+            {
+              type: 'break',
+              agentType: 'planning_agent',
+              identifier: 'planner',
+              question: 'Does the assigned batch finish?',
+              breakOn: 'yes',
+            },
+          ],
+        },
+        llmStep('parent outcome after wave'),
+      ],
+    });
+    const chatFactory = () =>
+      new SubflowChat(0, async ({ message }) => {
+        executions.push(message);
+        if (message.endsWith('review child work')) {
+          // Simulate the wrong-story locator that caused Run E's misattribution.
+          await fs.writeFile(
+            path.join(repoDir, 'codeInfoStatus/flow-state/current-plan.json'),
+            JSON.stringify({ plan_path: 'planning/0000065-other.md' }),
+          );
+          await fs.writeFile(
+            path.join(
+              repoDir,
+              'codeInfoTmp/reviews/0000060-current-review-batch.md',
+            ),
+            'Story: 0000065\nBatch directory: /wrong-story-65\n',
+          );
+        }
+        if (message.endsWith('parent review after wave') && !checkpoint) {
+          const parent = Array.from(memoryConversations.values()).find(
+            (entry) => entry.flowName === 'pinned-review-parent',
+          );
+          assert.ok(parent);
+          checkpoint = structuredClone(parent.flags);
+        }
+      });
+    const result = await startFlowRun({
+      flowName: 'pinned-review-parent',
+      source: 'REST',
+      working_folder: repoDir,
+      input: {
+        review_batch: { story_id: '0000065', plan_path: '/wrong-story-65' },
+      },
+      chatFactory,
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() => !getActiveRunOwnership(result.conversationId));
+    assert.equal((await getFlowRunStatus(result.conversationId))?.status, 'ok');
+    assert.ok(checkpoint);
+    const savedFlow = (
+      checkpoint as {
+        flow: {
+          values: { assigned_snapshot: { review_wave_id: string } };
+          subflowWaveProgress: { stepPath: number[] };
+          stepPath: number[];
+        };
+      }
+    ).flow;
+    assert.deepEqual(savedFlow.subflowWaveProgress.stepPath, [1, 0]);
+    assert.deepEqual(savedFlow.stepPath, [1, 0]);
+    const batchRoot = path.join(
+      repoDir,
+      'codeInfoTmp/reviews/0000060-standalone-review-pass/batches',
+      `${savedFlow.values.assigned_snapshot.review_wave_id}--head-${head.slice(0, 12)}`,
+    );
+    const assertParentContexts = (messages: string[]) => {
+      assert.equal(messages.length, 3);
+      for (const message of messages) {
+        assert.match(message, /# Scheduler-assigned review batch/u);
+        assert.match(message, /"story_id": "0000060"/u);
+        assert.ok(
+          message.includes(
+            JSON.stringify(path.join(repoDir, 'planning/0000060-story.md')),
+          ),
+        );
+        assert.ok(message.includes(JSON.stringify(batchRoot)));
+        assert.ok(message.includes(JSON.stringify(head)));
+        assert.doesNotMatch(message, /0000065|wrong-story-65/u);
+      }
+    };
+    const childMessages = executions.filter((message) =>
+      message.endsWith('review child work'),
+    );
+    assert.equal(childMessages.length, 1);
+    assert.match(childMessages[0], /# Scheduler-assigned review job/u);
+    assert.match(childMessages[0], /# Scheduler-assigned review batch/u);
+    assert.ok(childMessages[0].includes(JSON.stringify(batchRoot)));
+    assertParentContexts(
+      executions.filter((message) => !message.endsWith('review child work')),
+    );
+
+    // Restore the actual persisted post-wave checkpoint, as after a server restart.
+    // Both mutable pointers are now wrong; resume must use values and the recorded wave.
+    const parent = memoryConversations.get(result.conversationId)!;
+    parent.flags = checkpoint;
+    executions.length = 0;
+    await startFlowRun({
+      flowName: 'pinned-review-parent',
+      conversationId: result.conversationId,
+      resumeStepPath: savedFlow.stepPath,
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory,
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() => !getActiveRunOwnership(result.conversationId));
+    assert.equal((await getFlowRunStatus(result.conversationId))?.status, 'ok');
+    assertParentContexts(executions);
+    assert.equal(
+      Array.from(memoryConversations.values()).filter(
+        (entry) => entry.flowName === 'pinned-review-child',
+      ).length,
+      1,
+      'resume must not relaunch the reviewer',
+    );
+    // A lost snapshot must be reported, not replaced by the stale input batch.
+    const unavailableCheckpoint = structuredClone(checkpoint) as {
+      flow: { values: FlowJsonObject };
+    };
+    unavailableCheckpoint.flow.values = {};
+    memoryConversations.get(result.conversationId)!.flags =
+      unavailableCheckpoint;
+    executions.length = 0;
+    await startFlowRun({
+      flowName: 'pinned-review-parent',
+      conversationId: result.conversationId,
+      resumeStepPath: savedFlow.stepPath,
+      source: 'REST',
+      working_folder: repoDir,
+      chatFactory,
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(repoDir)],
+        lockedModelId: null,
+      }),
+    });
+    await waitFor(() => !getActiveRunOwnership(result.conversationId));
+    assert.equal((await getFlowRunStatus(result.conversationId))?.status, 'ok');
+    assert.equal(executions.length, 3);
+    for (const message of executions) {
+      assert.match(message, /"status": "unavailable"/u);
+      assert.match(message, /Do not look up or write another batch or plan/u);
+      assert.doesNotMatch(message, /0000065|wrong-story-65/u);
+    }
+  } finally {
+    await removeWritableTree(tmpDir);
   }
 });

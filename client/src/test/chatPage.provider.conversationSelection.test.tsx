@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -115,13 +116,13 @@ function mockApi() {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
               },
             ],
@@ -175,7 +176,7 @@ function mockApi() {
                 conversationId: codexConversationId,
                 title: 'Codex conversation',
                 provider: 'codex',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 lastMessageAt: '2025-12-09T12:00:02.000Z',
                 archived: false,
               },
@@ -286,71 +287,83 @@ async function selectProvider(
 }
 
 describe('Chat shared shell conversation selection', () => {
-  it('does not send cancel_inflight when switching conversations during an active run', async () => {
-    const { user, draftConversationId } = await startDraftRun();
+  it(
+    'does not send cancel_inflight when switching conversations during an active run',
+    async () => {
+      const { user, draftConversationId } = await startDraftRun();
 
-    const codexRowTitle = screen.getByText('Codex conversation');
-    const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
-    if (!codexRow) {
-      throw new Error('Codex conversation row not found');
-    }
+      const codexRowTitle = screen.getByText('Codex conversation');
+      const codexRow = codexRowTitle.closest(
+        '[data-testid="conversation-row"]',
+      );
+      if (!codexRow) {
+        throw new Error('Codex conversation row not found');
+      }
 
-    await act(async () => {
-      await user.click(codexRow);
-    });
+      await act(async () => {
+        await user.click(codexRow);
+      });
 
-    await waitFor(() =>
-      expect(screen.getByTestId('provider-select')).toHaveTextContent(
-        /OpenAI Codex/i,
-      ),
-    );
+      await waitFor(() =>
+        expect(screen.getByTestId('provider-select')).toHaveTextContent(
+          /OpenAI Codex/i,
+        ),
+      );
 
-    const cancelMessages = getWsMessages().filter(
-      (msg) =>
-        msg.type === 'cancel_inflight' &&
-        msg.conversationId === draftConversationId,
-    );
+      const cancelMessages = getWsMessages().filter(
+        (msg) =>
+          msg.type === 'cancel_inflight' &&
+          msg.conversationId === draftConversationId,
+      );
 
-    expect(cancelMessages).toHaveLength(0);
-  }, 15000);
+      expect(cancelMessages).toHaveLength(0);
+    },
+    resolveClientTestTimeoutMs(15000),
+  );
 
-  it('shows only the selected conversation transcript and local state after switching', async () => {
-    const { user } = await startDraftRun();
+  it(
+    'shows only the selected conversation transcript and local state after switching',
+    async () => {
+      const { user } = await startDraftRun();
 
-    expect(screen.getByText('Hello inflight')).toBeInTheDocument();
-    expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
+      expect(screen.getByText('Hello inflight')).toBeInTheDocument();
+      expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
 
-    const codexRowTitle = screen.getByText('Codex conversation');
-    const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
-    if (!codexRow) {
-      throw new Error('Codex conversation row not found');
-    }
+      const codexRowTitle = screen.getByText('Codex conversation');
+      const codexRow = codexRowTitle.closest(
+        '[data-testid="conversation-row"]',
+      );
+      if (!codexRow) {
+        throw new Error('Codex conversation row not found');
+      }
 
-    await act(async () => {
-      await user.click(codexRow);
-    });
+      await act(async () => {
+        await user.click(codexRow);
+      });
 
-    await waitFor(() =>
-      expect(screen.getByTestId('provider-select')).toHaveTextContent(
-        /OpenAI Codex/i,
-      ),
-    );
+      await waitFor(() =>
+        expect(screen.getByTestId('provider-select')).toHaveTextContent(
+          /OpenAI Codex/i,
+        ),
+      );
 
-    const transcript = await screen.findByTestId('chat-transcript');
-    const userTurn = within(transcript).getByText('hello codex');
-    const assistantTurn = within(transcript).getByText('codex reply');
-    expect(
-      userTurn.compareDocumentPosition(assistantTurn) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(within(transcript).getByText('codex reply')).toBeInTheDocument();
-    expect(
-      within(transcript).queryByText('Hello inflight'),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
-    expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument();
-    expect(screen.getByTestId('chat-input')).toBeEnabled();
-  }, 15000);
+      const transcript = await screen.findByTestId('chat-transcript');
+      const userTurn = within(transcript).getByText('hello codex');
+      const assistantTurn = within(transcript).getByText('codex reply');
+      expect(
+        userTurn.compareDocumentPosition(assistantTurn) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(within(transcript).getByText('codex reply')).toBeInTheDocument();
+      expect(
+        within(transcript).queryByText('Hello inflight'),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('chat-stop')).not.toBeInTheDocument();
+      expect(screen.getByTestId('chat-input')).toBeEnabled();
+    },
+    resolveClientTestTimeoutMs(15000),
+  );
 
   it('does not send cancel_inflight when changing provider during an active run', async () => {
     const { user, draftConversationId } = await startDraftRun();
@@ -372,25 +385,31 @@ describe('Chat shared shell conversation selection', () => {
     expect(cancelMessages).toHaveLength(0);
   });
 
-  it('keeps the provider selector enabled for the visible next-send view', async () => {
-    const { user } = await startDraftRun();
+  it(
+    'keeps the provider selector enabled for the visible next-send view',
+    async () => {
+      const { user } = await startDraftRun();
 
-    const providerSelect = screen.getByRole('combobox', { name: /provider/i });
-    expect(providerSelect).toBeEnabled();
+      const providerSelect = screen.getByRole('combobox', {
+        name: /provider/i,
+      });
+      expect(providerSelect).toBeEnabled();
 
-    await selectProvider(user, /openai codex/i);
+      await selectProvider(user, /openai codex/i);
 
-    await waitFor(() =>
-      expect(screen.getByTestId('provider-select')).toHaveTextContent(
-        /OpenAI Codex/i,
-      ),
-    );
+      await waitFor(() =>
+        expect(screen.getByTestId('provider-select')).toHaveTextContent(
+          /OpenAI Codex/i,
+        ),
+      );
 
-    expect(screen.getByRole('combobox', { name: /provider/i })).toBeEnabled();
-    expect(screen.getByTestId('chat-input')).toBeEnabled();
-    expect(screen.queryByText('Hello inflight')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
-  }, 15000);
+      expect(screen.getByRole('combobox', { name: /provider/i })).toBeEnabled();
+      expect(screen.getByTestId('chat-input')).toBeEnabled();
+      expect(screen.queryByText('Hello inflight')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Responding.../i)).not.toBeInTheDocument();
+    },
+    resolveClientTestTimeoutMs(15000),
+  );
 
   it('keeps resumed provider and model selectors read-only while a stored conversation is selected', async () => {
     const user = userEvent.setup();
@@ -416,7 +435,7 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.1-codex-max/i,
+        /gpt-5\.6-luna/i,
       ),
     );
     expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
@@ -428,7 +447,7 @@ describe('Chat shared shell conversation selection', () => {
       'true',
     );
     expect(screen.getByText('codex reply')).toBeInTheDocument();
-  }, 15000);
+  });
 
   it('restores the selected conversation over an unsent provider draft without merging hidden draft flags', async () => {
     const user = userEvent.setup();
@@ -658,8 +677,8 @@ describe('Chat shared shell conversation selection', () => {
               codexWarnings: [],
               models: [
                 {
-                  key: 'gpt-5.1-codex-max',
-                  displayName: 'gpt-5.1-codex-max',
+                  key: 'gpt-5.6-luna',
+                  displayName: 'gpt-5.6-luna',
                   type: 'codex',
                   supportedReasoningEfforts: ['high'],
                   defaultReasoningEffort: 'high',
@@ -679,7 +698,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: codexConversationId,
                   role: 'user',
                   content: 'hello codex',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   provider: 'codex',
                   toolCalls: null,
                   status: 'ok',
@@ -689,7 +708,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: codexConversationId,
                   role: 'assistant',
                   content: 'codex reply',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   provider: 'codex',
                   toolCalls: null,
                   status: 'ok',
@@ -710,7 +729,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: codexConversationId,
                   title: 'Codex conversation',
                   provider: 'codex',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   lastMessageAt: '2025-12-09T12:00:02.000Z',
                   archived: false,
                 },
@@ -817,7 +836,7 @@ describe('Chat shared shell conversation selection', () => {
     expect(
       screen.queryByRole('combobox', { name: /tool access/i }),
     ).not.toBeInTheDocument();
-  }, 10000);
+  });
 
   it('reloads LM Studio models and replaces a persisted Codex model label when the next-send provider changes after a stale LM Studio default response', async () => {
     const user = userEvent.setup();
@@ -843,7 +862,7 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.1-codex-max/i,
+        /gpt-5\.6-luna/i,
       ),
     );
     expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
@@ -883,7 +902,7 @@ describe('Chat shared shell conversation selection', () => {
       expect(screen.getByTestId('model-select')).toHaveTextContent(/LM Model/i),
     );
     expect(screen.getByTestId('model-select')).not.toHaveTextContent(
-      /gpt-5\.1-codex-max/i,
+      /gpt-5\.6-luna/i,
     );
   });
 
@@ -910,7 +929,7 @@ describe('Chat shared shell conversation selection', () => {
                 },
               ],
               selectedProvider: 'codex',
-              selectedModel: 'gpt-5.2',
+              selectedModel: 'gpt-5.6-terra',
               selectedEndpointId: 'https://alpha.example/stale/v1',
             });
           }
@@ -929,35 +948,35 @@ describe('Chat shared shell conversation selection', () => {
                 label: 'OpenAI Codex',
                 available: true,
                 toolsAvailable: true,
-                defaultModel: 'gpt-5.2',
+                defaultModel: 'gpt-5.6-terra',
               },
               models: [
                 {
-                  key: 'gpt-5.2',
-                  displayName: 'gpt-5.2',
+                  key: 'gpt-5.6-terra',
+                  displayName: 'gpt-5.6-terra',
                   type: 'codex',
                 },
                 {
-                  key: 'gpt-5.1-codex-max',
-                  displayName: 'gpt-5.1-codex-max',
+                  key: 'gpt-5.6-luna',
+                  displayName: 'gpt-5.6-luna',
                   type: 'codex',
                   endpointId: 'https://alpha.example/base/v1',
                 },
                 {
-                  key: 'gpt-5.1-codex-max',
-                  displayName: 'gpt-5.1-codex-max',
+                  key: 'gpt-5.6-luna',
+                  displayName: 'gpt-5.6-luna',
                   type: 'codex',
                   endpointId: 'https://alpha.example/alt/v1',
                 },
                 {
-                  key: 'gpt-5.2',
-                  displayName: 'gpt-5.2',
+                  key: 'gpt-5.6-terra',
+                  displayName: 'gpt-5.6-terra',
                   type: 'codex',
                   endpointId: 'https://alpha.example/base/v1',
                 },
                 {
-                  key: 'gpt-5.2',
-                  displayName: 'gpt-5.2',
+                  key: 'gpt-5.6-terra',
+                  displayName: 'gpt-5.6-terra',
                   type: 'codex',
                   endpointId: 'https://alpha.example/alt/v1',
                 },
@@ -972,7 +991,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: 'codex-conv',
                   role: 'user',
                   content: 'hello codex',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   provider: 'codex',
                   toolCalls: null,
                   status: 'ok',
@@ -982,7 +1001,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: 'codex-conv',
                   role: 'assistant',
                   content: 'codex reply',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   provider: 'codex',
                   toolCalls: null,
                   status: 'ok',
@@ -999,7 +1018,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: 'codex-conv',
                   title: 'Codex conversation',
                   provider: 'codex',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   flags: {
                     endpointId: 'https://alpha.example/alt/v1',
                   },
@@ -1017,7 +1036,7 @@ describe('Chat shared shell conversation selection', () => {
               conversationId: 'draft-conversation',
               inflightId: 'i1',
               provider: 'codex',
-              model: 'gpt-5.2',
+              model: 'gpt-5.6-terra',
             });
           }
 
@@ -1049,7 +1068,9 @@ describe('Chat shared shell conversation selection', () => {
       ).toBeInTheDocument(),
     );
     await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5\.2/i),
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5\.6-terra/i,
+      ),
     );
     expect(screen.getByTestId('model-select')).not.toHaveTextContent(
       /alpha\.example/i,
@@ -1067,7 +1088,7 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
+        /gpt-5\.6-luna \(alpha\.example \/ alt\)/i,
       ),
     );
     expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
@@ -1098,7 +1119,9 @@ describe('Chat shared shell conversation selection', () => {
       ),
     );
     await waitFor(() =>
-      expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-5\.2/i),
+      expect(screen.getByTestId('model-select')).toHaveTextContent(
+        /gpt-5\.6-terra/i,
+      ),
     );
     expect(screen.getByTestId('model-select')).not.toHaveTextContent(
       /alpha\.example/i,

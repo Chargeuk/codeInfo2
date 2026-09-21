@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -281,39 +280,6 @@ def _structured_review_block_status(
     if all_numbers != list(range(1, len(all_numbers) + 1)):
         return False, "issue_numbering_invalid", {}
 
-    try:
-        commit_check = subprocess.run(
-            [
-                "git",
-                "status",
-                "--porcelain",
-                "--untracked-files=all",
-                "--",
-                plan_path,
-            ],
-            cwd=Path.cwd(),
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )
-        commit_lookup = subprocess.run(
-            ["git", "log", "-1", "--format=%H", "--", plan_path],
-            cwd=Path.cwd(),
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )
-    except OSError:
-        return False, "structured_review_block_commit_unverifiable", {}
-    if commit_check.returncode != 0 or commit_lookup.returncode != 0:
-        return False, "structured_review_block_commit_unverifiable", {}
-    if commit_check.stdout.strip():
-        return False, "structured_review_block_not_committed", {}
-    plan_commit_sha = commit_lookup.stdout.strip()
-    if not re.fullmatch(r"[0-9a-f]{40}", plan_commit_sha):
-        return False, "structured_review_block_commit_unverifiable", {}
     return (
         True,
         "structured_review_block_present",
@@ -322,7 +288,6 @@ def _structured_review_block_status(
             "ignored_count": len(ignored_ids),
             "accepted_ids": accepted_ids,
             "ignored_ids": ignored_ids,
-            "plan_commit_sha": plan_commit_sha,
         },
     )
 
@@ -400,7 +365,6 @@ def check_review_decisions_need_retry() -> DecisionOutcome:
             or ignored_count != 0
             or accepted_ids
             or ignored_ids
-            or recording.get("plan_commit_sha") is not None
         ):
             return yes(
                 "review_no_decisions_conflicts_with_state", **_review_context(payload)
@@ -462,10 +426,6 @@ def check_review_decisions_need_retry() -> DecisionOutcome:
     if not set(ignored_ids).issubset(set(block_details["ignored_ids"])):
         return yes(
             "ignored_review_findings_missing_from_plan", **_review_context(payload)
-        )
-    if recording.get("plan_commit_sha") != block_details["plan_commit_sha"]:
-        return yes(
-            "review_decision_recording_commit_mismatch", **_review_context(payload)
         )
     return no("review_decisions_ready", **_review_context(payload))
 

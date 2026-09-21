@@ -32,12 +32,13 @@ import {
   __setRunProcessorForTest,
   __validateQueueReplayStartForTest,
   getStatus,
+  isBusy,
   pumpIngestQueue,
   recoverIngestQueueOnStartup,
   setIngestDeps,
 } from '../../ingest/ingestJob.js';
 import { release } from '../../ingest/lock.js';
-import { query, resetStore } from '../../logStore.js';
+import { entryMatches, query, resetStore, subscribe } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { IngestQueueRequestModel } from '../../mongo/ingestQueueRequest.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
@@ -55,13 +56,21 @@ import {
   stopMock,
 } from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
-
-setDefaultTimeout(30_000);
-
+import {
+  resolveConfiguredPollAttempts,
+  resolveConfiguredTestTimeoutMs,
+} from '../support/testTimeouts.js';
+setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 let server: Server | null = null;
 let baseUrl = '';
-let response: { status: number; body: unknown } | null = null;
-let capturedRootsResponse: { status: number; body: unknown } | null = null;
+let response: {
+  status: number;
+  body: unknown;
+} | null = null;
+let capturedRootsResponse: {
+  status: number;
+  body: unknown;
+} | null = null;
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
 let queueRuntimeAttemptedPaths: string[] = [];
@@ -76,9 +85,10 @@ let queueRuntimeAttemptObserved: Promise<void> | null = null;
 let resolveQueueRuntimeAttemptObserved: (() => void) | null = null;
 let queueRuntimeStartObserved: Promise<void> | null = null;
 let resolveQueueRuntimeStartObserved: (() => void) | null = null;
+let capturedRuntimeLogs: ReturnType<typeof query> = [];
+let unsubscribeRuntimeLogs: (() => void) | null = null;
 const queueRuntimeTerminalWaiters = new Map<string, Promise<void>>();
 const queueRuntimeTerminalResolvers = new Map<string, () => void>();
-
 function resetQueueRuntimeObservationWaiters() {
   queueRuntimeAttemptObserved = new Promise<void>((resolve) => {
     resolveQueueRuntimeAttemptObserved = resolve;
@@ -89,7 +99,6 @@ function resetQueueRuntimeObservationWaiters() {
   queueRuntimeTerminalWaiters.clear();
   queueRuntimeTerminalResolvers.clear();
 }
-
 function getQueueRuntimeTerminalWaiter(runId: string) {
   let waiter = queueRuntimeTerminalWaiters.get(runId);
   if (!waiter) {
@@ -100,38 +109,55 @@ function getQueueRuntimeTerminalWaiter(runId: string) {
   }
   return waiter;
 }
-
 function resolveQueueRuntimeTerminalWaiter(runId: string) {
   queueRuntimeTerminalResolvers.get(runId)?.();
 }
-
 async function waitForQueueRuntimeSignal(
   signal: Promise<void> | null,
   label: string,
-  timeoutMs = 2_000,
+  timeoutMs = 2000,
 ) {
   if (!signal) {
     throw new Error(`Missing queue runtime signal for ${label}`);
   }
-  await Promise.race([
-    signal,
-    new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Timed out waiting for ${label}`));
-      }, timeoutMs);
-    }),
-  ]);
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
+  let timeoutHandle: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      signal,
+      new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(
+            new Error(
+              `Timed out waiting for ${label} after ${resolvedTimeoutMs}ms`,
+            ),
+          );
+        }, resolvedTimeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
 }
-
 function getCapturedRootsPayload() {
   assert(capturedRootsResponse, 'expected captured roots response');
-  return (capturedRootsResponse.body as { roots?: unknown[] }).roots ?? [];
+  return (
+    (
+      capturedRootsResponse.body as {
+        roots?: unknown[];
+      }
+    ).roots ?? []
+  );
 }
-
 function findCapturedRootByPath(rootPath: string) {
   const roots = getCapturedRootsPayload();
   const entry = roots.find(
-    (root) => (root as { path?: string }).path === rootPath,
+    (root) =>
+      (
+        root as {
+          path?: string;
+        }
+      ).path === rootPath,
   ) as
     | {
         path?: string;
@@ -145,7 +171,6 @@ function findCapturedRootByPath(rootPath: string) {
   assert(entry, `expected root entry for ${rootPath}`);
   return entry;
 }
-
 async function seedQueuedReembedRequest(params: {
   rootPath: string;
   queueState: 'waiting' | 'running' | 'cleanup-blocked';
@@ -162,7 +187,6 @@ async function seedQueuedReembedRequest(params: {
   if (params.requestPayloadPath !== null) {
     requestPayload.path = params.requestPayloadPath ?? params.rootPath;
   }
-
   await IngestQueueRequestModel.create({
     canonicalTargetPath: params.rootPath,
     operation: 'reembed',
@@ -178,35 +202,40 @@ async function seedQueuedReembedRequest(params: {
       : {}),
   });
 }
-
 Before(async () => {
-  process.env.NODE_ENV = 'test';
-  delete process.env.CODEINFO_CODEX_WORKDIR;
+  setScopedTestEnvValue('NODE_ENV', 'test');
+  clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
   release();
   __resetIngestJobsForTest();
   if (mongoose.connection.readyState === 1) {
     await IngestQueueRequestModel.deleteMany({}).exec();
   }
   resetStore();
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
-  process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT = '1';
-  process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE = '1';
+  capturedRuntimeLogs = [];
+  unsubscribeRuntimeLogs = subscribe((entry) => {
+    capturedRuntimeLogs.push(entry);
+  });
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
+  setScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT', '1');
+  setScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE', '1');
   const app = express();
   app.use(cors());
   app.use(express.json());
   app.use(createRequestLogger());
   app.use((req, res, next) => {
-    const requestId = (req as unknown as { id?: string }).id;
+    const requestId = (
+      req as unknown as {
+        id?: string;
+      }
+    ).id;
     if (requestId) res.locals.requestId = requestId;
     next();
   });
-
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
     baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
-
   app.use(
     '/',
     createIngestStartRouter({
@@ -224,7 +253,6 @@ Before(async () => {
   );
   app.use('/', createIngestRemoveRouter());
   app.use('/', createIngestRootsRouter());
-
   await new Promise<void>((resolve) => {
     const listener = app.listen(0, () => {
       server = listener;
@@ -237,11 +265,10 @@ Before(async () => {
     });
   });
 });
-
 After(async () => {
   release();
   stopMock();
-  delete process.env.CODEINFO_CODEX_WORKDIR;
+  clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
   if (server) {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
@@ -274,28 +301,27 @@ After(async () => {
   if (mongoose.connection.readyState === 1) {
     await IngestQueueRequestModel.deleteMany({}).exec();
   }
+  unsubscribeRuntimeLogs?.();
+  unsubscribeRuntimeLogs = null;
+  capturedRuntimeLogs = [];
   resetStore();
   await clearRootsCollection();
   await clearVectorsCollection();
   await clearLockedModel();
-  delete process.env.CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT;
-  delete process.env.CODEINFO_INGEST_MAX_QUEUE_SIZE;
+  clearScopedTestEnvValue('CODEINFO_INGEST_LMSTUDIO_MAX_INFLIGHT');
+  clearScopedTestEnvValue('CODEINFO_INGEST_MAX_QUEUE_SIZE');
 });
-
 Given('ingest manage chroma stub is empty', async () => {
   await clearRootsCollection();
   await clearVectorsCollection();
   await clearLockedModel();
 });
-
 Given('ingest manage mongo queue is empty', async () => {
   await IngestQueueRequestModel.deleteMany({}).exec();
 });
-
 Given('ingest manage models scenario {string}', (name: string) => {
   startMock({ scenario: name as MockScenario });
 });
-
 Given(
   'ingest manage temp repo with file {string} containing {string}',
   async (rel: string, content: string) => {
@@ -305,7 +331,6 @@ Given(
     await fs.writeFile(filePath, content);
   },
 );
-
 When(
   'I POST ingest manage start with model {string}',
   async (model: string) => {
@@ -319,11 +344,15 @@ When(
     });
     response = { status: res.status, body: await res.json() };
     if (response.status === 202) {
-      lastRunId = (response.body as { runId?: string }).runId ?? null;
+      lastRunId =
+        (
+          response.body as {
+            runId?: string;
+          }
+        ).runId ?? null;
     }
   },
 );
-
 When('I POST ingest manage cancel for the last run', async () => {
   assert(lastRunId, 'runId missing');
   const res = await fetch(`${baseUrl}/ingest/cancel/${lastRunId}`, {
@@ -331,7 +360,6 @@ When('I POST ingest manage cancel for the last run', async () => {
   });
   response = { status: res.status, body: await res.json() };
 });
-
 When('I POST ingest manage reembed for the temp repo', async () => {
   assert(tempDir, 'temp dir missing');
   const res = await fetch(
@@ -342,10 +370,14 @@ When('I POST ingest manage reembed for the temp repo', async () => {
   );
   response = { status: res.status, body: await res.json() };
   if (response.status === 202) {
-    lastRunId = (response.body as { runId?: string }).runId ?? null;
+    lastRunId =
+      (
+        response.body as {
+          runId?: string;
+        }
+      ).runId ?? null;
   }
 });
-
 When('I POST ingest manage reembed for root {string}', async (root: string) => {
   const res = await fetch(
     `${baseUrl}/ingest/reembed/${encodeURIComponent(root)}`,
@@ -355,10 +387,14 @@ When('I POST ingest manage reembed for root {string}', async (root: string) => {
   );
   response = { status: res.status, body: await res.json() };
   if (response.status === 202) {
-    lastRunId = (response.body as { runId?: string }).runId ?? null;
+    lastRunId =
+      (
+        response.body as {
+          runId?: string;
+        }
+      ).runId ?? null;
   }
 });
-
 When('I POST ingest manage remove for the temp repo', async () => {
   assert(tempDir, 'temp dir missing');
   const res = await fetch(
@@ -369,7 +405,6 @@ When('I POST ingest manage remove for the temp repo', async () => {
   );
   response = { status: res.status, body: await res.json() };
 });
-
 When('I POST ingest manage remove for root {string}', async (root: string) => {
   const res = await fetch(
     `${baseUrl}/ingest/remove/${encodeURIComponent(root)}`,
@@ -379,7 +414,6 @@ When('I POST ingest manage remove for root {string}', async (root: string) => {
   );
   response = { status: res.status, body: await res.json() };
 });
-
 When(
   'I change ingest manage temp file {string} to {string}',
   async (rel: string, content: string) => {
@@ -388,31 +422,46 @@ When(
     await fs.writeFile(filePath, content);
   },
 );
-
 Then(
   'ingest manage status for the last run becomes {string}',
   async (state: string) => {
     assert(lastRunId, 'runId missing');
-    for (let i = 0; i < 120; i += 1) {
+    for (let i = 0; i < resolveConfiguredPollAttempts(120, 100); i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = await res.json();
       console.log(
         `[ingest-manage] poll ${i} runId=${lastRunId} state=${body.state} message=${body.message ?? ''}`,
       );
-      if (body.state === state) return;
+      if (body.state === state) {
+        if (state === 'completed' || state === 'error') {
+          for (let j = 0; j < resolveConfiguredPollAttempts(60, 100); j += 1) {
+            if (!isBusy()) return;
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          assert.fail(
+            `ingest reached ${state} but busy cleanup did not settle`,
+          );
+        }
+        return;
+      }
       await new Promise((r) => setTimeout(r, 100));
     }
     assert.fail(`did not reach state ${state}`);
   },
 );
-
 Then(
   'ingest manage status for run {string} becomes {string}',
   async (runId: string, state: string) => {
-    for (let i = 0; i < 120; i += 1) {
+    for (let i = 0; i < resolveConfiguredPollAttempts(120, 100); i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${runId}`);
       const body = await res.json();
-      if ((body as { state?: string }).state === state) {
+      if (
+        (
+          body as {
+            state?: string;
+          }
+        ).state === state
+      ) {
         return;
       }
       await new Promise((r) => setTimeout(r, 100));
@@ -420,102 +469,139 @@ Then(
     assert.fail(`did not reach state ${state} for run ${runId}`);
   },
 );
-
 Then(
   'ingest manage status for run {string} has last error {string}',
   async (runId: string, expectedError: string) => {
     const res = await fetch(`${baseUrl}/ingest/status/${runId}`);
     const body = await res.json();
     assert.equal(
-      (body as { lastError?: string | null }).lastError,
+      (
+        body as {
+          lastError?: string | null;
+        }
+      ).lastError,
       expectedError,
     );
   },
 );
-
 Then('ingest manage roots first status is {string}', async (state: string) => {
-  for (let i = 0; i < 50; i += 1) {
+  for (let i = 0; i < resolveConfiguredPollAttempts(50, 100); i += 1) {
     const roots = getCapturedRootsPayload();
     if (
       roots.length > 0 &&
-      (roots[0] as { status?: string }).status === state
+      (
+        roots[0] as {
+          status?: string;
+        }
+      ).status === state
     ) {
       return;
     }
-
     const res = await fetch(`${baseUrl}/ingest/roots`);
     capturedRootsResponse = { status: res.status, body: await res.json() };
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-
   const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
-  assert.equal((roots[0] as { status?: string }).status, state);
+  assert.equal(
+    (
+      roots[0] as {
+        status?: string;
+      }
+    ).status,
+    state,
+  );
 });
-
 Then('ingest manage roots first model is {string}', (model: string) => {
   const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
-  assert.equal((roots[0] as { model?: string }).model, model);
+  assert.equal(
+    (
+      roots[0] as {
+        model?: string;
+      }
+    ).model,
+    model,
+  );
 });
-
 Then(
   'ingest manage roots first embedding provider is {string}',
   (provider: string) => {
     const roots = getCapturedRootsPayload();
     assert(roots.length > 0, 'no roots returned');
     assert.equal(
-      (roots[0] as { embeddingProvider?: string }).embeddingProvider,
+      (
+        roots[0] as {
+          embeddingProvider?: string;
+        }
+      ).embeddingProvider,
       provider,
     );
   },
 );
-
 Then('ingest manage roots first request id is present', () => {
   const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
   assert.equal(
-    typeof (roots[0] as { requestId?: string | null }).requestId,
+    typeof (
+      roots[0] as {
+        requestId?: string | null;
+      }
+    ).requestId,
     'string',
   );
 });
-
 Then('ingest manage roots first id is {string}', (expectedId: string) => {
   const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
-  assert.equal((roots[0] as { id?: string }).id, expectedId);
+  assert.equal(
+    (
+      roots[0] as {
+        id?: string;
+      }
+    ).id,
+    expectedId,
+  );
 });
-
 Then('ingest manage roots first run id is null', () => {
   const roots = getCapturedRootsPayload();
   assert(roots.length > 0, 'no roots returned');
-  assert.equal((roots[0] as { runId?: string | null }).runId, null);
+  assert.equal(
+    (
+      roots[0] as {
+        runId?: string | null;
+      }
+    ).runId,
+    null,
+  );
 });
-
 Then(
   'ingest manage roots entry for {string} has id {string}',
   (rootPath: string, expectedId: string) => {
-    const root = findCapturedRootByPath(rootPath) as { id?: string };
+    const root = findCapturedRootByPath(rootPath) as {
+      id?: string;
+    };
     assert.equal(root.id, expectedId);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has canonical id {string}',
   (rootPath: string, expectedId: string) => {
-    const root = findCapturedRootByPath(rootPath) as { id?: string };
+    const root = findCapturedRootByPath(rootPath) as {
+      id?: string;
+    };
     assert.equal(root.id, expectedId);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} keeps canonical id {string} when resumed',
   (rootPath: string, expectedId: string) => {
-    const root = findCapturedRootByPath(rootPath) as { id?: string };
+    const root = findCapturedRootByPath(rootPath) as {
+      id?: string;
+    };
     assert.equal(root.id, expectedId);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has name {string}',
   (rootPath: string, expectedName: string) => {
@@ -523,7 +609,6 @@ Then(
     assert.equal(root.name, expectedName);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has request id present',
   (rootPath: string) => {
@@ -531,7 +616,6 @@ Then(
     assert.equal(typeof root.requestId, 'string');
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has run id null',
   (rootPath: string) => {
@@ -539,7 +623,6 @@ Then(
     assert.equal(root.runId, null);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has run id {string}',
   (rootPath: string, expectedRunId: string) => {
@@ -547,7 +630,6 @@ Then(
     assert.equal(root.runId, expectedRunId);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has queue state {string}',
   (rootPath: string, queueState: string) => {
@@ -555,7 +637,6 @@ Then(
     assert.equal(root.queueState, queueState);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has queue position {int}',
   (rootPath: string, queuePosition: number) => {
@@ -563,7 +644,6 @@ Then(
     assert.equal(root.queuePosition, queuePosition);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has embedding provider {string}',
   (rootPath: string, expectedProvider: string) => {
@@ -573,7 +653,6 @@ Then(
     assert.equal(root.embeddingProvider, expectedProvider);
   },
 );
-
 Then(
   'ingest manage roots entry for the temp repo has embedding provider {string}',
   (expectedProvider: string) => {
@@ -584,7 +663,6 @@ Then(
     assert.equal(root.embeddingProvider, expectedProvider);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has embedding model {string}',
   (rootPath: string, expectedModel: string) => {
@@ -598,7 +676,6 @@ Then(
     assert.equal(root.modelId, expectedModel);
   },
 );
-
 Then(
   'ingest manage roots entry for the temp repo has embedding model {string}',
   (expectedModel: string) => {
@@ -613,7 +690,6 @@ Then(
     assert.equal(root.modelId, expectedModel);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has last error {string}',
   (rootPath: string, expectedError: string) => {
@@ -623,7 +699,6 @@ Then(
     assert.equal(root.lastError, expectedError);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has no diagnostics',
   (rootPath: string) => {
@@ -635,7 +710,6 @@ Then(
     assert.equal(root.error ?? null, null);
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has runtime error {string} with message {string}',
   (rootPath: string, expectedCode: string, expectedMessage: string) => {
@@ -653,7 +727,6 @@ Then(
     assert.equal(root.error?.provider, 'openai');
   },
 );
-
 Then(
   'ingest manage roots entry for {string} has structured error provider {string} code {string} with message {string}',
   (
@@ -675,45 +748,59 @@ Then(
     assert.equal(root.error?.message, expectedMessage);
   },
 );
-
 Then(
   'ingest manage roots first queue state is {string}',
   (queueState: string) => {
     const roots = getCapturedRootsPayload();
     assert(roots.length > 0, 'no roots returned');
-    assert.equal((roots[0] as { queueState?: string }).queueState, queueState);
+    assert.equal(
+      (
+        roots[0] as {
+          queueState?: string;
+        }
+      ).queueState,
+      queueState,
+    );
   },
 );
-
 Then(
   'ingest manage roots first queue position is {int}',
   (queuePosition: number) => {
     const roots = getCapturedRootsPayload();
     assert(roots.length > 0, 'no roots returned');
     assert.equal(
-      (roots[0] as { queuePosition?: number | null }).queuePosition,
+      (
+        roots[0] as {
+          queuePosition?: number | null;
+        }
+      ).queuePosition,
       queuePosition,
     );
   },
 );
-
 Then('ingest manage roots count is {int}', (count: number) => {
   const roots = getCapturedRootsPayload();
   assert.equal(roots.length, count);
 });
-
 Then('ingest manage locked model id is null', () => {
   assert(response, 'expected response');
-  const locked = (response.body as { lockedModelId?: string | null })
-    .lockedModelId;
+  const locked = (
+    response.body as {
+      lockedModelId?: string | null;
+    }
+  ).lockedModelId;
   assert.equal(locked, null);
 });
-
 Then(
   'ingest manage roots first entry has canonical and alias lock parity',
   () => {
     assert(response, 'expected response');
-    const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+    const roots =
+      (
+        response.body as {
+          roots?: unknown[];
+        }
+      ).roots ?? [];
     assert(roots.length > 0, 'no roots returned');
     const first = roots[0] as {
       embeddingProvider?: string;
@@ -741,40 +828,39 @@ Then(
     assert.equal(first.lock?.modelId, first.embeddingModel);
   },
 );
-
 Then('ingest manage roots payload is fetched', async () => {
   const res = await fetch(`${baseUrl}/ingest/roots`);
   const body = await res.json();
   response = { status: res.status, body };
   capturedRootsResponse = { status: res.status, body };
 });
-
 When('I GET ingest manage roots', async () => {
   const res = await fetch(`${baseUrl}/ingest/roots`);
   const body = await res.json();
   response = { status: res.status, body };
   capturedRootsResponse = { status: res.status, body };
 });
-
 Then(
   'ingest manage waits for {int} controlled embedding calls',
   async (count: number) => {
     await waitForControlledEmbeddingCalls(count);
   },
 );
-
 When(
   'ingest manage releases controlled embedding call {int}',
   (index: number) => {
     releaseControlledEmbeddingCall(index);
   },
 );
-
 Then('ingest manage logs include {string}', (marker: string) => {
-  const matches = query({ text: marker }, 50);
+  const matches = [
+    ...capturedRuntimeLogs.filter((entry) =>
+      entryMatches(entry, { text: marker }),
+    ),
+    ...query({ text: marker }, 50),
+  ];
   assert.ok(matches.length > 0, `expected log marker ${marker}`);
 });
-
 Given(
   'ingest manage root metadata exists for {string} with legacy model {string}',
   async (rootPath: string, model: string) => {
@@ -799,7 +885,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage root metadata exists for {string} with stale persisted error {string}',
   async (rootPath: string, message: string) => {
@@ -825,7 +910,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage root metadata exists for the temp repo in state {string}',
   async (state: string) => {
@@ -851,14 +935,16 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mixed-shape canonical OpenAI root metadata exists for the temp repo',
   async () => {
     assert(tempDir, 'temp dir missing');
     const previousDimensions =
       process.env.CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS;
-    process.env.CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS = '1';
+    setScopedTestEnvValue(
+      'CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS',
+      '1',
+    );
     try {
       await seedMixedShapeCanonicalOpenAiRoot({
         rootPath: tempDir,
@@ -866,15 +952,18 @@ Given(
       });
     } finally {
       if (previousDimensions === undefined) {
-        delete process.env.CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS;
+        clearScopedTestEnvValue(
+          'CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS',
+        );
       } else {
-        process.env.CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS =
-          previousDimensions;
+        setScopedTestEnvValue(
+          'CODEINFO_MAIN_STACK_MIXED_SHAPE_VECTOR_DIMENSIONS',
+          previousDimensions,
+        );
       }
     }
   },
 );
-
 Given(
   'ingest manage lock is provider {string} model {string} dimensions {int}',
   async (provider: string, model: string, dimensions: number) => {
@@ -885,26 +974,29 @@ Given(
     });
   },
 );
-
 Then(
   'ingest manage response status is {int} with code {string}',
   (status: number, code: string) => {
     assert(response, 'expected response');
     assert.equal(response.status, status);
-    assert.equal((response.body as { code?: string }).code, code);
+    assert.equal(
+      (
+        response.body as {
+          code?: string;
+        }
+      ).code,
+      code,
+    );
   },
 );
-
 Then('ingest manage response status is {int}', (status: number) => {
   assert(response, 'expected response');
   assert.equal(response.status, status);
 });
-
 Then('ingest manage mongo queue remains empty', async () => {
   const count = await IngestQueueRequestModel.countDocuments({});
   assert.equal(count, 0);
 });
-
 Given(
   'ingest manage mongo queue has running request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {
@@ -915,7 +1007,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage runtime status for run {string} is error {string} with message {string}',
   (runId: string, code: string, message: string) => {
@@ -933,7 +1024,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage runtime status for run {string} is ingest error {string} with message {string}',
   (runId: string, code: string, message: string) => {
@@ -951,7 +1041,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage runtime status for run {string} is healthy {string}',
   (runId: string, state: string) => {
@@ -968,7 +1057,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has running request for {string} with run id {string} and persisted path {string}',
   async (rootPath: string, runId: string, requestPayloadPath: string) => {
@@ -980,7 +1068,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has running request for {string} with run id {string} missing persisted path',
   async (rootPath: string, runId: string) => {
@@ -992,7 +1079,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has running request for the temp repo with run id {string} and canonical model value {int}',
   async (runId: string, canonicalModelValue: number) => {
@@ -1013,7 +1099,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has barrier-backed running request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {
@@ -1025,7 +1110,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has cleanup-blocked request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {
@@ -1036,7 +1120,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has partial cleanup-blocked request for {string} with run id {string}',
   async (rootPath: string, runId: string) => {
@@ -1049,7 +1132,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has waiting request for {string}',
   async (rootPath: string) => {
@@ -1059,7 +1141,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has waiting request for the temp repo',
   async () => {
@@ -1070,7 +1151,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage active runtime owns root {string} with run id {string}',
   (rootPath: string, runId: string) => {
@@ -1091,7 +1171,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has waiting request for {string} named {string}',
   async (rootPath: string, name: string) => {
@@ -1102,7 +1181,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has waiting request for {string} named {string} with provider {string} model {string}',
   async (rootPath: string, name: string, provider: string, model: string) => {
@@ -1122,7 +1200,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has waiting request for {string} named {string} with canonical provider {string} canonical model {string} and legacy model {string}',
   async (
@@ -1148,7 +1225,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has waiting request for {string} named {string} with legacy provider-qualified model {string}',
   async (rootPath: string, name: string, legacyModel: string) => {
@@ -1166,7 +1242,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has waiting request for {string} named {string} with canonical provider {string} and legacy model {string}',
   async (
@@ -1190,7 +1265,6 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage queue runtime records processor attempts and validation-passed starts',
   () => {
@@ -1208,8 +1282,16 @@ Given(
         const message =
           error instanceof Error ? error.message : String(error ?? 'unknown');
         const code =
-          typeof (error as { code?: unknown })?.code === 'string'
-            ? ((error as { code?: string }).code as string)
+          typeof (
+            error as {
+              code?: unknown;
+            }
+          )?.code === 'string'
+            ? ((
+                error as {
+                  code?: string;
+                }
+              ).code as string)
             : 'VALIDATION';
         const previousStatus = getStatus(runId);
         __setStatusForTest(runId, {
@@ -1236,12 +1318,11 @@ Given(
     });
   },
 );
-
 Given(
   'ingest manage mongo queue has running request for the temp repo with run id {string} and mismatched persisted path',
   async (runId: string) => {
     assert(tempDir, 'temp dir missing');
-    process.env.CODEINFO_CODEX_WORKDIR = path.dirname(tempDir);
+    setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', path.dirname(tempDir));
     await IngestQueueRequestModel.create({
       canonicalTargetPath: tempDir,
       operation: 'reembed',
@@ -1256,18 +1337,12 @@ Given(
     });
   },
 );
-
 When('ingest manage startup recovery runs', async () => {
   await recoverIngestQueueOnStartup();
-  await new Promise((resolve) => setImmediate(resolve));
-  await new Promise((resolve) => setImmediate(resolve));
 });
-
 When('ingest manage queue pump runs', async () => {
   lastQueuePumpResult = await pumpIngestQueue();
-  await new Promise((resolve) => setImmediate(resolve));
 });
-
 Then(
   'ingest manage queue runtime validation-passed started paths are {string}',
   async (pathsCsv: string) => {
@@ -1284,18 +1359,15 @@ Then(
     assert.deepEqual(queueRuntimeStartedPaths, expected);
   },
 );
-
 Then(
   'ingest manage queue runtime validation-passed started paths are empty',
   () => {
     assert.deepEqual(queueRuntimeStartedPaths, []);
   },
 );
-
 Then('ingest manage queue runtime made no processor attempt', () => {
   assert.deepEqual(queueRuntimeAttemptedPaths, []);
 });
-
 Then(
   'ingest manage queue runtime attempted paths are {string}',
   async (pathsCsv: string) => {
@@ -1312,7 +1384,6 @@ Then(
     assert.deepEqual(queueRuntimeAttemptedPaths, expected);
   },
 );
-
 Then(
   'ingest manage queue runtime attempted paths are the temp repo',
   async () => {
@@ -1324,17 +1395,18 @@ Then(
     assert.deepEqual(queueRuntimeAttemptedPaths, [tempDir]);
   },
 );
-
 Then(
   'ingest manage runtime status for the last queue run is error {string} with message {string}',
   async (expectedCode: string, expectedMessage: string) => {
     assert(lastQueuePumpResult?.runId, 'expected last queue run id');
-    const initialStatus = getStatus(lastQueuePumpResult.runId);
-    if (initialStatus?.state !== 'error') {
+    const terminalWaiter = getQueueRuntimeTerminalWaiter(
+      lastQueuePumpResult.runId,
+    );
+    if (getStatus(lastQueuePumpResult.runId)?.state !== 'error') {
       await waitForQueueRuntimeSignal(
-        getQueueRuntimeTerminalWaiter(lastQueuePumpResult.runId),
+        terminalWaiter,
         `queue runtime terminal status for ${lastQueuePumpResult.runId}`,
-        3_000,
+        3000,
       );
     }
     const status = getStatus(lastQueuePumpResult.runId);
@@ -1344,16 +1416,15 @@ Then(
     assert.equal(status.error?.message, expectedMessage);
   },
 );
-
 Then(
   'ingest manage runtime status for run {string} reports error {string} with message {string}',
   async (runId: string, expectedCode: string, expectedMessage: string) => {
-    const initialStatus = getStatus(runId);
-    if (initialStatus?.state !== 'error') {
+    const terminalWaiter = getQueueRuntimeTerminalWaiter(runId);
+    if (getStatus(runId)?.state !== 'error') {
       await waitForQueueRuntimeSignal(
-        getQueueRuntimeTerminalWaiter(runId),
+        terminalWaiter,
         `queue runtime terminal status for ${runId}`,
-        3_000,
+        3000,
       );
     }
     const status = getStatus(runId);
@@ -1363,7 +1434,6 @@ Then(
     assert.equal(status.error?.message, expectedMessage);
   },
 );
-
 Then('ingest manage queue pump reports cleanup blocked', () => {
   assert(lastQueuePumpResult, 'expected queue pump result');
   assert.equal(lastQueuePumpResult.started, false);

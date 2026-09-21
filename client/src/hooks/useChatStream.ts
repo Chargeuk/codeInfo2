@@ -76,7 +76,7 @@ export type ChatMessage = {
   citations?: ToolCitation[];
   tools?: ToolCall[];
   segments?: ChatSegment[];
-  streamStatus?: 'processing' | 'complete' | 'failed' | 'stopped';
+  streamStatus?: 'processing' | 'complete' | 'warning' | 'failed' | 'stopped';
   thinking?: boolean;
   createdAt?: string;
 };
@@ -1404,7 +1404,9 @@ export function useChatStream(
           body: JSON.stringify({
             provider: effectiveProvider,
             model: effectiveModel,
-            ...(submissionEndpointId ? { endpointId: submissionEndpointId } : {}),
+            ...(submissionEndpointId
+              ? { endpointId: submissionEndpointId }
+              : {}),
             conversationId: currentConversationId,
             inflightId: nextInflightId,
             message: text,
@@ -1945,8 +1947,12 @@ export function useChatStream(
             { id: makeId(), kind: 'text', content: event.delta },
           ];
         }
+        clearThinkingTimer();
         setIsStreaming(true);
-        syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
+        syncAssistantMessage(
+          { streamStatus: 'processing', thinking: false },
+          { assistantId },
+        );
         return;
       }
 
@@ -2034,8 +2040,12 @@ export function useChatStream(
         setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         applyToolEvent(event.event);
+        clearThinkingTimer();
         setIsStreaming(true);
-        syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
+        syncAssistantMessage(
+          { streamStatus: 'processing', thinking: false },
+          { assistantId },
+        );
         return;
       }
 
@@ -2083,9 +2093,11 @@ export function useChatStream(
         const streamStatus: ChatMessage['streamStatus'] =
           event.status === 'failed'
             ? 'failed'
-            : event.status === 'stopped'
-              ? 'stopped'
-              : 'complete';
+            : event.status === 'warning'
+              ? 'warning'
+              : event.status === 'stopped'
+                ? 'stopped'
+                : 'complete';
 
         logWithChannel('info', 'chat.client_turn_final_sync', {
           inflightId: event.inflightId,

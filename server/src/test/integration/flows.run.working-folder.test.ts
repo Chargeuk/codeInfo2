@@ -18,9 +18,7 @@ import {
   memoryTurns,
   updateMemoryConversationWorkingFolder,
 } from '../../chat/memoryPersistence.js';
-import {
-  __resetProviderBootstrapStatusForTests,
-} from '../../config/runtimeConfig.js';
+import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import {
   __resetFlowServiceDepsForTests,
   __setFlowServiceDepsForTests,
@@ -39,6 +37,15 @@ import {
   createMockCopilotSdkHarness,
   createSessionIdleEvent,
 } from '../support/mockCopilotSdk.js';
+import {
+  createIsolatedProviderHomeEnv,
+  type IsolatedProviderHomeEnv,
+} from '../support/providerHomeHarness.js';
+import {
+  enterTestEnvOverrides,
+  getScopedEnvValue,
+} from '../support/testEnvOverrideScope.js';
+import { resolveConfiguredPollAttempts } from '../support/testTimeouts.js';
 
 const buildRepoEntry = (containerPath: string): RepoEntry => ({
   id: path.basename(containerPath) || 'repo',
@@ -98,13 +105,28 @@ class CapturingFlowChat extends ChatInterface {
   }
 }
 
-beforeEach(() => {
+let providerHomes: IsolatedProviderHomeEnv | undefined;
+let previousProviderHomeEnv: Record<string, string | undefined> = {};
+
+beforeEach(async () => {
+  previousProviderHomeEnv = {
+    CODEINFO_CODEX_HOME: getScopedEnvValue('CODEINFO_CODEX_HOME'),
+    CODEINFO_COPILOT_HOME: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+    CODEINFO_LMSTUDIO_HOME: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
+  };
+  providerHomes = await createIsolatedProviderHomeEnv(
+    'flow-working-folder-provider-homes-',
+  );
+  enterTestEnvOverrides(providerHomes.envOverrides);
   installDeterministicCodexAvailabilityBootstrap();
 });
 
-afterEach(() => {
+afterEach(async () => {
   resetDeterministicCodexAvailabilityBootstrap();
   __resetProviderBootstrapStatusForTests();
+  enterTestEnvOverrides(previousProviderHomeEnv);
+  await providerHomes?.cleanup();
+  providerHomes = undefined;
 });
 
 const fixturesDir = path.resolve(
@@ -112,17 +134,14 @@ const fixturesDir = path.resolve(
   '../fixtures/flows',
 );
 
-const restoreEnvVar = (key: string, value: string | undefined) => {
-  if (typeof value === 'string') {
-    process.env[key] = value;
-    return;
-  }
-  delete process.env[key];
-};
+const setEnvVar = (key: string, value: string | undefined) =>
+  enterTestEnvOverrides({ [key]: value });
+
+const restoreEnvVar = setEnvVar;
 
 test('POST /flows/:flowName/run validates working_folder', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -131,8 +150,8 @@ test('POST /flows/:flowName/run validates working_folder', async () => {
     path.join(process.cwd(), 'tmp-flows-workdir-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
 
   const app = express();
   app.use(
@@ -172,11 +191,11 @@ test('POST /flows/:flowName/run validates working_folder', async () => {
     assert.equal(valid.status, 202);
     assert.equal(valid.body.status, 'started');
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setEnvVar('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      setEnvVar('FLOWS_DIR', undefined);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -241,7 +260,7 @@ test('POST /flows/:flowName/run passes codexReviewModelId through to startFlowRu
           conversationId: 'flow-codex-review',
           inflightId: 'flow-codex-review-inflight',
           providerId: 'codex',
-          modelId: 'gpt-5.4',
+          modelId: 'gpt-5.6-luna',
         };
       },
     }),
@@ -249,10 +268,10 @@ test('POST /flows/:flowName/run passes codexReviewModelId through to startFlowRu
 
   const res = await supertest(app)
     .post('/flows/codex_review/run')
-    .send({ codexReviewModelId: 'gpt-5.4' });
+    .send({ codexReviewModelId: 'gpt-5.6-luna' });
 
   assert.equal(res.status, 202);
-  assert.equal(capturedModelId, 'gpt-5.4');
+  assert.equal(capturedModelId, 'gpt-5.6-luna');
 });
 
 test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE message', async () => {
@@ -283,8 +302,8 @@ test('POST /flows/:flowName/run surfaces a safe WORKING_FOLDER_UNAVAILABLE messa
 
 test('a stale saved path yields to a newer saved working folder before a flow restore completes', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -293,14 +312,14 @@ test('a stale saved path yields to a newer saved working folder before a flow re
     path.join(process.cwd(), 'tmp-flows-workdir-restore-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
   const staleWorkingFolder = '/definitely/missing/path';
   const refreshedWorkingFolder = '/repos/newer-flow-working-folder';
   memoryConversations.set('flow-stale-restore', {
     _id: 'flow-stale-restore',
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
@@ -360,11 +379,11 @@ test('a stale saved path yields to a newer saved working folder before a flow re
   } finally {
     memoryConversations.delete('flow-stale-restore');
     memoryTurns.delete('flow-stale-restore');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setEnvVar('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      setEnvVar('FLOWS_DIR', undefined);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -372,8 +391,8 @@ test('a stale saved path yields to a newer saved working folder before a flow re
 
 test('a fresh run from an older flow conversation does not inherit its stale saved working folder', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -382,12 +401,12 @@ test('a fresh run from an older flow conversation does not inherit its stale sav
     path.join(process.cwd(), 'tmp-flows-workdir-rerun-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
   memoryConversations.set('flow-stale-rerun', {
     _id: 'flow-stale-rerun',
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
@@ -424,11 +443,11 @@ test('a fresh run from an older flow conversation does not inherit its stale sav
   } finally {
     memoryConversations.delete('flow-stale-rerun');
     memoryTurns.delete('flow-stale-rerun');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setEnvVar('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      setEnvVar('FLOWS_DIR', undefined);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -436,8 +455,8 @@ test('a fresh run from an older flow conversation does not inherit its stale sav
 
 test('a fresh run still starts a replacement conversation when the older selected flow has a stale saved working folder', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -446,12 +465,12 @@ test('a fresh run still starts a replacement conversation when the older selecte
     path.join(process.cwd(), 'tmp-flows-workdir-log-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
   memoryConversations.set('flow-stale-log', {
     _id: 'flow-stale-log',
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
@@ -489,11 +508,11 @@ test('a fresh run still starts a replacement conversation when the older selecte
   } finally {
     memoryConversations.delete('flow-stale-log');
     memoryTurns.delete('flow-stale-log');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setEnvVar('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      setEnvVar('FLOWS_DIR', undefined);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -501,8 +520,8 @@ test('a fresh run still starts a replacement conversation when the older selecte
 
 test('a flow-created child agent conversation inherits the exact flow-step folder', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -513,8 +532,8 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
   const workingFolder = path.join(tmpDir, 'working-root');
   await fs.mkdir(workingFolder, { recursive: true });
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
 
   const app = express();
   app.use(
@@ -543,7 +562,11 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
     assert.equal(res.body.status, 'started');
 
     let childConversationId: string | undefined;
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       childConversationId = (
         memoryConversations.get('flow-child-working-folder')?.flags?.flow as
           | { agentConversations?: Record<string, string> }
@@ -570,11 +593,11 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
     }
     memoryConversations.delete('flow-child-working-folder');
     memoryTurns.delete('flow-child-working-folder');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setEnvVar('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      setEnvVar('FLOWS_DIR', undefined);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -582,11 +605,11 @@ test('a flow-created child agent conversation inherits the exact flow-step folde
 
 test('flow llm steps map a host working_folder into the shared mounted runtime path', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevHostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR;
-  const prevCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
-  const prevCodeWorkdir = process.env.CODEX_WORKDIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
+  const prevHostIngestDir = getScopedEnvValue('CODEINFO_HOST_INGEST_DIR');
+  const prevCodexWorkdir = getScopedEnvValue('CODEINFO_CODEX_WORKDIR');
+  const prevCodeWorkdir = getScopedEnvValue('CODEX_WORKDIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -605,11 +628,11 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
   }> = [];
   await fs.mkdir(expectedMounted, { recursive: true });
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  process.env.CODEINFO_HOST_INGEST_DIR = hostIngestDir;
-  process.env.CODEINFO_CODEX_WORKDIR = codexWorkdir;
-  delete process.env.CODEX_WORKDIR;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
+  setEnvVar('CODEINFO_HOST_INGEST_DIR', hostIngestDir);
+  setEnvVar('CODEINFO_CODEX_WORKDIR', codexWorkdir);
+  setEnvVar('CODEX_WORKDIR', undefined);
 
   const app = express();
   app.use(
@@ -635,7 +658,11 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       if (calls.length >= 1) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
@@ -661,10 +688,10 @@ test('flow llm steps map a host working_folder into the shared mounted runtime p
 
 test('flow-owned llm steps default to the shared execution root when working_folder is empty', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevCodexWorkdir = process.env.CODEINFO_CODEX_WORKDIR;
-  const prevCodeWorkdir = process.env.CODEX_WORKDIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
+  const prevCodexWorkdir = getScopedEnvValue('CODEINFO_CODEX_WORKDIR');
+  const prevCodeWorkdir = getScopedEnvValue('CODEX_WORKDIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -682,10 +709,10 @@ test('flow-owned llm steps default to the shared execution root when working_fol
   await fs.mkdir(path.join(sourceRoot, 'flows'), { recursive: true });
   await fs.mkdir(sharedExecutionRoot, { recursive: true });
   await fs.cp(fixturesDir, path.join(sourceRoot, 'flows'), { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  process.env.CODEINFO_CODEX_WORKDIR = sharedExecutionRoot;
-  delete process.env.CODEX_WORKDIR;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
+  setEnvVar('CODEINFO_CODEX_WORKDIR', sharedExecutionRoot);
+  setEnvVar('CODEX_WORKDIR', undefined);
 
   const app = express();
   app.use(
@@ -711,7 +738,11 @@ test('flow-owned llm steps default to the shared execution root when working_fol
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       if (calls.length >= 1) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
@@ -735,8 +766,8 @@ test('flow-owned llm steps default to the shared execution root when working_fol
 });
 
 test('flow execution preserves WORKING_FOLDER_UNAVAILABLE when the shared execution-context seam cannot validate the path', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -746,8 +777,8 @@ test('flow execution preserves WORKING_FOLDER_UNAVAILABLE when the shared execut
   );
   const workingFolder = path.join(process.cwd(), 'flow-unavailable-workdir');
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
   const app = express();
   app.use(
     createFlowsRunRouter({
@@ -782,11 +813,11 @@ test('flow execution preserves WORKING_FOLDER_UNAVAILABLE when the shared execut
     });
   } finally {
     setWorkingFolderStatForTests(undefined);
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setEnvVar('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      setEnvVar('FLOWS_DIR', undefined);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -794,8 +825,8 @@ test('flow execution preserves WORKING_FOLDER_UNAVAILABLE when the shared execut
 
 test('validated working_folder also drives dedicated flow reingest target working', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -816,8 +847,8 @@ test('validated working_folder also drives dedicated flow reingest target workin
       steps: [{ type: 'reingest', target: 'working' }],
     }),
   );
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
 
   const app = express();
   app.use(
@@ -868,7 +899,11 @@ test('validated working_folder also drives dedicated flow reingest target workin
       .expect(202);
 
     assert.equal(res.body.status, 'started');
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       const turns = memoryTurns.get('flow-working-folder-reingest') ?? [];
       if (turns.length >= 2) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -904,11 +939,11 @@ test('validated working_folder also drives dedicated flow reingest target workin
     __resetFlowServiceDepsForTests();
     memoryConversations.delete('flow-working-folder-reingest');
     memoryTurns.delete('flow-working-folder-reingest');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setEnvVar('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      setEnvVar('FLOWS_DIR', undefined);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -916,8 +951,8 @@ test('validated working_folder also drives dedicated flow reingest target workin
 
 test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -933,8 +968,8 @@ test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', 
   }> = [];
   await fs.mkdir(workingFolder, { recursive: true });
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
 
   const app = express();
   app.use(
@@ -960,7 +995,11 @@ test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', 
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 200; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(200, 20);
+      attempt += 1
+    ) {
       if (calls.length >= 1) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
@@ -974,11 +1013,11 @@ test('cross-repo harness-owned llm steps inherit CODEINFO_ROOT and target cwd', 
   } finally {
     memoryConversations.delete('flow-codeinfo-root-markdown');
     memoryTurns.delete('flow-codeinfo-root-markdown');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setEnvVar('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      setEnvVar('FLOWS_DIR', undefined);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -1020,16 +1059,16 @@ test('flow-owned Copilot agent steps forward CODEINFO_ROOT into the Copilot runt
     'utf8',
   );
 
-  const prevAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const prevLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const prevCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const prevCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.FLOWS_DIR = flowsDir;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
+  const prevAgentHome = getScopedEnvValue('CODEINFO_AGENT_HOME');
+  const prevLegacyAgentHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
+  const prevCodexHome = getScopedEnvValue('CODEINFO_CODEX_HOME');
+  const prevCopilotHome = getScopedEnvValue('CODEINFO_COPILOT_HOME');
+  setEnvVar('CODEINFO_AGENT_HOME', agentsHome);
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', agentsHome);
+  setEnvVar('FLOWS_DIR', flowsDir);
+  setEnvVar('CODEINFO_CODEX_HOME', codexHome);
+  setEnvVar('CODEINFO_COPILOT_HOME', copilotHome);
 
   const capturedOptions: { env?: NodeJS.ProcessEnv }[] = [];
   const harness = createMockCopilotSdkHarness({
@@ -1089,7 +1128,11 @@ test('flow-owned Copilot agent steps forward CODEINFO_ROOT into the Copilot runt
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       if (capturedOptions.length >= 1) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
@@ -1112,8 +1155,8 @@ test('flow-owned Copilot agent steps forward CODEINFO_ROOT into the Copilot runt
 
 test('break steps inherit CODEINFO_ROOT and the selected working_folder', async () => {
   resetStore();
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
+  const prevAgentsHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const prevFlowsDir = getScopedEnvValue('FLOWS_DIR');
   const repoRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../../../',
@@ -1129,8 +1172,8 @@ test('break steps inherit CODEINFO_ROOT and the selected working_folder', async 
   }> = [];
   await fs.mkdir(workingFolder, { recursive: true });
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setEnvVar('CODEINFO_CODEX_AGENT_HOME', path.join(repoRoot, 'codex_agents'));
+  setEnvVar('FLOWS_DIR', tmpDir);
 
   const app = express();
   app.use(
@@ -1156,7 +1199,11 @@ test('break steps inherit CODEINFO_ROOT and the selected working_folder', async 
       })
       .expect(202);
 
-    for (let attempt = 0; attempt < 50; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < resolveConfiguredPollAttempts(50, 20);
+      attempt += 1
+    ) {
       const breakCalls = calls.filter((call) =>
         call.message.includes('Answer with JSON only:'),
       );
@@ -1177,11 +1224,11 @@ test('break steps inherit CODEINFO_ROOT and the selected working_folder', async 
   } finally {
     memoryConversations.delete('flow-break-working-folder');
     memoryTurns.delete('flow-break-working-folder');
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setEnvVar('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setEnvVar('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      setEnvVar('FLOWS_DIR', undefined);
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

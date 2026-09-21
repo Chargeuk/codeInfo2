@@ -222,6 +222,10 @@ test('external Copilot step awaits one launcher call and passes the cancellation
   const fixture = await createFixture();
   const controller = new AbortController();
   let captured: CopilotReviewLauncherOptions | undefined;
+  let markLauncherStarted!: () => void;
+  const launcherStarted = new Promise<void>((resolve) => {
+    markLauncherStarted = resolve;
+  });
   let release: ((result: CopilotReviewLauncherResult) => void) | undefined;
   const terminal = new Promise<CopilotReviewLauncherResult>((resolve) => {
     release = resolve;
@@ -236,6 +240,7 @@ test('external Copilot step awaits one launcher call and passes the cancellation
       loadReviewPolicy,
       runCopilotReview: async (options) => {
         captured = options;
+        markLauncherStarted();
         return terminal;
       },
     },
@@ -244,9 +249,8 @@ test('external Copilot step awaits one launcher call and passes the cancellation
     return result;
   });
 
-  while (!captured) {
-    await new Promise((resolve) => setTimeout(resolve, 1));
-  }
+  await launcherStarted;
+  assert.ok(captured);
   assert.equal(settled, false);
   assert.equal(captured.signal, controller.signal);
   controller.abort();

@@ -6,6 +6,7 @@ import { Router } from 'express';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import { append as appendLog } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 
 type IngestDirsErrorCode = 'OUTSIDE_BASE' | 'NOT_FOUND' | 'NOT_DIRECTORY';
 
@@ -38,8 +39,8 @@ export function createIngestDirsRouter() {
   const router = Router();
 
   router.get('/ingest/dirs', async (req, res) => {
-    const base = process.env.CODEINFO_HOST_INGEST_DIR || '/data';
-    const codexWorkdir = process.env.CODEINFO_CODEX_WORKDIR || base;
+    const base = getScopedEnvValue('CODEINFO_HOST_INGEST_DIR') || '/data';
+    const codexWorkdir = getScopedEnvValue('CODEINFO_CODEX_WORKDIR') || base;
     const raw = typeof req.query.path === 'string' ? req.query.path : '';
     const requested = raw.trim() || base;
 

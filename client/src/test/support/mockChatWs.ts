@@ -203,34 +203,32 @@ export function setupChatWsHarness(params: {
     return seq;
   };
 
-  const emit = (event: HarnessEvent) => {
-    setTimeout(() => {
-      const withProtocol = { protocolVersion: 'v1', ...event };
-      const handler =
-        typeof window !== 'undefined'
-          ? window.__chatTest?.handleWsEvent
-          : undefined;
+  const emit = async (event: HarnessEvent): Promise<void> => {
+    const withProtocol = { protocolVersion: 'v1', ...event };
+    const handler =
+      typeof window !== 'undefined'
+        ? window.__chatTest?.handleWsEvent
+        : undefined;
 
-      const isTranscript =
-        withProtocol.type === 'user_turn' ||
-        withProtocol.type === 'inflight_snapshot' ||
-        withProtocol.type === 'stream_warning' ||
-        withProtocol.type === 'assistant_delta' ||
-        withProtocol.type === 'analysis_delta' ||
-        withProtocol.type === 'tool_event' ||
-        withProtocol.type === 'turn_final';
+    const isTranscript =
+      withProtocol.type === 'user_turn' ||
+      withProtocol.type === 'inflight_snapshot' ||
+      withProtocol.type === 'stream_warning' ||
+      withProtocol.type === 'assistant_delta' ||
+      withProtocol.type === 'analysis_delta' ||
+      withProtocol.type === 'tool_event' ||
+      withProtocol.type === 'turn_final';
 
-      if (typeof handler === 'function' && isTranscript) {
-        act(() => {
-          handler(withProtocol);
-        });
-        return;
-      }
-
-      sockets().forEach((socket) => {
-        socket._receive(withProtocol);
+    if (typeof handler === 'function' && isTranscript) {
+      act(() => {
+        handler(withProtocol);
       });
-    }, 0);
+      return;
+    }
+
+    sockets().forEach((socket) => {
+      socket._receive(withProtocol);
+    });
   };
 
   return {
@@ -242,10 +240,18 @@ export function setupChatWsHarness(params: {
     getConversationId: () => lastConversationId,
     getInflightId: () => lastInflightId,
     emitSidebarUpsert: (conversation: Record<string, unknown>) => {
-      emit({ type: 'conversation_upsert', seq: nextSeq(), conversation });
+      return emit({
+        type: 'conversation_upsert',
+        seq: nextSeq(),
+        conversation,
+      });
     },
     emitSidebarDelete: (conversationId: string) => {
-      emit({ type: 'conversation_delete', seq: nextSeq(), conversationId });
+      return emit({
+        type: 'conversation_delete',
+        seq: nextSeq(),
+        conversationId,
+      });
     },
     emitInflightSnapshot: (payload: {
       conversationId: string;
@@ -264,7 +270,7 @@ export function setupChatWsHarness(params: {
         identifier?: string;
       };
     }) => {
-      emit({
+      return emit({
         type: 'inflight_snapshot',
         conversationId: payload.conversationId,
         seq: nextSeq(),
@@ -284,7 +290,7 @@ export function setupChatWsHarness(params: {
       content: string;
       createdAt?: string;
     }) => {
-      emit({
+      return emit({
         type: 'user_turn',
         conversationId: payload.conversationId,
         seq: nextSeq(),
@@ -298,7 +304,7 @@ export function setupChatWsHarness(params: {
       inflightId: string;
       delta: string;
     }) => {
-      emit({
+      return emit({
         type: 'assistant_delta',
         conversationId: payload.conversationId,
         seq: nextSeq(),
@@ -311,7 +317,7 @@ export function setupChatWsHarness(params: {
       inflightId: string;
       message: string;
     }) => {
-      emit({
+      return emit({
         type: 'stream_warning',
         conversationId: payload.conversationId,
         seq: nextSeq(),
@@ -324,7 +330,7 @@ export function setupChatWsHarness(params: {
       inflightId: string;
       delta: string;
     }) => {
-      emit({
+      return emit({
         type: 'analysis_delta',
         conversationId: payload.conversationId,
         seq: nextSeq(),
@@ -337,7 +343,7 @@ export function setupChatWsHarness(params: {
       inflightId: string;
       event: JsonPayload;
     }) => {
-      emit({
+      return emit({
         type: 'tool_event',
         conversationId: payload.conversationId,
         seq: nextSeq(),
@@ -359,7 +365,7 @@ export function setupChatWsHarness(params: {
       };
       timing?: { totalTimeSec?: number; tokensPerSecond?: number };
     }) => {
-      emit({
+      return emit({
         type: 'turn_final',
         conversationId: payload.conversationId,
         seq: nextSeq(),
@@ -376,7 +382,7 @@ export function setupChatWsHarness(params: {
       requestId: string;
       result?: 'noop';
     }) => {
-      emit({
+      return emit({
         type: 'cancel_ack',
         conversationId: payload.conversationId,
         requestId: payload.requestId,

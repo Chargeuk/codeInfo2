@@ -1123,6 +1123,10 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
 
     const controller = new AbortController();
     let fetchSignal: AbortSignal | undefined;
+    let markFetchStarted!: () => void;
+    const fetchStarted = new Promise<void>((resolve) => {
+      markFetchStarted = resolve;
+    });
     const execFile = async (
       file: string,
       args: readonly string[],
@@ -1144,17 +1148,21 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
           };
         case 'fetch --prune origin':
           fetchSignal = options?.signal;
+          markFetchStarted();
           return await new Promise<{ stdout: string; stderr: string }>(
             (_resolve, reject) => {
-              options?.signal?.addEventListener(
-                'abort',
-                () => {
-                  const error = new Error('aborted');
-                  error.name = 'AbortError';
-                  reject(error);
-                },
-                { once: true },
-              );
+              const rejectAbort = () => {
+                const error = new Error('aborted');
+                error.name = 'AbortError';
+                reject(error);
+              };
+              if (options?.signal?.aborted) {
+                rejectAbort();
+                return;
+              }
+              options?.signal?.addEventListener('abort', rejectAbort, {
+                once: true,
+              });
             },
           );
         default:
@@ -1178,10 +1186,7 @@ test('prepareReviewBase propagates AbortSignal to git fetch and aborts promptly'
         now: () => new Date('2026-07-05T16:32:00.000Z'),
       },
     );
-    const deadline = Date.now() + 1000;
-    while (!fetchSignal && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
+    await fetchStarted;
     assert.equal(fetchSignal, controller.signal);
     controller.abort();
 

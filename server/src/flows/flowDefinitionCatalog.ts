@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { resolveAgentHomeEnv } from '../agents/roots.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import { parseFlowFile } from './flowSchema.js';
 
 export type FlowDefinitionCatalogEntry = {
@@ -22,7 +23,8 @@ const catalogByRoot = new Map<
 >();
 
 export const resolveConfiguredFlowsRoot = (): string => {
-  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
+  const configuredFlowsDir = getScopedEnvValue('FLOWS_DIR');
+  if (configuredFlowsDir) return path.resolve(configuredFlowsDir);
   const { codeInfoRoot } = resolveAgentHomeEnv();
   if (codeInfoRoot) return path.join(codeInfoRoot, 'flows');
   return path.resolve('flows');

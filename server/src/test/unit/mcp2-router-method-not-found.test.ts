@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import { handleRpc } from '../../mcp2/router.js';
+import {
+  closeHttpServer,
+  waitForHttpServerPort,
+} from '../support/httpServer.js';
 
 async function postJson(port: number, body: unknown) {
   const response = await fetch(`http://127.0.0.1:${port}`, {
@@ -16,7 +19,7 @@ async function postJson(port: number, body: unknown) {
 test('unknown JSON-RPC method returns -32601 Method not found', async () => {
   const server = http.createServer(handleRpc);
   server.listen(0);
-  const { port } = server.address() as AddressInfo;
+  const port = await waitForHttpServerPort(server);
 
   try {
     const body = await postJson(port, {
@@ -27,6 +30,6 @@ test('unknown JSON-RPC method returns -32601 Method not found', async () => {
     assert.equal(body.id, 9);
     assert.deepEqual(body.error, { code: -32601, message: 'Method not found' });
   } finally {
-    server.close();
+    await closeHttpServer(server);
   }
 });

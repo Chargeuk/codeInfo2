@@ -7,9 +7,15 @@ import {
   __setAgentServiceDepsForTests,
 } from '../../agents/service.js';
 import {
+  getCodexDetection,
   setCodexDetection,
   type CodexDetection,
 } from '../../providers/codexRegistry.js';
+import {
+  enterTestOverrideScope,
+  hasActiveTestOverrideScope,
+  runWithTestOverrides,
+} from './testOverrideScope.js';
 
 type CodexModelCapability = {
   model: string;
@@ -32,17 +38,17 @@ const buildAvailableCodexDetection = (): CodexDetection => ({
 const buildDeterministicCodexCapabilities = (
   models: CodexModelCapability[] = [
     {
-      model: 'gpt-5.3-codex',
+      model: 'gpt-5.6-luna',
       supportedReasoningEfforts: ['high'],
       defaultReasoningEffort: 'high',
     },
     {
-      model: 'gpt-5.2-codex',
+      model: 'gpt-5.6-terra',
       supportedReasoningEfforts: ['medium', 'high'],
       defaultReasoningEffort: 'medium',
     },
     {
-      model: 'gpt-5.1-codex-max',
+      model: 'gpt-5.6-sol',
       supportedReasoningEfforts: ['medium', 'high'],
       defaultReasoningEffort: 'medium',
     },
@@ -66,41 +72,76 @@ const buildDeterministicCodexCapabilities = (
   fallbackUsed: false,
 });
 
+const buildDeterministicBootstrapOverrides = (
+  options: DeterministicCodexBootstrapOptions = {},
+) => {
+  const detection = buildAvailableCodexDetection();
+  const resolveCopilotReadiness = async () => ({
+    available: true,
+    toolsAvailable: true,
+    blockingStage: 'ready' as const,
+    models: ['copilot-gpt-5'],
+    modelsRaw: [],
+    authSource: 'env-token' as const,
+  });
+
+  return {
+    codexDetection: detection,
+    agentAvailabilityDeps: {
+      getCodexDetection,
+      getMcpStatus: async () => ({ available: true }),
+      resolveCopilotReadiness,
+      getLmStudioBaseUrl: () => undefined,
+    },
+    agentServiceDeps: {
+      getCodexDetection,
+      resolveCodexCapabilities: async () =>
+        buildDeterministicCodexCapabilities(options.models),
+      getMcpStatus: async () => ({ available: true }),
+      resolveCopilotReadiness,
+      getLmStudioBaseUrl: () => undefined,
+    },
+  };
+};
+
 export function installDeterministicCodexAvailabilityBootstrap(
   options: DeterministicCodexBootstrapOptions = {},
 ) {
-  const detection = buildAvailableCodexDetection();
-  setCodexDetection(detection);
-  __setAgentAvailabilityDepsForTests({
-    getCodexDetection: () => detection,
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready' as const,
-      models: ['copilot-gpt-5'],
-      modelsRaw: [],
-      authSource: 'env-token' as const,
-    }),
-    getLmStudioBaseUrl: () => undefined,
-  });
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => detection,
-    resolveCodexCapabilities: async () =>
-      buildDeterministicCodexCapabilities(options.models),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready' as const,
-      models: ['copilot-gpt-5'],
-      modelsRaw: [],
-      authSource: 'env-token' as const,
-    }),
-  });
+  const overrides = buildDeterministicBootstrapOverrides(options);
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope(overrides);
+    return;
+  }
+  setCodexDetection(overrides.codexDetection);
+  __setAgentAvailabilityDepsForTests(overrides.agentAvailabilityDeps);
+  __setAgentServiceDepsForTests(overrides.agentServiceDeps);
 }
 
 export function resetDeterministicCodexAvailabilityBootstrap() {
+  if (hasActiveTestOverrideScope()) {
+    enterTestOverrideScope({
+      codexDetection: null,
+      agentAvailabilityDeps: null,
+      agentServiceDeps: null,
+    });
+    return;
+  }
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: false,
+    reason: 'not detected',
+  });
   __resetAgentAvailabilityDepsForTests();
   __resetAgentServiceDepsForTests();
+}
+
+export async function withDeterministicCodexAvailabilityBootstrap<T>(
+  fn: () => Promise<T>,
+  options: DeterministicCodexBootstrapOptions = {},
+): Promise<T> {
+  return await runWithTestOverrides(
+    buildDeterministicBootstrapOverrides(options),
+    fn,
+  );
 }

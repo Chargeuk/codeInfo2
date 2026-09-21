@@ -32,18 +32,21 @@ import { createIngestRemoveRouter } from '../../routes/ingestRemove.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 import { MockLMStudioClient, stopMock } from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
-
+import {
+  resolveConfiguredPollAttempts,
+  resolveConfiguredTestTimeoutMs,
+} from '../support/testTimeouts.js';
 const VECTOR_COLLECTION =
   process.env.CODEINFO_INGEST_COLLECTION ?? 'ingest_vectors';
-
 let server: Server | null = null;
 let baseUrl = '';
 let lastRunId: string | null = null;
 let tempDir: string | null = null;
-let lastResponse: { status: number; body: unknown } | null = null;
-
-setDefaultTimeout(30_000);
-
+let lastResponse: {
+  status: number;
+  body: unknown;
+} | null = null;
+setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 async function vectorsState() {
   const chromaUrl = process.env.CODEINFO_CHROMA_URL ?? 'http://localhost:8300';
   const normalized = chromaUrl.includes('://')
@@ -62,22 +65,19 @@ async function vectorsState() {
   const count = await collection.count();
   return { exists: true, count };
 }
-
 Before(async () => {
   release();
   __resetIngestJobsForTest();
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   const app = express();
   app.use(cors());
   app.use(express.json());
   app.use(createRequestLogger());
-
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
     baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
-
   app.use(
     '/',
     createIngestStartRouter({
@@ -86,7 +86,6 @@ Before(async () => {
     }),
   );
   app.use('/', createIngestRemoveRouter());
-
   await new Promise<void>((resolve) => {
     const listener = app.listen(0, () => {
       server = listener;
@@ -99,7 +98,6 @@ Before(async () => {
     });
   });
 });
-
 After(async () => {
   release();
   stopMock();
@@ -118,7 +116,6 @@ After(async () => {
   lastResponse = null;
   __resetIngestJobsForTest();
 });
-
 Given(
   'a temp repo for cleanup with file {string} containing {string}',
   async (rel: string, content: string) => {
@@ -128,7 +125,6 @@ Given(
     await fs.writeFile(filePath, content);
   },
 );
-
 When('I start a real ingest for that repo', async () => {
   assert(tempDir, 'temp dir missing');
   const res = await fetch(`${baseUrl}/ingest/start`, {
@@ -139,19 +135,23 @@ When('I start a real ingest for that repo', async () => {
   const body = await res.json();
   lastResponse = { status: res.status, body };
   assert.equal(res.status, 202);
-  lastRunId = (body as { runId?: string }).runId ?? null;
+  lastRunId =
+    (
+      body as {
+        runId?: string;
+      }
+    ).runId ?? null;
   assert(lastRunId, 'runId missing');
 });
-
 When('the ingest run finishes successfully', async () => {
   assert(lastRunId, 'runId missing');
-  for (let i = 0; i < 60; i += 1) {
+  for (let i = 0; i < resolveConfiguredPollAttempts(60, 100); i += 1) {
     const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
     const body = await res.json();
     if (body.state === 'completed' || body.state === 'error') {
       lastResponse = { status: res.status, body };
       assert.equal(body.state, 'completed');
-      for (let j = 0; j < 60; j += 1) {
+      for (let j = 0; j < resolveConfiguredPollAttempts(60, 100); j += 1) {
         if (!isBusy()) {
           return;
         }
@@ -163,10 +163,9 @@ When('the ingest run finishes successfully', async () => {
   }
   assert.fail('ingest did not complete');
 });
-
 When('I remove the repo ingest entry', async () => {
   assert(tempDir, 'temp dir missing');
-  for (let i = 0; i < 60; i += 1) {
+  for (let i = 0; i < resolveConfiguredPollAttempts(60, 100); i += 1) {
     const res = await fetch(
       `${baseUrl}/ingest/remove/${encodeURIComponent(tempDir)}`,
       { method: 'POST' },
@@ -182,19 +181,19 @@ When('I remove the repo ingest entry', async () => {
   }
   assert.equal(lastResponse?.status, 200);
 });
-
 Then('the vectors collection is deleted and the lock is cleared', async () => {
   assert(lastResponse, 'response missing');
-  const body = lastResponse.body as { unlocked?: boolean };
+  const body = lastResponse.body as {
+    unlocked?: boolean;
+  };
   assert.equal(body.unlocked, true);
   const state = await vectorsState();
   assert.equal(state.exists, false);
   assert.equal(state.count, 0);
 });
-
 Then('the ingest rerun completes and vectors are stored', async () => {
   assert(lastRunId, 'runId missing');
-  for (let i = 0; i < 60; i += 1) {
+  for (let i = 0; i < resolveConfiguredPollAttempts(60, 100); i += 1) {
     const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
     const body = await res.json();
     if (body.state === 'completed' || body.state === 'error') {

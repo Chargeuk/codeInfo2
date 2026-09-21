@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
-import { __setAgentAvailabilityDepsForTests } from '../../agents/availability.js';
+import {
+  __resetAgentAvailabilityDepsForTests,
+  __setAgentAvailabilityDepsForTests,
+} from '../../agents/availability.js';
 import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRouter } from '../../routes/flows.js';
@@ -15,10 +18,15 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
+);
+const checkedInRepoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
 );
 
 const buildRepoEntry = (params: {
@@ -114,42 +122,38 @@ const writeAgentConfig = async (params: {
   await fs.writeFile(path.join(agentHome, 'config.toml'), '# config', 'utf8');
 };
 
+const copyCheckedInAgentHome = async (params: {
+  destinationRoot: string;
+  rootDirName: 'codeinfo_agents' | 'codex_agents';
+  agentName: string;
+}) => {
+  await fs.cp(
+    path.join(
+      checkedInRepoRoot,
+      'manual_testing',
+      params.rootDirName,
+      params.agentName,
+    ),
+    path.join(params.destinationRoot, params.rootDirName, params.agentName),
+    { recursive: true },
+  );
+};
+
 const withFlowsDir = async (dir: string, run: () => Promise<void>) => {
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  process.env.FLOWS_DIR = dir;
-  try {
-    await run();
-  } finally {
-    if (prevFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    }
-  }
+  await runWithTestEnvOverrides({ FLOWS_DIR: dir }, run);
 };
 
 const withAgentHomes = async (
   params: { preferred: string; legacy: string },
   run: () => Promise<void>,
 ) => {
-  const previousPreferred = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacy = process.env.CODEINFO_CODEX_AGENT_HOME;
-  process.env.CODEINFO_AGENT_HOME = params.preferred;
-  process.env.CODEINFO_CODEX_AGENT_HOME = params.legacy;
-  try {
-    await run();
-  } finally {
-    if (previousPreferred === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = previousPreferred;
-    }
-    if (previousLegacy === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacy;
-    }
-  }
+  await runWithTestEnvOverrides(
+    {
+      CODEINFO_AGENT_HOME: params.preferred,
+      CODEINFO_CODEX_AGENT_HOME: params.legacy,
+    },
+    run,
+  );
 };
 
 const buildApp = (params?: {
@@ -176,6 +180,7 @@ const buildApp = (params?: {
 describe('GET /flows', () => {
   afterEach(() => {
     resetDeterministicCodexAvailabilityBootstrap();
+    __resetAgentAvailabilityDepsForTests();
     __resetProviderBootstrapStatusForTests();
   });
 
@@ -433,6 +438,109 @@ describe('GET /flows', () => {
     });
 
     await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  test('GET /flows disables conditional flows when either executable branch references an unavailable command', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-'));
+    const runtimeRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-runtime-'),
+    );
+
+    try {
+      await writeAgentConfig({
+        repoRoot: runtimeRoot,
+        rootDirName: 'codeinfo_agents',
+        agentName: 'planning_agent',
+      });
+      for (const [flowName, branch] of [
+        ['if-then-missing-command', 'then'],
+        ['if-else-missing-command', 'else'],
+      ] as const) {
+        await writeRawFlowFile(
+          tmpDir,
+          flowName,
+          JSON.stringify({
+            description: 'Conditional command availability fixture',
+            steps: [
+              {
+                type: 'if',
+                condition: 'review condition',
+                agentType: 'planning_agent',
+                identifier: 'conditional-decision',
+                then:
+                  branch === 'then'
+                    ? [
+                        {
+                          type: 'command',
+                          agentType: 'planning_agent',
+                          identifier: 'missing-then-command',
+                          commandName: 'missing_then_command',
+                        },
+                      ]
+                    : [
+                        {
+                          type: 'llm',
+                          agentType: 'planning_agent',
+                          identifier: 'available-then-branch',
+                          messages: [
+                            { role: 'user', content: ['available branch'] },
+                          ],
+                        },
+                      ],
+                else:
+                  branch === 'else'
+                    ? [
+                        {
+                          type: 'command',
+                          agentType: 'planning_agent',
+                          identifier: 'missing-else-command',
+                          commandName: 'missing_else_command',
+                        },
+                      ]
+                    : [
+                        {
+                          type: 'llm',
+                          agentType: 'planning_agent',
+                          identifier: 'available-else-branch',
+                          messages: [
+                            { role: 'user', content: ['available branch'] },
+                          ],
+                        },
+                      ],
+              },
+            ],
+          }),
+        );
+      }
+
+      await withAgentHomes(
+        {
+          preferred: path.join(runtimeRoot, 'codeinfo_agents'),
+          legacy: path.join(runtimeRoot, 'codex_agents'),
+        },
+        async () => {
+          await withFlowsDir(tmpDir, async () => {
+            const response = await supertest(buildApp()).get('/flows');
+            assert.equal(response.status, 200);
+            for (const flowName of [
+              'if-then-missing-command',
+              'if-else-missing-command',
+            ]) {
+              const listed = response.body.flows.find(
+                (flow: { name: string }) => flow.name === flowName,
+              );
+              assert.ok(listed);
+              assert.equal(listed.disabled, true);
+              assert.match(String(listed.error ?? ''), /not found/u);
+            }
+          });
+        },
+      );
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+      await fs.rm(runtimeRoot, { recursive: true, force: true });
+    }
   });
 
   test('GET /flows keeps unsafe subflow names listable and surfaces a warning', async () => {
@@ -738,8 +846,7 @@ describe('GET /flows', () => {
         );
 
         const missingWaveChild = response.body.flows.find(
-          (flow: { name: string }) =>
-            flow.name === 'parent-wave-missing-child',
+          (flow: { name: string }) => flow.name === 'parent-wave-missing-child',
         );
         assert.ok(missingWaveChild);
         assert.match(
@@ -748,8 +855,7 @@ describe('GET /flows', () => {
         );
 
         const invalidWaveChild = response.body.flows.find(
-          (flow: { name: string }) =>
-            flow.name === 'parent-wave-invalid-child',
+          (flow: { name: string }) => flow.name === 'parent-wave-invalid-child',
         );
         assert.ok(invalidWaveChild);
         assert.match(
@@ -1270,5 +1376,194 @@ describe('GET /flows', () => {
     );
 
     await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  test('ingested Story 60 GitHub review variant delegates nested review_agent availability to its review subflow', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const flowsRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-'),
+    );
+    const runtimeRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-runtime-'),
+    );
+    const ingestedRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-ingested-'),
+    );
+
+    await fs.cp(
+      path.join(checkedInRepoRoot, 'flows'),
+      path.join(ingestedRoot, 'flows'),
+      { recursive: true },
+    );
+
+    for (const agentName of [
+      'planning_agent',
+      'planning_agent_lite',
+      'coding_agent',
+      'coding_agent_lite',
+      'manual_testing_agent',
+      'loop_control_agent',
+      'automated_testing_agent',
+      'research_agent',
+      'review_agent_lite',
+      'review_agent_heavy',
+      'tasking_agent',
+    ]) {
+      await copyCheckedInAgentHome({
+        destinationRoot: runtimeRoot,
+        rootDirName: 'codeinfo_agents',
+        agentName,
+      });
+    }
+
+    await withAgentHomes(
+      {
+        preferred: path.join(runtimeRoot, 'codeinfo_agents'),
+        legacy: path.join(runtimeRoot, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(flowsRoot, async () => {
+          const app = buildApp({
+            listIngestedRepositories: async () => ({
+              repos: [
+                buildRepoEntry({
+                  id: '/data/codeInfo2',
+                  containerPath: ingestedRoot,
+                }),
+              ],
+              lockedModelId: null,
+            }),
+          });
+
+          const listResponse = await supertest(app).get('/flows');
+          assert.equal(listResponse.status, 200);
+          const listed = listResponse.body.flows.find(
+            (flow: { name: string; sourceId?: string }) =>
+              flow.name === 'implement_next_plan_github_review' &&
+              flow.sourceId === ingestedRoot,
+          );
+          assert.ok(listed);
+          assert.equal(listed.disabled, false);
+          assert.equal(listed.error, undefined);
+
+          const reviewSubflow = listResponse.body.flows.find(
+            (flow: { name: string; sourceId?: string }) =>
+              flow.name === 'review_artifacts_main' &&
+              flow.sourceId === ingestedRoot,
+          );
+          assert.ok(reviewSubflow);
+          assert.equal(reviewSubflow.disabled, true);
+          assert.match(String(reviewSubflow.error ?? ''), /review_agent/u);
+
+          const detailsResponse = await supertest(app)
+            .get('/flows/review_artifacts_main')
+            .query({ sourceId: ingestedRoot });
+          assert.equal(detailsResponse.status, 200);
+          assert.equal(detailsResponse.body.flow.disabled, true);
+          assert.equal(
+            detailsResponse.body.flow.disabledReason?.code,
+            'agent_not_found',
+          );
+          assert.match(
+            String(detailsResponse.body.flow.disabledReason?.message ?? ''),
+            /review_agent/u,
+          );
+        });
+      },
+    );
+
+    await fs.rm(flowsRoot, { recursive: true, force: true });
+    await fs.rm(runtimeRoot, { recursive: true, force: true });
+    await fs.rm(ingestedRoot, { recursive: true, force: true });
+  });
+
+  test('supported main-stack catalog exposes the Story 60 GitHub review variant as runnable when review_agent is available', async () => {
+    installDeterministicCodexAvailabilityBootstrap();
+    const flowsRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-'),
+    );
+    const runtimeRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-runtime-'),
+    );
+    const ingestedRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-ingested-'),
+    );
+
+    await fs.cp(
+      path.join(checkedInRepoRoot, 'flows'),
+      path.join(ingestedRoot, 'flows'),
+      { recursive: true },
+    );
+
+    for (const agentName of [
+      'planning_agent',
+      'planning_agent_lite',
+      'coding_agent',
+      'coding_agent_lite',
+      'manual_testing_agent',
+      'loop_control_agent',
+      'automated_testing_agent',
+      'research_agent',
+      'review_agent_lite',
+      'review_agent_heavy',
+      'tasking_agent',
+    ]) {
+      await copyCheckedInAgentHome({
+        destinationRoot: runtimeRoot,
+        rootDirName: 'codeinfo_agents',
+        agentName,
+      });
+    }
+
+    await copyCheckedInAgentHome({
+      destinationRoot: runtimeRoot,
+      rootDirName: 'codeinfo_agents',
+      agentName: 'review_agent',
+    });
+
+    await withAgentHomes(
+      {
+        preferred: path.join(runtimeRoot, 'codeinfo_agents'),
+        legacy: path.join(runtimeRoot, 'codex_agents'),
+      },
+      async () => {
+        await withFlowsDir(flowsRoot, async () => {
+          const app = buildApp({
+            listIngestedRepositories: async () => ({
+              repos: [
+                buildRepoEntry({
+                  id: '/data/codeInfo2',
+                  containerPath: ingestedRoot,
+                }),
+              ],
+              lockedModelId: null,
+            }),
+          });
+
+          const listResponse = await supertest(app).get('/flows');
+          assert.equal(listResponse.status, 200);
+          const listed = listResponse.body.flows.find(
+            (flow: { name: string; sourceId?: string }) =>
+              flow.name === 'implement_next_plan_github_review' &&
+              flow.sourceId === ingestedRoot,
+          );
+          assert.ok(listed);
+          assert.equal(listed.disabled, false);
+          assert.equal(listed.error, undefined);
+
+          const detailsResponse = await supertest(app)
+            .get('/flows/implement_next_plan_github_review')
+            .query({ sourceId: ingestedRoot });
+          assert.equal(detailsResponse.status, 200);
+          assert.equal(detailsResponse.body.flow.disabled, false);
+          assert.deepEqual(detailsResponse.body.flow.warnings, []);
+          assert.equal(detailsResponse.body.flow.disabledReason, undefined);
+        });
+      },
+    );
+
+    await fs.rm(flowsRoot, { recursive: true, force: true });
+    await fs.rm(runtimeRoot, { recursive: true, force: true });
+    await fs.rm(ingestedRoot, { recursive: true, force: true });
   });
 });

@@ -73,7 +73,7 @@ test('Codex reasoning deltas handle multi-item resets without truncation', async
       requestId: 'req-1',
     },
     'conv-1',
-    'gpt-5.2',
+    'gpt-5.6-terra',
   );
 
   const combined = analysisDeltas.join('');
@@ -113,7 +113,7 @@ test('passes every supported agentFlags reasoning effort through thread options'
         codexFlags: { modelReasoningEffort: reasoningEffort },
       },
       `conv-${reasoningEffort}`,
-      'gpt-5.2-codex',
+      'gpt-5.6-terra',
     );
     assert.equal(lastOptions?.modelReasoningEffort, reasoningEffort);
   }

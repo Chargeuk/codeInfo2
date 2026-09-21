@@ -84,9 +84,7 @@ test('startup reconciliation resumes the active later-loop wave instead of a sta
 
   assert(reconciled);
   assert.deepEqual(reconciled.restartReconciliation?.resumeStepPath, [0, 2]);
-  assert.deepEqual(reconciled.loopStack, [
-    { loopStepPath: [0], iteration: 2 },
-  ]);
+  assert.deepEqual(reconciled.loopStack, [{ loopStepPath: [0], iteration: 2 }]);
 });
 
 test('startup reconciliation leaves a non-running checkpoint untouched', () => {
@@ -136,13 +134,27 @@ test('startup reconciliation selects pending-only wave checkpoints', () => {
 });
 
 test('server waits for startup reconciliation before accepting HTTP traffic', () => {
-  const indexSource = fs.readFileSync(path.join(serverRoot, 'src/index.ts'), 'utf8');
+  const indexSource = fs.readFileSync(
+    path.join(serverRoot, 'src/index.ts'),
+    'utf8',
+  );
   const reconciliationIndex = indexSource.indexOf(
     'await reconcileInterruptedFlowRunsForStartup()',
+  );
+  const parentReattachmentIndex = indexSource.indexOf(
+    'await resumeInterruptedParentsWithPersistedChildWaitsForStartup()',
+  );
+  const waitRecoveryIndex = indexSource.indexOf(
+    'await resumePendingFlowWaitsForStartup()',
   );
   const listenIndex = indexSource.indexOf('server = httpServer.listen');
 
   assert.notEqual(reconciliationIndex, -1);
+  assert.notEqual(parentReattachmentIndex, -1);
+  assert.notEqual(waitRecoveryIndex, -1);
   assert.notEqual(listenIndex, -1);
   assert.ok(reconciliationIndex < listenIndex);
+  assert.ok(reconciliationIndex < parentReattachmentIndex);
+  assert.ok(parentReattachmentIndex < waitRecoveryIndex);
+  assert.ok(waitRecoveryIndex < listenIndex);
 });

@@ -2317,3 +2317,49 @@ None. Do not run chargeable provider reviews or manual Compose proof for this pa
 - The initial Prettier check identified four newly edited files requiring mechanical formatting; after applying it, focused Prettier and ESLint both passed cleanly across all changed implementation, test, and plan files.
 - The server build wrapper passed with zero warnings and requested `skip_log`; `git diff --check` passed without whitespace errors.
 - The scoped endpoint-isolation implementation and focused proof are complete in `0c5aa5c5`; this Task 25 record is carried by the follow-up planning commit.
+
+## Code Review Findings
+
+- Findings recorded: `September 17, 2026 at 11:35:50 PM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000065-rw-20260802T234515Z-6e45d2de`
+- Review cycle: `0000065-rc-20260802T222934Z-ff598909`
+- Reviews attempted:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — completed with one reconciled candidate; disposition completed with no actionable survivor.
+    - Input tokens: 2,831,911
+    - Cached input tokens: 2,648,576
+    - Output tokens: 16,289
+  - Native Codex review (`codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`) — partial; no confirmed finding.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - Copilot: openrouter/deepseek/deepseek-v4-flash (high) [current_repository] (`copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-flash-9e5bdd8ea898:current_repository:copilot_review`, target `current_repository`) — unavailable; provider exited before substantive output.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - Cross-repository review (`cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`) — not applicable; the batch assigned only `current_repository`.
+    - Input tokens: 225,341
+    - Cached input tokens: 196,352
+    - Output tokens: 2,317
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (`copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`) — completed native review with no finding.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 2,581
+
+Usage is optional context only. Across the five direct jobs, at least 3,057,252 input tokens, at least 2,844,928 cached input tokens, and at least 21,187 output tokens were reported; cached input is not added to input. Partial, failed, and unavailable review coverage did not change this disposition.
+
+### Accepted
+
+- None.
+
+### Ignored for This Story
+
+#### 1. Unavailable models are still launched
+
+- Finding ID or Review reference: `R1 — HIGH: unavailable models are still launched`
+- Review harnesses:
+  - OpenCode review (`open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`) — generated the sole reconciled claim.
+- Simple description: The review claimed that the service step launches Copilot even when the persisted model snapshot says the model is unavailable. The actual launcher checks that snapshot before it can spawn a Copilot process.
+- Example: A configured external model is unavailable and its pinned spec has `available: false`. The service delegates to the launcher, which returns an unavailable result with `launched: false` and writes its normal unavailable artifacts; no Copilot process starts.
+- Why ignored: The claim is contradicted by the reviewed and current launcher behavior in `server/src/copilot/reviewLauncher.ts`, including its focused pinned-unavailable-model test. Story 65 requires exactly this terminal unavailable behavior. The reconciliation audit and all scope, authorization, and materiality filtering artifacts are unavailable, but that absence is not approval or an empty-gate signal; the direct factual disproof leaves no survivor to promote. The batch's Story 65 identity conflicts with the active Story 60 plan pointer, so this matching Story 65 block preserves the record without misattributing it. No configuration, policy, retry, fallback, or repair mechanism is authorized from this rejected claim.
+
+The disposition reconstructed the only required decision because the filtering artifacts are unavailable. Its direct current- and reviewed-HEAD check removed R1 before scope authorization or materiality could apply; no later gate is claimed as completed or clean. The completed empty disposition is `codeInfoTmp/reviews/0000065-rc-20260802T222934Z-ff598909/batches/0000065-rw-20260802T234515Z-6e45d2de--head-ea4e594a4555/reconciliation/disposition.md`.

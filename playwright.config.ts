@@ -1,5 +1,6 @@
 import { availableParallelism } from 'node:os';
 import { defineConfig } from '@playwright/test';
+import { resolveConfiguredE2eTimeoutMs } from './e2e/support/testTimeouts';
 
 const parsePositiveInteger = (value: string | undefined) => {
   if (value === undefined || value === null || value === '') {
@@ -27,9 +28,25 @@ const resolvePlaywrightWorkers = () => {
 
 export default defineConfig({
   testDir: 'e2e',
-  outputDir: 'playwright-output',
+  outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR ?? 'playwright-output',
+  timeout: resolveConfiguredE2eTimeoutMs(30_000),
+  expect: {
+    timeout: resolveConfiguredE2eTimeoutMs(5_000),
+  },
   workers: resolvePlaywrightWorkers(),
   reporter: 'list',
+  projects: [
+    {
+      name: 'stateful-ingest',
+      testMatch: /\/(?:ingest|chat-tools)\.spec\.ts$/,
+      fullyParallel: false,
+      workers: 1,
+    },
+    {
+      name: 'default',
+      testIgnore: /\/(?:ingest|chat-tools)\.spec\.ts$/,
+    },
+  ],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001',
     screenshot: 'on',

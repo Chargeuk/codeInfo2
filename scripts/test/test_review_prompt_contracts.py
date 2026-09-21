@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -17,6 +18,89 @@ def read_text(relative_path: str) -> str:
 
 
 class ReviewPromptContractTests(unittest.TestCase):
+    def test_repeated_repair_requires_accepted_attempted_history_and_preserves_accounting(self):
+        matching = read_text("codeinfo_markdown/identify_repeated_review_findings.md")
+        research = read_text("codeinfo_markdown/research_and_fix_repeated_review_findings.md")
+        shared = read_text("codeinfo_markdown/shared/repeated-review-repair.md")
+        self.assertIn("--exclude-batch", matching)
+        self.assertIn("expand --reference", matching)
+        self.assertIn("positive accepted provenance", matching)
+        self.assertIn("attempted repair", matching)
+        self.assertIn("do not invoke Astra for uncertainty alone", matching)
+        self.assertIn("return without querying history", matching)
+        self.assertIn("false match returns to ordinary repair", research)
+        self.assertIn("why the prior repair was reverted or incomplete", research)
+        self.assertIn("both the reported defect", research)
+        self.assertIn("run_agent_instruction", research)
+        self.assertIn("coding_agent", research)
+        self.assertIn("automated_testing_agent", research)
+        self.assertIn("conversationId", research)
+        self.assertIn("modelId", research)
+        self.assertIn("never launch a duplicate worker", research)
+        self.assertIn("One research invocation is allowed per batch", research)
+        self.assertIn("never wait for human input", research)
+        self.assertIn("Normal and stronger fixers must not redo", shared)
+        self.assertIn("uncertainty alone does not invoke Astra", shared)
+        self.assertIn("unresolved/uncertain research outcomes never justify", shared)
+        self.assertIn("research-only repair commit makes the batch fix-bearing", shared)
+        self.assertIn("stronger repair opportunity for its assigned findings", shared)
+        self.assertIn("do not by themselves keep the repeated group running", shared)
+        for name in (
+            "implement_review_batch_direct_fixes.md",
+            "implement_review_batch_remaining_fixes.md",
+            "record_review_batch_outcome.md",
+            "settle_agent_native_review_pass.md",
+            "apply_agent_native_review_settlement.md",
+            "audit_agent_native_review_settlement.md",
+            "shared/completed-review-fix-task.md",
+        ):
+            with self.subTest(name=name):
+                self.assertIn("shared/repeated-review-repair.md", read_text("codeinfo_markdown/" + name))
+
+        for root in ("codeinfo_agents", "manual_testing/codeinfo_agents"):
+            with self.subTest(root=root):
+                config = read_text(f"{root}/research_agent_max/config.toml")
+                prompt = read_text(f"{root}/research_agent_max/system_prompt.txt")
+                research_config = tomllib.loads(config)
+                coding_config = tomllib.loads(
+                    read_text(f"{root}/coding_agent/config.toml")
+                )
+                testing_config = tomllib.loads(
+                    read_text(f"{root}/automated_testing_agent/config.toml")
+                )
+                self.assertEqual(research_config["model"], "gpt-6-astra")
+                self.assertNotEqual(coding_config["model"], "gpt-6-astra")
+                self.assertNotEqual(testing_config["model"], "gpt-6-astra")
+                self.assertIn('[mcp_servers.agents]', config)
+                self.assertIn('${CODEINFO_AGENTS_MCP_PORT}', config)
+                self.assertIn('tool_timeout_sec = 86400', config)
+                self.assertIn('run_agent_instruction', prompt)
+                self.assertIn('coding_agent', prompt)
+                self.assertIn('automated_testing_agent', prompt)
+                self.assertIn('Do not directly edit implementation files', prompt)
+                self.assertIn('returned worker model IDs are non-Astra', prompt)
+                self.assertIn('tester must not edit source, tests, or config', prompt)
+
+    def test_github_review_prompts_keep_imperfect_evidence_non_failing(
+        self,
+    ) -> None:
+        classifier = read_text(
+            "codeinfo_markdown/classify_pr_review_disposition.md"
+        )
+        external_gate = read_text(
+            "codeinfo_markdown/external_review_evidence_gate.md"
+        )
+
+        for prompt in (classifier, external_gate):
+            self.assertIn("shared/review-artifact-handoff.md", prompt)
+            self.assertIn("non-empty regular file", prompt)
+            self.assertRegex(prompt, r"(?i)complete.*normally")
+
+        self.assertIn("incomplete_review_blockers", classifier)
+        self.assertIn("deliberately failing the agent turn", classifier)
+        self.assertIn("degrade the result to partial or unavailable", external_gate)
+        self.assertIn("Do not discover another input", external_gate)
+
     def test_post_review_closeout_requires_completed_cycle_state(self) -> None:
         generator = read_text(
             "codeinfo_markdown/generate_or_update_minor_fix_revalidation_task.md"
@@ -294,14 +378,31 @@ class ReviewPromptContractTests(unittest.TestCase):
         for step in file_reading_breaks:
             with self.subTest(label=step["label"]):
                 question = step["question"]
-                self.assertIn(
-                    "Missing, malformed, incomplete, contradictory, or unexpectedly formatted files",
+                if step["label"] == "Skip Review Repair When Disposition Accepts No Findings":
+                    self.assertIn("empty accepted actionable set", question)
+                    self.assertIn("unrelated history or review coverage", question)
+                    self.assertIn("salvage every understandable fact", question.lower())
+                    self.assertTrue(step.get("continueOnFailure"))
+                    self.assertTrue(step.get("continueOnInvalidResponse"))
+                    continue
+                self.assertTrue(
+                    "Missing, malformed, incomplete, contradictory, or unexpectedly formatted files"
+                    in question
+                    or "imperfect evidence" in question,
                     question,
                 )
-                self.assertIn("salvage every understandable fact", question)
-                self.assertIn("never fail or stop because of them", question)
-                self.assertIn(
-                    "answer no when positive confirmation remains impossible",
+                normalized_question = question.lower()
+                self.assertIn("salvage every understandable fact", normalized_question)
+                self.assertTrue(
+                    "never fail or stop because of them" in normalized_question
+                    or "never fail or stop because of imperfect evidence"
+                    in normalized_question,
+                    question,
+                )
+                self.assertTrue(
+                    "answer no when positive confirmation remains impossible"
+                    in normalized_question
+                    or "cannot establish the accepted set" in normalized_question,
                     question,
                 )
                 self.assertTrue(step.get("continueOnFailure"))
@@ -787,7 +888,7 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("materiality-filtered-findings.md", disposition)
         self.assertIn("Never restore, direct-fix, or task it", disposition)
         self.assertIn("Ignored for This Story", disposition)
-        self.assertIn("materiality survivors", disposition)
+        self.assertIn("survivors from the last applicable audited gate", disposition)
         self.assertIn("Deduplicate by stable identity and meaning", disposition)
 
         self.assertIn("surviving positively authorized finding", materiality)
@@ -819,6 +920,9 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/audit_review_batch_scope_filter.md"
         )
         disposition = read_text("codeinfo_markdown/disposition_review_batch.md")
+        inline_fixer = read_text(
+            "codeinfo_markdown/fix_next_minor_review_finding.md"
+        )
 
         for prompt in (detailed_negative, batch_negative, authorization, audit):
             self.assertIn(
@@ -866,6 +970,12 @@ class ReviewPromptContractTests(unittest.TestCase):
             "A realistic or severe consequence does not cure missing authorization",
             materiality,
         )
+        self.assertIn("proven repair seam", inline_fixer)
+        self.assertIn("reverify from current `HEAD`", inline_fixer)
+        self.assertIn("configuration field, API, or runtime seam", inline_fixer)
+        self.assertIn("do not invent a schema field", inline_fixer)
+        self.assertIn("return `out_of_scope_current_story`", inline_fixer)
+        self.assertIn("return `reclassify_task_required`", inline_fixer)
 
     def test_historical_review_decisions_never_authorize_current_work(self) -> None:
         behavior_lock = read_text(
@@ -1170,7 +1280,7 @@ class ReviewPromptContractTests(unittest.TestCase):
         )
         self.assertEqual(direct_step["agentType"], "coding_agent")
         self.assertEqual(direct_step["identifier"], "batch_fixer")
-        completion_gate = optional_loop["steps"][4]
+        completion_gate = next(step for step in optional_loop["steps"] if step.get("label") == "Skip Stronger Repair When Normal Fixer Completed All Findings")
         self.assertEqual(completion_gate["agentType"], "coding_agent")
         self.assertEqual(completion_gate["identifier"], "batch_fixer")
         self.assertEqual(completion_gate["breakOn"], "yes")
@@ -1370,10 +1480,18 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("Do not add an `incomplete_review_blockers` entry", record_text)
         self.assertIn("do not deliberately return a failed turn", record_text)
         self.assertNotIn("If committing fails, stop", record_text)
+        self.assertIn("attempt to commit only the canonical plan once", record_text)
+        self.assertIn("A failed commit, dirty plan, or unavailable Git metadata is never a reason to retry", record_text)
+        self.assertIn("Do not request a retry, stop or restart the flow, block implementation", record_text)
+        self.assertIn("`plan_commit_sha` is optional informational metadata only", record_text)
+        self.assertIn("Do not retry an earlier failed commit", verify_text)
+        self.assertIn("one complete saved block regardless of commit success", verify_text)
+        self.assertNotIn("one complete committed block", verify_text)
+        self.assertNotIn("incomplete or uncommitted block, failed commit", record_text)
         self.assertIn('"review_decision_recording"', record_text)
         self.assertIn('"outcome": "<recorded|no_decisions|retry_required>"', record_text)
         self.assertIn("Never preserve `pending`", record_text)
-        self.assertIn("exact latest full commit SHA", record_text)
+        self.assertIn("capture its exact full SHA if available", record_text)
         self.assertIn("Never leave `pending`", verify_text)
         self.assertIn("deterministic readiness control", verify_text)
         self.assertIn(
@@ -1631,6 +1749,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             "codeinfo_markdown/ensure_review_findings_became_tasks.md",
             "codeinfo_markdown/generate_or_update_minor_fix_audit_task.md",
             "codeinfo_markdown/generate_or_update_minor_fix_revalidation_task.md",
+            "codeinfo_markdown/generate_or_update_pr_fix_revalidation_task.md",
             "codeinfo_markdown/refresh_minor_fix_audit_task_coverage.md",
             "codeinfo_markdown/repair_review_created_task_scope.md",
             "codeinfo_markdown/review_disposition.md",

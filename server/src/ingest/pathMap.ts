@@ -1,4 +1,5 @@
 import path from 'path';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import {
   normalizeCanonicalQueueTargetPath,
   validateQueueableRepositoryRootPath,
@@ -16,7 +17,7 @@ export type MappedPath = {
 
 export function mapIngestPath(
   containerPath: string,
-  hostIngestDir = process.env.CODEINFO_HOST_INGEST_DIR ||
+  hostIngestDir = getScopedEnvValue('CODEINFO_HOST_INGEST_DIR') ||
     DEFAULT_CONTAINER_ROOT,
 ): MappedPath {
   const normalizedContainer = normalizeCanonicalQueueTargetPath(containerPath);
@@ -51,7 +52,7 @@ export function mapIngestPath(
 
   const hostPathWarning = isAbsoluteHostStylePath
     ? undefined
-    : process.env.CODEINFO_HOST_INGEST_DIR
+    : getScopedEnvValue('CODEINFO_HOST_INGEST_DIR')
       ? undefined
       : 'CODEINFO_HOST_INGEST_DIR not set; using container path base';
 
@@ -152,9 +153,9 @@ export function resolveMountedIngestPath(params: {
   );
   const hostPath = params.hostPath?.trim();
   const hostIngestDir =
-    params.hostIngestDir?.trim() ?? process.env.CODEINFO_HOST_INGEST_DIR;
+    params.hostIngestDir?.trim() ?? getScopedEnvValue('CODEINFO_HOST_INGEST_DIR');
   const codexWorkdir =
-    params.codexWorkdir?.trim() ?? process.env.CODEINFO_CODEX_WORKDIR;
+    params.codexWorkdir?.trim() ?? getScopedEnvValue('CODEINFO_CODEX_WORKDIR');
 
   if (!hostPath || !hostIngestDir || !codexWorkdir) {
     return normalizedContainerPath;
@@ -193,12 +194,12 @@ export function resolveQueuedReembedExecutionPath(params: {
     requestPayloadPath,
     {
       fieldName: 'requestPayload.path',
-      allowedRoot: params.codexWorkdir ?? process.env.CODEINFO_CODEX_WORKDIR,
+      allowedRoot: params.codexWorkdir ?? getScopedEnvValue('CODEINFO_CODEX_WORKDIR'),
     },
   );
   const expectedMountedPath = resolveExpectedMountedExecutionPath({
     canonicalTargetPath,
-    codexWorkdir: params.codexWorkdir ?? process.env.CODEINFO_CODEX_WORKDIR,
+    codexWorkdir: params.codexWorkdir ?? getScopedEnvValue('CODEINFO_CODEX_WORKDIR'),
   });
   if (expectedMountedPath && executionPath !== expectedMountedPath) {
     const error = new Error(

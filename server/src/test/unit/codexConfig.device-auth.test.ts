@@ -23,7 +23,7 @@ async function withTempConfig(
 }
 
 test('writes file-store setting when missing', async () => {
-  await withTempConfig('model = "gpt-5.1-codex"\n', async (configPath) => {
+  await withTempConfig('model = "gpt-5.6-luna"\n', async (configPath) => {
     const result = await ensureCodexAuthFileStore(configPath);
     const updated = await fs.readFile(configPath, 'utf8');
     assert.match(updated, /cli_auth_credentials_store\s*=\s*"file"/);
@@ -33,7 +33,7 @@ test('writes file-store setting when missing', async () => {
 
 test('leaves existing file-store setting unchanged', async () => {
   const contents =
-    'model = "gpt-5.1-codex"\ncli_auth_credentials_store = "file"\n';
+    'model = "gpt-5.6-luna"\ncli_auth_credentials_store = "file"\n';
   await withTempConfig(contents, async (configPath) => {
     const result = await ensureCodexAuthFileStore(configPath);
     const updated = await fs.readFile(configPath, 'utf8');
@@ -55,7 +55,7 @@ test('refreshCodexDetection updates shared-home availability after auth appears'
     errorLogs.push(args.map(String).join(' '));
   });
   try {
-    await fs.writeFile(configPath, 'model = "gpt-5.3-codex"\n', 'utf8');
+    await fs.writeFile(configPath, 'model = "gpt-5.6-luna"\n', 'utf8');
 
     const before = refreshCodexDetection({
       codexHome,

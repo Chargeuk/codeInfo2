@@ -6,6 +6,7 @@ import {
   type CopilotClientOptions,
 } from '@github/copilot-sdk';
 import { parse as parseJsonc, type ParseError } from 'jsonc-parser';
+import { getScopedProcessEnv } from '../test/support/testEnvOverrideScope.js';
 
 export const DEFAULT_CODEINFO_COPILOT_HOME = './copilot';
 export const DEFAULT_CODEINFO_LMSTUDIO_HOME = './lmstudio';
@@ -106,7 +107,7 @@ function isJsonObjectRecord(
 function hasExplicitConfiguredCopilotHome(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  const configuredHome = env.CODEINFO_COPILOT_HOME;
+  const configuredHome = getScopedProcessEnv(env).CODEINFO_COPILOT_HOME;
   return typeof configuredHome === 'string' && configuredHome.trim().length > 0;
 }
 
@@ -114,8 +115,19 @@ export function resolveCopilotHome(
   overrideHome?: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
+  const effectiveEnv = getScopedProcessEnv(env);
+  const testProviderHomeRoot =
+    typeof effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT === 'string' &&
+    effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT.trim().length > 0
+      ? path.resolve(effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT)
+      : undefined;
   return path.resolve(
-    overrideHome ?? env.CODEINFO_COPILOT_HOME ?? DEFAULT_CODEINFO_COPILOT_HOME,
+    overrideHome ??
+      effectiveEnv.CODEINFO_COPILOT_HOME ??
+      (testProviderHomeRoot
+        ? path.join(testProviderHomeRoot, `pid-${process.pid}`, 'copilot')
+        : undefined) ??
+      DEFAULT_CODEINFO_COPILOT_HOME,
   );
 }
 
@@ -158,9 +170,18 @@ export function resolveLmStudioHome(
   overrideHome?: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string {
+  const effectiveEnv = getScopedProcessEnv(env);
+  const testProviderHomeRoot =
+    typeof effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT === 'string' &&
+    effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT.trim().length > 0
+      ? path.resolve(effectiveEnv.CODEINFO_TEST_PROVIDER_HOME_ROOT)
+      : undefined;
   return path.resolve(
     overrideHome ??
-      env.CODEINFO_LMSTUDIO_HOME ??
+      effectiveEnv.CODEINFO_LMSTUDIO_HOME ??
+      (testProviderHomeRoot
+        ? path.join(testProviderHomeRoot, `pid-${process.pid}`, 'lmstudio')
+        : undefined) ??
       DEFAULT_CODEINFO_LMSTUDIO_HOME,
   );
 }

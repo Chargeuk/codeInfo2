@@ -141,6 +141,7 @@ export async function prepareProviderExecution(params: {
   selectedEndpointId?: string | null;
   allowCrossProviderFallback?: boolean;
   failInPlaceOnEndpointUnavailable?: boolean;
+  respectConfiguredEndpoint?: boolean;
   env?: NodeJS.ProcessEnv;
 }): Promise<PreparedProviderExecution> {
   let requestedRuntimeResolution: ProviderRuntimeConfigResolution | undefined;
@@ -161,7 +162,9 @@ export async function prepareProviderExecution(params: {
 
   const selectedEndpointId = params.selectedEndpointId?.trim() || undefined;
   const configuredEndpoint =
-    params.selectedEndpoint ?? requestedRuntimeResolution?.endpoint;
+    params.respectConfiguredEndpoint === false
+      ? params.selectedEndpoint
+      : (params.selectedEndpoint ?? requestedRuntimeResolution?.endpoint);
   const effectiveEndpoint =
     selectedEndpointId &&
     (params.requestedProvider === 'codex' ||

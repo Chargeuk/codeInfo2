@@ -10711,3 +10711,83 @@ Use the checked-in main `docker-compose.yml` stack, not `codeinfo:local`, for op
 - Automated proof: `npm run format:check` passed; all matched files use Prettier code style and no formatting repair was needed.
 - Implementation-plus-proof audit: verified commit `c44897aa2` changes only Task 89 proof bookkeeping. All two subtasks and seven automated checks have documented clean results, no live blocker exists, and no production or user-facing behavior drift was introduced; final automated revalidation is complete.
 - Manual proof (full-story) used a freshly built and started main Compose stack: `GET /health` returned `status: ok` with Mongo connected, the UI loaded, and the Flows picker exposed both local and mounted-repository `implement_next_plan_github_review` entries with no browser console errors. Manual testing skipped for live GitHub PR review-cycle execution. Tried: opened the published GitHub-review flow in the supported picker after verifying the UI and `GET /flows` catalog. Observed: the catalog returned both enabled flow variants, but no dedicated non-production worked repository, `CODEINFO_PR_TOKEN` setup, or independent reviewer was available in the stored proof scope. Why fuller proof was not possible: running the flow here could create, push, or close a real PR, contrary to the story's sandbox-only proof rule; this is a structural/environmental proof gap outside Task 89 implementation scope. Playwright screenshot staging was attempted at `manual-testing/0000060/89/proof-01-github-review-flow-picker.png`, but the active runtime rejected both the missing relative directory and `/tmp/playwright-output` as an allowed root, so no screenshot was retained in `codeInfoTmp/manual-testing/0000060/89/`. The main stack was stopped cleanly with `npm run compose:down`; no follow-up subtasks were added and existing final-state screenshots remain the only potential earlier proof for surfaces not re-proved live.
+
+## Code Review Findings
+
+- Findings recorded: `September 21, 2026 at 7:59:30 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260921T045837Z-be2d6007`
+- Review cycle: `0000060-rc-20260921T045837Z-8a39d29f`
+- Plan: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md`
+- Batch directory: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/reviews/0000060-rc-20260921T045837Z-8a39d29f/batches/0000060-rw-20260921T045837Z-be2d6007--head-e2aaed973e78`
+- Reconciliation directory: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/reviews/0000060-rc-20260921T045837Z-8a39d29f/batches/0000060-rw-20260921T045837Z-be2d6007--head-e2aaed973e78/reconciliation`
+- Reviews attempted:
+  - codex_review [current_repository] (flow `codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`, directory `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — useful partial native review; it generated R1 and verification corroborated the source-level predicate. Numeric launcher exit status was not recoverable.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - open_code_review [current_repository] (flow `open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`, directory `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — completed prepared-bundle review with zero validated comments; it covered 204 of 525 changed paths and did not run the full suite or stress wrapper.
+    - Input tokens: 3,669,552
+    - Cached input tokens: 3,524,864
+    - Output tokens: 12,143
+  - cross_repository_review (flow `cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`, directory `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`) — correctly not applicable because the immutable target input names only `current_repository`.
+    - Input tokens: 231,193
+    - Cached input tokens: 196,864
+    - Output tokens: 2,957
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (flow `copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`, directory `1c490b1e1d8854bdbc04a38cd48a284c1ace68316391a6312a81d022ac9e9ece`) — completed external provider review; it generated R2, whose verifier corroborated the source predicate. An early no-issue passage conflicts with its later final findings; the audited reconciliation retained the latter.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: 2,588
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (flow `copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`, directory `f77ed0d8e98324e7ac4011496f6ed82c600ae9db7ddb74079408c6a388a359a0`) — unavailable/partial; HTTP 402 `quota_exceeded` ended before review content, so it provides no finding coverage.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+
+### Accepted
+
+- None. The complete materiality gate removed R1, the sole positively authorized survivor; no material finding remains.
+
+### Ignored for This Story
+
+#### 1. Execution-scoped GitHub-review handoff leaf symlink bypasses containment
+
+- Finding ID or Review reference: `R1` / `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da` / `current_repository`
+- Review harnesses:
+  - codex_review [current_repository] (flow `codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`, directory `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated R1; its verification corroborated the source-level behavior.
+- Simple description: The handoff reader can follow an escaping symlink if the canonical execution-scoped leaf is replaced after publication. It could then make its yes/no decision from JSON outside the required review scratch location.
+- Example: After the ordinary publisher writes the handoff, an independent process replaces that leaf with a symlink to external valid JSON. The path comparison succeeds through the same link and the decision reader could return `yes` from that external file.
+- Why ignored: R1 is technically supported and positively authorized only for an existing resolved-scratch-root containment check. The materiality gate removed it because no supported flow replaces the controlled leaf with a symlink; the trigger depends on unproven external mutation after a temporary-file-and-rename publication. The broader blanket symlink-rejection remedy was also narrowed away because contained symlink targets remain supported. The available evidence does not demonstrate sufficient realistic reachability, impact, or value for changing completed Story 60 code.
+
+#### 2. Ingest repository-root discovery honours ambient Git overrides
+
+- Finding ID or Review reference: `R2` / `1c490b1e1d8854bdbc04a38cd48a284c1ace68316391a6312a81d022ac9e9ece` / `current_repository`
+- Review harnesses:
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (flow `copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`, directory `1c490b1e1d8854bdbc04a38cd48a284c1ace68316391a6312a81d022ac9e9ece`) — generated R2; its verifier corroborated the source predicate.
+- Simple description: Inherited Git environment overrides can make ingest root discovery select or fail against a different work tree. That can cause repository-wide ingestion to operate on the wrong repository.
+- Example: A process with a foreign `GIT_WORK_TREE` invokes ingestion from the intended repository. `git rev-parse --show-toplevel` can return the foreign root, which discovery then treats as the repository to enumerate.
+- Why ignored: The completed negative scope gate removed the whole finding. Current-HEAD history assigns this behavior to an inherited Story 64 lifecycle merge, while Story 60 authorizes GitHub-review flow and persisted-state behavior—not generic ingest discovery or ambient-Git policy. Neither sanitizing Git environment/start-path containment nor restoring the old `.git` walk is authorized here; it remains a separate possible follow-up, not Story 60 work.
+
+## Code Review Findings
+
+- Findings recorded: `September 21, 2026 at 9:15:32 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260921T070906Z-e81d50ca`
+- Review cycle: `0000060-rc-20260921T045837Z-8a39d29f`
+- Plan: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md`
+- Batch directory: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/reviews/0000060-rc-20260921T045837Z-8a39d29f/batches/0000060-rw-20260921T070906Z-e81d50ca--head-e2aaed973e78`
+- Reconciliation directory: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/reviews/0000060-rc-20260921T045837Z-8a39d29f/batches/0000060-rw-20260921T070906Z-e81d50ca--head-e2aaed973e78/reconciliation`
+- Reviews attempted:
+  - review_artifacts_main [current_repository] (flow `review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — complete; consolidated output and verification establish no actionable finding for the assigned comparison.
+    - Input tokens: 7,033,280
+    - Cached input tokens: 6,424,960
+    - Output tokens: 40,240
+
+### Accepted
+
+- None. The independently audited reconciliation positively established zero supported actionable findings, so no finding reached an applicable authorization or materiality decision.
+
+### Ignored for This Story
+
+- None. No finding was removed or narrowed by an applicable negative-scope, authorization, or materiality gate; the rejected whitespace signal and contradicted missing-launch assertion remain non-finding audit history.
+
+### Gate and evidence limits
+
+The combined filtering audit records negative scope, positive authorization, and materiality as deliberately inapplicable because the completed audited reconciliation already established a zero-finding set. The review did not exercise a live GitHub PR lifecycle, independent reviewer, genuine timed wait, or fresh pixel-level browser proof; these are coverage limitations, not accepted or ignored findings.

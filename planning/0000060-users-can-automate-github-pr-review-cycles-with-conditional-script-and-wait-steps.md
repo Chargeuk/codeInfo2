@@ -10461,7 +10461,6 @@ Optional and non-blocking: after automated proof, use the supported main Compose
 - Automated-proof audit: all two subtasks and seven Testing items have committed evidence; the supported stack lifecycle, health check, canonical parallel suite, lint, and formatting all passed. The `d7bacfbfc` repair preserves the story-approved no-alternate-remote boundary by skipping an untracked branch instead of substituting the base branch upstream. No live blocker or remaining automated gate exists; optional manual-testing guidance is non-blocking, so Task 86 is complete.
 - Manual proof ran at full-story scope: the main stack was rebuilt and restarted because no main-stack runtime was running; `http://localhost:5010/health` returned `status: ok` with `mongoConnected: true`, the Home UI loaded available Codex/Copilot provider state without browser console errors, and the Flows UI loaded its `GET /flows` surface successfully. The live Story 60 GitHub-cycle confidence check was not attempted because no user-authorized non-production worked repository was available; this is the task guidance's non-blocking evidence limitation, not follow-up work. Playwright screenshot staging at `manual-testing/0000060/86/proof-01-home-provider-status.png` was attempted but the active Playwright runtime returned `ENOENT` for its output path, so no screenshot was retained under `codeInfoTmp/manual-testing/0000060/86/`; no earlier screenshot is superseded. The stack started for this pass was stopped with `npm run compose:down`; no new subtasks or testing steps are needed.
 
-
 ### Task 87. Require Attempted Accepted Repairs And Delegate Astra Implementation And Testing
 
 - Task Status: `__done__`
@@ -10509,3 +10508,194 @@ Reduce unnecessary Astra invocations while retaining Astra diagnosis, planning, 
 - Final proof review found that the separately reported MCP tests cover configuration parity, not reuse of a returned worker conversation after a stuck outcome. Testing 2 remains open while a focused mocked worker-continuation regression is added and final server validation is repeated.
 
 - Testing 2 final proof completed: the added mocked Agents MCP handoff regression verifies returned coding-worker conversation reuse after a stuck outcome, unchanged working-folder forwarding, a separate testing-worker conversation, and retained model/answer evidence. MCP tool tests passed 5/5; the final full server unit summary wrapper passed 2917/2917 with log `test-results/server-unit-tests-2026-09-20T22-32-31-055Z.log`. Repository lint, full formatting, and diff checks passed again after this addition. All Task 87 subtasks and tests are complete; earlier 2916-test results are superseded by this final run.
+
+## Code Review Findings
+
+- Findings recorded: `September 21, 2026 at 1:15:42 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260920T230717Z-f8a6f241`
+- Review cycle: `0000060-rc-20260920T230716Z-29ad80f1`
+- Plan: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md`
+- Batch directory: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/reviews/0000060-rc-20260920T230716Z-29ad80f1/batches/0000060-rw-20260920T230717Z-f8a6f241--head-9fdc679a22cc`
+- Reconciliation directory: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/reviews/0000060-rc-20260920T230716Z-29ad80f1/batches/0000060-rw-20260920T230717Z-f8a6f241--head-9fdc679a22cc/reconciliation`
+- Reviews attempted:
+  - Copilot: claude-sonnet-5 (medium) [current_repository] (flow `copilot_review`, job `copilot-native-claude-sonnet-5-f7be2099e956:current_repository:copilot_review`, target `current_repository`, directory `f77ed0d8e98324e7ac4011496f6ed82c600ae9db7ddb74079408c6a388a359a0`) — unavailable; exit status 1 ended with provider `402 quota_exceeded`, no review text, and no finding coverage.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - Copilot: openrouter/deepseek/deepseek-v4.1-flash (provider default) [current_repository] (flow `copilot_review`, job `copilot-external-openrouter-deepseek-deepseek-v4-1-flash-80207ac38ad5:current_repository:copilot_review`, target `current_repository`, directory `1c490b1e1d8854bdbc04a38cd48a284c1ace68316391a6312a81d022ac9e9ece`) — unavailable; exit status 1 retained a null review and empty stdout/stderr, so no cause or finding coverage was established.
+    - Input tokens: Not reported
+    - Cached input tokens: Not reported
+    - Output tokens: Not reported
+  - codex_review [current_repository] (flow `codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`, directory `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — completed static review; it generated F1 and F2, and the audited filters retained only F2.
+    - Input tokens: 0
+    - Cached input tokens: 0
+    - Output tokens: 0
+  - cross_repository_review (flow `cross_repository_review`, job `story_review:cross_repository_review`, target `cross-repository story scope`, directory `e9e2c2e6cd32cd90fb9a724a5ed686138285d6d0c2db01d4fdb6dba9116f783c`) — completed no-work; only `current_repository` was assigned, so no cross-target contract existed to inspect.
+    - Input tokens: 217318
+    - Cached input tokens: 178176
+    - Output tokens: 3027
+  - open_code_review [current_repository] (flow `open_code_review`, job `target_reviews:current_repository:open_code_review`, target `current_repository`, directory `1cee4e57270cfdf42a3c21492617207cfa2039e90ecab931eea15840c0b58f8b`) — partial no-finding evidence; its manifest and zero-comment artifacts remain, but native terminal/report evidence is unavailable.
+    - Input tokens: 6681756
+    - Cached input tokens: 6466560
+    - Output tokens: 16986
+
+### Accepted
+
+#### 1. Resume initialization can lose the selected GitHub-review context
+
+- Finding ID: `F2` / `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da:work/native-response.md:P2:current_repository`
+- Review harnesses:
+  - codex_review [current_repository] (flow `codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`, directory `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the finding; its native response, output, and verification corroborate the static observation.
+  - review_artifacts_main [current_repository] (flow `review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`, directory `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — independently generated the later batch's equivalent P2 and corroborated the same first-persistence context-loss behavior before its committed repair.
+- Simple description: The first persistence write of a resumed flow omits the existing GitHub-review context while rebuilding the saved flow state. An interruption in that window can lose the selected PR and scratch identity before normal runtime checkpoints restore it.
+- Example: A flow paused for GitHub review resumes after a server restart with PR 42 selected. If the process stops after startup persistence but before the next checkpoint, the persisted state no longer contains that context; the next resume can select a different latest open PR instead of continuing PR 42's cycle.
+- Why accepted: At the reviewed commit, the accepted contract requires the same execution and in-progress GitHub-review state after resume, while the initial persistence seam omits the context that the builder, restoration path, and normal checkpoint already expose. Preserving it needs no new policy and is materially worthwhile because the restart window can break the required execution ownership.
+- Settlement status: This research-owned finding consumed its stronger opportunity without a commit because mandatory broad proof exposed an independent fresh-run completion-boundary failure. Batch `0000060-rw-20260921T014321Z-253d57f9` later committed the same narrow context-preservation repair at `ed7733cb8a6671af87f0483ec176adf0f4b49e45`; F2 is resolved and creates no open implementation task.
+
+### Ignored for This Story
+
+#### 2. Automatic stale-head feedback filtering and the absent-ID policy
+
+- Finding ID or Review reference: `F1` / `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da:work/native-response.md:P1:current_repository` (present-ID mismatch core, plus the negative-gate removal of the absent-ID remedy)
+- Review harnesses:
+  - codex_review [current_repository] (flow `codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`, directory `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the underlying observation; the audited negative and positive gates preserved its source while removing its remedies from this story.
+- Simple description: Feedback tied to an older PR head can reach classification because the filter does not automatically reject a present commit-ID mismatch. The proposed policy for feedback with no commit ID was narrowed away at negative scope, and automatic rejection of every present mismatch was not positively authorized.
+- Example: A reviewer comment is attached to commit A and the branch later moves to B. The mismatch remains visible to classification, but the comment can still be relevant at B; treating it as stale before classification would impose a new rule. A missing ID likewise has no existing policy-free outcome.
+- Why ignored: The absent-ID remedy is outside the authorized narrow scope because current HEAD exposes no such control and the story excludes solving every stale-PR edge case. The remaining present-ID rule is technically supported but not positively authorized: the plan makes feedback clean only after it is classified stale, not whenever its ID differs from the current head. It therefore did not reach materiality and cannot create repair, tasking, or review-loop continuation for this story.
+
+## Code Review Findings
+
+- Findings recorded: `September 21, 2026 at 3:46:22 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+- Review batch: `0000060-rw-20260921T014321Z-253d57f9`
+- Review cycle: `0000060-rc-20260920T230716Z-29ad80f1`
+- Plan: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/planning/0000060-users-can-automate-github-pr-review-cycles-with-conditional-script-and-wait-steps.md`
+- Batch directory: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/reviews/0000060-rc-20260920T230716Z-29ad80f1/batches/0000060-rw-20260921T014321Z-253d57f9--head-9fdc679a22cc`
+- Reconciliation directory: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/codeInfoTmp/reviews/0000060-rc-20260920T230716Z-29ad80f1/batches/0000060-rw-20260921T014321Z-253d57f9--head-9fdc679a22cc/reconciliation`
+- Reviews attempted:
+  - review_artifacts_main [current_repository] (flow `review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`, directory `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — completed static review with one materially supported accepted finding; dynamic runtime, live GitHub, browser, Compose, and E2E coverage were not run.
+    - Input tokens: 5,506,790
+    - Cached input tokens: 4,907,008
+    - Output tokens: 41,584
+
+### Accepted
+
+#### 1. Initial resumed-run persistence can drop canonical GitHub review context
+
+- Finding ID: `P2 — initial resumed-run persistence can drop canonical GitHub review context` (source job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`)
+- Review harnesses:
+  - review_artifacts_main [current_repository] (flow `review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`, directory `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated the finding and corroborated it through evidence, saturation, blind-spot, consolidated output, and verification artifacts.
+  - codex_review [current_repository] (flow `codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`, directory `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — independently generated the earlier batch's equivalent F2 and supplied the historical attempted-repair evidence used during settlement.
+- Simple description: The first persisted record for a resumed flow keeps `wait` but can omit a valid top-level GitHub review context. If the run stops before a later checkpoint, recovery can lose the selected PR and scratch authority needed to continue the same review cycle.
+- Example: A resumed execution has its PR 206 context only at the top level. Starting it writes the running record without that context; if the server stops before the asynchronous flow checkpoints, the next resume cannot reliably recover PR 206 or its execution-scoped scratch state.
+- Why accepted: The current reviewed commit proves the existing initial persistence seam omits the context while runtime precedence and later checkpoints preserve it. The Description and Acceptance Criteria require the same execution and in-progress GitHub-review cycle to survive a paused-wait resume. The narrow existing-parameter restoration is not excluded by any Out Of Scope restriction, is materially supported by a realistic restart window, and adds no new policy, schema, identity, retry, timeout, or PR-selection behavior.
+- Settlement status: Commit `ed7733cb8a6671af87f0483ec176adf0f4b49e45`, recorded by Task 88, resolved this accepted finding with deterministic focused proof. The batch's repeated-routing attempt wrote only an unavailable record under a malformed lookalike batch identity, even though historical Task 44 and commit `869016a47f0a710b950217139ffa0864a398665b` provide finding-specific attempted-repair evidence. Settlement therefore does not represent the repeated stage as successful or the later normal-repair routing as clean; it preserves that procedural limitation while recognizing the actual committed repair. No open implementation task remains.
+
+### Ignored for This Story
+
+#### 2. Unpromoted malformed or missing GitHub `created_at` response hypothesis
+
+- Finding ID or Review reference: `review_artifacts_main [current_repository] rejected candidate — malformed or missing GitHub created_at`
+- Review harnesses:
+  - review_artifacts_main [current_repository] (`review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`) — considered and rejected the candidate before the audited survivor set.
+- Simple description: The candidate claimed that a malformed or missing GitHub `created_at` value might cause latest-open-PR selection to return no PR. No repository evidence established that such a response reaches the selector or causes that behavior.
+- Example: A response without `created_at` would only show a defect if a supported GitHub fixture or parser path demonstrated that it reaches selection and makes a valid open PR disappear. The batch contains neither; normal list responses provide the field.
+- Why ignored: This was an evidence-limited rejected candidate, not a supported reconciliation finding. It was not promoted by negative scope, positive authorization, or materiality, and no gate removal or narrowed remedy exists to restore. It does not authorize a fallback, validation rule, or other GitHub policy change.
+
+### Task 88. Record Review Fixes From Batch 0000060-rw-20260921T014321Z-253d57f9
+
+- Task Status: `__done__`
+- Review Task Role: `completed_review_fixes`
+- Repository Name: Current Repository
+- Affected Repositories: `current_repository` — `server/src/flows/service.ts` and `server/src/test/integration/flows.run.resume.backfill.test.ts`.
+- Review Batch: `0000060-rw-20260921T014321Z-253d57f9`
+- Review Cycle: `0000060-rc-20260920T230716Z-29ad80f1`
+- Created: `September 21, 2026 at 4:14:45 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Record the completed narrow repair for the resumed-flow persistence window found by this batch. The normal repair preserves existing canonical GitHub-review context in the initial persistence write and adds deterministic immediate-persistence coverage; it is historical completed work, not a new implementation task.
+
+#### Review Harnesses
+
+- review_artifacts_main [current_repository] (flow `review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`, target `current_repository`, directory `add5adb181d3d0428b0b8f60b21146c3f3409b9ffb37fc0a6c3bb679b2d8d399`) — generated P2 and corroborated it through the retained evidence, saturation, blind-spot, consolidated output, and verification artifacts.
+- codex_review [current_repository] (flow `codex_review`, job `target_reviews:current_repository:codex_review`, target `current_repository`, directory `2335ad631923e8c9fed2b47b4b6f973e035c58c9381640a3ba7fe8f8210487da`) — generated the earlier batch's equivalent F2 and supplied the history and attempted-repair trail that settlement links to this completed repair.
+
+#### Addresses Findings
+
+- `P2 — initial resumed-run persistence can drop canonical GitHub review context` in `current_repository`: the initial synchronous resumed-run persistence write retained `wait` but omitted a valid top-level canonical context, allowing interruption before a later checkpoint to lose the selected PR and execution-scoped scratch authority.
+- `F2 — resume initialization can lose the selected GitHub-review context` from batch `0000060-rw-20260920T230717Z-f8a6f241`, also in `current_repository`: this is the same underlying first-write context-loss behavior and is resolved by the same commit rather than duplicated as open work.
+
+#### Subtasks
+
+1. [x] Preserve `resumeState?.githubReviewContext ?? resumeState?.wait?.githubReviewContext` through the existing initial `persistFlowResumeState` call in `server/src/flows/service.ts`.
+2. [x] Add deterministic immediate-persistence regression coverage for top-level-only context, canonical precedence, and wait-owned fallback in `server/src/test/integration/flows.run.resume.backfill.test.ts`.
+
+#### Testing
+
+1. [x] `npm run test:summary:server:unit -- --file server/src/test/integration/flows.run.resume.backfill.test.ts --test-name 'first resume persistence'` — 3 passed, 0 failed.
+2. [x] `npx eslint --ext .ts server/src/flows/service.ts server/src/test/integration/flows.run.resume.backfill.test.ts`.
+3. [x] `npx prettier --check server/src/flows/service.ts server/src/test/integration/flows.run.resume.backfill.test.ts`.
+4. [x] `git diff --check -- server/src/flows/service.ts server/src/test/integration/flows.run.resume.backfill.test.ts`.
+
+#### Implementation Notes
+
+- Normal repair completed in `current_repository` at commit `ed7733cb8a6671af87f0483ec176adf0f4b49e45` (`DEV-0000060 - Preserve GitHub review context on resume`), advancing the reviewed/initial-repair HEAD `9fdc679a22ccf4bae3b1ac9d6b96e5951883cc31` to the final repair HEAD.
+- The repair uses the existing persistence parameter and runtime canonical-then-wait precedence; it adds no schema, policy, retry, timeout, PR-selection, GitHub identity, or user-facing behavior.
+- Historical Task 44 and commit `869016a47f0a710b950217139ffa0864a398665b` attempted the same underlying repair but preserved only `wait`; they did not forward the separately supported top-level context. No later reversal was found, so this is an incomplete prior repair rather than a reverted one.
+- Batch `0000060-rw-20260920T230717Z-f8a6f241` routed the equivalent F2 to Astra research. Its delegated coding worker (`00ed0840-53ee-47f1-bd9b-be69204a6d67`) prepared the same two-file repair, and its testing worker (`371f4eda-f0f2-45da-a71e-af4e244523bc`) passed the 21-test focused file plus lint, formatting, and diff checks. Commit authorization was withheld because full server and stress proof both remained at 2919/2920 on an independently isolated fresh-run completion-boundary test; that batch stayed non-fix-bearing.
+- This batch's repeated-routing attempt was honestly unavailable because it wrote under malformed batch identity `0000060-rw20260921T014321Z-253d57f9`. The later normal repair nevertheless repeated and committed the research-prepared approach. Settlement preserves that routing failure and does not relabel the missing research stage as success; the committed code and focused proof establish the behavioral fix, while Task 89 owns broad revalidation.
+- Focused test, targeted lint, Prettier write/check, and `git diff --check` passed. Full server, browser, Compose, E2E, live-GitHub, and live-credential validation were not run; the batch outcome preserves those coverage limits. A new committed HEAD exists, so another immutable review is useful in the normal cycle.
+
+### Task 89. Final Story Validation and Review Revalidation for Cycle 0000060-rc-20260920T230716Z-29ad80f1
+
+- Task Status: `__in_progress__`
+- Review Task Role: `final_revalidation`
+- Repository Name: Current Repository
+- Affected Repositories: `current_repository` — server, client, common contracts, flow definitions, mounted manual-testing catalogs, and the committed resumed-flow persistence repair in `server/src/flows/service.ts` and `server/src/test/integration/flows.run.resume.backfill.test.ts`.
+- Task Dependencies: Tasks 1–88, the settled findings blocks for batches `0000060-rw-20260920T230717Z-f8a6f241` and `0000060-rw-20260921T014321Z-253d57f9`, and completed Task 88.
+- Review Cycle: `0000060-rc-20260920T230716Z-29ad80f1`
+- Review Batches: `0000060-rw-20260920T230717Z-f8a6f241` and `0000060-rw-20260921T014321Z-253d57f9`
+- Created: `September 21, 2026 at 4:35:52 AM GMT+1 [locale=en-US; timeZone=Europe/London]`
+
+#### Overview
+
+Run whole-story automated revalidation after the settled review pass. This task owns final proof of the committed GitHub-review-context repair and all existing Story 60 surfaces; it does not reopen F1, the evidence-limited `created_at` hypothesis, unavailable review coverage, or the earlier research-owned fresh-run test limitation as implementation work.
+
+#### Review Harnesses
+
+- codex_review [current_repository] (flow `codex_review`, job `target_reviews:current_repository:codex_review`) — generated F1 and F2 in batch `0000060-rw-20260920T230717Z-f8a6f241`; F1 remains ignored and F2 was later resolved.
+- review_artifacts_main [current_repository] (flow `review_artifacts_main`, job `target_reviews:current_repository:review_artifacts_main`) — generated and corroborated P2 in batch `0000060-rw-20260921T014321Z-253d57f9`; Task 88 records its committed repair.
+
+#### Addresses Findings
+
+- F2 / P2 — first resume persistence can lose execution-owned GitHub-review context in `current_repository`: resolved by `ed7733cb8a6671af87f0483ec176adf0f4b49e45`; this task provides the required broad post-commit revalidation.
+
+#### Subtasks
+
+Final-task repair scope: this task owns whole-story validation. If lint, formatting, or testing exposes a story-caused issue in code implemented by any earlier task, fix it within this final task when practical and rerun the affected checks. Do not reopen an older task solely to own that repair.
+
+1. [ ] In `current_repository`, run `npm run lint` and fix any issues found.
+2. [ ] In `current_repository`, run `npm run format:check` and fix any issues found.
+
+#### Testing
+
+Final-task repair scope: the whole approved story is in scope for failures found by these checks. Fix story-caused issues within this final task when practical, including issues in code delivered by earlier tasks, and rerun every affected check. Do not reopen older tasks solely because their implementation is implicated.
+
+##### current_repository — server, client, common contracts, flow catalog, and mounted agent configuration
+
+1. [ ] `npm run compose:build:summary` — build the supported main-stack artifacts containing the worked Story 60 surfaces.
+2. [ ] `npm run compose:up` — start the supported main stack for automated smoke validation.
+3. [ ] `curl --fail --silent --show-error http://localhost:5010/health` — verify the documented main-stack health endpoint.
+4. [ ] `npm run test:summary:all:parallel` — run the canonical full automated suite covering client, server unit/integration, Cucumber, and E2E surfaces through the shared-build lifecycle.
+5. [ ] `npm run compose:down` — stop the main stack started by this task.
+6. [ ] `npm run lint` — run the supported repository lint command after broad validation and fix any issues found.
+7. [ ] `npm run format:check` — run the supported repository formatting check after lint and fix any issues found.
+
+#### Manual Testing Guidance
+
+Use the checked-in main `docker-compose.yml` stack, not `codeinfo:local`, for optional human proof. The supported startup order is `npm run compose:build` followed by `npm run compose:up`; the wrapper loads `server/.env` and `server/.env.local`, mounts `manual_testing/codeinfo_agents` and `manual_testing/codex_agents`, and exposes the UI at `http://localhost:5001` plus the server at `http://localhost:5010`. Confirm readiness through `http://localhost:5010/health` and the UI root before using the mounted agent catalog, then stop only the main proof stack with `npm run compose:down`. Prefer a dedicated sandbox or other non-production repository for GitHub actions; keep any live proof to one happy-path review cycle and one valid-issue cycle, with a short temporary authored wait delay. Retain evidence that external comments are not PR-author comments. Store task-local screenshots, logs, and notes in `codeInfoTmp/manual-testing/0000060/89/` without committing them; later closeout curates durable proof under `codeInfoStatus/manual-proof/0000060/`. If provider login requires human-controlled two-factor authentication, record the auth-dependent limitation and do not re-authenticate; mocked or fixture-backed automated proof remains preferred for GitHub API and CLI seams.
+
+#### Implementation Notes
+
+- Created by complete-pass settlement after verifying that Task 88 is the sole completed-review-fixes record for the only fix-bearing batch and that no material actionable finding remains.
+- No final revalidation command has run yet. The first batch's partial repeated-research proof, the second batch's unavailable malformed-path repeated-routing attempt, and the independently failing fresh-run completion-boundary test remain historical limitations, not separate implementation tasks; the whole-story wrapper is the current post-commit proof owner.

@@ -10683,13 +10683,13 @@ Final-task repair scope: the whole approved story is in scope for failures found
 
 ##### current_repository — server, client, common contracts, flow catalog, and mounted agent configuration
 
-1. [ ] `npm run compose:build:summary` — build the supported main-stack artifacts containing the worked Story 60 surfaces.
-2. [ ] `npm run compose:up` — start the supported main stack for automated smoke validation.
-3. [ ] `curl --fail --silent --show-error http://localhost:5010/health` — verify the documented main-stack health endpoint.
-4. [ ] `npm run test:summary:all:parallel` — run the canonical full automated suite covering client, server unit/integration, Cucumber, and E2E surfaces through the shared-build lifecycle.
-5. [ ] `npm run compose:down` — stop the main stack started by this task.
-6. [ ] `npm run lint` — run the supported repository lint command after broad validation and fix any issues found.
-7. [ ] `npm run format:check` — run the supported repository formatting check after lint and fix any issues found.
+1. [x] `npm run compose:build:summary` — build the supported main-stack artifacts containing the worked Story 60 surfaces.
+2. [x] `npm run compose:up` — start the supported main stack for automated smoke validation.
+3. [x] `curl --fail --silent --show-error http://localhost:5010/health` — verify the documented main-stack health endpoint.
+4. [x] `npm run test:summary:all:parallel` — run the canonical full automated suite covering client, server unit/integration, Cucumber, and E2E surfaces through the shared-build lifecycle.
+5. [x] `npm run compose:down` — stop the main stack started by this task.
+6. [x] `npm run lint` — run the supported repository lint command after broad validation and fix any issues found.
+7. [x] `npm run format:check` — run the supported repository formatting check after lint and fix any issues found.
 
 #### Manual Testing Guidance
 
@@ -10702,3 +10702,10 @@ Use the checked-in main `docker-compose.yml` stack, not `codeinfo:local`, for op
 - `npm run lint` passed with exit code 0 and no reported issues; no lint repair was needed.
 - `npm run format:check` passed with exit code 0; all matched files use Prettier code style and no formatting repair was needed.
 - Implementation-only audit: verified commit `72524e8bb` changes only this task's lint/format bookkeeping and records clean results; no product code or user-facing behavior changed. Both subtasks are complete, no live blocker exists, and the seven automated-proof items remain intentionally open for the next pass.
+- Automated proof: `npm run compose:build:summary` passed with 2 items passed and 0 failed; the supported main-stack artifacts built cleanly.
+- Automated proof: `npm run compose:up` started the supported main stack successfully; all eight containers reached their expected started or healthy state.
+- Automated proof: `curl --fail --silent --show-error http://localhost:5010/health` returned `{"status":"ok","mongoConnected":true}`.
+- Automated proof: `npm run test:summary:all:parallel` passed all suites: client 912/912, server unit 2920/2920, Cucumber 138/138, and E2E 78/78; its auxiliary Cucumber and E2E stacks were cleaned up by the wrapper.
+- Automated proof: `npm run compose:down` removed all eight containers and the main `codeinfo2_internal` network successfully.
+- Automated proof: `npm run lint` passed with exit code 0 and no reported issues; no lint repair was needed.
+- Automated proof: `npm run format:check` passed; all matched files use Prettier code style and no formatting repair was needed.

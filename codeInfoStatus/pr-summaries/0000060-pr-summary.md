@@ -6,14 +6,13 @@
 
 ## Final Summary
 
-1. Story 60 adds flow-only branching, persisted waits, and opt-in GitHub PR review cycles while preserving the default implementation entrypoints and the deliberate one-shot inline fix before task-up policy.
-2. The final lifecycle repair makes review automation self-recovering: pre-PR faults are recorded as skips that let the implementation flow continue, while failures after a PR is active persist bounded-backoff retry ownership at the exact unfinished step.
-3. Wait wakes now rearm after active-run lock contention and remove only their matching scheduler entry; GitHub handoff reconciliation distinguishes expected pre-fetch state from a genuinely lost fetched handoff, and stale recovery locks no longer block scratch updates permanently.
-4. Reviewer-facing PR text is sourced from this bounded story summary, and no-findings closeout is gated on a real completed clean GitHub context. Reviewers should focus on `server/src/flows/service.ts`, `server/src/flows/githubReview.ts`, the GitHub flow-control helpers, and their existing focused runtime tests.
+1. Story 60 adds flow-only conditional branching, direct Python decisions, persisted timed waits, and thin GitHub PR open, review-comment, and close steps, wired through opt-in review-cycle variants.
+2. The runtime preserves execution and review-cycle identity across pauses, restarts, retries, and GitHub side effects through canonical wait/review context, contained scratch validation, persisted-wait re-registration, and ambiguous-PR reconciliation.
+3. Later repairs hardened warning terminal states, wait recovery and identity, GitHub-review scratch and replay authority, subflow stop aggregation, and resumed-review persistence without changing default workflow entrypoints.
+4. Reviewers should focus on `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, `server/src/flows/githubReview.ts`, the named resume/GitHub/loop proof owners, and the opt-in flow variants for state authority, PR-selection bounds, replay behavior, and default-flow compatibility.
 
 ## Review Status
 
-- Task 38 completed the final self-recovery and truthfulness fixes found by the branch review.
-- Focused wait, GitHub adapter, scratch, runtime, PR-content, and Python flow-control proof all passed as recorded in the completed plan task.
-- The full parallel harness passed with client 904/904, server unit 2644/2644, cucumber 133/133, and e2e 77/77.
-- The full stress harness also passed with client 904/904, server unit 2644/2644, cucumber 133/133, and e2e 77/77.
+- Final automated validation passed: client 912/912, server unit 2920/2920, Cucumber 138/138, E2E 78/78, plus Compose build/smoke, health, lint, and formatting.
+- The latest review reconciliation recorded no supported actionable finding.
+- The curated manual-proof bundle is repository-owned closeout evidence. Live GitHub PR execution and independent-reviewer coverage remain documented environmental limitations.

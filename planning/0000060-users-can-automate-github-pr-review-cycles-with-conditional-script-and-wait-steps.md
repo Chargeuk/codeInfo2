@@ -10791,3 +10791,14 @@ Use the checked-in main `docker-compose.yml` stack, not `codeinfo:local`, for op
 ### Gate and evidence limits
 
 The combined filtering audit records negative scope, positive authorization, and materiality as deliberately inapplicable because the completed audited reconciliation already established a zero-finding set. The review did not exercise a live GitHub PR lifecycle, independent reviewer, genuine timed wait, or fresh pixel-level browser proof; these are coverage limitations, not accepted or ignored findings.
+
+## Final Summary
+
+1. What has been changed.
+   Story 60 adds flow-only conditional branching, direct Python decisions, persisted timed waits, and thin GitHub pull-request open, review-comment, and close steps, then wires them into opt-in review-cycle variants. The implementation also hardens warning terminal states, wait recovery and identity, GitHub-review scratch and replay authority, subflow stop aggregation, and the final resumed-review persistence seam. Final automated proof passed for the client (912/912), server unit suite (2920/2920), Cucumber (138/138), E2E (78/78), Compose build and smoke lifecycle, health, lint, and formatting.
+2. Why it changed.
+   The story needed a persisted, restart-safe review loop that can open a PR, wait for external feedback, classify that feedback, and route actionable findings through existing repair patterns without changing default workflow entrypoints. The later fixes close review-identified lifecycle and authority gaps while preserving the story’s narrow GitHub-review scope; the latest review reconciliation found no supported actionable findings.
+3. A simple explanation of any complex logic that needed to be added.
+   The runtime keeps the same execution and review-cycle identity across pauses, restarts, retries, and GitHub side effects by preserving canonical wait and review context, validating repository-contained scratch paths, re-registering persisted waits, and reconciling ambiguous PR creation before retrying. Fresh review scratch replaces stale input, supported skips publish a warning rather than a misleading clean success, and mixed subflow-stop outcomes remain visible to the parent flow.
+4. What a reviewer should take particular interest in.
+   Focus on `server/src/flows/service.ts`, `server/src/flows/flowState.ts`, `server/src/flows/githubReview.ts`, the named resume/GitHub/loop proof owners, and the opt-in flow variants to verify state authority, PR-selection bounds, replay behavior, and default-flow compatibility. The curated repository-owned proof bundle at `codeInfoStatus/manual-proof/0000060/` is present for closeout evidence; live GitHub PR execution and independent-reviewer coverage remain documented environmental limitations rather than unverified claims.

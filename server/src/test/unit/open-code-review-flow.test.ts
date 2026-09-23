@@ -122,7 +122,7 @@ test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex 
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
   assert.match(heavyConfig, /approval_policy = "never"/u);
   assert.match(heavyConfig, /sandbox_mode = "danger-full-access"/u);
-  assert.match(maxConfig, /model = "gpt-5\.6-sol"/u);
+  assert.match(maxConfig, /model = "gpt-6-sol"/u);
   assert.match(maxConfig, /model_reasoning_effort = "high"/u);
   assert.match(maxConfig, /approval_policy = "never"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
@@ -155,7 +155,7 @@ test('source heavy and maximum review agents share the review boundary while ret
 
   assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
-  assert.match(maxConfig, /model = "gpt-5\.6-sol"/u);
+  assert.match(maxConfig, /model = "gpt-6-sol"/u);
   assert.match(maxConfig, /model_reasoning_effort = "high"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);

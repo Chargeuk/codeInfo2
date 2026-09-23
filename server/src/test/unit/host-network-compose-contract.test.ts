@@ -341,7 +341,7 @@ test('main-stack sandbox publishes the approved GitHub-review flow closure with 
     'manual_testing/codeinfo_agents/loop_control_agent/config.toml',
   );
   assert.match(loopController, /^codeinfo_provider = "codex"$/mu);
-  assert.match(loopController, /^model = "gpt-5\.6-luna"$/mu);
+  assert.match(loopController, /^model = "gpt-6-luna"$/mu);
   assert.match(loopController, /^model_reasoning_effort = "low"$/mu);
 });
 

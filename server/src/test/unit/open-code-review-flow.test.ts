@@ -108,7 +108,7 @@ test('server image builds the exact Codex-enabled OCR fork and gates its command
   assert.doesNotMatch(globalPackages, /@alibaba-group\/open-code-review/u);
 });
 
-test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex agents without checked-in auth', () => {
+test('main proof catalog supplies Sol-high and Sol-xhigh review-only Codex agents without checked-in auth', () => {
   const heavyRoot = 'manual_testing/codeinfo_agents/review_agent_heavy';
   const maxRoot = 'manual_testing/codeinfo_agents/review_agent_max';
   const heavyConfig = readRepoFile(`${heavyRoot}/config.toml`);
@@ -118,12 +118,12 @@ test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex 
   const manualTestingIgnore = readRepoFile('manual_testing/.gitignore');
 
   assert.match(heavyConfig, /codeinfo_provider = "codex"/u);
-  assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
+  assert.match(heavyConfig, /model = "gpt-6-sol"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
   assert.match(heavyConfig, /approval_policy = "never"/u);
   assert.match(heavyConfig, /sandbox_mode = "danger-full-access"/u);
   assert.match(maxConfig, /model = "gpt-6-sol"/u);
-  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "xhigh"/u);
   assert.match(maxConfig, /approval_policy = "never"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);
@@ -133,7 +133,7 @@ test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex 
   assert.match(manualTestingIgnore, /^\*\*\/auth\.json$/mu);
 });
 
-test('source heavy and maximum review agents share the review boundary while retaining Terra/high and Sol/high model tiers', () => {
+test('source heavy and maximum review agents share the review boundary while retaining Sol/high and Sol/xhigh thinking tiers', () => {
   const heavyConfig = readRepoFile(
     'codeinfo_agents/review_agent_heavy/config.toml',
   );
@@ -153,10 +153,10 @@ test('source heavy and maximum review agents share the review boundary while ret
     'codeinfo_agents/review_agent_max/commands/code_review_findings.json',
   );
 
-  assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
+  assert.match(heavyConfig, /model = "gpt-6-sol"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
   assert.match(maxConfig, /model = "gpt-6-sol"/u);
-  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "xhigh"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);
   assert.equal(maxCommand, heavyCommand);

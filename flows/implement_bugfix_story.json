@@ -1,5 +1,5 @@
 {
-  "description": "Continuously select, prepare, plan, implement, prove, push, publish, and close eligible Jira subtasks from the single story named in bugfix_story.md.",
+  "description": "Continuously select, prepare, plan, implement, prove where locally possible, push, publish, and close eligible Jira subtasks from the single story named in bugfix_story.md.",
   "steps": [
     {
       "type": "startLoop",
@@ -71,7 +71,7 @@
                   "label": "Skip Stronger Bugfix Repair When Unneeded Or Already Attempted",
                   "agentType": "coding_agent",
                   "identifier": "bugfix_worker",
-                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py\"` and reread only that durably bound subtask's information.md and plan.md, current Git state, and current test evidence. Never run the next-work selector or adopt another issue. Return yes when the implementation is positively complete and proven, or when information.md positively records that this subtask's single stronger repair attempt was already consumed. The latter skips another stronger invocation but does not imply completion. Return no only when the binding is ready for the same In Progress subtask assigned to the current user, a concrete in-scope blocker remains, no stronger attempt is recorded, and the stronger repair should receive its single opportunity. Missing, failed, partial, stale, contradictory, or uncertain evidence is not proof of completion or of an earlier stronger attempt. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py\"` and reread only that durably bound subtask's information.md and plan.md, current Git state, and current test evidence. Never run the next-work selector or adopt another issue. Return yes when the implementation is positively complete and proven; when the implementation and all locally applicable checks are complete and information.md positively establishes that only Dev-environment verification remains; or when information.md positively records that this subtask's single stronger repair attempt was already consumed. The latter two cases skip another stronger invocation but do not claim missing local proof passed. Return no only when the binding is ready for the same In Progress subtask assigned to the current user, a concrete repairable in-scope blocker remains, no stronger attempt is recorded, and the stronger repair should receive its single opportunity. A limitation that is inherent to an explicitly documented Dev-only verification condition is not a repairable local blocker. Otherwise, missing, failed, partial, stale, contradictory, or uncertain evidence is not proof of completion or of an earlier stronger attempt. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
                   "breakOn": "yes",
                   "continueOnFailure": true,
                   "continueOnInvalidResponse": true
@@ -103,7 +103,7 @@
             },
             {
               "type": "llm",
-              "label": "Prove Final Bugfix Components Build And Start",
+              "label": "Prove Or Assess Final Bugfix Components",
               "agentType": "coding_agent",
               "identifier": "bugfix_worker",
               "continueOnFailure": true,
@@ -132,7 +132,7 @@
                 },
                 {
                   "type": "llm",
-                  "label": "Capture Local Frontend Screenshot Proof",
+                  "label": "Capture Best-Effort Local Frontend Screenshot Proof",
                   "agentType": "manual_testing_agent",
                   "identifier": "bugfix_manual_tester",
                   "continueOnFailure": true,
@@ -158,7 +158,7 @@
             },
             {
               "type": "llm",
-              "label": "Close Proven Jira Bugfix Subtask",
+              "label": "Close Completed Jira Bugfix Subtask",
               "agentType": "coding_agent",
               "identifier": "bugfix_worker",
               "continueOnFailure": true,

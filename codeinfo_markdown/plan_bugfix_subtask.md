@@ -17,6 +17,7 @@ Create the bound subtask's `plan.md`. It must be a concise, one-shot implementat
 - Applicable lint, formatting, and Prettier commands discovered from `AGENTS.md` or repository scripts.
 - The affected components and repository-supported commands that will build, start, readiness-check, and stop each one.
 - For every startup proof, the documented expected cold-start duration, readiness signal, terminal failure signal, and timeout. State explicitly when the repository defines no timeout.
+- Whether any acceptance criterion can be conclusively verified only in the deployed Dev environment because it depends on deployment-only infrastructure, configuration, topology, traffic, or observability that the repository cannot faithfully reproduce locally. When this is positively established, identify the exact Dev-only verification condition, the repository evidence for that limitation, and the best-effort local checks that will still be attempted. Do not use Dev-only verification merely because local proof is slow, difficult, or currently failing.
 - Whether the planned change appears to have a browser-visible or browser-accessible frontend surface, with the repository evidence supporting that preliminary assessment.
 - Manual verification that can be performed autonomously during implementation.
 - Explicit completion evidence and any current blocker.

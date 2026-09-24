@@ -47,11 +47,11 @@ class BugfixStoryFlowContractTests(unittest.TestCase):
             "Create One-Shot Jira Bugfix Plan",
             "Implement And Test Jira Bugfix Plan",
             "Optional Stronger Jira Bugfix Repair",
-            "Prove Final Bugfix Components Build And Start",
+            "Prove Or Assess Final Bugfix Components",
             "Optional Frontend Screenshot Proof",
             "Commit And Attempt Jira Bugfix Push",
             "Publish Jira Bugfix Result And Screenshots",
-            "Close Proven Jira Bugfix Subtask",
+            "Close Completed Jira Bugfix Subtask",
             "Exit When Current Jira Bugfix Remains Blocked",
             "Wait Before Selecting Next Jira Bugfix Subtask",
         ]
@@ -223,6 +223,37 @@ class BugfixStoryFlowContractTests(unittest.TestCase):
         )
         self.assertIn(
             "Never run the next-work selector or adopt a different issue",
+            complete_text,
+        )
+
+    def test_dev_only_verification_is_narrow_and_non_blocking(self) -> None:
+        flow_text = FLOW_PATH.read_text(encoding="utf-8")
+        runtime_text = (
+            MARKDOWN_ROOT / "prove_bugfix_subtask_runtime.md"
+        ).read_text(encoding="utf-8")
+        screenshot_text = (
+            MARKDOWN_ROOT / "capture_bugfix_frontend_screenshot_proof.md"
+        ).read_text(encoding="utf-8")
+        publish_text = (
+            MARKDOWN_ROOT / "publish_bugfix_subtask_result.md"
+        ).read_text(encoding="utf-8")
+        complete_text = (
+            MARKDOWN_ROOT / "complete_bugfix_subtask.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("only Dev-environment verification remains", flow_text)
+        self.assertIn("reasonable best-effort attempt", runtime_text)
+        self.assertIn("Dev-only verification condition", screenshot_text)
+        self.assertIn("exact verification still required in Dev", publish_text)
+        self.assertIn(
+            "the absence of that local proof alone must not keep the "
+            "subtask In Progress",
+            complete_text,
+        )
+        self.assertIn(
+            "Do not accept Dev-only verification merely because local "
+            "proof is slow, difficult, inconvenient, transiently failing, "
+            "or uncertain.",
             complete_text,
         )
 

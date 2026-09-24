@@ -19,6 +19,7 @@ Create or refresh the exact bound-task-helper-provided `jira_fix_comment` file a
 - Build, startup, readiness, and shutdown evidence.
 - The branch, commit or justified no-change result, and push/upstream result.
 - Browser verification and the uploaded screenshot filenames and attachment IDs when present.
+- For a positively established Dev-only verification condition, why local proof is not conclusive, every best-effort local check and its real outcome, the exact verification still required in Dev, and why any missing local screenshot or runtime proof is expected rather than an implementation failure.
 - Any failed, missing, partial, or uncertain evidence, including required screenshots that could not be captured or uploaded.
 
 Attempt exactly one comment creation for this flow iteration:
@@ -31,4 +32,4 @@ Do not search existing comments for an idempotency marker and do not add a marke
 
 If creation fails or its result cannot be verified, record the uncertainty rather than retrying or claiming success.
 
-Append or refresh an `## Jira publication evidence` section in `information.md` containing the screenshot files discovered, upload command outcome, uploaded attachment IDs and filenames when known, comment file path, comment ID and verification outcome, and any failure. The absence of screenshots is acceptable only when `frontend-proof.json` validly records `{"required":false}`. This step always attempts the explanatory comment, including for backend-only fixes.
+Append or refresh an `## Jira publication evidence` section in `information.md` containing the screenshot files discovered, upload command outcome, uploaded attachment IDs and filenames when known, comment file path, comment ID and verification outcome, and any failure. The absence of screenshots is acceptable when `frontend-proof.json` validly records `{"required":false}` or when `information.md` positively establishes a Dev-only verification condition, the local capture received a reasonable best-effort attempt where safe, and the Jira comment explicitly discloses the missing screenshot and exact Dev verification required. This step always attempts the explanatory comment, including for backend-only fixes.

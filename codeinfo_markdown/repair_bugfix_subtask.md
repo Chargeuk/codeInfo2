@@ -6,6 +6,8 @@ Run `python3 "$CODEINFO_ROOT/scripts/flow_control/get_bound_bugfix_subtask.py"` 
 
 Identify the concrete remaining implementation, test, formatting, build, startup, readiness, or shutdown blocker left by the normal coding agent. Repair only that blocker using the smallest change consistent with the existing one-shot plan. Do not expand scope, redesign unrelated code, replace the plan, switch branches, commit, push, or change Jira state.
 
+Do not spend the single stronger repair invocation trying to manufacture local proof for a condition that `information.md` and repository evidence positively establish can be conclusively verified only in the deployed Dev environment. Such a limitation is not a repairable local blocker when the implementation is complete, all safe and locally applicable checks have received a reasonable best-effort attempt, and no evidence indicates an implementation-caused failure. If the Dev-only classification is unsupported, vague, or being used to excuse a normally reproducible local failure, treat that as unresolved rather than accepting it.
+
 For every mandatory test, build, lint, or formatting command, wait until the process exits and inspect its numeric exit code and final summary. A command passes only when its exit code is `0`. Never infer success from early passing lines, partial or truncated output, warnings, or a message such as `Script completed`. If output is truncated, rerun the command or capture its final summary while preserving the original exit code. Record the exact command, exit code, and final result in `information.md`.
 
 When changing user-visible text, status values, identifiers, or contracts, search the affected source and tests for remaining uses of the old value before claiming the repair is complete.

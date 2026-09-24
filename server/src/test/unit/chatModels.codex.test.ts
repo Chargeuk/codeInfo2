@@ -592,7 +592,7 @@ test('codex model list CSV trims, drops empties, and de-duplicates', async () =>
   await setCodexHome();
   env.set(
     'Codex_model_list',
-    ' gpt-5.6-luna , , gpt-5.6-terra, gpt-5.6-terra , gpt-6-astra ',
+    ' gpt-5.6-luna , , gpt-5.6-terra, gpt-5.6-terra , gpt-6-astra , gpt-6-sol , gpt-6-luna, gpt-6-luna ',
   );
   setCodexDetection({
     available: true,
@@ -613,6 +613,8 @@ test('codex model list CSV trims, drops empties, and de-duplicates', async () =>
       'gpt-5.6-luna',
       'gpt-5.6-terra',
       'gpt-6-astra',
+      'gpt-6-sol',
+      'gpt-6-luna',
     ]);
   } finally {
     await stopServer(server);
@@ -636,6 +638,8 @@ test('codex model list empty CSV falls back with warning', async () => {
       (model: { key: string }) => model.key,
     );
     assert.ok(modelKeys.includes('gpt-5.6-sol'));
+    assert.ok(modelKeys.includes('gpt-6-sol'));
+    assert.ok(modelKeys.includes('gpt-6-luna'));
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('Codex_model_list is empty'),
@@ -663,6 +667,8 @@ test('codex model list whitespace-only CSV falls back with warning', async () =>
       (model: { key: string }) => model.key,
     );
     assert.ok(modelKeys.includes('gpt-5.6-sol'));
+    assert.ok(modelKeys.includes('gpt-6-sol'));
+    assert.ok(modelKeys.includes('gpt-6-luna'));
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('Codex_model_list is empty'),

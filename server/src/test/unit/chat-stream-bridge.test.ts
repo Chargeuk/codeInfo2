@@ -38,14 +38,14 @@ test('deferred finalization aligns stopped fallback with pending ok completion a
     conversationId,
     inflightId,
     provider: 'codex',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
   });
 
   const bridge = attachChatStreamBridge({
     conversationId,
     inflightId,
     provider: 'codex',
-    model: 'gpt-5.4',
+    model: 'gpt-5.6-luna',
     chat,
     deferFinal: true,
   });

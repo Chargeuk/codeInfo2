@@ -4,9 +4,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
-
 import express from 'express';
-
 import {
   __resetAgentCommandRunnerDepsForTests,
   __setAgentCommandRunnerDepsForTests,
@@ -30,18 +28,17 @@ import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { attachWs } from '../../ws/server.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
-
 class CapturingChat extends ChatInterface {
   constructor(private readonly messages: string[]) {
     super();
   }
-
   async execute(
     message: string,
     _flags: Record<string, unknown>,
@@ -56,38 +53,40 @@ class CapturingChat extends ChatInterface {
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
-
 const ORIGINAL_CODEINFO_HOST_INGEST_DIR = process.env.CODEINFO_HOST_INGEST_DIR;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
-
 const restorePathMappingEnv = () => {
   if (ORIGINAL_CODEINFO_HOST_INGEST_DIR === undefined) {
-    delete process.env.CODEINFO_HOST_INGEST_DIR;
+    clearScopedTestEnvValue('CODEINFO_HOST_INGEST_DIR');
   } else {
-    process.env.CODEINFO_HOST_INGEST_DIR = ORIGINAL_CODEINFO_HOST_INGEST_DIR;
+    setScopedTestEnvValue(
+      'CODEINFO_HOST_INGEST_DIR',
+      ORIGINAL_CODEINFO_HOST_INGEST_DIR,
+    );
   }
   if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
-    delete process.env.CODEINFO_CODEX_WORKDIR;
+    clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
   } else {
-    process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+    setScopedTestEnvValue(
+      'CODEINFO_CODEX_WORKDIR',
+      ORIGINAL_CODEINFO_CODEX_WORKDIR,
+    );
   }
   if (ORIGINAL_CODEX_WORKDIR === undefined) {
-    delete process.env.CODEX_WORKDIR;
+    clearScopedTestEnvValue('CODEX_WORKDIR');
   } else {
-    process.env.CODEX_WORKDIR = ORIGINAL_CODEX_WORKDIR;
+    setScopedTestEnvValue('CODEX_WORKDIR', ORIGINAL_CODEX_WORKDIR);
   }
 };
-
 const setPathMappingEnv = (params: {
   hostIngestDir: string;
   codexWorkdir: string;
 }) => {
-  process.env.CODEINFO_HOST_INGEST_DIR = params.hostIngestDir;
-  process.env.CODEINFO_CODEX_WORKDIR = params.codexWorkdir;
-  delete process.env.CODEX_WORKDIR;
+  setScopedTestEnvValue('CODEINFO_HOST_INGEST_DIR', params.hostIngestDir);
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', params.codexWorkdir);
+  clearScopedTestEnvValue('CODEX_WORKDIR');
 };
-
 const buildReingestSuccess = (
   overrides: Partial<{
     status: 'completed' | 'cancelled' | 'error';
@@ -111,7 +110,6 @@ const buildReingestSuccess = (
   errorCode: null,
   ...overrides,
 });
-
 const buildWaitTimeQueueUnavailableError = (params: {
   repositoryId: string;
   sourceId: string;
@@ -137,7 +135,6 @@ const buildWaitTimeQueueUnavailableError = (params: {
     ],
   },
 });
-
 const buildRepoEntry = (params: {
   id: string;
   containerPath: string;
@@ -163,7 +160,6 @@ const buildRepoEntry = (params: {
   counts: { files: 1, chunks: 1, embedded: 1 },
   lastError: null,
 });
-
 const setAgentServiceRepoList = (repos: RepoEntry[]) => {
   __setAgentServiceDepsForTests({
     listIngestedRepositories: async () => ({
@@ -172,7 +168,6 @@ const setAgentServiceRepoList = (repos: RepoEntry[]) => {
     }),
   });
 };
-
 const writeAgentScaffold = async (params: {
   agentsHome: string;
   agentName: string;
@@ -197,7 +192,6 @@ const writeAgentScaffold = async (params: {
   );
   return agentHome;
 };
-
 const writeCommandFile = async (params: {
   commandRoot: string;
   commandName: string;
@@ -217,7 +211,6 @@ const writeCommandFile = async (params: {
     'utf8',
   );
 };
-
 const writeMarkdownFile = async (params: {
   repoRoot: string;
   relativePath: string;
@@ -231,14 +224,12 @@ const writeMarkdownFile = async (params: {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, params.content, 'utf8');
 };
-
 let previousPreferredAgentsHome: string | undefined;
 let previousLegacyAgentsHome: string | undefined;
-
 beforeEach(() => {
   previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
   previousLegacyAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  delete process.env.CODEINFO_AGENT_HOME;
+  clearScopedTestEnvValue('CODEINFO_AGENT_HOME');
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -247,27 +238,28 @@ beforeEach(() => {
     reason: undefined,
   });
 });
-
 afterEach(() => {
   if (previousPreferredAgentsHome === undefined) {
-    delete process.env.CODEINFO_AGENT_HOME;
+    clearScopedTestEnvValue('CODEINFO_AGENT_HOME');
   } else {
-    process.env.CODEINFO_AGENT_HOME = previousPreferredAgentsHome;
+    setScopedTestEnvValue('CODEINFO_AGENT_HOME', previousPreferredAgentsHome);
   }
   previousPreferredAgentsHome = undefined;
   if (previousLegacyAgentsHome === undefined) {
-    delete process.env.CODEINFO_CODEX_AGENT_HOME;
+    clearScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME');
   } else {
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentsHome;
+    setScopedTestEnvValue(
+      'CODEINFO_CODEX_AGENT_HOME',
+      previousLegacyAgentsHome,
+    );
   }
   previousLegacyAgentsHome = undefined;
 });
-
 const waitForMemoryTurns = async (
   conversationId: string,
   expectedCount: number,
 ): Promise<void> => {
-  const deadline = Date.now() + 4_000;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(4000);
   while (Date.now() < deadline) {
     const turns = memoryTurns.get(conversationId) ?? [];
     if (turns.length >= expectedCount) return;
@@ -277,8 +269,8 @@ const waitForMemoryTurns = async (
     `Timed out waiting for ${expectedCount} memory turns for ${conversationId}`,
   );
 };
-
 const setupRepoCommandHarness = async (suffix: string) => {
+  const previousPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
   const tempRoot = await fs.mkdtemp(
@@ -292,11 +284,10 @@ const setupRepoCommandHarness = async (suffix: string) => {
     agentName: 'coding_agent',
     codexHome,
   });
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
+  setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
   __setAgentServiceDepsForTests({
     getCodexDetection: () => ({
       available: true,
@@ -306,7 +297,6 @@ const setupRepoCommandHarness = async (suffix: string) => {
       reason: undefined,
     }),
   });
-
   return {
     tempRoot,
     repoRoot,
@@ -317,15 +307,23 @@ const setupRepoCommandHarness = async (suffix: string) => {
       __resetAgentCommandRunnerDepsForTests();
       __resetAgentServiceDepsForTests();
       __resetMarkdownFileResolverDepsForTests();
-      if (previousAgentsHome === undefined) {
-        delete process.env.CODEINFO_CODEX_AGENT_HOME;
+      if (previousPreferredAgentsHome === undefined) {
+        clearScopedTestEnvValue('CODEINFO_AGENT_HOME');
       } else {
-        process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+        setScopedTestEnvValue(
+          'CODEINFO_AGENT_HOME',
+          previousPreferredAgentsHome,
+        );
+      }
+      if (previousAgentsHome === undefined) {
+        clearScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME');
+      } else {
+        setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', previousAgentsHome);
       }
       if (previousCodexHome === undefined) {
-        delete process.env.CODEINFO_CODEX_HOME;
+        clearScopedTestEnvValue('CODEINFO_CODEX_HOME');
       } else {
-        process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+        setScopedTestEnvValue('CODEINFO_CODEX_HOME', previousCodexHome);
       }
       memoryConversations.clear();
       memoryTurns.clear();
@@ -333,7 +331,6 @@ const setupRepoCommandHarness = async (suffix: string) => {
     },
   };
 };
-
 test('runAgentCommand bootstraps a new conversation for a reingest-only command', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -348,11 +345,9 @@ test('runAgentCommand bootstraps a new conversation for a reingest-only command'
     agentName: 'coding_agent',
     codexHome,
   });
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-
+  setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
   try {
     await writeCommandFile({
       commandRoot: path.join(agentHome, 'commands'),
@@ -369,13 +364,11 @@ test('runAgentCommand bootstraps a new conversation for a reingest-only command'
       }),
       createCallId: () => 'call-run-only',
     });
-
     const result = await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'reingest-only-run',
       source: 'REST',
     });
-
     const conversation = memoryConversations.get(result.conversationId);
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.ok(conversation);
@@ -416,14 +409,13 @@ test('runAgentCommand bootstraps a new conversation for a reingest-only command'
     __resetAgentCommandRunnerDepsForTests();
     __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', previousAgentsHome);
+    setScopedTestEnvValue('CODEINFO_CODEX_HOME', previousCodexHome);
     memoryConversations.clear();
     memoryTurns.clear();
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
-
 test('startAgentCommand bootstraps the same synthetic contract for a reingest-only command', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -438,11 +430,9 @@ test('startAgentCommand bootstraps the same synthetic contract for a reingest-on
     agentName: 'coding_agent',
     codexHome,
   });
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-
+  setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
   try {
     await writeCommandFile({
       commandRoot: path.join(agentHome, 'commands'),
@@ -459,15 +449,12 @@ test('startAgentCommand bootstraps the same synthetic contract for a reingest-on
       }),
       createCallId: () => 'call-start-only',
     });
-
     const result = await startAgentCommand({
       agentName: 'coding_agent',
       commandName: 'reingest-only-start',
       source: 'REST',
     });
-
     await waitForMemoryTurns(result.conversationId, 2);
-
     const conversation = memoryConversations.get(result.conversationId);
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.ok(conversation);
@@ -477,7 +464,9 @@ test('startAgentCommand bootstraps the same synthetic contract for a reingest-on
     assert.equal(
       (
         turns[1]?.toolCalls as {
-          calls?: Array<{ callId: string }>;
+          calls?: Array<{
+            callId: string;
+          }>;
         } | null
       )?.calls?.[0]?.callId,
       'call-start-only',
@@ -486,14 +475,13 @@ test('startAgentCommand bootstraps the same synthetic contract for a reingest-on
     __resetAgentCommandRunnerDepsForTests();
     __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', previousAgentsHome);
+    setScopedTestEnvValue('CODEINFO_CODEX_HOME', previousCodexHome);
     memoryConversations.clear();
     memoryTurns.clear();
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
-
 test('startAgentCommand emits a terminal failure outcome when a reingest precheck rejects in the background runner', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -508,11 +496,9 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
     agentName: 'coding_agent',
     codexHome,
   });
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-
+  setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
   const app = express();
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
@@ -522,7 +508,6 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'reingest-precheck-fails-conversation';
-
   try {
     await writeCommandFile({
       commandRoot: path.join(agentHome, 'commands'),
@@ -557,12 +542,7 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
         },
       }),
     });
-
-    sendJson(ws, {
-      type: 'subscribe_conversation',
-      conversationId,
-    });
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const finalPromise = waitForEvent({
       ws,
       predicate: (
@@ -571,7 +551,10 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
         type: 'turn_final';
         conversationId: string;
         status: string;
-        error?: { code?: string; message?: string };
+        error?: {
+          code?: string;
+          message?: string;
+        };
       } => {
         const payload = event as {
           type?: string;
@@ -582,20 +565,16 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
           payload.conversationId === conversationId
         );
       },
-      timeoutMs: 8_000,
+      timeoutMs: 8000,
     });
-
     const result = await startAgentCommand({
       agentName: 'coding_agent',
       commandName: 'reingest-precheck-fails',
       conversationId,
       source: 'REST',
     });
-
     const final = await finalPromise;
-
     await waitForMemoryTurns(result.conversationId, 2);
-
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(final.status, 'failed');
     assert.equal(final.error?.code, 'COMMAND_INVALID');
@@ -619,14 +598,13 @@ test('startAgentCommand emits a terminal failure outcome when a reingest prechec
     __resetAgentCommandRunnerDepsForTests();
     __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', previousAgentsHome);
+    setScopedTestEnvValue('CODEINFO_CODEX_HOME', previousCodexHome);
     memoryConversations.clear();
     memoryTurns.clear();
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
-
 test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reingest result instead of a thrown background-runner exception', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -641,11 +619,9 @@ test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reinges
     agentName: 'coding_agent',
     codexHome,
   });
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-
+  setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
   const app = express();
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
@@ -655,7 +631,6 @@ test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reinges
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const ws = await connectWs({ baseUrl });
   const conversationId = 'reingest-openai-unavailable-conversation';
-
   try {
     await writeCommandFile({
       commandRoot: path.join(agentHome, 'commands'),
@@ -690,12 +665,7 @@ test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reinges
         },
       }),
     });
-
-    sendJson(ws, {
-      type: 'subscribe_conversation',
-      conversationId,
-    });
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const finalPromise = waitForEvent({
       ws,
       predicate: (
@@ -704,7 +674,10 @@ test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reinges
         type: 'turn_final';
         conversationId: string;
         status: string;
-        error?: { code?: string; message?: string };
+        error?: {
+          code?: string;
+          message?: string;
+        };
       } => {
         const payload = event as {
           type?: string;
@@ -715,20 +688,16 @@ test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reinges
           payload.conversationId === conversationId
         );
       },
-      timeoutMs: 8_000,
+      timeoutMs: 8000,
     });
-
     const result = await startAgentCommand({
       agentName: 'coding_agent',
       commandName: 'reingest-openai-unavailable',
       conversationId,
       source: 'REST',
     });
-
     const final = await finalPromise;
-
     await waitForMemoryTurns(result.conversationId, 2);
-
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(final.status, 'failed');
     assert.equal(final.error?.code, 'COMMAND_INVALID');
@@ -748,14 +717,13 @@ test('startAgentCommand propagates a structured OPENAI_MODEL_UNAVAILABLE reinges
     __resetAgentCommandRunnerDepsForTests();
     __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', previousAgentsHome);
+    setScopedTestEnvValue('CODEINFO_CODEX_HOME', previousCodexHome);
     memoryConversations.clear();
     memoryTurns.clear();
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
-
 test('mixed direct-command runs preserve reingest then message execution order', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -771,11 +739,9 @@ test('mixed direct-command runs preserve reingest then message execution order',
     codexHome,
   });
   const messages: string[] = [];
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-
+  setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
   try {
     await writeCommandFile({
       commandRoot: path.join(agentHome, 'commands'),
@@ -795,14 +761,12 @@ test('mixed direct-command runs preserve reingest then message execution order',
       }),
       createCallId: () => 'call-mixed-1',
     });
-
     const result = await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'reingest-then-message',
       source: 'REST',
       chatFactory: () => new CapturingChat(messages),
     });
-
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.deepEqual(messages, ['after']);
     assert.equal(turns.length, 4);
@@ -814,14 +778,13 @@ test('mixed direct-command runs preserve reingest then message execution order',
     __resetAgentCommandRunnerDepsForTests();
     __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', previousAgentsHome);
+    setScopedTestEnvValue('CODEINFO_CODEX_HOME', previousCodexHome);
     memoryConversations.clear();
     memoryTurns.clear();
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
-
 test('multiple direct-command reingest items retain distinct callIds', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -837,11 +800,9 @@ test('multiple direct-command reingest items retain distinct callIds', async () 
     codexHome,
   });
   const callIds = ['call-a', 'call-b'];
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-
+  setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
   try {
     await writeCommandFile({
       commandRoot: path.join(agentHome, 'commands'),
@@ -867,13 +828,11 @@ test('multiple direct-command reingest items retain distinct callIds', async () 
         return next;
       },
     });
-
     const result = await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'double-reingest',
       source: 'REST',
     });
-
     const assistantTurns = (
       memoryTurns.get(result.conversationId) ?? []
     ).filter((turn) => turn.role === 'assistant');
@@ -882,7 +841,9 @@ test('multiple direct-command reingest items retain distinct callIds', async () 
         (turn) =>
           (
             turn.toolCalls as {
-              calls?: Array<{ callId: string }>;
+              calls?: Array<{
+                callId: string;
+              }>;
             } | null
           )?.calls?.[0]?.callId,
       ),
@@ -892,19 +853,17 @@ test('multiple direct-command reingest items retain distinct callIds', async () 
     __resetAgentCommandRunnerDepsForTests();
     __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', previousAgentsHome);
+    setScopedTestEnvValue('CODEINFO_CODEX_HOME', previousCodexHome);
     memoryConversations.clear();
     memoryTurns.clear();
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
-
 test('repo id selectors resolve to the canonical container path and preserve shared reingest default wait dispatch', async () => {
   const harness = await setupRepoCommandHarness('selector-id');
   const selectedRoot = path.join(harness.tempRoot, 'repo-selected');
   let capturedArgs: unknown;
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -936,13 +895,11 @@ test('repo id selectors resolve to the canonical container path and preserve sha
         };
       },
     });
-
     await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'repo-id-selector',
       source: 'REST',
     });
-
     assert.deepEqual(capturedArgs, { sourceId: selectedRoot });
     assert.equal(
       typeof capturedArgs === 'object' &&
@@ -954,12 +911,10 @@ test('repo id selectors resolve to the canonical container path and preserve sha
     await harness.restore();
   }
 });
-
 test('absolute-path selectors still execute against the explicit canonical path', async () => {
   const harness = await setupRepoCommandHarness('selector-path');
   const selectedRoot = path.join(harness.tempRoot, 'repo-path-target');
   let capturedSourceId: string | undefined;
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -987,25 +942,21 @@ test('absolute-path selectors still execute against the explicit canonical path'
         return { ok: true, value: buildReingestSuccess({ sourceId }) };
       },
     });
-
     await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'path-selector',
       source: 'REST',
     });
-
     assert.equal(capturedSourceId, selectedRoot);
   } finally {
     await harness.restore();
   }
 });
-
 test('duplicate case-insensitive repository ids still resolve to the latest ingest', async () => {
   const harness = await setupRepoCommandHarness('selector-latest');
   const olderRoot = path.join(harness.tempRoot, 'repo-older');
   const newerRoot = path.join(harness.tempRoot, 'repo-newer');
   let capturedSourceId: string | undefined;
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1039,23 +990,19 @@ test('duplicate case-insensitive repository ids still resolve to the latest inge
         return { ok: true, value: buildReingestSuccess({ sourceId }) };
       },
     });
-
     await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'latest-selector',
       source: 'REST',
     });
-
     assert.equal(capturedSourceId, newerRoot);
   } finally {
     await harness.restore();
   }
 });
-
 test('direct command target working fails fast until the surface passes an explicit working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-working');
   let strictCalls = 0;
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1079,7 +1026,6 @@ test('direct command target working fails fast until the surface passes an expli
         return { ok: true, value: buildReingestSuccess() };
       },
     });
-
     await assert.rejects(
       async () =>
         runAgentCommand({
@@ -1088,10 +1034,18 @@ test('direct command target working fails fast until the surface passes an expli
           source: 'REST',
         }),
       (error) =>
-        (error as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
+        (
+          error as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
         /target "working" requires a selected working repository path/i.test(
-          (error as { reason?: string }).reason ?? '',
+          (
+            error as {
+              reason?: string;
+            }
+          ).reason ?? '',
         ),
     );
     assert.equal(strictCalls, 0);
@@ -1099,10 +1053,8 @@ test('direct command target working fails fast until the surface passes an expli
     await harness.restore();
   }
 });
-
 test('direct command target working reingests the selected working repository and persists targetMode working', async () => {
   const harness = await setupRepoCommandHarness('target-working-success');
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1125,14 +1077,12 @@ test('direct command target working reingests the selected working repository an
       }),
       createCallId: () => 'call-working-target',
     });
-
     const result = await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'working-target-success',
       working_folder: harness.repoRoot,
       source: 'REST',
     });
-
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.equal(turns.length, 2);
     assert.deepEqual(turns[1]?.toolCalls, {
@@ -1167,7 +1117,6 @@ test('direct command target working reingests the selected working repository an
     await harness.restore();
   }
 });
-
 test('direct command target working resolves a host working_folder into the mounted codex workdir before reingest starts', async () => {
   const harness = await setupRepoCommandHarness('target-working-mapped');
   const hostIngestDir = path.join(harness.tempRoot, 'host-ingest');
@@ -1175,7 +1124,6 @@ test('direct command target working resolves a host working_folder into the moun
   const hostWorkingFolder = path.join(hostIngestDir, 'repo-owner');
   const mappedWorkingFolder = path.join(codexWorkdir, 'repo-owner');
   let capturedSourceId: string | undefined;
-
   try {
     setPathMappingEnv({ hostIngestDir, codexWorkdir });
     await fs.mkdir(mappedWorkingFolder, { recursive: true });
@@ -1202,26 +1150,22 @@ test('direct command target working resolves a host working_folder into the moun
         };
       },
     });
-
     await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'working-target-mapped-success',
       working_folder: hostWorkingFolder,
       source: 'REST',
     });
-
     assert.equal(capturedSourceId, mappedWorkingFolder);
   } finally {
     restorePathMappingEnv();
     await harness.restore();
   }
 });
-
 test('direct command target working propagates wait-time queue-read outage as command failure', async () => {
   const harness = await setupRepoCommandHarness(
     'target-working-wait-queue-unavailable',
   );
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1244,7 +1188,6 @@ test('direct command target working propagates wait-time queue-read outage as co
       }),
       createCallId: () => 'call-working-wait-queue-unavailable',
     });
-
     await assert.rejects(
       async () =>
         runAgentCommand({
@@ -1254,17 +1197,24 @@ test('direct command target working propagates wait-time queue-read outage as co
           source: 'REST',
         }),
       (error) =>
-        (error as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
+        (
+          error as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
         /unavailable while waiting for re-ingest completion/i.test(
-          (error as { reason?: string }).reason ?? '',
+          (
+            error as {
+              reason?: string;
+            }
+          ).reason ?? '',
         ),
     );
   } finally {
     await harness.restore();
   }
 });
-
 test('target plan_scope fails fast until the surface passes an explicit working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-plan-scope-order');
   const repoA = path.join(harness.tempRoot, 'repo-a');
@@ -1272,7 +1222,6 @@ test('target plan_scope fails fast until the surface passes an explicit working 
   const repoC = path.join(harness.tempRoot, 'repo-c');
   const messages: string[] = [];
   const calls: string[] = [];
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1330,7 +1279,6 @@ test('target plan_scope fails fast until the surface passes an explicit working 
         };
       },
     });
-
     await assert.rejects(
       async () =>
         runAgentCommand({
@@ -1340,10 +1288,18 @@ test('target plan_scope fails fast until the surface passes an explicit working 
           chatFactory: () => new CapturingChat(messages),
         }),
       (error) =>
-        (error as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
+        (
+          error as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
         /target "plan_scope" requires a selected working repository path/i.test(
-          (error as { reason?: string }).reason ?? '',
+          (
+            error as {
+              reason?: string;
+            }
+          ).reason ?? '',
         ),
     );
     assert.deepEqual(calls, []);
@@ -1352,14 +1308,12 @@ test('target plan_scope fails fast until the surface passes an explicit working 
     await harness.restore();
   }
 });
-
 test('target plan_scope fails before start when the selected working repository is not currently ingested', async () => {
   const harness = await setupRepoCommandHarness(
     'target-plan-scope-not-ingested',
   );
   const messages: string[] = [];
   let reingestCalls = 0;
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1378,7 +1332,6 @@ test('target plan_scope fails before start when the selected working repository 
         return { ok: true, value: buildReingestSuccess() };
       },
     });
-
     await assert.rejects(
       async () =>
         runAgentCommand({
@@ -1389,104 +1342,124 @@ test('target plan_scope fails before start when the selected working repository 
           chatFactory: () => new CapturingChat(messages),
         }),
       (error) =>
-        (error as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
+        (
+          error as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
         /target "plan_scope" selected working repository is not currently ingested/i.test(
-          (error as { reason?: string }).reason ?? '',
+          (
+            error as {
+              reason?: string;
+            }
+          ).reason ?? '',
         ),
     );
-
     assert.equal(reingestCalls, 0);
     assert.deepEqual(messages, []);
   } finally {
     await harness.restore();
   }
 });
-
-test('direct command target plan_scope falls back to the working repository for missing and malformed handoff files', async () => {
-  for (const mode of ['missing', 'malformed'] as const) {
-    const harness = await setupRepoCommandHarness(`target-plan-scope-${mode}`);
-    const fixture = await createPlanScopeFixture({
-      tempPrefix: `commands-${mode}-`,
-      workingRepositoryName: path.basename(harness.repoRoot),
-      planFile:
-        mode === 'missing'
-          ? { mode: 'missing' }
-          : { mode: 'malformed', rawText: '{"additional_repositories": [' },
+const assertDirectCommandPlanScopeFallsBackToWorkingRepository = async (
+  mode: 'missing' | 'malformed',
+) => {
+  const harness = await setupRepoCommandHarness(`target-plan-scope-${mode}`);
+  const fixture = await createPlanScopeFixture({
+    tempPrefix: `commands-${mode}-`,
+    workingRepositoryName: path.basename(harness.repoRoot),
+    planFile:
+      mode === 'missing'
+        ? { mode: 'missing' }
+        : { mode: 'malformed', rawText: '{"additional_repositories": [' },
+  });
+  const calls: string[] = [];
+  const expectedWarningCode =
+    mode === 'missing' ? 'handoff_missing' : 'handoff_invalid';
+  try {
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: `plan-scope-${mode}`,
+      items: [{ type: 'reingest', target: 'plan_scope' }],
     });
-    const calls: string[] = [];
-    const expectedWarningCode =
-      mode === 'missing' ? 'handoff_missing' : 'handoff_invalid';
-
-    try {
-      await writeCommandFile({
-        commandRoot: path.join(harness.agentHome, 'commands'),
-        commandName: `plan-scope-${mode}`,
-        items: [{ type: 'reingest', target: 'plan_scope' }],
-      });
-      setAgentServiceRepoList([
-        buildRepoEntry({
-          id: 'Owner Repo',
-          containerPath: fixture.workingRepositoryPath,
-        }),
-      ]);
-      __setAgentCommandRunnerDepsForTests({
-        runReingestRepository: async ({ sourceId }) => {
-          calls.push(sourceId ?? '(missing)');
-          return {
-            ok: true,
-            value: buildReingestSuccess({
-              sourceId: sourceId ?? fixture.workingRepositoryPath,
-              resolvedRepositoryId: 'Owner Repo',
-            }),
+    setAgentServiceRepoList([
+      buildRepoEntry({
+        id: 'Owner Repo',
+        containerPath: fixture.workingRepositoryPath,
+      }),
+    ]);
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async ({ sourceId }) => {
+        calls.push(sourceId ?? '(missing)');
+        return {
+          ok: true,
+          value: buildReingestSuccess({
+            sourceId: sourceId ?? fixture.workingRepositoryPath,
+            resolvedRepositoryId: 'Owner Repo',
+          }),
+        };
+      },
+      createCallId: () => `call-plan-scope-${mode}`,
+    });
+    const result = await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: `plan-scope-${mode}`,
+      working_folder: fixture.workingRepositoryPath,
+      source: 'REST',
+    });
+    const turns = memoryTurns.get(result.conversationId) ?? [];
+    const call = (
+      turns[1]?.toolCalls as {
+        calls?: Array<{
+          result?: {
+            warnings?: Array<{
+              code?: string;
+            }>;
           };
-        },
-        createCallId: () => `call-plan-scope-${mode}`,
-      });
-
-      const result = await runAgentCommand({
-        agentName: 'coding_agent',
-        commandName: `plan-scope-${mode}`,
-        working_folder: fixture.workingRepositoryPath,
-        source: 'REST',
-      });
-
-      const turns = memoryTurns.get(result.conversationId) ?? [];
-      const call = (
-        turns[1]?.toolCalls as {
-          calls?: Array<{ result?: { warnings?: Array<{ code?: string }> } }>;
-        } | null
-      )?.calls?.[0];
-      assert.deepEqual(calls, [fixture.workingRepositoryPath]);
-      assert.equal(
-        (call?.result as { targetMode?: string } | undefined)?.targetMode,
-        'plan_scope',
-      );
-      const warnings = (
-        call?.result as {
-          warnings?: Array<{
-            code?: string;
-            message?: string;
-            repositoryPath?: string | null;
-            resolvedRepositoryId?: string | null;
-          }>;
-        }
-      ).warnings;
-      assert.equal(warnings?.length, 1);
-      assert.equal(warnings?.[0]?.code, expectedWarningCode);
-      assert.equal(warnings?.[0]?.repositoryPath, fixture.currentPlanPath);
-      assert.equal(warnings?.[0]?.resolvedRepositoryId ?? null, null);
-      assert.match(
-        warnings?.[0]?.message ?? '',
-        /working repository only|falling back to the working repository only/i,
-      );
-    } finally {
-      await fixture.cleanup();
-      await harness.restore();
-    }
+        }>;
+      } | null
+    )?.calls?.[0];
+    assert.deepEqual(calls, [fixture.workingRepositoryPath]);
+    assert.equal(
+      (
+        call?.result as
+          | {
+              targetMode?: string;
+            }
+          | undefined
+      )?.targetMode,
+      'plan_scope',
+    );
+    const warnings = (
+      call?.result as {
+        warnings?: Array<{
+          code?: string;
+          message?: string;
+          repositoryPath?: string | null;
+          resolvedRepositoryId?: string | null;
+        }>;
+      }
+    ).warnings;
+    assert.equal(warnings?.length, 1);
+    assert.equal(warnings?.[0]?.code, expectedWarningCode);
+    assert.equal(warnings?.[0]?.repositoryPath, fixture.currentPlanPath);
+    assert.equal(warnings?.[0]?.resolvedRepositoryId ?? null, null);
+    assert.match(
+      warnings?.[0]?.message ?? '',
+      /working repository only|falling back to the working repository only/i,
+    );
+  } finally {
+    await fixture.cleanup();
+    await harness.restore();
   }
+};
+test('direct command target plan_scope falls back to the working repository for a missing handoff file', async () => {
+  await assertDirectCommandPlanScopeFallsBackToWorkingRepository('missing');
 });
-
+test('direct command target plan_scope falls back to the working repository for a malformed handoff file', async () => {
+  await assertDirectCommandPlanScopeFallsBackToWorkingRepository('malformed');
+});
 test('direct command target plan_scope publishes success with warnings, continues after failures, and updates transcript wording', async () => {
   const harness = await setupRepoCommandHarness('target-plan-scope-success');
   const fixture = await createPlanScopeFixture({
@@ -1515,7 +1488,6 @@ test('direct command target plan_scope publishes success with warnings, continue
       2,
     ),
   );
-
   const app = express();
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
@@ -1526,7 +1498,6 @@ test('direct command target plan_scope publishes success with warnings, continue
   const ws = await connectWs({ baseUrl });
   const conversationId = 'direct-command-plan-scope-success';
   const calls: string[] = [];
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1588,12 +1559,7 @@ test('direct command target plan_scope publishes success with warnings, continue
       },
       createCallId: () => 'call-plan-scope-success',
     });
-
-    sendJson(ws, {
-      type: 'subscribe_conversation',
-      conversationId,
-    });
-
+    await subscribeConversationAndWaitReady({ ws: ws, conversationId });
     const finalPromise = waitForEvent({
       ws,
       predicate: (
@@ -1612,9 +1578,8 @@ test('direct command target plan_scope publishes success with warnings, continue
           payload.conversationId === conversationId
         );
       },
-      timeoutMs: 8_000,
+      timeoutMs: 8000,
     });
-
     const result = await startAgentCommand({
       agentName: 'coding_agent',
       commandName: 'plan-scope-success',
@@ -1622,10 +1587,8 @@ test('direct command target plan_scope publishes success with warnings, continue
       working_folder: fixture.workingRepositoryPath,
       source: 'REST',
     });
-
     const final = await finalPromise;
     await waitForMemoryTurns(result.conversationId, 2);
-
     const turns = memoryTurns.get(result.conversationId) ?? [];
     const toolCall = (
       turns[1]?.toolCalls as {
@@ -1633,13 +1596,16 @@ test('direct command target plan_scope publishes success with warnings, continue
           stage?: string;
           result?: {
             targetMode?: string;
-            repositories?: Array<{ sourceId?: string }>;
-            warnings?: Array<{ code?: string }>;
+            repositories?: Array<{
+              sourceId?: string;
+            }>;
+            warnings?: Array<{
+              code?: string;
+            }>;
           };
         }>;
       } | null
     )?.calls?.[0];
-
     assert.equal(final.status, 'ok');
     assert.deepEqual(calls, [
       fixture.workingRepositoryPath,
@@ -1680,12 +1646,10 @@ test('direct command target plan_scope publishes success with warnings, continue
     await harness.restore();
   }
 });
-
 test('target plan_scope fails fast before strict execution when no working repository path is supplied', async () => {
   const harness = await setupRepoCommandHarness('target-plan-scope-empty');
   const messages: string[] = [];
   let reingestCalls = 0;
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1707,7 +1671,6 @@ test('target plan_scope fails fast before strict execution when no working repos
         return { ok: true, value: buildReingestSuccess() };
       },
     });
-
     await assert.rejects(
       async () =>
         runAgentCommand({
@@ -1717,24 +1680,29 @@ test('target plan_scope fails fast before strict execution when no working repos
           chatFactory: () => new CapturingChat(messages),
         }),
       (error) =>
-        (error as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
+        (
+          error as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
         /target "plan_scope" requires a selected working repository path/i.test(
-          (error as { reason?: string }).reason ?? '',
+          (
+            error as {
+              reason?: string;
+            }
+          ).reason ?? '',
         ),
     );
-
     assert.equal(reingestCalls, 0);
     assert.deepEqual(messages, []);
   } finally {
     await harness.restore();
   }
 });
-
 test('target working fails before strict BUSY handling until the surface passes an explicit working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-working-busy');
   let strictCalls = 0;
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1780,7 +1748,6 @@ test('target working fails before strict BUSY handling until the surface passes 
         };
       },
     });
-
     await assert.rejects(
       async () =>
         runAgentCommand({
@@ -1789,10 +1756,18 @@ test('target working fails before strict BUSY handling until the surface passes 
           source: 'REST',
         }),
       (error) =>
-        (error as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
+        (
+          error as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
         /target "working" requires a selected working repository path/i.test(
-          (error as { reason?: string }).reason ?? '',
+          (
+            error as {
+              reason?: string;
+            }
+          ).reason ?? '',
         ),
     );
     assert.equal(strictCalls, 0);
@@ -1800,11 +1775,9 @@ test('target working fails before strict BUSY handling until the surface passes 
     await harness.restore();
   }
 });
-
 test('direct command target working fails before strict execution when the surface does not provide a working repository path', async () => {
   const harness = await setupRepoCommandHarness('target-working-not-ingested');
   let strictCalls = 0;
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1823,7 +1796,6 @@ test('direct command target working fails before strict execution when the surfa
         return { ok: true, value: buildReingestSuccess() };
       },
     });
-
     await assert.rejects(
       async () =>
         runAgentCommand({
@@ -1832,10 +1804,18 @@ test('direct command target working fails before strict execution when the surfa
           source: 'REST',
         }),
       (error) =>
-        (error as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
+        (
+          error as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
         /target "working" requires a selected working repository path/i.test(
-          (error as { reason?: string }).reason ?? '',
+          (
+            error as {
+              reason?: string;
+            }
+          ).reason ?? '',
         ),
     );
     assert.equal(strictCalls, 0);
@@ -1843,13 +1823,11 @@ test('direct command target working fails before strict execution when the surfa
     await harness.restore();
   }
 });
-
 test('direct command target working fails before start when the selected working repository is not currently ingested', async () => {
   const harness = await setupRepoCommandHarness(
     'target-working-not-ingested-selected',
   );
   let strictCalls = 0;
-
   try {
     await writeCommandFile({
       commandRoot: path.join(harness.agentHome, 'commands'),
@@ -1868,7 +1846,6 @@ test('direct command target working fails before start when the selected working
         return { ok: true, value: buildReingestSuccess() };
       },
     });
-
     await assert.rejects(
       async () =>
         runAgentCommand({
@@ -1878,10 +1855,18 @@ test('direct command target working fails before start when the selected working
           source: 'REST',
         }),
       (error) =>
-        (error as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
+        (
+          error as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
         /target "working" selected working repository is not currently ingested/i.test(
-          (error as { reason?: string }).reason ?? '',
+          (
+            error as {
+              reason?: string;
+            }
+          ).reason ?? '',
         ),
     );
     assert.equal(strictCalls, 0);
@@ -1889,73 +1874,79 @@ test('direct command target working fails before start when the selected working
     await harness.restore();
   }
 });
-
-test('direct command target working fails clearly before strict execution when host-to-workdir mapping cannot resolve a visible repository', async () => {
-  const scenarios = [
-    {
-      name: 'outside-ingest-root',
-      workingFolder: '/different-host-root/repo-owner',
-    },
-    {
-      name: 'missing-mapped-directory',
-      workingFolder: '/host/ingest/repo-owner',
-    },
-  ] as const;
-
-  for (const scenario of scenarios) {
-    const harness = await setupRepoCommandHarness(
-      `target-working-env-failure-${scenario.name}`,
-    );
-    const hostIngestDir = '/host/ingest';
-    const codexWorkdir = path.join(
-      harness.tempRoot,
-      `codex-workdir-${scenario.name}`,
-    );
-    let strictCalls = 0;
-
-    try {
-      setPathMappingEnv({ hostIngestDir, codexWorkdir });
-      await writeCommandFile({
-        commandRoot: path.join(harness.agentHome, 'commands'),
-        commandName: `working-target-env-failure-${scenario.name}`,
-        items: [{ type: 'reingest', target: 'working' }],
-      });
-      setAgentServiceRepoList([
-        buildRepoEntry({
-          id: 'Owner Repo',
-          containerPath: path.join(codexWorkdir, 'repo-owner'),
+const assertDirectCommandWorkingTargetEnvFailure = async (scenario: {
+  name: string;
+  workingFolder: string;
+}) => {
+  const harness = await setupRepoCommandHarness(
+    `target-working-env-failure-${scenario.name}`,
+  );
+  const hostIngestDir = '/host/ingest';
+  const codexWorkdir = path.join(
+    harness.tempRoot,
+    `codex-workdir-${scenario.name}`,
+  );
+  let strictCalls = 0;
+  try {
+    setPathMappingEnv({ hostIngestDir, codexWorkdir });
+    await writeCommandFile({
+      commandRoot: path.join(harness.agentHome, 'commands'),
+      commandName: `working-target-env-failure-${scenario.name}`,
+      items: [{ type: 'reingest', target: 'working' }],
+    });
+    setAgentServiceRepoList([
+      buildRepoEntry({
+        id: 'Owner Repo',
+        containerPath: path.join(codexWorkdir, 'repo-owner'),
+      }),
+    ]);
+    __setAgentCommandRunnerDepsForTests({
+      runReingestRepository: async () => {
+        strictCalls += 1;
+        return { ok: true, value: buildReingestSuccess() };
+      },
+    });
+    await assert.rejects(
+      async () =>
+        runAgentCommand({
+          agentName: 'coding_agent',
+          commandName: `working-target-env-failure-${scenario.name}`,
+          working_folder: scenario.workingFolder,
+          source: 'REST',
         }),
-      ]);
-      __setAgentCommandRunnerDepsForTests({
-        runReingestRepository: async () => {
-          strictCalls += 1;
-          return { ok: true, value: buildReingestSuccess() };
-        },
-      });
-
-      await assert.rejects(
-        async () =>
-          runAgentCommand({
-            agentName: 'coding_agent',
-            commandName: `working-target-env-failure-${scenario.name}`,
-            working_folder: scenario.workingFolder,
-            source: 'REST',
-          }),
-        (error) =>
-          (error as { code?: string; reason?: string }).code ===
-            'WORKING_FOLDER_NOT_FOUND' &&
-          /working_folder not found/i.test(
-            (error as { reason?: string }).reason ?? '',
-          ),
-      );
-      assert.equal(strictCalls, 0);
-    } finally {
-      restorePathMappingEnv();
-      await harness.restore();
-    }
+      (error) =>
+        (
+          error as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'WORKING_FOLDER_NOT_FOUND' &&
+        /working_folder not found/i.test(
+          (
+            error as {
+              reason?: string;
+            }
+          ).reason ?? '',
+        ),
+    );
+    assert.equal(strictCalls, 0);
+  } finally {
+    restorePathMappingEnv();
+    await harness.restore();
   }
+};
+test('direct command target working fails clearly before strict execution when host-to-workdir mapping resolves outside the ingest root', async () => {
+  await assertDirectCommandWorkingTargetEnvFailure({
+    name: 'outside-ingest-root',
+    workingFolder: '/different-host-root/repo-owner',
+  });
 });
-
+test('direct command target working fails clearly before strict execution when the mapped repository directory is missing', async () => {
+  await assertDirectCommandWorkingTargetEnvFailure({
+    name: 'missing-mapped-directory',
+    workingFolder: '/host/ingest/repo-owner',
+  });
+});
 test('mixed reingest, markdownFile, and inline content runs preserve ordering and continuation', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
@@ -1971,11 +1962,9 @@ test('mixed reingest, markdownFile, and inline content runs preserve ordering an
     codexHome,
   });
   const messages: string[] = [];
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-
+  setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', agentsHome);
+  setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
   try {
     await writeCommandFile({
       commandRoot: path.join(agentHome, 'commands'),
@@ -2004,21 +1993,21 @@ test('mixed reingest, markdownFile, and inline content runs preserve ordering an
       }),
       createCallId: () => 'call-markdown-inline',
     });
-
     const result = await runAgentCommand({
       agentName: 'coding_agent',
       commandName: 'reingest-markdown-inline',
       source: 'REST',
       chatFactory: () => new CapturingChat(messages),
     });
-
     const turns = memoryTurns.get(result.conversationId) ?? [];
     assert.deepEqual(messages, ['# Step markdown\n\nBody', 'inline']);
     assert.equal(turns.length, 6);
     assert.equal(
       (
         turns[1]?.toolCalls as {
-          calls?: Array<{ callId: string }>;
+          calls?: Array<{
+            callId: string;
+          }>;
         } | null
       )?.calls?.[0]?.callId,
       'call-markdown-inline',
@@ -2029,8 +2018,8 @@ test('mixed reingest, markdownFile, and inline content runs preserve ordering an
     __resetAgentCommandRunnerDepsForTests();
     __resetAgentServiceDepsForTests();
     __resetMarkdownFileResolverDepsForTests();
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', previousAgentsHome);
+    setScopedTestEnvValue('CODEINFO_CODEX_HOME', previousCodexHome);
     memoryConversations.clear();
     memoryTurns.clear();
     await fs.rm(tempRoot, { recursive: true, force: true });

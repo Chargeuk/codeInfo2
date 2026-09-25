@@ -17,7 +17,7 @@ import cors from 'cors';
 import express from 'express';
 import '../support/chromaContainer.js';
 import '../support/mockLmStudioSdk.js';
-import { setIngestDeps } from '../../ingest/ingestJob.js';
+import { isBusy, setIngestDeps } from '../../ingest/ingestJob.js';
 import { resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
@@ -32,33 +32,35 @@ import {
   stopMock,
 } from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
-
+import {
+  resolveConfiguredPollAttempts,
+  resolveConfiguredTestTimeoutMs,
+} from '../support/testTimeouts.js';
 let server: Server | null = null;
 let baseUrl = '';
 let lastRunId: string | null = null;
 let tempDir: string | null = null;
-
-setDefaultTimeout(30_000);
-
+setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 async function startTestServer() {
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
-
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   const app = express();
   app.use(cors());
   app.use(express.json());
   app.use(createRequestLogger());
   app.use((req, res, next) => {
-    const requestId = (req as unknown as { id?: string }).id;
+    const requestId = (
+      req as unknown as {
+        id?: string;
+      }
+    ).id;
     if (requestId) res.locals.requestId = requestId;
     next();
   });
-
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
     baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
-
   app.use(
     '/',
     createIngestStartRouter({
@@ -76,7 +78,6 @@ async function startTestServer() {
   app.use('/', createIngestRemoveRouter());
   app.use('/', createIngestRootsRouter());
   app.use('/logs', createLogsRouter());
-
   await new Promise<void>((resolve) => {
     const listener = app.listen(0, () => {
       server = listener;
@@ -89,13 +90,11 @@ async function startTestServer() {
     });
   });
 }
-
 Before(async () => {
   resetStore();
   startMock({ scenario: 'many' as MockScenario });
   await startTestServer();
 });
-
 After(async () => {
   stopMock();
   if (server) {
@@ -108,9 +107,7 @@ After(async () => {
   }
   resetStore();
 });
-
 Given('an ingest logging test server', () => {});
-
 Given(
   'logging temp repo with file {string} containing {string}',
   async (rel, content) => {
@@ -122,14 +119,12 @@ Given(
     await fs.writeFile(filePath, content as string);
   },
 );
-
 Given('an empty logging temp repo', async () => {
   if (tempDir) {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
   tempDir = await createTempRepoRoot('ingest-logging-');
 });
-
 When(
   'I POST ingest logging start with model {string}',
   async (model: string) => {
@@ -145,7 +140,6 @@ When(
     }
   },
 );
-
 When('I POST ingest logging reembed for the last root', async () => {
   assert(tempDir, 'tempDir missing');
   const res = await fetch(
@@ -161,7 +155,6 @@ When('I POST ingest logging reembed for the last root', async () => {
     throw new Error(`reembed failed ${res.status} ${JSON.stringify(body)}`);
   }
 });
-
 When('I POST ingest logging remove for the last root', async () => {
   assert(tempDir, 'tempDir missing');
   const res = await fetch(
@@ -172,7 +165,6 @@ When('I POST ingest logging remove for the last root', async () => {
   );
   assert.equal(res.status, 200);
 });
-
 When(
   'I delete the file {string} from the logging temp repo',
   async (rel: string) => {
@@ -180,15 +172,25 @@ When(
     await fs.rm(path.join(tempDir, rel), { force: true });
   },
 );
-
 Then(
   'ingest logging status for the last run becomes {string}',
   async (state: string) => {
     assert(lastRunId, 'runId missing');
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < resolveConfiguredPollAttempts(60, 100); i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = await res.json();
-      if (body.state === state) return;
+      if (body.state === state) {
+        if (state === 'completed' || state === 'error') {
+          for (let j = 0; j < resolveConfiguredPollAttempts(60, 100); j += 1) {
+            if (!isBusy()) return;
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          assert.fail(
+            `ingest reached ${state} but busy cleanup did not settle`,
+          );
+        }
+        return;
+      }
       if (body.state === 'error' && state !== 'error') {
         throw new Error(`Run ended in error: ${body.lastError}`);
       }
@@ -197,7 +199,6 @@ Then(
     assert.fail(`did not reach state ${state}`);
   },
 );
-
 async function fetchLogsByText(text: string) {
   const res = await fetch(
     `${baseUrl}/logs?text=${encodeURIComponent(text)}&limit=50`,
@@ -208,12 +209,11 @@ async function fetchLogsByText(text: string) {
     context?: Record<string, unknown>;
   }>;
 }
-
 Then(
   'logs for the last run contain state {string} and level {string}',
   async (state: string, level: string) => {
     assert(lastRunId, 'runId missing');
-    for (let i = 0; i < 20; i += 1) {
+    for (let i = 0; i < resolveConfiguredPollAttempts(20, 100); i += 1) {
       const items = await fetchLogsByText(lastRunId);
       const match = items.find(
         (item) =>
@@ -225,12 +225,11 @@ Then(
     assert.fail(`No log entry with state ${state} and level ${level}`);
   },
 );
-
 Then(
   'logs for the last action contain "remove" entries at level {string}',
   async (level: string) => {
     assert(tempDir, 'tempDir missing');
-    for (let i = 0; i < 20; i += 1) {
+    for (let i = 0; i < resolveConfiguredPollAttempts(20, 100); i += 1) {
       const items = await fetchLogsByText(tempDir);
       const match = items.find(
         (item) =>

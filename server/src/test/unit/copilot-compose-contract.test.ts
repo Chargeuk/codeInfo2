@@ -337,11 +337,23 @@ test('compose wrapper exports the resolved docker socket path for Linux Docker D
   );
   assert.match(
     composeWrapper,
-    /if \[ "\$\{HOST_OS\}" = "Darwin" \] && \[ "\$\{CODEINFO_DOCKER_FORCE_ROOT_ON_DARWIN:-1\}" = "1" \]; then\s+  DOCKER_UID=0\s+  DOCKER_GID=0\s+  CONTAINER_SOCKET_GID=0/u,
+    /RUNTIME_SUPPLEMENTARY_GIDS="\$\{SOCKET_GID\}"/u,
   );
   assert.match(
     composeWrapper,
     /export CODEINFO_DOCKER_SOCK_GID="\$\{CONTAINER_SOCKET_GID\}"/u,
+  );
+  assert.match(
+    composeWrapper,
+    /if \[ "\$\{HOST_OS\}" = "Darwin" \] && \[ "\$\{CODEINFO_DOCKER_FORCE_ROOT_ON_DARWIN:-1\}" = "1" \]; then\s+  DOCKER_UID=0\s+  DOCKER_GID=0\s+  CONTAINER_SOCKET_GID=0/u,
+  );
+  assert.match(
+    composeWrapper,
+    /if \[\[ "\$\{DOCKER_OPERATING_SYSTEM_LC\}" == \*"docker desktop"\* \]\]; then\s+  if \[ "\$\{SOCKET_GID\}" = "0" \]; then\s+    RUNTIME_SUPPLEMENTARY_GIDS="0"\s+  else\s+    RUNTIME_SUPPLEMENTARY_GIDS="\$\{SOCKET_GID\},0"\s+  fi\s+fi/u,
+  );
+  assert.match(
+    composeWrapper,
+    /export CODEINFO_DOCKER_RUNTIME_SUPPLEMENTARY_GIDS="\$\{RUNTIME_SUPPLEMENTARY_GIDS\}"/u,
   );
   assert.match(
     localCompose,

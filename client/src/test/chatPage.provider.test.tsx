@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -223,21 +224,21 @@ describe('Chat provider selection (WS transport)', () => {
       modelsProvider: 'codex',
       models: [
         {
-          key: 'gpt-5.2',
-          displayName: 'gpt-5.2',
+          key: 'gpt-5.6-terra',
+          displayName: 'gpt-5.6-terra',
           type: 'codex',
           endpointId: 'https://alpha.example/base/v1',
         },
         {
-          key: 'gpt-5.2',
-          displayName: 'gpt-5.2',
+          key: 'gpt-5.6-terra',
+          displayName: 'gpt-5.6-terra',
           type: 'codex',
           endpointId: 'https://alpha.example/alt/v1',
         },
       ],
-      defaultModel: 'gpt-5.2',
+      defaultModel: 'gpt-5.6-terra',
       selectedProvider: 'codex',
-      selectedModel: 'gpt-5.2',
+      selectedModel: 'gpt-5.6-terra',
       selectedEndpointId: 'https://alpha.example/base/v1',
     });
 
@@ -257,14 +258,18 @@ describe('Chat provider selection (WS transport)', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.2 \(alpha\.example \/ base\)/i,
+        /gpt-5\.6-terra \(alpha\.example \/ base\)/i,
       ),
     );
 
-    await userEvent.click(screen.getByRole('combobox', { name: /model/i }));
+    const modelSelect = screen.getByRole('combobox', { name: /model/i });
+    await waitFor(() =>
+      expect(modelSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
+    await userEvent.click(modelSelect);
     expect(
       screen.getAllByRole('option', {
-        name: /gpt-5\.2 \(alpha\.example \/ (base|alt)\)/i,
+        name: /gpt-5\.6-terra \(alpha\.example \/ (base|alt)\)/i,
       }),
     ).toHaveLength(2);
   });
@@ -333,18 +338,18 @@ describe('Chat provider selection (WS transport)', () => {
                 provider: 'codex',
                 available: true,
                 toolsAvailable: true,
-                defaultModel: 'gpt-5.3-codex',
+                defaultModel: 'gpt-5.6-luna',
                 providerInfo: {
                   id: 'codex',
                   label: 'OpenAI Codex',
                   available: true,
                   toolsAvailable: true,
-                  defaultModel: 'gpt-5.3-codex',
+                  defaultModel: 'gpt-5.6-luna',
                 },
                 models: [
                   {
-                    key: 'gpt-5.3-codex',
-                    displayName: 'GPT-5.3 Codex',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'GPT-5.6 Luna',
                     type: 'codex',
                   },
                 ],
@@ -419,7 +424,7 @@ describe('Chat provider selection (WS transport)', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.3 codex/i,
+        /gpt-5\.6 luna/i,
       ),
     );
 
@@ -428,7 +433,7 @@ describe('Chat provider selection (WS transport)', () => {
 
     await waitFor(() => expect(sentBodies).toHaveLength(1));
     expect(sentBodies[0]?.provider).toBe('codex');
-    expect(sentBodies[0]?.model).toBe('gpt-5.3-codex');
+    expect(sentBodies[0]?.model).toBe('gpt-5.6-luna');
   });
 
   it('keeps an explicit provider change after bootstrapping from the server-selected default', async () => {
@@ -493,7 +498,7 @@ describe('Chat provider selection (WS transport)', () => {
               provider: 'codex',
               available: true,
               toolsAvailable: true,
-              defaultModel: 'gpt-5.3-codex',
+              defaultModel: 'gpt-5.6-luna',
               codexDefaults: {
                 sandboxMode: 'workspace-write',
                 approvalPolicy: 'on-request',
@@ -507,12 +512,12 @@ describe('Chat provider selection (WS transport)', () => {
                 label: 'OpenAI Codex',
                 available: true,
                 toolsAvailable: true,
-                defaultModel: 'gpt-5.3-codex',
+                defaultModel: 'gpt-5.6-luna',
               },
               models: [
                 {
-                  key: 'gpt-5.3-codex',
-                  displayName: 'GPT-5.3 Codex',
+                  key: 'gpt-5.6-luna',
+                  displayName: 'GPT-5.6 Luna',
                   type: 'codex',
                 },
               ],
@@ -588,7 +593,7 @@ describe('Chat provider selection (WS transport)', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.3 codex/i,
+        /gpt-5\.6 luna/i,
       ),
     );
   });
@@ -1044,6 +1049,7 @@ describe('Chat provider selection (WS transport)', () => {
     });
     expect(providerSelect).toBeInTheDocument();
 
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -1362,8 +1368,8 @@ describe('Chat provider selection (WS transport)', () => {
             codexWarnings: ['Codex warning'],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
                 supportedReasoningEfforts: ['high'],
                 defaultReasoningEffort: 'high',
@@ -1442,7 +1448,7 @@ describe('Chat provider selection (WS transport)', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5.1-codex-max/i,
+        /gpt-5.6-luna/i,
       ),
     );
 
@@ -1454,7 +1460,7 @@ describe('Chat provider selection (WS transport)', () => {
     expect(
       screen.getByRole('combobox', { name: /sandbox mode/i }),
     ).toHaveTextContent(/workspace write/i);
-  }, 10000);
+  });
 
   it('clears hidden Codex draft values immediately when switching to Copilot', async () => {
     const user = userEvent.setup();
@@ -1682,8 +1688,8 @@ describe('Chat provider selection (WS transport)', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
                 supportedReasoningEfforts: ['high'],
                 defaultReasoningEffort: 'high',
@@ -1735,7 +1741,7 @@ describe('Chat provider selection (WS transport)', () => {
     expect(
       screen.getByRole('combobox', { name: /sandbox mode/i }),
     ).toHaveTextContent(/workspace write/i);
-  }, 10000);
+  });
 
   it('keeps Provider/Model selects visible when models are empty', async () => {
     mockFetch.mockImplementation(async (url: RequestInfo | URL) => {
@@ -1920,8 +1926,8 @@ describe('Chat provider selection (WS transport)', () => {
                 toolsAvailable: true,
                 models: [
                   {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
+                    key: 'gpt-5.6-luna',
+                    displayName: 'gpt-5.6-luna',
                     type: 'codex',
                   },
                 ],
@@ -1971,6 +1977,7 @@ describe('Chat provider selection (WS transport)', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,

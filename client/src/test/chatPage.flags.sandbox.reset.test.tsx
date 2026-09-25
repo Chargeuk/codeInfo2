@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -89,13 +90,13 @@ function mockCodexReady() {
           codexWarnings: [],
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
             },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
             },
           ],
@@ -132,6 +133,7 @@ describe('Codex sandbox flag reset behaviour', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -172,12 +174,14 @@ describe('Codex sandbox flag reset behaviour', () => {
       expect(sandboxSelect).toHaveTextContent(/danger full access/i),
     );
 
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const lmOption = await screen.findByRole('option', {
       name: /^LM Studio$/i,
     });
     await userEvent.click(lmOption);
 
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOptionReturn = await screen.findByRole('option', {
       name: /openai codex/i,

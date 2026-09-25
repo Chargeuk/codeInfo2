@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -89,13 +91,13 @@ function mockCodexReady() {
           codexWarnings: [],
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
             },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
             },
           ],
@@ -123,26 +125,33 @@ function mockCodexReady() {
 }
 
 describe('Codex approval policy flag defaults', () => {
-  it('shows approval policy select defaulting to on-request after compatibility normalization', async () => {
-    mockCodexReady();
+  it(
+    'shows approval policy select defaulting to on-request after compatibility normalization',
+    async () => {
+      mockCodexReady();
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await waitForInteractiveCombobox(providerSelect);
+      await userEvent.click(providerSelect);
+      const codexOption = await screen.findByRole('option', {
+        name: /openai codex/i,
+      });
+      await userEvent.click(codexOption);
 
-    await ensureAgentFlagsPanelExpanded();
+      await ensureAgentFlagsPanelExpanded();
 
-    const approvalSelect = await screen.findByTestId('approval-policy-select');
-    await waitFor(() =>
-      expect(approvalSelect).toHaveTextContent(/on request/i),
-    );
-  }, 30_000);
+      const approvalSelect = await screen.findByTestId(
+        'approval-policy-select',
+      );
+      await waitFor(() =>
+        expect(approvalSelect).toHaveTextContent(/on request/i),
+      );
+    },
+    resolveClientTestTimeoutMs(30_000),
+  );
 });

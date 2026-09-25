@@ -77,15 +77,15 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
                 supportedReasoningEfforts: ['medium', 'high'],
                 defaultReasoningEffort: 'medium',
               },
               {
-                key: 'gpt-5.2',
-                displayName: 'gpt-5.2',
+                key: 'gpt-5.6-terra',
+                displayName: 'gpt-5.6-terra',
                 type: 'codex',
                 supportedReasoningEfforts: ['minimal'],
                 defaultReasoningEffort: 'minimal',
@@ -137,6 +137,9 @@ describe('Codex approval policy flag payloads', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitFor(() =>
+      expect(providerSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
 
     await user.click(providerSelect);
     await user.click(
@@ -163,6 +166,9 @@ describe('Codex approval policy flag payloads', () => {
       await user.click(newConversationButton);
     });
 
+    await waitFor(() =>
+      expect(providerSelect).not.toHaveAttribute('aria-disabled', 'true'),
+    );
     await user.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -174,15 +180,16 @@ describe('Codex approval policy flag payloads', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
-    );
+    await waitFor(() => expect(modelSelect).toHaveTextContent('gpt-5.6-luna'));
 
     const approvalSelect = await screen.findByRole('combobox', {
       name: /approval policy/i,
     });
     await waitFor(() =>
       expect(approvalSelect).toHaveTextContent(/on request/i),
+    );
+    await waitFor(() =>
+      expect(approvalSelect).not.toHaveAttribute('aria-disabled', 'true'),
     );
     await user.click(approvalSelect);
     const neverOption = await screen.findByRole('option', { name: /never/i });
@@ -211,5 +218,5 @@ describe('Codex approval policy flag payloads', () => {
     await ensureAgentFlagsPanelExpanded();
     const resetSelect = await screen.findByTestId('approval-policy-select');
     await waitFor(() => expect(resetSelect).toHaveTextContent(/on request/i));
-  }, 10000);
+  });
 });

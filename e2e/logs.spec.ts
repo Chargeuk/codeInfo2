@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const apiBase = process.env.E2E_API_URL ?? 'http://host.docker.internal:6010';
@@ -18,32 +19,30 @@ test('Logs page shows a streamed sample log through the utility shell', async ({
   await page.goto(`${baseUrl}/logs`);
   await expect(page.getByTestId('utility-page-shell')).toBeVisible();
   await page.getByRole('textbox', { name: 'Search text' }).fill('sample log');
-  const postResponsePromise = page.waitForResponse(
-    (response) => {
-      if (
-        response.request().method() !== 'POST' ||
-        !response.url().includes('/logs') ||
-        response.status() !== 202
-      ) {
-        return false;
-      }
+  const postResponsePromise = page.waitForResponse((response) => {
+    if (
+      response.request().method() !== 'POST' ||
+      !response.url().includes('/logs') ||
+      response.status() !== 202
+    ) {
+      return false;
+    }
 
-      const requestBody = response.request().postDataJSON() as
-        | {
-            message?: string;
-            source?: string;
-            context?: { generatedAt?: string };
-          }
-        | Array<unknown>;
+    const requestBody = response.request().postDataJSON() as
+      | {
+          message?: string;
+          source?: string;
+          context?: { generatedAt?: string };
+        }
+      | Array<unknown>;
 
-      return (
-        !Array.isArray(requestBody) &&
-        requestBody.message === 'sample log' &&
-        requestBody.source === 'client' &&
-        typeof requestBody.context?.generatedAt === 'string'
-      );
-    },
-  );
+    return (
+      !Array.isArray(requestBody) &&
+      requestBody.message === 'sample log' &&
+      requestBody.source === 'client' &&
+      typeof requestBody.context?.generatedAt === 'string'
+    );
+  });
   await page.getByRole('button', { name: 'Send sample log' }).click();
   const postResponse = await postResponsePromise;
   const postBody = (await postResponse.json()) as { sequence?: number };
@@ -83,7 +82,7 @@ test('Logs page shows a streamed sample log through the utility shell', async ({
         );
       },
       {
-        timeout: 20_000,
+        timeout: resolveConfiguredE2eTimeoutMs(20_000),
         message: 'waiting for this test run sample log to reach the logs API',
       },
     )
@@ -96,6 +95,6 @@ test('Logs page shows a streamed sample log through the utility shell', async ({
     .filter({ hasText: 'sample log' })
     .filter({ hasText: `"generatedAt":"${generatedAt}"` });
   await expect(sampleLogRow.first()).toBeVisible({
-    timeout: 20_000,
+    timeout: resolveConfiguredE2eTimeoutMs(20_000),
   });
 });

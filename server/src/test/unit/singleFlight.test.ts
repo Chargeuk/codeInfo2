@@ -35,7 +35,6 @@ test('getOrCreateSingleFlight clears cache entry after fulfilled completion', as
   const first = getOrCreateSingleFlight(cache, 'k', () => Promise.resolve('a'));
   assert.equal(cache.has('k'), true);
   await first.promise;
-  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(cache.has('k'), false);
 
   const second = getOrCreateSingleFlight(cache, 'k', () =>
@@ -52,6 +51,5 @@ test('getOrCreateSingleFlight clears cache entry after rejection', async () => {
   );
 
   await assert.rejects(failing.promise, /boom/u);
-  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(cache.has('k'), false);
 });

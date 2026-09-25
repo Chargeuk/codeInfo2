@@ -8,6 +8,11 @@ import type {
 } from '../../ingest/reingestService.js';
 import { runReingestRepository } from '../../ingest/reingestService.js';
 import { createMcpRouter } from '../../mcp/server.js';
+import {
+  closeHttpServer,
+  waitForHttpServerPort,
+} from '../support/httpServer.js';
+import { waitForTestCondition } from '../support/testTimeouts.js';
 
 const terminalCompleted = {
   status: 'completed',
@@ -865,13 +870,19 @@ test('classic and v2 parity payload baseline can be normalized from terminal fie
 });
 
 test('classic MCP disconnect during blocking wait does not crash router', async () => {
+  let requestEntered = false;
+  let releaseRequest!: () => void;
+  const requestGate = new Promise<void>((resolve) => {
+    releaseRequest = resolve;
+  });
   const app = express();
   app.use(express.json());
   app.use(
     '/',
     createMcpRouter({
       runReingestRepository: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        requestEntered = true;
+        await requestGate;
         return { ok: true, value: terminalCompleted } as ReingestResult;
       },
     }),
@@ -879,9 +890,7 @@ test('classic MCP disconnect during blocking wait does not crash router', async 
 
   const server = app.listen(0);
   try {
-    const address = server.address();
-    const port =
-      address && typeof address === 'object' ? Number(address.port) : 0;
+    const port = await waitForHttpServerPort(server);
     const controller = new AbortController();
     const inflight = fetch(`http://127.0.0.1:${port}/mcp`, {
       method: 'POST',
@@ -897,8 +906,15 @@ test('classic MCP disconnect during blocking wait does not crash router', async 
       }),
       signal: controller.signal,
     }).catch(() => null);
-    setTimeout(() => controller.abort(), 10);
-    await inflight;
+    await waitForTestCondition(() => requestEntered, {
+      description: 'classic MCP reingest request to enter its blocking wait',
+    });
+    controller.abort();
+    try {
+      await inflight;
+    } finally {
+      releaseRequest();
+    }
 
     const health = await request(app)
       .post('/mcp')
@@ -906,6 +922,6 @@ test('classic MCP disconnect during blocking wait does not crash router', async 
     assert.equal(health.status, 200);
     assert.equal(Array.isArray(health.body.result.tools), true);
   } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await closeHttpServer(server);
   }
 });

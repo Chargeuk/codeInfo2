@@ -13,24 +13,38 @@ import {
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs } from '../../ws/server.js';
 import {
+  clearBootstrapTestEnvValue,
+  setBootstrapTestEnvValue,
+} from '../support/processEnvIsolation.js';
+import { bindCurrentTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
-
 const ORIGINAL_BASE_URL = process.env.CODEINFO_LMSTUDIO_BASE_URL;
-
-type EmbedCall = { model: string; text?: string };
+const ORIGINAL_HOST_INGEST_DIR = process.env.CODEINFO_HOST_INGEST_DIR;
+type EmbedCall = {
+  model: string;
+  text?: string;
+};
 type VectorTool = {
   name?: string;
   implementation?: (
-    params: { query?: unknown; repository?: unknown; limit?: unknown },
+    params: {
+      query?: unknown;
+      repository?: unknown;
+      limit?: unknown;
+    },
     ctx: ReturnType<typeof toolContext>,
   ) => Promise<unknown>;
 };
-
-function setupLmStudioEmbedMock({ failModel }: { failModel?: boolean } = {}) {
+function setupLmStudioEmbedMock({
+  failModel,
+}: {
+  failModel?: boolean;
+} = {}) {
   const calls: EmbedCall[] = [];
   setLmClientResolver(() => {
     return {
@@ -52,13 +66,14 @@ function setupLmStudioEmbedMock({ failModel }: { failModel?: boolean } = {}) {
   });
   return calls;
 }
-
 function setupChromaMock(
   lockedModelId: string | null,
   metadataOverride?: Record<string, unknown>,
 ) {
   let capturedEmbedding:
-    | { generate?: (texts: string[]) => Promise<number[][]> }
+    | {
+        generate?: (texts: string[]) => Promise<number[][]>;
+      }
     | undefined;
   const vectors = {
     metadata: metadataOverride ?? { lockedModelId },
@@ -84,7 +99,6 @@ function setupChromaMock(
       } as const;
     },
   } as const;
-
   const roots = {
     get: async () => ({
       ids: ['repo-one'],
@@ -102,7 +116,6 @@ function setupChromaMock(
       ],
     }),
   } as const;
-
   const getOrCreate = mock.method(
     ChromaClient.prototype,
     'getOrCreateCollection',
@@ -112,49 +125,49 @@ function setupChromaMock(
       return vectors as never;
     },
   );
-
   const deleteCollection = mock.method(
     ChromaClient.prototype,
     'deleteCollection',
     async () => {},
   );
-
   return { getOrCreate, deleteCollection, capturedEmbedding };
 }
-
 function buildChatApp(clientFactory: () => LMStudioClient) {
   const app = express();
   app.use(express.json());
   app.use(
     '/chat',
-    createChatRouter({
-      clientFactory: () => {
-        const client = clientFactory() as LMStudioClient & {
-          system?: {
-            listDownloadedModels?: () => Promise<unknown[]>;
+    bindCurrentTestEnvOverrides(
+      createChatRouter({
+        clientFactory: bindCurrentTestEnvOverrides(() => {
+          const client = clientFactory() as LMStudioClient & {
+            system?: {
+              listDownloadedModels?: () => Promise<unknown[]>;
+            };
           };
-        };
-        const listDownloadedModels =
-          client.system?.listDownloadedModels ??
-          (async () => [{ modelKey: 'm', displayName: 'm', type: 'llm' }]);
-        return {
-          ...client,
-          system: {
-            ...client.system,
-            listDownloadedModels,
-          },
-        } as LMStudioClient;
-      },
-    }),
+          const listDownloadedModels =
+            client.system?.listDownloadedModels ??
+            (async () => [{ modelKey: 'm', displayName: 'm', type: 'llm' }]);
+          return {
+            ...client,
+            system: {
+              ...client.system,
+              listDownloadedModels,
+            },
+          } as LMStudioClient;
+        }),
+      }),
+    ),
   );
   return app;
 }
-
 async function startChatServer(clientFactory: () => LMStudioClient) {
   const app = buildChatApp(clientFactory);
   const httpServer = http.createServer(app);
   const wsHandle = attachWs({ httpServer });
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  await new Promise<void>((resolve) =>
+    httpServer.listen(0, bindCurrentTestEnvOverrides(resolve)),
+  );
   const address = httpServer.address();
   assert(address && typeof address === 'object');
   return {
@@ -163,7 +176,6 @@ async function startChatServer(clientFactory: () => LMStudioClient) {
     baseUrl: `http://127.0.0.1:${address.port}`,
   };
 }
-
 function toolContext() {
   return {
     status: () => undefined,
@@ -172,29 +184,35 @@ function toolContext() {
     callId: 1,
   } as const;
 }
-
 beforeEach(() => {
   resetCollectionsForTests();
-  process.env.CODEINFO_HOST_INGEST_DIR = '/host/base';
-  process.env.CODEINFO_LMSTUDIO_BASE_URL =
-    ORIGINAL_BASE_URL ?? 'http://host.docker.internal:1234';
+  setBootstrapTestEnvValue('CODEINFO_HOST_INGEST_DIR', '/host/base');
+  setScopedTestEnvValue(
+    'CODEINFO_LMSTUDIO_BASE_URL',
+    ORIGINAL_BASE_URL ?? 'http://host.docker.internal:1234',
+  );
 });
-
 afterEach(() => {
   mock.restoreAll();
   resetCollectionsForTests();
   resetLmClientResolver();
   if (ORIGINAL_BASE_URL === undefined) {
-    delete process.env.CODEINFO_LMSTUDIO_BASE_URL;
+    clearScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL');
   } else {
-    process.env.CODEINFO_LMSTUDIO_BASE_URL = ORIGINAL_BASE_URL;
+    setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', ORIGINAL_BASE_URL);
+  }
+  if (ORIGINAL_HOST_INGEST_DIR === undefined) {
+    clearBootstrapTestEnvValue('CODEINFO_HOST_INGEST_DIR');
+  } else {
+    setBootstrapTestEnvValue(
+      'CODEINFO_HOST_INGEST_DIR',
+      ORIGINAL_HOST_INGEST_DIR,
+    );
   }
 });
-
 test('chat surfaces INGEST_REQUIRED over WS when no locked model exists', async () => {
   setupChromaMock(null);
   const embedCalls = setupLmStudioEmbedMock();
-
   const server = await startChatServer(
     () =>
       ({
@@ -232,14 +250,12 @@ test('chat surfaces INGEST_REQUIRED over WS when no locked model exists', async 
         },
       }) as unknown as LMStudioClient,
   );
-
   const ws = await connectWs({ baseUrl: server.baseUrl });
   try {
-    sendJson(ws, {
-      type: 'subscribe_conversation',
+    await subscribeConversationAndWaitReady({
+      ws: ws,
       conversationId: 'conv-vectorsearch-locked',
     });
-
     const res = await request(server.httpServer)
       .post('/chat')
       .send({
@@ -249,12 +265,10 @@ test('chat surfaces INGEST_REQUIRED over WS when no locked model exists', async 
         message: 'hello',
       })
       .expect(202);
-
     const inflightId = res.body.inflightId as string;
     assert.equal(res.body.status, 'started');
     assert.equal(res.body.conversationId, 'conv-vectorsearch-locked');
     assert.equal(typeof inflightId, 'string');
-
     const final = await waitForEvent({
       ws,
       predicate: (
@@ -264,14 +278,18 @@ test('chat surfaces INGEST_REQUIRED over WS when no locked model exists', async 
         conversationId: string;
         inflightId: string;
         status: string;
-        error?: { message?: string };
+        error?: {
+          message?: string;
+        };
       } => {
         const e = event as {
           type?: string;
           conversationId?: string;
           inflightId?: string;
           status?: string;
-          error?: { message?: string };
+          error?: {
+            message?: string;
+          };
         };
         return (
           e.type === 'turn_final' &&
@@ -281,7 +299,6 @@ test('chat surfaces INGEST_REQUIRED over WS when no locked model exists', async 
       },
       timeoutMs: 4000,
     });
-
     assert.equal(final.status, 'failed');
     assert.match(String(final.error?.message ?? ''), /INGEST_REQUIRED/i);
     assert.equal(embedCalls.length, 0);
@@ -293,11 +310,9 @@ test('chat surfaces INGEST_REQUIRED over WS when no locked model exists', async 
     );
   }
 });
-
 test('chat VectorSearch uses locked embedding model and streams tool-result', async () => {
   const embedCalls = setupLmStudioEmbedMock();
   setupChromaMock('embed-model');
-
   const server = await startChatServer(
     () =>
       ({
@@ -351,14 +366,12 @@ test('chat VectorSearch uses locked embedding model and streams tool-result', as
         },
       }) as unknown as LMStudioClient,
   );
-
   const ws = await connectWs({ baseUrl: server.baseUrl });
   try {
-    sendJson(ws, {
-      type: 'subscribe_conversation',
+    await subscribeConversationAndWaitReady({
+      ws: ws,
       conversationId: 'conv-vectorsearch-locked-2',
     });
-
     const res = await request(server.httpServer)
       .post('/chat')
       .send({
@@ -368,10 +381,8 @@ test('chat VectorSearch uses locked embedding model and streams tool-result', as
         message: 'hello',
       })
       .expect(202);
-
     const inflightId = res.body.inflightId as string;
     assert.equal(res.body.status, 'started');
-
     const toolResult = await waitForEvent({
       ws,
       predicate: (
@@ -380,13 +391,18 @@ test('chat VectorSearch uses locked embedding model and streams tool-result', as
         type: string;
         conversationId: string;
         inflightId: string;
-        event: { type: string; result?: unknown };
+        event: {
+          type: string;
+          result?: unknown;
+        };
       } => {
         const e = event as {
           type?: string;
           conversationId?: string;
           inflightId?: string;
-          event?: { type?: string };
+          event?: {
+            type?: string;
+          };
         };
         return (
           e.type === 'tool_event' &&
@@ -397,21 +413,19 @@ test('chat VectorSearch uses locked embedding model and streams tool-result', as
       },
       timeoutMs: 4000,
     });
-
     const payload = toolResult.event.result as {
       modelId?: string;
-      results?: Array<{ hostPath?: string }>;
+      results?: Array<{
+        hostPath?: string;
+      }>;
     };
-
     assert.equal(payload.modelId, 'embed-model');
     assert.equal(
       payload.results?.[0]?.hostPath,
       '/host/base/repo-one/docs/readme.md',
     );
-
     const modelCalls = embedCalls.filter((c) => c.text === undefined);
     assert.ok(modelCalls.some((c) => c.model === 'embed-model'));
-
     await waitForEvent({
       ws,
       predicate: (
@@ -442,7 +456,6 @@ test('chat VectorSearch uses locked embedding model and streams tool-result', as
     );
   }
 });
-
 test('chat VectorSearch prefers canonical lock metadata over legacy alias when both exist', async () => {
   setupChromaMock('legacy-model', {
     embeddingProvider: 'lmstudio',
@@ -451,7 +464,6 @@ test('chat VectorSearch prefers canonical lock metadata over legacy alias when b
     lockedModelId: 'legacy-model',
   });
   const embedCalls = setupLmStudioEmbedMock();
-
   const server = await startChatServer(
     () =>
       ({
@@ -489,14 +501,12 @@ test('chat VectorSearch prefers canonical lock metadata over legacy alias when b
         },
       }) as unknown as LMStudioClient,
   );
-
   const ws = await connectWs({ baseUrl: server.baseUrl });
   try {
-    sendJson(ws, {
-      type: 'subscribe_conversation',
+    await subscribeConversationAndWaitReady({
+      ws: ws,
       conversationId: 'conv-vectorsearch-canonical-preferred',
     });
-
     await request(server.httpServer)
       .post('/chat')
       .send({
@@ -506,7 +516,6 @@ test('chat VectorSearch prefers canonical lock metadata over legacy alias when b
         message: 'hello',
       })
       .expect(202);
-
     const modelCalls = embedCalls.filter((c) => c.text === undefined);
     assert.ok(modelCalls.some((c) => c.model === 'canonical-model'));
     assert.equal(

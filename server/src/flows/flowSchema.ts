@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { z } from 'zod';
 
 import { append } from '../logStore.js';
@@ -15,6 +16,15 @@ const trimmedNonEmptyString = z
   .string()
   .transform((value) => value.trim())
   .refine((value) => value.length > 0);
+
+export const isFlowDecisionScriptPath = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed.endsWith('.py') || path.isAbsolute(trimmed)) {
+    return false;
+  }
+  const normalized = path.normalize(trimmed);
+  return normalized !== '..' && !normalized.startsWith(`..${path.sep}`);
+};
 
 export type FlowMessage = {
   role: 'user';
@@ -40,8 +50,8 @@ export type FlowLlmStep = {
 export type FlowBreakStep = {
   type: 'break';
   label?: string;
-  agentType: string;
-  identifier: string;
+  agentType?: string;
+  identifier?: string;
   question: string;
   breakOn: 'yes' | 'no';
   continueOnFailure?: boolean;
@@ -55,8 +65,8 @@ export type FlowBreakStep = {
 export type FlowContinueStep = {
   type: 'continue';
   label?: string;
-  agentType: string;
-  identifier: string;
+  agentType?: string;
+  identifier?: string;
   question: string;
   continueOn: 'yes' | 'no';
 };
@@ -67,12 +77,6 @@ export type FlowCommandStep = {
   agentType: string;
   identifier: string;
   commandName: string;
-};
-
-export type FlowWaitStep = {
-  type: 'wait';
-  label?: string;
-  seconds: number;
 };
 
 export type FlowResetStep = {
@@ -96,6 +100,22 @@ export type FlowPrepareReviewTargetsStep = {
   outputKey: string;
 };
 
+export type FlowPrepareCopilotReviewGroupsStep = {
+  type: 'prepareCopilotReviewGroups';
+  label?: string;
+  groupsFrom: string;
+  targetsFrom: string;
+  reviewWaveFrom: string;
+  enabledFrom?: string;
+  outputKey: string;
+};
+
+export type FlowRunCopilotReviewStep = {
+  type: 'runCopilotReview';
+  label?: string;
+  markdownFile: string;
+};
+
 export type FlowSubflowStep = {
   type: 'subflow';
   label?: string;
@@ -111,6 +131,7 @@ export type FlowSubflowWaveBindings = {
 export type FlowSubflowWaveMatrixGroup = {
   kind: 'matrix';
   id: string;
+  displayName?: string;
   itemsFrom: string;
   itemName: string;
   flowNames: string[];
@@ -140,19 +161,58 @@ export type FlowReingestStep = {
   label?: string;
 } & ({ sourceId: string } | { target: 'working' | 'plan_scope' });
 
+export type FlowIfStep = {
+  type: 'if';
+  label?: string;
+  agentType?: string;
+  identifier?: string;
+  githubReviewRecovery?: boolean;
+  condition: string;
+  decisionScript?: string;
+  then: FlowStep[];
+  else?: FlowStep[];
+};
+
+export type FlowWaitStep = {
+  type: 'wait';
+  label?: string;
+  seconds: number;
+};
+
+export type FlowGitHubOpenPrStep = {
+  type: 'github_open_pr';
+  label?: string;
+};
+
+export type FlowGitHubFetchReviewsStep = {
+  type: 'github_fetch_reviews';
+  label?: string;
+};
+
+export type FlowGitHubClosePrStep = {
+  type: 'github_close_pr';
+  label?: string;
+};
+
 export type FlowStep =
   | FlowStartLoopStep
   | FlowLlmStep
   | FlowBreakStep
   | FlowContinueStep
   | FlowCommandStep
-  | FlowWaitStep
   | FlowResetStep
   | FlowInitializeReviewCycleStep
   | FlowPrepareReviewTargetsStep
+  | FlowPrepareCopilotReviewGroupsStep
+  | FlowRunCopilotReviewStep
   | FlowSubflowStep
   | FlowSubflowWaveStep
-  | FlowReingestStep;
+  | FlowReingestStep
+  | FlowIfStep
+  | FlowWaitStep
+  | FlowGitHubOpenPrStep
+  | FlowGitHubFetchReviewsStep
+  | FlowGitHubClosePrStep;
 
 export type FlowFile = {
   description?: string;
@@ -194,8 +254,8 @@ const FlowBreakStepSchema = z
   .object({
     type: z.literal('break'),
     label: trimmedNonEmptyString.optional(),
-    agentType: trimmedNonEmptyString,
-    identifier: trimmedNonEmptyString,
+    agentType: trimmedNonEmptyString.optional(),
+    identifier: trimmedNonEmptyString.optional(),
     question: trimmedNonEmptyString,
     breakOn: z.union([z.literal('yes'), z.literal('no')]),
     continueOnFailure: z.boolean().optional(),
@@ -207,6 +267,43 @@ const FlowBreakStepSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    const hasAgentType = typeof value.agentType === 'string';
+    const hasIdentifier = typeof value.identifier === 'string';
+    if (hasAgentType !== hasIdentifier) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'break steps must provide both agentType and identifier together.',
+      });
+    }
+    const scriptBacked =
+      typeof value.decisionScript === 'string' ||
+      isFlowDecisionScriptPath(value.question);
+    if (!scriptBacked && !hasAgentType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'break steps that use the AI decision path must provide agentType and identifier.',
+      });
+    }
+    if (
+      value.decisionScript &&
+      !isFlowDecisionScriptPath(value.decisionScript)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['decisionScript'],
+        message: 'break decisionScript must be a relative Python script path.',
+      });
+    }
+    if (value.decisionScript && isFlowDecisionScriptPath(value.question)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['decisionScript'],
+        message:
+          'break steps cannot provide script paths in both question and decisionScript.',
+      });
+    }
     if (value.haltFlow && value.exitFlow) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -220,12 +317,30 @@ const FlowContinueStepSchema = z
   .object({
     type: z.literal('continue'),
     label: trimmedNonEmptyString.optional(),
-    agentType: trimmedNonEmptyString,
-    identifier: trimmedNonEmptyString,
+    agentType: trimmedNonEmptyString.optional(),
+    identifier: trimmedNonEmptyString.optional(),
     question: trimmedNonEmptyString,
     continueOn: z.union([z.literal('yes'), z.literal('no')]),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const hasAgentType = typeof value.agentType === 'string';
+    const hasIdentifier = typeof value.identifier === 'string';
+    if (hasAgentType !== hasIdentifier) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'continue steps must provide both agentType and identifier together.',
+      });
+    }
+    if (!isFlowDecisionScriptPath(value.question) && !hasAgentType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'continue steps that use the AI decision path must provide agentType and identifier.',
+      });
+    }
+  });
 
 const FlowCommandStepSchema = z
   .object({
@@ -234,18 +349,6 @@ const FlowCommandStepSchema = z
     agentType: trimmedNonEmptyString,
     identifier: trimmedNonEmptyString,
     commandName: trimmedNonEmptyString,
-  })
-  .strict();
-
-const FlowWaitStepSchema = z
-  .object({
-    type: z.literal('wait'),
-    label: trimmedNonEmptyString.optional(),
-    seconds: z
-      .number()
-      .int()
-      .positive()
-      .max(24 * 60 * 60),
   })
   .strict();
 
@@ -307,6 +410,26 @@ const flowWaveBindingPath = z
   .trim()
   .regex(/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/u);
 
+const FlowPrepareCopilotReviewGroupsStepSchema = z
+  .object({
+    type: z.literal('prepareCopilotReviewGroups'),
+    label: trimmedNonEmptyString.optional(),
+    groupsFrom: flowWaveBindingPath,
+    targetsFrom: flowWaveBindingPath,
+    reviewWaveFrom: flowWaveBindingPath,
+    enabledFrom: flowWaveBindingPath.optional(),
+    outputKey: flowWaveIdentifier,
+  })
+  .strict();
+
+const FlowRunCopilotReviewStepSchema = z
+  .object({
+    type: z.literal('runCopilotReview'),
+    label: trimmedNonEmptyString.optional(),
+    markdownFile: trimmedNonEmptyString,
+  })
+  .strict();
+
 const FlowJsonValueSchema: z.ZodType<FlowJsonValue> = z.lazy(() =>
   z.union([
     z.string(),
@@ -330,6 +453,7 @@ const FlowSubflowWaveMatrixGroupSchema = z
   .object({
     kind: z.literal('matrix'),
     id: flowWaveIdentifier,
+    displayName: trimmedNonEmptyString.optional(),
     itemsFrom: flowWaveBindingPath,
     itemName: flowWaveIdentifier,
     flowNames: z.array(trimmedNonEmptyString).min(1),
@@ -429,6 +553,92 @@ const FlowReingestPlanScopeTargetStepSchema = z
   })
   .strict();
 
+const FlowIfStepSchema = z
+  .object({
+    type: z.literal('if'),
+    label: trimmedNonEmptyString.optional(),
+    agentType: trimmedNonEmptyString.optional(),
+    identifier: trimmedNonEmptyString.optional(),
+    githubReviewRecovery: z.boolean().optional(),
+    condition: trimmedNonEmptyString,
+    decisionScript: trimmedNonEmptyString.optional(),
+    then: z.array(z.lazy(() => FlowStepSchema)).min(1),
+    else: z
+      .array(z.lazy(() => FlowStepSchema))
+      .min(1)
+      .optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const hasAgentType = typeof value.agentType === 'string';
+    const hasIdentifier = typeof value.identifier === 'string';
+    if (hasAgentType !== hasIdentifier) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'if steps must provide both agentType and identifier together.',
+      });
+    }
+    const scriptBacked =
+      typeof value.decisionScript === 'string' ||
+      isFlowDecisionScriptPath(value.condition);
+    if (!scriptBacked && !hasAgentType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'if steps that use the AI decision path must provide agentType and identifier.',
+      });
+    }
+    if (
+      value.decisionScript &&
+      !isFlowDecisionScriptPath(value.decisionScript)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['decisionScript'],
+        message: 'if decisionScript must be a relative Python script path.',
+      });
+    }
+    if (value.decisionScript && isFlowDecisionScriptPath(value.condition)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['decisionScript'],
+        message:
+          'if steps cannot provide script paths in both condition and decisionScript.',
+      });
+    }
+  });
+
+export const MAX_FLOW_WAIT_SECONDS = 2_147_483;
+const FlowWaitStepSchema = z
+  .object({
+    type: z.literal('wait'),
+    label: trimmedNonEmptyString.optional(),
+    seconds: z.number().int().positive().max(MAX_FLOW_WAIT_SECONDS),
+  })
+  .strict();
+
+const FlowGitHubOpenPrStepSchema = z
+  .object({
+    type: z.literal('github_open_pr'),
+    label: trimmedNonEmptyString.optional(),
+  })
+  .strict();
+
+const FlowGitHubFetchReviewsStepSchema = z
+  .object({
+    type: z.literal('github_fetch_reviews'),
+    label: trimmedNonEmptyString.optional(),
+  })
+  .strict();
+
+const FlowGitHubClosePrStepSchema = z
+  .object({
+    type: z.literal('github_close_pr'),
+    label: trimmedNonEmptyString.optional(),
+  })
+  .strict();
+
 function flowStepUnionSchema() {
   return z.union([
     FlowStartLoopStepSchema,
@@ -436,15 +646,21 @@ function flowStepUnionSchema() {
     FlowBreakStepSchema,
     FlowContinueStepSchema,
     FlowCommandStepSchema,
-    FlowWaitStepSchema,
     FlowResetStepSchema,
     FlowInitializeReviewCycleStepSchema,
     FlowPrepareReviewTargetsStepSchema,
+    FlowPrepareCopilotReviewGroupsStepSchema,
+    FlowRunCopilotReviewStepSchema,
     FlowSubflowStepSchema,
     FlowSubflowWaveStepSchema,
     FlowReingestSourceIdStepSchema,
     FlowReingestWorkingTargetStepSchema,
     FlowReingestPlanScopeTargetStepSchema,
+    FlowIfStepSchema,
+    FlowWaitStepSchema,
+    FlowGitHubOpenPrStepSchema,
+    FlowGitHubFetchReviewsStepSchema,
+    FlowGitHubClosePrStepSchema,
   ]);
 }
 
@@ -534,6 +750,13 @@ const FlowFileSchema = z
         const stepPath = [...pathPrefix, index];
         if (step.type === 'startLoop') {
           validateSteps(step.steps, [...stepPath, 'steps']);
+          return;
+        }
+        if (step.type === 'if') {
+          validateSteps(step.then, [...stepPath, 'then']);
+          if (step.else) {
+            validateSteps(step.else, [...stepPath, 'else']);
+          }
           return;
         }
         if (step.type !== 'llm') return;

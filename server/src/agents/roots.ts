@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { getScopedProcessEnv } from '../test/support/testEnvOverrideScope.js';
 
 export const CODEINFO_AGENT_ROOT_DIRNAME = 'codeinfo_agents';
 export const LEGACY_CODEX_AGENT_ROOT_DIRNAME = 'codex_agents';
@@ -122,7 +123,9 @@ const getConfiguredAgentRoots = (resolution: AgentHomeEnvResolution) => ({
 export const resolveAgentHomeEnv = (
   env: Record<string, string | undefined> = process.env,
 ): AgentHomeEnvResolution => {
-  const configuredPreferred = normalizeOptionalEnvPath(env.CODEINFO_AGENT_HOME);
+  const configuredPreferred = normalizeOptionalEnvPath(
+    env.CODEINFO_AGENT_HOME,
+  );
   const configuredLegacy = normalizeOptionalEnvPath(
     env.CODEINFO_CODEX_AGENT_HOME,
   );
@@ -231,7 +234,7 @@ export const resolveAgentHomeForRepository = async (params: {
 export const listConfiguredAgentHomes = async (
   env: Record<string, string | undefined> = process.env,
 ) => {
-  const resolution = resolveAgentHomeEnv(env);
+  const resolution = resolveAgentHomeEnv(getScopedProcessEnv(env));
   const roots = getConfiguredAgentRoots(resolution);
   const [preferredNames, legacyNames] = await Promise.all([
     listDirectoryEntries(roots.preferredAgentsRoot),

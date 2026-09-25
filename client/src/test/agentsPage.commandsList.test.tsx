@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -41,10 +42,20 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
 }
 
 async function openCommandSelector(user: ReturnType<typeof userEvent.setup>) {
-  const commandSelect = await screen.findByRole('combobox', {
+  await screen.findByRole('combobox', {
     name: /command/i,
   });
-  await waitFor(() => expect(commandSelect).toBeEnabled());
+  await waitFor(
+    () => {
+      const commandSelect = screen.getByTestId('agent-command-trigger');
+      expect(commandSelect).toBeEnabled();
+      expect(window.getComputedStyle(commandSelect).pointerEvents).not.toBe(
+        'none',
+      );
+    },
+    { timeout: resolveClientTestTimeoutMs(5000) },
+  );
+  const commandSelect = screen.getByTestId('agent-command-trigger');
   await user.click(commandSelect);
   return commandSelect;
 }
@@ -519,7 +530,7 @@ describe('Agents page - commands list', () => {
             agentName: 'a1',
             commandName: 'improve_plan',
             conversationId: 'c1',
-            modelId: 'gpt-5.3-codex',
+            modelId: 'gpt-5.6-luna',
           },
           { status: 202 },
         );
@@ -822,7 +833,7 @@ describe('Agents page - commands list', () => {
               agentName: 'a1',
               commandName: 'bad',
               conversationId: 'c1',
-              modelId: 'gpt-5.3-codex',
+              modelId: 'gpt-5.6-luna',
             },
             { status: 202 },
           );

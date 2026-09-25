@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
+import { getInflight } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
@@ -27,24 +28,76 @@ import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js';
+import { enterTestEnvOverrides } from '../support/testEnvOverrideScope.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-beforeEach(() => {
+async function waitForCondition(
+  predicate: () => boolean,
+  timeoutMs = 2000,
+  describe?: () => string,
+): Promise<void> {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
+  const deadline = Date.now() + resolvedTimeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) {
+      return;
+    }
+    await delay(20);
+  }
+  throw new Error(
+    describe
+      ? `Timed out waiting for test condition after ${resolvedTimeoutMs}ms | ${describe()}`
+      : `Timed out waiting for test condition after ${resolvedTimeoutMs}ms`,
+  );
+}
+
+const describeConversationState = (conversationId: string): string =>
+  JSON.stringify({
+    flags: memoryConversations.get(conversationId)?.flags ?? null,
+    recentTurns: (memoryTurns.get(conversationId) ?? [])
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+        command: turn.command,
+        runtime: turn.runtime,
+      })),
+  });
+
+let providerHomes: Awaited<
+  ReturnType<typeof createIsolatedProviderHomeEnv>
+> | null = null;
+
+beforeEach(async () => {
+  providerHomes = await createIsolatedProviderHomeEnv(
+    'flow-turn-metadata-provider-homes-',
+  );
   installDeterministicCodexAvailabilityBootstrap();
+  enterTestEnvOverrides(providerHomes.envOverrides);
 });
 
-afterEach(() => {
+afterEach(async () => {
   resetDeterministicCodexAvailabilityBootstrap();
+  await providerHomes?.cleanup();
+  providerHomes = null;
 });
 
 class SlowChat extends ChatInterface {
+  constructor(private readonly releaseGate?: Promise<void>) {
+    super();
+  }
+
   async execute(
     _message: string,
     _flags: Record<string, unknown>,
@@ -55,7 +108,7 @@ class SlowChat extends ChatInterface {
     void _model;
     this.emit('thread', { type: 'thread', threadId: conversationId });
     this.emit('token', { type: 'token', content: 'Hi' });
-    await delay(1500);
+    await this.releaseGate;
     this.emit('final', { type: 'final', content: 'Hello flow' });
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
@@ -103,13 +156,12 @@ const buildRepoEntry = (params: {
   lastError: null,
 });
 
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
+
 test('flow turns include command metadata in snapshots and history', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-meta-'));
 
   const flow = {
@@ -128,17 +180,29 @@ test('flow turns include command metadata in snapshots and history', async () =>
     JSON.stringify(flow, null, 2),
   );
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
+
+  const continueInFlowScope = bindCurrentTestOverrides(
+    (_req: unknown, _res: unknown, next: () => void) => next(),
+  );
+  let releaseSlowChat!: () => void;
+  const slowChatGate = new Promise<void>((resolve) => {
+    releaseSlowChat = resolve;
+  });
 
   const app = express();
+  app.use((req, res, next) => continueInFlowScope(req, res, next));
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
-          chatFactory: () => new SlowChat(),
+          chatFactory: () => new SlowChat(slowChatGate),
         }),
+      ),
     }),
   );
   app.use(
@@ -173,69 +237,67 @@ test('flow turns include command metadata in snapshots and history', async () =>
     label: 'llm',
   };
 
-  const wsPrimary = await connectWs({ baseUrl });
+  const wsSnapshot = await connectWs({ baseUrl });
 
   try {
-    sendJson(wsPrimary, { type: 'subscribe_conversation', conversationId });
-
-    const userTurnPromise = waitForEvent({
-      ws: wsPrimary,
-      predicate: (
-        event: unknown,
-      ): event is {
-        type: 'user_turn';
-        conversationId: string;
-      } => {
-        const e = event as { type?: string; conversationId?: string };
-        return e.type === 'user_turn' && e.conversationId === conversationId;
-      },
-      timeoutMs: 8000,
-    });
-
-    const finalPromise = waitForEvent({
-      ws: wsPrimary,
-      predicate: (
-        event: unknown,
-      ): event is { type: 'turn_final'; conversationId: string } => {
-        const e = event as { type?: string; conversationId?: string };
-        return e.type === 'turn_final' && e.conversationId === conversationId;
-      },
-      timeoutMs: 8000,
-    });
-
+    await subscribeConversationAndWaitReady({ ws: wsSnapshot, conversationId });
     await supertest(baseUrl)
       .post('/flows/flow-metadata/run')
       .send({ conversationId })
       .expect(202);
 
-    await userTurnPromise;
+    await waitForCondition(
+      () => typeof getInflight(conversationId)?.inflightId === 'string',
+      20000,
+      () =>
+        JSON.stringify({
+          conversation: JSON.parse(describeConversationState(conversationId)),
+          expectedCommand,
+          inflight: getInflight(conversationId) ?? null,
+        }),
+    );
 
-    const wsSnapshot = await connectWs({ baseUrl });
-    try {
-      sendJson(wsSnapshot, { type: 'subscribe_conversation', conversationId });
-      const snapshot = await waitForEvent({
-        ws: wsSnapshot,
-        predicate: (
-          event: unknown,
-        ): event is {
-          type: 'inflight_snapshot';
-          inflight: { command?: Record<string, unknown> };
-        } => {
-          const e = event as {
-            type?: string;
-            inflight?: { command?: unknown };
-          };
-          return e.type === 'inflight_snapshot' && Boolean(e.inflight?.command);
-        },
-        timeoutMs: 8000,
-      });
+    await subscribeConversationAndWaitReady({ ws: wsSnapshot, conversationId });
 
-      assert.deepEqual(snapshot.inflight.command, expectedCommand);
-    } finally {
-      await closeWs(wsSnapshot);
-    }
+    const snapshot = await waitForEvent({
+      ws: wsSnapshot,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'inflight_snapshot';
+        inflight: { command?: Record<string, unknown> };
+      } => {
+        const e = event as {
+          type?: string;
+          inflight?: { command?: unknown };
+        };
+        return e.type === 'inflight_snapshot' && Boolean(e.inflight?.command);
+      },
+      timeoutMs: 20000,
+      describe: () =>
+        JSON.stringify({
+          conversation: JSON.parse(describeConversationState(conversationId)),
+          expectedCommand,
+          inflight: getInflight(conversationId) ?? null,
+        }),
+    });
 
-    await finalPromise;
+    assert.deepEqual(snapshot.inflight.command, expectedCommand);
+    releaseSlowChat();
+
+    await waitForCondition(
+      () => {
+        const items = listTurnsFromMemory(conversationId);
+        return items.length >= 2;
+      },
+      20000,
+      () =>
+        JSON.stringify({
+          conversation: JSON.parse(describeConversationState(conversationId)),
+          expectedCommand,
+          inflight: getInflight(conversationId) ?? null,
+        }),
+    );
 
     const turnsRes = await supertest(baseUrl)
       .get(`/conversations/${conversationId}/turns`)
@@ -246,28 +308,17 @@ test('flow turns include command metadata in snapshots and history', async () =>
     assert.deepEqual(items[0].command, expectedCommand);
     assert.deepEqual(items[1].command, expectedCommand);
   } finally {
+    releaseSlowChat();
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
-    await closeWs(wsPrimary);
+    await closeWs(wsSnapshot);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('top-level flow markdown persists runtime lookupSummary metadata', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-markdown-meta-'),
   );
@@ -297,13 +348,20 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
     'utf8',
   );
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  enterTestEnvOverrides({
+    CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+    FLOWS_DIR: tmpDir,
+  });
+
+  const continueInFlowScope = bindCurrentTestOverrides(
+    (_req: unknown, _res: unknown, next: () => void) => next(),
+  );
 
   const app = express();
+  app.use((req, res, next) => continueInFlowScope(req, res, next));
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new SlowChat(),
@@ -317,6 +375,7 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
             lockedModelId: null,
           }),
         }),
+      ),
     }),
   );
   app.use(
@@ -340,8 +399,6 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
   assert(address && typeof address === 'object');
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const conversationId = 'flow-markdown-metadata-conv-1';
-  const wsPrimary = await connectWs({ baseUrl });
-
   try {
     __setMarkdownFileResolverDepsForTests({
       listIngestedRepositories: async () =>
@@ -355,24 +412,28 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
         }) as never,
     });
 
-    sendJson(wsPrimary, { type: 'subscribe_conversation', conversationId });
-    const finalPromise = waitForEvent({
-      ws: wsPrimary,
-      predicate: (
-        event: unknown,
-      ): event is { type: 'turn_final'; conversationId: string } => {
-        const e = event as { type?: string; conversationId?: string };
-        return e.type === 'turn_final' && e.conversationId === conversationId;
-      },
-      timeoutMs: 8000,
-    });
-
     await supertest(baseUrl)
       .post('/flows/flow-markdown-metadata/run')
       .send({ conversationId, working_folder: workingRepo })
       .expect(202);
 
-    await finalPromise;
+    await waitForCondition(
+      () => {
+        const items = memoryTurns.get(conversationId) ?? [];
+        return items.length >= 2;
+      },
+      20000,
+      () =>
+        JSON.stringify({
+          conversation: JSON.parse(describeConversationState(conversationId)),
+          workingRepo,
+          markdownPath: path.join(
+            workingRepo,
+            'codeinfo_markdown',
+            'top-level.md',
+          ),
+        }),
+    );
 
     const turnsRes = await supertest(baseUrl)
       .get(`/conversations/${conversationId}/turns`)
@@ -397,15 +458,8 @@ test('top-level flow markdown persists runtime lookupSummary metadata', async ()
     __resetMarkdownFileResolverDepsForTests();
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
-    await closeWs(wsPrimary);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });

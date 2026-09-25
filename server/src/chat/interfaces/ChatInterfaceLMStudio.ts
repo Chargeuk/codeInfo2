@@ -13,6 +13,7 @@ import type {
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { toWebSocketUrl } from '../../routes/lmstudioUrl.js';
+import { getScopedEnvValue } from '../../test/support/testEnvOverrideScope.js';
 import type { RepositoryExecutionContextMetadata } from '../../workingFolders/executionContext.js';
 import { shouldUseMemoryPersistence } from '../memoryPersistence.js';
 import {
@@ -178,7 +179,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
       : undefined;
-    const safeBase = baseUrl ?? process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
+    const safeBase = baseUrl ?? getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '';
     const wsBase = toWebSocketUrl(safeBase);
 
     const storedTurns =

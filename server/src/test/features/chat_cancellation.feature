@@ -9,7 +9,7 @@ Feature: Chat cancellation
     Then the chat prediction is not cancelled server side
 
   Scenario: cancel_inflight with inflightId stops an active run
-    Given chat cancellation scenario "chat-stream"
+    Given chat cancellation scenario "chat-cancel-gated"
     When I start a chat run and stay subscribed to the conversation stream
     And the active chat run starts streaming
     When I send cancel_inflight for the active run
@@ -24,7 +24,7 @@ Feature: Chat cancellation
     And the websocket session remains open
 
   Scenario: conversation-only cancel_inflight stops an active run
-    Given chat cancellation scenario "chat-stream"
+    Given chat cancellation scenario "chat-cancel-gated"
     When I start a chat run and stay subscribed to the conversation stream
     And the active chat run starts streaming
     And I send conversation-only cancel_inflight for the active run

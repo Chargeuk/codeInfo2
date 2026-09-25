@@ -31,7 +31,11 @@ import {
   initializeFlowDefinitionCatalogs,
 } from './flows/flowDefinitionCatalog.js';
 import './flows/flowSchema.js';
-import { reconcileInterruptedFlowRunsForStartup } from './flows/service.js';
+import {
+  reconcileInterruptedFlowRunsForStartup,
+  resumeInterruptedParentsWithPersistedChildWaitsForStartup,
+  resumePendingFlowWaitsForStartup,
+} from './flows/service.js';
 import './ingest/index.js';
 import { setIngestDeps } from './ingest/ingestJob.js';
 import './mongo/astCoverage.js';
@@ -86,6 +90,7 @@ import {
   recoverIngestQueueForStartup,
   recordIngestQueueStartupMongoUnavailable,
 } from './startup/ingestQueueStartup.js';
+import { getScopedEnvValue } from './test/support/testEnvOverrideScope.js';
 import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
 import { attachWs, type WsServerHandle } from './ws/server.js';
 
@@ -279,7 +284,9 @@ const parseSourceBindMountCount = (value: string | undefined): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const runtimeComposeFile = process.env.CODEINFO_RUNTIME_COMPOSE_FILE?.trim();
+const runtimeComposeFile = getScopedEnvValue(
+  'CODEINFO_RUNTIME_COMPOSE_FILE',
+)?.trim();
 if (runtimeComposeFile) {
   const hostNetworkRuntimeReadyContext = {
     composeFile: runtimeComposeFile,
@@ -428,8 +435,8 @@ const start = async () => {
     process.exit(1);
   }
   const bootstrapSnapshots = await ensureAllProviderChatConfigsBootstrapped({
-    codexHome: process.env.CODEINFO_CODEX_HOME,
-    copilotHome: process.env.CODEINFO_COPILOT_HOME,
+    codexHome: getScopedEnvValue('CODEINFO_CODEX_HOME'),
+    copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
     lmstudioHome: resolveLmStudioChatDefaultsHome(),
   });
   await initializeConfiguredFlowDefinitionCatalog();
@@ -448,7 +455,9 @@ const start = async () => {
 
   setIngestDeps({
     lmClientFactory: clientFactory,
-    baseUrl: toWebSocketUrl(process.env.CODEINFO_LMSTUDIO_BASE_URL ?? ''),
+    baseUrl: toWebSocketUrl(
+      getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '',
+    ),
   });
   if (isMongoConnected()) {
     await recoverIngestQueueForStartup();
@@ -456,9 +465,6 @@ const start = async () => {
     await initializeFlowDefinitionCatalogs(
       repos.map((repo) => path.join(repo.containerPath, 'flows')),
     );
-  }
-
-  if (isMongoConnected()) {
     try {
       const reconciledFlowRuns = await reconcileInterruptedFlowRunsForStartup();
       baseLogger.info(
@@ -470,6 +476,38 @@ const start = async () => {
         { error },
         'flows startup reconciliation skipped after recoverable error',
       );
+    }
+    try {
+      const resumedFlowParents =
+        await resumeInterruptedParentsWithPersistedChildWaitsForStartup();
+      baseLogger.info(
+        { resumedFlowParents },
+        'flows startup parent reattachment complete',
+      );
+    } catch (error) {
+      baseLogger.warn(
+        { error },
+        'flows startup parent reattachment skipped after recoverable error',
+      );
+    }
+    const flowWaitRecovery = await resumePendingFlowWaitsForStartup();
+    if (flowWaitRecovery.degraded) {
+      baseLogger.warn(
+        {
+          event: flowWaitRecovery.diagnosticEvent,
+          causeMessage: flowWaitRecovery.causeMessage,
+        },
+        flowWaitRecovery.diagnosticEvent,
+      );
+      append({
+        level: 'warn',
+        message: flowWaitRecovery.diagnosticEvent,
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          causeMessage: flowWaitRecovery.causeMessage,
+        },
+      });
     }
   }
 

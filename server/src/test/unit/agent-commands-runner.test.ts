@@ -3,7 +3,6 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, test } from 'node:test';
-
 import {
   __resetAgentCommandRunnerDepsForTests,
   __setAgentCommandRunnerDepsForTests,
@@ -27,15 +26,12 @@ import type { ReingestError } from '../../ingest/reingestService.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
 import { createPlanScopeFixture } from '../support/planScopeFixture.js';
-
 type Deferred<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
   reject: (error: unknown) => void;
 };
-
 let markdownHarnessPreviousPreferredAgentsHome: string | undefined;
-
 class MinimalChat extends ChatInterface {
   async execute(
     _message: string,
@@ -49,7 +45,6 @@ class MinimalChat extends ChatInterface {
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
-
 function deferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
@@ -59,7 +54,6 @@ function deferred<T>(): Deferred<T> {
   });
   return { promise, resolve, reject };
 }
-
 const buildRepoEntry = (params: {
   id: string;
   containerPath: string;
@@ -76,12 +70,10 @@ const buildRepoEntry = (params: {
   counts: { files: 0, chunks: 0, embedded: 0 },
   lastError: null,
 });
-
 const listDefaultReingestRepos = async () => ({
   repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/repo/source-a' })],
   lockedModelId: null,
 });
-
 const buildReingestSuccess = (
   overrides: Partial<{
     status: 'completed' | 'cancelled' | 'error';
@@ -105,7 +97,6 @@ const buildReingestSuccess = (
   errorCode: null,
   ...overrides,
 });
-
 const buildReingestError = (params: {
   message: 'INVALID_PARAMS' | 'NOT_FOUND' | 'BUSY' | 'QUEUE_UNAVAILABLE';
   code: 'INVALID_SOURCE_ID' | 'NOT_FOUND' | 'BUSY' | 'QUEUE_UNAVAILABLE';
@@ -132,7 +123,6 @@ const buildReingestError = (params: {
       },
     };
   }
-
   if (params.message === 'NOT_FOUND') {
     return {
       code: 404,
@@ -154,7 +144,6 @@ const buildReingestError = (params: {
       },
     };
   }
-
   if (params.message === 'QUEUE_UNAVAILABLE') {
     return {
       code: 503,
@@ -176,7 +165,6 @@ const buildReingestError = (params: {
       },
     };
   }
-
   return {
     code: 503,
     message: 'QUEUE_UNAVAILABLE',
@@ -197,7 +185,6 @@ const buildReingestError = (params: {
     },
   };
 };
-
 async function writeMarkdownFile(params: {
   repoRoot: string;
   relativePath: string;
@@ -212,7 +199,6 @@ async function writeMarkdownFile(params: {
   await fs.writeFile(filePath, params.content);
   return filePath;
 }
-
 async function createMarkdownHarness(baseDir: string) {
   const codeInfo2Root = path.join(baseDir, 'codeinfo2');
   const agentsHome = path.join(codeInfo2Root, 'codex_agents');
@@ -220,16 +206,14 @@ async function createMarkdownHarness(baseDir: string) {
   const sourceRepo = path.join(baseDir, 'repo-source');
   const otherRepo = path.join(baseDir, 'repo-other');
   const thirdRepo = path.join(baseDir, 'repo-third');
-
   await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
   await fs.mkdir(sourceRepo, { recursive: true });
   await fs.mkdir(otherRepo, { recursive: true });
   await fs.mkdir(thirdRepo, { recursive: true });
-
   markdownHarnessPreviousPreferredAgentsHome ??=
     process.env.CODEINFO_AGENT_HOME;
-  delete process.env.CODEINFO_AGENT_HOME;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
+  clearScopedTestEnvValue('CODEINFO_AGENT_HOME');
+  setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', agentsHome);
   __resetMarkdownFileResolverDepsForTests();
   __setMarkdownFileResolverDepsForTests({
     getCodeInfo2Root: () => codeInfo2Root,
@@ -242,10 +226,8 @@ async function createMarkdownHarness(baseDir: string) {
         ],
       }) as never,
   });
-
   return { codeInfo2Root, agentHome, sourceRepo, otherRepo, thirdRepo };
 }
-
 async function writeCommandFile(params: {
   agentHome: string;
   commandName: string;
@@ -259,11 +241,9 @@ async function writeCommandFile(params: {
   await fs.writeFile(filePath, params.jsonText, 'utf-8');
   return filePath;
 }
-
 describe('agent commands runner (v1)', () => {
   let tmpDir: string | null = null;
   let previousAgentsHome: string | undefined;
-
   afterEach(async () => {
     __resetAgentCommandRunnerDepsForTests();
     __resetAgentServiceDepsForTests();
@@ -272,16 +252,18 @@ describe('agent commands runner (v1)', () => {
     memoryTurns.clear();
     resetStore();
     if (markdownHarnessPreviousPreferredAgentsHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
+      clearScopedTestEnvValue('CODEINFO_AGENT_HOME');
     } else {
-      process.env.CODEINFO_AGENT_HOME =
-        markdownHarnessPreviousPreferredAgentsHome;
+      setScopedTestEnvValue(
+        'CODEINFO_AGENT_HOME',
+        markdownHarnessPreviousPreferredAgentsHome,
+      );
     }
     markdownHarnessPreviousPreferredAgentsHome = undefined;
     if (previousAgentsHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+      clearScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME');
     } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+      setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', previousAgentsHome);
     }
     previousAgentsHome = undefined;
     if (tmpDir) {
@@ -289,12 +271,10 @@ describe('agent commands runner (v1)', () => {
     }
     tmpDir = null;
   });
-
   test('multi-step command executes all steps sequentially', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'improve',
@@ -307,9 +287,10 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
-    const calls: Array<{ stepIndex: number; totalSteps: number }> = [];
-
+    const calls: Array<{
+      stepIndex: number;
+      totalSteps: number;
+    }> = [];
     const result = await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -323,13 +304,11 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.deepEqual(calls, [
       { stepIndex: 1, totalSteps: 3 },
       { stepIndex: 2, totalSteps: 3 },
       { stepIndex: 3, totalSteps: 3 },
     ]);
-
     assert.deepEqual(result, {
       agentName: 'a1',
       commandName: 'improve',
@@ -337,7 +316,6 @@ describe('agent commands runner (v1)', () => {
       modelId: 'm1',
     });
   });
-
   test('omitted startStep defaults to step 1', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
@@ -355,7 +333,6 @@ describe('agent commands runner (v1)', () => {
       }),
     });
     const calls: number[] = [];
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -366,10 +343,8 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.deepEqual(calls, [1, 2, 3]);
   });
-
   test('valid non-default startStep runs from selected step and preserves absolute metadata', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
@@ -387,8 +362,10 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-    const calls: Array<{ stepIndex: number; totalSteps: number }> = [];
-
+    const calls: Array<{
+      stepIndex: number;
+      totalSteps: number;
+    }> = [];
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -403,13 +380,11 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.deepEqual(calls, [
       { stepIndex: 3, totalSteps: 4 },
       { stepIndex: 4, totalSteps: 4 },
     ]);
   });
-
   test('startStep lower bound of 1 is accepted', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
@@ -426,7 +401,6 @@ describe('agent commands runner (v1)', () => {
       }),
     });
     const calls: number[] = [];
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -438,10 +412,8 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.deepEqual(calls, [1, 2]);
   });
-
   test('startStep upper bound of N executes only the final step', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
@@ -459,7 +431,6 @@ describe('agent commands runner (v1)', () => {
       }),
     });
     const calls: number[] = [];
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -471,10 +442,8 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.deepEqual(calls, [3]);
   });
-
   test('startStep 0 fails with INVALID_START_STEP and deterministic message', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
@@ -491,7 +460,6 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -503,13 +471,20 @@ describe('agent commands runner (v1)', () => {
           runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
         }),
       (err) =>
-        (err as { code?: string; reason?: string }).code ===
-          'INVALID_START_STEP' &&
-        (err as { code?: string; reason?: string }).reason ===
-          'startStep must be between 1 and 3',
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'INVALID_START_STEP' &&
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).reason === 'startStep must be between 1 and 3',
     );
   });
-
   test('startStep N+1 fails with INVALID_START_STEP and deterministic message', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
@@ -526,7 +501,6 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -538,18 +512,24 @@ describe('agent commands runner (v1)', () => {
           runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
         }),
       (err) =>
-        (err as { code?: string; reason?: string }).code ===
-          'INVALID_START_STEP' &&
-        (err as { code?: string; reason?: string }).reason ===
-          'startStep must be between 1 and 3',
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'INVALID_START_STEP' &&
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).reason === 'startStep must be between 1 and 3',
     );
   });
-
   test('abort after step 1 prevents steps 2+ from running', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'improve',
@@ -566,7 +546,6 @@ describe('agent commands runner (v1)', () => {
     const started = deferred<void>();
     const finishStep1 = deferred<void>();
     const calls: number[] = [];
-
     const run = runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -582,22 +561,16 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     await started.promise;
-
     finishStep1.resolve();
     controller.abort();
-
     await run;
-
     assert.deepEqual(calls, [1]);
   });
-
   test('per-conversation lock blocks concurrent run during command execution', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'improve',
@@ -606,10 +579,8 @@ describe('agent commands runner (v1)', () => {
         items: [{ type: 'message', role: 'user', content: ['s1'] }],
       }),
     });
-
     const barrier = deferred<void>();
     const started = deferred<void>();
-
     const first = runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -622,9 +593,7 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     await started.promise;
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -635,18 +604,20 @@ describe('agent commands runner (v1)', () => {
           source: 'REST',
           runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
         }),
-      (err) => (err as { code?: string }).code === 'RUN_IN_PROGRESS',
+      (err) =>
+        (
+          err as {
+            code?: string;
+          }
+        ).code === 'RUN_IN_PROGRESS',
     );
-
     barrier.resolve();
     await first;
   });
-
   test('client-supplied conversationId does not force mustExist=true', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'single',
@@ -655,9 +626,7 @@ describe('agent commands runner (v1)', () => {
         items: [{ type: 'message', role: 'user', content: ['s1'] }],
       }),
     });
-
     let observedMustExist: boolean | undefined;
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -670,15 +639,12 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.notEqual(observedMustExist, true);
   });
-
   test("instruction passed to each step equals content.join('\\n') (with trimmed content)", async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'join',
@@ -693,9 +659,7 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     let seen: string | null = null;
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -706,15 +670,12 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.equal(seen, 'first\nsecond');
   });
-
   test('working_folder is forwarded to the unlocked helper for every step', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'improve',
@@ -726,9 +687,7 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     const folders: Array<string | undefined> = [];
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -740,15 +699,12 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.deepEqual(folders, ['/abs/path', '/abs/path']);
   });
-
   test('when conversationId is omitted, a new id is generated and reused for all steps', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'improve',
@@ -760,9 +716,7 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     const conversationIds: string[] = [];
-
     const result = await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -773,16 +727,13 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.equal(new Set(conversationIds).size, 1);
     assert.equal(conversationIds[0], result.conversationId);
   });
-
   test('when conversationId is provided, it is reused and returned unchanged', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'improve',
@@ -791,7 +742,6 @@ describe('agent commands runner (v1)', () => {
         items: [{ type: 'message', role: 'user', content: ['s1'] }],
       }),
     });
-
     const result = await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -800,15 +750,12 @@ describe('agent commands runner (v1)', () => {
       source: 'REST',
       runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
     });
-
     assert.equal(result.conversationId, 'c1');
   });
-
   test("invalid commandName values are rejected with { code: 'COMMAND_INVALID' }", async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -818,9 +765,13 @@ describe('agent commands runner (v1)', () => {
           source: 'REST',
           runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
         }),
-      (err) => (err as { code?: string }).code === 'COMMAND_INVALID',
+      (err) =>
+        (
+          err as {
+            code?: string;
+          }
+        ).code === 'COMMAND_INVALID',
     );
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -830,9 +781,13 @@ describe('agent commands runner (v1)', () => {
           source: 'REST',
           runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
         }),
-      (err) => (err as { code?: string }).code === 'COMMAND_INVALID',
+      (err) =>
+        (
+          err as {
+            code?: string;
+          }
+        ).code === 'COMMAND_INVALID',
     );
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -842,15 +797,18 @@ describe('agent commands runner (v1)', () => {
           source: 'REST',
           runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
         }),
-      (err) => (err as { code?: string }).code === 'COMMAND_INVALID',
+      (err) =>
+        (
+          err as {
+            code?: string;
+          }
+        ).code === 'COMMAND_INVALID',
     );
   });
-
   test("missing command file throws { code: 'COMMAND_NOT_FOUND' }", async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -860,23 +818,24 @@ describe('agent commands runner (v1)', () => {
           source: 'REST',
           runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
         }),
-      (err) => (err as { code?: string }).code === 'COMMAND_NOT_FOUND',
+      (err) =>
+        (
+          err as {
+            code?: string;
+          }
+        ).code === 'COMMAND_NOT_FOUND',
     );
   });
-
   test("invalid command file throws { code: 'COMMAND_INVALID' }", async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'bad',
       jsonText: '{',
     });
-
     let called = false;
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -889,17 +848,19 @@ describe('agent commands runner (v1)', () => {
             return { modelId: 'm1' };
           },
         }),
-      (err) => (err as { code?: string }).code === 'COMMAND_INVALID',
+      (err) =>
+        (
+          err as {
+            code?: string;
+          }
+        ).code === 'COMMAND_INVALID',
     );
-
     assert.equal(called, false);
   });
-
   test('step failure stops execution and releases the lock', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'improve',
@@ -912,9 +873,7 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     const calls: number[] = [];
-
     await assert.rejects(async () =>
       runAgentCommandRunner({
         agentName: 'a1',
@@ -932,11 +891,8 @@ describe('agent commands runner (v1)', () => {
         },
       }),
     );
-
     assert.deepEqual(calls, [1, 2, 2, 2, 2, 2]);
-
     const secondCalls: number[] = [];
-
     const second = await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -948,16 +904,13 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.equal(second.conversationId, 'c1');
     assert.deepEqual(secondCalls, [1, 2, 3]);
   });
-
   test('reingest items stay single-attempt while later message steps can still retry', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-then-message',
@@ -969,11 +922,9 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     let reingestCalls = 0;
     let lifecycleCalls = 0;
     const seenInstructions: string[] = [];
-
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => {
         reingestCalls += 1;
@@ -983,7 +934,6 @@ describe('agent commands runner (v1)', () => {
         lifecycleCalls += 1;
       },
     });
-
     let messageAttempts = 0;
     await runAgentCommandRunner({
       agentName: 'a1',
@@ -1001,19 +951,16 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'agent-model-1' };
       },
     });
-
     assert.equal(reingestCalls, 1);
     assert.equal(lifecycleCalls, 1);
     assert.equal(seenInstructions.length, 2);
     assert.equal(seenInstructions[0], 'hello');
     assert.match(seenInstructions[1], /Your previous attempt .* failed/i);
   });
-
   test('terminal completed reingest outcomes are recorded and execution continues', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-completed',
@@ -1025,7 +972,6 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     const lifecycleStatuses: string[] = [];
     const messageSteps: number[] = [];
     __setAgentCommandRunnerDepsForTests({
@@ -1064,11 +1010,14 @@ describe('agent commands runner (v1)', () => {
       }),
       runReingestStepLifecycle: async (params) => {
         lifecycleStatuses.push(
-          (params.toolResult.result as { status: string }).status,
+          (
+            params.toolResult.result as {
+              status: string;
+            }
+          ).status,
         );
       },
     });
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -1081,16 +1030,13 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'agent-model-1' };
       },
     });
-
     assert.deepEqual(lifecycleStatuses, ['completed']);
     assert.deepEqual(messageSteps, [2]);
   });
-
   test('target working reingest forwards the working repository path and logs direct-command target mode', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-working-target',
@@ -1102,7 +1048,6 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     const lifecycleTargetModes: string[] = [];
     const reingestCalls: string[] = [];
     const messageSteps: number[] = [];
@@ -1119,12 +1064,14 @@ describe('agent commands runner (v1)', () => {
       },
       runReingestStepLifecycle: async (params) => {
         lifecycleTargetModes.push(
-          (params.toolResult.result as { targetMode?: string }).targetMode ??
-            '(missing)',
+          (
+            params.toolResult.result as {
+              targetMode?: string;
+            }
+          ).targetMode ?? '(missing)',
         );
       },
     });
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -1143,7 +1090,6 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'agent-model-1' };
       },
     });
-
     assert.deepEqual(reingestCalls, ['/repo/source-a']);
     assert.deepEqual(lifecycleTargetModes, ['working']);
     assert.deepEqual(messageSteps, [2]);
@@ -1157,7 +1103,6 @@ describe('agent commands runner (v1)', () => {
       ),
     );
   });
-
   test('target plan_scope reingest surfaces batch warnings and keeps removed target wording out of lifecycle data', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
@@ -1187,7 +1132,6 @@ describe('agent commands runner (v1)', () => {
         2,
       ),
     );
-
     try {
       await writeCommandFile({
         agentHome,
@@ -1200,7 +1144,6 @@ describe('agent commands runner (v1)', () => {
           ],
         }),
       });
-
       const reingestCalls: string[] = [];
       const lifecycleResults: Array<{
         stage?: string;
@@ -1236,14 +1179,19 @@ describe('agent commands runner (v1)', () => {
         runReingestStepLifecycle: async (params) => {
           lifecycleResults.push({
             stage: params.toolResult.stage,
-            targetMode: (params.toolResult.result as { targetMode?: string })
-              .targetMode,
-            warnings: (params.toolResult.result as { warnings?: unknown[] })
-              .warnings,
+            targetMode: (
+              params.toolResult.result as {
+                targetMode?: string;
+              }
+            ).targetMode,
+            warnings: (
+              params.toolResult.result as {
+                warnings?: unknown[];
+              }
+            ).warnings,
           });
         },
       });
-
       await runAgentCommandRunner({
         agentName: 'a1',
         agentHome,
@@ -1269,7 +1217,6 @@ describe('agent commands runner (v1)', () => {
           return { modelId: 'agent-model-1' };
         },
       });
-
       assert.deepEqual(reingestCalls, [
         fixture.workingRepositoryPath,
         validAdditionalPath,
@@ -1279,7 +1226,11 @@ describe('agent commands runner (v1)', () => {
       assert.equal(lifecycleResults[0]?.stage, 'success');
       assert.equal(lifecycleResults[0]?.targetMode, 'plan_scope');
       const warningCodes = (
-        lifecycleResults[0]?.warnings as Array<{ code?: string }> | undefined
+        lifecycleResults[0]?.warnings as
+          | Array<{
+              code?: string;
+            }>
+          | undefined
       )?.map((warning) => warning.code);
       assert.deepEqual(warningCodes, [
         'repository_skipped',
@@ -1305,12 +1256,10 @@ describe('agent commands runner (v1)', () => {
       await fixture.cleanup();
     }
   });
-
   test('terminal cancelled reingest outcomes remain non-fatal once started', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-cancelled',
@@ -1322,7 +1271,6 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     const lifecycleStatuses: string[] = [];
     const messageSteps: number[] = [];
     __setAgentCommandRunnerDepsForTests({
@@ -1359,11 +1307,14 @@ describe('agent commands runner (v1)', () => {
       }),
       runReingestStepLifecycle: async (params) => {
         lifecycleStatuses.push(
-          (params.toolResult.result as { status: string }).status,
+          (
+            params.toolResult.result as {
+              status: string;
+            }
+          ).status,
         );
       },
     });
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -1376,16 +1327,13 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'agent-model-1' };
       },
     });
-
     assert.deepEqual(lifecycleStatuses, ['cancelled']);
     assert.deepEqual(messageSteps, [2]);
   });
-
   test('terminal error reingest outcomes remain non-fatal once started', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-error',
@@ -1397,7 +1345,6 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     const lifecycleStatuses: string[] = [];
     const messageSteps: number[] = [];
     __setAgentCommandRunnerDepsForTests({
@@ -1437,11 +1384,14 @@ describe('agent commands runner (v1)', () => {
       }),
       runReingestStepLifecycle: async (params) => {
         lifecycleStatuses.push(
-          (params.toolResult.result as { status: string }).status,
+          (
+            params.toolResult.result as {
+              status: string;
+            }
+          ).status,
         );
       },
     });
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -1454,16 +1404,13 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'agent-model-1' };
       },
     });
-
     assert.deepEqual(lifecycleStatuses, ['error']);
     assert.deepEqual(messageSteps, [2]);
   });
-
   test('accepted skipped outcomes stay on the public completed path', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-skipped-normalized',
@@ -1472,7 +1419,6 @@ describe('agent commands runner (v1)', () => {
         items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
       }),
     });
-
     const lifecycleStatuses: string[] = [];
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => ({
@@ -1510,11 +1456,14 @@ describe('agent commands runner (v1)', () => {
       }),
       runReingestStepLifecycle: async (params) => {
         lifecycleStatuses.push(
-          (params.toolResult.result as { status: string }).status,
+          (
+            params.toolResult.result as {
+              status: string;
+            }
+          ).status,
         );
       },
     });
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -1524,15 +1473,12 @@ describe('agent commands runner (v1)', () => {
       listIngestedRepositories: listDefaultReingestRepos,
       runAgentInstructionUnlocked: async () => ({ modelId: 'agent-model-1' }),
     });
-
     assert.deepEqual(lifecycleStatuses, ['completed']);
   });
-
   test('stop during the blocking wait prevents the next item from starting', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-stop',
@@ -1544,19 +1490,16 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     const wait = deferred<{
       ok: true;
       value: ReturnType<typeof buildReingestSuccess>;
     }>();
     const controller = new AbortController();
     const messageSteps: number[] = [];
-
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => wait.promise,
       runReingestStepLifecycle: async () => undefined,
     });
-
     const run = runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -1570,19 +1513,15 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'agent-model-1' };
       },
     });
-
     controller.abort();
     wait.resolve({ ok: true, value: buildReingestSuccess() });
     await run;
-
     assert.deepEqual(messageSteps, []);
   });
-
   test('malformed sourceId failures stop before later items begin', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-bad-source',
@@ -1594,7 +1533,6 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     let messageCalls = 0;
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => ({
@@ -1606,7 +1544,6 @@ describe('agent commands runner (v1)', () => {
         }),
       }),
     });
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -1622,20 +1559,25 @@ describe('agent commands runner (v1)', () => {
           },
         }),
       (err) =>
-        (err as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
-        (err as { code?: string; reason?: string }).reason ===
-          'sourceId must be an absolute path',
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).reason === 'sourceId must be an absolute path',
     );
-
     assert.equal(messageCalls, 0);
   });
-
   test('unknown sourceId failures stop before later items begin', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-missing-source',
@@ -1647,7 +1589,6 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     let messageCalls = 0;
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => ({
@@ -1660,7 +1601,6 @@ describe('agent commands runner (v1)', () => {
         }),
       }),
     });
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -1676,20 +1616,26 @@ describe('agent commands runner (v1)', () => {
           },
         }),
       (err) =>
-        (err as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
-        (err as { code?: string; reason?: string }).reason ===
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).reason ===
           'sourceId must match an existing ingested repository root exactly',
     );
-
     assert.equal(messageCalls, 0);
   });
-
   test('queue-unavailable reingest refusals stop the direct command clearly', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-busy',
@@ -1701,7 +1647,6 @@ describe('agent commands runner (v1)', () => {
         ],
       }),
     });
-
     let messageCalls = 0;
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => ({
@@ -1714,7 +1659,6 @@ describe('agent commands runner (v1)', () => {
         }),
       }),
     });
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -1730,20 +1674,26 @@ describe('agent commands runner (v1)', () => {
           },
         }),
       (err) =>
-        (err as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
-        (err as { code?: string; reason?: string }).reason ===
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).reason ===
           'Mongo-backed ingest queue is unavailable while Mongo is disconnected',
     );
-
     assert.equal(messageCalls, 0);
   });
-
   test('shared prestart formatter fallback stays aligned for direct command failures', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-format-fallback',
@@ -1752,7 +1702,6 @@ describe('agent commands runner (v1)', () => {
         items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
       }),
     });
-
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => ({
         ok: false,
@@ -1763,7 +1712,6 @@ describe('agent commands runner (v1)', () => {
         }),
       }),
     });
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -1778,18 +1726,24 @@ describe('agent commands runner (v1)', () => {
           }),
         }),
       (err) =>
-        (err as { code?: string; reason?: string }).code ===
-          'COMMAND_INVALID' &&
-        (err as { code?: string; reason?: string }).reason ===
-          'INVALID_PARAMS: INVALID_SOURCE_ID',
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).code === 'COMMAND_INVALID' &&
+        (
+          err as {
+            code?: string;
+            reason?: string;
+          }
+        ).reason === 'INVALID_PARAMS: INVALID_SOURCE_ID',
     );
   });
-
   test('unexpected thrown exceptions before a terminal result fail the command clearly', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-throws',
@@ -1798,13 +1752,11 @@ describe('agent commands runner (v1)', () => {
         items: [{ type: 'reingest', sourceId: '/repo/source-a' }],
       }),
     });
-
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async () => {
         throw new Error('unexpected reingest failure');
       },
     });
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -1821,12 +1773,10 @@ describe('agent commands runner (v1)', () => {
       /unexpected reingest failure/,
     );
   });
-
   test('direct command reingest surfaces selector-listing outages instead of INVALID_SOURCE_ID fallback', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'reingest-selector-outage',
@@ -1835,7 +1785,6 @@ describe('agent commands runner (v1)', () => {
         items: [{ type: 'reingest', sourceId: 'Repo Selected' }],
       }),
     });
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -1854,12 +1803,10 @@ describe('agent commands runner (v1)', () => {
       /ingested repository listing unavailable/,
     );
   });
-
   test('lock is per-conversation and does not block other conversations', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
     await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
-
     await writeCommandFile({
       agentHome,
       commandName: 'improve',
@@ -1868,11 +1815,9 @@ describe('agent commands runner (v1)', () => {
         items: [{ type: 'message', role: 'user', content: ['s1'] }],
       }),
     });
-
     const barrier = deferred<void>();
     const started = deferred<void>();
     const c2Done = deferred<void>();
-
     const first = runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -1889,9 +1834,7 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     await started.promise;
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome,
@@ -1903,17 +1846,13 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     await c2Done.promise;
-
     barrier.resolve();
     await first;
   });
-
   test('rejects command names that attempt path traversal', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');
-
     await assert.rejects(
       async () =>
         runAgentCommandRunner({
@@ -1923,10 +1862,14 @@ describe('agent commands runner (v1)', () => {
           source: 'REST',
           runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
         }),
-      (err) => (err as { code?: string }).code === 'COMMAND_INVALID',
+      (err) =>
+        (
+          err as {
+            code?: string;
+          }
+        ).code === 'COMMAND_INVALID',
     );
   });
-
   test('markdownFile message items load one markdown instruction and execute once', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -1944,9 +1887,7 @@ describe('agent commands runner (v1)', () => {
       relativePath: 'once.md',
       content: '# Heading\n\nBody',
     });
-
     const instructions: string[] = [];
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome: harness.agentHome,
@@ -1957,7 +1898,6 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.deepEqual(instructions, ['# Heading\n\nBody']);
     const logs = query({
       text: 'DEV-0000045:T4:direct_command_markdown_message_loaded',
@@ -1965,7 +1905,6 @@ describe('agent commands runner (v1)', () => {
     assert.equal(logs.length, 1);
     assert.equal(logs[0]?.context?.resolvedSourceId, harness.codeInfo2Root);
   });
-
   test('markdownFile instructions are passed through verbatim', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -1984,9 +1923,7 @@ describe('agent commands runner (v1)', () => {
       relativePath: 'verbatim.md',
       content: markdown,
     });
-
     let seenInstruction = '';
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome: harness.agentHome,
@@ -1997,10 +1934,8 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.equal(seenInstruction, markdown);
   });
-
   test('multiple markdownFile items execute in order', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -2026,9 +1961,7 @@ describe('agent commands runner (v1)', () => {
       relativePath: 'two.md',
       content: 'second markdown',
     });
-
     const instructions: string[] = [];
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome: harness.agentHome,
@@ -2039,10 +1972,8 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.deepEqual(instructions, ['first markdown', 'second markdown']);
   });
-
   test('markdownFile and inline content items can be mixed without changing inline behavior', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -2067,9 +1998,7 @@ describe('agent commands runner (v1)', () => {
       relativePath: 'mixed.md',
       content: 'markdown mixed',
     });
-
     const instructions: string[] = [];
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome: harness.agentHome,
@@ -2080,13 +2009,11 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.deepEqual(instructions, [
       'markdown mixed',
       'inline one\ninline two',
     ]);
   });
-
   test('sourceId same-source markdown wins over codeInfo2 fallback', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -2109,9 +2036,7 @@ describe('agent commands runner (v1)', () => {
       relativePath: 'source.md',
       content: 'source markdown',
     });
-
     let seenInstruction = '';
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome: harness.agentHome,
@@ -2123,10 +2048,8 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.equal(seenInstruction, 'source markdown');
   });
-
   test('sourceId falls back to codeInfo2 when same-source markdown is missing', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -2144,9 +2067,7 @@ describe('agent commands runner (v1)', () => {
       relativePath: 'fallback.md',
       content: 'codeinfo2 fallback markdown',
     });
-
     let seenInstruction = '';
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome: harness.agentHome,
@@ -2158,10 +2079,8 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.equal(seenInstruction, 'codeinfo2 fallback markdown');
   });
-
   test('missing markdown files fail clearly', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -2174,7 +2093,6 @@ describe('agent commands runner (v1)', () => {
         items: [{ type: 'message', role: 'user', markdownFile: 'missing.md' }],
       }),
     });
-
     await assert.rejects(
       () =>
         runAgentCommandRunner({
@@ -2187,7 +2105,6 @@ describe('agent commands runner (v1)', () => {
       /was not found in any codeinfo_markdown repository candidate/,
     );
   });
-
   test('undecodable markdown bytes surface as command failures', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -2205,7 +2122,6 @@ describe('agent commands runner (v1)', () => {
       relativePath: 'bad.md',
       content: Uint8Array.from([0xc3, 0x28]),
     });
-
     await assert.rejects(
       () =>
         runAgentCommandRunner({
@@ -2218,7 +2134,6 @@ describe('agent commands runner (v1)', () => {
       /Invalid UTF-8 markdown content/,
     );
   });
-
   test('unexpected resolver failures surface as clear command errors', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -2236,7 +2151,6 @@ describe('agent commands runner (v1)', () => {
         throw new Error('resolver exploded');
       },
     });
-
     await assert.rejects(
       () =>
         runAgentCommandRunner({
@@ -2249,7 +2163,6 @@ describe('agent commands runner (v1)', () => {
       /resolver exploded/,
     );
   });
-
   test('inline content message execution remains unchanged after markdown support', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
@@ -2262,9 +2175,7 @@ describe('agent commands runner (v1)', () => {
         items: [{ type: 'message', role: 'user', content: ['alpha', 'beta'] }],
       }),
     });
-
     let seenInstruction = '';
-
     await runAgentCommandRunner({
       agentName: 'a1',
       agentHome: harness.agentHome,
@@ -2275,10 +2186,8 @@ describe('agent commands runner (v1)', () => {
         return { modelId: 'm1' };
       },
     });
-
     assert.equal(seenInstruction, 'alpha\nbeta');
   });
-
   test('provider-free direct command suffix skips provider bootstrap on the normal command path', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentsHome = path.join(tmpDir, 'agents');
@@ -2287,7 +2196,6 @@ describe('agent commands runner (v1)', () => {
     const codexHome = path.join(tmpDir, 'codex-home');
     previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
     const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-
     await fs.mkdir(commandsDir, { recursive: true });
     await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
     await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
@@ -2311,11 +2219,9 @@ describe('agent commands runner (v1)', () => {
         2,
       ),
     });
-
-    process.env.CODEINFO_AGENT_HOME = agentsHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-    process.env.CODEINFO_CODEX_HOME = codexHome;
-
+    setScopedTestEnvValue('CODEINFO_AGENT_HOME', agentsHome);
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', agentsHome);
+    setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
     let bootstrapCalls = 0;
     __setAgentCommandRunnerDepsForTests({
       runReingestRepository: async ({ sourceId }) =>
@@ -2358,7 +2264,6 @@ describe('agent commands runner (v1)', () => {
         return { available: false };
       },
     });
-
     try {
       const result = await runAgentCommand({
         agentName: 'coding_agent',
@@ -2367,15 +2272,14 @@ describe('agent commands runner (v1)', () => {
         source: 'REST',
         chatFactory: () => new MinimalChat(),
       });
-
       assert.equal(bootstrapCalls, 0);
       assert.equal(result.providerId, 'codex');
       assert.equal(result.modelId, 'gpt-5.6-sol');
     } finally {
       if (previousCodexHome === undefined) {
-        delete process.env.CODEINFO_CODEX_HOME;
+        clearScopedTestEnvValue('CODEINFO_CODEX_HOME');
       } else {
-        process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+        setScopedTestEnvValue('CODEINFO_CODEX_HOME', previousCodexHome);
       }
     }
   });

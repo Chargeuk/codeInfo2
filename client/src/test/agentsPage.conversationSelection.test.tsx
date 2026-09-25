@@ -92,7 +92,7 @@ describe('Agents page - conversation selection', () => {
               agentName: 'coding_agent',
               conversationId: 'c1',
               inflightId: 'i1',
-              modelId: 'gpt-5.1-codex-max',
+              modelId: 'gpt-5.6-luna',
             }),
           } as Response);
         }

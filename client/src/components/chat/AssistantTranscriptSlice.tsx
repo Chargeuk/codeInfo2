@@ -262,6 +262,8 @@ function AssistantTranscriptSlice({
       icon:
         statusKey === 'complete' ? (
           <CheckCircleOutlineIcon fontSize="small" />
+        ) : statusKey === 'warning' ? (
+          <WarningAmberIcon fontSize="small" />
         ) : statusKey === 'failed' ? (
           <ErrorOutlineIcon fontSize="small" />
         ) : statusKey === 'stopped' ? (
@@ -746,6 +748,8 @@ function AssistantTranscriptSlice({
                 icon={
                   statusKey === 'complete' ? (
                     <CheckCircleOutlineIcon fontSize="small" />
+                  ) : statusKey === 'warning' ? (
+                    <WarningAmberIcon fontSize="small" />
                   ) : statusKey === 'failed' ? (
                     <ErrorOutlineIcon fontSize="small" />
                   ) : statusKey === 'stopped' ? (

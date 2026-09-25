@@ -44,7 +44,7 @@ const baseProps: ComponentProps<typeof AgentsComposerPanel> = {
   agentDisabledReason: undefined,
   agentInfoEmpty: false,
   agentInfoEmptyMessage: 'No metadata',
-  agentModelId: 'gpt-5.3-codex',
+  agentModelId: 'gpt-5.6-luna',
   commandsError: null,
   commandsLoading: false,
   commandOptions,

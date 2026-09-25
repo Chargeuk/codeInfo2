@@ -108,14 +108,12 @@ describe('codexDeviceAuth', () => {
       'Open https://example.com/device and enter code ABCD-EFGH.\n',
     );
 
-    let completionResolved = false;
-    const completionPromise = result.completion.then((completion) => {
-      completionResolved = true;
-      return completion;
-    });
-
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(completionResolved, false);
+    const completionPromise = result.completion;
+    const completionState = await Promise.race([
+      completionPromise.then(() => 'resolved' as const),
+      Promise.resolve('pending' as const),
+    ]);
+    assert.equal(completionState, 'pending');
 
     child.emit('close', 0);
 

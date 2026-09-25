@@ -1,5 +1,7 @@
 # Implement direct fixes from the current review batch
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/repeated-review-repair.md` for repeated-finding routing, research contributions, unavailable coverage, and settlement. For this invocation, the repairable survivor set below excludes research-owned confirmed or uncertain repeats, whether resolved or unresolved; carry those outcomes in your audit. Only ordinary findings and candidates explicitly returned by research follow this normal/stronger repair path.
+
 Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`. This normal-repair audit is applicable only when this repair step actually runs; when it runs, even a no-work or unavailable attempt must leave a non-empty audit.
 
 Read the current immutable batch target snapshot, filtered reconciliation, negative scope record, positive-authorization record, materiality record, combined filtering audit, disposition, underlying evidence, bounded story plan, and repository instructions. Consider only supported, positively authorized findings that survived materiality. Disposition repair difficulty is useful guidance, not a final task boundary. Attempt every survivor that fresh source inspection shows you can honestly complete and test during this invocation. Never restore a negatively filtered, positively unauthorized, below-materiality, rejected, duplicate, disproved, or already-resolved item.

@@ -1,16 +1,22 @@
-# Blind-spot challenge
+# Blind-spot Challenge
 
-Reviewed HEAD: `519263f90f1326bd39934ed878d60864366b6b55`
+Reviewed HEAD: `9dba5908242576d7c31ba79945ded296978a9f20`
+Comparison base: `0b436f8c792e5041105aaf4541d1e8cb58245d63`
+Scope: the story-55 repair commit and the new proof around GitHub warning completion and script-failure provenance, with emphasis on the warning lifecycle paths in [`server/src/flows/service.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts) and the added regression tests in [`server/src/test/integration/flows.run.basic.test.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts) and [`server/src/test/integration/flows.run.errors.test.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.errors.test.ts).
 
-## Result
+## Findings
 
-No confirmed findings.
+### Medium - warning still collapses to `ok` on the non-persisted lifecycle paths
 
-## Unsupported claim
+- Evidence:
+  - [`server/src/flows/service.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts#L3679-L3682) still normalizes any assistant `warning` turn to `ok` in `normalizeFlowChildTurnStatus()`.
+  - [`server/src/flows/service.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/flows/service.ts#L13386-L13396) still maps a latest assistant `warning` to `ok` in `getFlowRunStatus()` when no persisted `runLifecycle` is available.
+  - The new proof in [`server/src/test/integration/flows.run.basic.test.ts`](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/integration/flows.run.basic.test.ts#L2943-L3093) only exercises the persisted warning path. It does not cover the turn-only fallback that these helpers still use.
+- Why it matters:
+  - The commit advertises warning as a terminal flow state, but these two fallback branches still erase that state. A warning can therefore be reported as `ok` for legacy, replayed, or not-yet-persisted lifecycle reads, and parent subflow status resolution can also miss the warning when it has to infer from turns.
+  - That leaves the new behavior only partially durable, which is exactly the kind of blind spot the added review proof should have ruled out.
 
-- `server/src/flows/service.ts:8165-8205` does not leave the conversation lock held when `persistFreshRunRetryOwnershipCompletion(...)` fails twice. The completion write is attempted in a two-iteration `try`/`catch`, but `releaseConversationLockFn(conversationId, runToken)` is called unconditionally afterward, and `clearFreshRunRetryOwnership(...)` is also still reached for retry-owned runs.
-- The repository already has a targeted regression test for this path at `server/src/test/integration/flows.run.errors.test.ts:2457-2490`. That test injects two completion-write failures, waits for the run to finish, and then verifies the lock/ownership behavior by starting a new run with the same retry ownership id.
+## Residual Risk
 
-## Residual uncertainty
-
-- No fresh full client/server/Cucumber/e2e suite, Compose lifecycle, lint, or format run was performed as part of this challenge. The conclusion above is based on direct source inspection plus the existing targeted integration test.
+- I did not run the server wrappers or the full automated suite in this review pass.
+- The review proof in the planning file still only demonstrates one direct warning scenario and one parent-subflow scenario; the other warning-producing branches in `server/src/flows/service.ts` remain unproven by targeted regression coverage.

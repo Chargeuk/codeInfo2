@@ -73,6 +73,8 @@ export const getTranscriptStatusLabel = (
   switch (status) {
     case 'complete':
       return 'Complete';
+    case 'warning':
+      return 'Warning';
     case 'failed':
       return 'Failed';
     case 'stopped':
@@ -88,6 +90,8 @@ export const getTranscriptStatusKey = (
   switch (status) {
     case 'complete':
       return 'complete';
+    case 'warning':
+      return 'warning';
     case 'failed':
       return 'failed';
     case 'stopped':

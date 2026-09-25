@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { ModelInfo } from '@github/copilot-sdk';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type { CodexOptions } from '@openai/codex-sdk';
-import { Router, json } from 'express';
+import { Router, json, type Request, type Response } from 'express';
 
 import {
   getActiveRunOwnership,
@@ -77,6 +77,11 @@ import { TurnModel, type Turn } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
 import { resolveCopilotReadiness } from '../providers/copilotReadiness.js';
 import { getMcpStatus } from '../providers/mcpStatus.js';
+import {
+  bindCurrentTestEnvOverrides,
+  getScopedEnvValue,
+  getScopedProcessEnv,
+} from '../test/support/testEnvOverrideScope.js';
 import { resolveSharedExecutionContext } from '../workingFolders/executionContext.js';
 import {
   appendWorkingFolderDecisionLog,
@@ -278,7 +283,7 @@ const applyBootstrapStatusToRuntimeProviderState = <
 function buildCompletedReplayResponse(params: {
   conversationId: string;
   inflightId: string;
-  finalStatus?: 'ok' | 'stopped' | 'failed';
+  finalStatus?: 'ok' | 'warning' | 'stopped' | 'failed';
 }) {
   return {
     status: 'error' as const,
@@ -295,7 +300,7 @@ function buildCompletedReplayResponse(params: {
 async function getPersistedCompletedReplay(params: {
   conversationId: string;
   inflightId: string;
-}): Promise<{ finalStatus?: 'ok' | 'stopped' | 'failed' } | null> {
+}): Promise<{ finalStatus?: 'ok' | 'warning' | 'stopped' | 'failed' } | null> {
   if (shouldUseMemoryPersistence()) {
     const turns = getMemoryTurns(params.conversationId);
     for (let index = turns.length - 1; index >= 0; index -= 1) {
@@ -356,116 +361,118 @@ export function createChatRouter({
   const { maxClientBytes } = resolveLogConfig();
   router.use(json({ limit: `${maxClientBytes}b`, strict: false }));
 
-  router.post('/', async (req, res) => {
-    const requestId = res.locals.requestId as string | undefined;
-    const rawBody = req.body ?? {};
-    const rawSize = JSON.stringify(rawBody).length;
-    if (rawSize > maxClientBytes) {
-      return res.status(400).json({
-        status: 'error',
-        code: 'VALIDATION_FAILED',
-        message: 'payload too large',
-      });
-    }
-
-    let validatedBody;
-    const knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
-      async () =>
-        (await listIngestedRepositoriesFn()).repos.map((repo) =>
-          path.resolve(repo.containerPath),
-        ),
-    );
-    try {
-      validatedBody = await validateChatRequest(rawBody, {
-        codexCapabilityResolver,
-        knownRepositoryPathsState,
-      });
-    } catch (err) {
-      if (err instanceof ChatValidationError) {
-        if (err.code === 'PROVIDER_UNAVAILABLE') {
-          return res.status(503).json({
-            status: 'error',
-            code: 'PROVIDER_UNAVAILABLE',
-            message: err.message,
-          });
-        }
+  router.post(
+    '/',
+    bindCurrentTestEnvOverrides(async (req: Request, res: Response) => {
+      const requestId = res.locals.requestId as string | undefined;
+      const rawBody = req.body ?? {};
+      const rawSize = JSON.stringify(rawBody).length;
+      if (rawSize > maxClientBytes) {
         return res.status(400).json({
           status: 'error',
           code: 'VALIDATION_FAILED',
-          message: err.message,
+          message: 'payload too large',
         });
       }
-      const workingFolderError = err as { code?: string; reason?: string };
-      if (
-        workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
-        workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
-      ) {
-        return res.status(503).json({
-          status: 'error',
-          code: workingFolderError.code,
-          message: getWorkingFolderClientMessage(workingFolderError),
+
+      let validatedBody;
+      const knownRepositoryPathsState = await resolveKnownRepositoryPathsState(
+        async () =>
+          (await listIngestedRepositoriesFn()).repos.map((repo) =>
+            path.resolve(repo.containerPath),
+          ),
+      );
+      try {
+        validatedBody = await validateChatRequest(rawBody, {
+          codexCapabilityResolver,
+          knownRepositoryPathsState,
         });
+      } catch (err) {
+        if (err instanceof ChatValidationError) {
+          if (err.code === 'PROVIDER_UNAVAILABLE') {
+            return res.status(503).json({
+              status: 'error',
+              code: 'PROVIDER_UNAVAILABLE',
+              message: err.message,
+            });
+          }
+          return res.status(400).json({
+            status: 'error',
+            code: 'VALIDATION_FAILED',
+            message: err.message,
+          });
+        }
+        const workingFolderError = err as { code?: string; reason?: string };
+        if (
+          workingFolderError.code === 'WORKING_FOLDER_UNAVAILABLE' ||
+          workingFolderError.code === 'WORKING_FOLDER_REPOSITORY_UNAVAILABLE'
+        ) {
+          return res.status(503).json({
+            status: 'error',
+            code: workingFolderError.code,
+            message: getWorkingFolderClientMessage(workingFolderError),
+          });
+        }
+        throw err;
       }
-      throw err;
-    }
 
-    const {
-      model,
-      message,
-      provider,
-      conversationId,
-      endpointId,
-      threadId,
-      inflightId: requestedInflightId,
-      working_folder: requestedWorkingFolder,
-      rawAgentFlags,
-      agentFlags,
-      warnings,
-      defaultsResolution,
-    } = validatedBody;
+      const {
+        model,
+        message,
+        provider,
+        conversationId,
+        endpointId,
+        threadId,
+        inflightId: requestedInflightId,
+        working_folder: requestedWorkingFolder,
+        rawAgentFlags,
+        agentFlags,
+        warnings,
+        defaultsResolution,
+      } = validatedBody;
 
-    const now = new Date();
-    const defaultsLogContext = {
-      requestId,
-      conversationId,
-      provider,
-      model,
-      endpointId,
-      providerSource: defaultsResolution.providerSource,
-      modelSource: defaultsResolution.modelSource,
-      requestedProvider: defaultsResolution.requestedProvider,
-      requestedModel: defaultsResolution.requestedModel,
-      envProviderPresent:
-        typeof process.env.CODEINFO_CHAT_DEFAULT_PROVIDER === 'string' &&
-        process.env.CODEINFO_CHAT_DEFAULT_PROVIDER.trim().length > 0,
-      envModelPresent:
-        typeof process.env.CODEINFO_CHAT_DEFAULT_MODEL === 'string' &&
-        process.env.CODEINFO_CHAT_DEFAULT_MODEL.trim().length > 0,
-    };
-    append({
-      level: 'info',
-      message: 'DEV-0000035:T1:defaults_resolution_evaluated',
-      timestamp: now.toISOString(),
-      source: 'server',
-      requestId,
-      context: defaultsLogContext,
-    });
-    baseLogger.info(
-      defaultsLogContext,
-      'DEV-0000035:T1:defaults_resolution_evaluated',
-    );
-    append({
-      level: 'info',
-      message: 'DEV-0000035:T1:defaults_resolution_result',
-      timestamp: now.toISOString(),
-      source: 'server',
-      requestId,
-      context: defaultsLogContext,
-    });
-    baseLogger.info(
-      defaultsLogContext,
-      'DEV-0000035:T1:defaults_resolution_result',
-    );
+      const now = new Date();
+      const defaultsLogContext = {
+        requestId,
+        conversationId,
+        provider,
+        model,
+        endpointId,
+        providerSource: defaultsResolution.providerSource,
+        modelSource: defaultsResolution.modelSource,
+        requestedProvider: defaultsResolution.requestedProvider,
+        requestedModel: defaultsResolution.requestedModel,
+        envProviderPresent:
+          typeof process.env.CODEINFO_CHAT_DEFAULT_PROVIDER === 'string' &&
+          process.env.CODEINFO_CHAT_DEFAULT_PROVIDER.trim().length > 0,
+        envModelPresent:
+          typeof process.env.CODEINFO_CHAT_DEFAULT_MODEL === 'string' &&
+          process.env.CODEINFO_CHAT_DEFAULT_MODEL.trim().length > 0,
+      };
+      append({
+        level: 'info',
+        message: 'DEV-0000035:T1:defaults_resolution_evaluated',
+        timestamp: now.toISOString(),
+        source: 'server',
+        requestId,
+        context: defaultsLogContext,
+      });
+      baseLogger.info(
+        defaultsLogContext,
+        'DEV-0000035:T1:defaults_resolution_evaluated',
+      );
+      append({
+        level: 'info',
+        message: 'DEV-0000035:T1:defaults_resolution_result',
+        timestamp: now.toISOString(),
+        source: 'server',
+        requestId,
+        context: defaultsLogContext,
+      });
+      baseLogger.info(
+        defaultsLogContext,
+        'DEV-0000035:T1:defaults_resolution_result',
+      );
 
     const requestedProvider = provider as ChatDefaultProvider;
     const requestedModel = model;
@@ -538,7 +545,8 @@ export function createChatRouter({
     const explicitProviderSelected =
       resumedExecutionIdentity !== null ||
       defaultsResolution.providerSource === 'request';
-    const baseUrl = process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '';
+    const env = getScopedProcessEnv();
+    const baseUrl = getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '';
 
     if (
       typeof requestedInflightId === 'string' &&
@@ -552,7 +560,8 @@ export function createChatRouter({
       }
     }
     const safeBase = scrubBaseUrl(baseUrl);
-    const codexHome = process.env.CODEINFO_CODEX_HOME ?? process.env.CODEX_HOME;
+    const codexHome =
+      getScopedEnvValue('CODEINFO_CODEX_HOME') ?? getScopedEnvValue('CODEX_HOME');
 
     const preflightRunLockResponse = await (async () => {
       if (tryAcquireConversationLock(conversationId)) {
@@ -664,7 +673,7 @@ export function createChatRouter({
             );
           const lmstudioPreferredModel = resolveProviderRuntimePreferredModel({
             provider: 'lmstudio',
-            lmstudioHome: process.env.CODEINFO_LMSTUDIO_HOME,
+            lmstudioHome: getScopedEnvValue('CODEINFO_LMSTUDIO_HOME'),
           }).model;
           lmstudioState =
             lmstudioModels.length > 0
@@ -693,7 +702,7 @@ export function createChatRouter({
             createRuntime: copilotLifecycleFactory
               ? () => copilotLifecycleFactory()
               : undefined,
-            env: process.env,
+            env,
             toolsAvailable: mcp.available,
             toolsReason: mcp.reason,
           })
@@ -743,8 +752,8 @@ export function createChatRouter({
       pinnedEndpointSelection = await resolvePinnedOpenAiCompatEndpoint({
         provider: effectiveRequestedProvider,
         codexHome,
-        copilotHome: process.env.CODEINFO_COPILOT_HOME,
-        env: process.env,
+        copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+        env,
       });
     } catch (error) {
       const message =
@@ -782,8 +791,8 @@ export function createChatRouter({
       try {
         const externalDiscovery = await providerDiscoveryResolver({
           provider: 'copilot',
-          copilotHome: process.env.CODEINFO_COPILOT_HOME,
-          env: process.env,
+          copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME'),
+          env,
         });
         const requestedModelIdentity = normalizeModelIdentity(
           normalizedRequestedModel,
@@ -840,7 +849,7 @@ export function createChatRouter({
         provider: effectiveRequestedProvider,
         endpointId: selectedEndpointId,
         configuredEndpoint: pinnedSelectedEndpoint,
-        env: process.env,
+        env,
       });
     } catch (error) {
       const message =
@@ -871,7 +880,7 @@ export function createChatRouter({
             const resolved = await resolveChatRuntimeConfig({
               provider,
               ...(provider === 'copilot'
-                ? { copilotHome: process.env.CODEINFO_COPILOT_HOME }
+                ? { copilotHome: getScopedEnvValue('CODEINFO_COPILOT_HOME') }
                 : {}),
             });
             const { config } = resolved;
@@ -900,7 +909,7 @@ export function createChatRouter({
           resumedExecutionIdentity?.endpointId &&
             resumedExecutionIdentity.endpointId === selectedEndpointId,
         ),
-        env: process.env,
+        env,
       });
     } catch (error) {
       const code =
@@ -1725,7 +1734,8 @@ export function createChatRouter({
         releaseConversationLockFn(conversationId, runToken);
       }
     }
-  });
+    }),
+  );
 
   return router;
 }

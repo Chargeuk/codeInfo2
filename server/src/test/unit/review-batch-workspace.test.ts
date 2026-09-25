@@ -6,9 +6,13 @@ import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
-import { prepareReviewBatchWorkspace } from '../../flows/reviewBatchWorkspace.js';
+import {
+  prepareReviewBatchWorkspace,
+  resolveReviewBatchContext,
+} from '../../flows/reviewBatchWorkspace.js';
 import type { ReviewTargetSnapshot } from '../../flows/reviewTargets.js';
 import type { SubflowWaveJob } from '../../flows/subflowWave.js';
+import { removeWritableTree } from '../support/fsCleanup.js';
 
 const execFile = promisify(execFileCb);
 
@@ -97,6 +101,50 @@ test('review batch workspace gives every job immutable private input and pre-cre
         },
       ],
     };
+    assert.deepEqual(resolveReviewBatchContext(snapshot), {
+      story_id: '0000064',
+      plan_path: path.join(repoRoot, 'planning', '0000064-review.md'),
+      review_cycle_id: '0000064-rc-example',
+      batch_id: '0000064-rw-example',
+      reviewed_head: headCommit,
+      batch_root: path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000064-rc-example',
+        'batches',
+        `0000064-rw-example--head-${headCommit.slice(0, 12)}`,
+      ),
+      reconciliation_dir: path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000064-rc-example',
+        'batches',
+        `0000064-rw-example--head-${headCommit.slice(0, 12)}`,
+        'reconciliation',
+      ),
+    });
+    const standaloneContext = resolveReviewBatchContext({
+      ...snapshot,
+      review_cycle_id: undefined,
+    });
+    assert.equal(
+      standaloneContext.review_cycle_id,
+      '0000064-standalone-review-pass',
+    );
+    assert.equal(
+      standaloneContext.batch_root,
+      path.join(
+        repoRoot,
+        'codeInfoTmp',
+        'reviews',
+        '0000064-standalone-review-pass',
+        'batches',
+        `0000064-rw-example--head-${headCommit.slice(0, 12)}`,
+      ),
+    );
+
     const jobs: SubflowWaveJob[] = [
       {
         instanceId: 'target_reviews:cross-repository:codex_review',
@@ -117,13 +165,44 @@ test('review batch workspace gives every job immutable private input and pre-cre
         flowName: 'cross_repository_review',
         displayName: 'cross_repository_review',
       },
+      {
+        instanceId:
+          'copilot-external-openrouter-google-gemini-3-6-flash:cross-repository:copilot_review',
+        flowName: 'copilot_review',
+        targetId: 'cross-repository',
+        displayName:
+          'Copilot: openrouter/google/gemini-3.6-flash (provider default) [cross-repository]',
+        workingFolder: repoRoot,
+        input: {
+          copilot_review_spec: {
+            selector: 'openrouter::google/gemini-3.6-flash',
+            mode: 'external',
+            modelId: 'google/gemini-3.6-flash',
+            endpointLabel: 'openrouter',
+            endpointId: 'https://openrouter.test/api/v1',
+            stableId: 'external-openrouter-google-gemini-3-6-flash-example',
+            available: true,
+          },
+        },
+      },
     ];
 
     const result = await prepareReviewBatchWorkspace({ snapshot, jobs });
 
     assert.match(result.batchRoot, /batches/u);
     assert.doesNotMatch(result.batchRoot, /fast|slow/iu);
-    assert.equal(result.jobs.length, 3);
+    assert.equal(result.jobs.length, 4);
+    for (const job of result.jobs) {
+      assert.deepEqual(
+        job.input?.review_batch,
+        {
+          batch_id: snapshot.review_wave_id,
+          batch_root: result.batchRoot,
+          reconciliation_dir: path.join(result.batchRoot, 'reconciliation'),
+        },
+        'preserve the child input shape and hashes used to reattach existing reviewer runs',
+      );
+    }
     const codexJob = result.jobs[0]?.input?.review_job as Record<
       string,
       unknown
@@ -169,6 +248,70 @@ test('review batch workspace gives every job immutable private input and pre-cre
       await fs.readdir(String(codexJob.output_dir)),
       [],
       'empty output remains visible because the job directory exists',
+    );
+    const copilotJob = result.jobs[3]?.input?.review_job as Record<
+      string,
+      unknown
+    >;
+    assert.deepEqual(
+      JSON.parse(
+        await fs.readFile(
+          path.join(String(copilotJob.input_dir), 'copilot-review-spec.json'),
+          'utf8',
+        ),
+      ),
+      jobs[3]?.input?.copilot_review_spec,
+    );
+    assert.equal(
+      (
+        await fs.stat(
+          path.join(String(copilotJob.input_dir), 'copilot-review-spec.json'),
+        )
+      ).mode & 0o222,
+      0,
+      'pinned Copilot spec is read-only',
+    );
+    const invalidExternalJobs = structuredClone(jobs);
+    const invalidExternalSpec =
+      invalidExternalJobs[3]?.input?.copilot_review_spec;
+    if (
+      !invalidExternalSpec ||
+      typeof invalidExternalSpec !== 'object' ||
+      Array.isArray(invalidExternalSpec)
+    ) {
+      throw new Error('Expected the external Copilot review fixture.');
+    }
+    delete invalidExternalSpec.endpointId;
+    await assert.rejects(
+      prepareReviewBatchWorkspace({
+        snapshot: {
+          ...snapshot,
+          review_wave_id: '0000064-rw-missing-copilot-endpoint-id',
+        },
+        jobs: invalidExternalJobs,
+      }),
+      /missing endpointId for an available external model/u,
+    );
+    const invalidReasoningJobs = structuredClone(jobs);
+    const invalidReasoningSpec =
+      invalidReasoningJobs[3]?.input?.copilot_review_spec;
+    if (
+      !invalidReasoningSpec ||
+      typeof invalidReasoningSpec !== 'object' ||
+      Array.isArray(invalidReasoningSpec)
+    ) {
+      throw new Error('Expected the external Copilot review fixture.');
+    }
+    invalidReasoningSpec.reasoningEffort = 'unexpected';
+    await assert.rejects(
+      prepareReviewBatchWorkspace({
+        snapshot: {
+          ...snapshot,
+          review_wave_id: '0000064-rw-invalid-copilot-reasoning',
+        },
+        jobs: invalidReasoningJobs,
+      }),
+      /invalid reasoningEffort/u,
     );
     assert.match(
       await fs.readFile(result.currentBatchHandoff, 'utf8'),
@@ -266,6 +409,16 @@ test('review batch workspace gives every job immutable private input and pre-cre
       'story-context.md',
     );
     const incompleteInput = await fs.readFile(incompletePrivateInput, 'utf8');
+    const incompleteCopilotJob = incompleteBatch.jobs[3]?.input
+      ?.review_job as Record<string, unknown>;
+    const incompleteCopilotInputDir = String(incompleteCopilotJob.input_dir);
+    const missingPinnedSpec = path.join(
+      incompleteCopilotInputDir,
+      'copilot-review-spec.json',
+    );
+    await fs.chmod(incompleteCopilotInputDir, 0o755);
+    await fs.rm(missingPinnedSpec);
+    await fs.chmod(incompleteCopilotInputDir, 0o555);
     const completedInterruptedBatch = await prepareReviewBatchWorkspace({
       snapshot: {
         ...snapshot,
@@ -281,6 +434,16 @@ test('review batch workspace gives every job immutable private input and pre-cre
       await fs.readFile(incompletePrivateInput, 'utf8'),
       incompleteInput,
       'an interrupted batch keeps its original private input untouched',
+    );
+    assert.deepEqual(
+      JSON.parse(await fs.readFile(missingPinnedSpec, 'utf8')),
+      jobs[3]?.input?.copilot_review_spec,
+      'an interrupted batch reconstructs a missing pinned input inside the relocked directory',
+    );
+    assert.equal(
+      (await fs.stat(incompleteCopilotInputDir)).mode & 0o222,
+      0,
+      'the reconstructed private input directory is relocked',
     );
     assert.match(
       await fs.readFile(
@@ -344,7 +507,7 @@ test('review batch workspace gives every job immutable private input and pre-cre
     const codexJobRoot = String(codexJob.job_dir);
     const escapedJobRoot = path.join(repoRoot, 'escaped-review-job');
     await fs.cp(codexJobRoot, escapedJobRoot, { recursive: true });
-    await fs.rm(codexJobRoot, { recursive: true, force: true });
+    await removeWritableTree(codexJobRoot);
     await fs.symlink(escapedJobRoot, codexJobRoot, 'dir');
     await assert.rejects(
       prepareReviewBatchWorkspace({ snapshot, jobs }),
@@ -356,7 +519,7 @@ test('review batch workspace gives every job immutable private input and pre-cre
     const codexOutputDir = path.join(codexJobRoot, 'output');
     const escapedOutputDir = path.join(repoRoot, 'escaped-review-output');
     await fs.cp(codexOutputDir, escapedOutputDir, { recursive: true });
-    await fs.rm(codexOutputDir, { recursive: true, force: true });
+    await removeWritableTree(codexOutputDir);
     await fs.symlink(escapedOutputDir, codexOutputDir, 'dir');
     await assert.rejects(
       prepareReviewBatchWorkspace({ snapshot, jobs }),
@@ -385,7 +548,7 @@ test('review batch workspace gives every job immutable private input and pre-cre
     await fs.chmod(openCodeContextPath, 0o444);
     await fs.chmod(String(openCodeResumeJob.input_dir), 0o555);
     await fs.chmod(String(codexJob.input_dir), 0o755);
-    await fs.rm(String(codexJob.input_dir), { recursive: true, force: true });
+    await removeWritableTree(String(codexJob.input_dir));
     await assert.rejects(
       prepareReviewBatchWorkspace({ snapshot, jobs }),
       /private input directory/u,
@@ -415,7 +578,7 @@ test('review batch workspace gives every job immutable private input and pre-cre
       /branch does not match target cross-repository/u,
     );
   } finally {
-    await fs.rm(repoRoot, { recursive: true, force: true });
+    await removeWritableTree(repoRoot);
   }
 });
 
@@ -492,6 +655,6 @@ test('review batch workspace rejects a target job bound to another target root',
       /working folder does not match target primary/u,
     );
   } finally {
-    await fs.rm(repoRoot, { recursive: true, force: true });
+    await removeWritableTree(repoRoot);
   }
 });

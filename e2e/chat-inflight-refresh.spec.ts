@@ -1,6 +1,7 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 type ChatModel = { key: string; displayName: string; type?: string };
 
@@ -179,7 +180,9 @@ test('mid-stream conversation switch hydrates inflight snapshot on return', asyn
   await page.goto(`${baseUrl}/chat`);
 
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
-  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await expect(modelSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await modelSelect.click();
   const option = page.getByRole('option', {
     name: mockModels[0].displayName,
@@ -210,7 +213,7 @@ test('mid-stream conversation switch hydrates inflight snapshot on return', asyn
   await send.click();
 
   await expect(page.getByText('Partial response')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
 
   // Switch away mid-stream.
@@ -219,7 +222,7 @@ test('mid-stream conversation switch hydrates inflight snapshot on return', asyn
   // Switching back should hydrate the inflight snapshot via the turns refresh.
   await conversationARow.click();
   await expect(page.getByText('Partial response')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
 
   await mockWs.waitForConversationSubscription('c1');
@@ -229,7 +232,6 @@ test('mid-stream conversation switch hydrates inflight snapshot on return', asyn
     fullPage: true,
   });
 
-  await page.waitForTimeout(150);
   if (!inflightIdForConversationA) {
     throw new Error('Expected inflightIdForConversationA to be set');
   }
@@ -246,7 +248,7 @@ test('mid-stream conversation switch hydrates inflight snapshot on return', asyn
   });
 
   await expect(page.getByText('Partial response (continued)')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
 
   await page.screenshot({

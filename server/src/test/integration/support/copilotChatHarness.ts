@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 
 import type { LMStudioClient } from '@lmstudio/sdk';
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 
 import {
   getMemoryTurns,
@@ -19,6 +19,12 @@ import {
   type MockCopilotSdkHarness,
   type MockCopilotSdkScenario,
 } from '../../support/mockCopilotSdk.js';
+import {
+  clearScopedTestEnvValue,
+  setScopedTestEnvValue,
+} from '../../support/processEnvIsolation.js';
+import { bindCurrentTestEnvOverrides } from '../../support/testEnvOverrideScope.js';
+import { resolveConfiguredTestTimeoutMs } from '../../support/testTimeouts.js';
 
 type EnvSnapshot = Map<string, string | undefined>;
 
@@ -29,17 +35,17 @@ const env = {
       this.snapshot.set(key, process.env[key]);
     }
     if (value === undefined) {
-      delete process.env[key];
+      clearScopedTestEnvValue(key);
     } else {
-      process.env[key] = value;
+      setScopedTestEnvValue(key, value);
     }
   },
   restore() {
     for (const [key, value] of this.snapshot.entries()) {
       if (value === undefined) {
-        delete process.env[key];
+        clearScopedTestEnvValue(key);
       } else {
-        process.env[key] = value;
+        setScopedTestEnvValue(key, value);
       }
     }
     this.snapshot.clear();
@@ -100,58 +106,73 @@ export async function startCopilotChatServer(params?: {
 
   const app = express();
   app.use(express.json());
-  app.post('/mcp', (_req, res) => {
+  app.post('/mcp', bindCurrentTestEnvOverrides((_req: Request, res: Response) => {
     if (params?.mcpAvailable === false) {
       res.status(200).json({ error: { message: 'unavailable' } });
       return;
     }
     res.json({ result: { ok: true } });
-  });
+  }));
   app.use(
     '/chat',
-    createChatRouter({
+    bindCurrentTestEnvOverrides(createChatRouter({
       clientFactory:
         params?.lmstudioClientFactory ??
         createDummyClientFactory(params?.lmstudioAvailable === true),
       copilotLifecycleFactory: () => harness.createLifecycle(),
       providerDiscoveryResolver: params?.providerDiscoveryResolver,
-    }),
+    })),
   );
 
   const httpServer = http.createServer(app);
   const wsHandle = params?.withWs ? attachWs({ httpServer }) : undefined;
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
-  env.set('CODEINFO_SERVER_PORT', String(address.port));
-  env.set('MCP_URL', `http://127.0.0.1:${address.port}/mcp`);
-  env.set(
-    'CODEINFO_LMSTUDIO_BASE_URL',
-    params?.lmstudioAvailable === true
-      ? 'http://127.0.0.1:1234'
-      : 'http://127.0.0.1:9',
+  await new Promise<void>((resolve) =>
+    httpServer.listen(0, bindCurrentTestEnvOverrides(resolve)),
   );
+  try {
+    const address = httpServer.address();
+    assert(address && typeof address === 'object');
+    env.set('CODEINFO_SERVER_PORT', String(address.port));
+    env.set('MCP_URL', `http://127.0.0.1:${address.port}/mcp`);
+    env.set(
+      'CODEINFO_LMSTUDIO_BASE_URL',
+      params?.lmstudioAvailable === true
+        ? 'http://127.0.0.1:1234'
+        : 'http://127.0.0.1:9',
+    );
 
-  return {
-    baseUrl: `http://127.0.0.1:${address.port}`,
-    harness,
-    httpServer,
-    wsHandle,
-    stop: async () => {
-      await wsHandle?.close();
-      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-      env.restore();
-      memoryConversations.clear();
-      memoryTurns.clear();
-    },
-  } satisfies StartedCopilotChatServer;
+    return {
+      baseUrl: `http://127.0.0.1:${address.port}`,
+      harness,
+      httpServer,
+      wsHandle,
+      stop: async () => {
+        await wsHandle?.close();
+        await new Promise<void>((resolve) =>
+          httpServer.close(bindCurrentTestEnvOverrides(() => resolve())),
+        );
+        env.restore();
+        memoryConversations.clear();
+        memoryTurns.clear();
+      },
+    } satisfies StartedCopilotChatServer;
+  } catch (error) {
+    await wsHandle?.close();
+    await new Promise<void>((resolve) =>
+      httpServer.close(bindCurrentTestEnvOverrides(() => resolve())),
+    );
+    env.restore();
+    memoryConversations.clear();
+    memoryTurns.clear();
+    throw error;
+  }
 }
 
 export async function waitForAssistantTurn(
   conversationId: string,
   timeoutMs = 4000,
 ) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const turns = getMemoryTurns(conversationId);
     if (turns.some((turn) => turn.role === 'assistant')) {
@@ -167,7 +188,7 @@ export async function waitForAssistantTurnCount(
   expectedCount: number,
   timeoutMs = 4000,
 ) {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const turns = getMemoryTurns(conversationId);
     const assistantTurns = turns.filter((turn) => turn.role === 'assistant');

@@ -1,0 +1,10 @@
+{
+  "description": "Run one local GitHub Copilot CLI /review inside its assigned generic review-job workspace.",
+  "steps": [
+    {
+      "type": "runCopilotReview",
+      "label": "Run Copilot Workspace Review",
+      "markdownFile": "copilot_review_instructions.md"
+    }
+  ]
+}

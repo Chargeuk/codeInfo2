@@ -1,10 +1,24 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import nodeTest from 'node:test';
 
 import request from 'supertest';
 
 import { memoryConversations } from '../../chat/memoryPersistence.js';
+import {
+  beginScopedTestEnvIsolation,
+  endScopedTestEnvIsolation,
+} from '../support/processEnvIsolation.js';
 import { startCopilotChatServer } from './support/copilotChatHarness.js';
+
+const test = (name: string, fn: () => Promise<void> | void) =>
+  nodeTest(name, async () => {
+    beginScopedTestEnvIsolation();
+    try {
+      await fn();
+    } finally {
+      endScopedTestEnvIsolation();
+    }
+  });
 
 test('copilot chat rejects stale Codex-only top-level flags after Task 3 validation tightening', async () => {
   const server = await startCopilotChatServer({

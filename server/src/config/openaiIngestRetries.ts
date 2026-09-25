@@ -1,4 +1,5 @@
 import { OPENAI_RETRY_DEFAULT_MAX_RETRIES } from '../ingest/providers/openaiConstants.js';
+import { getScopedProcessEnv } from '../test/support/testEnvOverrideScope.js';
 
 /**
  * CODEINFO_OPENAI_INGEST_MAX_RETRIES is the number of retry attempts
@@ -7,7 +8,7 @@ import { OPENAI_RETRY_DEFAULT_MAX_RETRIES } from '../ingest/providers/openaiCons
 export const resolveOpenAiIngestMaxRetries = (
   env: Record<string, string | undefined> = process.env,
 ): number => {
-  const raw = env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
+  const raw = getScopedProcessEnv(env).CODEINFO_OPENAI_INGEST_MAX_RETRIES;
   if (!raw) return OPENAI_RETRY_DEFAULT_MAX_RETRIES;
 
   const normalized = raw.trim();

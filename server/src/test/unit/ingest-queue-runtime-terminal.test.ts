@@ -31,21 +31,17 @@ import {
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
   waitForQueueManagedTerminalStatus,
-  waitForNextTurn,
+  waitForIngestRuntimeIdle,
 } from './ingest-queue-runtime.helpers.js';
-
 installQueueRuntimeTestHooks();
-
 function buildIngestDeps() {
   return {
     baseUrl: 'http://lmstudio.local',
     lmClientFactory: () => ({}) as LMStudioClient,
   };
 }
-
 test('terminal queue cleanup deletes the current queue record before the next waiting item starts', async () => {
   const events: string[] = [];
-
   __setStatusForTest('run-finished', {
     runId: 'run-finished',
     state: 'completed',
@@ -54,7 +50,6 @@ test('terminal queue cleanup deletes the current queue record before the next wa
     lastError: null,
   });
   __setQueueRequestIdForRunForTest('run-finished', 'queue-finished');
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async () => {
       events.push('delete-current');
@@ -71,26 +66,20 @@ test('terminal queue cleanup deletes the current queue record before the next wa
       return null;
     },
   });
-
   const cleaned = await __finalizeQueueRequestForRunForTest('run-finished');
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(cleaned, true);
   assert.deepEqual(events, ['delete-current', 'promote-next']);
 });
-
 test('terminal queue request cache retains completed entries until expiry and evicts them deterministically after the boundary', async () => {
-  let terminalStatusNowMs = 1_000;
+  let terminalStatusNowMs = 1000;
   const advanceTerminalStatusTime = (ms: number) => {
     terminalStatusNowMs += ms;
     __setQueueRequestTerminalStatusNowForTest(terminalStatusNowMs);
   };
-
   __setQueueRequestTerminalStatusNowForTest(terminalStatusNowMs);
   __setQueueRequestIdForRunForTest('run-evicted', 'queue-evicted');
   __setQueueRequestTerminalStatusTtlForTest(5);
-
   __setStatusAndPublishForTest('run-evicted', {
     runId: 'run-evicted',
     state: 'completed',
@@ -98,14 +87,12 @@ test('terminal queue request cache retains completed entries until expiry and ev
     message: 'Completed',
     lastError: null,
   });
-
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 1);
   advanceTerminalStatusTime(4);
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 1);
   advanceTerminalStatusTime(1);
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
 });
-
 test('normal terminal path with queue deletion failure does not settle the request waiter as success and leaves cleanup-blocked status', async () => {
   const initialListeners = __getIngestEventListenerCountForTest();
   __setQueueRequestIdForRunForTest('run-cleanup-fails', 'queue-cleanup-fails');
@@ -116,7 +103,6 @@ test('normal terminal path with queue deletion failure does not settle the reque
     message: 'Running',
     lastError: null,
   });
-
   __setQueueRuntimeOpsForTest({
     findQueueRequestById: async () =>
       createQueueRequest({
@@ -136,12 +122,11 @@ test('normal terminal path with queue deletion failure does not settle the reque
         runId: 'run-cleanup-fails',
       }),
   });
-
   const waitResultPromise = waitForQueueRequestTerminalStatus(
     'queue-cleanup-fails',
-    { timeoutMs: 1_000 },
+    { timeoutMs: 1000 },
   );
-  await waitForNextTurn();
+  await waitForIngestRuntimeIdle();
   __setStatusAndPublishForTest(
     'run-cleanup-fails',
     {
@@ -153,12 +138,10 @@ test('normal terminal path with queue deletion failure does not settle the reque
     },
     { publishQueueTerminal: false },
   );
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   const cleaned =
     await __finalizeQueueRequestForRunForTest('run-cleanup-fails');
   const waitResult = await waitResultPromise;
-
   assert.equal(cleaned, false);
   assert.equal(waitResult.reason, 'terminal');
   assert.equal(waitResult.status?.state, 'cleanup-blocked');
@@ -166,7 +149,6 @@ test('normal terminal path with queue deletion failure does not settle the reque
   assert.equal(getStatus('run-cleanup-fails')?.state, 'cleanup-blocked');
   assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
 });
-
 test('skipped terminal path with queue deletion failure does not settle the request waiter as success before cleanup is finalized', async () => {
   const initialListeners = __getIngestEventListenerCountForTest();
   __setQueueRequestIdForRunForTest(
@@ -180,7 +162,6 @@ test('skipped terminal path with queue deletion failure does not settle the requ
     message: 'Running',
     lastError: null,
   });
-
   __setQueueRuntimeOpsForTest({
     findQueueRequestById: async () =>
       createQueueRequest({
@@ -200,11 +181,10 @@ test('skipped terminal path with queue deletion failure does not settle the requ
         runId: 'run-skipped-cleanup-fails',
       }),
   });
-
   const waitResultPromise = waitForQueueRequestTerminalStatus('queue-skipped', {
-    timeoutMs: 1_000,
+    timeoutMs: 1000,
   });
-  await waitForNextTurn();
+  await waitForIngestRuntimeIdle();
   __setStatusAndPublishForTest(
     'run-skipped-cleanup-fails',
     {
@@ -216,13 +196,11 @@ test('skipped terminal path with queue deletion failure does not settle the requ
     },
     { publishQueueTerminal: false },
   );
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   const cleaned = await __finalizeQueueRequestForRunForTest(
     'run-skipped-cleanup-fails',
   );
   const waitResult = await waitResultPromise;
-
   assert.equal(cleaned, false);
   assert.equal(waitResult.reason, 'terminal');
   assert.equal(waitResult.status?.state, 'cleanup-blocked');
@@ -233,49 +211,39 @@ test('skipped terminal path with queue deletion failure does not settle the requ
   );
   assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
 });
-
 test('request-aware queue wait uses timeout fallback only when no terminal state can be read and still cleans up listeners', async () => {
   const initialListeners = __getIngestEventListenerCountForTest();
-
   __setQueueRuntimeOpsForTest({
     findQueueRequestById: async () => null,
   });
-
   const result = await waitForQueueRequestTerminalStatus('queue-timeout', {
     timeoutMs: 5,
   });
-
   assert.equal(result.reason, 'timeout');
   assert.equal(result.runId, null);
   assert.equal(result.status, null);
   assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
 });
-
 test('request-aware queue wait cleans up listeners on queue-read failure', async () => {
   const initialListeners = __getIngestEventListenerCountForTest();
-
   __setQueueRuntimeOpsForTest({
     findQueueRequestById: async () => {
       throw new Error('queue read failed');
     },
   });
-
   const queueReadFailed = await waitForQueueRequestTerminalStatus(
     'queue-read-failed',
     {
       timeoutMs: 20,
     },
   );
-
   assert.equal(queueReadFailed.reason, QUEUE_READ_FAILED_WAIT_REASON);
   assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 0);
 });
-
 test('request-aware queue wait cleans up listeners on cancellation and immediate cached terminal reuse', async () => {
   const initialListeners = __getIngestEventListenerCountForTest();
-
   __setQueueRuntimeOpsForTest({
     findQueueRequestById: async (requestId) =>
       requestId === 'queue-cancelled-live'
@@ -287,7 +255,6 @@ test('request-aware queue wait cleans up listeners on cancellation and immediate
           })
         : null,
   });
-
   __setStatusForTest('run-cancelled-live', {
     runId: 'run-cancelled-live',
     state: 'queued',
@@ -299,14 +266,13 @@ test('request-aware queue wait cleans up listeners on cancellation and immediate
     'run-cancelled-live',
     'queue-cancelled-live',
   );
-
   const cancelledPromise = waitForQueueRequestTerminalStatus(
     'queue-cancelled-live',
     {
-      timeoutMs: 1_000,
+      timeoutMs: 1000,
     },
   );
-  await waitForNextTurn();
+  await waitForIngestRuntimeIdle();
   __setStatusAndPublishForTest('run-cancelled-live', {
     runId: 'run-cancelled-live',
     state: 'cancelled',
@@ -314,13 +280,11 @@ test('request-aware queue wait cleans up listeners on cancellation and immediate
     message: 'Cancelled',
     lastError: 'Cancelled',
   });
-
   const cancelled = await cancelledPromise;
   assert.equal(cancelled.reason, 'terminal');
   assert.equal(cancelled.status?.state, 'cancelled');
   assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
   assert.equal(__getQueueRequestTerminalStatusCountForTest(), 1);
-
   __setQueueRuntimeOpsForTest({
     findQueueRequestById: async () => {
       throw new Error('queue read failed');
@@ -329,7 +293,6 @@ test('request-aware queue wait cleans up listeners on cancellation and immediate
     markQueueRequestTerminalPublished: async () => null,
   });
   await __persistQueueTerminalBarrierForTest('run-cancelled-live');
-
   const immediate = await waitForQueueRequestTerminalStatus(
     'queue-cancelled-live',
     {
@@ -340,7 +303,6 @@ test('request-aware queue wait cleans up listeners on cancellation and immediate
   assert.equal(immediate.status?.state, 'cancelled');
   assert.equal(__getIngestEventListenerCountForTest(), initialListeners);
 });
-
 test('cleanup-blocked queue records stay visible and stall newer waiting work', async () => {
   __setStatusForTest('run-blocked', {
     runId: 'run-blocked',
@@ -350,7 +312,6 @@ test('cleanup-blocked queue records stay visible and stall newer waiting work', 
     lastError: null,
   });
   __setQueueRequestIdForRunForTest('run-blocked', 'queue-blocked');
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async () => {
       throw new Error('delete failed');
@@ -370,16 +331,13 @@ test('cleanup-blocked queue records stay visible and stall newer waiting work', 
         runId: 'run-blocked',
       }),
   });
-
   const cleaned = await __finalizeQueueRequestForRunForTest('run-blocked');
   const stalled = await pumpIngestQueue();
-
   assert.equal(cleaned, false);
   assert.equal(getStatus('run-blocked')?.state, 'cleanup-blocked');
   assert.equal(stalled.started, false);
   assert.equal(stalled.blockedByCleanup, true);
 });
-
 test('delete failure plus cleanup-blocked persistence failure leaves retry ownership that stalls newer waiting work until queue record removal', async () => {
   const events: string[] = [];
   let deleteAttempts = 0;
@@ -394,7 +352,6 @@ test('delete failure plus cleanup-blocked persistence failure leaves retry owner
     'run-partial-cleanup',
     'queue-partial-cleanup',
   );
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async () => {
       deleteAttempts += 1;
@@ -417,13 +374,11 @@ test('delete failure plus cleanup-blocked persistence failure leaves retry owner
       return null;
     },
   });
-
   const cleaned = await __finalizeQueueRequestForRunForTest(
     'run-partial-cleanup',
   );
   const stalled = await pumpIngestQueue();
   const startup = await recoverIngestQueueOnStartup();
-
   assert.equal(cleaned, false);
   assert.equal(stalled.started, false);
   assert.equal(stalled.blockedByCleanup, true);
@@ -438,12 +393,10 @@ test('delete failure plus cleanup-blocked persistence failure leaves retry owner
   });
   assert.equal(getStatus('run-partial-cleanup')?.state, 'cleanup-blocked');
   assert.deepEqual(events, ['delete-1', 'mark-cleanup-blocked']);
-
   const cleanedAfterRemoval = await __finalizeQueueRequestForRunForTest(
     'run-partial-cleanup',
   );
   const unblocked = await pumpIngestQueue();
-
   assert.equal(cleanedAfterRemoval, true);
   assert.equal(unblocked.started, false);
   assert.equal(unblocked.blockedByCleanup, false);
@@ -457,7 +410,6 @@ test('delete failure plus cleanup-blocked persistence failure leaves retry owner
     'waiting-promote',
   ]);
 });
-
 test('deletions-only cleanup degradation publishes the shared cleanup-blocked queue state and stalls later waiting work', async () => {
   let scheduledTask: (() => void) | null = null;
   __setRunSchedulerForTest((task) => {
@@ -465,21 +417,27 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
   });
   const events: string[] = [];
   const { vectors } = setupIngestChromaMocks();
-  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  (
+    mongoose.connection as unknown as {
+      readyState: number;
+    }
+  ).readyState = 1;
   const { root, cleanup } = await createTempRepo({
     'docs/keep.md': '# keep\n',
     'docs/delete-a.md': '# delete a\n',
   });
-
   let cleanupBlockedRequestId: string | null = null;
   let deletedDuringFinalize = false;
   let promotedDuringCleanupBlocked = false;
   let activeRunId: string | null = null;
-
   try {
     vectors.delete = mock.fn(async () => {
       events.push('vector-delete');
-      (mongoose.connection as unknown as { readyState: number }).readyState = 0;
+      (
+        mongoose.connection as unknown as {
+          readyState: number;
+        }
+      ).readyState = 0;
     });
     const keepHash = await hashFile(`${root}/docs/keep.md`);
     mock.method(IngestFileModel, 'find', () => ({
@@ -493,8 +451,7 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
       }),
     }));
     await fs.rm(`${root}/docs/delete-a.md`);
-    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/keep.md';
-
+    setScopedTestEnvValue('CODEINFO_INGEST_TEST_GIT_PATHS', 'docs/keep.md');
     __setQueueRuntimeOpsForTest({
       findQueueRequestById: async (requestId) =>
         requestId === '11' && activeRunId
@@ -555,7 +512,6 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
         return null;
       },
     });
-
     const runId = await startIngest(
       {
         path: root,
@@ -572,25 +528,9 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
     }
     const executeScheduledTask = scheduledTask as () => void;
     executeScheduledTask();
-
     const status = await waitForQueueManagedTerminalStatus('11');
-    for (
-      let attempt = 0;
-      attempt < 5 && cleanupBlockedRequestId === null;
-      attempt += 1
-    ) {
-      await waitForNextTurn();
-    }
-    let stalled = await pumpIngestQueue();
-    for (
-      let attempt = 0;
-      attempt < 5 && !stalled.blockedByCleanup && !stalled.started;
-      attempt += 1
-    ) {
-      await waitForNextTurn();
-      stalled = await pumpIngestQueue();
-    }
-
+    await waitForIngestRuntimeIdle();
+    const stalled = await pumpIngestQueue();
     assert.equal(status.state, 'cleanup-blocked');
     assert.equal(cleanupBlockedRequestId, '11');
     assert.equal(deletedDuringFinalize, false);
@@ -605,7 +545,6 @@ test('deletions-only cleanup degradation publishes the shared cleanup-blocked qu
     await cleanup();
   }
 });
-
 test('queue-managed finalization fails closed when replay barrier persistence fails before modeled side effects', async () => {
   let scheduledTask: (() => void) | null = null;
   __setRunSchedulerForTest((task) => {
@@ -613,12 +552,15 @@ test('queue-managed finalization fails closed when replay barrier persistence fa
   });
   const events: string[] = [];
   const { vectors } = setupIngestChromaMocks();
-  (mongoose.connection as unknown as { readyState: number }).readyState = 1;
+  (
+    mongoose.connection as unknown as {
+      readyState: number;
+    }
+  ).readyState = 1;
   const { root, cleanup } = await createTempRepo({
     'docs/keep.md': '# keep\n',
     'docs/delete-a.md': '# delete a\n',
   });
-
   try {
     vectors.delete = mock.fn(async () => {
       events.push('vector-delete');
@@ -635,8 +577,7 @@ test('queue-managed finalization fails closed when replay barrier persistence fa
       }),
     }));
     await fs.rm(`${root}/docs/delete-a.md`);
-    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = 'docs/keep.md';
-
+    setScopedTestEnvValue('CODEINFO_INGEST_TEST_GIT_PATHS', 'docs/keep.md');
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async (requestId) => {
         events.push(`delete:${requestId}`);
@@ -662,7 +603,6 @@ test('queue-managed finalization fails closed when replay barrier persistence fa
       },
       promoteOldestWaitingQueueRequest: async () => null,
     });
-
     const runId = await startIngest(
       {
         path: root,
@@ -678,9 +618,7 @@ test('queue-managed finalization fails closed when replay barrier persistence fa
     }
     const executeScheduledTask = scheduledTask as () => void;
     executeScheduledTask();
-
     const status = await waitForQueueManagedTerminalStatus('12');
-
     assert.equal(status.state, 'error');
     assert.equal(
       status.lastError?.includes('non-replayable barrier write failed'),
@@ -695,11 +633,9 @@ test('queue-managed finalization fails closed when replay barrier persistence fa
     await cleanup();
   }
 });
-
 test('startup recovery resolves cleanup-blocked before retrying running work or waiting work', async () => {
   const events: string[] = [];
   __setQueueRequestIdForRunForTest('run-cleanup', 'queue-cleanup');
-
   __setQueueRuntimeOpsForTest({
     findOldestCleanupBlockedQueueRequest: async () =>
       createQueueRequest({
@@ -726,18 +662,13 @@ test('startup recovery resolves cleanup-blocked before retrying running work or 
       return null;
     },
   });
-
   const result = await recoverIngestQueueOnStartup();
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(result.recovered, true);
   assert.deepEqual(events, ['cleanup-first']);
 });
-
 test('startup recovery does not advance past cleanup-blocked rows with missing runId', async () => {
   const events: string[] = [];
-
   __setQueueRuntimeOpsForTest({
     findOldestCleanupBlockedQueueRequest: async () =>
       createQueueRequest({
@@ -755,13 +686,10 @@ test('startup recovery does not advance past cleanup-blocked rows with missing r
       return null;
     },
   });
-
   const result = await recoverIngestQueueOnStartup();
-
   assert.equal(result.recovered, false);
   assert.deepEqual(events, []);
 });
-
 test('queue-managed completion records a durable replay barrier even when terminal marker persistence fails after commit', async () => {
   const events: string[] = [];
   __setStatusForTest('run-barrier-written', {
@@ -775,7 +703,6 @@ test('queue-managed completion records a durable replay barrier even when termin
     'run-barrier-written',
     'queue-barrier-written',
   );
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       events.push(`deleted:${requestId}`);
@@ -798,12 +725,10 @@ test('queue-managed completion records a durable replay barrier even when termin
     },
     promoteOldestWaitingQueueRequest: async () => null,
   });
-
   await __persistQueueTerminalBarrierForTest('run-barrier-written');
   const cleaned = await __finalizeQueueRequestForRunForTest(
     'run-barrier-written',
   );
-
   assert.equal(cleaned, true);
   assert.deepEqual(events, [
     'barrier:run-barrier-written:queue-barrier-written',

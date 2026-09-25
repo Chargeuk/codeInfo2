@@ -14,6 +14,7 @@ import {
   type SubflowWaveJob,
 } from '../../flows/subflowWave.js';
 import type { FlowJsonValue } from '../../flows/types.js';
+import { removeWritableTree } from '../support/fsCleanup.js';
 
 const execFile = promisify(execFileCb);
 
@@ -225,7 +226,7 @@ Then('both scheduled jobs expose the same common workspace fields', () => {
 
 After(async () => {
   if (tempRoot) {
-    await fs.rm(tempRoot, { recursive: true, force: true });
+    await removeWritableTree(tempRoot);
   }
   tempRoot = undefined;
   snapshot = undefined;

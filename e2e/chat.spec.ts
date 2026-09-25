@@ -7,6 +7,7 @@ import {
   logPlaywrightCopilotScenarioRegistration,
 } from './support/copilotFakeScenario';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 type ChatModel = { key: string; displayName: string; type?: string };
 
@@ -85,7 +86,9 @@ const pickChatModel = (models: ChatModel[]) => {
 
 async function selectProvider(page: Page, providerName: string) {
   const providerSelect = page.getByRole('combobox', { name: /Provider/i });
-  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
+  await expect(providerSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await providerSelect.click();
   await page.getByRole('option', { name: providerName, exact: false }).click();
   await expect(providerSelect).toHaveText(new RegExp(providerName, 'i'));
@@ -93,11 +96,13 @@ async function selectProvider(page: Page, providerName: string) {
 
 async function selectModel(page: Page, modelName: string) {
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
-  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await expect(modelSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await modelSelect.click();
   await page.getByRole('option', { name: modelName, exact: false }).click();
   await expect(modelSelect).toHaveText(new RegExp(modelName, 'i'), {
-    timeout: 5000,
+    timeout: resolveConfiguredE2eTimeoutMs(5000),
   });
 }
 
@@ -196,18 +201,18 @@ test('chat streams end-to-end', async ({ page }) => {
       });
 
       await mockWs.waitForConversationSubscription(conversationId);
-      mockWs.sendInflightSnapshot({ conversationId, inflightId });
-      mockWs.sendAssistantDelta({
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      await mockWs.sendAssistantDelta({
         conversationId,
         inflightId,
         delta: 'Hi there ',
       });
-      mockWs.sendAnalysisDelta({
+      await mockWs.sendAnalysisDelta({
         conversationId,
         inflightId,
         delta: 'mock trace',
       });
-      mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+      await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
     });
     models = mockModels;
   } else {
@@ -237,7 +242,9 @@ test('chat streams end-to-end', async ({ page }) => {
   await page.goto(`${baseUrl}/chat`);
 
   const providerSelect = page.getByRole('combobox', { name: /Provider/i });
-  await expect(providerSelect).toBeEnabled({ timeout: 20000 });
+  await expect(providerSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   if (useMockChat) {
     const selectedProviderText =
       (await providerSelect.textContent())?.trim() ?? '';
@@ -245,13 +252,15 @@ test('chat streams end-to-end', async ({ page }) => {
       await providerSelect.click();
       await page.getByRole('option', { name: 'LM Studio' }).click();
       await expect(providerSelect).toHaveText(/LM Studio/, {
-        timeout: 5000,
+        timeout: resolveConfiguredE2eTimeoutMs(5000),
       });
     }
   }
 
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
-  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await expect(modelSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   if (useMockChat) {
     await expect
       .poll(
@@ -259,7 +268,7 @@ test('chat streams end-to-end', async ({ page }) => {
           const text = (await modelSelect.textContent())?.trim() ?? '';
           return text.includes(selectedModel.displayName);
         },
-        { timeout: 20000 },
+        { timeout: resolveConfiguredE2eTimeoutMs(20000) },
       )
       .toBeTruthy();
   } else {
@@ -276,13 +285,17 @@ test('chat streams end-to-end', async ({ page }) => {
         exact: false,
       });
       try {
-        await option.first().click({ timeout: 5000 });
+        await option
+          .first()
+          .click({ timeout: resolveConfiguredE2eTimeoutMs(5000) });
       } catch {
-        await menuItem.first().click({ timeout: 5000 });
+        await menuItem
+          .first()
+          .click({ timeout: resolveConfiguredE2eTimeoutMs(5000) });
       }
     }
     await expect(modelSelect).toHaveText(selectedModel.displayName, {
-      timeout: 5000,
+      timeout: resolveConfiguredE2eTimeoutMs(5000),
     });
   }
 
@@ -306,15 +319,21 @@ test('chat streams end-to-end', async ({ page }) => {
   await send.click();
 
   try {
-    await expect(assistantBubbles.first()).toHaveText(/.+/, { timeout: 20000 });
+    await expect(assistantBubbles.first()).toHaveText(/.+/, {
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await expect(assistantBubbles.first()).toHaveAttribute(
       'data-kind',
       'normal',
     );
     await expect(errorBubbles).toHaveCount(0);
     if (await responding.count()) {
-      await expect(responding).toBeVisible({ timeout: 20000 });
-      await expect(responding).not.toBeVisible({ timeout: 20000 });
+      await expect(responding).toBeVisible({
+        timeout: resolveConfiguredE2eTimeoutMs(20000),
+      });
+      await expect(responding).not.toBeVisible({
+        timeout: resolveConfiguredE2eTimeoutMs(20000),
+      });
     }
 
     if (useMockChat) {
@@ -365,7 +384,9 @@ test('chat streams end-to-end', async ({ page }) => {
 
     await input.fill('Second follow-up from e2e');
     await send.click();
-    await expect(assistantBubbles.nth(1)).toHaveText(/.+/, { timeout: 20000 });
+    await expect(assistantBubbles.nth(1)).toHaveText(/.+/, {
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await expect(errorBubbles).toHaveCount(0);
   } finally {
     await page.screenshot({
@@ -492,7 +513,7 @@ test('copilot happy-path send uses the Copilot provider contract end to end', as
 
   await expect(page.getByTestId('chat-transcript')).toContainText(
     'Hello from fake Copilot',
-    { timeout: 20000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(20000) },
   );
 });
 
@@ -528,7 +549,7 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
           },
         ],
         selectedProvider: 'codex',
-        selectedModel: 'gpt-5.1-codex-max',
+        selectedModel: 'gpt-5.6-luna',
         selectedEndpointId: 'https://alpha.example/base/v1',
       }),
     }),
@@ -550,19 +571,19 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
             label: 'OpenAI Codex',
             available: true,
             toolsAvailable: true,
-            defaultModel: 'gpt-5.2',
+            defaultModel: 'gpt-5.6-terra',
             defaultModelSource: 'config',
           },
           models: [
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
               endpointId: 'https://alpha.example/base/v1',
             },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'codex',
               endpointId: 'https://alpha.example/alt/v1',
             },
@@ -641,7 +662,7 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.2 \(alpha\.example \/ base\)/i,
+    /gpt-5\.6-terra \(alpha\.example \/ base\)/i,
   );
 
   await page
@@ -651,12 +672,12 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
 
   await expect.poll(() => chatBodies.length).toBe(1);
   expect(chatBodies[0]?.provider).toBe('codex');
-  expect(chatBodies[0]?.model).toBe('gpt-5.2');
+  expect(chatBodies[0]?.model).toBe('gpt-5.6-terra');
   expect(chatBodies[0]?.endpointId).toBe('https://alpha.example/base/v1');
 
   await expect(page.getByTestId('chat-transcript')).toContainText(
     'Hello from endpoint-backed send',
-    { timeout: 20000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(20000) },
   );
 });
 
@@ -693,7 +714,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
           },
         ],
         selectedProvider: 'codex',
-        selectedModel: 'gpt-5.2',
+        selectedModel: 'gpt-5.6-terra',
         selectedEndpointId: 'https://alpha.example/base/v1',
       }),
     }),
@@ -715,20 +736,20 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
             label: 'OpenAI Codex',
             available: true,
             toolsAvailable: true,
-            defaultModel: 'gpt-5.1-codex-max',
+            defaultModel: 'gpt-5.6-luna',
             defaultModelSource: 'config',
           },
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/base/v1',
               supportedReasoningEfforts: ['medium', 'high'],
             },
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/alt/v1',
               supportedReasoningEfforts: ['medium', 'high'],
@@ -759,7 +780,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
             conversationId: 'endpoint-history-conversation',
             title: 'Endpoint history conversation',
             provider: 'codex',
-            model: 'gpt-5.1-codex-max',
+            model: 'gpt-5.6-luna',
             source: 'REST',
             lastMessageAt: '2025-01-01T00:00:00.000Z',
             archived: false,
@@ -783,7 +804,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
               role: 'user',
               content: 'Earlier prompt',
               provider: 'codex',
-              model: 'gpt-5.1-codex-max',
+              model: 'gpt-5.6-luna',
               status: 'ok',
               createdAt: '2025-01-01T00:00:00.000Z',
             },
@@ -792,7 +813,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
               role: 'assistant',
               content: 'Earlier reply',
               provider: 'codex',
-              model: 'gpt-5.1-codex-max',
+              model: 'gpt-5.6-luna',
               status: 'ok',
               createdAt: '2025-01-01T00:00:01.000Z',
             },
@@ -848,7 +869,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
     },
   );
   await expect(historyConversationRow).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await historyConversationRow.click();
   await expect(
@@ -858,7 +879,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.1-codex-max \(alpha\.example \/ alt\)/i,
+    /gpt-5\.6-luna \(alpha\.example \/ alt\)/i,
   );
 
   await page.getByRole('button', { name: /new conversation/i }).click();
@@ -866,7 +887,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
     /OpenAI Codex/i,
   );
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.1-codex-max \(alpha\.example \/ base\)/i,
+    /gpt-5\.6-luna \(alpha\.example \/ base\)/i,
   );
 
   await page.getByTestId('provider-select').click();
@@ -894,7 +915,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
   ).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('model-select')).toContainText(
-    /gpt-5\.1-codex-max \(alpha\.example \/ base\)/i,
+    /gpt-5\.6-luna \(alpha\.example \/ base\)/i,
   );
 
   await page
@@ -904,7 +925,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
 
   await expect.poll(() => chatBodies.length).toBe(1);
   expect(chatBodies[0]?.provider).toBe('codex');
-  expect(chatBodies[0]?.model).toBe('gpt-5.1-codex-max');
+  expect(chatBodies[0]?.model).toBe('gpt-5.6-luna');
   expect(chatBodies[0]?.endpointId).toBe('https://alpha.example/base/v1');
   expect(chatBodies[0]?.conversationId).not.toBe(
     'endpoint-history-conversation',
@@ -912,7 +933,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
 
   await expect(page.getByTestId('chat-transcript')).toContainText(
     'Fresh mobile endpoint reply',
-    { timeout: 20000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(20000) },
   );
 });
 
@@ -965,8 +986,8 @@ test('chat no longer exposes re-authenticate inside the workspace surface', asyn
           toolsAvailable: true,
           models: [
             {
-              key: 'gpt-5-codex',
-              displayName: 'GPT-5 Codex',
+              key: 'gpt-5.6-luna',
+              displayName: 'GPT-5.6 Luna',
               type: 'codex',
             },
           ],
@@ -1003,7 +1024,7 @@ test('chat no longer exposes re-authenticate inside the workspace surface', asyn
 
   await expect(page.getByRole('combobox', { name: /Provider/i })).toHaveText(
     /OpenAI Codex/i,
-    { timeout: 20000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(20000) },
   );
   await expect(
     page.getByRole('button', { name: /^Re-authenticate$/i }),
@@ -1084,19 +1105,21 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    mockWs.sendAssistantDelta({
+    await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    await mockWs.sendAssistantDelta({
       conversationId,
       inflightId,
       delta: 'ack',
     });
-    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
 
   await page.goto(`${baseUrl}/chat`);
 
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
-  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await expect(modelSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await modelSelect.click();
   await page.getByRole('option', { name: 'Mock Model 1' }).click();
   await expect
@@ -1105,7 +1128,7 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
         const text = (await modelSelect.textContent())?.trim() ?? '';
         return text.includes('Mock Model 1');
       },
-      { timeout: 20000 },
+      { timeout: resolveConfiguredE2eTimeoutMs(20000) },
     )
     .toBeTruthy();
 
@@ -1128,7 +1151,7 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
 
   await expect
     .poll(() => chatBodies.length, {
-      timeout: 10000,
+      timeout: resolveConfiguredE2eTimeoutMs(10000),
       message:
         'Expected exactly one follow-up chat POST request after blocked whitespace submit',
     })
@@ -1211,9 +1234,13 @@ test('chat renders user markdown list/code with same structure as assistant mark
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    mockWs.sendAssistantDelta({ conversationId, inflightId, delta: message });
-    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    await mockWs.sendAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: message,
+    });
+    await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
 
   await page.goto(`${baseUrl}/chat`);
@@ -1237,10 +1264,10 @@ test('chat renders user markdown list/code with same structure as assistant mark
   const assistantMarkdown = page.getByTestId('assistant-markdown').first();
 
   await expect(userMarkdown.getByRole('listitem')).toHaveCount(2, {
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await expect(assistantMarkdown.getByRole('listitem')).toHaveCount(2, {
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
   await expect(userMarkdown.locator('pre code')).toContainText(
     'const total = 2;',
@@ -1325,7 +1352,9 @@ test('chat provider/model selects work on small viewport', async ({ page }) => {
   await page.goto(`${baseUrl}/chat`);
 
   const providerSelect = page.getByRole('combobox', { name: /Provider/i });
-  await expect(providerSelect).toBeVisible({ timeout: 20000 });
+  await expect(providerSelect).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await providerSelect.click();
   const providerOption = page.getByRole('option').first();
   const providerMenuItem = page.getByRole('menuitem').first();
@@ -1337,7 +1366,9 @@ test('chat provider/model selects work on small viewport', async ({ page }) => {
   await page.keyboard.press('Escape');
 
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
-  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await expect(modelSelect).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
   await modelSelect.click();
 
   const option = page.getByRole('option', {
@@ -1359,7 +1390,7 @@ test('chat provider/model selects work on small viewport', async ({ page }) => {
         const text = (await modelSelect.textContent())?.trim() ?? '';
         return text.includes(selectedModel.displayName);
       },
-      { timeout: 5000 },
+      { timeout: resolveConfiguredE2eTimeoutMs(5000) },
     )
     .toBeTruthy();
 });
@@ -1553,8 +1584,8 @@ test('mobile chat composer keeps one compact footer row and a centered model dia
           models: [
             { key: 'auto', displayName: 'Auto', type: 'copilot' },
             {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
+              key: 'gpt-5.6-terra',
+              displayName: 'gpt-5.6-terra',
               type: 'copilot',
             },
             {
@@ -1657,7 +1688,7 @@ test('mobile chat composer keeps one compact footer row and a centered model dia
   ).toBeVisible();
   await expect(
     dialog
-      .getByRole('option', { name: /gpt-5\.2/i })
+      .getByRole('option', { name: /gpt-5\.6-terra/i })
       .locator('img[alt=\"OpenAI logo\"]'),
   ).toBeVisible();
   await expect(

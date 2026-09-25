@@ -1,5 +1,5 @@
 codeinfo_provider = "codex"
-model = "gpt-5.6-sol"
+model = "gpt-6-sol"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
@@ -14,6 +14,10 @@ view_image_tool = true
 args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']
 command = 'npx'
 startup_timeout_sec = 20.0
+
+[mcp_servers.mui]
+args = ['-y', '@mui/mcp@latest']
+command = 'npx'
 
 [mcp_servers.deepwiki]
 url = "https://mcp.deepwiki.com/mcp"

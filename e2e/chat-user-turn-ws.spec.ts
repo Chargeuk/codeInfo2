@@ -2,6 +2,7 @@ import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import { logPlaywrightCopilotScenarioRegistration } from './support/copilotFakeScenario';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 type ChatModel = { key: string; displayName: string; type?: string };
 
@@ -173,7 +174,9 @@ test('user_turn streams to non-originating tabs and dedupes sender tab', async (
 
   for (const tab of [page, tabB]) {
     const modelSelect = tab.getByRole('combobox', { name: /Model/i });
-    await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+    await expect(modelSelect).toBeEnabled({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await modelSelect.click();
     const option = tab.getByRole('option', {
       name: mockModels[0].displayName,
@@ -192,7 +195,9 @@ test('user_turn streams to non-originating tabs and dedupes sender tab', async (
     const conversationRow = tab.locator('[data-testid="conversation-row"]', {
       hasText: conversation.title,
     });
-    await expect(conversationRow).toBeVisible({ timeout: 20000 });
+    await expect(conversationRow).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
     await conversationRow.click();
   }
 
@@ -222,10 +227,10 @@ test('user_turn streams to non-originating tabs and dedupes sender tab', async (
   });
 
   await expect(page.getByText('Streaming reply')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
   await expect(tabB.getByText('Streaming reply')).toBeVisible({
-    timeout: 10000,
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
   });
 });
 
@@ -360,12 +365,16 @@ test('copilot websocket streaming renders streamed output in the transcript', as
 
   await expect(page.getByTestId('chat-transcript')).toContainText(
     'Hello from fake Copilot',
-    { timeout: 10000 },
+    { timeout: resolveConfiguredE2eTimeoutMs(10000) },
   );
   const thinkToggle = page.locator('[data-testid="think-toggle"]').first();
-  await expect(thinkToggle).toBeVisible({ timeout: 10000 });
+  await expect(thinkToggle).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
+  });
   await thinkToggle.click();
   await expect(
     page.locator('[data-testid="think-content"]').first(),
-  ).toContainText('copilot websocket trace', { timeout: 10000 });
+  ).toContainText('copilot websocket trace', {
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
+  });
 });

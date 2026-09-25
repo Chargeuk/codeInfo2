@@ -196,6 +196,8 @@ test('production review policy configures repeated and one-shot batches without 
   const oneShotValues = oneShotBatch.groups[0]?.bindings?.inputValues;
   assert(Array.isArray(repeatedValues?.review_groups));
   assert(Array.isArray(oneShotValues?.review_groups));
+  assert.equal(repeatedValues?.copilot_reviews_enabled, undefined);
+  assert.equal(oneShotValues?.copilot_reviews_enabled, false);
   assert.equal(JSON.stringify(repeatedValues).includes('reviewPhase'), false);
   assert.equal(JSON.stringify(oneShotValues).includes('reviewPhase'), false);
   assert.match(JSON.stringify(repeatedValues), /codex_review/u);

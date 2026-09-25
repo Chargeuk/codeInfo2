@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
-
 import express from 'express';
 import supertest from 'supertest';
-
 import type { CodexDetection } from '../../providers/codexRegistry.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import type {
@@ -17,28 +15,33 @@ import {
   createCodexFailedResponse,
   createCodexVerificationReadyResponse,
 } from '../../utils/codexDeviceAuth.js';
-
-function buildApp(deps?: Parameters<typeof createCodexDeviceAuthRouter>[0]) {
+import { waitForTestCondition } from '../support/testTimeouts.js';
+function buildApp(
+  deps?: Parameters<typeof createCodexDeviceAuthRouter>[0],
+  onDeviceAuthRequest?: () => void,
+) {
   const app = express();
+  if (onDeviceAuthRequest) {
+    app.use('/codex/device-auth', (_req, _res, next) => {
+      onDeviceAuthRequest();
+      next();
+    });
+  }
   app.use('/codex', createCodexDeviceAuthRouter(deps));
   return app;
 }
-
 const defaultDetection: CodexDetection = {
   available: false,
   authPresent: false,
   configPresent: true,
   reason: 'auth missing',
 };
-
 const availableDetection: CodexDetection = {
   available: true,
   authPresent: true,
   configPresent: true,
 };
-
 type DeviceAuthResult = CodexDeviceAuthResultWithCompletion;
-
 function buildDeviceAuthResult(
   result: CodexDeviceAuthResult,
   completionResult:
@@ -56,7 +59,6 @@ function buildDeviceAuthResult(
     completion: Promise.resolve({ exitCode, result: completionResult }),
   };
 }
-
 function verificationReadyResult(
   overrides?: Partial<CodexDeviceAuthVerificationReady>,
 ): CodexDeviceAuthVerificationReady {
@@ -67,7 +69,6 @@ function verificationReadyResult(
       'Open https://device.test/verify and enter code CODE-123.',
   });
 }
-
 function withDeps(
   overrides?: Partial<Parameters<typeof createCodexDeviceAuthRouter>[0]>,
 ): Parameters<typeof createCodexDeviceAuthRouter>[0] {
@@ -87,7 +88,6 @@ function withDeps(
     ...overrides,
   };
 }
-
 describe('POST /codex/device-auth', () => {
   test('returns verification data for empty object request', async () => {
     let receivedHome: string | undefined;
@@ -103,7 +103,6 @@ describe('POST /codex/device-auth', () => {
     )
       .post('/codex/device-auth')
       .send({});
-
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, {
       provider: 'codex',
@@ -113,7 +112,6 @@ describe('POST /codex/device-auth', () => {
     });
     assert.equal(receivedHome, undefined);
   });
-
   test('keeps the shared auth flow pending after verification details are returned', async () => {
     let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
     const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
@@ -127,10 +125,8 @@ describe('POST /codex/device-auth', () => {
         }),
       }),
     );
-
     const first = await supertest(app).post('/codex/device-auth').send({});
     const second = await supertest(app).post('/codex/device-auth').send({});
-
     assert.equal(first.status, 200);
     assert.equal(first.body.state, 'verification_ready');
     assert.equal(second.status, 200);
@@ -140,10 +136,8 @@ describe('POST /codex/device-auth', () => {
       verificationUrl: 'https://device.test/verify',
       displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
-
     resolveCompletion({ exitCode: 0, result: createCodexCompletedResponse() });
   });
-
   test('completed auth can be retried even when runtime detection now sees existing auth', async () => {
     let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
     const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
@@ -162,11 +156,11 @@ describe('POST /codex/device-auth', () => {
         }),
       }),
     );
-
     await supertest(app).post('/codex/device-auth').send({}).expect(200);
     resolveCompletion({ exitCode: 0, result: createCodexCompletedResponse() });
-    await new Promise((resolve) => setImmediate(resolve));
-
+    await waitForTestCondition(() => refreshCalls >= 2, {
+      description: 'Codex completion detection refresh',
+    });
     const refreshed = await supertest(app).post('/codex/device-auth').send({});
     assert.equal(refreshed.status, 200);
     assert.deepEqual(refreshed.body, {
@@ -177,7 +171,6 @@ describe('POST /codex/device-auth', () => {
       displayOutput: 'Open https://device.test/verify and enter code CODE-123.',
     });
   });
-
   test('selector fields are rejected with 400 invalid_request', async () => {
     const payloads = [
       { target: 'chat' },
@@ -196,19 +189,16 @@ describe('POST /codex/device-auth', () => {
       });
     }
   });
-
   test('unknown non-empty fields are rejected with 400 invalid_request', async () => {
     const res = await supertest(buildApp())
       .post('/codex/device-auth')
       .send({ foo: 'bar' });
-
     assert.equal(res.status, 400);
     assert.deepEqual(res.body, {
       error: 'invalid_request',
       message: 'request body must be an empty JSON object',
     });
   });
-
   test('non-object bodies are rejected with deterministic invalid_request payload', async () => {
     const payloads: unknown[] = [null, [], 'hello', 123];
     for (const payload of payloads) {
@@ -223,7 +213,6 @@ describe('POST /codex/device-auth', () => {
       });
     }
   });
-
   test('codex unavailable returns unavailable-before-start shared auth state', async () => {
     const res = await supertest(
       buildApp(
@@ -240,7 +229,6 @@ describe('POST /codex/device-auth', () => {
     )
       .post('/codex/device-auth')
       .send({});
-
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, {
       provider: 'codex',
@@ -248,7 +236,6 @@ describe('POST /codex/device-auth', () => {
       reason: 'codex not found',
     });
   });
-
   test('device-auth parse error returns failed shared auth state', async () => {
     const res = await supertest(
       buildApp(
@@ -262,7 +249,6 @@ describe('POST /codex/device-auth', () => {
     )
       .post('/codex/device-auth')
       .send({});
-
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, {
       provider: 'codex',
@@ -270,7 +256,6 @@ describe('POST /codex/device-auth', () => {
       reason: 'device auth output not recognized',
     });
   });
-
   test('clears terminal cached auth states before starting a new auth run', async () => {
     let authAttempt = 0;
     const runCodexDeviceAuth = mock.fn(async () => {
@@ -286,10 +271,8 @@ describe('POST /codex/device-auth', () => {
         runCodexDeviceAuth,
       }),
     );
-
     const first = await supertest(app).post('/codex/device-auth').send({});
     const second = await supertest(app).post('/codex/device-auth').send({});
-
     assert.equal(first.status, 200);
     assert.deepEqual(first.body, {
       provider: 'codex',
@@ -305,7 +288,6 @@ describe('POST /codex/device-auth', () => {
     });
     assert.equal(runCodexDeviceAuth.mock.calls.length, 2);
   });
-
   test('already-authenticated runtime detection is advisory and still allows a fresh auth flow', async () => {
     const runCodexDeviceAuth = mock.fn(async () =>
       buildDeviceAuthResult(verificationReadyResult()),
@@ -320,7 +302,6 @@ describe('POST /codex/device-auth', () => {
     )
       .post('/codex/device-auth')
       .send({});
-
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, {
       provider: 'codex',
@@ -331,15 +312,13 @@ describe('POST /codex/device-auth', () => {
     });
     assert.equal(runCodexDeviceAuth.mock.calls.length, 1);
   });
-
   test('oversized payload returns standardized invalid_request contract', async () => {
     const prevLimit = process.env.CODEINFO_LOG_MAX_CLIENT_BYTES;
-    process.env.CODEINFO_LOG_MAX_CLIENT_BYTES = '10';
+    setScopedTestEnvValue('CODEINFO_LOG_MAX_CLIENT_BYTES', '10');
     try {
       const res = await supertest(buildApp())
         .post('/codex/device-auth')
         .send({ extra: 'toolarge' });
-
       assert.equal(res.status, 400);
       assert.deepEqual(res.body, {
         error: 'invalid_request',
@@ -349,13 +328,12 @@ describe('POST /codex/device-auth', () => {
       assert.equal(res.body.error === 'payload too large', false);
     } finally {
       if (prevLimit === undefined) {
-        delete process.env.CODEINFO_LOG_MAX_CLIENT_BYTES;
+        clearScopedTestEnvValue('CODEINFO_LOG_MAX_CLIENT_BYTES');
       } else {
-        process.env.CODEINFO_LOG_MAX_CLIENT_BYTES = prevLimit;
+        setScopedTestEnvValue('CODEINFO_LOG_MAX_CLIENT_BYTES', prevLimit);
       }
     }
   });
-
   test('propagates auth only after completion resolves', async () => {
     let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
     const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
@@ -370,7 +348,6 @@ describe('POST /codex/device-auth', () => {
       refreshCalls += 1;
       return refreshCalls === 1 ? defaultDetection : availableDetection;
     });
-
     const res = await supertest(
       buildApp(
         withDeps({
@@ -385,20 +362,27 @@ describe('POST /codex/device-auth', () => {
     )
       .post('/codex/device-auth')
       .send({});
-
     assert.equal(res.status, 200);
     assert.equal(res.body.state, 'verification_ready');
     assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 0);
     assert.equal(refreshCodexDetection.mock.calls.length, 1);
-
     resolveCompletion({ exitCode: 0, result: createCodexCompletedResponse() });
-    await new Promise((resolve) => setImmediate(resolve));
-
+    await waitForTestCondition(
+      () =>
+        propagateAgentAuthFromPrimary.mock.calls.length === 1 &&
+        refreshCodexDetection.mock.calls.length === 2,
+      {
+        description: 'Codex completion propagation side effects',
+      },
+    );
     assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 1);
     assert.equal(refreshCodexDetection.mock.calls.length, 2);
   });
-
   test('overlapping requests reuse one auth run and keep side effects idempotent', async () => {
+    let markRunStarted!: () => void;
+    const runStarted = new Promise<void>((resolve) => {
+      markRunStarted = resolve;
+    });
     let resolveRun!: (value: DeviceAuthResult) => void;
     const runPromise = new Promise<DeviceAuthResult>((resolve) => {
       resolveRun = resolve;
@@ -408,33 +392,51 @@ describe('POST /codex/device-auth', () => {
       resolveCompletion = resolve;
     });
     const successResult = verificationReadyResult();
-    const runCodexDeviceAuth = mock.fn(async () => runPromise);
+    const runCodexDeviceAuth = mock.fn(async () => {
+      markRunStarted();
+      return runPromise;
+    });
     const propagateAgentAuthFromPrimary = mock.fn(async () => ({
       agentCount: 2,
     }));
+    let markSecondDetectionObserved!: () => void;
+    const secondDetectionObserved = new Promise<void>((resolve) => {
+      markSecondDetectionObserved = resolve;
+    });
     let authCompleted = false;
-    const refreshCodexDetection = mock.fn(() =>
-      authCompleted ? availableDetection : defaultDetection,
-    );
+    let refreshCalls = 0;
+    const refreshCodexDetection = mock.fn(() => {
+      refreshCalls += 1;
+      if (refreshCalls === 2) markSecondDetectionObserved();
+      return authCompleted ? availableDetection : defaultDetection;
+    });
+    let requestCount = 0;
+    let markSecondRequestEntered!: () => void;
+    const secondRequestEntered = new Promise<void>((resolve) => {
+      markSecondRequestEntered = resolve;
+    });
     const app = buildApp(
       withDeps({
         runCodexDeviceAuth,
         propagateAgentAuthFromPrimary,
         refreshCodexDetection,
       }),
+      () => {
+        requestCount += 1;
+        if (requestCount === 2) markSecondRequestEntered();
+      },
     );
-
     const reqA = supertest(app)
       .post('/codex/device-auth')
       .send({})
       .then((response) => response);
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await runStarted;
     const reqB = supertest(app)
       .post('/codex/device-auth')
       .send({})
       .then((response) => response);
-    await new Promise((resolve) => setTimeout(resolve, 25));
-
+    await secondRequestEntered;
+    await secondDetectionObserved;
     resolveRun({
       ...successResult,
       completion,
@@ -452,15 +454,19 @@ describe('POST /codex/device-auth', () => {
     assert.equal(runCodexDeviceAuth.mock.calls.length, 1);
     assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 0);
     assert.equal(refreshCodexDetection.mock.calls.length, 2);
-
     authCompleted = true;
     resolveCompletion({ exitCode: 0, result: createCodexCompletedResponse() });
-    await new Promise((resolve) => setImmediate(resolve));
-
+    await waitForTestCondition(
+      () =>
+        propagateAgentAuthFromPrimary.mock.calls.length === 1 &&
+        refreshCodexDetection.mock.calls.length === 3,
+      {
+        description: 'shared Codex completion side effects',
+      },
+    );
     assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 1);
     assert.equal(refreshCodexDetection.mock.calls.length, 3);
   });
-
   test('emits deterministic T10 success log for strict contract happy path', async () => {
     const infoMock = mock.method(console, 'info', () => {});
     try {
@@ -480,7 +486,6 @@ describe('POST /codex/device-auth', () => {
       infoMock.mock.restore();
     }
   });
-
   test('emits deterministic T10 error log for strict contract failures', async () => {
     const errorMock = mock.method(console, 'error', () => {});
     try {
@@ -500,7 +505,6 @@ describe('POST /codex/device-auth', () => {
       errorMock.mock.restore();
     }
   });
-
   test('device-auth error logs remain secret-safe and exclude raw token-like output', async () => {
     const secretLikeToken = 'sk-test-secret-token-should-not-leak';
     const errorMock = mock.method(console, 'error', () => {});
@@ -519,7 +523,6 @@ describe('POST /codex/device-auth', () => {
       )
         .post('/codex/device-auth')
         .send({});
-
       assert.equal(res.status, 200);
       const loggedLines = errorMock.mock.calls
         .map((call) => call.arguments.map(String).join(' '))
@@ -529,7 +532,6 @@ describe('POST /codex/device-auth', () => {
       errorMock.mock.restore();
     }
   });
-
   test('emits deterministic T11 success log after completion side effects', async () => {
     let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
     const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
@@ -556,13 +558,23 @@ describe('POST /codex/device-auth', () => {
         .post('/codex/device-auth')
         .send({});
       assert.equal(res.status, 200);
-
       resolveCompletion({
         exitCode: 0,
         result: createCodexCompletedResponse(),
       });
-      await new Promise((resolve) => setImmediate(resolve));
-
+      await waitForTestCondition(
+        () =>
+          infoMock.mock.calls.some(
+            (call) =>
+              typeof call.arguments[0] === 'string' &&
+              call.arguments[0].startsWith(
+                '[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success',
+              ),
+          ),
+        {
+          description: 'Codex completion success log',
+        },
+      );
       const successCall = infoMock.mock.calls.find(
         (call) =>
           typeof call.arguments[0] === 'string' &&
@@ -575,7 +587,6 @@ describe('POST /codex/device-auth', () => {
       infoMock.mock.restore();
     }
   });
-
   test('emits deterministic T11 error log for completion side-effect failures', async () => {
     const errorMock = mock.method(console, 'error', () => {});
     try {
@@ -592,7 +603,19 @@ describe('POST /codex/device-auth', () => {
         .post('/codex/device-auth')
         .send({});
       assert.equal(res.status, 200);
-      await new Promise((resolve) => setImmediate(resolve));
+      await waitForTestCondition(
+        () =>
+          errorMock.mock.calls.some(
+            (call) =>
+              typeof call.arguments[0] === 'string' &&
+              call.arguments[0].startsWith(
+                '[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=error',
+              ),
+          ),
+        {
+          description: 'Codex completion error log',
+        },
+      );
       const errorCall = errorMock.mock.calls.find(
         (call) =>
           typeof call.arguments[0] === 'string' &&

@@ -1,0 +1,10 @@
+[
+  {
+    "type": "requestfailed",
+    "url": "http://localhost:5010/conversations/d694f93b-26d2-48da-a7b1-5b4bed2e6c67/turns",
+    "method": "GET",
+    "failure": {
+      "errorText": "net::ERR_ABORTED"
+    }
+  }
+]

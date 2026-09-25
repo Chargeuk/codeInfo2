@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import express from 'express';
 import supertest from 'supertest';
@@ -28,11 +32,13 @@ import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
+import { startFlowRun, stopFlowRun } from '../../flows/service.js';
 import {
   __resetFreshRunRetryOwnershipCompletionForTests,
   __resetFlowServiceDepsForTests,
+  __resetFlowWaitResumeDepsForTests,
+  __setFlowWaitResumeDepsForTests,
   __setFlowServiceDepsForTests,
-  startFlowRun,
 } from '../../flows/service.js';
 import type {
   ReingestError,
@@ -48,14 +54,26 @@ import { attachWs } from '../../ws/server.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
+  withDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
 import {
+  bindCurrentTestOverrides,
+  runWithTestOverrides,
+} from '../support/testOverrideScope.js';
+import {
+  resolveConfiguredTestTimeoutMs,
+  waitForTestCondition,
+} from '../support/testTimeouts.js';
+import {
+  subscribeConversationAndWaitReady,
   closeWs,
   connectWs,
-  sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
+
+const execFileAsync = promisify(execFile);
 
 beforeEach(() => {
   memoryConversations.clear();
@@ -63,11 +81,66 @@ beforeEach(() => {
   installDeterministicCodexAvailabilityBootstrap();
 });
 
+const waitFor = async (
+  predicate: () => boolean,
+  timeoutMs = 5000,
+  intervalMs = 50,
+) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error('Timed out waiting for predicate');
+};
+
+const describeRelevantFlowRuntimeLogs = (conversationId: string): string =>
+  JSON.stringify({
+    conversationFlags: memoryConversations.get(conversationId)?.flags ?? null,
+    recentTurns: (memoryTurns.get(conversationId) ?? [])
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role,
+        status: turn.status,
+        content: turn.content,
+        runtime: turn.runtime,
+        command: turn.command,
+      })),
+    runtimeLogs: query({ text: 'flows.test.' }, 120)
+      .filter(
+        (entry) =>
+          entry.context?.conversationId === conversationId ||
+          entry.message.startsWith('runtime.chat_config_lock_'),
+      )
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+    runtimeResolutionLogs: query({ text: 'flows.test.runtime_resolution_' }, 80)
+      .filter((entry) => entry.context?.conversationId === conversationId)
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+    runtimeConfigLogs: query({ text: 'runtime.' }, 80)
+      .filter(
+        (entry) =>
+          entry.message.startsWith('runtime.chat_config_') ||
+          entry.message.startsWith('runtime.runtime_config_resolution_'),
+      )
+      .map((entry) => ({
+        message: entry.message,
+        context: entry.context,
+      })),
+  });
+
 afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
   memoryConversations.clear();
   memoryTurns.clear();
   __resetAgentServiceDepsForTests();
+  __resetFlowWaitResumeDepsForTests();
 });
 
 class MinimalChat extends ChatInterface {
@@ -114,11 +187,12 @@ const makeApp = () => {
   const app = express();
   app.use(
     createFlowsRunRouter({
-      startFlowRun: (params) =>
+      startFlowRun: bindCurrentTestOverrides((params) =>
         startFlowRun({
           ...params,
           chatFactory: () => new MinimalChat(),
         }),
+      ),
     }),
   );
   return app;
@@ -128,6 +202,58 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../../',
 );
+
+const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
+  await withIsolatedProviderHomeTestEnv(
+    {
+      prefix: 'flows-errors-fixture-provider-homes-',
+      overrides: {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+    },
+    async () => await run(),
+  );
+
+const withAgentRuntimeEnv = async (
+  params: {
+    agentsHome: string;
+    codexHome: string;
+    copilotHome: string;
+    flowsDir?: string;
+    compatEndpoints?: string;
+  },
+  run: () => Promise<void>,
+) =>
+  await withIsolatedProviderHomeTestEnv(
+    {
+      prefix: 'flows-errors-runtime-provider-homes-',
+      overrides: {
+        CODEINFO_AGENT_HOME: params.agentsHome,
+        CODEINFO_CODEX_AGENT_HOME: params.agentsHome,
+        CODEINFO_CODEX_HOME: params.codexHome,
+        CODEINFO_COPILOT_HOME: params.copilotHome,
+        ...(params.flowsDir === undefined
+          ? {}
+          : { FLOWS_DIR: params.flowsDir }),
+        ...(params.compatEndpoints === undefined
+          ? {}
+          : {
+              CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: params.compatEndpoints,
+            }),
+      },
+    },
+    async () => await run(),
+  );
+
+const withScopedAgentServiceDeps = async (
+  overrides: Parameters<typeof __setAgentServiceDepsForTests>[0],
+  run: () => Promise<void>,
+) =>
+  await runWithTestOverrides(
+    { agentServiceDeps: overrides as Record<string, unknown> },
+    run,
+  );
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -291,20 +417,35 @@ async function waitForTurns(
   predicate: (turns: Turn[]) => boolean,
   timeoutMs = 4000,
 ): Promise<Turn[]> {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const turns = (memoryTurns.get(conversationId) ?? []) as Turn[];
     if (predicate(turns)) return turns;
     await delay(25);
   }
-  throw new Error(`Timed out waiting for turns for ${conversationId}`);
+  const turns = (memoryTurns.get(conversationId) ?? []) as Turn[];
+  const conversation = memoryConversations.get(conversationId);
+  throw new Error(
+    [
+      `Timed out waiting for turns for ${conversationId}`,
+      `turnCount=${turns.length}`,
+      `conversationFlags=${JSON.stringify(conversation?.flags ?? null)}`,
+      `recentTurns=${JSON.stringify(
+        turns.slice(-8).map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      )}`,
+    ].join(' | '),
+  );
 }
 
 async function waitForConversationUnlocked(
   conversationId: string,
   timeoutMs = 4000,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
+  const deadline = Date.now() + resolveConfiguredTestTimeoutMs(timeoutMs);
   while (Date.now() < deadline) {
     const acquired = tryAcquireConversationLock(conversationId);
     if (acquired) {
@@ -313,7 +454,22 @@ async function waitForConversationUnlocked(
     }
     await delay(25);
   }
-  throw new Error(`Timed out waiting for flow unlock for ${conversationId}`);
+  throw new Error(
+    [
+      `Timed out waiting for flow unlock for ${conversationId}`,
+      `conversationFlags=${JSON.stringify(
+        memoryConversations.get(conversationId)?.flags ?? null,
+      )}`,
+      `recentTurns=${JSON.stringify(
+        (memoryTurns.get(conversationId) ?? []).slice(-8).map((turn) => ({
+          role: turn.role,
+          status: turn.status,
+          content: turn.content,
+        })),
+      )}`,
+      `runtimeLogs=${describeRelevantFlowRuntimeLogs(conversationId)}`,
+    ].join(' | '),
+  );
 }
 
 async function withFlowHarness(
@@ -322,55 +478,76 @@ async function withFlowHarness(
     baseUrl: string;
     ws: WebSocket;
   }) => Promise<void>,
+  options?: {
+    registerTmpDirAsRepo?: boolean;
+  },
 ): Promise<void> {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-reingest-'));
+  await withDeterministicCodexAvailabilityBootstrap(async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flow-reingest-'));
+    await fs.cp(fixturesDir, tmpDir, { recursive: true });
+    await execFileAsync('git', ['init'], { cwd: tmpDir });
+    await execFileAsync('git', ['add', '.'], { cwd: tmpDir });
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+    try {
+      await withIsolatedProviderHomeTestEnv(
+        {
+          prefix: 'flows-errors-harness-provider-homes-',
+          overrides: {
+            CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+            FLOWS_DIR: tmpDir,
+          },
+        },
+        async () => {
+          const app = express();
+          app.use(
+            createFlowsRunRouter({
+              startFlowRun: bindCurrentTestOverrides((params) =>
+                startFlowRun({
+                  ...params,
+                  chatFactory: () => new MinimalChat(),
+                  listIngestedRepositories: options?.registerTmpDirAsRepo
+                    ? async () => ({
+                        repos: [
+                          buildRepoEntry({
+                            id: 'flow-test-repo',
+                            containerPath: tmpDir,
+                          }),
+                        ],
+                        lockedModelId: null,
+                      })
+                    : undefined,
+                }),
+              ),
+            }),
+          );
+          const httpServer = http.createServer(app);
+          const wsHandle = attachWs({ httpServer });
+          await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+          const address = httpServer.address();
+          assert(address && typeof address === 'object');
+          const baseUrl = `http://127.0.0.1:${address.port}`;
+          const ws = await connectWs({ baseUrl });
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new MinimalChat(),
-        }),
-    }),
-  );
-  const httpServer = http.createServer(app);
-  const wsHandle = attachWs({ httpServer });
-  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
-  const address = httpServer.address();
-  assert(address && typeof address === 'object');
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const ws = await connectWs({ baseUrl });
-
-  try {
-    await task({ tmpDir, baseUrl, ws });
-  } finally {
-    __resetFlowServiceDepsForTests();
-    __resetMarkdownFileResolverDepsForTests();
-    resetStore();
-    await closeWs(ws);
-    await wsHandle.close();
-    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
+          try {
+            await task({ tmpDir, baseUrl, ws });
+          } finally {
+            __resetFlowServiceDepsForTests();
+            __resetMarkdownFileResolverDepsForTests();
+            resetStore();
+            await closeWs(ws);
+            await wsHandle.close();
+            await new Promise<void>((resolve) =>
+              httpServer.close(() => resolve()),
+            );
+          }
+        },
+      );
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+      memoryConversations.clear();
+      memoryTurns.clear();
     }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
-    await fs.rm(tmpDir, { recursive: true, force: true });
-    memoryConversations.clear();
-    memoryTurns.clear();
-  }
+  });
 }
 
 async function writeFlowFile(params: {
@@ -396,170 +573,169 @@ const makeLlmStep = () => ({
   messages: [{ role: 'user' as const, content: ['after'] }],
 });
 
+const getLatestAssistantTurn = (conversationId: string) => {
+  const turns = memoryTurns.get(conversationId) ?? [];
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const turn = turns[index];
+    if (turn?.role === 'assistant') {
+      return turn;
+    }
+  }
+  return null;
+};
+
 const waitForFlowFinal = async (params: {
   ws: WebSocket;
   conversationId: string;
   status: 'ok' | 'failed' | 'stopped';
   timeoutMs?: number;
-}) =>
-  waitForEvent({
-    ws: params.ws,
-    predicate: (
-      event: unknown,
-    ): event is {
-      type: 'turn_final';
-      status: string;
-      error?: { code?: string; message?: string } | null;
-    } => {
-      const candidate = event as {
-        type?: string;
-        conversationId?: string;
-        status?: string;
-      };
-      return (
-        candidate.type === 'turn_final' &&
-        candidate.conversationId === params.conversationId &&
-        candidate.status === params.status
-      );
-    },
-    timeoutMs: params.timeoutMs ?? 5000,
-  });
+}) => {
+  try {
+    return await waitForEvent({
+      ws: params.ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'turn_final';
+        status: string;
+        error?: { code?: string; message?: string } | null;
+      } => {
+        const candidate = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return (
+          candidate.type === 'turn_final' &&
+          candidate.conversationId === params.conversationId &&
+          candidate.status === params.status
+        );
+      },
+      timeoutMs: params.timeoutMs ?? 5000,
+      inspectCurrent: () =>
+        JSON.stringify({
+          conversationFlags:
+            memoryConversations.get(params.conversationId)?.flags ?? null,
+          recentTurns: (memoryTurns.get(params.conversationId) ?? [])
+            .slice(-8)
+            .map((turn) => ({
+              role: turn.role,
+              status: turn.status,
+              content: turn.content,
+            })),
+          runtimeLogs: JSON.parse(
+            describeRelevantFlowRuntimeLogs(params.conversationId),
+          ),
+        }),
+      describeEvent: (event) => JSON.stringify(event),
+    });
+  } catch (error) {
+    const latestAssistantTurn = getLatestAssistantTurn(params.conversationId);
+    throw new Error(
+      [
+        error instanceof Error
+          ? error.message
+          : 'Timed out waiting for flow final',
+        `latestAssistantTurn=${JSON.stringify(
+          latestAssistantTurn
+            ? {
+                status: latestAssistantTurn.status,
+                content: latestAssistantTurn.content,
+              }
+            : null,
+        )}`,
+      ].join(' | '),
+    );
+  }
+};
 
-const subscribeConversation = (ws: WebSocket, conversationId: string) => {
-  sendJson(ws, { type: 'subscribe_conversation', conversationId });
+const subscribeConversation = async (ws: WebSocket, conversationId: string) => {
+  await subscribeConversationAndWaitReady({ ws: ws, conversationId });
+};
+
+const startSubscribedFlowRun = async (
+  ws: WebSocket,
+  params: Parameters<typeof startFlowRun>[0],
+) => {
+  const conversationId = params.conversationId ?? randomUUID();
+  await subscribeConversation(ws, conversationId);
+  return await startFlowRun({ ...params, conversationId });
 };
 
 test('POST /flows/:flowName/run returns 404 for missing flow file', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-missing-'),
   );
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const app = makeApp();
 
   try {
-    const res = await supertest(app).post('/flows/missing/run').send({});
-    assert.equal(res.status, 404);
-    assert.equal(res.body.error, 'not_found');
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(makeApp())
+        .post('/flows/missing/run')
+        .send({});
+      assert.equal(res.status, 404);
+      assert.equal(res.body.error, 'not_found');
+    });
   } finally {
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run returns 400 for invalid flow files', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-invalid-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const app = makeApp();
 
   try {
-    const invalidJson = await supertest(app)
-      .post('/flows/invalid-json/run')
-      .send({});
-    assert.equal(invalidJson.status, 400);
-    assert.equal(invalidJson.body.error, 'invalid_request');
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const app = makeApp();
+      const invalidJson = await supertest(app)
+        .post('/flows/invalid-json/run')
+        .send({});
+      assert.equal(invalidJson.status, 400);
+      assert.equal(invalidJson.body.error, 'invalid_request');
 
-    const invalidSchema = await supertest(app)
-      .post('/flows/invalid-schema/run')
-      .send({});
-    assert.equal(invalidSchema.status, 400);
-    assert.equal(invalidSchema.body.error, 'invalid_request');
+      const invalidSchema = await supertest(app)
+        .post('/flows/invalid-schema/run')
+        .send({});
+      assert.equal(invalidSchema.status, 400);
+      assert.equal(invalidSchema.body.error, 'invalid_request');
+    });
   } finally {
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run returns 400 for non-string customTitle', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-custom-title-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const app = makeApp();
 
   try {
-    const res = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ customTitle: 123 });
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'invalid_request');
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(makeApp())
+        .post('/flows/llm-basic/run')
+        .send({ customTitle: 123 });
+      assert.equal(res.status, 400);
+      assert.equal(res.body.error, 'invalid_request');
+    });
   } finally {
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run starts a fresh parent conversation when the selected conversation is archived', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-archived-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const app = makeApp();
   const conversationId = 'flow-archived-conv-1';
 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.1-codex-max',
+    model: 'gpt-5.6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
@@ -571,90 +747,56 @@ test('POST /flows/:flowName/run starts a fresh parent conversation when the sele
   });
 
   try {
-    const res = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ conversationId });
-    assert.equal(res.status, 202);
-    assert.notEqual(res.body.conversationId, conversationId);
-    memoryConversations.delete(res.body.conversationId);
-    memoryTurns.delete(res.body.conversationId);
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(makeApp())
+        .post('/flows/llm-basic/run')
+        .send({ conversationId });
+      assert.equal(res.status, 202);
+      assert.notEqual(res.body.conversationId, conversationId);
+      memoryConversations.delete(res.body.conversationId);
+      memoryTurns.delete(res.body.conversationId);
+    });
   } finally {
     memoryConversations.delete(conversationId);
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('POST /flows/:flowName/run returns 409 for concurrent runs', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-conflict-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  const app = makeApp();
   const conversationId = 'flow-conflict-conv-1';
 
   const acquired = tryAcquireConversationLock(conversationId);
   assert.equal(acquired, true);
 
   try {
-    const res = await supertest(app)
-      .post('/flows/llm-basic/run')
-      .send({ conversationId });
-    assert.equal(res.status, 409);
-    assert.equal(res.body.error, 'conflict');
-    assert.equal(res.body.code, 'RUN_IN_PROGRESS');
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const res = await supertest(makeApp())
+        .post('/flows/llm-basic/run')
+        .send({ conversationId });
+      assert.equal(res.status, 409);
+      assert.equal(res.body.error, 'conflict');
+      assert.equal(res.body.code, 'RUN_IN_PROGRESS');
+    });
   } finally {
     releaseConversationLock(conversationId);
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('resumed flow run keeps the saved child identity stable when the pinned model becomes unavailable', async () => {
   installDeterministicCodexAvailabilityBootstrap({
-    models: [{ model: 'gpt-5.3-codex' }],
+    models: [{ model: 'gpt-5.6-luna' }],
   });
 
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-unavailable-'),
   );
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const flowConversationId = 'flow-resume-unavailable-conv';
   const childConversationId = 'flow-resume-unavailable-child';
-
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
 
   await writeFlowFile({
     tmpDir,
@@ -680,7 +822,7 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
   memoryConversations.set(flowConversationId, {
     _id: flowConversationId,
     provider: 'codex',
-    model: 'gpt-5.3-codex',
+    model: 'gpt-5.6-luna',
     title: 'Flow: resume-unavailable',
     flowName: 'resume-unavailable',
     source: 'REST',
@@ -697,7 +839,7 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
           'coding_agent:resume-test': 'codex',
         },
         agentModels: {
-          'coding_agent:resume-test': 'gpt-5.2-codex',
+          'coding_agent:resume-test': 'gpt-5.6-terra',
         },
       },
     },
@@ -709,7 +851,7 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
   memoryConversations.set(childConversationId, {
     _id: childConversationId,
     provider: 'codex',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.6-terra',
     title: 'Flow: resume-unavailable (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -722,66 +864,58 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
     archivedAt: null,
   });
 
-  const app = makeApp();
-
   try {
-    const response = await supertest(app)
-      .post('/flows/resume-unavailable/run')
-      .send({ conversationId: flowConversationId, resumeStepPath: [0] });
-    assert.equal(response.status, 202);
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const response = await supertest(makeApp())
+        .post('/flows/resume-unavailable/run')
+        .send({ conversationId: flowConversationId, resumeStepPath: [0] });
+      assert.equal(response.status, 202);
 
-    await waitForConversationUnlocked(flowConversationId);
-    const turns = await waitForTurns(flowConversationId, (items) =>
-      items.some(
+      await waitForConversationUnlocked(flowConversationId);
+      const turns = await waitForTurns(flowConversationId, (items) =>
+        items.some(
+          (turn) =>
+            turn.role === 'assistant' &&
+            turn.status === 'failed' &&
+            /Saved model "gpt-5.6-terra" is unavailable/i.test(
+              turn.content ?? '',
+            ),
+        ),
+      );
+      const failureTurn = turns.find(
         (turn) =>
           turn.role === 'assistant' &&
           turn.status === 'failed' &&
-          /Saved model "gpt-5.2-codex" is unavailable/i.test(
+          /Saved model "gpt-5.6-terra" is unavailable/i.test(
             turn.content ?? '',
           ),
-      ),
-    );
-    const failureTurn = turns.find(
-      (turn) =>
-        turn.role === 'assistant' &&
-        turn.status === 'failed' &&
-        /Saved model "gpt-5.2-codex" is unavailable/i.test(turn.content ?? ''),
-    );
-    assert.ok(failureTurn);
-    assert.equal(failureTurn.provider, 'codex');
-    assert.equal(failureTurn.model, 'gpt-5.3-codex');
+      );
+      assert.ok(failureTurn);
+      assert.equal(failureTurn.provider, 'codex');
+      assert.equal(failureTurn.model, 'gpt-5.6-luna');
 
-    const flowConversation = memoryConversations.get(flowConversationId);
-    const childConversation = memoryConversations.get(childConversationId);
-    const flowFlags = (flowConversation?.flags ?? {}) as {
-      flow?: { agentConversations?: Record<string, string> };
-    };
+      const flowConversation = memoryConversations.get(flowConversationId);
+      const childConversation = memoryConversations.get(childConversationId);
+      const flowFlags = (flowConversation?.flags ?? {}) as {
+        flow?: { agentConversations?: Record<string, string> };
+      };
 
-    assert.equal(memoryConversations.has(flowConversationId), true);
-    assert.equal(memoryConversations.has(childConversationId), true);
-    assert.equal(
-      flowFlags.flow?.agentConversations?.['coding_agent:resume-test'],
-      childConversationId,
-    );
-    assert.equal(childConversation?.provider, 'codex');
-    assert.equal(childConversation?.model, 'gpt-5.2-codex');
-    assert.deepEqual(memoryTurns.get(childConversationId) ?? [], []);
+      assert.equal(memoryConversations.has(flowConversationId), true);
+      assert.equal(memoryConversations.has(childConversationId), true);
+      assert.equal(
+        flowFlags.flow?.agentConversations?.['coding_agent:resume-test'],
+        childConversationId,
+      );
+      assert.equal(childConversation?.provider, 'codex');
+      assert.equal(childConversation?.model, 'gpt-5.6-terra');
+      assert.deepEqual(memoryTurns.get(childConversationId) ?? [], []);
+    });
   } finally {
     resetDeterministicCodexAvailabilityBootstrap();
     memoryConversations.delete(flowConversationId);
     memoryTurns.delete(flowConversationId);
     memoryConversations.delete(childConversationId);
     memoryTurns.delete(childConversationId);
-    if (prevAgentsHome) {
-      process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    } else {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    }
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -813,7 +947,7 @@ test('later markdown-backed llm failures preserve AGENT_NOT_FOUND after flow sta
       },
     });
 
-    subscribeConversation(ws, conversationId);
+    await subscribeConversation(ws, conversationId);
 
     const response = await supertest(baseUrl)
       .post(`/flows/${flowName}/run`)
@@ -896,7 +1030,7 @@ test('continueOnFailure lets a later llm step run after a terminal llm failure',
       ],
     });
 
-    subscribeConversation(ws, conversationId);
+    await subscribeConversation(ws, conversationId);
     await supertest(baseUrl)
       .post(`/flows/${flowName}/run`)
       .send({ conversationId })
@@ -945,10 +1079,23 @@ test('continueOnFailure lets a later llm step run after a terminal llm failure',
   });
 });
 
-test('continueOnFailure lets a later step run after break setup fails', async () => {
-  await withFlowHarness(async ({ tmpDir, baseUrl, ws }) => {
-    const conversationId = 'flow-break-setup-failure-continues';
-    const flowName = 'break-setup-failure-continues';
+test('continueOnFailure does not strand a following persisted authored wait', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl }) => {
+    const conversationId = 'flow-continued-failure-wait';
+    const flowName = 'continued-failure-wait';
+    const wakes: Array<() => void> = [];
+
+    __setFlowWaitResumeDepsForTests({
+      scheduleWake: ({ onWake }) => {
+        wakes.push(onWake);
+        return { cancel: () => {} };
+      },
+      resumeFlowRun: async (params) =>
+        await startFlowRun({
+          ...params,
+          chatFactory: () => new MinimalChat(),
+        }),
+    });
 
     await writeFlowFile({
       tmpDir,
@@ -956,62 +1103,93 @@ test('continueOnFailure lets a later step run after break setup fails', async ()
       steps: [
         makeLlmStep(),
         {
-          type: 'break',
+          type: 'llm',
           agentType: 'missing_agent',
           identifier: 'missing',
-          question: 'Continue after setup failure?',
-          breakOn: 'yes',
           continueOnFailure: true,
+          messages: [{ role: 'user', content: ['tolerated failure'] }],
         },
+        { type: 'wait', seconds: 60 },
         {
           type: 'llm',
           agentType: 'planning_agent',
           identifier: 'planner',
-          messages: [{ role: 'user', content: ['after break setup failure'] }],
+          messages: [{ role: 'user', content: ['after persisted wait'] }],
         },
       ],
     });
 
-    subscribeConversation(ws, conversationId);
     await supertest(baseUrl)
       .post(`/flows/${flowName}/run`)
       .send({ conversationId })
       .expect(202);
 
-    await waitForFlowFinal({ ws, conversationId, status: 'ok' });
-    const turns = await waitForTurns(
-      conversationId,
-      (items) =>
-        items.some(
-          (turn) =>
-            turn.role === 'assistant' &&
-            turn.status === 'failed' &&
-            turn.content.includes('Agent missing_agent not found'),
-        ) &&
-        items.some(
-          (turn) =>
-            turn.role === 'user' &&
-            turn.content.includes('after break setup failure'),
-        ),
+    await waitFor(() => wakes.length === 1);
+    const persistedWait = (
+      memoryConversations.get(conversationId)?.flags?.flow as
+        | { wait?: { continuedAfterFailure?: boolean } }
+        | undefined
+    )?.wait;
+    assert.equal(persistedWait?.continuedAfterFailure, true);
+
+    wakes[0]!();
+    await waitFor(() =>
+      (memoryTurns.get(conversationId) ?? []).some(
+        (turn) =>
+          turn.role === 'user' && turn.content.includes('after persisted wait'),
+      ),
+    );
+  });
+});
+
+test('stop cancels a persisted authored wait after active ownership is released', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl }) => {
+    const conversationId = 'flow-stop-persisted-authored-wait';
+    const flowName = 'stop-persisted-authored-wait';
+    let scheduledWaitCancelled = false;
+
+    __setFlowWaitResumeDepsForTests({
+      scheduleWake: () => ({
+        cancel: () => {
+          scheduledWaitCancelled = true;
+        },
+      }),
+    });
+    await writeFlowFile({
+      tmpDir,
+      flowName,
+      steps: [
+        { type: 'wait', seconds: 60 },
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'planner',
+          messages: [{ role: 'user', content: ['must not run after stop'] }],
+        },
+      ],
+    });
+
+    await supertest(baseUrl)
+      .post(`/flows/${flowName}/run`)
+      .send({ conversationId })
+      .expect(202);
+    await waitFor(() =>
+      Boolean(
+        (
+          memoryConversations.get(conversationId)?.flags?.flow as
+            | { wait?: unknown }
+            | undefined
+        )?.wait,
+      ),
     );
 
-    assert.equal(
-      turns.some(
-        (turn) =>
-          turn.role === 'assistant' &&
-          turn.status === 'failed' &&
-          turn.content.includes('Agent missing_agent not found'),
-      ),
-      true,
-    );
-    assert.equal(
-      turns.some(
-        (turn) =>
-          turn.role === 'user' &&
-          turn.content.includes('after break setup failure'),
-      ),
-      true,
-    );
+    assert.equal(await stopFlowRun(conversationId), true);
+    assert.equal(scheduledWaitCancelled, true);
+    const flowState = memoryConversations.get(conversationId)?.flags?.flow as
+      | { wait?: unknown; runLifecycle?: { status?: string } }
+      | undefined;
+    assert.equal(flowState?.wait, undefined);
+    assert.equal(flowState?.runLifecycle?.status, 'stopped');
   });
 });
 
@@ -1042,7 +1220,7 @@ test('dedicated flow reingest terminal error remains non-fatal to later steps', 
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -1084,7 +1262,7 @@ test('dedicated flow reingest terminal cancelled remains non-fatal to later step
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -1119,7 +1297,7 @@ test('accepted skipped outcomes stay on the public completed path for dedicated 
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -1150,12 +1328,11 @@ test('malformed sourceId stops the dedicated flow reingest step before later ste
       }),
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-invalid-source',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1179,12 +1356,11 @@ test('missing working folder stops dedicated flow target working before later st
       steps: [{ type: 'reingest', target: 'working' }, makeLlmStep()],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-working-missing-folder',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     const final = await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1211,12 +1387,11 @@ test('missing working folder stops dedicated flow target plan_scope before later
       steps: [{ type: 'reingest', target: 'plan_scope' }, makeLlmStep()],
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-plan-scope-missing-folder',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     const final = await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1253,12 +1428,11 @@ test('unknown sourceId stops the dedicated flow reingest step before later steps
       }),
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-unknown-source',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1284,7 +1458,7 @@ test('selected working repository must already be ingested for dedicated flow ta
     });
     let listCallCount = 0;
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-plan-scope-not-ingested',
       source: 'REST',
       working_folder: workingRoot,
@@ -1301,7 +1475,6 @@ test('selected working repository must already be ingested for dedicated flow ta
         lockedModelId: null,
       }),
     });
-    subscribeConversation(ws, result.conversationId);
     const final = await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1338,12 +1511,11 @@ test('queue-unavailable reingest refusal stops the dedicated flow clearly', asyn
       }),
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-busy',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1375,12 +1547,11 @@ test('shared prestart formatter fallback stays aligned for dedicated flow failur
       }),
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-format-fallback',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -1396,11 +1567,6 @@ test('shared prestart formatter fallback stays aligned for dedicated flow failur
 });
 
 test('Task 19 preserves fallback runtime warnings on successful flow starts', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
@@ -1423,7 +1589,7 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -1432,81 +1598,80 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
     'model = "copilot-model"\n',
     'utf8',
   );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'gpt-5.3-codex',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: false,
-      toolsAvailable: false,
-      blockingStage: 'authentication',
-      reason: 'copilot unavailable',
-      models: [],
-      modelsRaw: [],
-      authSource: 'unauthenticated',
-    }),
-  });
-
   try {
-    await withFlowHarness(async ({ tmpDir }) => {
-      await writeFlowFile({
-        tmpDir,
-        flowName: 'fallback-warning-flow',
-        steps: [
-          {
-            type: 'llm',
-            agentType: 'coding_agent',
-            identifier: 'fallback-warning',
-            messages: [{ role: 'user', content: ['after'] }],
+    await withScopedAgentServiceDeps(
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
           },
-        ],
-      });
+          models: [
+            {
+              model: 'gpt-5.6-luna',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: false,
+          toolsAvailable: false,
+          blockingStage: 'authentication',
+          reason: 'copilot unavailable',
+          models: [],
+          modelsRaw: [],
+          authSource: 'unauthenticated',
+        }),
+      },
+      async () => {
+        await withAgentRuntimeEnv(
+          { agentsHome, codexHome, copilotHome },
+          async () => {
+            await withFlowHarness(async ({ tmpDir }) => {
+              await writeFlowFile({
+                tmpDir,
+                flowName: 'fallback-warning-flow',
+                steps: [
+                  {
+                    type: 'llm',
+                    agentType: 'coding_agent',
+                    identifier: 'fallback-warning',
+                    messages: [{ role: 'user', content: ['after'] }],
+                  },
+                ],
+              });
 
-      const result = await startFlowRun({
-        flowName: 'fallback-warning-flow',
-        source: 'REST',
-      });
+              const result = await startFlowRun({
+                flowName: 'fallback-warning-flow',
+                source: 'REST',
+              });
 
-      assert.equal(
-        result.warnings?.some((warning) =>
-          warning.includes('Unknown key agent.top_level_unknown'),
-        ) ?? false,
-        true,
-      );
-    });
+              assert.equal(
+                result.warnings?.some((warning) =>
+                  warning.includes('Unknown key agent.top_level_unknown'),
+                ) ?? false,
+                true,
+              );
+            });
+          },
+        );
+      },
+    );
   } finally {
-    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
@@ -1514,11 +1679,6 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
 });
 
 test('flow start does not surface warnings for supported Codex compatibility keys', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
@@ -1530,7 +1690,7 @@ test('flow start does not surface warnings for supported Codex compatibility key
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
     [
-      'model = "gpt-5.4-mini"',
+      'model = "gpt-5.6-luna"',
       'model_auto_compact_token_limit = 300000',
       '',
     ].join('\n'),
@@ -1559,7 +1719,7 @@ test('flow start does not surface warnings for supported Codex compatibility key
   );
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -1568,86 +1728,85 @@ test('flow start does not surface warnings for supported Codex compatibility key
     'model = "copilot-model"\n',
     'utf8',
   );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'gpt-5.3-codex',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: false,
-      toolsAvailable: false,
-      blockingStage: 'authentication',
-      reason: 'copilot unavailable',
-      models: [],
-      modelsRaw: [],
-      authSource: 'unauthenticated',
-    }),
-  });
-
   try {
-    await withFlowHarness(async ({ tmpDir }) => {
-      await writeFlowFile({
-        tmpDir,
-        flowName: 'supported-config-flow',
-        steps: [
-          {
-            type: 'llm',
-            agentType: 'coding_agent',
-            identifier: 'supported-config-warning-check',
-            messages: [{ role: 'user', content: ['after'] }],
+    await withScopedAgentServiceDeps(
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
           },
-        ],
-      });
+          models: [
+            {
+              model: 'gpt-5.6-luna',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: false,
+          toolsAvailable: false,
+          blockingStage: 'authentication',
+          reason: 'copilot unavailable',
+          models: [],
+          modelsRaw: [],
+          authSource: 'unauthenticated',
+        }),
+      },
+      async () => {
+        await withAgentRuntimeEnv(
+          { agentsHome, codexHome, copilotHome },
+          async () => {
+            await withFlowHarness(async ({ tmpDir }) => {
+              await writeFlowFile({
+                tmpDir,
+                flowName: 'supported-config-flow',
+                steps: [
+                  {
+                    type: 'llm',
+                    agentType: 'coding_agent',
+                    identifier: 'supported-config-warning-check',
+                    messages: [{ role: 'user', content: ['after'] }],
+                  },
+                ],
+              });
 
-      const result = await startFlowRun({
-        flowName: 'supported-config-flow',
-        source: 'REST',
-      });
+              const result = await startFlowRun({
+                flowName: 'supported-config-flow',
+                source: 'REST',
+              });
 
-      const warningsText = result.warnings?.join('\n') ?? '';
-      assert.equal(
-        /Unknown key agent\.(web_search_mode|model_auto_compact_token_limit|hide_agent_reasoning|model_reasoning_summary|model_provider|model_providers|plugins)/u.test(
-          warningsText,
-        ),
-        false,
-      );
-      assert.equal(
-        /Unknown key agent\.features\.fast_mode/u.test(warningsText),
-        false,
-      );
-    });
+              const warningsText = result.warnings?.join('\n') ?? '';
+              assert.equal(
+                /Unknown key agent\.(web_search_mode|model_auto_compact_token_limit|hide_agent_reasoning|model_reasoning_summary|model_provider|model_providers|plugins)/u.test(
+                  warningsText,
+                ),
+                false,
+              );
+              assert.equal(
+                /Unknown key agent\.features\.fast_mode/u.test(warningsText),
+                false,
+              );
+            });
+          },
+        );
+      },
+    );
   } finally {
-    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
@@ -1655,12 +1814,6 @@ test('flow start does not surface warnings for supported Codex compatibility key
 });
 
 test('flow run start payload keeps providerId, warnings, and machine-readable launch truth on the first response', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  const previousFlowsDir = process.env.FLOWS_DIR;
-
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
@@ -1681,7 +1834,7 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -1690,90 +1843,87 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
     'model = "copilot-model"\n',
     'utf8',
   );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.FLOWS_DIR = flowsDir;
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'gpt-5.3-codex',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: false,
-      toolsAvailable: false,
-      blockingStage: 'authentication',
-      reason: 'copilot unavailable',
-      models: [],
-      modelsRaw: [],
-      authSource: 'unauthenticated',
-    }),
-  });
-
   try {
-    await writeFlowFile({
-      tmpDir: flowsDir,
-      flowName: 'task26-flow-warning-start',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'coding_agent',
-          identifier: 'warning-start',
-          messages: [{ role: 'user', content: ['after'] }],
-        },
-      ],
-    });
+    await withScopedAgentServiceDeps(
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
+            {
+              model: 'gpt-5.6-luna',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: false,
+          toolsAvailable: false,
+          blockingStage: 'authentication',
+          reason: 'copilot unavailable',
+          models: [],
+          modelsRaw: [],
+          authSource: 'unauthenticated',
+        }),
+      },
+      async () => {
+        await withAgentRuntimeEnv(
+          { agentsHome, codexHome, copilotHome, flowsDir },
+          async () => {
+            await writeFlowFile({
+              tmpDir: flowsDir,
+              flowName: 'task26-flow-warning-start',
+              steps: [
+                {
+                  type: 'llm',
+                  agentType: 'coding_agent',
+                  identifier: 'warning-start',
+                  messages: [{ role: 'user', content: ['after'] }],
+                },
+              ],
+            });
 
-    const response = await supertest(makeApp())
-      .post('/flows/task26-flow-warning-start/run')
-      .send({})
-      .expect(202);
+            const response = await supertest(makeApp())
+              .post('/flows/task26-flow-warning-start/run')
+              .send({})
+              .expect(202);
 
-    assert.equal(response.body.status, 'started');
-    assert.equal(response.body.providerId, 'codex');
-    assert.equal(response.body.modelId, 'gpt-5.3-codex');
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes('unsupported provider "bad-provider"'),
-      ),
-      true,
-    );
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes('fallback provider "codex"'),
-      ),
-      true,
+            assert.equal(response.body.status, 'started');
+            assert.equal(response.body.providerId, 'codex');
+            assert.equal(response.body.modelId, 'gpt-5.6-luna');
+            assert.equal(
+              response.body.warnings.some((warning: string) =>
+                warning.includes('unsupported provider "bad-provider"'),
+              ),
+              true,
+            );
+            assert.equal(
+              response.body.warnings.some((warning: string) =>
+                warning.includes('fallback provider "codex"'),
+              ),
+              true,
+            );
+          },
+        );
+      },
     );
   } finally {
-    process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-    process.env.FLOWS_DIR = previousFlowsDir;
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
@@ -1782,19 +1932,13 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
 });
 
 test('Task 25 flow starts fall back to the same provider native path before cross-provider fallback when the configured endpoint is unavailable', async () => {
-  const previousCompatEndpoints =
-    process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
   const externalServer = await startExternalOpenAiCompatServer({
     responseMode: 'transport-failure',
   });
   const endpointId = `${externalServer.baseUrl}/v1`;
 
   try {
-    await withFlowHarness(async ({ tmpDir, baseUrl }) => {
-      const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-      const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-      const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-      const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
+    await withFlowHarness(async ({ tmpDir }) => {
       const agentsHome = await fs.mkdtemp(
         path.join(os.tmpdir(), 'agents-home-'),
       );
@@ -1822,7 +1966,7 @@ test('Task 25 flow starts fall back to the same provider native path before cros
       await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
       await fs.writeFile(
         path.join(codexHome, 'chat', 'config.toml'),
-        'model = "gpt-5.3-codex"\n',
+        'model = "gpt-5.6-luna"\n',
         'utf8',
       );
       await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -1831,12 +1975,6 @@ test('Task 25 flow starts fall back to the same provider native path before cros
         'model = "copilot-gpt-5"\n',
         'utf8',
       );
-
-      process.env.CODEINFO_AGENT_HOME = agentsHome;
-      process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-      process.env.CODEINFO_CODEX_HOME = codexHome;
-      process.env.CODEINFO_COPILOT_HOME = copilotHome;
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS = `${endpointId}|responses,completions`;
       __setAgentServiceDepsForTests({
         getCodexDetection: () => ({
           available: true,
@@ -1854,7 +1992,7 @@ test('Task 25 flow starts fall back to the same provider native path before cros
           },
           models: [
             {
-              model: 'gpt-5.3-codex',
+              model: 'gpt-5.6-luna',
               supportedReasoningEfforts: ['high'],
               defaultReasoningEffort: 'high',
             },
@@ -1885,57 +2023,47 @@ test('Task 25 flow starts fall back to the same provider native path before cros
       });
 
       try {
-        await writeFlowFile({
-          tmpDir,
-          flowName: 'task25-flow-endpoint-native-fallback',
-          steps: [
-            {
-              type: 'llm',
-              agentType: 'coding_agent',
-              identifier: 'endpoint-native-fallback',
-              messages: [{ role: 'user', content: ['after'] }],
-            },
-          ],
-        });
+        await withAgentRuntimeEnv(
+          {
+            agentsHome,
+            codexHome,
+            copilotHome,
+            compatEndpoints: `${endpointId}|responses,completions`,
+          },
+          async () => {
+            await writeFlowFile({
+              tmpDir,
+              flowName: 'task25-flow-endpoint-native-fallback',
+              steps: [
+                {
+                  type: 'llm',
+                  agentType: 'coding_agent',
+                  identifier: 'endpoint-native-fallback',
+                  messages: [{ role: 'user', content: ['after'] }],
+                },
+              ],
+            });
 
-        const response = await supertest(baseUrl)
-          .post('/flows/task25-flow-endpoint-native-fallback/run')
-          .send({})
-          .expect(202);
+            const response = await supertest(makeApp())
+              .post('/flows/task25-flow-endpoint-native-fallback/run')
+              .send({})
+              .expect(202);
 
-        assert.equal(response.body.status, 'started');
-        assert.equal(response.body.providerId, 'copilot');
-        assert.equal(response.body.modelId, 'copilot-gpt-5');
-        assert.equal(
-          response.body.warnings.some((warning: string) =>
-            warning.includes(
-              `Endpoint "${endpointId}" was unavailable; falling back to native copilot model "copilot-gpt-5".`,
-            ),
-          ),
-          true,
+            assert.equal(response.body.status, 'started');
+            assert.equal(response.body.providerId, 'copilot');
+            assert.equal(response.body.modelId, 'copilot-gpt-5');
+            assert.equal(
+              response.body.warnings.some((warning: string) =>
+                warning.includes(
+                  `Endpoint "${endpointId}" was unavailable; falling back to native copilot model "copilot-gpt-5".`,
+                ),
+              ),
+              true,
+            );
+          },
         );
       } finally {
         __resetAgentServiceDepsForTests();
-        if (previousAgentHome === undefined) {
-          delete process.env.CODEINFO_AGENT_HOME;
-        } else {
-          process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-        }
-        if (previousLegacyAgentHome === undefined) {
-          delete process.env.CODEINFO_CODEX_AGENT_HOME;
-        } else {
-          process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-        }
-        if (previousCodexHome === undefined) {
-          delete process.env.CODEINFO_CODEX_HOME;
-        } else {
-          process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-        }
-        if (previousCopilotHome === undefined) {
-          delete process.env.CODEINFO_COPILOT_HOME;
-        } else {
-          process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-        }
         await fs.rm(agentsHome, { recursive: true, force: true });
         await fs.rm(codexHome, { recursive: true, force: true });
         await fs.rm(copilotHome, { recursive: true, force: true });
@@ -1943,22 +2071,10 @@ test('Task 25 flow starts fall back to the same provider native path before cros
     });
   } finally {
     await externalServer.stop();
-    if (previousCompatEndpoints === undefined) {
-      delete process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
-    } else {
-      process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS =
-        previousCompatEndpoints;
-    }
   }
 });
 
 test('flow run survives provider-specific runtime-config failure by falling back before runtime load', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  const previousFlowsDir = process.env.FLOWS_DIR;
-
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
@@ -1977,7 +2093,7 @@ test('flow run survives provider-specific runtime-config failure by falling back
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   await fs.writeFile(
@@ -1985,124 +2101,101 @@ test('flow run survives provider-specific runtime-config failure by falling back
     'tool_access = [\n',
     'utf8',
   );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.FLOWS_DIR = flowsDir;
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: true,
-      authPresent: true,
-      configPresent: true,
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [
-        {
-          model: 'gpt-5.3-codex',
-          supportedReasoningEfforts: ['high'],
-          defaultReasoningEffort: 'high',
-        },
-      ],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready',
-      reason: undefined,
-      models: ['copilot-gpt-5'],
-      modelsRaw: [
-        {
-          id: 'copilot-gpt-5',
-          name: 'Copilot GPT-5',
-          capabilities: {
-            supports: { vision: false, reasoningEffort: false },
-            limits: { max_context_window_tokens: 128000 },
-          },
-        },
-      ],
-      authSource: 'env-token',
-    }),
-  });
-
   try {
-    await writeFlowFile({
-      tmpDir: flowsDir,
-      flowName: 'task30-flow-provider-runtime-fallback',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'coding_agent',
-          identifier: 'provider-runtime-fallback',
-          messages: [{ role: 'user', content: ['after'] }],
-        },
-      ],
-    });
+    await withScopedAgentServiceDeps(
+      {
+        getCodexDetection: () => ({
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [
+            {
+              model: 'gpt-5.6-luna',
+              supportedReasoningEfforts: ['high'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          reason: undefined,
+          models: ['copilot-gpt-5'],
+          modelsRaw: [
+            {
+              id: 'copilot-gpt-5',
+              name: 'Copilot GPT-5',
+              capabilities: {
+                supports: { vision: false, reasoningEffort: false },
+                limits: { max_context_window_tokens: 128000 },
+              },
+            },
+          ],
+          authSource: 'env-token',
+        }),
+      },
+      async () => {
+        await withAgentRuntimeEnv(
+          { agentsHome, codexHome, copilotHome, flowsDir },
+          async () => {
+            await writeFlowFile({
+              tmpDir: flowsDir,
+              flowName: 'task30-flow-provider-runtime-fallback',
+              steps: [
+                {
+                  type: 'llm',
+                  agentType: 'coding_agent',
+                  identifier: 'provider-runtime-fallback',
+                  messages: [{ role: 'user', content: ['after'] }],
+                },
+              ],
+            });
 
-    const response = await supertest(makeApp())
-      .post('/flows/task30-flow-provider-runtime-fallback/run')
-      .send({})
-      .expect(202);
+            const response = await supertest(makeApp())
+              .post('/flows/task30-flow-provider-runtime-fallback/run')
+              .send({})
+              .expect(202);
 
-    assert.equal(response.body.status, 'started');
-    assert.equal(response.body.providerId, 'codex');
-    assert.equal(
-      memoryConversations.get(response.body.conversationId)?.provider,
-      'codex',
-    );
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes(
-          'requested provider "copilot" because its runtime config could not load',
-        ),
-      ),
-      true,
-    );
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes('fallback provider "codex"'),
-      ),
-      true,
+            assert.equal(response.body.status, 'started');
+            assert.equal(response.body.providerId, 'codex');
+            assert.equal(
+              memoryConversations.get(response.body.conversationId)?.provider,
+              'codex',
+            );
+            assert.equal(
+              response.body.warnings.some((warning: string) =>
+                warning.includes(
+                  'requested provider "copilot" because its runtime config could not load',
+                ),
+              ),
+              true,
+            );
+            assert.equal(
+              response.body.warnings.some((warning: string) =>
+                warning.includes('fallback provider "codex"'),
+              ),
+              true,
+            );
+          },
+        );
+      },
     );
   } finally {
-    if (previousAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    }
-    if (previousLegacyAgentHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-    }
-    if (previousCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    }
-    if (previousCopilotHome === undefined) {
-      delete process.env.CODEINFO_COPILOT_HOME;
-    } else {
-      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-    }
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
@@ -2111,12 +2204,6 @@ test('flow run survives provider-specific runtime-config failure by falling back
 });
 
 test('flow run fails clearly when no fallback provider can execute after requested runtime-config failure', async () => {
-  const previousAgentHome = process.env.CODEINFO_AGENT_HOME;
-  const previousLegacyAgentHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
-  const previousCopilotHome = process.env.CODEINFO_COPILOT_HOME;
-  const previousFlowsDir = process.env.FLOWS_DIR;
-
   const agentsHome = await fs.mkdtemp(path.join(os.tmpdir(), 'agents-home-'));
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
   const copilotHome = await fs.mkdtemp(path.join(os.tmpdir(), 'copilot-home-'));
@@ -2135,7 +2222,7 @@ test('flow run fails clearly when no fallback provider can execute after request
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.3-codex"\n',
+    'model = "gpt-5.6-luna"\n',
     'utf8',
   );
   await fs.writeFile(
@@ -2143,105 +2230,82 @@ test('flow run fails clearly when no fallback provider can execute after request
     'tool_access = [\n',
     'utf8',
   );
-
-  process.env.CODEINFO_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_AGENT_HOME = agentsHome;
-  process.env.CODEINFO_CODEX_HOME = codexHome;
-  process.env.CODEINFO_COPILOT_HOME = copilotHome;
-  process.env.FLOWS_DIR = flowsDir;
-  __setAgentServiceDepsForTests({
-    getCodexDetection: () => ({
-      available: false,
-      authPresent: false,
-      configPresent: false,
-      reason: 'codex unavailable',
-    }),
-    resolveCodexCapabilities: async () => ({
-      defaults: {
-        sandboxMode: 'danger-full-access',
-        approvalPolicy: 'never',
-        modelReasoningEffort: 'high',
-        networkAccessEnabled: true,
-        webSearchEnabled: false,
-        webSearchMode: 'disabled',
-      },
-      models: [],
-      byModel: new Map(),
-      warnings: [],
-      fallbackUsed: false,
-    }),
-    getMcpStatus: async () => ({ available: true }),
-    resolveCopilotReadiness: async () => ({
-      available: true,
-      toolsAvailable: true,
-      blockingStage: 'ready',
-      reason: undefined,
-      models: ['copilot-gpt-5'],
-      modelsRaw: [
-        {
-          id: 'copilot-gpt-5',
-          name: 'Copilot GPT-5',
-          capabilities: {
-            supports: { vision: false, reasoningEffort: false },
-            limits: { max_context_window_tokens: 128000 },
-          },
-        },
-      ],
-      authSource: 'env-token',
-    }),
-  });
-
   try {
-    await writeFlowFile({
-      tmpDir: flowsDir,
-      flowName: 'task30-flow-provider-runtime-unavailable',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'coding_agent',
-          identifier: 'provider-runtime-unavailable',
-          messages: [{ role: 'user', content: ['after'] }],
-        },
-      ],
-    });
+    await withScopedAgentServiceDeps(
+      {
+        getCodexDetection: () => ({
+          available: false,
+          authPresent: false,
+          configPresent: false,
+          reason: 'codex unavailable',
+        }),
+        resolveCodexCapabilities: async () => ({
+          defaults: {
+            sandboxMode: 'danger-full-access',
+            approvalPolicy: 'never',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: false,
+            webSearchMode: 'disabled',
+          },
+          models: [],
+          byModel: new Map(),
+          warnings: [],
+          fallbackUsed: false,
+        }),
+        getMcpStatus: async () => ({ available: true }),
+        resolveCopilotReadiness: async () => ({
+          available: true,
+          toolsAvailable: true,
+          blockingStage: 'ready',
+          reason: undefined,
+          models: ['copilot-gpt-5'],
+          modelsRaw: [
+            {
+              id: 'copilot-gpt-5',
+              name: 'Copilot GPT-5',
+              capabilities: {
+                supports: { vision: false, reasoningEffort: false },
+                limits: { max_context_window_tokens: 128000 },
+              },
+            },
+          ],
+          authSource: 'env-token',
+        }),
+      },
+      async () => {
+        await withAgentRuntimeEnv(
+          { agentsHome, codexHome, copilotHome, flowsDir },
+          async () => {
+            await writeFlowFile({
+              tmpDir: flowsDir,
+              flowName: 'task30-flow-provider-runtime-unavailable',
+              steps: [
+                {
+                  type: 'llm',
+                  agentType: 'coding_agent',
+                  identifier: 'provider-runtime-unavailable',
+                  messages: [{ role: 'user', content: ['after'] }],
+                },
+              ],
+            });
 
-    const response = await supertest(makeApp())
-      .post('/flows/task30-flow-provider-runtime-unavailable/run')
-      .send({})
-      .expect(503);
+            const response = await supertest(makeApp())
+              .post('/flows/task30-flow-provider-runtime-unavailable/run')
+              .send({})
+              .expect(503);
 
-    assert.equal(response.body.error, 'provider_unavailable');
-    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
-    assert.match(
-      String(response.body.reason),
-      /runtime config could not load/i,
+            assert.equal(response.body.error, 'provider_unavailable');
+            assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+            assert.match(
+              String(response.body.reason),
+              /runtime config could not load/i,
+            );
+          },
+        );
+      },
     );
   } finally {
-    if (previousAgentHome === undefined) {
-      delete process.env.CODEINFO_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_AGENT_HOME = previousAgentHome;
-    }
-    if (previousLegacyAgentHome === undefined) {
-      delete process.env.CODEINFO_CODEX_AGENT_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_AGENT_HOME = previousLegacyAgentHome;
-    }
-    if (previousCodexHome === undefined) {
-      delete process.env.CODEINFO_CODEX_HOME;
-    } else {
-      process.env.CODEINFO_CODEX_HOME = previousCodexHome;
-    }
-    if (previousCopilotHome === undefined) {
-      delete process.env.CODEINFO_COPILOT_HOME;
-    } else {
-      process.env.CODEINFO_COPILOT_HOME = previousCopilotHome;
-    }
-    if (previousFlowsDir === undefined) {
-      delete process.env.FLOWS_DIR;
-    } else {
-      process.env.FLOWS_DIR = previousFlowsDir;
-    }
     await fs.rm(agentsHome, { recursive: true, force: true });
     await fs.rm(codexHome, { recursive: true, force: true });
     await fs.rm(copilotHome, { recursive: true, force: true });
@@ -2283,7 +2347,7 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
             originalSet.call(memoryConversations, conversationId, {
               _id: conversationId,
               provider: 'codex',
-              model: 'gpt-5.1-codex-max',
+              model: 'gpt-5.6-luna',
               title: 'retry-ownership-persist-fails',
               flowName: 'retry-ownership-persist-fails',
               source: 'REST',
@@ -2302,13 +2366,12 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
       memoryConversations.set = originalSet;
     }
 
-    const retryResult = await startFlowRun({
+    const retryResult = await startSubscribedFlowRun(ws, {
       flowName: 'retry-ownership-persist-fails',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, retryResult.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: retryResult.conversationId,
@@ -2331,14 +2394,12 @@ test('in-flight retryOwnershipId dedupe returns the same fresh-run launch while 
       steps: [makeLlmStep()],
     });
 
-    const firstResult = await startFlowRun({
+    const firstResult = await startSubscribedFlowRun(ws, {
       flowName: 'retry-ownership-inflight-dedupe',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       chatFactory: () => new DelayedMinimalChat(100),
     });
-    subscribeConversation(ws, firstResult.conversationId);
-
     const secondResult = await startFlowRun({
       flowName: 'retry-ownership-inflight-dedupe',
       source: 'REST',
@@ -2368,13 +2429,12 @@ test('same-process completed retryOwnershipId replay reuses the earlier fresh-ru
       steps: [makeLlmStep()],
     });
 
-    const firstResult = await startFlowRun({
+    const firstResult = await startSubscribedFlowRun(ws, {
       flowName: 'retry-ownership-post-complete-replay',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, firstResult.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: firstResult.conversationId,
@@ -2390,72 +2450,78 @@ test('same-process completed retryOwnershipId replay reuses the earlier fresh-ru
     });
 
     assert.deepEqual(replayResult, firstResult);
-    await delay(150);
+    await waitForConversationUnlocked(firstResult.conversationId);
     assert.equal((memoryTurns.get(firstResult.conversationId) ?? []).length, 2);
   });
 });
 
-test('post-success retry completion write failure is retried before ownership release and survives local barrier loss', async () => {
-  await withFlowHarness(async ({ tmpDir, ws }) => {
+test('terminal fresh-run failure clears durable retry ownership before a later retry with the same id', async () => {
+  await withFlowHarness(async ({ tmpDir }) => {
     await writeFlowFile({
       tmpDir,
-      flowName: 'retry-completion-persist-retry',
-      steps: [makeLlmStep()],
+      flowName: 'retry-ownership-terminal-failure',
+      steps: [
+        {
+          type: 'break',
+          agentType: 'coding_agent',
+          identifier: 'main',
+          question: 'flow-control/decision-malformed-json.py',
+          breakOn: 'yes',
+        },
+      ],
     });
-    const originalSet = memoryConversations.set;
-    let injectedFailure = false;
-    memoryConversations.set = ((key: string, value: Conversation) => {
-      const flow = value.flags?.flow as
-        | { retryOwnershipCompletion?: unknown }
-        | undefined;
-      if (!injectedFailure && flow?.retryOwnershipCompletion) {
-        injectedFailure = true;
-        throw new Error('post-success completion write failed once');
-      }
-      return originalSet.call(memoryConversations, key, value);
-    }) as typeof memoryConversations.set;
 
-    try {
-      const firstResult = await startFlowRun({
-        flowName: 'retry-completion-persist-retry',
-        source: 'REST',
-        retryOwnershipId: 'fresh-run-retry-persisted',
-        chatFactory: () => new MinimalChat(),
-      });
-      subscribeConversation(ws, firstResult.conversationId);
-      await waitForFlowFinal({
-        ws,
-        conversationId: firstResult.conversationId,
-        status: 'ok',
-      });
-      await waitForConversationUnlocked(firstResult.conversationId);
-      assert.equal(injectedFailure, true);
-      assert.ok(
-        memoryConversations.get(firstResult.conversationId)?.flags?.flow
-          ?.retryOwnershipCompletion,
-      );
+    const firstResult = await startFlowRun({
+      flowName: 'retry-ownership-terminal-failure',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new MinimalChat(),
+    });
+    const firstTurns = await waitForTurns(firstResult.conversationId, (items) =>
+      items.some(
+        (turn) => turn.role === 'assistant' && turn.status === 'failed',
+      ),
+    );
+    const firstAssistantTurn = [...firstTurns]
+      .reverse()
+      .find((turn) => turn.role === 'assistant');
+    assert.equal(firstAssistantTurn?.status, 'failed');
+    await waitForConversationUnlocked(firstResult.conversationId);
 
-      __resetFreshRunRetryOwnershipCompletionForTests();
-      const replayResult = await startFlowRun({
-        flowName: 'retry-completion-persist-retry',
-        source: 'REST',
-        retryOwnershipId: 'fresh-run-retry-persisted',
-        chatFactory: () => new MinimalChat(),
-      });
-      assert.deepEqual(replayResult, firstResult);
-      await delay(150);
-      assert.equal(
-        (memoryTurns.get(firstResult.conversationId) ?? []).length,
-        2,
-      );
-    } finally {
-      memoryConversations.set = originalSet;
-    }
+    const failedFlowFlags = (memoryConversations.get(firstResult.conversationId)
+      ?.flags ?? {}) as {
+      flow?: {
+        retryOwnershipPending?: unknown;
+        retryOwnershipCompletion?: unknown;
+      };
+    };
+    assert.equal(failedFlowFlags.flow?.retryOwnershipPending, undefined);
+    assert.equal(failedFlowFlags.flow?.retryOwnershipCompletion, undefined);
+
+    const secondResult = await startFlowRun({
+      flowName: 'retry-ownership-terminal-failure',
+      source: 'REST',
+      retryOwnershipId: 'fresh-run-retry-1',
+      chatFactory: () => new MinimalChat(),
+    });
+    assert.notEqual(secondResult.conversationId, firstResult.conversationId);
+    const secondTurns = await waitForTurns(
+      secondResult.conversationId,
+      (items) =>
+        items.some(
+          (turn) => turn.role === 'assistant' && turn.status === 'failed',
+        ),
+    );
+    const secondAssistantTurn = [...secondTurns]
+      .reverse()
+      .find((turn) => turn.role === 'assistant');
+    assert.equal(secondAssistantTurn?.status, 'failed');
   });
 });
 
 test('terminal retry completion write failures still release the lock and active ownership', async () => {
   await withFlowHarness(async ({ tmpDir, ws }) => {
+    const retryOwnershipId = `fresh-run-retry-terminal-failure-${randomUUID()}`;
     await writeFlowFile({
       tmpDir,
       flowName: 'retry-completion-persist-terminal-failure',
@@ -2475,13 +2541,12 @@ test('terminal retry completion write failures still release the lock and active
     }) as typeof memoryConversations.set;
 
     try {
-      const firstResult = await startFlowRun({
+      const firstResult = await startSubscribedFlowRun(ws, {
         flowName: 'retry-completion-persist-terminal-failure',
         source: 'REST',
-        retryOwnershipId: 'fresh-run-retry-terminal-failure',
+        retryOwnershipId,
         chatFactory: () => new MinimalChat(),
       });
-      subscribeConversation(ws, firstResult.conversationId);
       await waitForFlowFinal({
         ws,
         conversationId: firstResult.conversationId,
@@ -2492,14 +2557,13 @@ test('terminal retry completion write failures still release the lock and active
 
       __resetFreshRunRetryOwnershipCompletionForTests();
       memoryConversations.set = originalSet;
-      const retryResult = await startFlowRun({
+      const retryResult = await startSubscribedFlowRun(ws, {
         flowName: 'retry-completion-persist-terminal-failure',
         source: 'REST',
-        retryOwnershipId: 'fresh-run-retry-terminal-failure',
+        retryOwnershipId,
         chatFactory: () => new MinimalChat(),
       });
       assert.notEqual(retryResult.conversationId, firstResult.conversationId);
-      subscribeConversation(ws, retryResult.conversationId);
       await waitForFlowFinal({
         ws,
         conversationId: retryResult.conversationId,
@@ -2520,14 +2584,13 @@ test('completed retryOwnershipId replay rejects a contradictory fresh-run launch
     });
 
     const acceptedTitle = 'Accepted Replay Launch';
-    const firstResult = await startFlowRun({
+    const firstResult = await startSubscribedFlowRun(ws, {
       flowName: 'retry-ownership-contradiction',
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       customTitle: acceptedTitle,
       chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, firstResult.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: firstResult.conversationId,
@@ -2560,14 +2623,17 @@ test('distinct retryOwnershipId values still launch a fresh run after the earlie
       steps: [makeLlmStep()],
     });
 
+    const firstConversationId = 'retry-ownership-new-request-first';
+    const secondConversationId = 'retry-ownership-new-request-second';
+    await subscribeConversation(ws, firstConversationId);
     const firstResult = await startFlowRun({
       flowName: 'retry-ownership-new-request',
+      conversationId: firstConversationId,
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-1',
       customTitle: 'First Fresh Request',
       chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, firstResult.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: firstResult.conversationId,
@@ -2575,14 +2641,15 @@ test('distinct retryOwnershipId values still launch a fresh run after the earlie
     });
     await waitForConversationUnlocked(firstResult.conversationId);
 
+    await subscribeConversation(ws, secondConversationId);
     const secondResult = await startFlowRun({
       flowName: 'retry-ownership-new-request',
+      conversationId: secondConversationId,
       source: 'REST',
       retryOwnershipId: 'fresh-run-retry-2',
       customTitle: 'Second Fresh Request',
       chatFactory: () => new MinimalChat(),
     });
-    subscribeConversation(ws, secondResult.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: secondResult.conversationId,
@@ -2631,7 +2698,7 @@ test('stop during the blocking wait keeps later flow steps from executing', asyn
         });
       },
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
 
     resolveRun({ ok: true, value: buildReingestSuccess() });
 
@@ -2677,7 +2744,7 @@ test('timeout terminal results stay structured as nested dedicated flow reingest
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -2716,7 +2783,7 @@ test('missing-run terminal results stay structured as nested dedicated flow rein
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -2754,7 +2821,7 @@ test('unknown terminal results stay structured as nested dedicated flow reingest
       chatFactory: () => new MinimalChat(),
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
+    await subscribeConversation(ws, result.conversationId);
     const turns = await waitForTurns(
       result.conversationId,
       (items) => items.length >= 4,
@@ -2789,12 +2856,11 @@ test('flows containing only dedicated reingest steps start with the fallback mod
       createCallId: () => 'call-only',
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-only-flow',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     assert.equal(result.modelId, 'gpt-5.6-sol');
     await waitForFlowFinal({
       ws,
@@ -2829,12 +2895,11 @@ test('dedicated reingest steps publish live and persisted flow metadata without 
       createCallId: () => 'call-metadata',
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-metadata',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     const snapshot = await waitForEvent({
       ws,
       predicate: (
@@ -2917,12 +2982,11 @@ test('multiple dedicated reingest steps targeting the same sourceId keep distinc
       },
     });
 
-    const result = await startFlowRun({
+    const result = await startSubscribedFlowRun(ws, {
       flowName: 'reingest-double',
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    subscribeConversation(ws, result.conversationId);
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -2942,4 +3006,990 @@ test('multiple dedicated reingest steps targeting the same sourceId keep distinc
       ['call-a', 'call-b'],
     );
   });
+});
+
+test('shared decision seam fails hard for missing script file', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'missing-script-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/missing-script.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const result = await supertest(baseUrl)
+        .post('/flows/missing-script-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /Script file not found/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam executes an untracked in-root script entrypoint', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await fs.writeFile(
+        path.join(tmpDir, 'flow-control', 'decision-untracked.py'),
+        'print(\'{"answer":"yes"}\')\n',
+        'utf8',
+      );
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'untracked-script-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-untracked.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const completion = waitForTestCondition(
+        () => {
+          const flow = memoryConversations.get(conversationId)?.flags?.flow as
+            | { runLifecycle?: { status?: string } }
+            | undefined;
+          return flow?.runLifecycle?.status === 'ok';
+        },
+        { description: 'untracked decision script flow completion' },
+      );
+      const result = await supertest(baseUrl)
+        .post('/flows/untracked-script-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      await completion;
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam executes an in-root symlink to an untracked target', async (t) => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      const targetPath = path.join(
+        tmpDir,
+        'flow-control',
+        'decision-untracked-target.py',
+      );
+      const linkPath = path.join(
+        tmpDir,
+        'flow-control',
+        'decision-tracked-link.py',
+      );
+      await fs.writeFile(targetPath, 'print(\'{"answer":"yes"}\')\n', 'utf8');
+      try {
+        await fs.symlink('decision-untracked-target.py', linkPath);
+      } catch (error) {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          ['EPERM', 'EACCES', 'ENOTSUP'].includes(
+            String((error as NodeJS.ErrnoException).code),
+          )
+        ) {
+          t.skip('symlink creation is not permitted in this environment');
+        }
+        throw error;
+      }
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'tracked-symlink-untracked-target-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-tracked-link.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const completion = waitForTestCondition(
+        () => {
+          const flow = memoryConversations.get(conversationId)?.flags?.flow as
+            | { runLifecycle?: { status?: string } }
+            | undefined;
+          return flow?.runLifecycle?.status === 'ok';
+        },
+        { description: 'untracked decision script flow completion' },
+      );
+      const result = await supertest(baseUrl)
+        .post('/flows/tracked-symlink-untracked-target-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+
+      await completion;
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam rejects script symlinks that escape the worked repository root', async (t) => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      const outsideRoot = await fs.mkdtemp(
+        path.join(os.tmpdir(), 'flow-control-outside-'),
+      );
+      try {
+        const outsideScript = path.join(outsideRoot, 'decision-outside.py');
+        await fs.writeFile(
+          outsideScript,
+          ['#!/usr/bin/env python3', 'print(\'{"answer":"yes"}\')', ''].join(
+            '\n',
+          ),
+          'utf8',
+        );
+        try {
+          await fs.symlink(
+            outsideScript,
+            path.join(tmpDir, 'flow-control', 'decision-outside-link.py'),
+          );
+        } catch (error) {
+          if (
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            ['EPERM', 'EACCES', 'ENOTSUP'].includes(
+              String((error as NodeJS.ErrnoException).code),
+            )
+          ) {
+            t.skip('symlink creation is not permitted in this environment');
+          }
+          throw error;
+        }
+
+        await writeFlowFile({
+          tmpDir,
+          flowName: 'symlink-escape-flow',
+          steps: [
+            {
+              type: 'break',
+              agentType: 'coding_agent',
+              identifier: 'main',
+              question: 'flow-control/decision-outside-link.py',
+              breakOn: 'yes',
+            },
+          ],
+        });
+
+        const conversationId = randomUUID();
+        await subscribeConversation(ws, conversationId);
+        const result = await supertest(baseUrl)
+          .post('/flows/symlink-escape-flow/run')
+          .send({
+            conversationId,
+            source: 'REST',
+            working_folder: tmpDir,
+          });
+        assert.equal(result.status, 202);
+
+        const final = await waitForFlowFinal({
+          ws,
+          conversationId,
+          status: 'failed',
+        });
+        assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+        assert.match(
+          final.error?.message ?? '',
+          /must resolve inside the worked repository root/,
+        );
+      } finally {
+        await fs.rm(outsideRoot, { recursive: true, force: true });
+      }
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam fails hard for malformed JSON output', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'malformed-json-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-malformed-json.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const result = await supertest(baseUrl)
+        .post('/flows/malformed-json-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+      assert.equal(result.body.conversationId, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(
+        final.error?.message ?? '',
+        /Script output failed decision parsing/,
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam fails hard for non-zero exit code', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'nonzero-exit-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-nonzero-exit.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const result = await supertest(baseUrl)
+        .post('/flows/nonzero-exit-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+      assert.equal(result.body.conversationId, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /Script exited with code 1/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam fails hard for invalid answer values', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'invalid-answer-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-invalid-answer.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const result = await supertest(baseUrl)
+        .post('/flows/invalid-answer-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+      assert.equal(result.body.conversationId, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /answer "yes" or "no"/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam fails hard for extra-key script output', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'extra-keys-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-extra-keys.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const result = await supertest(baseUrl)
+        .post('/flows/extra-keys-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+      assert.equal(result.body.conversationId, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /exactly/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('explicit decisionScript failure remains hard despite legacy break recovery options', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'timeout-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'Run the missing decision script.',
+            decisionScript: 'scripts/flow_control/missing-decision.py',
+            breakOn: 'yes',
+            breakOnFailure: true,
+            continueOnFailure: true,
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const result = await supertest(baseUrl)
+        .post('/flows/timeout-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+      assert.equal(result.body.conversationId, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+        timeoutMs: 5000,
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /Script file not found/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+// These two forms deliberately have different owners. A same-named target
+// script must neither shadow a legacy harness helper nor fall back to one.
+for (const kind of ['break', 'if'] as const) {
+  for (const explicit of [true, false]) {
+    for (const workedScriptPresent of [true, false]) {
+      test(`${kind} ${explicit ? 'explicit harness' : 'implicit worked'} script ownership with worked script ${workedScriptPresent ? 'present' : 'absent'}`, async () => {
+        await withFlowHarness(
+          async ({ tmpDir, ws, baseUrl }) => {
+            const decisionScript =
+              'scripts/flow_control/check_current_task_has_blocker.py';
+            if (workedScriptPresent) {
+              await fs.mkdir(path.join(tmpDir, 'scripts', 'flow_control'), {
+                recursive: true,
+              });
+              await fs.writeFile(
+                path.join(tmpDir, decisionScript),
+                `print('{"answer":"no"}')\n`,
+                'utf8',
+              );
+            }
+            await writeFlowFile({
+              tmpDir,
+              flowName: 'script-ownership-flow',
+              steps: [
+                kind === 'break'
+                  ? {
+                      type: 'break',
+                      question: explicit
+                        ? 'Check the current task blocker state.'
+                        : decisionScript,
+                      ...(explicit ? { decisionScript } : {}),
+                      breakOn: 'yes',
+                    }
+                  : {
+                      type: 'if',
+                      condition: explicit
+                        ? 'Check the current task blocker state.'
+                        : decisionScript,
+                      ...(explicit ? { decisionScript } : {}),
+                      then: [
+                        {
+                          type: 'break',
+                          question: 'Finish the selected branch.',
+                          decisionScript,
+                          breakOn: 'no',
+                        },
+                      ],
+                    },
+              ],
+            });
+
+            const conversationId = randomUUID();
+            await subscribeConversation(ws, conversationId);
+            const status = explicit || workedScriptPresent ? 'ok' : 'failed';
+            const finalPromise =
+              status === 'failed'
+                ? waitForFlowFinal({ ws, conversationId, status })
+                : waitForTestCondition(
+                    () => {
+                      const flow = memoryConversations.get(conversationId)
+                        ?.flags?.flow as
+                        | { runLifecycle?: { status?: string } }
+                        | undefined;
+                      return flow?.runLifecycle?.status === 'ok';
+                    },
+                    { description: 'script ownership flow completion' },
+                  ).then(() => undefined);
+            const result = await supertest(baseUrl)
+              .post('/flows/script-ownership-flow/run')
+              .send({ conversationId, source: 'REST', working_folder: tmpDir });
+            assert.equal(result.status, 202);
+            const final = await finalPromise;
+            if (status === 'failed') {
+              assert.equal(
+                final?.error?.code,
+                `${kind.toUpperCase()}_DECISION_SCRIPT_FAILED`,
+              );
+              assert.match(
+                final?.error?.message ?? '',
+                /Script file not found/,
+              );
+            } else {
+              // The real harness helper returns yes for this target's missing
+              // task handoff; the colliding worked script deliberately returns no.
+              const decisions = query(
+                { text: `flows.run.${kind}_decision` },
+                100,
+              ).filter(
+                (entry) => entry.context?.flowName === 'script-ownership-flow',
+              );
+              assert.equal(decisions.length, 1);
+              assert.equal(
+                decisions[0].context?.answer,
+                explicit ? 'yes' : 'no',
+              );
+              assert.equal(decisions[0].context?.source, 'script');
+            }
+          },
+          { registerTmpDirAsRepo: true },
+        );
+      });
+    }
+  }
+}
+
+test('stopping a decision script aborts it before it can advance the flow', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      const decisionScript = 'scripts/flow_control/block-until-stopped.py';
+      const startedMarker = 'decision-script-started';
+      let markStarted!: () => void;
+      const scriptStarted = new Promise<void>((resolve) => {
+        markStarted = resolve;
+      });
+      const watcher = fsSync.watch(tmpDir, (_eventType, filename) => {
+        if (filename?.toString() === startedMarker) markStarted();
+      });
+      try {
+        await fs.mkdir(path.join(tmpDir, 'scripts', 'flow_control'), {
+          recursive: true,
+        });
+        await fs.writeFile(
+          path.join(tmpDir, decisionScript),
+          [
+            'from pathlib import Path',
+            'import time',
+            `Path(${JSON.stringify(startedMarker)}).write_text("started")`,
+            'while True:',
+            '    time.sleep(1)',
+            '',
+          ].join('\n'),
+          'utf8',
+        );
+        await execFileAsync('git', ['add', decisionScript], { cwd: tmpDir });
+        await writeFlowFile({
+          tmpDir,
+          flowName: 'stop-decision-script-flow',
+          steps: [
+            {
+              type: 'break',
+              agentType: 'coding_agent',
+              identifier: 'main',
+              question: decisionScript,
+              breakOn: 'yes',
+            },
+            makeLlmStep(),
+          ],
+        });
+
+        const conversationId = randomUUID();
+        await subscribeConversation(ws, conversationId);
+        const stoppedPromise = waitForFlowFinal({
+          ws,
+          conversationId,
+          status: 'stopped',
+        });
+        const result = await supertest(baseUrl)
+          .post('/flows/stop-decision-script-flow/run')
+          .send({
+            conversationId,
+            source: 'REST',
+            working_folder: tmpDir,
+          });
+        assert.equal(result.status, 202);
+        await scriptStarted;
+
+        assert.equal(await stopFlowRun(conversationId), true);
+        await stoppedPromise;
+        const flowState = memoryConversations.get(conversationId)?.flags
+          ?.flow as
+          | { stepPath?: number[]; runLifecycle?: { status?: string } }
+          | undefined;
+        assert.equal(flowState?.runLifecycle?.status, 'stopped');
+        assert.deepEqual(flowState?.stepPath ?? [], []);
+        assert.equal(
+          (memoryTurns.get(conversationId) ?? []).some(
+            (turn) => turn.command?.stepIndex === 2,
+          ),
+          false,
+        );
+      } finally {
+        watcher.close();
+      }
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('implicit continue decisionScript failure remains hard', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'continue-timeout-flow',
+        steps: [
+          {
+            type: 'startLoop',
+            maxIterations: 1,
+            steps: [
+              {
+                type: 'continue',
+                question: 'flow-control/decision-timeout.py',
+                continueOn: 'yes',
+              },
+            ],
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const result = await supertest(baseUrl)
+        .post('/flows/continue-timeout-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+      assert.equal(result.body.conversationId, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+        timeoutMs: 5000,
+      });
+      assert.equal(final.error?.code, 'CONTINUE_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /timed out/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('explicit if scripts do not fall back to worked files or recover script failures as GitHub skips', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      const decisionScript = 'scripts/missing-harness-if.py';
+      await fs.mkdir(path.join(tmpDir, 'scripts'), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, decisionScript),
+        `print('{"answer":"no"}')\n`,
+      );
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'explicit-if-missing',
+        steps: [
+          {
+            type: 'if',
+            condition: 'Run the harness decision.',
+            decisionScript,
+            githubReviewRecovery: true,
+            then: [{ type: 'wait', seconds: 1 }],
+          },
+        ],
+      });
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const finalPromise = waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      const response = await supertest(baseUrl)
+        .post('/flows/explicit-if-missing/run')
+        .send({ conversationId, source: 'REST', working_folder: tmpDir });
+      assert.equal(response.status, 202);
+      const final = await finalPromise;
+      assert.equal(final.error?.code, 'IF_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /Script file not found/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('script-backed if steps use the worked repository and remain terminal in GitHub recovery scopes', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'implicit-harness-decision-script',
+        steps: [
+          {
+            type: 'if',
+            githubReviewRecovery: true,
+            condition:
+              'scripts/flow_control/check_github_review_cycle_active.py',
+            then: [makeLlmStep()],
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const result = await supertest(baseUrl)
+        .post('/flows/implicit-harness-decision-script/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+      assert.equal(result.body.conversationId, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'IF_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /Script file not found/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('shared decision seam fails hard when script output exceeds its limit', async () => {
+  await withFlowHarness(
+    async ({ tmpDir, ws, baseUrl }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'output-limit-flow',
+        steps: [
+          {
+            type: 'break',
+            agentType: 'coding_agent',
+            identifier: 'main',
+            question: 'flow-control/decision-output-limit.py',
+            breakOn: 'yes',
+          },
+        ],
+      });
+
+      const conversationId = randomUUID();
+      await subscribeConversation(ws, conversationId);
+      const result = await supertest(baseUrl)
+        .post('/flows/output-limit-flow/run')
+        .send({
+          conversationId,
+          source: 'REST',
+          working_folder: tmpDir,
+        });
+      assert.equal(result.status, 202);
+      assert.equal(result.body.conversationId, conversationId);
+      const final = await waitForFlowFinal({
+        ws,
+        conversationId,
+        status: 'failed',
+      });
+      assert.equal(final.error?.code, 'BREAK_DECISION_SCRIPT_FAILED');
+      assert.match(final.error?.message ?? '', /output exceeded 65536 bytes/);
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('wait resume fails clearly when persisted wait execution identity no longer matches the resumed flow execution', async () => {
+  await withFlowHarness(
+    async ({ tmpDir }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'wait-contradiction',
+        steps: [makeLlmStep(), { type: 'wait', seconds: 60 }, makeLlmStep()],
+      });
+
+      const conversationId = 'wait-contradiction-conversation';
+      memoryConversations.set(conversationId, {
+        _id: conversationId,
+        provider: 'codex',
+        model: 'gpt-5.6-terra',
+        title: 'Flow: wait-contradiction',
+        flowName: 'wait-contradiction',
+        source: 'REST',
+        flags: {
+          flow: {
+            executionId: 'resume-execution-current',
+            stepPath: [1],
+            loopStack: [],
+            wait: {
+              executionId: 'resume-execution-stale',
+              stepPath: [1],
+              loopStack: [],
+              resumeAt: Date.now() + 60_000,
+            },
+            agentConversations: {},
+            agentThreads: {},
+          },
+        },
+        lastMessageAt: new Date(),
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await startFlowRun({
+        flowName: 'wait-contradiction',
+        conversationId,
+        resumeStepPath: [1],
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
+
+      assert.equal(result.conversationId, conversationId);
+      await waitFor(
+        () => getLatestAssistantTurn(conversationId)?.status === 'failed',
+      );
+      assert.match(
+        getLatestAssistantTurn(conversationId)?.content ?? '',
+        /Persisted wait state executionId no longer matches/,
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('wait wake does not resume after the flow has already reached a terminal status', async () => {
+  await withFlowHarness(
+    async ({ tmpDir }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'wait-terminal-guard',
+        steps: [makeLlmStep(), { type: 'wait', seconds: 60 }, makeLlmStep()],
+      });
+
+      const conversationId = 'wait-terminal-guard-conversation';
+      const captured: string[] = [];
+      let wake: (() => void) | null = null;
+      let waitCancelled = false;
+
+      class TrackingChat extends ChatInterface {
+        async execute(
+          message: string,
+          _flags: Record<string, unknown>,
+          childConversationId: string,
+          _model: string,
+        ) {
+          void _flags;
+          void _model;
+          captured.push(message);
+          this.emit('thread', {
+            type: 'thread',
+            threadId: childConversationId,
+          });
+          this.emit('final', { type: 'final', content: 'ok' });
+          this.emit('complete', {
+            type: 'complete',
+            threadId: childConversationId,
+          });
+        }
+      }
+
+      __setFlowWaitResumeDepsForTests({
+        scheduleWake: ({ onWake }) => {
+          wake = onWake;
+          return {
+            cancel: () => {
+              waitCancelled = true;
+            },
+          };
+        },
+      });
+
+      await startFlowRun({
+        flowName: 'wait-terminal-guard',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new TrackingChat(),
+      });
+
+      await waitFor(() => captured.length === 1);
+      const conversation = memoryConversations.get(conversationId);
+      assert.ok(conversation);
+      memoryTurns.set(conversationId, [
+        ...(memoryTurns.get(conversationId) ?? []),
+        {
+          conversationId,
+          role: 'assistant',
+          content: 'terminal',
+          provider: 'codex',
+          model: 'gpt-5.6-terra',
+          source: 'REST',
+          toolCalls: null,
+          status: 'failed',
+          createdAt: new Date(),
+        } as Turn,
+      ]);
+
+      assert.ok(wake, 'expected wait wake callback to be captured');
+      (wake as () => void)();
+      await waitFor(() => waitCancelled);
+      assert.equal(
+        captured.length,
+        1,
+        `Wake should not resume a terminal flow | ${describeRelevantFlowRuntimeLogs(conversationId)}`,
+      );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('wait wake rearms after a transient conversation-read failure', async () => {
+  await withFlowHarness(
+    async ({ tmpDir }) => {
+      await writeFlowFile({
+        tmpDir,
+        flowName: 'wait-preflight-rearm',
+        steps: [makeLlmStep(), { type: 'wait', seconds: 60 }, makeLlmStep()],
+      });
+
+      const conversationId = 'wait-preflight-rearm-conversation';
+      const wakes: Array<() => void> = [];
+      let failPreflight = true;
+      let resumeCalls = 0;
+      __setFlowWaitResumeDepsForTests({
+        scheduleWake: ({ onWake }) => {
+          wakes.push(onWake);
+          return { cancel: () => {} };
+        },
+        loadConversation: async (id) => {
+          if (failPreflight) throw new Error('temporary database outage');
+          return memoryConversations.get(id) ?? null;
+        },
+        loadLatestAssistantStatus: async () => null,
+        resumeFlowRun: async () => {
+          resumeCalls += 1;
+        },
+      });
+
+      await startFlowRun({
+        flowName: 'wait-preflight-rearm',
+        conversationId,
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
+      await waitFor(() => wakes.length === 1);
+      wakes[0]?.();
+      await waitFor(() => wakes.length === 2);
+      assert.equal(resumeCalls, 0);
+
+      failPreflight = false;
+      wakes[1]?.();
+      await waitFor(() => resumeCalls === 1);
+    },
+    { registerTmpDirAsRepo: true },
+  );
 });

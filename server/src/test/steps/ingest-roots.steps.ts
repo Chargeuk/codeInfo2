@@ -30,24 +30,28 @@ import {
   stopMock,
 } from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
-
+import {
+  resolveConfiguredPollAttempts,
+  resolveConfiguredTestTimeoutMs,
+} from '../support/testTimeouts.js';
 let server: Server | null = null;
 let baseUrl = '';
-let response: { status: number; body: unknown } | null = null;
+let response: {
+  status: number;
+  body: unknown;
+} | null = null;
 let tempDir: string | null = null;
 let lastRunId: string | null = null;
-
 type IngestStatusBody = {
   state?: string;
   message?: string;
   lastError?: string;
   [key: string]: unknown;
 };
-
 async function waitForIngestRootsStatus(expectedState: string) {
   assert(lastRunId, 'runId missing');
   let lastObserved: IngestStatusBody | null = null;
-  for (let i = 0; i < 60; i += 1) {
+  for (let i = 0; i < resolveConfiguredPollAttempts(60, 100); i += 1) {
     const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
     const body = (await res.json()) as IngestStatusBody;
     lastObserved = body;
@@ -66,26 +70,27 @@ async function waitForIngestRootsStatus(expectedState: string) {
     `Did not reach state "${expectedState}". Last observed payload: ${JSON.stringify(lastObserved)}`,
   );
 }
-
 Before(async () => {
-  setDefaultTimeout(30_000);
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   const app = express();
   app.use(cors());
   app.use(express.json());
   app.use(createRequestLogger());
   app.use((req, res, next) => {
-    const requestId = (req as unknown as { id?: string }).id;
+    const requestId = (
+      req as unknown as {
+        id?: string;
+      }
+    ).id;
     if (requestId) res.locals.requestId = requestId;
     next();
   });
-
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
     baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
-
   app.use(
     '/',
     createIngestStartRouter({
@@ -94,7 +99,6 @@ Before(async () => {
     }),
   );
   app.use('/', createIngestRootsRouter());
-
   await new Promise<void>((resolve) => {
     const listener = app.listen(0, () => {
       server = listener;
@@ -107,7 +111,6 @@ Before(async () => {
     });
   });
 });
-
 After(async () => {
   stopMock();
   if (server) {
@@ -123,16 +126,13 @@ After(async () => {
   await clearRootsCollection();
   await clearLockedModel();
 });
-
 Given('ingest roots chroma stub is empty', async () => {
   await clearRootsCollection();
   await clearLockedModel();
 });
-
 Given('ingest roots models scenario {string}', (name: string) => {
   startMock({ scenario: name as MockScenario });
 });
-
 Given(
   'ingest roots temp repo with file {string} containing {string}',
   async (rel: string, content: string) => {
@@ -142,7 +142,6 @@ Given(
     await fs.writeFile(filePath, content);
   },
 );
-
 When('I POST ingest roots start with model {string}', async (model: string) => {
   if (!tempDir) {
     tempDir = await createTempRepoRoot('ingest-roots-');
@@ -154,22 +153,24 @@ When('I POST ingest roots start with model {string}', async (model: string) => {
   });
   response = { status: res.status, body: await res.json() };
   if (response.status === 202) {
-    lastRunId = (response.body as { runId?: string }).runId ?? null;
+    lastRunId =
+      (
+        response.body as {
+          runId?: string;
+        }
+      ).runId ?? null;
   }
 });
-
 When('I GET ingest roots', async () => {
   const res = await fetch(`${baseUrl}/ingest/roots`);
   response = { status: res.status, body: await res.json() };
 });
-
 Then(
   'ingest roots status for the last run becomes {string}',
   async (state: string) => {
     await waitForIngestRootsStatus(state);
   },
 );
-
 Then(
   'ingest roots status assertion for the last run expecting {string} fails with mismatch mentioning {string}',
   async (expectedState: string, actualState: string) => {
@@ -190,35 +191,64 @@ Then(
     );
   },
 );
-
 Then('ingest roots response status is {int}', (status: number) => {
   assert(response, 'expected response');
   assert.equal(response.status, status);
 });
-
 Then('ingest roots response has {int} root', (count: number) => {
   assert(response, 'expected response');
-  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  const roots =
+    (
+      response.body as {
+        roots?: unknown[];
+      }
+    ).roots ?? [];
   assert.equal(roots.length, count);
 });
-
 Then('ingest roots response has {int} roots', (count: number) => {
   assert(response, 'expected response');
-  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  const roots =
+    (
+      response.body as {
+        roots?: unknown[];
+      }
+    ).roots ?? [];
   assert.equal(roots.length, count);
 });
-
 Then('ingest roots first item path is the temp repo', () => {
   assert(response, 'expected response');
-  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  const roots =
+    (
+      response.body as {
+        roots?: unknown[];
+      }
+    ).roots ?? [];
   assert(roots.length > 0, 'no roots returned');
   assert(tempDir, 'temp dir missing');
-  assert.equal((roots[0] as { path?: string }).path, tempDir);
+  assert.equal(
+    (
+      roots[0] as {
+        path?: string;
+      }
+    ).path,
+    tempDir,
+  );
 });
-
 Then('ingest roots first item status is {string}', (status: string) => {
   assert(response, 'expected response');
-  const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+  const roots =
+    (
+      response.body as {
+        roots?: unknown[];
+      }
+    ).roots ?? [];
   assert(roots.length > 0, 'no roots returned');
-  assert.equal((roots[0] as { status?: string }).status, status);
+  assert.equal(
+    (
+      roots[0] as {
+        status?: string;
+      }
+    ).status,
+    status,
+  );
 });

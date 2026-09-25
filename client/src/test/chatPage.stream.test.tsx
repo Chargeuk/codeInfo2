@@ -99,7 +99,7 @@ describe('Chat WS streaming UI', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
@@ -108,12 +108,12 @@ describe('Chat WS streaming UI', () => {
     const statusChip = await screen.findByTestId('status-chip');
     expect(statusChip).toHaveTextContent('Working');
 
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Done',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',
@@ -148,17 +148,17 @@ describe('Chat WS streaming UI', () => {
       const inflightId = harness.getInflightId() ?? 'i1';
       expect(conversationId).toBeTruthy();
 
-      harness.emitInflightSnapshot({
+      await harness.emitInflightSnapshot({
         conversationId: conversationId!,
         inflightId,
         assistantText: '',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: conversationId!,
         inflightId,
         delta: 'Done',
       });
-      harness.emitFinal({
+      await harness.emitFinal({
         conversationId: conversationId!,
         inflightId,
         status: 'ok',
@@ -238,17 +238,17 @@ describe('Chat WS streaming UI', () => {
     const inflightId1 = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId: inflightId1,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId: inflightId1,
       delta: 'First reply',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId: inflightId1,
       status: 'ok',
@@ -270,17 +270,17 @@ describe('Chat WS streaming UI', () => {
       harness.chatBodies[1]?.inflightId,
     );
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId: inflightId2,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId: inflightId2,
       delta: 'Second reply',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId: inflightId2,
       status: 'ok',
@@ -320,12 +320,12 @@ describe('Chat WS streaming UI', () => {
     const inflightId1 = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId: inflightId1,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId: inflightId1,
       delta: 'Partial reply',
@@ -340,7 +340,7 @@ describe('Chat WS streaming UI', () => {
 
     await waitFor(() => expect(sendButton).toBeDisabled());
 
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId: inflightId1,
       status: 'stopped',
@@ -366,17 +366,17 @@ describe('Chat WS streaming UI', () => {
       );
     expect(assistantBubblesAfterSecondSend.length).toBe(2);
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId: inflightId2,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId: inflightId2,
       delta: 'Second reply',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId: inflightId2,
       status: 'ok',
@@ -386,7 +386,7 @@ describe('Chat WS streaming UI', () => {
     await screen.findByText('Partial reply');
 
     // Late turn_final from the first inflight should not overwrite the second.
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId: inflightId1,
       status: 'stopped',
@@ -445,17 +445,17 @@ describe('Chat WS streaming UI', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Completed reply',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',
@@ -501,24 +501,24 @@ describe('Chat WS streaming UI', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
     });
 
-    harness.emitStreamWarning({
+    await harness.emitStreamWarning({
       conversationId: conversationId!,
       inflightId,
       message: 'Reconnecting... 1/5',
     });
 
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Still going',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',
@@ -618,17 +618,17 @@ describe('Chat WS streaming UI', () => {
       const inflightId = harness.getInflightId() ?? 'i1';
 
       harness.setSeq(40);
-      harness.emitInflightSnapshot({
+      await harness.emitInflightSnapshot({
         conversationId: conversationId!,
         inflightId,
         assistantText: '',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: conversationId!,
         inflightId,
         delta: 'First',
       });
-      harness.emitFinal({
+      await harness.emitFinal({
         conversationId: conversationId!,
         inflightId,
         status: 'ok',
@@ -645,29 +645,29 @@ describe('Chat WS streaming UI', () => {
 
       const inflightId2 = harness.getInflightId() ?? 'i2';
       harness.setSeq(0);
-      harness.emitInflightSnapshot({
+      await harness.emitInflightSnapshot({
         conversationId: conversationId!,
         inflightId: inflightId2,
         assistantText: '',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: conversationId!,
         inflightId: inflightId2,
         delta: 'Second',
       });
       harness.setSeq(1);
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: conversationId!,
         inflightId: inflightId2,
         delta: ' stale',
       });
       harness.setSeq(2);
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId: conversationId!,
         inflightId: inflightId2,
         delta: ' reply',
       });
-      harness.emitFinal({
+      await harness.emitFinal({
         conversationId: conversationId!,
         inflightId: inflightId2,
         status: 'ok',
@@ -728,12 +728,12 @@ describe('Chat WS streaming UI', () => {
     const conversationId = harness.getConversationId();
     const inflightId = harness.getInflightId() ?? 'i1';
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Streaming reply',
@@ -741,7 +741,7 @@ describe('Chat WS streaming UI', () => {
 
     expect(await screen.findByText('Streaming reply')).toBeInTheDocument();
 
-    harness.emitSidebarUpsert({
+    await harness.emitSidebarUpsert({
       conversationId: conversationId!,
       title: 'Hello',
       provider: 'lmstudio',
@@ -811,17 +811,17 @@ describe('Chat WS streaming UI', () => {
     const conversationId = harness.getConversationId();
     const inflightId = harness.getInflightId() ?? 'i1';
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: assistantText,
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',
@@ -829,7 +829,7 @@ describe('Chat WS streaming UI', () => {
 
     expect(await screen.findByText(assistantText)).toBeInTheDocument();
 
-    harness.emitSidebarUpsert({
+    await harness.emitSidebarUpsert({
       conversationId: conversationId!,
       title: 'Hydration test',
       provider: 'lmstudio',
@@ -1134,7 +1134,7 @@ describe('Chat WS streaming UI', () => {
     const conversationId = harness.getConversationId();
     const inflightId = harness.getInflightId() ?? 'i1';
 
-    harness.emitUserTurn({
+    await harness.emitUserTurn({
       conversationId: conversationId!,
       inflightId,
       content: userText,
@@ -1182,7 +1182,7 @@ describe('Chat WS streaming UI', () => {
       await user.click(row);
     });
 
-    harness.emitUserTurn({
+    await harness.emitUserTurn({
       conversationId,
       inflightId: 'i1',
       content: userText,
@@ -1231,43 +1231,51 @@ describe('Chat WS streaming UI', () => {
         await user.click(row);
       });
 
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId,
         inflightId: 'i1',
         content: 'User turn one',
         createdAt: '2025-01-01T00:00:00.000Z',
       });
-      harness.emitInflightSnapshot({
+      await harness.emitInflightSnapshot({
         conversationId,
         inflightId: 'i1',
         assistantText: '',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId,
         inflightId: 'i1',
         delta: 'Assistant one',
       });
-      harness.emitFinal({ conversationId, inflightId: 'i1', status: 'ok' });
+      await harness.emitFinal({
+        conversationId,
+        inflightId: 'i1',
+        status: 'ok',
+      });
 
       expect(await screen.findByText('Assistant one')).toBeInTheDocument();
 
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId,
         inflightId: 'i2',
         content: 'User turn two',
         createdAt: '2025-01-01T00:01:00.000Z',
       });
-      harness.emitInflightSnapshot({
+      await harness.emitInflightSnapshot({
         conversationId,
         inflightId: 'i2',
         assistantText: '',
       });
-      harness.emitAssistantDelta({
+      await harness.emitAssistantDelta({
         conversationId,
         inflightId: 'i2',
         delta: 'Assistant two',
       });
-      harness.emitFinal({ conversationId, inflightId: 'i2', status: 'ok' });
+      await harness.emitFinal({
+        conversationId,
+        inflightId: 'i2',
+        status: 'ok',
+      });
 
       expect(await screen.findByText('Assistant two')).toBeInTheDocument();
 
@@ -1326,14 +1334,14 @@ describe('Chat WS streaming UI', () => {
         await user.click(row);
       });
 
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId,
         inflightId: 'i1',
         content: 'User turn one',
         createdAt: '2025-01-01T00:00:00.000Z',
       });
 
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId,
         inflightId: 'i1',
         content: 'User turn again',
@@ -1373,7 +1381,7 @@ describe('Chat WS streaming UI', () => {
       await waitFor(() => expect(harness.chatBodies.length).toBe(1));
 
       const conversationId = harness.getConversationId() ?? 'c1';
-      harness.emitUserTurn({
+      await harness.emitUserTurn({
         conversationId,
         inflightId: 'server-i2',
         content: 'Hello',
@@ -1412,18 +1420,18 @@ describe('Chat WS streaming UI', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     const startedAt = '2026-01-11T20:05:00.000Z';
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId,
       inflightId,
       assistantText: '',
       startedAt,
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId,
       inflightId,
       delta: 'Hello there',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId,
       inflightId,
       status: 'ok',
@@ -1465,18 +1473,18 @@ describe('Chat WS streaming UI', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     const startedAt = '2026-01-11T20:05:00.000Z';
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId,
       inflightId,
       assistantText: '',
       startedAt,
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId,
       inflightId,
       delta: 'Cache response',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId,
       inflightId,
       status: 'ok',
@@ -1515,17 +1523,17 @@ describe('Chat WS streaming UI', () => {
     const conversationId = harness.getConversationId() ?? 'c1';
     const inflightId = harness.getInflightId() ?? 'i1';
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId,
       inflightId,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId,
       inflightId,
       delta: 'No cached tokens',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId,
       inflightId,
       status: 'ok',
@@ -1559,17 +1567,17 @@ describe('Chat WS streaming UI', () => {
     const conversationId = harness.getConversationId() ?? 'c1';
     const inflightId = harness.getInflightId() ?? 'i1';
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId,
       inflightId,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId,
       inflightId,
       delta: 'No usage data',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId,
       inflightId,
       status: 'ok',
@@ -1600,17 +1608,17 @@ describe('Chat WS streaming UI', () => {
     const conversationId = harness.getConversationId() ?? 'c1';
     const inflightId = harness.getInflightId() ?? 'i1';
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId,
       inflightId,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId,
       inflightId,
       delta: 'No timing data',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId,
       inflightId,
       status: 'ok',
@@ -1692,12 +1700,12 @@ describe('Chat WS streaming UI', () => {
     const conversationId = harness.getConversationId() ?? 'c1';
     const inflightId = harness.getInflightId() ?? 'i1';
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId,
       inflightId,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId,
       inflightId,
       delta: 'Stopping',
@@ -1709,7 +1717,7 @@ describe('Chat WS streaming UI', () => {
     });
     expect(screen.queryByText(/generation stopped/i)).not.toBeInTheDocument();
 
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId,
       inflightId,
       status: 'stopped',
@@ -1723,17 +1731,17 @@ describe('Chat WS streaming UI', () => {
     await waitFor(() => expect(harness.chatBodies.length).toBe(2));
 
     const inflightId2 = harness.getInflightId() ?? 'i2';
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId,
       inflightId: inflightId2,
       assistantText: '',
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId,
       inflightId: inflightId2,
       delta: 'Failed response',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId,
       inflightId: inflightId2,
       status: 'failed',
@@ -1769,12 +1777,12 @@ describe('Chat WS streaming UI', () => {
 
     const conversationId = harness.getConversationId() ?? 'c1';
     const firstInflightId = harness.getInflightId() ?? 'i1';
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId,
       inflightId: firstInflightId,
       assistantText: '',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId,
       inflightId: firstInflightId,
       status: 'ok',
@@ -1810,12 +1818,12 @@ describe('Chat WS streaming UI', () => {
 
     const conversationId = harness.getConversationId() ?? 'c1';
     const firstInflightId = harness.getInflightId() ?? 'i1';
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId,
       inflightId: firstInflightId,
       assistantText: '',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId,
       inflightId: firstInflightId,
       status: 'ok',

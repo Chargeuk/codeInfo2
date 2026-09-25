@@ -33,4 +33,66 @@ export default defineConfig([
       'react-hooks/set-state-in-effect': 'off',
     },
   },
+  {
+    files: [
+      'server/src/test/**/*.{ts,tsx,mjs,js}',
+      'client/src/test/**/*.{ts,tsx,mjs,js}',
+    ],
+    ignores: [
+      'server/src/test/support/processEnvIsolation.ts',
+      'client/src/test/support/processEnvIsolation.ts',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "AssignmentExpression[left.type='MemberExpression'][left.object.type='MemberExpression'][left.object.object.name='process'][left.object.property.name='env']",
+          message:
+            'Use scoped test env helpers instead of writing process.env directly in tests.',
+        },
+        {
+          selector:
+            "AssignmentExpression[left.type='MemberExpression'][left.object.name='process'][left.property.name='env']",
+          message:
+            'Use replaceScopedTestProcessEnv instead of replacing process.env directly in tests.',
+        },
+        {
+          selector:
+            "UnaryExpression[operator='delete'][argument.type='MemberExpression'][argument.object.type='MemberExpression'][argument.object.object.name='process'][argument.object.property.name='env']",
+          message:
+            'Use clearScopedTestEnvValue instead of deleting process.env keys directly in tests.',
+        },
+        {
+          selector:
+            "CallExpression[callee.name='beforeAll'] CallExpression[callee.name=/^(setScopedTestEnvValue|clearScopedTestEnvValue|replaceScopedTestProcessEnv)$/]",
+          message:
+            'Scoped test env helpers must run inside per-test setup, not beforeAll.',
+        },
+        {
+          selector:
+            "CallExpression[callee.name='afterAll'] CallExpression[callee.name=/^(setScopedTestEnvValue|clearScopedTestEnvValue|replaceScopedTestProcessEnv)$/]",
+          message:
+            'Scoped test env helpers must run inside per-test teardown, not afterAll.',
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='test'][callee.property.name='before'] CallExpression[callee.name=/^(setScopedTestEnvValue|clearScopedTestEnvValue|replaceScopedTestProcessEnv)$/]",
+          message:
+            'Scoped test env helpers must not run in suite-level test.before hooks.',
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='test'][callee.property.name='after'] CallExpression[callee.name=/^(setScopedTestEnvValue|clearScopedTestEnvValue|replaceScopedTestProcessEnv)$/]",
+          message:
+            'Scoped test env helpers must not run in suite-level test.after hooks.',
+        },
+        {
+          selector:
+            'Program > ExpressionStatement > CallExpression[callee.name=/^(setScopedTestEnvValue|clearScopedTestEnvValue|replaceScopedTestProcessEnv)$/]',
+          message: 'Scoped test env helpers must not run at module scope.',
+        },
+      ],
+    },
+  },
 ]);

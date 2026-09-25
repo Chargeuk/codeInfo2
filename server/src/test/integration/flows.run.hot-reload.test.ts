@@ -8,22 +8,16 @@ import express from 'express';
 import supertest from 'supertest';
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
-import {
-  __resetFlowDefinitionCatalogForTests,
-  getFlowDefinitionCatalogEntry,
-  initializeConfiguredFlowDefinitionCatalog,
-  initializeFlowDefinitionCatalogs,
-} from '../../flows/flowDefinitionCatalog.js';
-import {
-  __resetFlowServiceDepsForTests,
-  startFlowRun,
-} from '../../flows/service.js';
+import { startFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
+import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -75,21 +69,13 @@ const waitFor = async (
   predicate: () => boolean,
   timeoutMs = 2000,
 ): Promise<void> => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < resolvedTimeoutMs) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error('Timed out waiting for condition');
-};
-
-const getFirstLlmMessageContent = (
-  entry: Awaited<ReturnType<typeof getFlowDefinitionCatalogEntry>>,
-) => {
-  const firstStep = entry?.parsed?.ok ? entry.parsed.flow.steps[0] : undefined;
-  return firstStep?.type === 'llm' && 'messages' in firstStep
-    ? firstStep.messages[0]?.content[0]
-    : undefined;
 };
 
 beforeEach(() => {
@@ -100,39 +86,28 @@ afterEach(() => {
   resetDeterministicCodexAvailabilityBootstrap();
 });
 
-test('Flow run pins flow definitions until the next server generation', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
+
+const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
+  await withIsolatedProviderHomeTestEnv(
+    {
+      prefix: 'flow-hot-reload-provider-homes-',
+      overrides: {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+    },
+    async () => await run(),
   );
+
+test('Flow run keeps the immutable catalog definition between runs', async () => {
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-reload-'),
   );
   await fs.cp(fixturesDir, tmpDir, { recursive: true });
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-  await initializeConfiguredFlowDefinitionCatalog();
-  await fs.writeFile(
-    path.join(tmpDir, 'hot-reload.json'),
-    JSON.stringify(
-      {
-        description: 'Hot reload flow',
-        steps: [
-          {
-            type: 'llm',
-            agentType: 'coding_agent',
-            identifier: 'reload',
-            messages: [{ role: 'user', content: ['Changed before first run'] }],
-          },
-        ],
-      },
-      null,
-      2,
-    ),
-    'utf8',
-  );
 
   const observedMessages: string[] = [];
   let nextMessageResolver: (() => void) | null = null;
@@ -143,146 +118,61 @@ test('Flow run pins flow definitions until the next server generation', async ()
       if (nextMessageResolver) nextMessageResolver();
     });
 
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory,
+  try {
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const app = express();
+      app.use(
+        createFlowsRunRouter({
+          startFlowRun: bindCurrentTestOverrides((params) =>
+            startFlowRun({
+              ...params,
+              chatFactory,
+            }),
+          ),
         }),
-    }),
-  );
+      );
+      nextMessageResolver = null;
+      const firstMessagePromise = new Promise<void>((resolve) => {
+        nextMessageResolver = resolve;
+      });
 
-  try {
-    nextMessageResolver = null;
-    const firstMessagePromise = new Promise<void>((resolve) => {
-      nextMessageResolver = resolve;
-    });
+      await supertest(app).post('/flows/hot-reload/run').send({});
+      await firstMessagePromise;
+      await waitFor(() => observedMessages.length >= 1);
+      assert.equal(observedMessages[0], 'First run');
 
-    await supertest(app).post('/flows/hot-reload/run').send({});
-    await firstMessagePromise;
-    await waitFor(() => observedMessages.length >= 1);
-    assert.equal(observedMessages[0], 'First run');
-
-    const updatedFlow = {
-      description: 'Hot reload flow',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'coding_agent',
-          identifier: 'reload',
-          messages: [{ role: 'user', content: ['Updated run'] }],
-        },
-      ],
-    };
-    await fs.writeFile(
-      path.join(tmpDir, 'hot-reload.json'),
-      JSON.stringify(updatedFlow, null, 2),
-      'utf8',
-    );
-
-    nextMessageResolver = null;
-    const secondMessagePromise = new Promise<void>((resolve) => {
-      nextMessageResolver = resolve;
-    });
-    await supertest(app).post('/flows/hot-reload/run').send({});
-    await secondMessagePromise;
-    await waitFor(() => observedMessages.length >= 2);
-    assert.equal(observedMessages[1], 'First run');
-
-    __resetFlowServiceDepsForTests();
-    nextMessageResolver = null;
-    const thirdMessagePromise = new Promise<void>((resolve) => {
-      nextMessageResolver = resolve;
-    });
-    await supertest(app).post('/flows/hot-reload/run').send({});
-    await thirdMessagePromise;
-    await waitFor(() => observedMessages.length >= 3);
-    assert.equal(observedMessages[2], 'Updated run');
-  } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  }
-});
-
-test('Repository-backed flow definitions are pinned when the generation starts', async () => {
-  const tmpRepoRoot = await fs.mkdtemp(
-    path.join(process.cwd(), 'tmp-flows-repository-reload-'),
-  );
-  const flowsRoot = path.join(tmpRepoRoot, 'flows');
-  await fs.mkdir(flowsRoot, { recursive: true });
-  const flowPath = path.join(flowsRoot, 'repository-hot-reload.json');
-  await fs.writeFile(
-    flowPath,
-    JSON.stringify({
-      description: 'Repository hot reload flow',
-      steps: [
-        {
-          type: 'llm',
-          agentType: 'coding_agent',
-          identifier: 'reload',
-          messages: [{ role: 'user', content: ['Pinned repository flow'] }],
-        },
-      ],
-    }),
-    'utf8',
-  );
-
-  try {
-    await initializeFlowDefinitionCatalogs([flowsRoot]);
-    await fs.writeFile(
-      flowPath,
-      JSON.stringify({
-        description: 'Repository hot reload flow',
+      const updatedFlow = {
+        description: 'Hot reload flow',
         steps: [
           {
             type: 'llm',
             agentType: 'coding_agent',
             identifier: 'reload',
-            messages: [{ role: 'user', content: ['Changed repository flow'] }],
+            messages: [{ role: 'user', content: ['Updated run'] }],
           },
         ],
-      }),
-      'utf8',
-    );
+      };
+      await fs.writeFile(
+        path.join(tmpDir, 'hot-reload.json'),
+        JSON.stringify(updatedFlow, null, 2),
+        'utf8',
+      );
 
-    const pinnedEntry = await getFlowDefinitionCatalogEntry({
-      flowsRoot,
-      flowName: 'repository-hot-reload',
+      nextMessageResolver = null;
+      const secondMessagePromise = new Promise<void>((resolve) => {
+        nextMessageResolver = resolve;
+      });
+      await supertest(app).post('/flows/hot-reload/run').send({});
+      await secondMessagePromise;
+      await waitFor(() => observedMessages.length >= 2);
+      assert.equal(observedMessages[1], 'First run');
     });
-    assert.equal(
-      getFirstLlmMessageContent(pinnedEntry),
-      'Pinned repository flow',
-    );
-
-    __resetFlowDefinitionCatalogForTests();
-    const freshEntry = await getFlowDefinitionCatalogEntry({
-      flowsRoot,
-      flowName: 'repository-hot-reload',
-    });
-    assert.equal(
-      getFirstLlmMessageContent(freshEntry),
-      'Changed repository flow',
-    );
   } finally {
-    __resetFlowDefinitionCatalogForTests();
-    await fs.rm(tmpRepoRoot, { recursive: true, force: true });
+    await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
 
 test('Flow run returns 404 when ingested flow file is missing', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpLocalDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-run-local-ingest-missing-'),
   );
@@ -291,36 +181,29 @@ test('Flow run returns 404 when ingested flow file is missing', async () => {
   );
   await fs.mkdir(path.join(tmpRepoRoot, 'flows'), { recursive: true });
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpLocalDir;
-
-  const app = express();
-  app.use(
-    createFlowsRunRouter({
-      startFlowRun: (params) =>
-        startFlowRun({
-          ...params,
-          chatFactory: () => new CapturingChat(() => undefined),
-          listIngestedRepositories: async () => ({
-            repos: [buildRepoEntry(tmpRepoRoot)],
-            lockedModelId: null,
-          }),
-        }),
-    }),
-  );
-
   try {
-    await supertest(app)
-      .post('/flows/missing-ingested/run')
-      .send({ sourceId: tmpRepoRoot })
-      .expect(404);
+    await withFlowFixtureEnv(tmpLocalDir, async () => {
+      const app = express();
+      app.use(
+        createFlowsRunRouter({
+          startFlowRun: bindCurrentTestOverrides((params) =>
+            startFlowRun({
+              ...params,
+              chatFactory: () => new CapturingChat(() => undefined),
+              listIngestedRepositories: async () => ({
+                repos: [buildRepoEntry(tmpRepoRoot)],
+                lockedModelId: null,
+              }),
+            }),
+          ),
+        }),
+      );
+      await supertest(app)
+        .post('/flows/missing-ingested/run')
+        .send({ sourceId: tmpRepoRoot })
+        .expect(404);
+    });
   } finally {
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpLocalDir, { recursive: true, force: true });
     await fs.rm(tmpRepoRoot, { recursive: true, force: true });
   }

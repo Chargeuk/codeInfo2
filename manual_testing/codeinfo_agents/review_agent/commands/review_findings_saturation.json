@@ -1,0 +1,10 @@
+{
+  "Description": "Run the internal findings-saturation pass for the active story using the shared bounded sibling-scan prompt.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "review_findings_saturation.md"
+    }
+  ]
+}

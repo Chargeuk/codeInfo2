@@ -93,7 +93,7 @@ describe('Agents page - navigate away keeps run', () => {
                     conversationId: 'c1',
                     title: 'T',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     lastMessageAt: '2025-01-01T00:00:00.000Z',
                   },
                 ]
@@ -108,7 +108,7 @@ describe('Agents page - navigate away keeps run', () => {
               agentName: 'a1',
               commandName: 'improve_plan',
               conversationId: 'c1',
-              modelId: 'gpt-5.1-codex-max',
+              modelId: 'gpt-5.6-luna',
             },
             { status: 202 },
           );
@@ -286,7 +286,7 @@ describe('Agents page - navigate away keeps run', () => {
                     conversationId: 'c1',
                     title: 'T',
                     provider: 'codex',
-                    model: 'gpt-5.1-codex-max',
+                    model: 'gpt-5.6-luna',
                     lastMessageAt: '2025-01-01T00:00:00.000Z',
                   },
                 ]
@@ -304,7 +304,7 @@ describe('Agents page - navigate away keeps run', () => {
             agentName: 'a1',
             commandName: 'improve_plan',
             conversationId: 'c1',
-            modelId: 'gpt-5.1-codex-max',
+            modelId: 'gpt-5.6-luna',
           }),
         } as Response);
       }

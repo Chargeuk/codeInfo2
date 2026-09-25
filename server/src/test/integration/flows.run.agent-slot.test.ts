@@ -4,25 +4,30 @@ import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import type { LogEntry } from '@codeinfo2/common';
+
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { startFlowRun } from '../../flows/service.js';
-import { query } from '../../logStore.js';
+import { subscribe } from '../../logStore.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const waitFor = async (
   predicate: () => boolean,
   timeoutMs = 5000,
   intervalMs = 50,
 ) => {
+  const resolvedTimeoutMs = resolveConfiguredTestTimeoutMs(timeoutMs);
   const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - startedAt < resolvedTimeoutMs) {
     if (predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
@@ -54,6 +59,23 @@ const writeResumeFlow = async (dir: string) => {
     JSON.stringify(flow, null, 2),
   );
 };
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../',
+);
+
+const withFlowFixtureEnv = async (tmpDir: string, run: () => Promise<void>) =>
+  await withIsolatedProviderHomeTestEnv(
+    {
+      prefix: 'flow-agent-slot-provider-homes-',
+      overrides: {
+        CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+        FLOWS_DIR: tmpDir,
+      },
+    },
+    async () => await run(),
+  );
 
 const writeResetFlow = async (dir: string) => {
   const flow = {
@@ -238,51 +260,44 @@ afterEach(() => {
 });
 
 test('startFlowRun reuses the same agent slot inside one fresh execution', async () => {
-  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
-  const prevFlowsDir = process.env.FLOWS_DIR;
-  const repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../',
-  );
   const tmpDir = await fs.mkdtemp(
     path.join(process.cwd(), 'tmp-flows-resume-same-slot-'),
   );
   await writeResumeFlow(tmpDir);
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
-
   let conversationId: string | undefined;
   try {
-    const result = await startFlowRun({
-      flowName: 'resume-basic',
-      source: 'REST',
-      chatFactory: () => new MinimalChat(),
-    });
-    conversationId = result.conversationId;
-    assert.ok(conversationId);
-    const runConversationId = conversationId;
-    await waitFor(
-      () => (memoryTurns.get(runConversationId) ?? []).length >= 4,
-      5000,
-    );
+    await withFlowFixtureEnv(tmpDir, async () => {
+      const result = await startFlowRun({
+        flowName: 'resume-basic',
+        source: 'REST',
+        chatFactory: () => new MinimalChat(),
+      });
+      conversationId = result.conversationId;
+      assert.ok(conversationId);
+      const runConversationId = conversationId;
+      await waitFor(
+        () => (memoryTurns.get(runConversationId) ?? []).length >= 4,
+        5000,
+      );
 
-    const conversation = memoryConversations.get(runConversationId);
-    const flags = (conversation?.flags ?? {}) as {
-      flow?: {
-        executionId?: string;
-        agentConversations?: Record<string, string>;
+      const conversation = memoryConversations.get(runConversationId);
+      const flags = (conversation?.flags ?? {}) as {
+        flow?: {
+          executionId?: string;
+          agentConversations?: Record<string, string>;
+        };
       };
-    };
 
-    assert.equal(typeof flags.flow?.executionId, 'string');
-    assert.deepEqual(Object.keys(flags.flow?.agentConversations ?? {}), [
-      'coding_agent:resume-test',
-    ]);
-    assert.equal(
-      typeof flags.flow?.agentConversations?.['coding_agent:resume-test'],
-      'string',
-    );
+      assert.equal(typeof flags.flow?.executionId, 'string');
+      assert.deepEqual(Object.keys(flags.flow?.agentConversations ?? {}), [
+        'coding_agent:resume-test',
+      ]);
+      assert.equal(
+        typeof flags.flow?.agentConversations?.['coding_agent:resume-test'],
+        'string',
+      );
+    });
   } finally {
     const conversation = conversationId
       ? memoryConversations.get(conversationId)
@@ -301,12 +316,6 @@ test('startFlowRun reuses the same agent slot inside one fresh execution', async
       memoryConversations.delete(childConversationId);
       memoryTurns.delete(childConversationId);
     });
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
-    if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
-    } else {
-      delete process.env.FLOWS_DIR;
-    }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
@@ -323,10 +332,19 @@ test('reset evicts one named agent slot and unused resets remain non-blocking', 
   );
   await writeResetFlow(tmpDir);
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setScopedTestEnvValue(
+    'CODEINFO_CODEX_AGENT_HOME',
+    path.join(repoRoot, 'codex_agents'),
+  );
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
 
   const calls: RecordedChatCall[] = [];
+  const observedResetLogs: LogEntry[] = [];
+  const unsubscribeFromLogs = subscribe((entry) => {
+    if (entry.message === 'flows.agent.reset') {
+      observedResetLogs.push(entry);
+    }
+  });
   let conversationId: string | undefined;
   try {
     const result = await startFlowRun({
@@ -373,8 +391,8 @@ test('reset evicts one named agent slot and unused resets remain non-blocking', 
     assert.ok(memoryConversations.has(alphaSecond.conversationId));
     assert.ok(memoryConversations.has(betaFirst.conversationId));
 
-    const resetLogs = query({ text: runConversationId }).filter(
-      (entry) => entry.message === 'flows.agent.reset',
+    const resetLogs = observedResetLogs.filter(
+      (entry) => entry.context?.conversationId === runConversationId,
     );
     assert.deepEqual(
       resetLogs.map((entry) => entry.context?.outcome),
@@ -382,13 +400,10 @@ test('reset evicts one named agent slot and unused resets remain non-blocking', 
     );
     assert.deepEqual(
       resetLogs.map((entry) => entry.context?.label),
-      [
-        'Unused reset remains non-blocking',
-        'Reset alpha',
-        'Reset alpha again',
-      ],
+      ['Unused reset remains non-blocking', 'Reset alpha', 'Reset alpha again'],
     );
   } finally {
+    unsubscribeFromLogs();
     if (conversationId) {
       memoryConversations.delete(conversationId);
       memoryTurns.delete(conversationId);
@@ -397,11 +412,11 @@ test('reset evicts one named agent slot and unused resets remain non-blocking', 
       memoryConversations.delete(call.conversationId);
       memoryTurns.delete(call.conversationId);
     }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setScopedTestEnvValue('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      clearScopedTestEnvValue('FLOWS_DIR');
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -419,8 +434,11 @@ test('reset persists an empty slot map when it is the final flow step', async ()
   );
   await writeTerminalResetFlow(tmpDir);
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setScopedTestEnvValue(
+    'CODEINFO_CODEX_AGENT_HOME',
+    path.join(repoRoot, 'codex_agents'),
+  );
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
 
   const calls: RecordedChatCall[] = [];
   let conversationId: string | undefined;
@@ -460,11 +478,11 @@ test('reset persists an empty slot map when it is the final flow step', async ()
       memoryConversations.delete(call.conversationId);
       memoryTurns.delete(call.conversationId);
     }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setScopedTestEnvValue('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      clearScopedTestEnvValue('FLOWS_DIR');
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -482,8 +500,11 @@ test('reset works inside a loop without preventing later loop control', async ()
   );
   await writeLoopResetFlow(tmpDir);
 
-  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
-  process.env.FLOWS_DIR = tmpDir;
+  setScopedTestEnvValue(
+    'CODEINFO_CODEX_AGENT_HOME',
+    path.join(repoRoot, 'codex_agents'),
+  );
+  setScopedTestEnvValue('FLOWS_DIR', tmpDir);
 
   const calls: RecordedChatCall[] = [];
   let conversationId: string | undefined;
@@ -527,11 +548,11 @@ test('reset works inside a loop without preventing later loop control', async ()
       memoryConversations.delete(call.conversationId);
       memoryTurns.delete(call.conversationId);
     }
-    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    setScopedTestEnvValue('CODEINFO_CODEX_AGENT_HOME', prevAgentsHome);
     if (prevFlowsDir) {
-      process.env.FLOWS_DIR = prevFlowsDir;
+      setScopedTestEnvValue('FLOWS_DIR', prevFlowsDir);
     } else {
-      delete process.env.FLOWS_DIR;
+      clearScopedTestEnvValue('FLOWS_DIR');
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
   }

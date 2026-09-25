@@ -359,7 +359,7 @@ test('REST-seeded conversations become visible through GET /conversations after 
   try {
     const createRes = await request(app)
       .post('/conversations')
-      .send({ provider: 'codex', model: 'gpt-5.1-codex-max', title: 'Seeded' })
+      .send({ provider: 'codex', model: 'gpt-5.6-luna', title: 'Seeded' })
       .expect(201);
 
     assert.equal(createRes.body.conversationId, 'conv-seeded');
@@ -369,7 +369,7 @@ test('REST-seeded conversations become visible through GET /conversations after 
       .send({
         role: 'assistant',
         content: 'Seeded reply',
-        model: 'gpt-5.1-codex-max',
+        model: 'gpt-5.6-luna',
         provider: 'codex',
         status: 'ok',
       })

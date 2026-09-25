@@ -67,6 +67,20 @@ const trimToUndefined = (value) => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
+const setScopedEnvValue = (name, value) => {
+  if (typeof globalThis.setScopedTestEnvValue !== 'function') {
+    throw new Error('Scoped test env helpers are not installed.');
+  }
+  globalThis.setScopedTestEnvValue(name, value);
+};
+
+const clearScopedEnvValue = (name) => {
+  if (typeof globalThis.clearScopedTestEnvValue !== 'function') {
+    throw new Error('Scoped test env helpers are not installed.');
+  }
+  globalThis.clearScopedTestEnvValue(name);
+};
+
 export const resolveMainStackProbeHost = (env = process.env) => {
   const explicitHost = trimToUndefined(env.CODEINFO_HOST_NETWORK_PROBE_HOST);
   if (explicitHost) {
@@ -131,7 +145,10 @@ const defaultMixedShapeRuntimeBridgeProbe = async ({
     env.CODEINFO_MAIN_STACK_KEEP_MIXED_SHAPE_SEED,
   );
   const previousChromaUrl = process.env.CODEINFO_CHROMA_URL;
-  process.env.CODEINFO_CHROMA_URL = buildHttpUrl(host, DEFAULT_CHROMA_PORT, '');
+  setScopedEnvValue(
+    'CODEINFO_CHROMA_URL',
+    buildHttpUrl(host, DEFAULT_CHROMA_PORT, ''),
+  );
 
   try {
     await seedRoot({
@@ -200,9 +217,9 @@ const defaultMixedShapeRuntimeBridgeProbe = async ({
     };
   } finally {
     if (previousChromaUrl === undefined) {
-      delete process.env.CODEINFO_CHROMA_URL;
+      clearScopedEnvValue('CODEINFO_CHROMA_URL');
     } else {
-      process.env.CODEINFO_CHROMA_URL = previousChromaUrl;
+      setScopedEnvValue('CODEINFO_CHROMA_URL', previousChromaUrl);
     }
   }
 };
@@ -370,10 +387,9 @@ export const probeMainStackEndpoints = async ({
     try {
       const host = resolveMainStackProbeHost(env);
       const previousChromaUrl = process.env.CODEINFO_CHROMA_URL;
-      process.env.CODEINFO_CHROMA_URL = buildHttpUrl(
-        host,
-        DEFAULT_CHROMA_PORT,
-        '',
+      setScopedEnvValue(
+        'CODEINFO_CHROMA_URL',
+        buildHttpUrl(host, DEFAULT_CHROMA_PORT, ''),
       );
       try {
         await cleanupMixedShapeCanonicalOpenAiRoot({
@@ -385,9 +401,9 @@ export const probeMainStackEndpoints = async ({
         };
       } finally {
         if (previousChromaUrl === undefined) {
-          delete process.env.CODEINFO_CHROMA_URL;
+          clearScopedEnvValue('CODEINFO_CHROMA_URL');
         } else {
-          process.env.CODEINFO_CHROMA_URL = previousChromaUrl;
+          setScopedEnvValue('CODEINFO_CHROMA_URL', previousChromaUrl);
         }
       }
     } catch (error) {

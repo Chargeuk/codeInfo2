@@ -27,9 +27,11 @@ import {
   stopMock,
 } from '../support/mockLmStudioSdk.js';
 import { createTempRepoRoot } from '../support/tempRepoRoot.js';
-
-setDefaultTimeout(30_000);
-
+import {
+  resolveConfiguredPollAttempts,
+  resolveConfiguredTestTimeoutMs,
+} from '../support/testTimeouts.js';
+setDefaultTimeout(resolveConfiguredTestTimeoutMs(30000));
 let server: Server | null = null;
 let baseUrl = '';
 let repoDir: string | null = null;
@@ -37,27 +39,27 @@ let discovered: string[] = [];
 let lastRunId: string | null = null;
 let expectedTracked: string[] | null = null;
 let untrackedFile: string | null = null;
-
 Before(async () => {
-  process.env.CODEINFO_LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  setScopedTestEnvValue('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   startMock({ scenario: 'many' });
-
   const app = express();
   app.use(cors());
   app.use(express.json());
   app.use(createRequestLogger());
   app.use((req, res, next) => {
-    const requestId = (req as unknown as { id?: string }).id;
+    const requestId = (
+      req as unknown as {
+        id?: string;
+      }
+    ).id;
     if (requestId) res.locals.requestId = requestId;
     next();
   });
-
   setIngestDeps({
     lmClientFactory: () =>
       new MockLMStudioClient() as unknown as LMStudioClient,
     baseUrl: process.env.CODEINFO_LMSTUDIO_BASE_URL ?? '',
   });
-
   app.use(
     '/',
     createIngestStartRouter({
@@ -66,7 +68,6 @@ Before(async () => {
     }),
   );
   app.use('/logs', createLogsRouter());
-
   await new Promise<void>((resolve) => {
     const listener = app.listen(0, () => {
       server = listener;
@@ -79,7 +80,6 @@ Before(async () => {
     });
   });
 });
-
 After(async () => {
   stopMock();
   if (server) {
@@ -94,9 +94,8 @@ After(async () => {
   lastRunId = null;
   expectedTracked = null;
   untrackedFile = null;
-  delete process.env.CODEINFO_INGEST_TEST_GIT_PATHS;
+  clearScopedTestEnvValue('CODEINFO_INGEST_TEST_GIT_PATHS');
 });
-
 Given(
   'a git repo with tracked file {string} and untracked file {string}',
   async (tracked: string, untracked: string) => {
@@ -105,8 +104,7 @@ Given(
     await fs.writeFile(path.join(repoDir, untracked), 'untracked content');
     expectedTracked = [tracked];
     untrackedFile = untracked;
-    process.env.CODEINFO_INGEST_TEST_GIT_PATHS = tracked;
-
+    setScopedTestEnvValue('CODEINFO_INGEST_TEST_GIT_PATHS', tracked);
     // initialise repo properly so git succeeds
     const { execFile } = await import('node:child_process');
     await execFile('git', ['init'], { cwd: repoDir });
@@ -116,7 +114,6 @@ Given(
     });
   },
 );
-
 Given(
   'a folder with an invalid git repo containing {string}',
   async (filename: string) => {
@@ -126,14 +123,12 @@ Given(
     expectedTracked = null;
   },
 );
-
 Given('an empty git repo', async () => {
   repoDir = await createTempRepoRoot('ingest-discover-');
   const { execFile } = await import('node:child_process');
   await execFile('git', ['-C', repoDir, 'init']);
   expectedTracked = [];
 });
-
 When('I discover files from that folder', async () => {
   assert(repoDir, 'repoDir missing');
   const gitDir = path.join(repoDir, '.git');
@@ -158,7 +153,6 @@ When('I discover files from that folder', async () => {
   const { files } = await discoverFiles(repoDir);
   discovered = files.map((f) => f.relPath);
 });
-
 When('I start ingest for that folder with model {string}', async (model) => {
   assert(repoDir, 'repoDir missing');
   const res = await fetch(`${baseUrl}/ingest/start`, {
@@ -170,26 +164,23 @@ When('I start ingest for that folder with model {string}', async (model) => {
   assert.equal(res.status, 202, `expected 202, got ${res.status}`);
   lastRunId = body.runId;
 });
-
 Then('the discovered files include {string}', (filename: string) => {
   assert(
     discovered.includes(filename),
     `expected discovered files to include ${filename}, got ${discovered.join(',')}`,
   );
 });
-
 Then('the discovered files do not include {string}', (filename: string) => {
   assert(
     !discovered.includes(filename),
     `expected discovered files to exclude ${filename}, got ${discovered.join(',')}`,
   );
 });
-
 Then(
   'ingest status becomes {string} with last error containing {string}',
   async (state: string, fragment: string) => {
     assert(lastRunId, 'missing runId');
-    for (let i = 0; i < 50; i += 1) {
+    for (let i = 0; i < resolveConfiguredPollAttempts(50, 200); i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = await res.json();
       if (body.state === state) {

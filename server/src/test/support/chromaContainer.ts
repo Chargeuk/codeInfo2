@@ -10,19 +10,35 @@ import {
   clearRootsCollection,
   clearVectorsCollection,
 } from '../../ingest/chromaClient.js';
+import {
+  clearBootstrapTestEnvValue,
+  setBootstrapTestEnvValue,
+} from './processEnvIsolation.js';
+import { resolveConfiguredTestTimeoutMs } from './testTimeouts.js';
 
 let environment: StartedDockerComposeEnvironment | null = null;
 let envPromise: Promise<StartedDockerComposeEnvironment | null> | null = null;
+let activeChromaUrl: string | null = null;
 let stopping = false;
+const containerTimeoutMs = resolveConfiguredTestTimeoutMs(120_000);
 
-process.env.TESTCONTAINERS_RYUK_DISABLED ??= 'true';
-process.env.TESTCONTAINERS_HOST_OVERRIDE ??= 'host.docker.internal';
+if (process.env.TESTCONTAINERS_RYUK_DISABLED === undefined) {
+  setBootstrapTestEnvValue('TESTCONTAINERS_RYUK_DISABLED', 'true');
+}
+if (process.env.TESTCONTAINERS_HOST_OVERRIDE === undefined) {
+  setBootstrapTestEnvValue(
+    'TESTCONTAINERS_HOST_OVERRIDE',
+    'host.docker.internal',
+  );
+}
 
-setDefaultTimeout(120_000);
+setDefaultTimeout(containerTimeoutMs);
 
 async function hasReachableExternalChroma(baseUrl: string) {
   try {
-    const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/v2/heartbeat`);
+    const response = await fetch(
+      `${baseUrl.replace(/\/+$/, '')}/api/v2/heartbeat`,
+    );
     return response.ok;
   } catch {
     return false;
@@ -30,6 +46,7 @@ async function hasReachableExternalChroma(baseUrl: string) {
 }
 
 async function ensureContainer() {
+  const managedChromaUrl = 'http://host.docker.internal:8100';
   console.log(
     `[chroma-compose] ensureContainer invoked pid=${process.pid} env=${
       environment ? 'set' : 'null'
@@ -38,8 +55,17 @@ async function ensureContainer() {
   console.log(
     `[chroma-compose] current CODEINFO_CHROMA_URL=${process.env.CODEINFO_CHROMA_URL ?? 'unset'}`,
   );
-  if (environment) return environment;
-  if (envPromise) return envPromise;
+  if (environment && activeChromaUrl) {
+    setBootstrapTestEnvValue('CODEINFO_CHROMA_URL', activeChromaUrl);
+    return environment;
+  }
+  if (envPromise) {
+    const env = await envPromise;
+    if (activeChromaUrl) {
+      setBootstrapTestEnvValue('CODEINFO_CHROMA_URL', activeChromaUrl);
+    }
+    return env;
+  }
 
   const configuredChromaUrl = process.env.CODEINFO_CHROMA_URL?.trim();
   if (
@@ -49,6 +75,8 @@ async function ensureContainer() {
     console.log(
       `[chroma-compose] using reachable preconfigured CODEINFO_CHROMA_URL=${configuredChromaUrl}`,
     );
+    activeChromaUrl = configuredChromaUrl;
+    setBootstrapTestEnvValue('CODEINFO_CHROMA_URL', configuredChromaUrl);
     envPromise = Promise.resolve(null);
     return envPromise;
   }
@@ -73,7 +101,7 @@ async function ensureContainer() {
         'chroma-cucumber',
         Wait.forHttp('/api/v2/heartbeat', 8000).forStatusCode(200),
       )
-      .withStartupTimeout(120_000)
+      .withStartupTimeout(containerTimeoutMs)
       .up();
 
     console.log(
@@ -93,7 +121,8 @@ async function ensureContainer() {
     }
 
     // Set CODEINFO_CHROMA_URL directly to the mapped host:port (compose binds 8100->8000)
-    process.env.CODEINFO_CHROMA_URL = 'http://host.docker.internal:8100';
+    activeChromaUrl = managedChromaUrl;
+    setBootstrapTestEnvValue('CODEINFO_CHROMA_URL', managedChromaUrl);
     console.log(
       `[chroma-compose] CODEINFO_CHROMA_URL set to ${process.env.CODEINFO_CHROMA_URL}`,
     );
@@ -124,13 +153,13 @@ async function ensureContainer() {
   return envPromise;
 }
 
-Before({ timeout: 120_000 }, async () => {
+Before({ timeout: containerTimeoutMs }, async () => {
   await ensureContainer();
   await clearVectorsCollection();
   await clearRootsCollection();
 });
 
-AfterAll({ timeout: 120_000 }, async () => {
+AfterAll({ timeout: containerTimeoutMs }, async () => {
   console.log(
     `[chroma-compose] AfterAll invoked pid=${process.pid} stopping=${stopping} env=${environment ? 'set' : 'null'}`,
   );
@@ -142,6 +171,8 @@ AfterAll({ timeout: 120_000 }, async () => {
   console.log('[chroma-compose] AfterAll environment stopped');
   environment = null;
   envPromise = null;
+  activeChromaUrl = null;
+  clearBootstrapTestEnvValue('CODEINFO_CHROMA_URL');
 });
 
 // Failsafe: ensure container stops even if Cucumber bails early
@@ -158,7 +189,9 @@ const gracefulShutdown = async () => {
       console.warn('[chroma-compose] stop on exit failed', err);
     }
     environment = null;
+    activeChromaUrl = null;
   }
+  clearBootstrapTestEnvValue('CODEINFO_CHROMA_URL');
 };
 
 process.once('beforeExit', gracefulShutdown);

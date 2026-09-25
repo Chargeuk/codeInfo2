@@ -70,6 +70,39 @@ class FlowControlStoryTests(unittest.TestCase):
         self.assertEqual(outcome.answer, "no")
         self.assertEqual(outcome.reason_code, "review_loop_should_not_finish_cleanly")
 
+    def test_no_findings_closeout_requires_completed_github_review_context(self) -> None:
+        with mock.patch.dict(
+            story.os.environ,
+            {
+                "CODEINFO_GITHUB_REVIEW_EXECUTION_ID": "execution-1",
+                "CODEINFO_GITHUB_REVIEW_PR_NUMBER": "42",
+                "CODEINFO_GITHUB_REVIEW_HANDOFF_PATH": "handoff.json",
+            },
+            clear=True,
+        ), mock.patch.object(
+            story,
+            "check_review_should_finish_cleanly",
+            return_value=story.yes("review_loop_should_finish_cleanly"),
+        ):
+            outcome = story.check_github_review_should_write_no_findings_closeout()
+
+        self.assertEqual(outcome.answer, "yes")
+
+    def test_no_findings_closeout_refuses_skipped_or_missing_github_review(self) -> None:
+        with mock.patch.dict(
+            story.os.environ,
+            {"CODEINFO_GITHUB_REVIEW_SKIPPED": "1"},
+            clear=True,
+        ):
+            skipped = story.check_github_review_should_write_no_findings_closeout()
+        with mock.patch.dict(story.os.environ, {}, clear=True):
+            missing = story.check_github_review_should_write_no_findings_closeout()
+
+        self.assertEqual(skipped.answer, "no")
+        self.assertEqual(skipped.reason_code, "github_review_was_skipped")
+        self.assertEqual(missing.answer, "no")
+        self.assertEqual(missing.reason_code, "github_review_context_missing")
+
 
 class FlowControlPromptContractTests(unittest.TestCase):
     FRESHNESS_TEXT = "Do not rely on any previous command output, prior run, cached result, or conversational memory"

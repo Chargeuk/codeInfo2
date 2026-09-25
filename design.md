@@ -11,6 +11,34 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Husky + lint-staged: pre-commit runs ESLint (no warnings) and Prettier check on staged TS/JS/TSX/JSX files.
 - Environment policy: commit `.env` with safe defaults; keep `.env.local` for overrides and secrets (ignored from git and Docker contexts).
 
+## Story 0000060 flow-only GitHub review-cycle primitives
+
+- Story `0000060` extends the flow runtime only. Agent command JSON does not gain matching `if`, timed `wait`, or GitHub PR step support in this story.
+- The flow schema now exposes five Story 60 step types in `server/src/flows/flowSchema.ts`: `if`, `wait`, `github_open_pr`, `github_fetch_reviews`, and `github_close_pr`.
+- The shared condition contract lives in `server/src/flows/service.ts` and is intentionally reused by `if`, `break`, and `continue`:
+  - the authored condition may stay on the existing AI yes-or-no path;
+  - or it may be a repository-relative Python entrypoint evaluated from the worked repository root; scripts do not need to be Git-tracked, and bundled harness scripts work without Git metadata;
+  - script answers must resolve to exactly `{"answer":"yes"}` or `{"answer":"no"}`;
+  - missing files, paths that escape the worked repository root, malformed JSON, extra top-level keys, non-zero exits, timeouts, or any non-`yes`/`no` answer are hard step failures rather than silent fallbacks.
+- Story 60 keeps the flow-control seams thin and composable on purpose. `github_open_pr`, `github_fetch_reviews`, and `github_close_pr` are transport primitives, while branching and loopback policy remains authored in the copied flow definition instead of being hidden inside the GitHub adapter.
+- The shipped opt-in flow entrypoint is `flows/implement_next_plan_github_review.json`. Existing default implementation flows remain preserved non-GitHub paths. The opt-in variant starts GitHub review only after its internal implementation and review loop reports completion; actionable external findings close that execution's PR once and return the story to internal review and revalidation.
+
+## Story 0000060 persisted wait and GitHub review lifecycle
+
+- The `wait` step stores workflow-authored whole-second delay input in the flow file, but persists an absolute resume timestamp in runtime state. Zero, negative, fractional, or non-numeric values are rejected at flow-parse time.
+- Persisted wait state is resume-safe rather than sleep-based. The runtime keeps the current execution identity, next step path, and loop context so automatic wake resumes the same flow execution instead of creating a fresh run or replaying the wrong loop boundary.
+- Wait resume is automatic after the saved wake timestamp elapses, and cancellation or terminal stop still wins over later authored-wait processing. A wake that collides with an active run rearms its persisted ownership instead of dropping it, and a completed or stale callback removes only its own matching scheduler entry.
+- GitHub transport and scratch ownership live in `server/src/flows/githubReview.ts`, with `server/src/flows/service.ts` handling step dispatch, plan-note writes, status routing, and review-input materialization.
+- Repository-local GitHub auth is explicit and narrow:
+  - the runtime reads `CODEINFO_PR_TOKEN` only from the worked repository root `.env.local`;
+  - the token is mapped only to `GH_TOKEN` for the child `gh` invocation;
+  - the token is not loaded through `server/.env.local`, not promoted into long-lived server process env, and not written into a persisted `gh` credential store.
+- The minimum documented fine-grained token contract for this story is repository `Pull requests` permission at `write`, because PR open and close need write access while review and inline-comment retrieval needs read access.
+- A GitHub review cycle that cannot open its PR records the exact setup, credential, push, or transport fault as a warning and marks that cycle skipped. The authored review wait and feedback branch then no-op, the outer implementation flow continues, and the no-findings closeout gate refuses to describe the skipped cycle as a clean review.
+- After a PR is active, a failed GitHub transport, state, decision, command, or agent step persists a bounded-backoff `review_retry` wait at the last completed step. Those retries bypass the ordinary terminal-turn wake guard so the review stage self-recovers without changing the deliberate rule that each actionable finding receives one inline fix attempt before task-up.
+- Before the first review fetch, the persisted PR identity is authoritative and the absence of a handoff is expected. Once fetch materializes the handoff, losing it is warning-worthy and the runtime verifies the exact persisted PR before continuing.
+- GitHub review scratch remains separate from the existing external-review ingest path. Story 60 writes transient execution-scoped handoffs, external-review input, and raw review artifacts under `codeInfoTmp/reviews/`; every resumed command reads the exact handoff named by `CODEINFO_GITHUB_REVIEW_HANDOFF_PATH`, so overlapping runs cannot substitute a generic or newer run's PR and feedback.
+
 ## Story 0000064 bounded review-plan context
 
 - Review subflows consume the complete story contract without loading the complete plan Markdown into an agent thread.

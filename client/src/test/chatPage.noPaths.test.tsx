@@ -87,11 +87,11 @@ describe('Chat citations without host paths', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({
+    await harness.emitInflightSnapshot({
       conversationId: conversationId!,
       inflightId,
     });
-    harness.emitToolEvent({
+    await harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
       event: {
@@ -109,12 +109,12 @@ describe('Chat citations without host paths', () => {
         },
       },
     });
-    harness.emitAssistantDelta({
+    await harness.emitAssistantDelta({
       conversationId: conversationId!,
       inflightId,
       delta: 'Here is what I found',
     });
-    harness.emitFinal({
+    await harness.emitFinal({
       conversationId: conversationId!,
       inflightId,
       status: 'ok',

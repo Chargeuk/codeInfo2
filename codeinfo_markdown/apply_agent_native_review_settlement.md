@@ -1,5 +1,7 @@
 # Apply the agent-native review settlement
 
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/repeated-review-repair.md`. Include repeated-research commits in fix-bearing batch records and final proof. For its assigned findings, that research invocation (or honestly unavailable attempt) is the stronger repair opportunity; carry unresolved historical references, reversal reasons, reconciled requirements, and exhausted approaches into settlement tasks without demanding another normal/stronger attempt.
+
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md`, `$CODEINFO_ROOT/codeinfo_markdown/shared/completed-review-fix-task.md`, and `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` before changing the plan.
 
 Read the complete-pass settlement recommendation, every referenced batch, every direct job and optional `work/review-usage/` artifact, factual record under the active pass's `attempts/` directory, every supported finding and its negative-scope, positive-authorization, and materiality decisions, current Git state, and the bounded plan. Interpret self-describing evidence by meaning and tolerate understandable imperfections; do not require exact filenames, schemas, reviewer counts, or scheduling-group identities. A failed launch without a batch remains honest unavailable coverage and must not disappear from closeout.

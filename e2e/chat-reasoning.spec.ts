@@ -1,14 +1,26 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
+
+const createGate = () => {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+};
 
 test('collapses reasoning while streaming Harmony channels', async ({
   page,
 }) => {
   const mockWs = await installMockChatWs(page);
+  let streamPromise: Promise<void> | null = null;
+  const assistantGate = createGate();
+  const finalGate = createGate();
 
   await page.route('**/chat/providers*', (route) =>
     route.fulfill({
@@ -71,31 +83,27 @@ test('collapses reasoning while streaming Harmony channels', async ({
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    setTimeout(() => {
-      mockWs.sendAnalysisDelta({
+    streamPromise = (async () => {
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      await mockWs.sendAnalysisDelta({
         conversationId,
         inflightId,
         delta: 'Need answer: Neil Armstrong.',
       });
-    }, 0);
-    setTimeout(() => {
-      mockWs.sendAnalysisDelta({
+      await assistantGate.promise;
+      await mockWs.sendAnalysisDelta({
         conversationId,
         inflightId,
         delta: ' Continue analysis.',
       });
-    }, 1200);
-    setTimeout(() => {
-      mockWs.sendAssistantDelta({
+      await mockWs.sendAssistantDelta({
         conversationId,
         inflightId,
         delta: 'He was the first person on the Moon.',
       });
-    }, 2200);
-    setTimeout(() => {
-      mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
-    }, 2300);
+      await finalGate.promise;
+      await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    })();
   });
 
   await page.goto(`${baseUrl}/chat`);
@@ -107,14 +115,26 @@ test('collapses reasoning while streaming Harmony channels', async ({
   await send.click();
 
   await expect(page.getByTestId('think-toggle')).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
+  await expect(page.getByTestId('think-spinner')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
+
+  assistantGate.release();
   await expect(
     page.getByText('He was the first person on the Moon.'),
-  ).toBeVisible({ timeout: 20000 });
+  ).toBeVisible({ timeout: resolveConfiguredE2eTimeoutMs(20000) });
+
+  finalGate.release();
   await expect(page.getByTestId('think-spinner')).not.toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
+
+  if (!streamPromise) {
+    throw new Error('Expected the mocked reasoning stream to start');
+  }
+  await streamPromise;
 
   await page.getByTestId('think-toggle').click();
   await expect(page.getByTestId('think-content')).toContainText(

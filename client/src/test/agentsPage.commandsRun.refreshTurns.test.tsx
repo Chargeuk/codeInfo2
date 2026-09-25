@@ -68,7 +68,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
             agentName: 'a1',
             commandName: 'improve_plan',
             conversationId: 'c1',
-            modelId: 'gpt-5.1-codex-max',
+            modelId: 'gpt-5.6-luna',
           });
         }
         if (target.includes('/agents/a1/commands')) {
@@ -137,7 +137,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
             agentName: 'a1',
             commandName: 'build',
             conversationId: 'c-ingest',
-            modelId: 'gpt-5.1-codex-max',
+            modelId: 'gpt-5.6-luna',
           });
         }
         if (target.includes('/agents/a1/commands')) {
@@ -219,7 +219,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
             agentName: 'a1',
             commandName: 'improve_plan',
             conversationId: lastConversationId ?? 'c2',
-            modelId: 'gpt-5.1-codex-max',
+            modelId: 'gpt-5.6-luna',
           });
         }
 
@@ -250,7 +250,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
                       conversationId: lastConversationId ?? 'c2',
                       title: 'New',
                       provider: 'codex',
-                      model: 'gpt-5.1-codex-max',
+                      model: 'gpt-5.6-luna',
                       lastMessageAt: '2025-01-01T00:00:00.000Z',
                     },
                   ]
@@ -275,7 +275,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
                 conversationId: lastConversationId,
                 role: 'assistant',
                 content: 'Hydrated answer',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 provider: 'codex',
                 status: 'ok',
                 createdAt: '2025-01-01T00:00:02.000Z',
@@ -284,7 +284,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
                 conversationId: lastConversationId,
                 role: 'user',
                 content: 'Hydrated question',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 provider: 'codex',
                 status: 'ok',
                 createdAt: '2025-01-01T00:00:01.000Z',
@@ -357,7 +357,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
             agentName: 'a1',
             commandName: 'improve_plan',
             conversationId: acceptedConversationId,
-            modelId: 'gpt-5.1-codex-max',
+            modelId: 'gpt-5.6-luna',
           });
         }
         if (target.includes('/agents/a1/commands')) {
@@ -384,7 +384,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
                   conversationId: 'c1',
                   role: 'assistant',
                   content: 'Original agent answer',
-                  model: 'gpt-5.1-codex-max',
+                  model: 'gpt-5.6-luna',
                   provider: 'codex',
                   status: 'ok',
                   createdAt: now,
@@ -401,7 +401,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
                 conversationId: acceptedConversationId,
                 role: 'assistant',
                 content: 'Accepted agent answer',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 provider: 'codex',
                 status: 'ok',
                 createdAt: now,
@@ -430,7 +430,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
                 conversationId: 'c1',
                 title: 'Initial',
                 provider: 'codex',
-                model: 'gpt-5.1-codex-max',
+                model: 'gpt-5.6-luna',
                 lastMessageAt: now,
                 agentName: 'a1',
               },

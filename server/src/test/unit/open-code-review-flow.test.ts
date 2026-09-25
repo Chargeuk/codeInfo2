@@ -21,7 +21,7 @@ test('sandbox OpenCode flow uses the same generic workspace reviewer', () => {
     {
       type: 'llm',
       label: 'Run OpenCode Workspace Review',
-      agentType: 'review_agent_max',
+      agentType: 'review_agent_heavy',
       identifier: 'ocr_reviewer',
       continueOnFailure: true,
       recordReviewUsage: true,
@@ -40,7 +40,7 @@ test('production OpenCode flow uses only the scheduler-provided workspace', () =
     {
       type: 'llm',
       label: 'Run OpenCode Workspace Review',
-      agentType: 'review_agent_max',
+      agentType: 'review_agent_heavy',
       identifier: 'ocr_reviewer',
       recordReviewUsage: true,
       markdownFile: 'run_open_code_review_workspace.md',
@@ -61,8 +61,11 @@ test('OpenCode workspace prompt locks the agent-owned output contract', () => {
     'ocr agent report',
     'review_job_workspace_contract.md',
     'output/',
-    'running cell or session handle',
-    'continue waiting on that exact handle',
+    'direct `exec_command`',
+    'never with `functions.exec`',
+    '`session_id`',
+    '`write_stdin`',
+    'numeric `exit_code`',
     "before reading that command's output as complete",
     'Do not invoke `publish_open_code_review.py`',
     'do not write `current-open-code-review.json`',
@@ -105,7 +108,7 @@ test('server image builds the exact Codex-enabled OCR fork and gates its command
   assert.doesNotMatch(globalPackages, /@alibaba-group\/open-code-review/u);
 });
 
-test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex agents without checked-in auth', () => {
+test('main proof catalog supplies Sol-high and Sol-xhigh review-only Codex agents without checked-in auth', () => {
   const heavyRoot = 'manual_testing/codeinfo_agents/review_agent_heavy';
   const maxRoot = 'manual_testing/codeinfo_agents/review_agent_max';
   const heavyConfig = readRepoFile(`${heavyRoot}/config.toml`);
@@ -115,12 +118,12 @@ test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex 
   const manualTestingIgnore = readRepoFile('manual_testing/.gitignore');
 
   assert.match(heavyConfig, /codeinfo_provider = "codex"/u);
-  assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
+  assert.match(heavyConfig, /model = "gpt-6-sol"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
   assert.match(heavyConfig, /approval_policy = "never"/u);
   assert.match(heavyConfig, /sandbox_mode = "danger-full-access"/u);
-  assert.match(maxConfig, /model = "gpt-5\.6-sol"/u);
-  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /model = "gpt-6-sol"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "xhigh"/u);
   assert.match(maxConfig, /approval_policy = "never"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);
@@ -130,7 +133,7 @@ test('main proof catalog supplies Terra-heavy and Sol-maximum review-only Codex 
   assert.match(manualTestingIgnore, /^\*\*\/auth\.json$/mu);
 });
 
-test('source heavy and maximum review agents share the review boundary while retaining distinct model tiers', () => {
+test('source heavy and maximum review agents share the review boundary while retaining Sol/high and Sol/xhigh thinking tiers', () => {
   const heavyConfig = readRepoFile(
     'codeinfo_agents/review_agent_heavy/config.toml',
   );
@@ -150,10 +153,10 @@ test('source heavy and maximum review agents share the review boundary while ret
     'codeinfo_agents/review_agent_max/commands/code_review_findings.json',
   );
 
-  assert.match(heavyConfig, /model = "gpt-5\.6-terra"/u);
+  assert.match(heavyConfig, /model = "gpt-6-sol"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
-  assert.match(maxConfig, /model = "gpt-5\.6-sol"/u);
-  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
+  assert.match(maxConfig, /model = "gpt-6-sol"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "xhigh"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);
   assert.equal(maxCommand, heavyCommand);

@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -93,8 +94,8 @@ describe('Chat Codex banners', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],
@@ -128,6 +129,7 @@ describe('Chat Codex banners', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -304,8 +306,8 @@ describe('Chat Codex banners', () => {
             codexWarnings: ['Invalid Codex_reasoning_effort env value'],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],
@@ -339,6 +341,7 @@ describe('Chat Codex banners', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -348,6 +351,7 @@ describe('Chat Codex banners', () => {
     const warningBanner = await screen.findByTestId('codex-warnings-banner');
     expect(warningBanner).toHaveTextContent(/invalid codex_reasoning_effort/i);
 
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const lmOption = await screen.findByRole('option', {
       name: /^LM Studio$/i,
@@ -418,8 +422,8 @@ describe('Chat Codex banners', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],
@@ -453,6 +457,7 @@ describe('Chat Codex banners', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,
@@ -525,8 +530,8 @@ describe('Chat Codex banners', () => {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.1-codex-max',
-                displayName: 'gpt-5.1-codex-max',
+                key: 'gpt-5.6-luna',
+                displayName: 'gpt-5.6-luna',
                 type: 'codex',
               },
             ],
@@ -560,6 +565,7 @@ describe('Chat Codex banners', () => {
     const providerSelect = await screen.findByRole('combobox', {
       name: /provider/i,
     });
+    await waitForInteractiveCombobox(providerSelect);
     await userEvent.click(providerSelect);
     const codexOption = await screen.findByRole('option', {
       name: /openai codex/i,

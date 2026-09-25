@@ -1,8 +1,17 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import { installMockChatWs } from './support/mockChatWs';
+import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
+
+const createGate = () => {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+};
 
 const codexProviderInfo = {
   id: 'codex',
@@ -53,6 +62,9 @@ test('renders Codex thought process when analysis frames stream', async ({
   page,
 }) => {
   const mockWs = await installMockChatWs(page);
+  let streamPromise: Promise<void> | null = null;
+  const assistantGate = createGate();
+  const finalGate = createGate();
 
   await page.route('**/chat/providers', (route) =>
     route.fulfill({
@@ -91,8 +103,8 @@ test('renders Codex thought process when analysis frames stream', async ({
           toolsAvailable: true,
           models: [
             {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
+              key: 'gpt-5.6-luna',
+              displayName: 'gpt-5.6-luna',
               type: 'codex',
               supportedReasoningEfforts: ['high', 'xhigh'],
               defaultReasoningEffort: 'high',
@@ -147,24 +159,22 @@ test('renders Codex thought process when analysis frames stream', async ({
     });
 
     await mockWs.waitForConversationSubscription(conversationId);
-    mockWs.sendInflightSnapshot({ conversationId, inflightId });
-    setTimeout(() => {
-      mockWs.sendAnalysisDelta({
+    streamPromise = (async () => {
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      await mockWs.sendAnalysisDelta({
         conversationId,
         inflightId,
         delta: 'Codex thinking.',
       });
-    }, 0);
-    setTimeout(() => {
-      mockWs.sendAssistantDelta({
+      await assistantGate.promise;
+      await mockWs.sendAssistantDelta({
         conversationId,
         inflightId,
         delta: 'Final',
       });
-    }, 800);
-    setTimeout(() => {
-      mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
-    }, 1500);
+      await finalGate.promise;
+      await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    })();
   });
 
   await page.goto(`${baseUrl}/chat`);
@@ -173,12 +183,17 @@ test('renders Codex thought process when analysis frames stream', async ({
   await page.getByRole('option', { name: 'OpenAI Codex' }).click();
 
   await page.getByTestId('model-select').click();
-  await page.getByRole('option', { name: 'gpt-5.1-codex-max' }).click();
+  await page.getByRole('option', { name: 'gpt-5.6-luna' }).click();
 
   const agentFlagsPanel = page.locator('[data-testid="agent-flags-panel"]');
   if (await agentFlagsPanel.count()) {
-    await expect(agentFlagsPanel.first()).toBeVisible({ timeout: 20000 });
-    const agentFlagsToggle = agentFlagsPanel.first().locator('[aria-expanded]').first();
+    await expect(agentFlagsPanel.first()).toBeVisible({
+      timeout: resolveConfiguredE2eTimeoutMs(20000),
+    });
+    const agentFlagsToggle = agentFlagsPanel
+      .first()
+      .locator('[aria-expanded]')
+      .first();
     if ((await agentFlagsToggle.getAttribute('aria-expanded')) === 'true') {
       await agentFlagsToggle.click();
     }
@@ -186,15 +201,32 @@ test('renders Codex thought process when analysis frames stream', async ({
 
   const input = page.getByTestId('chat-input');
   await input.fill('Show reasoning');
-  await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 10000 });
+  await expect(page.getByTestId('chat-send')).toBeEnabled({
+    timeout: resolveConfiguredE2eTimeoutMs(10000),
+  });
   await page.getByTestId('chat-send').click();
 
   await expect(page.getByTestId('think-toggle')).toBeVisible({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
+  await expect(page.getByTestId('think-spinner')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
+
+  assistantGate.release();
+  await expect(page.getByText('Final')).toBeVisible({
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
+  });
+
+  finalGate.release();
   await expect(page.getByTestId('status-chip')).toHaveText(/Complete/i, {
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
+
+  if (!streamPromise) {
+    throw new Error('Expected the mocked Codex reasoning stream to start');
+  }
+  await streamPromise;
 
   await page.getByTestId('think-toggle').scrollIntoViewIfNeeded();
   await page.getByTestId('think-toggle').click();
@@ -202,7 +234,7 @@ test('renders Codex thought process when analysis frames stream', async ({
     'Codex thinking.',
   );
   await expect(page.getByTestId('think-spinner')).toBeHidden({
-    timeout: 20000,
+    timeout: resolveConfiguredE2eTimeoutMs(20000),
   });
 
   mkdirSync('test-results/screenshots', { recursive: true });

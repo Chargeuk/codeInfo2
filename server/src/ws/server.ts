@@ -12,6 +12,7 @@ import { getActiveRunOwnership } from '../agents/runLock.js';
 import {
   abortInflightByConversation,
   abortInflight,
+  getCompletedInflight,
   getPendingConversationCancel,
   bumpSeq,
   registerPendingConversationCancel,
@@ -634,6 +635,19 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
             inflightId: message.inflightId,
           });
           if (!cancelled.ok) {
+            if (
+              getCompletedInflight({
+                conversationId: message.conversationId,
+                inflightId: message.inflightId,
+              })
+            ) {
+              publishCancelAck({
+                ws,
+                requestId: message.requestId,
+                conversationId: message.conversationId,
+              });
+              return;
+            }
             publishTurnFinal({
               conversationId: message.conversationId,
               inflightId: message.inflightId,

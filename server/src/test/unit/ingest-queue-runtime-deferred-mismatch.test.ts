@@ -13,11 +13,9 @@ import {
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
   waitForQueueManagedTerminalStatus,
-  waitForNextTurn,
+  waitForIngestRuntimeIdle,
 } from './ingest-queue-runtime.helpers.js';
-
 installQueueRuntimeTestHooks();
-
 test('queue-managed deferred reembed executes a mounted requestPayload.path while retaining canonical queue identity', async () => {
   const { roots } = setupIngestChromaMocks();
   setIngestDeps({
@@ -38,12 +36,13 @@ test('queue-managed deferred reembed executes a mounted requestPayload.path whil
     'src/mounted.ts': 'export const mounted = true;\n',
   });
   const canonicalRoot = `/data/${path.basename(mountedRoot)}`;
-  process.env.CODEINFO_CODEX_WORKDIR = path.dirname(mountedRoot);
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', path.dirname(mountedRoot));
   let promotedOnce = false;
-
+  let activeRequest: ReturnType<typeof createQueueRequest> | null = null;
   try {
     __setQueueRuntimeOpsForTest({
       deleteQueueRequestById: async () => null,
+      findQueueRequestById: async () => activeRequest,
       findOldestCleanupBlockedQueueRequest: async () => null,
       markQueueRequestNonReplayable: async () => null,
       markQueueRequestTerminalPublished: async () => null,
@@ -52,7 +51,7 @@ test('queue-managed deferred reembed executes a mounted requestPayload.path whil
           return null;
         }
         promotedOnce = true;
-        return {
+        activeRequest = {
           ...createQueueRequest({
             requestId: '23',
             root: canonicalRoot,
@@ -67,20 +66,25 @@ test('queue-managed deferred reembed executes a mounted requestPayload.path whil
             operation: 'reembed',
           },
         };
+        return activeRequest;
       },
     });
-
     const started = await pumpIngestQueue();
     assert.equal(started.started, true);
     assert.ok(started.runId);
-
     const terminal = await waitForQueueManagedTerminalStatus(
       started.requestId!,
-      20_000,
+      20000,
     );
     assert.equal(terminal.state, 'completed', terminal.lastError ?? undefined);
     const rootAddCalls = roots.add.mock.calls as unknown as Array<{
-      arguments: [{ metadatas?: Array<{ root?: unknown }> }];
+      arguments: [
+        {
+          metadatas?: Array<{
+            root?: unknown;
+          }>;
+        },
+      ];
     }>;
     assert.equal(
       rootAddCalls.some((call) => {
@@ -95,14 +99,12 @@ test('queue-managed deferred reembed executes a mounted requestPayload.path whil
     await cleanup();
   }
 });
-
 test('queue-managed deferred reembed rejects unrelated persisted requestPayload.path before discovery begins', async () => {
-  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', '/allowed/workdir');
   const canonicalRoot = '/allowed/workdir/reembed-canonical';
   const mismatchedPersistedPath = '/allowed/workdir/reembed-other';
   const deletedRequestIds: string[] = [];
   let promotedOnce = false;
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       deletedRequestIds.push(requestId);
@@ -133,18 +135,14 @@ test('queue-managed deferred reembed rejects unrelated persisted requestPayload.
       };
     },
   });
-
   const started = await pumpIngestQueue();
   assert.equal(started.started, true);
   assert.ok(started.runId);
-
   const terminal = await waitForQueueManagedTerminalStatus(
     started.requestId!,
-    1_000,
+    1000,
   );
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(terminal.state, 'error');
   assert.equal(
     terminal.lastError,
@@ -158,13 +156,11 @@ test('queue-managed deferred reembed rejects unrelated persisted requestPayload.
     true,
   );
 });
-
 test('queue-managed deferred reembed rejects relative persisted requestPayload.path before discovery begins', async () => {
-  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', '/allowed/workdir');
   const canonicalRoot = '/data/reembed-relative';
   const deletedRequestIds: string[] = [];
   let promotedOnce = false;
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       deletedRequestIds.push(requestId);
@@ -195,17 +191,13 @@ test('queue-managed deferred reembed rejects relative persisted requestPayload.p
       };
     },
   });
-
   const started = await pumpIngestQueue();
   assert.equal(started.started, true);
-
   const terminal = await waitForQueueManagedTerminalStatus(
     started.requestId!,
-    1_000,
+    1000,
   );
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(terminal.state, 'error');
   assert.equal(
     terminal.lastError,
@@ -213,13 +205,11 @@ test('queue-managed deferred reembed rejects relative persisted requestPayload.p
   );
   assert.deepEqual(deletedRequestIds, ['000000000000000000000025']);
 });
-
 test('queue-managed deferred reembed rejects outside-workdir persisted requestPayload.path before discovery begins', async () => {
-  process.env.CODEINFO_CODEX_WORKDIR = '/allowed/workdir';
+  setScopedTestEnvValue('CODEINFO_CODEX_WORKDIR', '/allowed/workdir');
   const canonicalRoot = '/data/reembed-outside';
   const deletedRequestIds: string[] = [];
   let promotedOnce = false;
-
   __setQueueRuntimeOpsForTest({
     deleteQueueRequestById: async (requestId: string) => {
       deletedRequestIds.push(requestId);
@@ -250,17 +240,13 @@ test('queue-managed deferred reembed rejects outside-workdir persisted requestPa
       };
     },
   });
-
   const started = await pumpIngestQueue();
   assert.equal(started.started, true);
-
   const terminal = await waitForQueueManagedTerminalStatus(
     started.requestId!,
-    1_000,
+    1000,
   );
-  await waitForNextTurn();
-  await waitForNextTurn();
-
+  await waitForIngestRuntimeIdle();
   assert.equal(terminal.state, 'error');
   assert.equal(
     terminal.lastError,

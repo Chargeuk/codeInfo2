@@ -34,7 +34,7 @@ export type StoredTurn = {
   model: string;
   provider: string;
   toolCalls?: Record<string, unknown> | null;
-  status: 'ok' | 'stopped' | 'failed';
+  status: 'ok' | 'warning' | 'stopped' | 'failed';
   command?: TurnCommandMetadata;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;

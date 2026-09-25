@@ -20,6 +20,7 @@ import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import type { TurnRuntimeMetadata } from '../mongo/turn.js';
+import { getScopedEnvValue } from '../test/support/testEnvOverrideScope.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
 
 import { executeCommandItem } from './commandItemExecutor.js';
@@ -410,13 +411,15 @@ export async function runAgentCommandRunner(
           },
         });
         if (
-          process.env.CODEINFO_RUNTIME_COMPOSE_FILE === 'docker-compose.yml' &&
+          getScopedEnvValue('CODEINFO_RUNTIME_COMPOSE_FILE') ===
+            'docker-compose.yml' &&
           isTask8ComposeProofCommand(commandName)
         ) {
           const mountedWorkingFolder = describeMountedWorkingFolder({
-            hostIngestDir: process.env.CODEINFO_HOST_INGEST_DIR,
+            hostIngestDir: getScopedEnvValue('CODEINFO_HOST_INGEST_DIR'),
             codexWorkdir:
-              process.env.CODEINFO_CODEX_WORKDIR ?? process.env.CODEX_WORKDIR,
+              getScopedEnvValue('CODEINFO_CODEX_WORKDIR') ??
+              getScopedEnvValue('CODEX_WORKDIR'),
             hostWorkingFolder: params.working_folder,
           });
           append({

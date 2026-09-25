@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { AddressInfo } from 'node:net';
 import test, { afterEach, mock } from 'node:test';
 import { handleRpc } from '../../mcp2/router.js';
+import {
+  closeHttpServer,
+  waitForHttpServerPort,
+} from '../support/httpServer.js';
 
 afterEach(() => {
   mock.restoreAll();
@@ -20,14 +23,14 @@ async function postJson(port: number, body: unknown) {
 test('invalid JSON-RPC request shape returns -32600 Invalid Request', async () => {
   const server = http.createServer(handleRpc);
   server.listen(0);
-  const { port } = server.address() as AddressInfo;
+  const port = await waitForHttpServerPort(server);
 
   try {
     const body = await postJson(port, { jsonrpc: '2.0', id: 123, method: 42 });
     assert.equal(body.id, 123);
     assert.deepEqual(body.error, { code: -32600, message: 'Invalid Request' });
   } finally {
-    server.close();
+    await closeHttpServer(server);
   }
 });
 
@@ -35,7 +38,7 @@ test('mcp2 router does not dump raw tool errors to console.error', async () => {
   const errorLogCalls: unknown[][] = [];
   const server = http.createServer(handleRpc);
   server.listen(0);
-  const { port } = server.address() as AddressInfo;
+  const port = await waitForHttpServerPort(server);
 
   mock.method(console, 'error', (...args: unknown[]) => {
     errorLogCalls.push(args);
@@ -58,6 +61,6 @@ test('mcp2 router does not dump raw tool errors to console.error', async () => {
     });
     assert.deepEqual(errorLogCalls, []);
   } finally {
-    server.close();
+    await closeHttpServer(server);
   }
 });

@@ -20,6 +20,10 @@ export const transcriptSurfaceTokens = {
       background: '#E7F7EC',
       text: '#2F855A',
     },
+    warning: {
+      background: '#FFF4E5',
+      text: '#B7791F',
+    },
     failed: {
       background: '#FDECEC',
       text: '#C53030',
@@ -34,5 +38,6 @@ export const transcriptSurfaceTokens = {
 export type TranscriptStreamStatus =
   | 'processing'
   | 'complete'
+  | 'warning'
   | 'failed'
   | 'stopped';

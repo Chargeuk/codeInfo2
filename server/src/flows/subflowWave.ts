@@ -163,7 +163,7 @@ export const expandSubflowWaveJobs = (params: {
           instanceId: waveInstanceId(group.id, targetId, flowName),
           flowName,
           targetId,
-          displayName: `${flowName} [${targetId}]`,
+          displayName: `${group.displayName ?? flowName} [${targetId}]`,
           ...bindings,
         });
       });

@@ -9,6 +9,8 @@ import type {
 import { runReingestRepository } from '../../ingest/reingestService.js';
 import { handleRpc } from '../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
+import { closeHttpServer } from '../support/httpServer.js';
+import { waitForTestCondition } from '../support/testTimeouts.js';
 
 const terminalCompleted = {
   status: 'completed',
@@ -189,15 +191,21 @@ function runWithServer(
     const server = http.createServer(handleRpc);
     server.listen(0, async () => {
       const { port } = server.address() as AddressInfo;
+      let failure: unknown;
       try {
         await callback(port);
-        resolve();
       } catch (error) {
-        reject(error);
+        failure = error;
       } finally {
         resetToolDeps();
-        server.close();
+        try {
+          await closeHttpServer(server);
+        } catch (error) {
+          failure ??= error;
+        }
       }
+      if (failure) reject(failure);
+      else resolve();
     });
   });
 }
@@ -667,9 +675,15 @@ test('MCP v2 reingest_repository advertises a sourceId-only schema without worki
 });
 
 test('MCP v2 disconnect during blocking wait does not crash router', async () => {
+  let requestEntered = false;
+  let releaseRequest!: () => void;
+  const requestGate = new Promise<void>((resolve) => {
+    releaseRequest = resolve;
+  });
   setToolDeps({
     runReingestRepository: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      requestEntered = true;
+      await requestGate;
       return { ok: true, value: terminalCompleted } as ReingestResult;
     },
   });
@@ -689,8 +703,15 @@ test('MCP v2 disconnect during blocking wait does not crash router', async () =>
       },
       { signal: controller.signal },
     );
-    setTimeout(() => controller.abort(), 10);
-    await assert.rejects(inflight);
+    await waitForTestCondition(() => requestEntered, {
+      description: 'MCP v2 reingest request to enter its blocking wait',
+    });
+    controller.abort();
+    try {
+      await assert.rejects(inflight);
+    } finally {
+      releaseRequest();
+    }
 
     const healthCall = await postJson(port, {
       jsonrpc: '2.0',

@@ -63,6 +63,12 @@ export type FlowRunStartParams = {
     conversationId: string;
     runToken: string;
   }) => Promise<void> | void;
+  onAsyncBegin?: (params: {
+    conversationId: string;
+    runToken: string;
+    executionId: string;
+    inflightId: string;
+  }) => Promise<void> | void;
   onStopUnwindCheckpoint?: (params: {
     checkpoint: string;
     conversationId: string;
@@ -97,3 +103,12 @@ export type FlowChatFactory = (
   provider: string,
   deps?: Record<string, unknown>,
 ) => ChatInterface;
+
+// Story 60: Flow step type exports for runtime use
+export type {
+  FlowIfStep,
+  FlowWaitStep,
+  FlowGitHubOpenPrStep,
+  FlowGitHubFetchReviewsStep,
+  FlowGitHubClosePrStep,
+} from './flowSchema.js';

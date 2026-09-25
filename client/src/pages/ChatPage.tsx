@@ -1826,9 +1826,11 @@ export default function ChatPage() {
             streamStatus:
               turn.status === 'failed'
                 ? 'failed'
-                : turn.status === 'stopped'
-                  ? 'stopped'
-                  : 'complete',
+                : turn.status === 'warning'
+                  ? 'warning'
+                  : turn.status === 'stopped'
+                    ? 'stopped'
+                    : 'complete',
             usage: turn.usage,
             timing: turn.timing,
             createdAt: turn.createdAt,

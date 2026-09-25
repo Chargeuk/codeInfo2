@@ -98,7 +98,7 @@ const deriveTiming = (params: {
 };
 
 type FinalPayload = {
-  status: 'ok' | 'stopped' | 'failed';
+  status: 'ok' | 'warning' | 'stopped' | 'failed';
   threadId?: string | null;
   error?: { code?: string; message?: string } | null;
   usage?: TurnUsageMetadata;
@@ -107,8 +107,9 @@ type FinalPayload = {
 
 const statusSeverity: Record<FinalPayload['status'], number> = {
   ok: 0,
-  stopped: 1,
-  failed: 2,
+  warning: 1,
+  stopped: 2,
+  failed: 3,
 };
 
 export function attachChatStreamBridge(params: {
@@ -187,7 +188,12 @@ export function attachChatStreamBridge(params: {
       ...(params.timing !== undefined ? { timing: params.timing } : {}),
     });
 
-    const level = params.status === 'failed' ? 'error' : 'info';
+    const level =
+      params.status === 'failed'
+        ? 'error'
+        : params.status === 'warning'
+          ? 'warn'
+          : 'info';
     log(level, 'chat.stream.final', {
       status: params.status,
       threadId: params.threadId ?? null,

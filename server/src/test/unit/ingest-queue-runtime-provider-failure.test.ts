@@ -12,16 +12,15 @@ import {
   setOpenAiTokenizerFactoryForTests,
   type OpenAiClientLike,
 } from '../../ingest/providers/index.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 import {
   createQueueRequest,
   createTempRepo,
   installQueueRuntimeTestHooks,
   setupIngestChromaMocks,
-  waitForNextTurn,
+  waitForIngestRuntimeIdle,
 } from './ingest-queue-runtime.helpers.js';
-
 installQueueRuntimeTestHooks();
-
 test('queued ingest OpenAI 429 failure becomes terminal status without unhandled rejection', async () => {
   const { vectors } = setupIngestChromaMocks();
   await vectors.modify({
@@ -41,8 +40,8 @@ test('queued ingest OpenAI 429 failure becomes terminal status without unhandled
   }));
   const previousKey = process.env.CODEINFO_OPENAI_EMBEDDING_KEY;
   const previousRetries = process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
-  process.env.CODEINFO_OPENAI_EMBEDDING_KEY = 'sk-test-key';
-  process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES = '1';
+  setScopedTestEnvValue('CODEINFO_OPENAI_EMBEDDING_KEY', 'sk-test-key');
+  setScopedTestEnvValue('CODEINFO_OPENAI_INGEST_MAX_RETRIES', '1');
   const scheduledTasks: Array<() => void> = [];
   __setRunSchedulerForTest((task) => {
     scheduledTasks.push(task);
@@ -81,7 +80,6 @@ test('queued ingest OpenAI 429 failure becomes terminal status without unhandled
   };
   process.on('unhandledRejection', onUnhandledRejection);
   let sdkCalls = 0;
-
   try {
     const runId = await startIngest(
       {
@@ -118,9 +116,8 @@ test('queued ingest OpenAI 429 failure becomes terminal status without unhandled
     __setQueueRequestIdForRunForTest(runId, 'queue-openai-provider-failure');
     assert.equal(scheduledTasks.length, 1);
     scheduledTasks[0]!();
-
     const result = await waitForTerminalIngestStatus(runId, {
-      timeoutMs: 5_000,
+      timeoutMs: resolveConfiguredTestTimeoutMs(5000),
       pollMs: 1,
     });
     assert.equal(result.reason, 'terminal');
@@ -133,9 +130,7 @@ test('queued ingest OpenAI 429 failure becomes terminal status without unhandled
     assert.equal(result.status?.lastError?.includes('org-b0ry'), false);
     assert.equal(result.status?.lastError?.includes('sk-test-key'), false);
     assert.equal(sdkCalls, 2);
-
-    await waitForNextTurn();
-    await waitForNextTurn();
+    await waitForIngestRuntimeIdle();
     assert.deepEqual(unhandledRejections, []);
   } finally {
     process.off('unhandledRejection', onUnhandledRejection);
@@ -143,14 +138,17 @@ test('queued ingest OpenAI 429 failure becomes terminal status without unhandled
     disposeOpenAiTokenizer();
     setOpenAiTokenizerFactoryForTests();
     if (previousKey === undefined) {
-      delete process.env.CODEINFO_OPENAI_EMBEDDING_KEY;
+      clearScopedTestEnvValue('CODEINFO_OPENAI_EMBEDDING_KEY');
     } else {
-      process.env.CODEINFO_OPENAI_EMBEDDING_KEY = previousKey;
+      setScopedTestEnvValue('CODEINFO_OPENAI_EMBEDDING_KEY', previousKey);
     }
     if (previousRetries === undefined) {
-      delete process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES;
+      clearScopedTestEnvValue('CODEINFO_OPENAI_INGEST_MAX_RETRIES');
     } else {
-      process.env.CODEINFO_OPENAI_INGEST_MAX_RETRIES = previousRetries;
+      setScopedTestEnvValue(
+        'CODEINFO_OPENAI_INGEST_MAX_RETRIES',
+        previousRetries,
+      );
     }
   }
 });

@@ -18,6 +18,14 @@ import {
   formatWorkerSummaryLine,
   resolveWorkerSetting,
 } from './test-parallelism.mjs';
+import {
+  TEST_DOCKER_TARGETS,
+  acquireTestDockerLock,
+  createComposeCommand,
+  listComposeProjectResources,
+  waitForHttpReadiness,
+  waitForProjectRemoval,
+} from './test-docker-harness-lifecycle.mjs';
 
 const wrapper = createSummaryWrapperRun({
   wrapperName: 'e2e',
@@ -50,6 +58,12 @@ const wrapper = createSummaryWrapperRun({
       description:
         'Reuse existing compose-backed e2e images instead of running npm run compose:e2e:build first.',
     },
+    {
+      name: 'reuse-compose',
+      type: 'boolean',
+      description:
+        'Use the already-ready E2E Compose project owned by the all-tests wrapper.',
+    },
   ],
   examples: [
     'node scripts/test-summary-e2e.mjs --help',
@@ -57,12 +71,7 @@ const wrapper = createSummaryWrapperRun({
     'npm run test:summary:e2e -- --skip-compose-build --file e2e/env-runtime-config.spec.ts',
   ],
 });
-const composeLauncher = path.join(
-  wrapper.rootDir,
-  'scripts',
-  'docker-compose-with-env.sh',
-);
-const e2eArtifactDir = 'playwright-output';
+const e2eArtifactDir = path.posix.join('playwright-output', wrapper.timestamp);
 const e2eOutputDir = 'logs/test-summaries';
 const args = process.argv.slice(2);
 
@@ -87,6 +96,7 @@ const options = {
   files: parsedArgs.values.file ?? [],
   grep: parsedArgs.values.grep ?? undefined,
   skipComposeBuild: parsedArgs.values['skip-compose-build'] ?? false,
+  reuseCompose: parsedArgs.values['reuse-compose'] ?? false,
 };
 const playwrightParallelism = resolveWorkerSetting(
   process.env.PLAYWRIGHT_WORKERS,
@@ -263,24 +273,26 @@ let summarySource = 'not_run';
 let preflightPassed = false;
 let setupFailureLabel = '';
 let teardownFailureLabel = '';
+let dockerLock = null;
+const e2eDocker = TEST_DOCKER_TARGETS.e2e;
 
-try {
-  const configResult = await runLoggedCommand({
-    cmd: 'bash',
-    args: [
-      composeLauncher,
-      '--env-file',
-      '.env.e2e',
-      '-f',
-      'docker-compose.e2e.yml',
-      'config',
-    ],
-    cwd: wrapper.rootDir,
+const runCompose = async (action) => {
+  const command = createComposeCommand({
+    rootDir: wrapper.rootDir,
+    target: 'e2e',
+    action,
+  });
+  return runLoggedCommand({
+    ...command,
     logStream: wrapper.logStream,
     protocol: wrapper.protocol,
-    phase: 'compose_config',
-    bannerPrefix: '',
+    phase: `compose_${action}`,
+    bannerPrefix: action === 'config' ? '' : undefined,
   });
+};
+
+try {
+  const configResult = await runCompose('config');
   if (configResult.code !== 0) {
     setupFailed = true;
     setupFailureLabel = 'compose_config_failed';
@@ -313,18 +325,27 @@ try {
       setupFailed = true;
       setupFailureLabel = 'compose_build_failed';
     } else {
-      const upResult = await runLoggedCommand({
-        cmd: 'npm',
-        args: ['run', 'e2e:up'],
-        cwd: wrapper.rootDir,
-        logStream: wrapper.logStream,
-        protocol: wrapper.protocol,
-        phase: 'compose_up',
-      });
-      if (upResult.code !== 0) {
-        setupFailed = true;
-        setupFailureLabel = 'compose_up_failed';
-      } else {
+      if (!options.reuseCompose) {
+        dockerLock = await acquireTestDockerLock();
+        const downResult = await runCompose('down');
+        if (downResult.code !== 0) {
+          setupFailed = true;
+          setupFailureLabel = 'compose_preflight_down_failed';
+        } else {
+          await waitForProjectRemoval({
+            projectName: e2eDocker.projectName,
+            listResources: listComposeProjectResources,
+          });
+          const upResult = await runCompose('up');
+          if (upResult.code !== 0) {
+            setupFailed = true;
+            setupFailureLabel = 'compose_up_failed';
+          }
+        }
+      }
+
+      if (!setupFailed) {
+        await waitForHttpReadiness({ urls: e2eDocker.readyUrls });
         const testResult = await runLoggedCommand({
           cmd: 'npm',
           args: ['run', 'e2e:test', '--', '--reporter=json', ...playwrightArgs],
@@ -337,6 +358,7 @@ try {
             E2E_USE_MOCK_CHAT: e2eRuntimeConfig.useMockChat,
             E2E_COPILOT_SCENARIO: e2eRuntimeConfig.copilotScenario,
             PLAYWRIGHT_WORKERS: String(playwrightParallelism.workerCount),
+            PLAYWRIGHT_OUTPUT_DIR: e2eArtifactDir,
           },
           logStream: wrapper.logStream,
           protocol: wrapper.protocol,
@@ -376,18 +398,34 @@ try {
       }
     }
   }
+} catch (error) {
+  setupFailed = true;
+  setupFailureLabel ||= 'compose_lifecycle_failed';
+  wrapper.appendLogSection(
+    'E2E Docker lifecycle failure',
+    error instanceof Error ? error.stack : String(error),
+  );
 } finally {
-  const downResult = await runLoggedCommand({
-    cmd: 'npm',
-    args: ['run', 'e2e:down'],
-    cwd: wrapper.rootDir,
-    logStream: wrapper.logStream,
-    protocol: wrapper.protocol,
-    phase: 'teardown',
-  });
-  if (downResult.code !== 0) {
-    teardownFailed = true;
-    teardownFailureLabel = 'compose_down_failed';
+  if (!options.reuseCompose && dockerLock) {
+    const downResult = await runCompose('down');
+    if (downResult.code !== 0) {
+      teardownFailed = true;
+      teardownFailureLabel = 'compose_down_failed';
+    }
+    try {
+      await waitForProjectRemoval({
+        projectName: e2eDocker.projectName,
+        listResources: listComposeProjectResources,
+      });
+    } catch (error) {
+      teardownFailed = true;
+      teardownFailureLabel = 'compose_resources_remain';
+      wrapper.appendLogSection(
+        'E2E Docker teardown verification failure',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+    await dockerLock.release();
   }
   if (!setupFailed && !teardownFailed && testExitCode === 0) {
     const markerPayload = {

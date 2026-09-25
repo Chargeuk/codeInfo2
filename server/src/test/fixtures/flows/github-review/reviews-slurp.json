@@ -1,0 +1,26 @@
+[
+  [
+    {
+      "id": 1001,
+      "user": { "login": "alice" },
+      "body": "Looks good overall.",
+      "state": "COMMENTED",
+      "submitted_at": "2026-06-24T10:05:00Z",
+      "commit_id": "abc123",
+      "html_url": "https://github.com/example/repo/pull/45#pullrequestreview-1001",
+      "author_association": "MEMBER"
+    }
+  ],
+  [
+    {
+      "id": 1002,
+      "user": { "login": "bob" },
+      "body": "Please revisit the retry wording.",
+      "state": "CHANGES_REQUESTED",
+      "submitted_at": "2026-06-24T10:06:00Z",
+      "commit_id": "def456",
+      "html_url": "https://github.com/example/repo/pull/45#pullrequestreview-1002",
+      "author_association": "CONTRIBUTOR"
+    }
+  ]
+]

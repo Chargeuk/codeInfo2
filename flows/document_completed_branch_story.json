@@ -104,7 +104,7 @@
     },
     {
       "type": "reingest",
-      "label": "Re-embed the committed plan scope after the push attempt",
+      "label": "Re-embed the selected plan scope after the commit and push attempt",
       "target": "plan_scope"
     }
   ]

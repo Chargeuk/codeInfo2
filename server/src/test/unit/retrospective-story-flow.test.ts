@@ -213,3 +213,41 @@ test('retrospective scope stays tied to observed branch work for later review', 
   assert.ok(inventory.includes('observed changes'));
   assert.ok(audit.includes('remove any inferred future behavior'));
 });
+
+test('retrospective steps recover inputs without a previous agent conversation', () => {
+  const flow = JSON.parse(
+    read('flows/document_completed_branch_story.json'),
+  ) as {
+    steps: Array<{ type: string; markdownFile?: string }>;
+  };
+  const shared = read('codeinfo_markdown/retrospective_story/shared.md');
+  assert.ok(shared.includes('The initial layout step creates this flow'));
+  assert.ok(shared.includes('recover needed facts from the plan, Git, source'));
+
+  for (const step of flow.steps.filter((item) => item.type === 'llm')) {
+    assert.ok(step.markdownFile);
+    assert.ok(
+      read(`codeinfo_markdown/${step.markdownFile}`).includes(
+        'retrospective_story/shared.md',
+      ),
+      step.markdownFile,
+    );
+  }
+
+  const taskingRoot = 'codeinfo_markdown/retrospective_story/tasking';
+  assert.ok(
+    read(`${taskingRoot}/02-completed-tasks.md`).includes(
+      'Do not require or rely on the previous agent',
+    ),
+  );
+  assert.ok(
+    read(`${taskingRoot}/04-check.md`).includes(
+      'not a required handoff artifact',
+    ),
+  );
+  assert.ok(
+    read(`${taskingRoot}/05-repair.md`).includes(
+      'Independently repeat the task coverage and proof checks',
+    ),
+  );
+});

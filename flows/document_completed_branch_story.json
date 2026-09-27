@@ -1,5 +1,5 @@
 {
-  "description": "Document work already present on the current branch as a tasked story, leaving its final whole-story validation open.",
+  "description": "Document work already present on the current branch as a tasked story without executing builds, tests, lint, formatting, or manual proof; leave final whole-story validation open.",
   "steps": [
     {
       "type": "reingest",

@@ -491,6 +491,7 @@ describe('flow schema (v1)', () => {
       'flows/implement_current_plan.json',
       'flows/implement_next_plan.json',
       'flows/ingest_external_review_plan.json',
+      'flows/improve_task_implement_current_plan.json',
       'flows/improve_task_implement_plan.json',
       'flows/task_and_implement_plan.json',
     ] as const;
@@ -632,7 +633,10 @@ describe('flow schema (v1)', () => {
     assert.equal(repeated?.steps?.[2]?.continueOnInvalidResponse, undefined);
     assert.match(repeated?.steps?.[2]?.question ?? '', /attempted repair/u);
     assert.match(repeated?.steps?.[2]?.question ?? '', /uncertainty alone/u);
-    assert.match(repeated?.steps?.[2]?.question ?? '', /invalid response must exit/u);
+    assert.match(
+      repeated?.steps?.[2]?.question ?? '',
+      /invalid response must exit/u,
+    );
     assert.equal(repeated?.steps?.[3]?.agentType, 'research_agent_max');
     assert.equal(repeated?.steps?.[3]?.identifier, 'batch_repeat_researcher');
     assert.equal(repeated?.steps?.[4]?.agentType, 'research_agent_max');
@@ -1086,7 +1090,10 @@ describe('flow schema (v1)', () => {
     assert.equal(noWorkGate?.continueOnFailure, true);
     assert.equal(noWorkGate?.continueOnInvalidResponse, true);
     assert.match(noWorkGate?.question ?? '', /empty accepted actionable set/u);
-    assert.match(noWorkGate?.question ?? '', /unrelated history or review coverage/u);
+    assert.match(
+      noWorkGate?.question ?? '',
+      /unrelated history or review coverage/u,
+    );
     const completionGate = optionalSteps.find(
       (step) =>
         step.label ===
@@ -1517,6 +1524,69 @@ describe('flow schema (v1)', () => {
     assert.match(repairPrompt, /retain its exact `plan_path`/u);
     assert.match(repairPrompt, /Never run next-plan discovery/u);
     assert.match(repairPrompt, /no different plan was selected/u);
+  });
+
+  test('improve_task_implement_current_plan improves and tasks the persisted plan without switching it', async () => {
+    const [improveCurrentRaw, currentRaw] = await Promise.all([
+      fs.readFile(
+        path.join(repoRoot, 'flows/improve_task_implement_current_plan.json'),
+        'utf8',
+      ),
+      fs.readFile(
+        path.join(repoRoot, 'flows/implement_current_plan.json'),
+        'utf8',
+      ),
+    ]);
+    const improveCurrent = JSON.parse(improveCurrentRaw) as {
+      description?: string;
+      steps?: FlowStep[];
+    };
+    const current = JSON.parse(currentRaw) as { steps?: FlowStep[] };
+    const steps = improveCurrent.steps ?? [];
+    const storyLoopIndex = steps.findIndex(
+      (step) => step.label === 'Story Execution And Review Loop',
+    );
+    const prefix = steps.slice(0, storyLoopIndex);
+    const flattened = flattenSteps(steps);
+    const prefixLabels = prefix.map((step) => step.label);
+
+    assert.match(improveCurrent.description ?? '', /persisted current plan/u);
+    assert.notEqual(storyLoopIndex, -1);
+    assert.deepEqual(steps.slice(storyLoopIndex), current.steps ?? []);
+    assert.deepEqual(prefixLabels.slice(0, 3), [
+      'Planner Use Current Plan',
+      'Lite Planner Use Current Plan',
+      'Researcher Use Current Plan',
+    ]);
+    assertOrdered(prefixLabels, 'QA loop', 'Improve plan');
+    assertOrdered(prefixLabels, 'Improve plan', 'Task Up Plan');
+    assert.equal(prefixLabels.includes('Tasker Use Current Plan'), true);
+    assert.equal(
+      flattened.some(
+        (step) =>
+          step.label?.includes('Next Plan') ||
+          step.markdownFile === 'store_current_plan_handoff.md',
+      ),
+      false,
+    );
+    assert.equal(
+      flattened.filter(
+        (step) => step.markdownFile === 'use_current_plan_handoff.md',
+      ).length,
+      4,
+    );
+    assert.equal(
+      flattened.filter(
+        (step) => step.markdownFile === 'repair_current_plan_workflow_state.md',
+      ).length,
+      4,
+    );
+    assert.equal(
+      flattened.some(
+        (step) => step.markdownFile === 'repair_story_workflow_state.md',
+      ),
+      false,
+    );
   });
 
   test('main implementation flows share the canonical execution, review, and closeout suffix', async () => {

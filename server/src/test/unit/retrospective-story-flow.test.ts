@@ -29,7 +29,7 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     [
       [0, 'working'],
       [11, 'plan_scope'],
-      [16, 'plan_scope'],
+      [20, 'plan_scope'],
     ],
   );
 
@@ -43,9 +43,21 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     prompts.map(({ agent }) => agent),
     [
       ...Array(8).fill('planning_agent'),
-      'tasking_agent',
+      ...Array(5).fill('tasking_agent'),
       'planning_agent',
       'planning_agent',
+    ],
+  );
+  assert.deepEqual(
+    prompts
+      .filter(({ agent }) => agent === 'tasking_agent')
+      .map(({ file }) => file),
+    [
+      'retrospective_story/tasking/01-inventory.md',
+      'retrospective_story/tasking/02-completed-tasks.md',
+      'retrospective_story/tasking/03-final-validation.md',
+      'retrospective_story/tasking/04-check.md',
+      'retrospective_story/tasking/05-repair.md',
     ],
   );
   for (const { file } of prompts) {
@@ -61,8 +73,8 @@ test('retrospective story flow reingests around distinct planning and tasking pa
 });
 
 test('retrospective prompts preserve an open full-validation task and best-effort push', () => {
-  const tasking = read(
-    'codeinfo_markdown/retrospective_story/09-task-completed-work.md',
+  const finalTask = read(
+    'codeinfo_markdown/retrospective_story/tasking/03-final-validation.md',
   );
   const audit = read('codeinfo_markdown/retrospective_story/10-audit.md');
   const publish = read(
@@ -71,17 +83,33 @@ test('retrospective prompts preserve an open full-validation task and best-effor
 
   for (const required of [
     'Task Status: __to_do__',
-    'only initial `#### Subtasks` checkbox types',
-    'every relevant full automated test suite',
+    'only supported lint and formatting checklist-item types',
+    'every relevant full automated suite',
     'Manual Testing Guidance',
-    'Do not mark this task complete',
+    'Do not run the final task now',
   ]) {
-    assert.ok(tasking.includes(required), required);
+    assert.ok(finalTask.includes(required), required);
   }
   assert.ok(audit.includes('final task is the only open task'));
   assert.ok(publish.includes('git diff --cached --check'));
   assert.ok(publish.includes('git push -u origin HEAD'));
   assert.ok(publish.includes('A push failure is nonfatal'));
+});
+
+test('tasking uses separate inventory, creation, final task, check, and repair passes', () => {
+  const taskingRoot = 'codeinfo_markdown/retrospective_story/tasking';
+  const inventory = read(`${taskingRoot}/01-inventory.md`);
+  const completed = read(`${taskingRoot}/02-completed-tasks.md`);
+  const finalTask = read(`${taskingRoot}/03-final-validation.md`);
+  const check = read(`${taskingRoot}/04-check.md`);
+  const repair = read(`${taskingRoot}/05-repair.md`);
+
+  assert.ok(inventory.includes('Do not edit the plan'));
+  assert.ok(completed.includes('Do not create the final validation task'));
+  assert.ok(finalTask.includes('Append exactly one dedicated'));
+  assert.ok(check.includes('Do not edit, commit, or push'));
+  assert.ok(repair.includes('Repair concrete omissions and contradictions'));
+  assert.ok(repair.includes('plan_status.py'));
 });
 
 test('acceptance and audit passes enforce the three standing code-quality criteria', () => {
@@ -92,7 +120,7 @@ test('acceptance and audit passes enforce the three standing code-quality criter
     'codeinfo_markdown/retrospective_story/07-questions.md',
   );
   const tasking = read(
-    'codeinfo_markdown/retrospective_story/09-task-completed-work.md',
+    'codeinfo_markdown/retrospective_story/tasking/02-completed-tasks.md',
   );
   const audit = read('codeinfo_markdown/retrospective_story/10-audit.md');
 
@@ -105,7 +133,9 @@ test('acceptance and audit passes enforce the three standing code-quality criter
   }
   assert.ok(acceptance.includes('record the concrete affected files'));
   assert.ok(questions.includes('unresolved until the changed code itself'));
-  assert.ok(tasking.includes('Before marking implementation tasks done'));
+  assert.ok(
+    tasking.includes('three standing code-quality acceptance criteria'),
+  );
   assert.ok(audit.includes('restore it'));
   assert.ok(audit.includes('stop before commit'));
 

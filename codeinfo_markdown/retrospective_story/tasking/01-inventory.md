@@ -1,0 +1,7 @@
+# Inventory completed work and task boundaries
+
+Read `$CODEINFO_ROOT/codeinfo_markdown/retrospective_story/shared.md`, the exact current-plan handoff, the selected plan's story sections, and the target repository's instructions. Locate `planning/plan_format.md` using the shared template lookup order. Recheck the recorded comparison base, initial HEAD, current branch, all committed changes in that range, and any dirty files. Stop and report story-owned implementation that remains uncommitted. Do not select another plan or broaden the story scope.
+
+Build a concise inventory of implemented behaviors, changed files, existing proof files, commit SHAs, affected repositories, and meaningful dependencies. Group changes into the smallest coherent implementation tasks that cover every acceptance criterion and story-owned file without duplicating ownership. Identify historical test execution evidence separately from tests merely added to the branch. Inspect the three standing code-quality criteria against changed code and callers: no unused new code, high-level comments explaining what and why for substantive changes, and no pre-existing variables or parameters newly left unused. Report exact gaps; do not present them as finished work.
+
+This is an evidence and decomposition pass. Do not edit the plan, create tasks, commit, or push. The next pass must re-read the handoff and Git state rather than treating this summary as an immutable snapshot.

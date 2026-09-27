@@ -87,10 +87,38 @@
     },
     {
       "type": "llm",
-      "label": "Create completed implementation tasks and an open final validation task",
+      "label": "Inventory completed branch work and task boundaries",
       "agentType": "tasking_agent",
       "identifier": "retrospective_tasker",
-      "markdownFile": "retrospective_story/09-task-completed-work.md"
+      "markdownFile": "retrospective_story/tasking/01-inventory.md"
+    },
+    {
+      "type": "llm",
+      "label": "Create completed implementation tasks",
+      "agentType": "tasking_agent",
+      "identifier": "retrospective_tasker",
+      "markdownFile": "retrospective_story/tasking/02-completed-tasks.md"
+    },
+    {
+      "type": "llm",
+      "label": "Add the open final whole-story validation task",
+      "agentType": "tasking_agent",
+      "identifier": "retrospective_tasker",
+      "markdownFile": "retrospective_story/tasking/03-final-validation.md"
+    },
+    {
+      "type": "llm",
+      "label": "Check task coverage, proof, and final-task shape",
+      "agentType": "tasking_agent",
+      "identifier": "retrospective_tasker",
+      "markdownFile": "retrospective_story/tasking/04-check.md"
+    },
+    {
+      "type": "llm",
+      "label": "Repair tasking gaps found by the check",
+      "agentType": "tasking_agent",
+      "identifier": "retrospective_tasker",
+      "markdownFile": "retrospective_story/tasking/05-repair.md"
     },
     {
       "type": "llm",

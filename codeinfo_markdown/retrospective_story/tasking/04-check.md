@@ -1,0 +1,7 @@
+# Check task coverage and proof without editing
+
+Read `$CODEINFO_ROOT/codeinfo_markdown/retrospective_story/shared.md`, the exact current-plan handoff, the current plan, and fresh Git state. Run `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --plan <plan_path> --include-tasks`. Compare the base-to-initial-HEAD diff, story acceptance criteria, changed tests, and current source against every implementation task. Check ownership of each story-owned file and behavior, repository assignments, task dependencies, actual commit hashes, `#### Implementation notes`, and successful execution evidence for every checked Testing item. Check the three standing code-quality criteria against the changed code rather than assuming lint or comments prove them.
+
+Check that exactly one final task exists and is the sole open task. Its initial `#### Subtasks` may contain only supported lint and formatting checks after the required note; its unchecked `#### Testing` must cover every applicable full build, startup, full test suite, shutdown, lint, and formatting command; and its Manual Testing Guidance must describe applicable manual scenarios and screenshots without checkboxes. Inspect final-task command availability in each repository.
+
+Report a compact, concrete list of omissions, contradictions, unsupported claims, or format defects with exact task and section locations. Report `clean` only if none remain. Do not edit, commit, or push in this check pass; the next tasking pass owns repairs.

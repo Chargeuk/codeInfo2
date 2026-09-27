@@ -25,8 +25,8 @@
     {
       "type": "llm",
       "label": "Check the story description",
-      "agentType": "planning_agent",
-      "identifier": "retrospective_planner",
+      "agentType": "planning_agent_lite",
+      "identifier": "retrospective_planner_lite",
       "markdownFile": "retrospective_story/02-description.md"
     },
     {
@@ -39,8 +39,8 @@
     {
       "type": "llm",
       "label": "Check the out-of-scope boundaries",
-      "agentType": "planning_agent",
-      "identifier": "retrospective_planner",
+      "agentType": "planning_agent_lite",
+      "identifier": "retrospective_planner_lite",
       "markdownFile": "retrospective_story/04-out-of-scope.md"
     },
     {
@@ -53,8 +53,8 @@
     {
       "type": "llm",
       "label": "Check story-level manual testing guidance",
-      "agentType": "planning_agent",
-      "identifier": "retrospective_planner",
+      "agentType": "planning_agent_lite",
+      "identifier": "retrospective_planner_lite",
       "markdownFile": "retrospective_story/06-manual-guidance.md"
     },
     {
@@ -67,8 +67,8 @@
     {
       "type": "llm",
       "label": "Check implementation ideas against completed work",
-      "agentType": "planning_agent",
-      "identifier": "retrospective_planner",
+      "agentType": "planning_agent_lite",
+      "identifier": "retrospective_planner_lite",
       "markdownFile": "retrospective_story/08-implementation-ideas.md"
     },
     {
@@ -139,8 +139,8 @@
     {
       "type": "llm",
       "label": "Commit the story and attempt a push",
-      "agentType": "planning_agent",
-      "identifier": "retrospective_planner",
+      "agentType": "planning_agent_lite",
+      "identifier": "retrospective_planner_lite",
       "markdownFile": "retrospective_story/11-commit-and-push.md"
     },
     {

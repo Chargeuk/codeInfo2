@@ -37,16 +37,34 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     .filter((step) => step.type === 'llm')
     .map((step) => ({
       agent: step.agentType,
+      identifier: step.identifier,
       file: 'markdownFile' in step ? step.markdownFile : null,
     }));
   assert.deepEqual(
     prompts.map(({ agent }) => agent),
     [
-      ...Array(8).fill('planning_agent'),
+      'planning_agent',
+      'planning_agent_lite',
+      'planning_agent',
+      'planning_agent_lite',
+      'planning_agent',
+      'planning_agent_lite',
+      'planning_agent',
+      'planning_agent_lite',
       ...Array(5).fill('tasking_agent'),
       'planning_agent',
-      'planning_agent',
+      'planning_agent_lite',
     ],
+  );
+  assert.ok(
+    prompts
+      .filter(({ agent }) => agent === 'planning_agent_lite')
+      .every(({ identifier }) => identifier === 'retrospective_planner_lite'),
+  );
+  assert.ok(
+    steps
+      .filter((step) => step.type === 'break')
+      .every((step) => step.agentType === 'planning_agent'),
   );
   assert.deepEqual(
     prompts

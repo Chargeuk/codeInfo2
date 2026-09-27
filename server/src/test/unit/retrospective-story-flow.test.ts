@@ -28,8 +28,8 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     ]),
     [
       [0, 'working'],
-      [8, 'plan_scope'],
-      [16, 'plan_scope'],
+      [7, 'plan_scope'],
+      [15, 'plan_scope'],
     ],
   );
 
@@ -48,7 +48,6 @@ test('retrospective story flow reingests around distinct planning and tasking pa
       'planning_agent',
       'planning_agent_lite',
       'planning_agent',
-      'planning_agent_lite',
       'planning_agent_lite',
       'tasking_agent',
       'tasking_agent',
@@ -180,4 +179,37 @@ test('acceptance and audit passes enforce the three standing code-quality criter
       (step) => step.markdownFile !== 'retrospective_story/07-questions.md',
     ),
   );
+});
+
+test('retrospective scope stays tied to observed branch work for later review', () => {
+  const flow = JSON.parse(
+    read('flows/document_completed_branch_story.json'),
+  ) as {
+    steps: Array<{ markdownFile?: string }>;
+  };
+  assert.ok(
+    flow.steps.every(
+      (step) =>
+        step.markdownFile !== 'retrospective_story/08-implementation-ideas.md',
+    ),
+  );
+
+  const description = read(
+    'codeinfo_markdown/retrospective_story/02-description.md',
+  );
+  const outOfScope = read(
+    'codeinfo_markdown/retrospective_story/04-out-of-scope.md',
+  );
+  const inventory = read(
+    'codeinfo_markdown/retrospective_story/tasking/01-inventory.md',
+  );
+  const audit = read('codeinfo_markdown/retrospective_story/10-audit.md');
+  assert.ok(description.includes('Fill `## Implementation Ideas`'));
+  assert.ok(
+    outOfScope.includes(
+      'New user-facing behavior, unrelated pre-existing bugs',
+    ),
+  );
+  assert.ok(inventory.includes('observed changes'));
+  assert.ok(audit.includes('remove any inferred future behavior'));
 });

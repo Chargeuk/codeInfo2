@@ -15,21 +15,21 @@
     },
     {
       "type": "llm",
-      "label": "Check the story description",
+      "label": "Record delivered behavior and implementation map",
       "agentType": "planning_agent_lite",
       "identifier": "retrospective_planner_lite",
       "markdownFile": "retrospective_story/02-description.md"
     },
     {
       "type": "llm",
-      "label": "Check the acceptance criteria",
+      "label": "Record acceptance criteria for delivered behavior",
       "agentType": "planning_agent",
       "identifier": "retrospective_planner",
       "markdownFile": "retrospective_story/03-acceptance.md"
     },
     {
       "type": "llm",
-      "label": "Check the out-of-scope boundaries",
+      "label": "Lock retrospective scope for reviewers",
       "agentType": "planning_agent_lite",
       "identifier": "retrospective_planner_lite",
       "markdownFile": "retrospective_story/04-out-of-scope.md"
@@ -47,13 +47,6 @@
       "agentType": "planning_agent_lite",
       "identifier": "retrospective_planner_lite",
       "markdownFile": "retrospective_story/06-manual-guidance.md"
-    },
-    {
-      "type": "llm",
-      "label": "Check implementation ideas against completed work",
-      "agentType": "planning_agent_lite",
-      "identifier": "retrospective_planner_lite",
-      "markdownFile": "retrospective_story/08-implementation-ideas.md"
     },
     {
       "type": "reingest",

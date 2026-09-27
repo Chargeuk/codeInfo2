@@ -15,6 +15,13 @@
     },
     {
       "type": "llm",
+      "label": "Publish the selected story branch",
+      "agentType": "planning_agent_lite",
+      "identifier": "retrospective_planner_lite",
+      "markdownFile": "retrospective_story/01-publish-branch.md"
+    },
+    {
+      "type": "llm",
       "label": "Record delivered behavior and implementation map",
       "agentType": "planning_agent_lite",
       "identifier": "retrospective_planner_lite",

@@ -18,6 +18,13 @@ test('retrospective story flow reingests around distinct planning and tasking pa
   if (!parsed.ok) return;
 
   const steps = parsed.flow.steps;
+  assert.equal(steps[1]?.type, 'llm');
+  assert.equal(
+    steps[2]?.type === 'llm' && 'markdownFile' in steps[2]
+      ? steps[2].markdownFile
+      : null,
+    'retrospective_story/01-publish-branch.md',
+  );
   const reingestSteps = steps
     .map((step, index) => ({ step, index }))
     .filter(({ step }) => step.type === 'reingest');
@@ -28,8 +35,8 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     ]),
     [
       [0, 'working'],
-      [7, 'plan_scope'],
-      [15, 'plan_scope'],
+      [8, 'plan_scope'],
+      [16, 'plan_scope'],
     ],
   );
 
@@ -44,6 +51,7 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     prompts.map(({ agent }) => agent),
     [
       'planning_agent',
+      'planning_agent_lite',
       'planning_agent_lite',
       'planning_agent',
       'planning_agent_lite',
@@ -111,6 +119,12 @@ test('retrospective prompts preserve an open full-validation task and best-effor
   const publish = read(
     'codeinfo_markdown/retrospective_story/11-commit-and-push.md',
   );
+  const earlyPublish = read(
+    'codeinfo_markdown/retrospective_story/01-publish-branch.md',
+  );
+  const layout = read(
+    'codeinfo_markdown/retrospective_story/01-create-layout.md',
+  );
 
   for (const required of [
     'Task Status: __to_do__',
@@ -125,6 +139,10 @@ test('retrospective prompts preserve an open full-validation task and best-effor
   assert.ok(publish.includes('git diff --cached --check'));
   assert.ok(publish.includes('git push -u origin HEAD'));
   assert.ok(publish.includes('A commit or push failure is nonfatal'));
+  assert.ok(layout.includes('select_retrospective_story_number.py'));
+  assert.ok(earlyPublish.includes('--owned-plan'));
+  assert.ok(earlyPublish.includes('git push -u origin HEAD'));
+  assert.ok(earlyPublish.includes('A failed push is nonfatal'));
 });
 
 test('tasking uses separate inventory, creation, final task, check, and repair passes', () => {

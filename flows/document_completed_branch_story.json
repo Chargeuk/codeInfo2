@@ -14,15 +14,6 @@
       "markdownFile": "retrospective_story/01-create-layout.md"
     },
     {
-      "type": "break",
-      "label": "Stop if the retrospective story identity is unresolved",
-      "agentType": "planning_agent",
-      "identifier": "retrospective_planner",
-      "question": "Read codeInfoStatus/flow-state/current-plan.json and fresh Git state in the working repository. Answer yes if the selected new plan does not exist, the comparison base or initial HEAD is missing or ambiguous, the current branch does not match the plan's story number, the initial no-tasks layout is missing, or story-owned implementation remains uncommitted. Answer no only when all identity and layout checks pass. Return exact JSON only.",
-      "breakOn": "yes",
-      "haltFlow": true
-    },
-    {
       "type": "llm",
       "label": "Check the story description",
       "agentType": "planning_agent_lite",
@@ -59,26 +50,10 @@
     },
     {
       "type": "llm",
-      "label": "Resolve planning questions",
-      "agentType": "planning_agent",
-      "identifier": "retrospective_planner",
-      "markdownFile": "retrospective_story/07-questions.md"
-    },
-    {
-      "type": "llm",
       "label": "Check implementation ideas against completed work",
       "agentType": "planning_agent_lite",
       "identifier": "retrospective_planner_lite",
       "markdownFile": "retrospective_story/08-implementation-ideas.md"
-    },
-    {
-      "type": "break",
-      "label": "Stop if story sections are unresolved",
-      "agentType": "planning_agent",
-      "identifier": "retrospective_planner",
-      "question": "Read the exact plan from codeInfoStatus/flow-state/current-plan.json and fresh Git state. Answer yes if Questions contains a material unresolved question, any required no-tasks story section is missing, Acceptance Criteria lacks any of the three standing requirements on unused new code, high-level what/why comments, and pre-existing variables made unused, Additional Repositories disagrees with the handoff, or the branch/base identity is no longer valid. Answer no only when planning is ready for retrospective tasking. Return exact JSON only.",
-      "breakOn": "yes",
-      "haltFlow": true
     },
     {
       "type": "reingest",
@@ -126,15 +101,6 @@
       "agentType": "planning_agent",
       "identifier": "retrospective_planner",
       "markdownFile": "retrospective_story/10-audit.md"
-    },
-    {
-      "type": "break",
-      "label": "Stop if the retrospective task audit is incomplete",
-      "agentType": "planning_agent",
-      "identifier": "retrospective_planner",
-      "question": "Read the exact plan from codeInfoStatus/flow-state/current-plan.json, run plan_status.py with --plan and --include-tasks, and inspect current Git state. Answer yes if a substantive implementation task is open, there is not exactly one open final validation task, that final task has checked items or non-lint/format Subtasks, its full build/test/manual guidance is incomplete, changed implementation work lacks a task owner, or any of the three standing code-quality acceptance criteria is absent or contradicted by the changed code. Answer no only when the plan is ready to commit. Return exact JSON only.",
-      "breakOn": "yes",
-      "haltFlow": true
     },
     {
       "type": "llm",

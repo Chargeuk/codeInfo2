@@ -28,8 +28,8 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     ]),
     [
       [0, 'working'],
-      [11, 'plan_scope'],
-      [20, 'plan_scope'],
+      [8, 'plan_scope'],
+      [16, 'plan_scope'],
     ],
   );
 
@@ -49,7 +49,6 @@ test('retrospective story flow reingests around distinct planning and tasking pa
       'planning_agent_lite',
       'planning_agent',
       'planning_agent_lite',
-      'planning_agent',
       'planning_agent_lite',
       'tasking_agent',
       'tasking_agent',
@@ -65,11 +64,7 @@ test('retrospective story flow reingests around distinct planning and tasking pa
       .filter(({ agent }) => agent === 'planning_agent_lite')
       .every(({ identifier }) => identifier === 'retrospective_planner_lite'),
   );
-  assert.ok(
-    steps
-      .filter((step) => step.type === 'break')
-      .every((step) => step.agentType === 'planning_agent'),
-  );
+  assert.equal(steps.filter((step) => step.type === 'break').length, 0);
   assert.deepEqual(
     prompts
       .filter(({ agent }) => agent.startsWith('tasking_agent'))
@@ -93,10 +88,6 @@ test('retrospective story flow reingests around distinct planning and tasking pa
   }
   assert.equal(steps.at(-2)?.type, 'llm');
   assert.equal(steps.at(-1)?.type, 'reingest');
-  for (const step of steps.filter((candidate) => candidate.type === 'break')) {
-    assert.equal(step.breakOn, 'yes');
-    assert.equal(step.haltFlow, true);
-  }
 });
 
 test('lite tasker is available in both supported agent catalogs', () => {
@@ -134,7 +125,7 @@ test('retrospective prompts preserve an open full-validation task and best-effor
   assert.ok(audit.includes('final task is the only open task'));
   assert.ok(publish.includes('git diff --cached --check'));
   assert.ok(publish.includes('git push -u origin HEAD'));
-  assert.ok(publish.includes('A push failure is nonfatal'));
+  assert.ok(publish.includes('A commit or push failure is nonfatal'));
 });
 
 test('tasking uses separate inventory, creation, final task, check, and repair passes', () => {
@@ -157,9 +148,6 @@ test('acceptance and audit passes enforce the three standing code-quality criter
   const acceptance = read(
     'codeinfo_markdown/retrospective_story/03-acceptance.md',
   );
-  const questions = read(
-    'codeinfo_markdown/retrospective_story/07-questions.md',
-  );
   const tasking = read(
     'codeinfo_markdown/retrospective_story/tasking/02-completed-tasks.md',
   );
@@ -173,29 +161,23 @@ test('acceptance and audit passes enforce the three standing code-quality criter
     assert.ok(acceptance.includes(required), required);
   }
   assert.ok(acceptance.includes('record the concrete affected files'));
-  assert.ok(questions.includes('unresolved until the changed code itself'));
   assert.ok(
     tasking.includes('three standing code-quality acceptance criteria'),
   );
   assert.ok(audit.includes('restore it'));
-  assert.ok(audit.includes('stop before commit'));
+  assert.ok(
+    audit.includes('Preserve the distinction between observed implementation'),
+  );
 
   const flow = JSON.parse(
     read('flows/document_completed_branch_story.json'),
   ) as {
-    steps: Array<{ type: string; question?: string }>;
+    steps: Array<{ type: string; markdownFile?: string }>;
   };
-  const gateQuestions = flow.steps
-    .filter((step) => step.type === 'break')
-    .map((step) => step.question ?? '');
+  assert.ok(flow.steps.every((step) => step.type !== 'break'));
   assert.ok(
-    gateQuestions.some((question) =>
-      question.includes('three standing requirements'),
-    ),
-  );
-  assert.ok(
-    gateQuestions.some((question) =>
-      question.includes('three standing code-quality acceptance criteria'),
+    flow.steps.every(
+      (step) => step.markdownFile !== 'retrospective_story/07-questions.md',
     ),
   );
 });

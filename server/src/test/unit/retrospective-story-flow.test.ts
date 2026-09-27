@@ -251,3 +251,43 @@ test('retrospective steps recover inputs without a previous agent conversation',
     ),
   );
 });
+
+test('retrospective story sections and tasks use code, comments, and commit messages as evidence', () => {
+  const shared = read('codeinfo_markdown/retrospective_story/shared.md');
+  const description = read(
+    'codeinfo_markdown/retrospective_story/02-description.md',
+  );
+  const acceptance = read(
+    'codeinfo_markdown/retrospective_story/03-acceptance.md',
+  );
+  const outOfScope = read(
+    'codeinfo_markdown/retrospective_story/04-out-of-scope.md',
+  );
+  const inventory = read(
+    'codeinfo_markdown/retrospective_story/tasking/01-inventory.md',
+  );
+  const tasking = read(
+    'codeinfo_markdown/retrospective_story/tasking/02-completed-tasks.md',
+  );
+  const audit = read('codeinfo_markdown/retrospective_story/10-audit.md');
+
+  assert.ok(shared.includes('newly added or modified comments'));
+  assert.ok(
+    shared.includes('subject and body of relevant implementation commits'),
+  );
+  assert.ok(
+    shared.includes('verify against current code, tests, and the actual diff'),
+  );
+  for (const prompt of [
+    description,
+    acceptance,
+    outOfScope,
+    inventory,
+    tasking,
+    audit,
+  ]) {
+    assert.match(prompt, /comments/u);
+    assert.match(prompt, /commit (?:subjects and bodies|messages)/u);
+  }
+  assert.ok(tasking.includes('In Implementation notes'));
+});

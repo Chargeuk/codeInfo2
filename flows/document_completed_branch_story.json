@@ -1,0 +1,111 @@
+{
+  "description": "Document work already present on the current branch as a tasked story, leaving its final whole-story validation open.",
+  "steps": [
+    {
+      "type": "reingest",
+      "label": "Re-embed the working repository before branch research",
+      "target": "working"
+    },
+    {
+      "type": "llm",
+      "label": "Establish branch evidence and create the story layout",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/01-create-layout.md"
+    },
+    {
+      "type": "llm",
+      "label": "Record delivered behavior and implementation map",
+      "agentType": "planning_agent_lite",
+      "identifier": "retrospective_planner_lite",
+      "markdownFile": "retrospective_story/02-description.md"
+    },
+    {
+      "type": "llm",
+      "label": "Record acceptance criteria for delivered behavior",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/03-acceptance.md"
+    },
+    {
+      "type": "llm",
+      "label": "Lock retrospective scope for reviewers",
+      "agentType": "planning_agent_lite",
+      "identifier": "retrospective_planner_lite",
+      "markdownFile": "retrospective_story/04-out-of-scope.md"
+    },
+    {
+      "type": "llm",
+      "label": "Check additional repository scope",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/05-additional-repositories.md"
+    },
+    {
+      "type": "llm",
+      "label": "Check story-level manual testing guidance",
+      "agentType": "planning_agent_lite",
+      "identifier": "retrospective_planner_lite",
+      "markdownFile": "retrospective_story/06-manual-guidance.md"
+    },
+    {
+      "type": "reingest",
+      "label": "Re-embed the selected story and repository scope before tasking",
+      "target": "plan_scope"
+    },
+    {
+      "type": "llm",
+      "label": "Inventory completed branch work and task boundaries",
+      "agentType": "tasking_agent",
+      "identifier": "retrospective_tasker",
+      "markdownFile": "retrospective_story/tasking/01-inventory.md"
+    },
+    {
+      "type": "llm",
+      "label": "Create completed implementation tasks",
+      "agentType": "tasking_agent",
+      "identifier": "retrospective_tasker",
+      "markdownFile": "retrospective_story/tasking/02-completed-tasks.md"
+    },
+    {
+      "type": "llm",
+      "label": "Add the open final whole-story validation task",
+      "agentType": "tasking_agent_lite",
+      "identifier": "retrospective_tasker_lite",
+      "markdownFile": "retrospective_story/tasking/03-final-validation.md"
+    },
+    {
+      "type": "llm",
+      "label": "Check task coverage, proof, and final-task shape",
+      "agentType": "tasking_agent_lite",
+      "identifier": "retrospective_tasker_lite",
+      "markdownFile": "retrospective_story/tasking/04-check.md"
+    },
+    {
+      "type": "llm",
+      "label": "Repair tasking gaps found by the check",
+      "agentType": "tasking_agent_lite",
+      "identifier": "retrospective_tasker_lite",
+      "markdownFile": "retrospective_story/tasking/05-repair.md"
+    },
+    {
+      "type": "llm",
+      "label": "Audit the tasked story against Git evidence",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/10-audit.md"
+    },
+    {
+      "type": "llm",
+      "label": "Commit the story and attempt a push",
+      "agentType": "planning_agent_lite",
+      "identifier": "retrospective_planner_lite",
+      "markdownFile": "retrospective_story/11-commit-and-push.md"
+    },
+    {
+      "type": "reingest",
+      "label": "Re-embed the selected plan scope after the commit and push attempt",
+      "target": "plan_scope"
+    }
+  ]
+}

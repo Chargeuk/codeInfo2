@@ -84,6 +84,28 @@ class QuestionsSectionStatusTests(unittest.TestCase):
         self.assertFalse(status["has_added_numbered_questions"])
         self.assertFalse(status["has_edited_existing_questions"])
 
+    def test_evidence_limitations_do_not_become_planning_questions(self) -> None:
+        repo, handoff = self.make_repo(
+            """
+            ### Questions
+            - No Further Questions
+            """,
+            """
+            ### Questions
+            - No Further Questions
+            - Evidence limitation: Historical test execution could not be verified.
+            """,
+        )
+
+        status = questions_section_status.get_questions_section_status(
+            handoff=handoff,
+            repo_root=repo,
+        )
+
+        self.assertTrue(status["has_no_further_questions_line"])
+        self.assertFalse(status["has_real_questions"])
+        self.assertFalse(status["has_added_numbered_questions"])
+
     def test_reports_added_numbered_questions_vs_head(self) -> None:
         repo, handoff = self.make_repo(
             """

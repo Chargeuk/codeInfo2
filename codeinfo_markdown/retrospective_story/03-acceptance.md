@@ -1,0 +1,11 @@
+# Verify Acceptance Criteria
+
+Read `$CODEINFO_ROOT/codeinfo_markdown/retrospective_story/shared.md` and the selected plan's `### Acceptance Criteria`. Check each observable behavior in the supported base-to-initial-HEAD diff when available, changed tests, current implementation, newly added or modified comments, and relevant implementation commit subjects and bodies. Use the latter two to identify intended behavior and rationale, then verify every criterion against delivered code and tests. Write concise acceptance bullets for behavior actually delivered, including evidenced error and boundary behavior. Make clear that these criteria verify the delivered branch behavior; they do not authorize additional features or unrelated cleanup. Do not turn an unimplemented idea, adjacent bug, or unrun test into an acceptance claim. Update the section and recheck every bullet against concrete code or proof evidence.
+
+Always include acceptance criteria, in wording appropriate to the story, that require all three of these outcomes:
+
+- Newly added code is used: no unused variables, parameters, functions, statements, or redundant lines remain.
+- Substantive new or modified code has accurate high-level comments explaining both what it does and why the change was made.
+- Changes do not leave variables or parameters in previously existing code unused after their former use was removed or replaced.
+
+Inspect the changed code and its callers to check each outcome; do not treat the presence of a lint command or a comment as proof by itself. If an outcome is not met or cannot be verified, keep its acceptance criterion and record the concrete affected files and gap as an unnumbered `- Evidence limitation: ...` bullet under `### Questions`. Preserve `- No Further Questions` when the section contains no actual decision questions. Do not claim the criterion passed or remove it to make the plan appear complete. Continue tasking from supported implementation evidence, and leave the gap visible for final validation and repair.

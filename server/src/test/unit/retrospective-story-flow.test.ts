@@ -210,8 +210,12 @@ test('retrospective scope stays tied to observed branch work for later review', 
       'New user-facing behavior, unrelated pre-existing bugs',
     ),
   );
+  assert.ok(outOfScope.includes('For each delivered behavior or workflow'));
+  assert.ok(outOfScope.includes('concrete conceptual boundary'));
+  assert.ok(outOfScope.includes('shared file, subsystem, keyword'));
   assert.ok(inventory.includes('observed changes'));
-  assert.ok(audit.includes('remove any inferred future behavior'));
+  assert.ok(audit.includes('inferred future behavior'));
+  assert.ok(audit.includes('story-specific conceptual boundaries'));
 });
 
 test('retrospective steps recover inputs without a previous agent conversation', () => {

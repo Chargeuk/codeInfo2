@@ -295,3 +295,20 @@ test('retrospective story sections and tasks use code, comments, and commit mess
   }
   assert.ok(tasking.includes('In Implementation notes'));
 });
+
+test('retrospective evidence limits stay distinct from planning questions and final blockers', () => {
+  const shared = read('codeinfo_markdown/retrospective_story/shared.md');
+  const acceptance = read(
+    'codeinfo_markdown/retrospective_story/03-acceptance.md',
+  );
+  const finalTask = read(
+    'codeinfo_markdown/retrospective_story/tasking/03-final-validation.md',
+  );
+  const audit = read('codeinfo_markdown/retrospective_story/10-audit.md');
+
+  assert.ok(shared.includes('`- No Further Questions`'));
+  assert.ok(shared.includes('`- Evidence limitation: ...`'));
+  assert.ok(acceptance.includes('unnumbered `- Evidence limitation: ...`'));
+  assert.ok(finalTask.includes('`- **BLOCKER** ...`'));
+  assert.ok(audit.includes('matching live `- **BLOCKER**`'));
+});

@@ -1,0 +1,124 @@
+{
+  "description": "Document work already present on the current branch as a tasked story, leaving its final whole-story validation open.",
+  "steps": [
+    {
+      "type": "reingest",
+      "label": "Re-embed the working repository before branch research",
+      "target": "working"
+    },
+    {
+      "type": "llm",
+      "label": "Establish branch evidence and create the story layout",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/01-create-layout.md"
+    },
+    {
+      "type": "break",
+      "label": "Stop if the retrospective story identity is unresolved",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "question": "Read codeInfoStatus/flow-state/current-plan.json and fresh Git state in the working repository. Answer yes if the selected new plan does not exist, the comparison base or initial HEAD is missing or ambiguous, the current branch does not match the plan's story number, the initial no-tasks layout is missing, or story-owned implementation remains uncommitted. Answer no only when all identity and layout checks pass. Return exact JSON only.",
+      "breakOn": "yes",
+      "haltFlow": true
+    },
+    {
+      "type": "llm",
+      "label": "Check the story description",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/02-description.md"
+    },
+    {
+      "type": "llm",
+      "label": "Check the acceptance criteria",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/03-acceptance.md"
+    },
+    {
+      "type": "llm",
+      "label": "Check the out-of-scope boundaries",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/04-out-of-scope.md"
+    },
+    {
+      "type": "llm",
+      "label": "Check additional repository scope",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/05-additional-repositories.md"
+    },
+    {
+      "type": "llm",
+      "label": "Check story-level manual testing guidance",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/06-manual-guidance.md"
+    },
+    {
+      "type": "llm",
+      "label": "Resolve planning questions",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/07-questions.md"
+    },
+    {
+      "type": "llm",
+      "label": "Check implementation ideas against completed work",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/08-implementation-ideas.md"
+    },
+    {
+      "type": "break",
+      "label": "Stop if story sections are unresolved",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "question": "Read the exact plan from codeInfoStatus/flow-state/current-plan.json and fresh Git state. Answer yes if Questions contains a material unresolved question, any required no-tasks story section is missing, Additional Repositories disagrees with the handoff, or the branch/base identity is no longer valid. Answer no only when planning is ready for retrospective tasking. Return exact JSON only.",
+      "breakOn": "yes",
+      "haltFlow": true
+    },
+    {
+      "type": "reingest",
+      "label": "Re-embed the selected story and repository scope before tasking",
+      "target": "plan_scope"
+    },
+    {
+      "type": "llm",
+      "label": "Create completed implementation tasks and an open final validation task",
+      "agentType": "tasking_agent",
+      "identifier": "retrospective_tasker",
+      "markdownFile": "retrospective_story/09-task-completed-work.md"
+    },
+    {
+      "type": "llm",
+      "label": "Audit the tasked story against Git evidence",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/10-audit.md"
+    },
+    {
+      "type": "break",
+      "label": "Stop if the retrospective task audit is incomplete",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "question": "Read the exact plan from codeInfoStatus/flow-state/current-plan.json, run plan_status.py with --plan and --include-tasks, and inspect current Git state. Answer yes if a substantive implementation task is open, there is not exactly one open final validation task, that final task has checked items or non-lint/format Subtasks, its full build/test/manual guidance is incomplete, or changed implementation work lacks a task owner. Answer no only when the plan is ready to commit. Return exact JSON only.",
+      "breakOn": "yes",
+      "haltFlow": true
+    },
+    {
+      "type": "llm",
+      "label": "Commit the story and attempt a push",
+      "agentType": "planning_agent",
+      "identifier": "retrospective_planner",
+      "markdownFile": "retrospective_story/11-commit-and-push.md"
+    },
+    {
+      "type": "reingest",
+      "label": "Re-embed the committed plan scope after the push attempt",
+      "target": "plan_scope"
+    }
+  ]
+}

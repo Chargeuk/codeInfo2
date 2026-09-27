@@ -1,0 +1,3 @@
+# Verify Story Manual Testing Guidance
+
+Read `$CODEINFO_ROOT/codeinfo_markdown/retrospective_story/shared.md` and the selected plan's `### Story Manual Testing Guidance`. Inspect the changed user-facing surfaces and the repository's supported run instructions. Add short optional, checkbox-free guidance for later manual proof only where it applies. Name the relevant screens, APIs, or runtime behavior and supported startup path. For visual changes, say which final-state screenshots would be useful; the later final task owns the exact task-scoped scratch destination under ignored `codeInfoTmp/manual-testing/`. Keep this guidance advisory and do not claim manual proof happened.

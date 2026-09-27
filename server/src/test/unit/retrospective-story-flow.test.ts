@@ -144,6 +144,7 @@ test('retrospective prompts preserve an open full-validation task and best-effor
   }
   assert.ok(audit.includes('final task is the only open task'));
   assert.ok(publish.includes('git diff --cached --check'));
+  assert.ok(publish.includes('remove any `- **BLOCKER**` line'));
   assert.ok(publish.includes('git push -u origin HEAD'));
   assert.ok(publish.includes('A commit or push failure is nonfatal'));
   assert.ok(layout.includes('select_retrospective_story_number.py'));
@@ -162,6 +163,11 @@ test('tasking uses separate inventory, creation, final task, check, and repair p
 
   assert.ok(inventory.includes('Do not edit the plan'));
   assert.ok(completed.includes('Do not create the final validation task'));
+  assert.ok(
+    completed.includes(
+      'do not copy its generic instruction to record implementation blockers',
+    ),
+  );
   assert.ok(finalTask.includes('Append exactly one dedicated'));
   assert.ok(check.includes('Do not edit, commit, or push'));
   assert.ok(repair.includes('Repair concrete omissions and contradictions'));
@@ -184,14 +190,14 @@ test('acceptance and audit passes enforce test coverage and code-quality criteri
   ]) {
     assert.ok(acceptance.includes(required), required);
   }
-  assert.ok(acceptance.includes('record the concrete affected files'));
+  assert.ok(acceptance.includes('does not judge coverage'));
   assert.ok(
     acceptance.includes('Appropriate automated tests cover the new behavior'),
   );
   assert.ok(acceptance.includes('When the work is internal only'));
   assert.ok(acceptance.includes('no additional user-facing behavior'));
   assert.ok(tasking.includes('four standing acceptance requirements'));
-  assert.ok(audit.includes('restore it'));
+  assert.ok(audit.includes('Restore missing criteria'));
   assert.ok(audit.includes('appropriate automated test coverage'));
   assert.ok(
     audit.includes('Preserve the distinction between observed implementation'),
@@ -329,10 +335,16 @@ test('retrospective story sections and tasks use code, comments, and commit mess
   assert.ok(tasking.includes('In Implementation notes'));
 });
 
-test('retrospective evidence limits use existing sections and final blockers', () => {
+test('retrospective agents document provenance without creating blockers or review findings', () => {
   const shared = read('codeinfo_markdown/retrospective_story/shared.md');
   const acceptance = read(
     'codeinfo_markdown/retrospective_story/03-acceptance.md',
+  );
+  const check = read(
+    'codeinfo_markdown/retrospective_story/tasking/04-check.md',
+  );
+  const repair = read(
+    'codeinfo_markdown/retrospective_story/tasking/05-repair.md',
   );
   const finalTask = read(
     'codeinfo_markdown/retrospective_story/tasking/03-final-validation.md',
@@ -344,7 +356,21 @@ test('retrospective evidence limits use existing sections and final blockers', (
   assert.ok(
     shared.includes('Never build, execute tests, run lint or formatting tools'),
   );
-  assert.ok(acceptance.includes('evidence limit in this section'));
-  assert.ok(finalTask.includes('`- **BLOCKER** ...`'));
-  assert.ok(audit.includes('matching live `- **BLOCKER**`'));
+  assert.ok(
+    shared.includes('It is not a code review or a test-adequacy review'),
+  );
+  assert.ok(shared.includes('Do not add `- **BLOCKER**` lines'));
+  assert.ok(shared.includes('overrides blocker advice in `plan_format.md`'));
+  assert.ok(
+    acceptance.includes(
+      'Do not assess whether the code or test coverage passes',
+    ),
+  );
+  assert.ok(finalTask.includes('Do not add `- **BLOCKER**` lines'));
+  assert.ok(
+    check.includes('documentation consistency check, not a code review'),
+  );
+  assert.ok(check.includes('Flag any `- **BLOCKER**` line'));
+  assert.ok(repair.includes('Remove blocker lines'));
+  assert.ok(audit.includes('Remove every `- **BLOCKER**` line'));
 });

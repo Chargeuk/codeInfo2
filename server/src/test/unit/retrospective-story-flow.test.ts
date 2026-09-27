@@ -51,7 +51,11 @@ test('retrospective story flow reingests around distinct planning and tasking pa
       'planning_agent_lite',
       'planning_agent',
       'planning_agent_lite',
-      ...Array(5).fill('tasking_agent'),
+      'tasking_agent',
+      'tasking_agent',
+      'tasking_agent_lite',
+      'tasking_agent_lite',
+      'tasking_agent_lite',
       'planning_agent',
       'planning_agent_lite',
     ],
@@ -68,7 +72,7 @@ test('retrospective story flow reingests around distinct planning and tasking pa
   );
   assert.deepEqual(
     prompts
-      .filter(({ agent }) => agent === 'tasking_agent')
+      .filter(({ agent }) => agent.startsWith('tasking_agent'))
       .map(({ file }) => file),
     [
       'retrospective_story/tasking/01-inventory.md',
@@ -77,6 +81,11 @@ test('retrospective story flow reingests around distinct planning and tasking pa
       'retrospective_story/tasking/04-check.md',
       'retrospective_story/tasking/05-repair.md',
     ],
+  );
+  assert.ok(
+    prompts
+      .filter(({ agent }) => agent === 'tasking_agent_lite')
+      .every(({ identifier }) => identifier === 'retrospective_tasker_lite'),
   );
   for (const { file } of prompts) {
     assert.ok(file);
@@ -88,6 +97,20 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     assert.equal(step.breakOn, 'yes');
     assert.equal(step.haltFlow, true);
   }
+});
+
+test('lite tasker is available in both supported agent catalogs', () => {
+  const agent = 'tasking_agent_lite';
+  const catalogRoot = `codeinfo_agents/${agent}`;
+  const manualRoot = `manual_testing/codeinfo_agents/${agent}`;
+
+  for (const file of ['config.toml', 'system_prompt.txt', 'description.md']) {
+    assert.equal(read(`${catalogRoot}/${file}`), read(`${manualRoot}/${file}`));
+  }
+  const config = read(`${catalogRoot}/config.toml`);
+  assert.match(config, /^model = "gpt-6-luna"$/mu);
+  assert.match(config, /^model_reasoning_effort = "medium"$/mu);
+  assert.match(config, /^\[mcp_servers\.code_info\]$/mu);
 });
 
 test('retrospective prompts preserve an open full-validation task and best-effort push', () => {

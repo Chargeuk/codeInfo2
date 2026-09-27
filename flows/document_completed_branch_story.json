@@ -102,22 +102,22 @@
     {
       "type": "llm",
       "label": "Add the open final whole-story validation task",
-      "agentType": "tasking_agent",
-      "identifier": "retrospective_tasker",
+      "agentType": "tasking_agent_lite",
+      "identifier": "retrospective_tasker_lite",
       "markdownFile": "retrospective_story/tasking/03-final-validation.md"
     },
     {
       "type": "llm",
       "label": "Check task coverage, proof, and final-task shape",
-      "agentType": "tasking_agent",
-      "identifier": "retrospective_tasker",
+      "agentType": "tasking_agent_lite",
+      "identifier": "retrospective_tasker_lite",
       "markdownFile": "retrospective_story/tasking/04-check.md"
     },
     {
       "type": "llm",
       "label": "Repair tasking gaps found by the check",
-      "agentType": "tasking_agent",
-      "identifier": "retrospective_tasker",
+      "agentType": "tasking_agent_lite",
+      "identifier": "retrospective_tasker_lite",
       "markdownFile": "retrospective_story/tasking/05-repair.md"
     },
     {

@@ -83,3 +83,48 @@ test('retrospective prompts preserve an open full-validation task and best-effor
   assert.ok(publish.includes('git push -u origin HEAD'));
   assert.ok(publish.includes('A push failure is nonfatal'));
 });
+
+test('acceptance and audit passes enforce the three standing code-quality criteria', () => {
+  const acceptance = read(
+    'codeinfo_markdown/retrospective_story/03-acceptance.md',
+  );
+  const questions = read(
+    'codeinfo_markdown/retrospective_story/07-questions.md',
+  );
+  const tasking = read(
+    'codeinfo_markdown/retrospective_story/09-task-completed-work.md',
+  );
+  const audit = read('codeinfo_markdown/retrospective_story/10-audit.md');
+
+  for (const required of [
+    'no unused variables, parameters, functions, statements, or redundant lines',
+    'both what it does and why the change was made',
+    'previously existing code unused',
+  ]) {
+    assert.ok(acceptance.includes(required), required);
+  }
+  assert.ok(acceptance.includes('record the concrete affected files'));
+  assert.ok(questions.includes('unresolved until the changed code itself'));
+  assert.ok(tasking.includes('Before marking implementation tasks done'));
+  assert.ok(audit.includes('restore it'));
+  assert.ok(audit.includes('stop before commit'));
+
+  const flow = JSON.parse(
+    read('flows/document_completed_branch_story.json'),
+  ) as {
+    steps: Array<{ type: string; question?: string }>;
+  };
+  const gateQuestions = flow.steps
+    .filter((step) => step.type === 'break')
+    .map((step) => step.question ?? '');
+  assert.ok(
+    gateQuestions.some((question) =>
+      question.includes('three standing requirements'),
+    ),
+  );
+  assert.ok(
+    gateQuestions.some((question) =>
+      question.includes('three standing code-quality acceptance criteria'),
+    ),
+  );
+});

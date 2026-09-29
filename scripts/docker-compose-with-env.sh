@@ -349,6 +349,42 @@ render_compose_config_json() {
   docker_cmd compose "${COMPOSE_OPTIONS[@]}" config --format json
 }
 
+add_optional_local_share_if_available() {
+  if [ "$(compose_profile_for_files)" != "local" ]; then
+    return 0
+  fi
+
+  local share_path wrapper_root
+  # Let Compose resolve dotenv quoting and --env-file precedence; never source env files as shell code.
+  if ! share_path="$(docker_cmd compose "${COMPOSE_OPTIONS[@]}" config --environment | node -e '
+let input = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (chunk) => { input += chunk; });
+process.stdin.on("end", () => {
+  const prefix = "CODEINFO_OPTIONAL_SHARE_PATH=";
+  const line = input.split(/\r?\n/).find((entry) => entry.startsWith(prefix));
+  if (line) process.stdout.write(line.slice(prefix.length));
+});
+')"; then
+    printf '%s\n' 'CODEINFO compose wrapper failed: unable to resolve Compose interpolation environment.' >&2
+    return 1
+  fi
+
+  if [ -z "${share_path//[[:space:]]/}" ]; then
+    return 0
+  fi
+
+  wrapper_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  if ! timeout 10s node "${wrapper_root}/scripts/check-optional-share.mjs" "${share_path}" 2>/dev/null; then
+    printf '%s\n' 'Warning: optional network share unavailable; continuing without its bind mount.' >&2
+    return 0
+  fi
+
+  COMPOSE_OPTIONS+=(-f "${wrapper_root}/docker-compose.optional-share.yml")
+  COMPOSE_FILES+=("${wrapper_root}/docker-compose.optional-share.yml")
+  COMPOSE_FINAL_ARGS=("${COMPOSE_OPTIONS[@]}" "${COMPOSE_SUBCOMMAND}" "${COMPOSE_SUBCOMMAND_ARGS[@]}")
+}
+
 inspect_compose_config_json() {
   node -e '
 let input = "";
@@ -757,6 +793,7 @@ run_compose_preflight_if_needed() {
 }
 
 parse_compose_args "$@"
+COMPOSE_FINAL_ARGS=("$@")
 ensure_optional_local_env_files_exist
 ensure_repo_bind_mount_dirs_for_profile
 
@@ -823,6 +860,7 @@ else
   export CODEINFO_RUNTIME_ENV_FILE_SOURCE="unchanged"
 fi
 
+add_optional_local_share_if_available
 run_compose_preflight_if_needed
 
-exec "${DOCKER_BIN}" compose "$@"
+exec "${DOCKER_BIN}" compose "${COMPOSE_FINAL_ARGS[@]}"

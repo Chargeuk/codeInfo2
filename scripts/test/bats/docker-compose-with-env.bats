@@ -32,6 +32,39 @@ codeinfo2_run_compose_wrapper() {
     up -d
 }
 
+codeinfo2_make_darwin_share_fixture() {
+  local fixture_bin="$1"
+  mkdir -p "${fixture_bin}"
+  cat > "${fixture_bin}/uname" <<'EOF'
+#!/bin/sh
+printf 'Darwin\n'
+EOF
+  cat > "${fixture_bin}/mount" <<'EOF'
+#!/bin/sh
+sleep "${CODEINFO_TEST_MOUNT_DELAY:-0}"
+printf '%s\n' "${CODEINFO_TEST_MOUNT_OUTPUT}"
+EOF
+  printf '%s\n' 'Object.defineProperty(process, "platform", { value: "darwin" });' > "${fixture_bin}/darwin.cjs"
+  chmod +x "${fixture_bin}/uname" "${fixture_bin}/mount"
+}
+
+codeinfo2_make_linux_share_fixture() {
+  local fixture_bin="$1"
+  mkdir -p "${fixture_bin}"
+  cat > "${fixture_bin}/uname" <<'EOF'
+#!/bin/sh
+printf 'Linux\n'
+EOF
+  # The Linux wrapper invokes GNU timeout, which is absent on macOS test hosts.
+  cat > "${fixture_bin}/timeout" <<'EOF'
+#!/bin/sh
+shift
+exec "$@"
+EOF
+  printf '%s\n' 'Object.defineProperty(process, "platform", { value: "linux" });' > "${fixture_bin}/linux.cjs"
+  chmod +x "${fixture_bin}/uname" "${fixture_bin}/timeout"
+}
+
 @test "compose wrapper fails before startup when host networking is unsupported" {
   codeinfo2_run_compose_wrapper \
     docker-compose.local.yml \
@@ -157,6 +190,7 @@ codeinfo2_run_compose_wrapper() {
 printf '%s\n' '{"filesystems":[{"source":"\\x5c\\x5cfileserver\\x5cShared","fstype":"9p","options":"'"${CODEINFO_TEST_SHARE_MODE}"',relatime,aname=drvfs;path=UNC\\x5cfileserver\\x5cShared;uid=1000"}]}'
 EOF
   chmod +x "${fixture_bin}/findmnt"
+  codeinfo2_make_linux_share_fixture "${fixture_bin}"
 
   local mode
   for mode in ro rw; do
@@ -165,6 +199,7 @@ EOF
       host-network-local-valid.json \
       CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
       "PATH=${fixture_bin}:${PATH}" \
+      "NODE_OPTIONS=--require=${fixture_bin}/linux.cjs" \
       "CODEINFO_TEST_SHARE_MODE=${mode}" \
       "CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT=CODEINFO_OPTIONAL_SHARE_PATH=${share_path}"
 
@@ -186,6 +221,7 @@ EOF
 printf '%s\n' "${CODEINFO_TEST_FINDMNT_JSON}"
 EOF
   chmod +x "${fixture_bin}/findmnt"
+  codeinfo2_make_linux_share_fixture "${fixture_bin}"
 
   local fixture
   for fixture in \
@@ -196,6 +232,7 @@ EOF
       host-network-local-valid.json \
       CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
       "PATH=${fixture_bin}:${PATH}" \
+      "NODE_OPTIONS=--require=${fixture_bin}/linux.cjs" \
       "CODEINFO_TEST_FINDMNT_JSON=${fixture}" \
       "CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT=CODEINFO_OPTIONAL_SHARE_PATH=${share_path}"
 
@@ -204,6 +241,53 @@ EOF
     run grep -F 'docker-compose.optional-share.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
     assert_failure
   done
+}
+
+@test "optional local share accepts an exact macOS SMB or NFS mountpoint" {
+  local share_path fixture_bin mount_type
+  share_path="${CODEINFO2_TASK9_TMPDIR}/network share"
+  fixture_bin="${CODEINFO2_TASK9_TMPDIR}/darwin-bin"
+  mkdir -p "${share_path}"
+  codeinfo2_make_darwin_share_fixture "${fixture_bin}"
+
+  for mount_type in smbfs nfs; do
+    codeinfo2_run_compose_wrapper \
+      docker-compose.local.yml \
+      host-network-local-valid.json \
+      CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+      "PATH=${fixture_bin}:${PATH}" \
+      "NODE_OPTIONS=--require=${fixture_bin}/darwin.cjs" \
+      "CODEINFO_TEST_MOUNT_OUTPUT=//server/share on ${share_path} (${mount_type}, nodev)" \
+      "CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT=CODEINFO_OPTIONAL_SHARE_PATH=${share_path}"
+
+    assert_success
+    refute_output --partial "optional network share unavailable"
+    run grep -F 'docker-compose.optional-share.yml up -d' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_success
+  done
+}
+
+@test "optional local share times out a stalled macOS mount check and keeps base config" {
+  local share_path fixture_bin
+  share_path="${CODEINFO2_TASK9_TMPDIR}/network share"
+  fixture_bin="${CODEINFO2_TASK9_TMPDIR}/darwin-bin"
+  mkdir -p "${share_path}"
+  codeinfo2_make_darwin_share_fixture "${fixture_bin}"
+
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    "PATH=${fixture_bin}:${PATH}" \
+    "NODE_OPTIONS=--require=${fixture_bin}/darwin.cjs" \
+    CODEINFO_TEST_MOUNT_DELAY=12 \
+    "CODEINFO_TEST_MOUNT_OUTPUT=//server/share on ${share_path} (smbfs, nodev)" \
+    "CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT=CODEINFO_OPTIONAL_SHARE_PATH=${share_path}"
+
+  assert_success
+  assert_output --partial "optional network share unavailable"
+  run grep -F 'docker-compose.optional-share.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_failure
 }
 
 @test "compose wrapper preserves explicit display locale and time-zone overrides" {

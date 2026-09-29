@@ -375,9 +375,23 @@ process.stdin.on("end", () => {
   fi
 
   wrapper_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-  if ! timeout 10s node "${wrapper_root}/scripts/check-optional-share.mjs" "${share_path}" 2>/dev/null; then
-    printf '%s\n' 'Warning: optional network share unavailable; continuing without its bind mount.' >&2
-    return 0
+  if [ "${HOST_OS}" = "Darwin" ]; then
+    # macOS has no GNU timeout; a separate Node process can stop a blocked sync mount probe.
+    if ! node -e '
+const { spawn } = require("node:child_process");
+const child = spawn(process.execPath, process.argv.slice(1), { stdio: "ignore" });
+const timer = setTimeout(() => child.kill("SIGKILL"), 10_000);
+child.once("error", () => { clearTimeout(timer); process.exitCode = 1; });
+child.once("exit", (code) => { clearTimeout(timer); process.exitCode = code === 0 ? 0 : 1; });
+' "${wrapper_root}/scripts/check-optional-share.mjs" "${share_path}" 2>/dev/null; then
+      printf '%s\n' 'Warning: optional network share unavailable; continuing without its bind mount.' >&2
+      return 0
+    fi
+  else
+    if ! timeout 10s node "${wrapper_root}/scripts/check-optional-share.mjs" "${share_path}" 2>/dev/null; then
+      printf '%s\n' 'Warning: optional network share unavailable; continuing without its bind mount.' >&2
+      return 0
+    fi
   fi
 
   COMPOSE_OPTIONS+=(-f "${wrapper_root}/docker-compose.optional-share.yml")

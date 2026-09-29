@@ -28,13 +28,14 @@ try {
   if (process.platform === 'darwin') {
     const output = execFileSync('mount', { encoding: 'utf8' });
     available = output.split('\n').some((line) => {
-      const mount = line.match(/^.+ on (.+) \((smbfs|nfs)(?:,|\))/);
+      const mount = line.match(/ \((smbfs|nfs)(?:,[^)]*)?\)$/);
       if (!mount) return false;
+      // Match the literal path at the end; " on " can also occur in source or target names.
       // macOS mount output may escape spaces in mountpoint names as octal bytes.
-      const mountPath = mount[1].replace(/\\([0-7]{3})/g, (_, octal) =>
+      const mountRecord = line.slice(0, mount.index).replace(/\\([0-7]{3})/g, (_, octal) =>
         String.fromCharCode(Number.parseInt(octal, 8)),
       );
-      return mountPath === sharePath;
+      return mountRecord.endsWith(` on ${sharePath}`);
     });
   } else {
     const output = execFileSync(

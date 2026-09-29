@@ -32,12 +32,8 @@ try {
     const source = decode(mount.source);
     const options = decode(mount.options).split(',');
     if (['nfs', 'nfs4', 'cifs'].includes(mount.fstype)) return true;
-    if (
-      mount.fstype !== '9p' ||
-      !source.startsWith('\\\\') ||
-      !options.includes('ro')
-    )
-      return false;
+    // Compose makes the container bind read-only regardless of the host mount mode.
+    if (mount.fstype !== '9p' || !source.startsWith('\\\\')) return false;
 
     // WSL reports UNC drvfs mounts as 9p above an autofs mount at the same path.
     const aname = `aname=drvfs;path=UNC${source.slice(1)}`;

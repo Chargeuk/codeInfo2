@@ -396,7 +396,11 @@ child.once("exit", (code) => { clearTimeout(timer); process.exitCode = code === 
 
   COMPOSE_OPTIONS+=(-f "${wrapper_root}/docker-compose.optional-share.yml")
   COMPOSE_FILES+=("${wrapper_root}/docker-compose.optional-share.yml")
-  COMPOSE_FINAL_ARGS=("${COMPOSE_OPTIONS[@]}" "${COMPOSE_SUBCOMMAND}" "${COMPOSE_SUBCOMMAND_ARGS[@]}")
+  COMPOSE_FINAL_ARGS=("${COMPOSE_OPTIONS[@]}" "${COMPOSE_SUBCOMMAND}")
+  # Bash 3.2 treats expansion of an empty array as unbound under set -u.
+  if [ "${#COMPOSE_SUBCOMMAND_ARGS[@]}" -gt 0 ]; then
+    COMPOSE_FINAL_ARGS+=("${COMPOSE_SUBCOMMAND_ARGS[@]}")
+  fi
 }
 
 inspect_compose_config_json() {

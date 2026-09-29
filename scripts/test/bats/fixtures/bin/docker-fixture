@@ -47,6 +47,11 @@ case "${1:-}" in
       exit 0
     fi
 
+    if [ -n "${CODEINFO_TEST_DOCKER_EXPECT_FINAL_ARG:-}" ] && [ "${@: -1}" != "${CODEINFO_TEST_DOCKER_EXPECT_FINAL_ARG}" ]; then
+      printf '%s\n' 'docker-fixture: final argument was not preserved' >&2
+      exit 2
+    fi
+
     printf '%s\n' "${CODEINFO_TEST_DOCKER_COMPOSE_STDOUT:-fake compose execution}"
     exit "${CODEINFO_TEST_DOCKER_COMPOSE_EXIT_CODE:-0}"
     ;;

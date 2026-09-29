@@ -48,6 +48,28 @@ EOF
   chmod +x "${fixture_bin}/uname" "${fixture_bin}/mount"
 }
 
+codeinfo2_run_system_bash_optional_share() {
+  local fixture_bin="$1" share_path="$2"
+  shift 2
+
+  run env \
+    CODEINFO_DOCKER_BIN="${CODEINFO2_DOCKER_FIXTURE_BIN}" \
+    CODEINFO_TEST_DOCKER_COMPOSE_CONFIG_JSON="${CODEINFO2_COMPOSE_FIXTURE_DIR}/host-network-local-valid.json" \
+    CODEINFO_TEST_DOCKER_FIXTURE_LOG="${CODEINFO_TEST_DOCKER_FIXTURE_LOG}" \
+    "CODEINFO_TEST_DOCKER_EXPECT_FINAL_ARG=${CODEINFO_TEST_DOCKER_EXPECT_FINAL_ARG:-}" \
+    CODEINFO_TEST_DISABLE_REAL_PORT_CHECKS=1 \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    "PATH=${fixture_bin}:${PATH}" \
+    "NODE_OPTIONS=--require=${fixture_bin}/darwin.cjs" \
+    "CODEINFO_TEST_MOUNT_OUTPUT=//server/share on ${share_path} (smbfs, nodev)" \
+    "CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT=CODEINFO_OPTIONAL_SHARE_PATH=${share_path}" \
+    /bin/bash "${CODEINFO2_REPO_ROOT}/scripts/docker-compose-with-env.sh" \
+    --env-file server/.env \
+    --env-file server/.env.local \
+    -f docker-compose.local.yml \
+    "$@"
+}
+
 codeinfo2_make_linux_share_fixture() {
   local fixture_bin="$1"
   mkdir -p "${fixture_bin}"
@@ -288,6 +310,36 @@ EOF
   assert_output --partial "optional network share unavailable"
   run grep -F 'docker-compose.optional-share.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
   assert_failure
+}
+
+@test "optional share forwards no-tail down and build under macOS system Bash" {
+  local share_path fixture_bin command
+  share_path="${CODEINFO2_TASK9_TMPDIR}/network share"
+  fixture_bin="${CODEINFO2_TASK9_TMPDIR}/darwin-bin"
+  mkdir -p "${share_path}"
+  codeinfo2_make_darwin_share_fixture "${fixture_bin}"
+
+  for command in down build; do
+    codeinfo2_run_system_bash_optional_share "${fixture_bin}" "${share_path}" "${command}"
+    assert_success
+    run grep -F "docker-compose.optional-share.yml ${command}" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_success
+  done
+}
+
+@test "optional share preserves a spaced build argument under macOS system Bash" {
+  local share_path fixture_bin
+  share_path="${CODEINFO2_TASK9_TMPDIR}/network share"
+  fixture_bin="${CODEINFO2_TASK9_TMPDIR}/darwin-bin"
+  mkdir -p "${share_path}"
+  codeinfo2_make_darwin_share_fixture "${fixture_bin}"
+
+  CODEINFO_TEST_DOCKER_EXPECT_FINAL_ARG='SHARE_LABEL=network files' \
+    codeinfo2_run_system_bash_optional_share "${fixture_bin}" "${share_path}" \
+      build --build-arg 'SHARE_LABEL=network files'
+  assert_success
+  run grep -F 'docker-compose.optional-share.yml build --build-arg SHARE_LABEL=network files' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_success
 }
 
 @test "compose wrapper preserves explicit display locale and time-zone overrides" {

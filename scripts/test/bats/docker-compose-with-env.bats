@@ -92,6 +92,110 @@ codeinfo2_run_compose_wrapper() {
   assert_success
 }
 
+@test "optional local share stays disabled when the resolved setting is absent" {
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1
+
+  assert_success
+  refute_output --partial "optional network share unavailable"
+  run grep -F 'docker-compose.optional-share.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_failure
+}
+
+@test "optional local share stays disabled when the resolved setting is blank" {
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    'CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT=CODEINFO_OPTIONAL_SHARE_PATH=   '
+
+  assert_success
+  refute_output --partial "optional network share unavailable"
+  run grep -F 'docker-compose.optional-share.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_failure
+}
+
+@test "optional local share does not hide Compose environment errors" {
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_EXIT_CODE=1
+
+  assert_failure
+  assert_output --partial "unable to resolve Compose interpolation environment"
+  run grep -F ' up -d' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_failure
+}
+
+@test "optional local share warns and keeps base config for an empty unmounted directory" {
+  local share_path
+  share_path="${CODEINFO2_TASK9_TMPDIR}/empty share"
+  mkdir -p "${share_path}"
+
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    "CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT=CODEINFO_OPTIONAL_SHARE_PATH=${share_path}"
+
+  assert_success
+  assert_output --partial "optional network share unavailable"
+  run grep -F 'docker-compose.optional-share.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_failure
+}
+
+@test "optional local share accepts escaped WSL 9p metadata and preserves spaces" {
+  local share_path fixture_bin
+  share_path="${CODEINFO2_TASK9_TMPDIR}/network share"
+  fixture_bin="${CODEINFO2_TASK9_TMPDIR}/bin"
+  mkdir -p "${share_path}" "${fixture_bin}"
+  cat > "${fixture_bin}/findmnt" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' '{"filesystems":[{"source":"\\x5c\\x5cfileserver\\x5cShared","fstype":"9p","options":"ro,relatime,aname=drvfs;path=UNC\\x5cfileserver\\x5cShared;uid=1000"}]}'
+EOF
+  chmod +x "${fixture_bin}/findmnt"
+
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    "PATH=${fixture_bin}:${PATH}" \
+    "CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT=CODEINFO_OPTIONAL_SHARE_PATH=${share_path}"
+
+  assert_success
+  refute_output --partial "optional network share unavailable"
+  assert_output --partial 'docker-compose.optional-share.yml'
+  run grep -F 'docker-compose.optional-share.yml up -d' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_success
+}
+
+@test "optional local share rejects 9p mounts without UNC drvfs metadata" {
+  local share_path fixture_bin
+  share_path="${CODEINFO2_TASK9_TMPDIR}/other 9p"
+  fixture_bin="${CODEINFO2_TASK9_TMPDIR}/bin"
+  mkdir -p "${share_path}" "${fixture_bin}"
+  cat > "${fixture_bin}/findmnt" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' '{"filesystems":[{"source":"localshare","fstype":"9p","options":"rw,relatime"}]}'
+EOF
+  chmod +x "${fixture_bin}/findmnt"
+
+  codeinfo2_run_compose_wrapper \
+    docker-compose.local.yml \
+    host-network-local-valid.json \
+    CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    "PATH=${fixture_bin}:${PATH}" \
+    "CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT=CODEINFO_OPTIONAL_SHARE_PATH=${share_path}"
+
+  assert_success
+  assert_output --partial "optional network share unavailable"
+  run grep -F 'docker-compose.optional-share.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_failure
+}
+
 @test "compose wrapper preserves explicit display locale and time-zone overrides" {
   codeinfo2_run_compose_wrapper \
     docker-compose.local.yml \

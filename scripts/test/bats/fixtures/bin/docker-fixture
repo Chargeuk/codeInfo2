@@ -34,6 +34,10 @@ case "${1:-}" in
   compose)
     shift
     compose_args=" $* "
+    if [[ "${compose_args}" == *" config --environment "* ]]; then
+      printf '%s' "${CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT:-}"
+      exit "${CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_EXIT_CODE:-0}"
+    fi
     if [[ "${compose_args}" == *" config --format json "* ]]; then
       if [ -z "${CODEINFO_TEST_DOCKER_COMPOSE_CONFIG_JSON:-}" ]; then
         echo "docker-fixture: CODEINFO_TEST_DOCKER_COMPOSE_CONFIG_JSON is required for compose config" >&2

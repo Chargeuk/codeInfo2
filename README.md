@@ -102,6 +102,12 @@ compose:local -> edit server/.env.local and client/.env.local
 e2e -> edit .env.e2e
 ```
 
+For an optional read-only network share in the local server, set
+`CODEINFO_OPTIONAL_SHARE_PATH=/absolute/mountpoint` in `server/.env.local`. Leave it
+unset to keep the standard mounts. The wrapper supports Linux NFS/CIFS mounts and
+WSL UNC drvfs mounts reported as 9p; it checks access for up to 10 seconds and
+warns while continuing without the extra bind if the share is unavailable.
+
 For e2e specifically, `.env.e2e` is used for compose interpolation values. Container runtime defaults still come from `server/.env.e2e` and `client/.env.e2e`.
 
 Client env contract:

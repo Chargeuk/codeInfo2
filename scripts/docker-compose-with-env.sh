@@ -375,14 +375,39 @@ process.stdin.on("end", () => {
   fi
 
   wrapper_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-  if ! timeout 10s node "${wrapper_root}/scripts/check-optional-share.mjs" "${share_path}" 2>/dev/null; then
-    printf '%s\n' 'Warning: optional network share unavailable; continuing without its bind mount.' >&2
-    return 0
+  if [ "${HOST_OS}" = "Darwin" ]; then
+    # macOS has no GNU timeout; isolate the checker so a blocked mount descendant dies too.
+    if ! node -e '
+const { spawn } = require("node:child_process");
+const child = spawn(process.execPath, process.argv.slice(1), { stdio: "ignore", detached: true });
+let timedOut = false;
+const timer = setTimeout(() => {
+  timedOut = true;
+  if (child.pid) {
+    try { process.kill(-child.pid, "SIGKILL"); } catch { /* Already exited or failed to spawn. */ }
+  }
+  process.exitCode = 1;
+}, 10_000);
+child.once("error", () => { clearTimeout(timer); process.exitCode = 1; });
+child.once("exit", (code) => { clearTimeout(timer); process.exitCode = !timedOut && code === 0 ? 0 : 1; });
+' "${wrapper_root}/scripts/check-optional-share.mjs" "${share_path}" 2>/dev/null; then
+      printf '%s\n' 'Warning: optional network share unavailable; continuing without its bind mount.' >&2
+      return 0
+    fi
+  else
+    if ! timeout 10s node "${wrapper_root}/scripts/check-optional-share.mjs" "${share_path}" 2>/dev/null; then
+      printf '%s\n' 'Warning: optional network share unavailable; continuing without its bind mount.' >&2
+      return 0
+    fi
   fi
 
   COMPOSE_OPTIONS+=(-f "${wrapper_root}/docker-compose.optional-share.yml")
   COMPOSE_FILES+=("${wrapper_root}/docker-compose.optional-share.yml")
-  COMPOSE_FINAL_ARGS=("${COMPOSE_OPTIONS[@]}" "${COMPOSE_SUBCOMMAND}" "${COMPOSE_SUBCOMMAND_ARGS[@]}")
+  COMPOSE_FINAL_ARGS=("${COMPOSE_OPTIONS[@]}" "${COMPOSE_SUBCOMMAND}")
+  # Bash 3.2 treats expansion of an empty array as unbound under set -u.
+  if [ "${#COMPOSE_SUBCOMMAND_ARGS[@]}" -gt 0 ]; then
+    COMPOSE_FINAL_ARGS+=("${COMPOSE_SUBCOMMAND_ARGS[@]}")
+  fi
 }
 
 inspect_compose_config_json() {

@@ -52,6 +52,14 @@ export interface TurnRuntimeMetadata {
   replay?: TurnReplayMetadata;
 }
 
+// Native IDs describe provider history, never CodeInfo run ownership.
+export interface TurnNativeMetadata {
+  sessionId: string;
+  turnId?: string;
+  eventId?: string;
+  estimated?: boolean;
+}
+
 export interface Turn {
   conversationId: string;
   role: TurnRole;
@@ -65,6 +73,9 @@ export interface Turn {
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
   runtime?: TurnRuntimeMetadata;
+  native?: TurnNativeMetadata;
+  displayOrder?: number;
+  fork?: { sourceTurnId?: string; handover?: boolean };
   createdAt: Date;
 }
 
@@ -151,6 +162,9 @@ const turnSchema = new Schema<Turn>(
     usage: { type: turnUsageSchema, required: false },
     timing: { type: turnTimingSchema, required: false },
     runtime: { type: turnRuntimeSchema, required: false },
+    native: { type: Schema.Types.Mixed, required: false },
+    displayOrder: { type: Number, required: false },
+    fork: { type: Schema.Types.Mixed, required: false },
     createdAt: { type: Date, required: true, default: () => new Date() },
   },
   { timestamps: false },

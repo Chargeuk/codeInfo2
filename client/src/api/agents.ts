@@ -552,3 +552,59 @@ export async function listAgentPrompts(params: {
     throw error;
   }
 }
+
+export type AgentForkOptions = {
+  sourceTurnId?: string;
+  sourceTitle: string;
+  sourceAgentName: string;
+  agents: Array<{ name: string; sameAgent: boolean }>;
+  estimated: boolean;
+};
+export type AgentForkResult = {
+  conversationId: string;
+  agentName: string;
+  model: string;
+  workingFolder?: string;
+  estimated: boolean;
+};
+
+export async function getAgentForkOptions(
+  conversationId: string,
+  sourceTurnId?: string,
+): Promise<AgentForkOptions> {
+  const url = new URL(
+    `/agents/conversations/${encodeURIComponent(conversationId)}/fork-options`,
+    serverBase,
+  );
+  if (sourceTurnId) url.searchParams.set('sourceTurnId', sourceTurnId);
+  const response = await fetch(url.toString());
+  if (!response.ok)
+    await throwAgentApiError(response, 'Unable to load compatible agents');
+  return response.json();
+}
+
+export async function forkAgentConversation(params: {
+  conversationId: string;
+  targetAgentName: string;
+  sourceTurnId?: string;
+  requestId: string;
+}): Promise<AgentForkResult> {
+  const response = await fetch(
+    new URL(
+      `/agents/conversations/${encodeURIComponent(params.conversationId)}/fork`,
+      serverBase,
+    ).toString(),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetAgentName: params.targetAgentName,
+        sourceTurnId: params.sourceTurnId,
+        requestId: params.requestId,
+      }),
+    },
+  );
+  if (!response.ok)
+    await throwAgentApiError(response, 'Unable to create conversation fork');
+  return response.json();
+}

@@ -1474,6 +1474,30 @@ export async function prepareFlowOwnedAgentExecution(params: {
   });
 }
 
+// Forks resolve the destination afresh: saved source model/flags and fallback
+// selection must never become the target agent's execution configuration.
+export async function prepareAgentForkTarget(
+  agentName: string,
+  workingFolder?: string,
+) {
+  const agent = (await discoverAgents({ seedAuth: false })).find(
+    (item) => item.name === agentName,
+  );
+  if (!agent) throw new Error(`Agent "${agentName}" was not found.`);
+  const prepared = await prepareDirectAgentExecution({
+    agentName,
+    configPath: agent.configPath,
+    workingFolder,
+    source: 'REST',
+    surface: 'agents.run',
+    allowFallback: false,
+  });
+  const prompt = agent.systemPromptPath
+    ? await fs.readFile(agent.systemPromptPath, 'utf8')
+    : '';
+  return { ...prepared, prompt };
+}
+
 function logTransitiveContractRead(params: {
   consumer: string;
   sourceId: string;
@@ -3281,6 +3305,15 @@ async function runAgentInstructionUnlockedWithDeps(
                         preparedExecution.openAiCompatEndpoint,
                       copilotModels: preparedExecution.copilotModels,
                       resumeConversation: shouldResumeCopilotSession,
+                      nativeSessionId: conversation.fork?.nativeSessionId,
+                      isFork: !!conversation.fork,
+                      forkHandover:
+                        conversation.fork &&
+                        !conversation.fork.handoverDelivered
+                          ? (conversation.fork.pendingHandovers ?? [
+                              conversation.fork.handover,
+                            ])
+                          : undefined,
                       runtimeConfig: preparedExecution.runtimeConfig,
                       workingDirectoryOverride:
                         preparedExecution.workingDirectoryOverride,

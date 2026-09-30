@@ -199,12 +199,23 @@ describe('AgentsPage sidebar actions', () => {
 
     await screen.findByText('Active conversation');
 
-    expect(screen.getByTestId('conversation-archive')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: 'Conversation actions' }),
+    );
+    expect(
+      screen.getByRole('menuitem', { name: 'Archive conversation' }),
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
 
     await user.click(screen.getByTestId('conversation-filter-archived'));
     await user.click(screen.getByTestId('conversation-filter-active'));
     await screen.findByText('Archived conversation');
-    expect(screen.getByTestId('conversation-restore')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: 'Conversation actions' }),
+    );
+    expect(
+      screen.getByRole('menuitem', { name: 'Restore conversation' }),
+    ).toBeInTheDocument();
   });
 
   it('disables controls when persistence is unavailable', async () => {

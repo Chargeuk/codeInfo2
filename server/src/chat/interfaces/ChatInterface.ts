@@ -16,6 +16,7 @@ import type {
   TurnStatus,
   TurnTimingMetadata,
   TurnUsageMetadata,
+  TurnNativeMetadata,
 } from '../../mongo/turn.js';
 import { cleanupInflight, markInflightPersisted } from '../inflightRegistry.js';
 import {
@@ -215,6 +216,7 @@ export interface ChatCompleteEvent {
   threadId?: string | null;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+  native?: TurnNativeMetadata;
 }
 
 export interface ChatErrorEvent {
@@ -325,6 +327,7 @@ export abstract class ChatInterface extends EventEmitter {
     const runStartedAtMs = Date.now();
     let latestUsage: TurnUsageMetadata | undefined;
     let latestTiming: TurnTimingMetadata | undefined;
+    let latestNative: TurnNativeMetadata | undefined;
     let loggedPersistUsage = false;
     const externalSignal = (flags as { signal?: AbortSignal })?.signal;
     let executionError: unknown;
@@ -363,6 +366,7 @@ export abstract class ChatInterface extends EventEmitter {
 
     const onComplete: Listener<'complete'> = (event) => {
       sawComplete = true;
+      latestNative = event.native;
       if (event.usage) {
         latestUsage = normalizeUsage(event.usage);
       }
@@ -496,6 +500,7 @@ export abstract class ChatInterface extends EventEmitter {
         source,
         command,
         runtime: assistantRuntime,
+        native: latestNative,
         usage,
         timing,
         status,
@@ -579,6 +584,7 @@ export abstract class ChatInterface extends EventEmitter {
     source: TurnSource;
     command?: TurnCommandMetadata;
     runtime?: TurnRuntimeMetadata;
+    native?: TurnNativeMetadata;
     usage?: TurnUsageMetadata;
     timing?: TurnTimingMetadata;
     status: TurnStatus;
@@ -593,6 +599,7 @@ export abstract class ChatInterface extends EventEmitter {
       source,
       command,
       runtime,
+      native,
       usage,
       timing,
       status,
@@ -611,6 +618,7 @@ export abstract class ChatInterface extends EventEmitter {
       source,
       command,
       runtime,
+      native,
       usage,
       timing,
       toolCalls: toolCalls.length > 0 ? { calls: toolCalls } : null,

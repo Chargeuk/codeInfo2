@@ -35,6 +35,28 @@ export type ResolveCodexCapabilitiesOptions = {
 };
 
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
+const GPT_6_1_SOL_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh'];
+
+const modelCapability = (
+  model: string,
+  supportedReasoningEfforts: string[],
+  defaultReasoningEffort: string,
+): CodexModelCapability => {
+  if (model !== 'gpt-6.1-sol') {
+    return { model, supportedReasoningEfforts, defaultReasoningEffort };
+  }
+
+  // Offer only these GPT-6.1 Sol efforts, regardless of shared CLI metadata.
+  return {
+    model,
+    supportedReasoningEfforts: GPT_6_1_SOL_REASONING_EFFORTS,
+    defaultReasoningEffort: GPT_6_1_SOL_REASONING_EFFORTS.includes(
+      defaultReasoningEffort,
+    )
+      ? defaultReasoningEffort
+      : 'medium',
+  };
+};
 
 const parseNetworkAccessEnv = (
   value: string | undefined,
@@ -124,11 +146,9 @@ export const resolveCodexCapabilities = async (
       ? codexDefaults.values.modelReasoningEffort
       : (normalizedEfforts[0] ?? codexDefaults.values.modelReasoningEffort);
 
-    const models = mergedModels.map((model) => ({
-      model,
-      supportedReasoningEfforts: normalizedEfforts,
-      defaultReasoningEffort,
-    }));
+    const models = mergedModels.map((model) =>
+      modelCapability(model, normalizedEfforts, defaultReasoningEffort),
+    );
 
     const networkAccessEnabled = parseNetworkAccessEnv(
       process.env.Codex_network_access_enabled,
@@ -177,11 +197,9 @@ export const resolveCodexCapabilities = async (
     const normalizedFallbackEfforts = Array.from(new Set(fallbackEfforts));
     const fallbackDefault =
       codexDefaults.values.modelReasoningEffort ?? normalizedFallbackEfforts[0];
-    const models = mergedModels.map((model) => ({
-      model,
-      supportedReasoningEfforts: normalizedFallbackEfforts,
-      defaultReasoningEffort: fallbackDefault,
-    }));
+    const models = mergedModels.map((model) =>
+      modelCapability(model, normalizedFallbackEfforts, fallbackDefault),
+    );
     const networkAccessEnabled = parseNetworkAccessEnv(
       process.env.Codex_network_access_enabled,
       warnings,
@@ -223,6 +241,14 @@ export const getCodexCapabilityForModel = (
 ): CodexModelCapability => {
   const selected = resolution.byModel.get(model);
   if (selected) return selected;
+
+  if (model === 'gpt-6.1-sol') {
+    return modelCapability(
+      model,
+      [...CODEX_MODEL_REASONING_EFFORTS],
+      resolution.defaults.modelReasoningEffort,
+    );
+  }
 
   return (
     resolution.models[0] ?? {

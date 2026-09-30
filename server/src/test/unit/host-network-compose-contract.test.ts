@@ -91,6 +91,7 @@ test('root compose inventory for Task 11 remains scoped to the checked-in files'
   assert.deepEqual(rootComposeFiles, [
     'docker-compose.e2e.yml',
     'docker-compose.local.yml',
+    'docker-compose.optional-share.yml',
     'docker-compose.yml',
   ]);
 });

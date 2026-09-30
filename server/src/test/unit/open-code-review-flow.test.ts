@@ -118,11 +118,11 @@ test('main proof catalog supplies Sol-high and Sol-xhigh review-only Codex agent
   const manualTestingIgnore = readRepoFile('manual_testing/.gitignore');
 
   assert.match(heavyConfig, /codeinfo_provider = "codex"/u);
-  assert.match(heavyConfig, /model = "gpt-6-sol"/u);
+  assert.match(heavyConfig, /model = "gpt-6\.1-sol"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
   assert.match(heavyConfig, /approval_policy = "never"/u);
   assert.match(heavyConfig, /sandbox_mode = "danger-full-access"/u);
-  assert.match(maxConfig, /model = "gpt-6-sol"/u);
+  assert.match(maxConfig, /model = "gpt-6\.1-sol"/u);
   assert.match(maxConfig, /model_reasoning_effort = "xhigh"/u);
   assert.match(maxConfig, /approval_policy = "never"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
@@ -153,9 +153,9 @@ test('source heavy and maximum review agents share the review boundary while ret
     'codeinfo_agents/review_agent_max/commands/code_review_findings.json',
   );
 
-  assert.match(heavyConfig, /model = "gpt-6-sol"/u);
+  assert.match(heavyConfig, /model = "gpt-6\.1-sol"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
-  assert.match(maxConfig, /model = "gpt-6-sol"/u);
+  assert.match(maxConfig, /model = "gpt-6\.1-sol"/u);
   assert.match(maxConfig, /model_reasoning_effort = "xhigh"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);
@@ -163,6 +163,53 @@ test('source heavy and maximum review agents share the review boundary while ret
   assert.match(heavySystemPrompt, /pinned review evidence/u);
   assert.match(heavySystemPrompt, /do not call `code_info`/u);
   assert.match(heavySystemPrompt, /continue with the usable evidence/u);
+});
+
+test('active Sol agents use GPT-6.1 Sol with preserved efforts', () => {
+  const catalogs = [
+    {
+      root: 'codeinfo_agents',
+      agents: [
+        ['coding_agent', 'high'],
+        ['manual_testing_agent', 'high'],
+        ['planning_agent', 'high'],
+        ['research_agent', 'high'],
+        ['review_agent', 'medium'],
+        ['review_agent_heavy', 'high'],
+        ['review_agent_max', 'xhigh'],
+        ['tasking_agent', 'high'],
+      ],
+    },
+    {
+      root: 'manual_testing/codeinfo_agents',
+      agents: [
+        ['coding_agent', 'medium'],
+        ['manual_testing_agent', 'high'],
+        ['planning_agent', 'high'],
+        ['research_agent', 'high'],
+        ['review_agent', 'medium'],
+        ['review_agent_heavy', 'high'],
+        ['review_agent_max', 'xhigh'],
+      ],
+    },
+  ] as const;
+
+  for (const { root, agents } of catalogs) {
+    for (const [agent, effort] of agents) {
+      const config = readRepoFile(`${root}/${agent}/config.toml`);
+      assert.match(config, /^model = "gpt-6\.1-sol"$/mu);
+      assert.match(
+        config,
+        new RegExp(`^model_reasoning_effort = "${effort}"$`, 'mu'),
+      );
+      if (agent === 'review_agent_heavy' || agent === 'review_agent_max') {
+        assert.match(
+          readRepoFile(`${root}/${agent}/description.md`),
+          /GPT-6\.1 Sol/u,
+        );
+      }
+    }
+  }
 });
 
 test('common batch prompts preserve partial reviewer evidence', () => {

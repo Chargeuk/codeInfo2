@@ -72,7 +72,10 @@ test('handle_pr_comments gates every expensive iteration before pr_agent', () =>
   if (handler.type !== 'llm') return;
   assert.equal(handler.agentType, 'pr_agent');
   assert.equal(handler.identifier, 'pr_agent');
-  assert.equal(handler.label, 'Handle Globally Oldest Eligible Pull Request Leaf');
+  assert.equal(
+    handler.label,
+    'Handle Globally Oldest Eligible Pull Request Leaf',
+  );
   assert.equal(
     'markdownFile' in handler ? handler.markdownFile : undefined,
     'handle_pr_comments.md',
@@ -108,7 +111,7 @@ test('PR agents use the requested models and one-way escalation wiring', () => {
     const regularConfig = readRepoFile(`${catalog}/pr_agent/config.toml`);
     const strongConfig = readRepoFile(`${catalog}/pr_agent_strong/config.toml`);
 
-    assert.match(regularConfig, /model = "gpt-5\.6-terra"/u);
+    assert.match(regularConfig, /model = "gpt-6-sol"/u);
     assert.match(regularConfig, /model_reasoning_effort = "medium"/u);
     assert.match(regularConfig, /\[mcp_servers\.agents\]/u);
     assert.match(regularConfig, /\$\{CODEINFO_AGENTS_MCP_PORT\}/u);
@@ -121,7 +124,7 @@ test('PR agents use the requested models and one-way escalation wiring', () => {
       /tool_timeout_sec = 3600/u,
     );
 
-    assert.match(strongConfig, /model = "gpt-5\.6-sol"/u);
+    assert.match(strongConfig, /model = "gpt-6-sol"/u);
     assert.match(strongConfig, /model_reasoning_effort = "high"/u);
     assert.match(
       readTomlSection(strongConfig, 'mcp_servers.code_info'),
@@ -271,7 +274,10 @@ test('selector context and merge-preservation rules are explicit', () => {
 
   assert.match(regular, /selector reads all configured PRs/u);
   assert.match(regular, /complete root-to-leaf path/u);
-  assert.match(regular, /Destination code or documentation lost during the merge/u);
+  assert.match(
+    regular,
+    /Destination code or documentation lost during the merge/u,
+  );
   assert.match(regular, /Duplicate documentation elsewhere/u);
   assert.match(regular, /PR-introduced deletion is in review scope/u);
   assert.match(regular, /Use direct structured `gt` arguments/u);

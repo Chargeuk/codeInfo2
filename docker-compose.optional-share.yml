@@ -1,0 +1,10 @@
+# Added only by the local Compose wrapper after it verifies a mounted network share.
+services:
+  server:
+    volumes:
+      - type: bind
+        source: ${CODEINFO_OPTIONAL_SHARE_PATH:?}
+        target: ${CODEINFO_OPTIONAL_SHARE_PATH:?}
+        read_only: true
+        bind:
+          create_host_path: false

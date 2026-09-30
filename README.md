@@ -102,6 +102,15 @@ compose:local -> edit server/.env.local and client/.env.local
 e2e -> edit .env.e2e
 ```
 
+For an optional read-only network share in the local server, set
+`CODEINFO_OPTIONAL_SHARE_PATH=/absolute/mountpoint` in `server/.env.local`. Leave it
+unset to keep the standard mounts. The wrapper supports Linux NFS/CIFS mounts and
+WSL UNC drvfs mounts reported as 9p, plus macOS SMB/NFS mounts. The setting must
+name the mounted network share itself, not a parent or ordinary local directory.
+The wrapper checks access for up to 10 seconds and warns while continuing without
+the extra bind if the share is unavailable. The extra bind uses the same host and
+container path and is read-only inside the container.
+
 For e2e specifically, `.env.e2e` is used for compose interpolation values. Container runtime defaults still come from `server/.env.e2e` and `client/.env.e2e`.
 
 Client env contract:
@@ -170,10 +179,10 @@ Corporate certificate directory requirements:
 - Copilot credential precedence is runtime-owned, not committed-env-owned. Checked-in env files may set `CODEINFO_COPILOT_HOME` and the optional CLI-path override, but they do not replace or mask `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, or `gh` fallback. `/health` also stays process-only; Copilot readiness continues to surface through `/chat/providers` and `/chat/models` instead of server health.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 - Server SDK pin and runtime guard are coupled:
-  - `@openai/codex` and `@openai/codex-sdk` are pinned at `0.156.1` in `server/package.json`.
-  - startup guard requires exact `0.156.1`; pre-release, lower, and higher versions are rejected.
-  - The OpenAI SDK is pinned at `7.23.0`.
-  - The Codex model catalog includes `gpt-6-luna` and `gpt-6-sol`. Repository and manual-testing agents previously assigned to GPT-5.6 Luna or Sol use the corresponding GPT-6 model with their existing reasoning effort preserved.
+  - `@openai/codex` and `@openai/codex-sdk` are pinned at `0.159.1` in `server/package.json`.
+  - startup guard requires exact `0.159.1`; pre-release, lower, and higher versions are rejected.
+  - The OpenAI SDK is pinned at `7.25.0`.
+  - The Codex model catalog includes `gpt-6-luna`, `gpt-6-sol`, and `gpt-6.1-sol`. Active repository and manual-testing Sol agents use GPT-6.1 Sol with their existing reasoning effort preserved.
   - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
 
 ## GitHub Copilot and provider-neutral runtime

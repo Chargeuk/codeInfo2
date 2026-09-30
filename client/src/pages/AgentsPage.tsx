@@ -146,7 +146,10 @@ export default function AgentsPage() {
     sourceTurnId?: string;
     title?: string;
   } | null>(null);
-  const [forkEstimated, setForkEstimated] = useState(false);
+  const [forkEstimated, setForkEstimated] = useState<{
+    conversationId: string;
+    agentName: string;
+  } | null>(null);
   const {
     messages,
     status,
@@ -2319,7 +2322,7 @@ export default function AgentsPage() {
             handleSelectConversation(result.conversationId);
             setAgentModelId(result.model);
             setWorkingFolder(result.workingFolder ?? '');
-            setForkEstimated(result.estimated);
+            setForkEstimated(result.estimated ? result : null);
             setForkSource(null);
             setMobileConversationsOpen(false);
             if (result.agentName === selectedAgentName)
@@ -2328,11 +2331,13 @@ export default function AgentsPage() {
         />
       )}
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
-        {forkEstimated && (
-          <Alert severity="info" onClose={() => setForkEstimated(false)}>
-            This fork used an estimated match to older provider history.
-          </Alert>
-        )}
+        {forkEstimated &&
+          forkEstimated.conversationId === activeConversationId &&
+          forkEstimated.agentName === selectedAgentName && (
+            <Alert severity="info" onClose={() => setForkEstimated(null)}>
+              This fork used an estimated match to older provider history.
+            </Alert>
+          )}
         {agentsError && (
           <Alert severity="error" data-testid="agents-error">
             {agentsError}

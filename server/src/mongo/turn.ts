@@ -75,6 +75,7 @@ export interface Turn {
   runtime?: TurnRuntimeMetadata;
   native?: TurnNativeMetadata;
   displayOrder?: number;
+  chronologicalOrder?: number;
   fork?: { sourceTurnId?: string; handover?: boolean };
   createdAt: Date;
 }
@@ -164,6 +165,7 @@ const turnSchema = new Schema<Turn>(
     runtime: { type: turnRuntimeSchema, required: false },
     native: { type: Schema.Types.Mixed, required: false },
     displayOrder: { type: Number, required: false },
+    chronologicalOrder: { type: Number, required: false },
     fork: { type: Schema.Types.Mixed, required: false },
     createdAt: { type: Date, required: true, default: () => new Date() },
   },

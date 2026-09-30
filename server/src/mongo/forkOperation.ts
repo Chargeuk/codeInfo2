@@ -15,12 +15,15 @@ export interface ForkOperation {
     | 'native_creating'
     | 'native_ready'
     | 'injecting'
+    | 'injection_uncertain'
     | 'copied'
+    | 'cleaning'
     | 'ready'
     | 'failed';
   owner?: string;
   leaseUntil?: Date;
   nativeSessionId?: string;
+  injectionWriterClosed?: boolean;
   snapshotCount: number;
   snapshotLastTurnId: string;
   conversation: Conversation;
@@ -42,6 +45,7 @@ const schema = new mongoose.Schema<ForkOperation>(
     owner: String,
     leaseUntil: Date,
     nativeSessionId: String,
+    injectionWriterClosed: Boolean,
     snapshotCount: { type: Number, required: true },
     snapshotLastTurnId: { type: String, required: true },
     conversation: { type: mongoose.Schema.Types.Mixed, required: true },

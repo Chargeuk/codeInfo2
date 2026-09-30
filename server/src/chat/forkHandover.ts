@@ -21,6 +21,8 @@ export async function sendPendingForkHandover(params: {
   );
   if (pending.length === 0) {
     await params.markDelivered();
+    // Acknowledgement can yield while Stop cancels the next instruction.
+    params.signal?.throwIfAborted();
     await params.session.sendAndWait(
       { prompt: params.instruction },
       params.timeoutMs,

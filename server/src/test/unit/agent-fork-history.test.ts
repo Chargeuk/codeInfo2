@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  forkHandoverAt,
   resolveForkBoundary,
   selectForkSnapshot,
   type NativeForkTurn,
@@ -66,6 +67,54 @@ test('legacy matching resolves repeated exchanges in provider order even with ti
     true,
   );
   assert.equal(snapshot[1].native, undefined);
+});
+
+for (const metadata of [
+  { sessionId: 'native', turnId: 'missing' },
+  { sessionId: 'native', eventId: 'missing', turnId: 'first' },
+]) {
+  test(`recorded ${metadata.eventId ? 'event' : 'turn'} ID cannot fall back to identical text`, () => {
+    assert.throws(
+      () =>
+        resolveForkBoundary(
+          [
+            turn('u', 'user'),
+            { ...turn('a', 'assistant', 'Repeated answer'), native: metadata },
+          ],
+          [native('first')],
+        ),
+      { code: 'FORK_HISTORY_UNAVAILABLE' },
+    );
+  });
+}
+
+test('a recorded native turn must be completed even when repeated text matches', () => {
+  assert.throws(
+    () =>
+      resolveForkBoundary(
+        [
+          turn('u', 'user'),
+          {
+            ...turn('a', 'assistant', 'Repeated answer'),
+            native: { sessionId: 'native', turnId: 'active' },
+          },
+        ],
+        [native('first'), { ...native('active'), completed: false }],
+      ),
+    { code: 'FORK_HISTORY_UNAVAILABLE' },
+  );
+});
+
+test('handover timestamp handles histories beyond the spread argument limit', () => {
+  const row = turn('row', 'assistant');
+  const history = Array<TurnSummary>(200_000).fill(row);
+  const latest = new Date('2026-10-01T00:00:00Z');
+  history.push({ ...row, createdAt: latest });
+  assert.equal(forkHandoverAt(history, 0).getTime(), latest.getTime() + 1);
+  assert.equal(
+    forkHandoverAt(history, latest.getTime() + 100).getTime(),
+    latest.getTime() + 101,
+  );
 });
 
 test('earlier cutoff excludes the later source run; latest chooses the last completed response', () => {

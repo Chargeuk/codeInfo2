@@ -551,6 +551,7 @@ export interface TurnSummary {
   runtime?: TurnRuntimeMetadata;
   native?: TurnNativeMetadata;
   displayOrder?: number;
+  chronologicalOrder?: number;
   fork?: Turn['fork'];
   createdAt: Date;
 }
@@ -587,6 +588,7 @@ export async function listTurns(
     runtime: doc.runtime,
     native: doc.native,
     displayOrder: doc.displayOrder,
+    chronologicalOrder: doc.chronologicalOrder,
     fork: doc.fork,
     createdAt: doc.createdAt,
   }));
@@ -598,7 +600,15 @@ export async function listAllTurns(
   conversationId: string,
 ): Promise<{ items: TurnSummary[] }> {
   const docs = (await TurnModel.find({ conversationId })
-    .sort({ createdAt: -1, displayOrder: -1, _id: -1 })
+    // Fork boundaries follow source chronology; display tie breakers can put
+    // a later prompt before an earlier answer with the same timestamp. Older
+    // copies retain the source IDs, which are a better fallback than new IDs.
+    .sort({
+      createdAt: -1,
+      chronologicalOrder: -1,
+      'fork.sourceTurnId': -1,
+      _id: -1,
+    })
     .lean()) as Array<Turn & { _id?: unknown }>;
 
   const items: TurnSummary[] = docs.map((doc) => ({
@@ -617,6 +627,7 @@ export async function listAllTurns(
     runtime: doc.runtime,
     native: doc.native,
     displayOrder: doc.displayOrder,
+    chronologicalOrder: doc.chronologicalOrder,
     fork: doc.fork,
     createdAt: doc.createdAt,
   }));

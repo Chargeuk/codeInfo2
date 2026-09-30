@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import test, { type TestContext } from 'node:test';
+import mongoose from 'mongoose';
+import { ForkError } from '../../agents/forkHistory.js';
+import { FORK_LEASE_MS, FORK_LEASE_RENEW_MS } from '../../agents/forkLease.js';
 import {
+  executeFork,
   forkAgentConversation,
   type ForkServiceDeps,
 } from '../../agents/forkService.js';
@@ -21,10 +25,24 @@ import {
   type ForkOperation,
   type ForkSnapshot,
 } from '../../mongo/forkOperation.js';
-import type { TurnSummary } from '../../mongo/repo.js';
+import { listAllTurns, type TurnSummary } from '../../mongo/repo.js';
 import { TurnModel } from '../../mongo/turn.js';
 
 const query = <T>(value: T) => ({ lean: () => ({ exec: async () => value }) });
+const deferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+};
+const awaitGate = (gate: Promise<void>, operation: Promise<unknown>) =>
+  Promise.race([
+    gate,
+    operation.then(() => {
+      throw new Error('Fork finished before reaching the expected test gate');
+    }),
+  ]);
 function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
   const sourceId = crypto.randomUUID();
   const source: Conversation = {
@@ -96,10 +114,102 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
   let failFork = false;
   let forkConfig: unknown;
   let largestSnapshotRecord = 0;
+  let failPublicationCommit = false;
+  let failPublicationAck = false;
+  let publicationGate: (() => Promise<void>) | undefined;
+  let forkBoundary: string | undefined;
+  const state = { operations, snapshots, conversations, copied };
+  type State = typeof state;
+  const transactionStates = new WeakMap<mongoose.ClientSession, State>();
+  const data = (options?: { session?: mongoose.ClientSession }) =>
+    options?.session ? transactionStates.get(options.session)! : state;
+  const matches = (
+    value: ForkOperation,
+    filter: Record<string, unknown>,
+  ): boolean =>
+    Object.entries(filter).every(([key, expected]) => {
+      if (key === '$or')
+        return (expected as Record<string, unknown>[]).some((part) =>
+          matches(value, part),
+        );
+      const actual = (value as unknown as Record<string, unknown>)[key];
+      if (
+        expected &&
+        typeof expected === 'object' &&
+        !(expected instanceof Date)
+      ) {
+        const rule = expected as Record<string, unknown>;
+        if ('$exists' in rule) return (actual !== undefined) === rule.$exists;
+        if ('$in' in rule) return (rule.$in as unknown[]).includes(actual);
+        if ('$gt' in rule)
+          return (
+            Object.prototype.toString.call(actual) === '[object Date]' &&
+            (actual as Date).getTime() > (rule.$gt as Date).getTime()
+          );
+        if ('$lt' in rule)
+          return (
+            Object.prototype.toString.call(actual) === '[object Date]' &&
+            (actual as Date).getTime() < (rule.$lt as Date).getTime()
+          );
+      }
+      return actual === expected;
+    });
+  t.mock.method(
+    mongoose.connection,
+    'transaction',
+    async (work: (session: mongoose.ClientSession) => Promise<unknown>) => {
+      const session = {} as mongoose.ClientSession;
+      const staged: State = structuredClone(state);
+      const original = structuredClone(operations);
+      transactionStates.set(session, staged);
+      try {
+        const result = await work(session);
+        const publishes = [...staged.operations.values()].some(
+          (op) =>
+            op.phase === 'ready' && original.get(op._id)?.phase !== 'ready',
+        );
+        if (publishes) {
+          await publicationGate?.();
+          if (failPublicationCommit) {
+            failPublicationCommit = false;
+            throw new Error('Publication commit failed');
+          }
+        }
+        for (const [id, op] of original) {
+          const current = operations.get(id)!;
+          if (
+            current.owner !== op.owner ||
+            current.phase !== op.phase ||
+            current.leaseUntil?.getTime() !== op.leaseUntil?.getTime()
+          )
+            throw new Error('Mock transaction write conflict');
+        }
+        for (const key of [
+          'operations',
+          'snapshots',
+          'conversations',
+          'copied',
+        ] as const) {
+          state[key].clear();
+          for (const [id, value] of staged[key])
+            (state[key] as Map<string, unknown>).set(id, value);
+        }
+        if (publishes && failPublicationAck) {
+          failPublicationAck = false;
+          throw new Error('Publication acknowledgement lost');
+        }
+        return result;
+      } finally {
+        transactionStates.delete(session);
+      }
+    },
+  );
   t.mock.method(ForkOperationModel, 'findById', (id: string) =>
     query(operations.has(id) ? structuredClone(operations.get(id)) : null),
   );
   t.mock.method(ForkOperationModel, 'create', async (value: ForkOperation) => {
+    if (operations.has(value._id))
+      throw Object.assign(new Error('Duplicate operation'), { code: 11000 });
     operations.set(value._id, structuredClone(value));
     return value;
   });
@@ -108,15 +218,17 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
     'bulkWrite',
     async (
       writes: Array<{ updateOne: { update: { $setOnInsert: ForkSnapshot } } }>,
+      options?: { session?: mongoose.ClientSession },
     ) => {
+      const records = data(options).snapshots;
       for (const write of writes) {
         const record = write.updateOne.update.$setOnInsert;
         largestSnapshotRecord = Math.max(
           largestSnapshotRecord,
           Buffer.byteLength(JSON.stringify(record)),
         );
-        if (!snapshots.has(record._id))
-          snapshots.set(record._id, structuredClone(record));
+        if (!records.has(record._id))
+          records.set(record._id, structuredClone(record));
         if (failSnapshot) {
           failSnapshot = false;
           throw new Error('Partial frozen snapshot');
@@ -140,51 +252,97 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
   t.mock.method(
     ForkSnapshotModel,
     'deleteMany',
-    async (filter: { operationId: string }) => {
-      for (const [key, row] of snapshots)
-        if (row.operationId === filter.operationId) snapshots.delete(key);
+    async (
+      filter: { operationId: string },
+      options?: { session?: mongoose.ClientSession },
+    ) => {
+      const records = data(options).snapshots;
+      for (const [key, row] of records)
+        if (row.operationId === filter.operationId) records.delete(key);
       return { deletedCount: 1 };
     },
   );
   t.mock.method(
     ForkOperationModel,
     'findOneAndUpdate',
-    (filter: { _id: string }, update: { $set: Partial<ForkOperation> }) => {
-      const value = operations.get(filter._id)!;
-      if (value.owner) return query(null);
+    (
+      filter: Record<string, unknown>,
+      update: { $set: Partial<ForkOperation> },
+      options?: { new?: boolean },
+    ) => {
+      const value = operations.get(String(filter._id));
+      if (!value || !matches(value, filter)) return query(null);
+      const previous = structuredClone(value);
       Object.assign(value, update.$set);
-      return query(structuredClone(value));
+      return query(options?.new === false ? previous : structuredClone(value));
     },
   );
   t.mock.method(
     ForkOperationModel,
     'updateOne',
     async (
-      filter: { _id: string },
+      filter: Record<string, unknown>,
       update: {
         $set?: Partial<ForkOperation>;
         $unset?: Record<string, unknown>;
       },
+      options?: { session?: mongoose.ClientSession },
     ) => {
-      const value = operations.get(filter._id)!;
+      const value = data(options).operations.get(String(filter._id));
+      if (!value || !matches(value, filter))
+        return { acknowledged: true, matchedCount: 0 };
       if (update.$set) Object.assign(value, structuredClone(update.$set));
       for (const key of Object.keys(update.$unset ?? {}))
         delete (value as unknown as Record<string, unknown>)[key];
-      return { acknowledged: true };
+      return { acknowledged: true, matchedCount: 1 };
     },
   );
-  t.mock.method(ConversationModel, 'findById', (id: string) =>
-    query(conversations.get(id) ?? null),
+  t.mock.method(
+    ConversationModel,
+    'findById',
+    (
+      id: string,
+      _projection?: unknown,
+      options?: { session?: mongoose.ClientSession },
+    ) =>
+      query(
+        id === sourceId
+          ? deletedSource
+            ? null
+            : source
+          : (data(options).conversations.get(id) ?? null),
+      ),
   );
-  t.mock.method(ConversationModel, 'exists', async () =>
-    deletedSource ? null : { _id: sourceId },
+  t.mock.method(
+    ConversationModel,
+    'exists',
+    async (filter: { _id: string; agentName: string; createdAt: Date }) => {
+      const document =
+        filter._id === sourceId
+          ? deletedSource
+            ? undefined
+            : source
+          : conversations.get(filter._id);
+      return document &&
+        document.agentName === filter.agentName &&
+        document.createdAt.getTime() === filter.createdAt.getTime()
+        ? { _id: document._id }
+        : null;
+    },
   );
   t.mock.method(
     ConversationModel,
     'findOneAndUpdate',
-    (filter: { _id: string }, update: { $setOnInsert: Conversation }) => {
-      conversations.set(filter._id, structuredClone(update.$setOnInsert));
-      return query(conversations.get(filter._id)!);
+    (
+      filter: { _id: string },
+      update: { $setOnInsert: Conversation },
+      options?: { session?: mongoose.ClientSession; timestamps?: boolean },
+    ) => {
+      assert.equal(options?.timestamps, false);
+      const documents = data(options).conversations;
+      if (!documents.has(filter._id))
+        documents.set(filter._id, structuredClone(update.$setOnInsert));
+      return query(documents.get(filter._id)!);
     },
   );
   t.mock.method(
@@ -194,10 +352,12 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
       writes: Array<{
         updateOne: { update: { $setOnInsert: Record<string, unknown> } };
       }>,
+      options?: { session?: mongoose.ClientSession },
     ) => {
+      const records = data(options).copied;
       for (const write of writes) {
         const row = write.updateOne.update.$setOnInsert;
-        copied.set(String(row._id), row);
+        if (!records.has(String(row._id))) records.set(String(row._id), row);
         if (failCopy) {
           failCopy = false;
           throw new Error('Partial Mongo copy');
@@ -206,10 +366,19 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
       return { acknowledged: true };
     },
   );
-  t.mock.method(TurnModel, 'deleteMany', async () => {
-    copied.clear();
-    return { deletedCount: 1 };
-  });
+  t.mock.method(
+    TurnModel,
+    'deleteMany',
+    async (
+      filter: { conversationId: string },
+      options?: { session?: mongoose.ClientSession },
+    ) => {
+      const records = data(options).copied;
+      for (const [id, row] of records)
+        if (row.conversationId === filter.conversationId) records.delete(id);
+      return { deletedCount: 1 };
+    },
+  );
   const repositoryContext = {
     selectedRepositoryPath: '/shared/folder',
     defaultExecutionRoot: '/shared/folder',
@@ -262,7 +431,8 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
           nextEventId: 'later-native-event',
         },
       ],
-      fork: async (_boundary, config, model, cwd) => {
+      fork: async (boundary, config, model, cwd) => {
+        forkBoundary = boundary.id;
         nativeForks++;
         forkConfig = { config, model, cwd };
         if (failFork) throw new Error('Provider acknowledgement lost');
@@ -286,6 +456,7 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
   };
   return {
     source,
+    rows,
     input,
     deps,
     target,
@@ -306,7 +477,28 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
     deleteSource: () => {
       deletedSource = true;
     },
-    stats: () => ({ nativeForks, removed, forkConfig, largestSnapshotRecord }),
+    setFailPublicationCommit: () => {
+      failPublicationCommit = true;
+    },
+    setFailPublicationAck: () => {
+      failPublicationAck = true;
+    },
+    setPublicationGate: (gate: () => Promise<void>) => {
+      publicationGate = gate;
+    },
+    runWorker: () =>
+      executeFork(
+        input,
+        crypto.createHash('sha256').update(input.requestId).digest('hex'),
+        deps,
+      ),
+    stats: () => ({
+      nativeForks,
+      removed,
+      forkConfig,
+      forkBoundary,
+      largestSnapshotRecord,
+    }),
   };
 }
 
@@ -368,7 +560,7 @@ test('Codex flush is a publication gate: no conversation, broadcast, or delivere
 });
 
 for (const persisted of [false, true]) {
-  test(`Codex close failure keeps injecting retryable when acknowledged handover ${persisted ? 'was persisted' : 'was lost'}`, async (t) => {
+  test(`Codex close failure with confirmed writer termination keeps injecting retryable when acknowledged handover ${persisted ? 'was persisted' : 'was lost'}`, async (t) => {
     const h = harness(t);
     const open = h.deps.openNative;
     let failClose = true;
@@ -387,6 +579,7 @@ for (const persisted of [false, true]) {
           throw new Error('Writer close failed');
         }
       };
+      native.isWriterTerminated = () => true;
       return native;
     };
     await assert.rejects(
@@ -432,6 +625,110 @@ test('a graceful close with missing persisted injection leaves the handover reco
   );
   await forkAgentConversation(h.input, h.deps);
   assert.equal(h.injected.size, 1);
+  assert.equal(h.stats().nativeForks, 1);
+});
+
+test('expired injecting takeover quarantines a buffered live writer across retries and recovers only durable handovers', async (t) => {
+  const h = harness(t);
+  const closing = deferred();
+  const flush = deferred();
+  const persisted: string[] = [];
+  const buffered: string[] = [];
+  let helpers = 0;
+  let injections = 0;
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    const native = await open(...args);
+    const writer = ++helpers;
+    native.hasInjected = async (_id, text) => persisted.includes(text);
+    native.inject = async (_id, text) => {
+      injections++;
+      assert.equal(
+        writer,
+        1,
+        'A takeover must never reinject buffered history',
+      );
+      buffered.push(text);
+    };
+    native.close = async () => {
+      if (writer === 1) {
+        closing.resolve();
+        await flush.promise;
+        persisted.push(...buffered);
+      }
+    };
+    return native;
+  };
+  let broadcasts = 0;
+  const unsubscribe = onConversationUpsert(() => broadcasts++);
+  const first = forkAgentConversation(h.input, h.deps);
+  const rejected = assert.rejects(first, { code: 'FORK_LEASE_LOST' });
+  try {
+    await awaitGate(closing.promise, first);
+    const operation = [...h.operations.values()][0];
+    assert.equal(operation.phase, 'injecting');
+    assert.equal(operation.injectionWriterClosed, false);
+    operation.leaseUntil = new Date(Date.now() - 1);
+    await assert.rejects(h.runWorker(), {
+      code: 'FORK_INJECTION_OUTCOME_UNKNOWN',
+    });
+    assert.equal([...h.operations.values()][0].phase, 'injection_uncertain');
+    assert.equal([...h.operations.values()][0].owner, undefined);
+    // Releasing worker B's owner must not make worker C assume the first
+    // acknowledged injection was lost while worker A still holds its writer.
+    await assert.rejects(h.runWorker(), {
+      code: 'FORK_INJECTION_OUTCOME_UNKNOWN',
+    });
+    assert.equal(injections, 1);
+    assert.equal(persisted.length, 0);
+    assert.equal(h.conversations.size, 0);
+    assert.equal(h.copied.size, 0);
+    assert.equal(broadcasts, 0);
+    assert.equal(operation.conversation.fork?.handoverDelivered, false);
+  } finally {
+    flush.resolve();
+    await rejected;
+    unsubscribe();
+  }
+  assert.equal(persisted.length, 1);
+  await h.runWorker();
+  assert.equal(injections, 1);
+  assert.equal(persisted.length, 1);
+  assert.equal(h.stats().nativeForks, 1);
+  assert.equal(h.conversations.size, 1);
+  assert.equal(h.copied.size, 3);
+  assert.equal([...h.operations.values()][0].phase, 'ready');
+});
+
+test('failed close without termination proof remains quarantined after owner release', async (t) => {
+  const h = harness(t);
+  const open = h.deps.openNative;
+  let helpers = 0;
+  let injections = 0;
+  h.deps.openNative = async (...args) => {
+    const native = await open(...args);
+    const writer = ++helpers;
+    native.inject = async () => {
+      injections++;
+    };
+    native.hasInjected = async () => false;
+    native.close = async () => {
+      if (writer === 1) throw new Error('Writer termination unknown');
+    };
+    return native;
+  };
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /Writer termination unknown/,
+  );
+  for (let retry = 0; retry < 2; retry++) {
+    await assert.rejects(forkAgentConversation(h.input, h.deps), {
+      code: 'FORK_INJECTION_OUTCOME_UNKNOWN',
+    });
+    assert.equal([...h.operations.values()][0].phase, 'injection_uncertain');
+    assert.equal(h.conversations.size, 0);
+  }
+  assert.equal(injections, 1);
   assert.equal(h.stats().nativeForks, 1);
 });
 
@@ -798,4 +1095,546 @@ test('latest fork-of-fork keeps previous handover context and adds exactly one n
     ).length,
     2,
   );
+});
+
+test('latest-point DB cutoff is frozen before native read while a repeated response completes', async (t) => {
+  const h = harness(t);
+  const open = h.deps.openNative;
+  let dbRead = false;
+  const read = h.deps.listTurns;
+  h.deps.listTurns = async (...args) => {
+    dbRead = true;
+    return read(...args);
+  };
+  h.deps.openNative = async (...args) => {
+    assert.equal(dbRead, true);
+    const native = await open(...args);
+    h.rows.push({
+      ...h.rows[1],
+      turnId: 'new-response',
+      createdAt: new Date(4),
+      native: { sessionId: 'native-source', turnId: 'new-native-turn' },
+    });
+    // This native read captured the earlier completed point. Identical text in
+    // the newer DB response must not move the already-frozen visible cutoff.
+    return native;
+  };
+  await forkAgentConversation({ ...h.input, sourceTurnId: undefined }, h.deps);
+  assert.equal(h.stats().forkBoundary, 'native-turn');
+  assert.equal(
+    [...h.conversations.values()][0].fork?.sourceTurnId,
+    'assistant-id',
+  );
+  assert.equal(h.copied.size, 3);
+  assert.equal(
+    [...h.copied.values()].some(
+      (row) =>
+        (row.fork as { sourceTurnId?: string })?.sourceTurnId ===
+        'new-response',
+    ),
+    false,
+  );
+});
+
+test('stale native read cannot replace a recorded response ID with an identical earlier response', async (t) => {
+  const h = harness(t);
+  h.rows[1].native = {
+    sessionId: 'native-source',
+    turnId: 'not-yet-persisted',
+  };
+  await assert.rejects(forkAgentConversation(h.input, h.deps), {
+    code: 'FORK_HISTORY_UNAVAILABLE',
+  });
+  assert.equal(h.stats().nativeForks, 0);
+  assert.equal(h.operations.size, 0);
+  assert.equal(h.conversations.size, 0);
+});
+
+for (const legacyCopy of [false, true]) {
+  test(`fork-of-fork cutoff uses persisted ${legacyCopy ? 'legacy source IDs' : 'chronology'} when a later prompt displays before the selected answer`, async (t) => {
+    const h = harness(t);
+    h.rows[2].createdAt = h.rows[1].createdAt;
+    h.rows.push({
+      ...h.rows[1],
+      turnId: 'later-answer',
+      content: 'Later answer',
+      createdAt: new Date(3),
+      native: { sessionId: 'native-source', turnId: 'later-native-turn' },
+    });
+    const sourceDocuments = h.rows.map((row) => ({ ...row, _id: row.turnId }));
+    t.mock.method(TurnModel, 'find', (filter: { conversationId: string }) => ({
+      sort: (sort: Record<string, number>) => ({
+        lean: async () => {
+          const documents =
+            filter.conversationId === h.source._id
+              ? sourceDocuments.slice()
+              : [...h.copied.entries()]
+                  .filter(
+                    ([, row]) => row.conversationId === filter.conversationId,
+                  )
+                  .map(([id, row]) => ({ ...row, _id: id }));
+          return documents.sort((a, b) => {
+            for (const [key, direction] of Object.entries(sort)) {
+              const field = (row: unknown) =>
+                key
+                  .split('.')
+                  .reduce<unknown>(
+                    (value, part) =>
+                      (value as Record<string, unknown> | undefined)?.[part],
+                    row,
+                  );
+              const left = field(a);
+              const right = field(b);
+              if (left === right) continue;
+              if (left === undefined) return -direction;
+              if (right === undefined) return direction;
+              const compared =
+                left instanceof Date && right instanceof Date
+                  ? left.getTime() - right.getTime()
+                  : typeof left === 'number' && typeof right === 'number'
+                    ? left - right
+                    : String(left).localeCompare(String(right));
+              if (compared) return compared * direction;
+            }
+            return 0;
+          });
+        },
+      }),
+    }));
+    h.deps.listTurns = listAllTurns;
+    const open = h.deps.openNative;
+    h.deps.openNative = async (...args) => {
+      const native = await open(...args);
+      native.turns.push({
+        id: 'later-native-turn',
+        completed: true,
+        user: 'Later active prompt',
+        assistant: 'Later answer',
+      });
+      const fork = native.fork;
+      native.fork = async (...params) => {
+        const child = await fork(...params);
+        return args[1] === 'native-child' ? 'native-grandchild' : child;
+      };
+      return native;
+    };
+    const parent = await forkAgentConversation(
+      { ...h.input, sourceTurnId: 'later-answer' },
+      h.deps,
+    );
+    if (legacyCopy) {
+      for (const row of h.copied.values()) delete row.chronologicalOrder;
+    }
+    const childHistory = (
+      await listAllTurns(parent.conversationId)
+    ).items.reverse();
+    const answer = childHistory.find((row) => row.content === 'Answer')!;
+    const laterPrompt = childHistory.find(
+      (row) => row.content === 'Later active prompt',
+    )!;
+    if (legacyCopy) {
+      assert.equal(answer.chronologicalOrder, undefined);
+      assert.equal(laterPrompt.chronologicalOrder, undefined);
+    } else {
+      assert.ok(answer.chronologicalOrder! < laterPrompt.chronologicalOrder!);
+    }
+    assert.ok(answer.displayOrder! > laterPrompt.displayOrder!);
+    const child = h.conversations.get(parent.conversationId)!;
+    h.deps.loadSource = async () => child;
+    const nested = await forkAgentConversation(
+      {
+        ...h.input,
+        sourceConversationId: parent.conversationId,
+        sourceTurnId: answer.turnId,
+        requestId: crypto.randomUUID(),
+      },
+      h.deps,
+    );
+    assert.deepEqual(
+      (await listAllTurns(nested.conversationId)).items
+        .reverse()
+        .slice(0, -1)
+        .map((row) => row.content),
+      ['Prompt', 'Answer'],
+    );
+    assert.equal(h.stats().forkBoundary, 'native-turn');
+    assert.equal(
+      h.conversations.get(nested.conversationId)?.fork?.nativeSessionId,
+      'native-grandchild',
+    );
+    assert.equal(
+      (await listAllTurns(parent.conversationId)).items.length,
+      childHistory.length,
+    );
+    assert.equal(
+      h.rows.every(
+        (row) =>
+          row.chronologicalOrder === undefined &&
+          row.displayOrder === undefined,
+      ),
+      true,
+    );
+  });
+}
+
+test('publication transaction hides both child and ready state until commit', async (t) => {
+  const h = harness(t);
+  const entered = deferred();
+  const release = deferred();
+  h.setPublicationGate(async () => {
+    entered.resolve();
+    await release.promise;
+  });
+  const result = forkAgentConversation(h.input, h.deps);
+  const settled = result.catch(() => undefined);
+  try {
+    await awaitGate(entered.promise, result);
+    assert.equal(h.conversations.size, 0);
+    assert.equal([...h.operations.values()][0].phase, 'copied');
+  } finally {
+    release.resolve();
+    await settled;
+  }
+  await result;
+  assert.equal(h.conversations.size, 1);
+  assert.equal([...h.operations.values()][0].phase, 'ready');
+});
+
+test('publication failure rolls back ready and retries without another native child', async (t) => {
+  const h = harness(t);
+  h.setFailPublicationCommit();
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /Publication commit failed/,
+  );
+  assert.equal(h.conversations.size, 0);
+  assert.equal([...h.operations.values()][0].phase, 'copied');
+  await forkAgentConversation(h.input, h.deps);
+  assert.equal(h.stats().nativeForks, 1);
+  assert.equal(h.copied.size, 3);
+});
+
+test('lost publication acknowledgement followed by child deletion cannot resurrect the fork on retry', async (t) => {
+  const h = harness(t);
+  h.setFailPublicationAck();
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /Publication acknowledgement lost/,
+  );
+  assert.equal([...h.operations.values()][0].phase, 'ready');
+  assert.equal(h.conversations.size, 1);
+  h.conversations.clear();
+  h.copied.clear();
+  await assert.rejects(forkAgentConversation(h.input, h.deps), {
+    code: 'FORK_DELETED',
+  });
+  assert.equal(h.stats().nativeForks, 1);
+  assert.equal(h.conversations.size, 0);
+  assert.equal(h.copied.size, 0);
+});
+
+test('owner takeover before native transition fences the old worker without issuing a provider fork', async (t) => {
+  const h = harness(t);
+  const update = ForkOperationModel.updateOne.bind(ForkOperationModel);
+  t.mock.method(
+    ForkOperationModel,
+    'updateOne',
+    async (...args: Parameters<typeof ForkOperationModel.updateOne>) => {
+      const values = (args[1] as { $set?: Partial<ForkOperation> }).$set;
+      if (values?.phase === 'native_creating') {
+        const op = [...h.operations.values()][0];
+        op.owner = 'replacement-worker';
+        op.leaseUntil = new Date(Date.now() + FORK_LEASE_MS);
+      }
+      return update(...args);
+    },
+  );
+  await assert.rejects(forkAgentConversation(h.input, h.deps), {
+    code: 'FORK_LEASE_LOST',
+  });
+  assert.equal(h.stats().nativeForks, 0);
+  assert.equal(h.conversations.size, 0);
+  assert.equal([...h.operations.values()][0].owner, 'replacement-worker');
+});
+
+test('owner takeover after staging fences publication and cannot be cleared by the old worker', async (t) => {
+  const h = harness(t);
+  const exists = ConversationModel.exists.bind(ConversationModel);
+  t.mock.method(
+    ConversationModel,
+    'exists',
+    async (filter: Parameters<typeof ConversationModel.exists>[0]) => {
+      const op = [...h.operations.values()][0];
+      op.owner = 'replacement-worker';
+      op.leaseUntil = new Date(Date.now() + FORK_LEASE_MS);
+      return exists(filter);
+    },
+  );
+  await assert.rejects(forkAgentConversation(h.input, h.deps), {
+    code: 'FORK_LEASE_LOST',
+  });
+  assert.equal(h.stats().nativeForks, 1);
+  assert.equal(h.conversations.size, 0);
+  assert.equal([...h.operations.values()][0].phase, 'copied');
+  assert.equal([...h.operations.values()][0].owner, 'replacement-worker');
+});
+
+test('long native creation renews its lease and a second worker cannot take over after five minutes', async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setInterval'] });
+  const h = harness(t);
+  const entered = deferred();
+  const release = deferred();
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    const native = await open(...args);
+    const fork = native.fork;
+    native.fork = async (...params) => {
+      entered.resolve();
+      await release.promise;
+      return fork(...params);
+    };
+    return native;
+  };
+  const update = ForkOperationModel.updateOne.bind(ForkOperationModel);
+  let renewed = deferred();
+  t.mock.method(
+    ForkOperationModel,
+    'updateOne',
+    async (...args: Parameters<typeof ForkOperationModel.updateOne>) => {
+      const result = await update(...args);
+      if (
+        !(args[1] as { $set?: Partial<ForkOperation> }).$set?.phase &&
+        (args[1] as { $set?: Partial<ForkOperation> }).$set?.leaseUntil
+      )
+        renewed.resolve();
+      return result;
+    },
+  );
+  const first = forkAgentConversation(h.input, h.deps);
+  const settled = first.catch(() => undefined);
+  try {
+    await awaitGate(entered.promise, first);
+    for (let minute = 0; minute < 7; minute++) {
+      renewed = deferred();
+      t.mock.timers.tick(FORK_LEASE_RENEW_MS);
+      await awaitGate(renewed.promise, first);
+      assert.ok(
+        [...h.operations.values()][0].leaseUntil!.getTime() > Date.now(),
+      );
+    }
+    await assert.rejects(h.runWorker(), { code: 'FORK_CREATING' });
+  } finally {
+    release.resolve();
+    await settled;
+  }
+  await first;
+  assert.equal(h.stats().nativeForks, 1);
+});
+
+test('source deletion cleanup cannot claim a fork published by another worker after its initial visibility read', async (t) => {
+  const h = harness(t);
+  const closeEntered = deferred();
+  const closeRelease = deferred();
+  const loadEntered = deferred();
+  const loadRelease = deferred();
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    const native = await open(...args);
+    native.close = async () => {
+      closeEntered.resolve();
+      await closeRelease.promise;
+    };
+    return native;
+  };
+  const first = forkAgentConversation(h.input, h.deps);
+  const settledFirst = first.catch(() => undefined);
+  let second: Promise<Awaited<typeof first>> | undefined;
+  try {
+    await awaitGate(closeEntered.promise, first);
+    h.deps.loadSource = async () => {
+      loadEntered.resolve();
+      await loadRelease.promise;
+      throw new ForkError('FORK_SOURCE_UNAVAILABLE', 'Source deleted', 404);
+    };
+    second = h.runWorker();
+    const settledSecond = second.catch(() => undefined);
+    await awaitGate(loadEntered.promise, second);
+    closeRelease.resolve();
+    const published = await first;
+    h.deleteSource();
+    loadRelease.resolve();
+    await settledSecond;
+    assert.deepEqual(await second, published);
+    assert.equal(h.stats().removed, 0);
+    assert.equal(h.copied.size, 3);
+    assert.equal(h.conversations.size, 1);
+    assert.equal([...h.operations.values()][0].phase, 'ready');
+  } finally {
+    closeRelease.resolve();
+    loadRelease.resolve();
+    await settledFirst;
+    await second?.catch(() => undefined);
+  }
+});
+
+test('an expired owner cannot advance to native creation and a safe retry creates only one session', async (t) => {
+  const h = harness(t);
+  const update = ForkOperationModel.updateOne.bind(ForkOperationModel);
+  let expire = true;
+  t.mock.method(
+    ForkOperationModel,
+    'updateOne',
+    async (...args: Parameters<typeof ForkOperationModel.updateOne>) => {
+      if (
+        expire &&
+        (args[1] as { $set?: Partial<ForkOperation> }).$set?.phase ===
+          'native_creating'
+      ) {
+        expire = false;
+        [...h.operations.values()][0].leaseUntil = new Date(Date.now() - 1);
+      }
+      return update(...args);
+    },
+  );
+  await assert.rejects(forkAgentConversation(h.input, h.deps), {
+    code: 'FORK_LEASE_LOST',
+  });
+  assert.equal(h.stats().nativeForks, 0);
+  assert.equal([...h.operations.values()][0].phase, 'prepared');
+  await forkAgentConversation(h.input, h.deps);
+  assert.equal(h.stats().nativeForks, 1);
+});
+
+test('takeover during an uncertain native call quarantines both workers without repeating the RPC', async (t) => {
+  const h = harness(t);
+  const entered = deferred();
+  const release = deferred();
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    const native = await open(...args);
+    const fork = native.fork;
+    native.fork = async (...params) => {
+      entered.resolve();
+      await release.promise;
+      return fork(...params);
+    };
+    return native;
+  };
+  const first = forkAgentConversation(h.input, h.deps);
+  const rejected = assert.rejects(first, { code: 'FORK_LEASE_LOST' });
+  try {
+    await awaitGate(entered.promise, first);
+    [...h.operations.values()][0].leaseUntil = new Date(Date.now() - 1);
+    await assert.rejects(h.runWorker(), {
+      code: 'FORK_NATIVE_OUTCOME_UNKNOWN',
+    });
+    assert.equal(h.conversations.size, 0);
+  } finally {
+    release.resolve();
+    await rejected;
+  }
+  await assert.rejects(forkAgentConversation(h.input, h.deps), {
+    code: 'FORK_NATIVE_OUTCOME_UNKNOWN',
+  });
+  assert.equal(h.stats().nativeForks, 1);
+  assert.equal(h.conversations.size, 0);
+});
+
+test('cleanup rechecks child visibility under ownership even for an older incomplete publication record', async (t) => {
+  const h = harness(t);
+  h.setFailPublicationCommit();
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /Publication commit failed/,
+  );
+  const operation = [...h.operations.values()][0];
+  h.deps.loadSource = async () => {
+    h.conversations.set(
+      operation.conversationId,
+      structuredClone(operation.conversation),
+    );
+    throw new ForkError('FORK_SOURCE_UNAVAILABLE', 'Source deleted', 404);
+  };
+  const result = await forkAgentConversation(h.input, h.deps);
+  assert.equal(result.conversationId, operation.conversationId);
+  assert.equal(h.stats().removed, 0);
+  assert.equal(h.copied.size, 3);
+  assert.equal([...h.operations.values()][0].phase, 'ready');
+});
+
+test('bounded snapshot transactions retain committed batches and retry with stable global row indices', async (t) => {
+  const h = harness(t);
+  const history: TurnSummary[] = [
+    ...Array.from({ length: 125 }, (_, index) => ({
+      ...h.rows[0],
+      turnId: `system-${index}`,
+      role: 'system' as const,
+      content: `Historical context ${index}`,
+      createdAt: new Date(0),
+    })),
+    ...h.rows.slice(0, 2),
+  ];
+  h.deps.listTurns = async () => ({ items: history.slice().reverse() });
+  const write = ForkSnapshotModel.bulkWrite.bind(ForkSnapshotModel);
+  let batch = 0;
+  t.mock.method(
+    ForkSnapshotModel,
+    'bulkWrite',
+    async (...args: Parameters<typeof ForkSnapshotModel.bulkWrite>) => {
+      if (++batch === 2) h.setFailSnapshot();
+      return write(...args);
+    },
+  );
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /Partial frozen snapshot/,
+  );
+  assert.equal(h.snapshots.size, 100);
+  assert.equal(h.stats().nativeForks, 0);
+  await forkAgentConversation(h.input, h.deps);
+  assert.equal(h.stats().nativeForks, 1);
+  assert.equal(h.copied.size, 128);
+  assert.deepEqual(
+    [...h.copied.values()]
+      .map((row) => row.chronologicalOrder)
+      .sort((a, b) => Number(a) - Number(b)),
+    Array.from({ length: 128 }, (_, index) => index),
+  );
+});
+
+test('delayed ownership acknowledgement after expiry cannot authorize an old worker native RPC', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'] });
+  const h = harness(t);
+  const entered = deferred();
+  const release = deferred();
+  const update = ForkOperationModel.updateOne.bind(ForkOperationModel);
+  t.mock.method(
+    ForkOperationModel,
+    'updateOne',
+    async (...args: Parameters<typeof ForkOperationModel.updateOne>) => {
+      const result = await update(...args);
+      if (
+        (args[1] as { $set?: Partial<ForkOperation> }).$set?.phase ===
+        'native_creating'
+      ) {
+        entered.resolve();
+        await release.promise;
+      }
+      return result;
+    },
+  );
+  const first = forkAgentConversation(h.input, h.deps);
+  const rejected = assert.rejects(first, { code: 'FORK_LEASE_LOST' });
+  try {
+    await awaitGate(entered.promise, first);
+    t.mock.timers.tick(FORK_LEASE_MS + 1);
+    await assert.rejects(h.runWorker(), {
+      code: 'FORK_NATIVE_OUTCOME_UNKNOWN',
+    });
+  } finally {
+    release.resolve();
+    await rejected;
+  }
+  assert.equal(h.stats().nativeForks, 0);
+  assert.equal(h.conversations.size, 0);
 });

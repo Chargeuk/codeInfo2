@@ -137,6 +137,56 @@ test('fork-of-fork delivers inherited pending handovers once in order', async ()
   });
 });
 
+test('recovered handover cancellation during Mongo acknowledgement prevents the next provider send', async () => {
+  const controller = new AbortController();
+  let entered!: () => void;
+  let release!: () => void;
+  const acknowledging = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let sent = 0;
+  const session = {
+    getEvents: async () => [userEvent('Already delivered')],
+    sendAndWait: async () => {
+      sent++;
+    },
+    rpc: {
+      sendMessages: async () => {
+        assert.fail('Handover must not be resent');
+      },
+    },
+  } as unknown as CopilotSession;
+  const result = sendPendingForkHandover({
+    session,
+    handovers: ['Already delivered'],
+    instruction: 'Cancelled instruction',
+    timeoutMs: resolveConfiguredTestTimeoutMs(1000),
+    signal: controller.signal,
+    markDelivered: async () => {
+      entered();
+      await gate;
+    },
+  });
+  const rejected = assert.rejects(result, { name: 'AbortError' });
+  try {
+    await Promise.race([
+      acknowledging,
+      result.then(() => {
+        throw new Error('Provider send completed before acknowledgement gate');
+      }),
+    ]);
+    controller.abort();
+    assert.equal(sent, 0);
+  } finally {
+    release();
+    await rejected;
+  }
+  assert.equal(sent, 0);
+});
+
 test('stalled first batch is bounded by the configured timeout and removes its waiter', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const timeoutMs = resolveConfiguredTestTimeoutMs(1000);

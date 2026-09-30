@@ -16,6 +16,7 @@ export class CodexAppServer {
     }
   >();
   private closed = false;
+  private writerExited = false;
   private readonly exited: Promise<{
     code: number | null;
     signal: NodeJS.Signals | null;
@@ -63,6 +64,7 @@ export class CodexAppServer {
     this.child.stdin.on('error', fail);
     this.exited = new Promise((resolve) =>
       this.child.once('close', (code, signal) => {
+        this.writerExited = true;
         fail();
         resolve({ code, signal });
       }),
@@ -99,6 +101,11 @@ export class CodexAppServer {
 
   close(): Promise<void> {
     return (this.closing ??= this.closeWriter());
+  }
+
+  isWriterTerminated(): boolean {
+    // Even a failed graceful close can prove this owned process cannot flush later.
+    return this.writerExited;
   }
 
   private async closeWriter() {

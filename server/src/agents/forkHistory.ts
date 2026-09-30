@@ -122,6 +122,11 @@ export function resolveForkBoundary(
       : undefined;
   if (exact?.completed)
     return { turn: exact, estimated: selected.native?.estimated === true };
+  if (selected.native?.eventId || selected.native?.turnId)
+    throw new ForkError(
+      'FORK_HISTORY_UNAVAILABLE',
+      'The recorded native response is unavailable or unfinished. Retry after provider history is persisted.',
+    );
 
   // Old records deliberately remain valid. Align in order so repeated prompts
   // and tied timestamps cannot silently select the first occurrence every time.
@@ -190,4 +195,14 @@ export function resolveForkBoundary(
       'The native session history is unavailable.',
     );
   return { turn: match, estimated: true };
+}
+
+export function forkHandoverAt(snapshot: TurnSummary[], now = Date.now()) {
+  // A large valid history can exceed the engine's spread-argument limit.
+  return new Date(
+    snapshot.reduce(
+      (latest, turn) => Math.max(latest, turn.createdAt.getTime()),
+      now,
+    ) + 1,
+  );
 }

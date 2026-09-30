@@ -21,6 +21,7 @@ export type ForkNativeSession = {
   remove: (sessionId: string) => Promise<void>;
   hasInjected: (sessionId: string, text: string) => Promise<boolean>;
   close: () => Promise<void>;
+  isWriterTerminated?: () => boolean;
 };
 
 export function mapCopilotForkTurns(events: SessionEvent[]): NativeForkTurn[] {
@@ -153,6 +154,7 @@ export async function openForkNative(
           await rpc.request('thread/archive', { threadId: childId });
         },
         close: () => rpc.close(),
+        isWriterTerminated: () => rpc.isWriterTerminated(),
       };
     } catch (error) {
       await rpc.close();

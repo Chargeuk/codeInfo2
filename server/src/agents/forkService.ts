@@ -12,12 +12,18 @@ import { listAllTurns, type TurnSummary } from '../mongo/repo.js';
 import { TurnModel, type Turn } from '../mongo/turn.js';
 import {
   ForkError,
+  forkHandoverAt,
   last,
   lastIndex,
   orderForkDisplayHistory,
   resolveForkBoundary,
   selectForkSnapshot,
 } from './forkHistory.js';
+import {
+  FORK_LEASE_MS,
+  incompleteForkPhases,
+  maintainForkLease,
+} from './forkLease.js';
 import { openForkNative, removeOwnedNativeFork } from './forkNative.js';
 import {
   getActiveRunOwnership,
@@ -136,12 +142,14 @@ export function copyForkTurn(
   conversationId: string,
   nativeSessionId: string,
   displayOrder: number,
+  chronologicalOrder?: number,
 ) {
   const { turnId, runtime, ...history } = turn;
   return {
     ...history,
     conversationId,
     displayOrder,
+    chronologicalOrder,
     // Command/tool metadata remains display history. Replay and run ownership
     // would make a child appear to own work still executing on its parent.
     runtime: runtime
@@ -184,6 +192,102 @@ async function readForkSnapshot(
   return records.map((record) => record.turn);
 }
 
+async function readFinishedFork(operationId: string) {
+  const operation = await ForkOperationModel.findById(operationId)
+    .lean()
+    .exec();
+  if (!operation) return undefined;
+  const conversation = await ConversationModel.findById(
+    operation.conversationId,
+  )
+    .lean()
+    .exec();
+  if (conversation) return resultFor(conversation);
+  if (operation.phase === 'ready')
+    throw new ForkError(
+      'FORK_DELETED',
+      'The previously created fork was deleted; start a new fork request.',
+    );
+  if (operation.phase === 'failed')
+    throw new ForkError(
+      'FORK_FAILED',
+      operation.error ?? 'The fork failed; start a new fork request.',
+    );
+  return undefined;
+}
+
+async function closeInjectionWriter(
+  writer: Awaited<ReturnType<typeof openForkNative>>,
+  lease: ReturnType<typeof maintainForkLease>,
+) {
+  let closed = false;
+  try {
+    await writer.close();
+    closed = true;
+  } finally {
+    // Persist termination separately from delivery: a dead writer cannot append
+    // a buffered duplicate later, even if its final flush failed or lost data.
+    if (closed || writer.isWriterTerminated?.())
+      await lease.update({ injectionWriterClosed: true });
+  }
+}
+
+async function cleanupIncompleteFork(
+  operation: ForkOperation,
+  lease: ReturnType<typeof maintainForkLease>,
+  deps: ForkServiceDeps,
+) {
+  // Claiming an incomplete phase and checking visibility in the same owned
+  // transaction prevents a delayed cleanup worker from destroying a ready fork.
+  const published = await mongoose.connection.transaction(async (session) => {
+    await lease.update({}, session);
+    const conversation = await ConversationModel.findById(
+      operation.conversationId,
+      null,
+      { session },
+    )
+      .lean()
+      .exec();
+    if (conversation) {
+      await lease.update({ phase: 'ready', conversation }, session);
+      return conversation;
+    }
+    await lease.update({ phase: 'cleaning' }, session);
+    return null;
+  });
+  if (published) return resultFor(published);
+  if (operation.nativeSessionId === operation.sourceNativeSessionId)
+    throw new ForkError(
+      'FORK_CLEANUP_UNAVAILABLE',
+      'Cannot establish independent fork ownership.',
+    );
+  if (operation.nativeSessionId) {
+    await lease.update();
+    await (deps.removeOwnedNative ?? removeOwnedNativeFork)(
+      operation.conversation.provider as 'codex' | 'copilot',
+      operation.nativeSessionId,
+    );
+  }
+  await mongoose.connection.transaction(async (session) => {
+    await lease.update(
+      {
+        phase: 'failed',
+        error: 'The source was deleted during fork creation.',
+      },
+      session,
+    );
+    await TurnModel.deleteMany(
+      { conversationId: operation.conversationId },
+      { session },
+    );
+    await ForkSnapshotModel.deleteMany(
+      { operationId: operation._id },
+      { session },
+    );
+  });
+  return undefined;
+}
+
 export type ForkServiceDeps = {
   loadSource: typeof loadSource;
   prepareTarget: typeof prepareAgentForkTarget;
@@ -201,6 +305,7 @@ const activeRequests = new Map<
   string,
   { inputKey: string; promise: Promise<ForkResult> }
 >();
+const FORK_WRITE_BATCH_SIZE = 100;
 export function forkAgentConversation(
   input: ForkInput,
   deps: ForkServiceDeps = defaultDeps,
@@ -230,7 +335,9 @@ export function forkAgentConversation(
   return task;
 }
 
-async function executeFork(
+// Each server worker executes independently; only the public facade coalesces
+// requests in its own process. Durable ownership must therefore fence this path.
+export async function executeFork(
   input: ForkInput,
   operationId: string,
   deps: ForkServiceDeps,
@@ -276,6 +383,7 @@ async function executeFork(
       const owned = await ForkOperationModel.findOneAndUpdate(
         {
           _id: operationId,
+          phase: { $in: incompleteForkPhases },
           $or: [
             { owner: { $exists: false } },
             { leaseUntil: { $lt: new Date() } },
@@ -284,7 +392,7 @@ async function executeFork(
         {
           $set: {
             owner: cleanupOwner,
-            leaseUntil: new Date(Date.now() + 300_000),
+            leaseUntil: new Date(Date.now() + FORK_LEASE_MS),
           },
         },
         { new: true },
@@ -292,37 +400,20 @@ async function executeFork(
         .lean()
         .exec();
       if (owned) {
+        const cleanupLease = maintainForkLease(operationId, cleanupOwner);
         try {
-          if (
-            owned.nativeSessionId &&
-            owned.nativeSessionId === owned.sourceNativeSessionId
-          )
-            throw new ForkError(
-              'FORK_CLEANUP_UNAVAILABLE',
-              'Cannot establish independent fork ownership.',
-            );
-          if (owned.nativeSessionId)
-            await (deps.removeOwnedNative ?? removeOwnedNativeFork)(
-              owned.conversation.provider as 'codex' | 'copilot',
-              owned.nativeSessionId,
-            );
-          await TurnModel.deleteMany({ conversationId: owned.conversationId });
-          await ForkSnapshotModel.deleteMany({ operationId });
-          await ForkOperationModel.updateOne(
-            { _id: operationId, owner: cleanupOwner },
-            {
-              $set: {
-                phase: 'failed',
-                error: 'The source was deleted during fork creation.',
-              },
-            },
-          );
+          const ready = await cleanupIncompleteFork(owned, cleanupLease, deps);
+          if (ready) return ready;
         } finally {
+          await cleanupLease.stop();
           await ForkOperationModel.updateOne(
             { _id: operationId, owner: cleanupOwner },
             { $unset: { owner: 1, leaseUntil: 1 } },
           );
         }
+      } else {
+        const ready = await readFinishedFork(operationId);
+        if (ready) return ready;
       }
     }
     throw error;
@@ -350,11 +441,10 @@ async function executeFork(
   let sourceLock: string | undefined;
   let native: Awaited<ReturnType<typeof openForkNative>> | undefined;
   let claimed = false;
+  let lease: ReturnType<typeof maintainForkLease> | undefined;
   try {
-    native = await deps.openNative(
-      sourceProvider as 'codex' | 'copilot',
-      nativeId,
-    );
+    // Freeze the visible DB point first. Native history may advance while it is
+    // read, but it must never be older than the selected recorded response.
     let snapshot =
       operation && operation.phase !== 'snapshotting'
         ? await readForkSnapshot(operation)
@@ -362,16 +452,15 @@ async function executeFork(
             (await deps.listTurns(source._id)).items.reverse(),
             operation?.snapshotLastTurnId ?? input.sourceTurnId,
           );
+    native = await deps.openNative(
+      sourceProvider as 'codex' | 'copilot',
+      nativeId,
+    );
     let boundary = resolveForkBoundary(snapshot, native.turns);
 
     if (!operation) {
       const conversationId = crypto.randomUUID();
-      const now = new Date(
-        Math.max(
-          Date.now(),
-          ...snapshot.map((turn) => turn.createdAt.getTime()),
-        ) + 1,
-      );
+      const now = forkHandoverAt(snapshot);
       const handover = `Conversation handover\nFork request: ${input.requestId}\nSource agent: ${source.agentName}\nSource conversation: ${source.title} (${source._id})\nTarget agent: ${input.targetAgentName}\nProvider: ${sourceProvider}\n\nContinue as the target agent using its current tools and model. The working folder is shared; this fork does not isolate files.\n\nComplete target agent prompt captured at fork time:\n${target.prompt}`;
       const conversation: Conversation = {
         _id: conversationId,
@@ -437,26 +526,43 @@ async function executeFork(
           'Conflicting fork request.',
         );
     }
+    const leaseUntil = new Date(Date.now() + FORK_LEASE_MS);
     const claimedOperation = await ForkOperationModel.findOneAndUpdate(
       {
         _id: operationId,
+        phase: { $in: incompleteForkPhases },
         $or: [
           { owner: { $exists: false } },
           { leaseUntil: { $lt: new Date() } },
         ],
       },
-      { $set: { owner, leaseUntil: new Date(Date.now() + 300_000) } },
-      { new: true },
+      { $set: { owner, leaseUntil } },
+      // The atomic preimage retains the expired writer's ownership metadata.
+      // A lease takeover cannot prove that its provider process has terminated.
+      { new: false },
     )
       .lean()
       .exec();
-    if (!claimedOperation)
+    if (!claimedOperation) {
+      const ready = await readFinishedFork(operationId);
+      if (ready) return ready;
       throw new ForkError(
         'FORK_CREATING',
         'This fork is being created. Retry with the same request identity.',
       );
-    operation = claimedOperation;
+    }
+    operation = { ...claimedOperation, owner, leaseUntil };
     claimed = true;
+    const ownedLease = maintainForkLease(operationId, owner);
+    lease = ownedLease;
+    if (operation.phase === 'cleaning') {
+      await cleanupIncompleteFork(operation, ownedLease, deps);
+      throw new ForkError(
+        'FORK_SOURCE_UNAVAILABLE',
+        'The source was deleted during fork creation.',
+        404,
+      );
+    }
     if (operation.phase === 'native_creating') {
       // Neither provider offers an idempotent native fork RPC. Reissuing an
       // uncertain RPC can leak a second session; quarantine rather than guess.
@@ -478,30 +584,41 @@ async function executeFork(
         );
       // Each immutable snapshot record stays within the same per-turn BSON
       // bound as source history. No aggregate content/tool output enters the operation.
-      await ForkSnapshotModel.bulkWrite(
-        snapshot.map((turn, index) => ({
-          updateOne: {
-            filter: {
-              _id: `${operationId}:${index}`,
-              'turn.turnId': turn.turnId,
-            },
-            update: {
-              $setOnInsert: {
-                _id: `${operationId}:${index}`,
-                operationId,
-                index,
-                turn,
-              },
-            },
-            upsert: true,
-          },
-        })),
-      );
+      // Bounded transactions fence staging writes without holding a Mongo
+      // transaction open for the entire cumulative conversation history.
+      for (
+        let offset = 0;
+        offset < snapshot.length;
+        offset += FORK_WRITE_BATCH_SIZE
+      ) {
+        await mongoose.connection.transaction(async (session) => {
+          await ownedLease.update({}, session);
+          await ForkSnapshotModel.bulkWrite(
+            snapshot
+              .slice(offset, offset + FORK_WRITE_BATCH_SIZE)
+              .map((turn, position) => ({
+                updateOne: {
+                  filter: {
+                    _id: `${operationId}:${offset + position}`,
+                    'turn.turnId': turn.turnId,
+                  },
+                  update: {
+                    $setOnInsert: {
+                      _id: `${operationId}:${offset + position}`,
+                      operationId,
+                      index: offset + position,
+                      turn,
+                    },
+                  },
+                  upsert: true,
+                },
+              })),
+            { session },
+          );
+        });
+      }
       snapshot = await readForkSnapshot(operation);
-      await ForkOperationModel.updateOne(
-        { _id: operationId, owner },
-        { $set: { phase: 'prepared' } },
-      );
+      await ownedLease.update({ phase: 'prepared' });
       operation.phase = 'prepared';
     } else {
       snapshot = await readForkSnapshot(operation);
@@ -523,10 +640,9 @@ async function executeFork(
         native = await deps.openNative('copilot', nativeId);
         boundary = resolveForkBoundary(snapshot, native.turns);
       }
-      await ForkOperationModel.updateOne(
-        { _id: operationId, owner },
-        { $set: { phase: 'native_creating' } },
-      );
+      // Persist the uncertain-outcome fence under a live lease before issuing
+      // the non-idempotent RPC. A takeover can never blindly repeat this call.
+      await ownedLease.update({ phase: 'native_creating' });
       const child = await native.fork(
         boundary.turn,
         operation.runtimeConfig,
@@ -541,46 +657,77 @@ async function executeFork(
       }
       operation.nativeSessionId = child;
       operation.phase = 'native_ready';
-      await ForkOperationModel.updateOne(
-        { _id: operationId, owner },
-        { $set: { nativeSessionId: child, phase: 'native_ready' } },
-      );
+      await ownedLease.update({
+        nativeSessionId: child,
+        phase: 'native_ready',
+      });
     }
     const childId = operation.nativeSessionId;
     const conversation = operation.conversation;
     conversation.fork!.nativeSessionId = childId;
     if (sourceProvider === 'codex') conversation.flags.threadId = childId;
+    const handovers = conversation.fork!.pendingHandovers ?? [
+      conversation.fork!.handover,
+    ];
     if (
-      ['injecting', 'native_ready'].includes(operation.phase) &&
+      sourceProvider === 'codex' &&
+      (operation.phase === 'injection_uncertain' ||
+        (claimedOperation.phase === 'injecting' &&
+          claimedOperation.injectionWriterClosed !== true))
+    ) {
+      // Missing disk history is not proof of a lost injection: an expired
+      // owner's writer may still flush it. Persist quarantine before probing,
+      // including ownerless retries, so releasing this lease cannot erase it.
+      await ownedLease.update({ phase: 'injection_uncertain' });
+      operation.phase = 'injection_uncertain';
+      for (const text of handovers) {
+        if (!(await native.hasInjected(childId, text)))
+          throw new ForkError(
+            'FORK_INJECTION_OUTCOME_UNKNOWN',
+            'The previous fork writer may still persist its handover. This request remains quarantined and will not inject it again; retry can recover once all handovers are durably present.',
+          );
+      }
+    }
+    if (
+      ['injecting', 'injection_uncertain', 'native_ready'].includes(
+        operation.phase,
+      ) &&
       sourceProvider === 'codex'
     ) {
-      await ForkOperationModel.updateOne(
-        { _id: operationId, owner },
-        { $set: { phase: 'injecting' } },
-      );
-      // Latest fork-of-fork can have trailing visible handovers outside the
-      // chosen native turn. Reinject those into the child, never the source.
-      const lastAssistant = lastIndex(
-        snapshot,
-        (turn) => turn.role === 'assistant',
-      );
-      for (const turn of snapshot.slice(lastAssistant + 1)) {
-        if (
-          turn.fork?.handover &&
-          !(await native.hasInjected(childId, turn.content))
-        )
-          await native.inject(childId, turn.content);
+      const durableRecovery = operation.phase === 'injection_uncertain';
+      if (!durableRecovery) {
+        await ownedLease.update({
+          phase: 'injecting',
+          injectionWriterClosed: false,
+        });
+        operation.phase = 'injecting';
+        // Latest fork-of-fork can have trailing visible handovers outside the
+        // chosen native turn. Reinject those into the child, never the source.
+        const lastAssistant = lastIndex(
+          snapshot,
+          (turn) => turn.role === 'assistant',
+        );
+        for (const turn of snapshot.slice(lastAssistant + 1)) {
+          if (
+            turn.fork?.handover &&
+            !(await native.hasInjected(childId, turn.content))
+          ) {
+            await ownedLease.update();
+            await native.inject(childId, turn.content);
+          }
+        }
+        if (!(await native.hasInjected(childId, conversation.fork!.handover))) {
+          await ownedLease.update();
+          await native.inject(childId, conversation.fork!.handover);
+        }
       }
-      if (!(await native.hasInjected(childId, conversation.fork!.handover)))
-        await native.inject(childId, conversation.fork!.handover);
       const writer = native;
       native = undefined;
       // Injection acknowledgement is not a durability boundary. Release this
       // owned child writer, then read persisted items before any publication.
-      await writer.close();
-      for (const text of conversation.fork!.pendingHandovers ?? [
-        conversation.fork!.handover,
-      ]) {
+      if (durableRecovery) await writer.close();
+      else await closeInjectionWriter(writer, ownedLease);
+      for (const text of handovers) {
         if (!(await writer.hasInjected(childId, text)))
           throw new ForkError(
             'FORK_HANDOVER_UNAVAILABLE',
@@ -588,10 +735,8 @@ async function executeFork(
           );
       }
       conversation.fork!.handoverDelivered = true;
-      await ForkOperationModel.updateOne(
-        { _id: operationId, owner },
-        { $set: { phase: 'copied', conversation } },
-      );
+      await ownedLease.update({ phase: 'copied', conversation });
+      operation.phase = 'copied';
     }
     if (native) {
       const helper = native;
@@ -618,6 +763,7 @@ async function executeFork(
           conversation._id,
           childId,
           displayOrders.get(turn.turnId)!,
+          index,
         ),
       }),
     );
@@ -639,19 +785,30 @@ async function executeFork(
       toolCalls: null,
       createdAt: operation.handoverAt,
       displayOrder: rows.length,
+      chronologicalOrder: rows.length,
       runtime: undefined,
       native: undefined,
       fork: { handover: true },
     });
-    await TurnModel.bulkWrite(
-      rows.map((row) => ({
-        updateOne: {
-          filter: { _id: row._id },
-          update: { $setOnInsert: row },
-          upsert: true,
-        },
-      })),
-    );
+    for (
+      let offset = 0;
+      offset < rows.length;
+      offset += FORK_WRITE_BATCH_SIZE
+    ) {
+      await mongoose.connection.transaction(async (session) => {
+        await ownedLease.update({}, session);
+        await TurnModel.bulkWrite(
+          rows.slice(offset, offset + FORK_WRITE_BATCH_SIZE).map((row) => ({
+            updateOne: {
+              filter: { _id: row._id },
+              update: { $setOnInsert: row },
+              upsert: true,
+            },
+          })),
+          { session },
+        );
+      });
+    }
     if (
       !(await ConversationModel.exists({
         _id: source._id,
@@ -659,46 +816,57 @@ async function executeFork(
         createdAt: source.createdAt,
       }))
     ) {
-      await TurnModel.deleteMany({ conversationId: conversation._id });
-      if (childId === operation.sourceNativeSessionId)
-        throw new ForkError(
-          'FORK_CLEANUP_UNAVAILABLE',
-          'Cannot establish independent fork ownership.',
-        );
-      await (deps.removeOwnedNative ?? removeOwnedNativeFork)(
-        sourceProvider as 'codex' | 'copilot',
-        childId,
-      );
-      await ForkSnapshotModel.deleteMany({ operationId });
-      await ForkOperationModel.updateOne(
-        { _id: operationId, owner },
-        {
-          $set: {
-            phase: 'failed',
-            error: 'The source was deleted during fork creation.',
-          },
-        },
-      );
+      await cleanupIncompleteFork(operation, ownedLease, deps);
       throw new ForkError(
         'FORK_SOURCE_UNAVAILABLE',
         'The source was deleted during fork creation.',
         404,
       );
     }
-    // Publication is the final single-document write. Staged turns have no
-    // visible conversation, and deterministic IDs make partial copy retryable.
-    const ready = await ConversationModel.findOneAndUpdate(
-      { _id: conversation._id },
-      { $setOnInsert: conversation },
-      { upsert: true, new: true },
-    )
-      .lean()
-      .exec();
+    // Ready and visibility must commit together: after a user deletes a
+    // published child, retry must report deletion rather than resurrect it.
+    // Stop renewal first so its own writes cannot conflict with this transaction.
+    await ownedLease.stop();
+    const ready = await mongoose.connection
+      .transaction(async (session) => {
+        await ownedLease.update({ phase: 'ready', conversation }, session);
+        const sourceExists = await ConversationModel.findById(
+          source._id,
+          null,
+          { session },
+        )
+          .lean()
+          .exec();
+        if (!sourceExists)
+          throw new ForkError(
+            'FORK_SOURCE_UNAVAILABLE',
+            'The source was deleted during fork creation.',
+            404,
+          );
+        const published = await ConversationModel.findOneAndUpdate(
+          { _id: conversation._id },
+          { $setOnInsert: conversation },
+          // These frozen timestamps are already in $setOnInsert. Automatic
+          // updatedAt would conflict with that path and change the fork time.
+          { upsert: true, new: true, session, timestamps: false },
+        )
+          .lean()
+          .exec();
+        if (!published) throw new Error('Fork publication failed');
+        return published;
+      })
+      .catch(async (error: unknown) => {
+        if (
+          error instanceof ForkError &&
+          error.code === 'FORK_SOURCE_UNAVAILABLE'
+        ) {
+          const cleanupLease = maintainForkLease(operationId, owner);
+          lease = cleanupLease;
+          await cleanupIncompleteFork(operation!, cleanupLease, deps);
+        }
+        throw error;
+      });
     if (!ready) throw new Error('Fork publication failed');
-    await ForkOperationModel.updateOne(
-      { _id: operationId, owner },
-      { $set: { phase: 'ready', conversation } },
-    );
     await ForkSnapshotModel.deleteMany({ operationId }).catch(() => {
       // Published history is complete; retaining temporary owned snapshots is
       // a cleanup limitation, not a reason to report creation as failed.
@@ -719,8 +887,17 @@ async function executeFork(
   } finally {
     if (sourceLock) releaseConversationLock(source._id, sourceLock);
     try {
-      if (native) await native.close();
+      if (native) {
+        if (
+          sourceProvider === 'codex' &&
+          operation?.phase === 'injecting' &&
+          lease
+        )
+          await closeInjectionWriter(native, lease);
+        else await native.close();
+      }
     } finally {
+      await lease?.stop();
       if (claimed)
         await ForkOperationModel.updateOne(
           { _id: operationId, owner },

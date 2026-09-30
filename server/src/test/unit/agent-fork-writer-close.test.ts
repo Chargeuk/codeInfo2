@@ -22,9 +22,11 @@ test('owned app-server close is idempotent and waits for a normal writer exit', 
   const { child, rpc } = fakeWriter();
   const first = rpc.close();
   assert.equal(rpc.close(), first);
+  assert.equal(rpc.isWriterTerminated(), false);
   child.emit('close', 0, null);
   try {
     await first;
+    assert.equal(rpc.isWriterTerminated(), true);
   } finally {
     child.stdin.destroy();
     child.stdout.destroy();
@@ -38,6 +40,7 @@ test('forced shutdown cannot acknowledge durable handover delivery', async (t) =
   try {
     t.mock.timers.tick(10_000);
     await rejected;
+    assert.equal(rpc.isWriterTerminated(), true);
   } finally {
     child.stdin.destroy();
     child.stdout.destroy();
@@ -50,6 +53,7 @@ test('nonzero app-server exit is a close failure even without forced shutdown', 
   child.emit('close', 1, null);
   try {
     await rejected;
+    assert.equal(rpc.isWriterTerminated(), true);
   } finally {
     child.stdin.destroy();
     child.stdout.destroy();

@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { createLogger } from '../logging/logger';
@@ -230,4 +230,127 @@ describe('AgentsPage sidebar actions', () => {
       expect(screen.getByTestId('conversation-refresh')).toBeDisabled();
     });
   });
+});
+
+describe('estimated fork history notice', () => {
+  it.each(['conversation', 'agent', 'new chat'])(
+    'does not follow navigation to another %s',
+    async (navigation) => {
+      const user = userEvent.setup();
+      mockAgentsFetch();
+      const ordinaryFetch = mockFetch.getMockImplementation()!;
+      let created = false;
+      mockFetch.mockImplementation((url, options) => {
+        const target = typeof url === 'string' ? url : url.toString();
+        if (target.includes('/fork-options'))
+          return mockJsonResponse({
+            sourceTitle: 'Active conversation',
+            sourceAgentName: 'a1',
+            sourceTurnId: 'answer',
+            estimated: true,
+            agents: [{ name: 'a1', sameAgent: true }],
+          });
+        if (target.endsWith('/fork')) {
+          created = true;
+          return mockJsonResponse({
+            conversationId: 'estimated-fork',
+            agentName: 'a1',
+            model: 'gpt-5.6-terra',
+            estimated: true,
+          });
+        }
+        if (/\/agents$/.test(target))
+          return mockJsonResponse({ agents: [{ name: 'a1' }, { name: 'a2' }] });
+        if (/\/agents\/a[12]$/.test(target))
+          return mockJsonResponse({
+            agent: {
+              name: target.endsWith('a2') ? 'a2' : 'a1',
+              disabled: false,
+              warnings: [],
+            },
+          });
+        if (target.includes('/conversations') && target.includes('agentName='))
+          return mockJsonResponse({
+            items:
+              new URL(target).searchParams.get('agentName') === 'a1'
+                ? [
+                    baseConversations[0],
+                    ...(created
+                      ? [
+                          {
+                            ...baseConversations[0],
+                            conversationId: 'estimated-fork',
+                            title: 'Estimated fork',
+                          },
+                        ]
+                      : []),
+                  ]
+                : [],
+            nextCursor: null,
+          });
+        return ordinaryFetch(url, options);
+      });
+      const router = createMemoryRouter(routes, {
+        initialEntries: ['/agents'],
+      });
+      render(<RouterProvider router={router} />);
+      await screen.findByText('Active conversation');
+      const conversationActions = () => {
+        const row = screen
+          .getByText('Active conversation')
+          .closest('[data-testid="conversation-row"]') as HTMLElement;
+        return within(row).getByRole('button', {
+          name: /^Conversation actions$/,
+        });
+      };
+      // Row text can arrive before health/agent loading enables its actions.
+      // Requery after list readiness so the click cannot target a replaced row.
+      await waitFor(() => {
+        expect(screen.queryByTestId('conversation-loading')).toBeNull();
+        expect(conversationActions()).toBeEnabled();
+      });
+      // The open modal hides background roles; retain the enabled trigger
+      // rather than querying it through the accessibility tree after opening.
+      const actions = conversationActions();
+      await user.click(actions);
+      const menu = await screen.findByRole('menu');
+      await waitFor(() => {
+        expect(actions).toHaveAttribute('aria-expanded', 'true');
+        expect(menu).toBeVisible();
+      });
+      await user.click(
+        within(menu).getByRole('menuitem', { name: 'Fork conversation...' }),
+      );
+      const dialog = await screen.findByRole('dialog', {
+        name: 'Fork conversation',
+      });
+      await waitFor(() => expect(menu).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'Create fork' }),
+        ).toBeEnabled(),
+      );
+      await user.click(screen.getByRole('button', { name: 'Create fork' }));
+      const notice =
+        'This fork used an estimated match to older provider history.';
+      // Wait for modal teardown before navigating the restored page controls.
+      await waitFor(() => {
+        expect(dialog).not.toBeInTheDocument();
+        expect(screen.getByText(notice)).toBeVisible();
+      });
+      if (navigation === 'conversation') {
+        await user.click(await screen.findByText('Active conversation'));
+      } else if (navigation === 'agent') {
+        await user.click(screen.getByTestId('agent-select-trigger'));
+        await user.click(
+          await within(screen.getByTestId('agent-selector-popover')).findByText(
+            'a2',
+          ),
+        );
+      } else {
+        await user.click(screen.getByTestId('agent-new-conversation-trigger'));
+      }
+      await waitFor(() => expect(screen.queryByText(notice)).toBeNull());
+    },
+  );
 });

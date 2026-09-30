@@ -14,6 +14,48 @@ type Deps = {
   getForkOptions?: typeof getForkOptions;
 };
 
+const getKnownTargetPreparationError = (
+  error: unknown,
+):
+  | {
+      code:
+        | 'INVALID_PROVIDER'
+        | 'PROVIDER_UNAVAILABLE'
+        | 'WORKING_FOLDER_INVALID'
+        | 'WORKING_FOLDER_NOT_FOUND'
+        | 'WORKING_FOLDER_UNAVAILABLE';
+      reason?: string;
+    }
+  | undefined => {
+  if (!error || typeof error !== 'object') return undefined;
+  try {
+    if (Object.getPrototypeOf(error) !== Object.prototype) return undefined;
+    const descriptors = Object.getOwnPropertyDescriptors(error);
+    const code = descriptors.code;
+    const reason = descriptors.reason;
+    if (
+      !code ||
+      !('value' in code) ||
+      ![
+        'INVALID_PROVIDER',
+        'PROVIDER_UNAVAILABLE',
+        'WORKING_FOLDER_INVALID',
+        'WORKING_FOLDER_NOT_FOUND',
+        'WORKING_FOLDER_UNAVAILABLE',
+      ].includes(code.value) ||
+      (reason && (!('value' in reason) || typeof reason.value !== 'string'))
+    ) {
+      return undefined;
+    }
+    return {
+      code: code.value,
+      ...(reason ? { reason: reason.value as string } : {}),
+    };
+  } catch {
+    return undefined;
+  }
+};
+
 export function createAgentsRouter(
   deps: Deps = {
     listAgents,
@@ -27,6 +69,19 @@ export function createAgentsRouter(
       return res
         .status(error.status)
         .json({ code: error.code, message: error.message });
+    // Only known plain target-preparation errors have a client-facing contract.
+    const targetError = getKnownTargetPreparationError(error);
+    if (targetError) {
+      const message = targetError.reason ?? 'Target agent preparation failed.';
+      const status =
+        targetError.code === 'INVALID_PROVIDER'
+          ? 409
+          : targetError.code === 'WORKING_FOLDER_INVALID' ||
+              targetError.code === 'WORKING_FOLDER_NOT_FOUND'
+            ? 400
+            : 503;
+      return res.status(status).json({ code: targetError.code, message });
+    }
     return res.status(503).json({
       code: 'FORK_UNAVAILABLE',
       message:

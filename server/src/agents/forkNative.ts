@@ -7,7 +7,7 @@ import {
   type NativeCodexThread,
 } from '../codex/appServer.js';
 import { buildCopilotClientOptions } from '../config/copilotConfig.js';
-import { ForkError, last, type NativeForkTurn } from './forkHistory.js';
+import { ForkError, type NativeForkTurn } from './forkHistory.js';
 
 export type ForkNativeSession = {
   turns: NativeForkTurn[];
@@ -56,6 +56,42 @@ export function mapCopilotForkTurns(events: SessionEvent[]): NativeForkTurn[] {
     }
   }
   return turns;
+}
+
+export function hasCodexRolloutInjected(raw: string, text: string): boolean {
+  const lines = raw.split('\n');
+  const hasTrailingNewline = raw.endsWith('\n');
+  type RolloutRecord = {
+    type?: string;
+    payload?: { role?: string; content?: Array<{ text?: string }> };
+  };
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line) continue;
+    let record: RolloutRecord;
+    try {
+      record = JSON.parse(line) as RolloutRecord;
+    } catch (error) {
+      // A writer may still be flushing only the final unterminated fragment.
+      if (!hasTrailingNewline && index === lines.length - 1) continue;
+      throw error;
+    }
+    if (
+      record.type === 'response_item' &&
+      record.payload?.role === 'user' &&
+      record.payload.content?.some((item) => item.text === text)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function completedCodexTurnId(
+  turns: NativeCodexThread['turns'],
+): string | undefined {
+  const newest = turns.at(-1);
+  return newest?.status === 'completed' ? newest.id : undefined;
 }
 
 export async function openForkNative(
@@ -132,20 +168,7 @@ export async function openForkNative(
           // The cached owned path also permits a durable read after closing
           // app-server, when no child writer can hide an unflushed injection.
           const rollout = await fs.readFile(rolloutPath, 'utf8');
-          return rollout
-            .split('\n')
-            .filter(Boolean)
-            .some((line) => {
-              const record = JSON.parse(line) as {
-                type?: string;
-                payload?: { role?: string; content?: Array<{ text?: string }> };
-              };
-              return (
-                record.type === 'response_item' &&
-                record.payload?.role === 'user' &&
-                record.payload.content?.some((item) => item.text === text)
-              );
-            });
+          return hasCodexRolloutInjected(rollout, text);
         },
         remove: async (childId) => {
           // Only a child returned by this connection is owned by this operation.
@@ -223,8 +246,8 @@ export async function readCompletedCodexTurn(sessionId: string) {
       'thread/read',
       { threadId: sessionId, includeTurns: true },
     );
-    const turn = last(thread.turns, (item) => item.status === 'completed');
-    return turn ? { sessionId, turnId: turn.id } : undefined;
+    const turnId = completedCodexTurnId(thread.turns);
+    return turnId ? { sessionId, turnId } : undefined;
   });
 }
 

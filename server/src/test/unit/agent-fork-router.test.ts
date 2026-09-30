@@ -78,6 +78,76 @@ test('fork route preserves clear unsupported errors and rejects unstable creatio
   assert.equal(invalid.status, 400);
 });
 
+test('fork route preserves known plain target provider errors', async () => {
+  for (const failure of [
+    { code: 'PROVIDER_UNAVAILABLE', reason: 'Target provider is offline' },
+    { code: 'INVALID_PROVIDER', reason: 'Target provider is disabled' },
+  ]) {
+    const response = await request(
+      app(async () => {
+        throw failure;
+      }),
+    )
+      .post('/agents/conversations/source/fork')
+      .send({ requestId: 'request-123', targetAgentName: 'target' });
+    assert.equal(
+      response.status,
+      failure.code === 'INVALID_PROVIDER' ? 409 : 503,
+    );
+    assert.equal(response.body.code, failure.code);
+    assert.equal(response.body.message, failure.reason);
+  }
+});
+
+test('fork route preserves known plain working-folder preparation errors', async () => {
+  for (const failure of [
+    {
+      code: 'WORKING_FOLDER_INVALID',
+      reason: 'folder path is invalid',
+      status: 400,
+    },
+    {
+      code: 'WORKING_FOLDER_NOT_FOUND',
+      reason: 'folder was not found',
+      status: 400,
+    },
+    {
+      code: 'WORKING_FOLDER_UNAVAILABLE',
+      reason: 'folder could not be checked',
+      status: 503,
+    },
+  ]) {
+    const response = await request(
+      app(async () => {
+        throw { code: failure.code, reason: failure.reason };
+      }),
+    )
+      .post('/agents/conversations/source/fork')
+      .send({ requestId: 'request-123', targetAgentName: 'target' });
+    assert.equal(response.status, failure.status);
+    assert.equal(response.body.code, failure.code);
+    assert.equal(response.body.message, failure.reason);
+  }
+});
+
+test('fork route keeps malformed and unknown plain errors generic', async () => {
+  for (const failure of [
+    { code: 'PROVIDER_UNAVAILABLE', reason: { detail: 'private' } },
+    { code: 'UNRECOGNIZED', reason: 'private detail' },
+  ]) {
+    const response = await request(
+      app(async () => {
+        throw failure;
+      }),
+    )
+      .post('/agents/conversations/source/fork')
+      .send({ requestId: 'request-123', targetAgentName: 'target' });
+    assert.equal(response.status, 503);
+    assert.equal(response.body.code, 'FORK_UNAVAILABLE');
+    assert.equal(response.body.message, 'Conversation fork is unavailable.');
+  }
+});
+
 test('fork options expose compatible agents and estimated-history notice', async () => {
   const response = await request(
     app(async () => ({

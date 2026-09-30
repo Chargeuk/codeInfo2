@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { SessionEvent } from '@github/copilot-sdk';
-import { mapCopilotForkTurns } from '../../agents/forkNative.js';
+import {
+  completedCodexTurnId,
+  hasCodexRolloutInjected,
+  mapCopilotForkTurns,
+} from '../../agents/forkNative.js';
 
 const event = (
   id: string,
@@ -58,4 +62,30 @@ test('Copilot idle tail has no persisted successor, and subagent turns cannot re
   assert.equal(turns.length, 1);
   assert.equal(turns[0].assistant, 'Main response');
   assert.equal(turns[0].nextEventId, undefined);
+});
+
+test('Codex rollout injection check tolerates only an unterminated malformed tail', () => {
+  const injected = JSON.stringify({
+    type: 'response_item',
+    payload: { role: 'user', content: [{ text: 'handover' }] },
+  });
+  assert.equal(hasCodexRolloutInjected('', 'handover'), false);
+  assert.equal(hasCodexRolloutInjected(`${injected}\n`, 'handover'), true);
+  assert.equal(
+    hasCodexRolloutInjected(`${injected}\n{"partial":`, 'handover'),
+    true,
+  );
+  assert.equal(hasCodexRolloutInjected('{"partial":', 'handover'), false);
+  assert.throws(() => hasCodexRolloutInjected('{bad}\n', 'handover'));
+  assert.throws(() =>
+    hasCodexRolloutInjected(`{bad}\n${injected}`, 'handover'),
+  );
+});
+
+test('Codex completed turn identity comes only from the newest native turn', () => {
+  const completed = { id: 'completed', status: 'completed', items: [] };
+  const unfinished = { id: 'unfinished', status: 'inProgress', items: [] };
+  assert.equal(completedCodexTurnId([]), undefined);
+  assert.equal(completedCodexTurnId([completed]), 'completed');
+  assert.equal(completedCodexTurnId([completed, unfinished]), undefined);
 });

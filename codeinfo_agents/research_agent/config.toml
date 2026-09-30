@@ -1,5 +1,5 @@
 codeinfo_provider = "codex"
-model = "gpt-6-sol"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
@@ -28,6 +28,12 @@ command = "npx"
 args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp", "--allow-http"]
 startup_timeout_sec = 60
 tool_timeout_sec = 1800
+
+[mcp_servers.agents]
+command = "npx"
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp", "--allow-http"]
+startup_timeout_sec = 60
+tool_timeout_sec = 86400
 
 [mcp_servers.playwright]
 command = "npx"

@@ -1,1 +1,1 @@
-Maximum-tier review agent using GPT-6 Sol with xhigh reasoning effort for main-stack proof against a read-only repository mount. The maximum label distinguishes its xhigh reasoning effort from the heavy review agent’s high setting.
+Maximum-tier review agent using GPT-6.1 Sol with xhigh reasoning effort for main-stack proof against a read-only repository mount. The maximum label distinguishes its xhigh reasoning effort from the heavy review agent’s high setting.

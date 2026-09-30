@@ -639,6 +639,7 @@ test('codex model list empty CSV falls back with warning', async () => {
     );
     assert.ok(modelKeys.includes('gpt-5.6-sol'));
     assert.ok(modelKeys.includes('gpt-6-sol'));
+    assert.ok(modelKeys.includes('gpt-6.1-sol'));
     assert.ok(modelKeys.includes('gpt-6-luna'));
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
@@ -668,12 +669,51 @@ test('codex model list whitespace-only CSV falls back with warning', async () =>
     );
     assert.ok(modelKeys.includes('gpt-5.6-sol'));
     assert.ok(modelKeys.includes('gpt-6-sol'));
+    assert.ok(modelKeys.includes('gpt-6.1-sol'));
     assert.ok(modelKeys.includes('gpt-6-luna'));
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('Codex_model_list is empty'),
       ),
     );
+  } finally {
+    await stopServer(server);
+  }
+});
+test('gpt-6.1-sol exposes supported reasoning efforts', async () => {
+  await setCodexHome();
+  env.set('Codex_model_list', 'gpt-6-sol,gpt-6.1-sol');
+  env.set('Codex_reasoning_effort', 'minimal');
+  env.set(
+    'Codex_reasoning_efforts_metadata',
+    'minimal,none,low,medium,high,xhigh,max',
+  );
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+    const models = res.body.models as Array<{
+      key: string;
+      supportedReasoningEfforts: string[];
+      defaultReasoningEffort: string;
+    }>;
+    const currentSol = models.find((model) => model.key === 'gpt-6.1-sol');
+    const previousSol = models.find((model) => model.key === 'gpt-6-sol');
+    assert.deepEqual(currentSol?.supportedReasoningEfforts, [
+      'low',
+      'medium',
+      'high',
+      'xhigh',
+    ]);
+    assert.equal(currentSol?.defaultReasoningEffort, 'medium');
+    assert.ok(previousSol?.supportedReasoningEfforts.includes('minimal'));
   } finally {
     await stopServer(server);
   }

@@ -18,6 +18,7 @@ import type {
   TurnUsageMetadata,
   TurnNativeMetadata,
 } from '../../mongo/turn.js';
+import { ForkInstructionOutcomeUnknownError } from '../forkHandover.js';
 import { cleanupInflight, markInflightPersisted } from '../inflightRegistry.js';
 import {
   recordMemoryTurn,
@@ -492,21 +493,47 @@ export abstract class ChatInterface extends EventEmitter {
         });
       }
 
-      const persistedAssistantTurnId = await this.persistAssistantTurn({
-        conversationId,
-        content,
-        model,
-        provider,
-        source,
-        command,
-        runtime: assistantRuntime,
-        native: latestNative,
-        usage,
-        timing,
-        status,
-        toolCalls,
-        skipPersistence,
-      });
+      let persistedAssistantTurnId: string | undefined;
+      try {
+        persistedAssistantTurnId = await this.persistAssistantTurn({
+          conversationId,
+          content,
+          model,
+          provider,
+          source,
+          command,
+          runtime: assistantRuntime,
+          native: latestNative,
+          usage,
+          timing,
+          status,
+          toolCalls,
+          skipPersistence,
+        });
+      } catch (persistenceError) {
+        if (!(executionError instanceof ForkInstructionOutcomeUnknownError))
+          throw persistenceError;
+        // The provider may already have accepted this first fork instruction.
+        // A secondary Mongo failure must not replace its nonretryable outcome,
+        // or the command runner would replay the accepted instruction.
+        append({
+          level: 'error',
+          message:
+            'DEV-0000040:fork_instruction_uncertain_assistant_persistence_failed',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: {
+            conversationId,
+            code: executionError.code,
+            persistenceError:
+              persistenceError instanceof Error
+                ? persistenceError.message
+                : String(persistenceError),
+          },
+        });
+        throw executionError;
+      }
 
       assistantPersisted = true;
       if (inflightId) {

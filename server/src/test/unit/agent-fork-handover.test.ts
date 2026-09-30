@@ -5,7 +5,10 @@ import type {
   SessionEvent,
   SessionEventHandler,
 } from '@github/copilot-sdk';
-import { sendPendingForkHandover } from '../../chat/forkHandover.js';
+import {
+  ForkInstructionOutcomeUnknownError,
+  sendPendingForkHandover,
+} from '../../chat/forkHandover.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const userEvent = (content: string) =>
@@ -93,7 +96,11 @@ test('crash after native acceptance is recovered from persisted events without d
       timeoutMs: resolveConfiguredTestTimeoutMs(1000),
       markDelivered: async () => {},
     }),
-    /Lost acknowledgement/,
+    (error: unknown) => {
+      assert.ok(error instanceof ForkInstructionOutcomeUnknownError);
+      assert.match(error.message, /Lost acknowledgement/);
+      return true;
+    },
   );
   await sendPendingForkHandover({
     session,
@@ -221,7 +228,11 @@ test('stalled first batch is bounded by the configured timeout and removes its w
       delivered++;
     },
   });
-  const rejected = assert.rejects(result, /Timeout.*Copilot fork instruction/);
+  const rejected = assert.rejects(result, (error: unknown) => {
+    assert.ok(error instanceof ForkInstructionOutcomeUnknownError);
+    assert.match(error.message, /Timeout.*Copilot fork instruction/);
+    return true;
+  });
   try {
     await started;
     assert.equal(delivered, 0);
@@ -259,7 +270,12 @@ test('abort during first batch rejects once and removes listeners without acknow
         delivered++;
       },
     }),
-    /fork instruction aborted/,
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.equal(error instanceof ForkInstructionOutcomeUnknownError, false);
+      assert.match(error.message, /fork instruction aborted/);
+      return true;
+    },
   );
   assert.equal(waiter.active(), false);
   assert.equal(delivered, 0);
@@ -292,7 +308,15 @@ test('provider error before the batch acknowledgement rejects immediately and re
           assert.fail('Failed run cannot acknowledge delivery');
         },
       }),
-      /Provider run failed/,
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(
+          error instanceof ForkInstructionOutcomeUnknownError,
+          false,
+        );
+        assert.match(error.message, /Provider run failed/);
+        return true;
+      },
     );
     assert.equal(waiter.active(), false);
   } finally {

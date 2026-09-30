@@ -26,6 +26,7 @@ const ENV_KEYS = [
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
   'CODEINFO_CHAT_DEFAULT_MODEL',
   'CODEINFO_CODEX_HOME',
+  'CODEINFO_COPILOT_HOME',
   'CODEX_HOME',
 ] as const;
 const originalEnv = new Map<string, string | undefined>();
@@ -41,18 +42,24 @@ const setEnv = (values: Record<string, string | undefined>) => {
     setScopedTestEnvValue(key, value);
   });
 };
-const setChatConfig = async (chatToml: string) => {
+const setChatConfig = async (
+  chatToml: string,
+  provider: 'codex' | 'copilot' = 'codex',
+) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codeinfo2-task7-'));
   tempDirs.push(root);
-  const codexHome = path.join(root, 'codex');
-  await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+  const providerHome = path.join(root, provider);
+  await fs.mkdir(path.join(providerHome, 'chat'), { recursive: true });
   await fs.writeFile(
-    path.join(codexHome, 'chat', 'config.toml'),
+    path.join(providerHome, 'chat', 'config.toml'),
     chatToml,
     'utf8',
   );
-  setScopedTestEnvValue('CODEX_HOME', codexHome);
-  setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
+  if (provider === 'codex') setScopedTestEnvValue('CODEX_HOME', providerHome);
+  setScopedTestEnvValue(
+    `CODEINFO_${provider.toUpperCase()}_HOME`,
+    providerHome,
+  );
 };
 beforeEach(() => {
   ENV_KEYS.forEach((key) => {
@@ -149,6 +156,9 @@ test('omitted codex provider and model resolve through the chat-config-aware def
   assert.equal(result.defaultsResolution.modelSource, 'config');
 });
 test('implicit degraded-bootstrap requests keep fallback-eligible threadId, provider, and warnings for route-level selection', async () => {
+  // Selecting a provider does not supply its provider-local default model.
+  // Seed it so this case reaches bootstrap handling rather than config fallback.
+  await setChatConfig('model = "copilot-gpt-5"\n', 'copilot');
   __setProviderBootstrapStatusForTests('copilot', {
     healthy: false,
     reason: 'copilot bootstrap degraded',
@@ -163,6 +173,7 @@ test('implicit degraded-bootstrap requests keep fallback-eligible threadId, prov
     threadId: 'thread-fallback-eligible',
   });
   assert.equal(result.provider, 'copilot');
+  assert.equal(result.model, 'copilot-gpt-5');
   assert.equal(result.threadId, 'thread-fallback-eligible');
   assert.equal(result.defaultsResolution.providerSource, 'env');
   assert.equal(
@@ -328,14 +339,25 @@ test('chat request rejects endpointId for non-endpoint-backed LM Studio provider
   );
 });
 test('chat request rejects a stale endpointId when defaults resolve to LM Studio after a create-mode transition', async () => {
+  // Create-mode requests already carry their selected model. Supplying it
+  // isolates the stale endpoint guard from provider-local default-model lookup.
   setEnv({
     CODEINFO_CHAT_DEFAULT_PROVIDER: 'lmstudio',
   });
+  const body = {
+    model: 'model-1',
+    message: 'hello',
+    conversationId: 'lmstudio-endpoint-id-default',
+  };
+  const valid = await validateChatRequest(body);
+  assert.equal(valid.provider, 'lmstudio');
+  assert.equal(valid.model, 'model-1');
+  assert.equal(valid.defaultsResolution.providerSource, 'env');
+  assert.equal(valid.defaultsResolution.modelSource, 'request');
   await assert.rejects(
     async () =>
       await validateChatRequest({
-        message: 'hello',
-        conversationId: 'lmstudio-endpoint-id-default',
+        ...body,
         endpointId: 'https://alpha.example/v1',
       }),
     /endpointId is not supported for provider "lmstudio"/,

@@ -392,6 +392,15 @@ type DirectAgentPreparedExecution = {
   copilotModels: ModelInfo[];
 };
 
+type ForkOptionsSnapshot = {
+  availabilityContext: Awaited<
+    ReturnType<typeof createAgentAvailabilityContext>
+  >;
+  providerStates: Record<ChatProviderId, DirectAgentProviderState>;
+  executionContext: SharedExecutionContext;
+  resolveEndpoint: typeof resolveOpenAiCompatEndpointRuntimeState;
+};
+
 type RuntimePreparationDiagnostics = {
   emit: (message: string, context: Record<string, unknown>) => void;
   baseContext?: Record<string, unknown>;
@@ -861,6 +870,7 @@ async function prepareDirectAgentExecution(
     diagnostics?: RuntimePreparationDiagnostics;
   },
   deps: AgentServiceDeps = getEffectiveAgentServiceDeps(),
+  forkOptions?: ForkOptionsSnapshot,
 ): Promise<DirectAgentPreparedExecution> {
   const emitPreparationDiagnostic = (
     message: string,
@@ -917,7 +927,9 @@ async function prepareDirectAgentExecution(
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_availability_begin',
   );
-  const availabilityContext = await deps.createAgentAvailabilityContext();
+  const availabilityContext =
+    forkOptions?.availabilityContext ??
+    (await deps.createAgentAvailabilityContext());
   const availability = await deps.evaluateAgentAvailability({
     agentName: params.agentName,
     configPath: params.configPath,
@@ -935,10 +947,12 @@ async function prepareDirectAgentExecution(
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_provider_states_begin',
   );
-  const providerStates = await collectDirectAgentProviderStates(
-    agentRuntimeDiagnosticsEnabled ? params.diagnostics : undefined,
-    deps,
-  );
+  const providerStates =
+    forkOptions?.providerStates ??
+    (await collectDirectAgentProviderStates(
+      agentRuntimeDiagnosticsEnabled ? params.diagnostics : undefined,
+      deps,
+    ));
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_provider_states_complete',
     {
@@ -978,9 +992,11 @@ async function prepareDirectAgentExecution(
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_execution_context_begin',
   );
-  const executionContext = await resolveSharedExecutionContext({
-    workingFolder: params.workingFolder,
-  });
+  const executionContext =
+    forkOptions?.executionContext ??
+    (await resolveSharedExecutionContext({
+      workingFolder: params.workingFolder,
+    }));
   emitPreparationDiagnostic(
     'flows.test.runtime_resolution_prepare_execution_context_complete',
     {
@@ -1034,7 +1050,10 @@ async function prepareDirectAgentExecution(
     }
     const endpointState =
       providerRuntimeResolution.endpoint !== undefined
-        ? await resolveOpenAiCompatEndpointRuntimeState({
+        ? await (
+            forkOptions?.resolveEndpoint ??
+            resolveOpenAiCompatEndpointRuntimeState
+          )({
             endpoint: providerRuntimeResolution.endpoint,
             provider:
               params.pinnedProviderId === 'codex' ||
@@ -1266,7 +1285,10 @@ async function prepareDirectAgentExecution(
       continue;
     }
     const endpointState = providerRuntimeResolution.endpoint
-      ? await resolveOpenAiCompatEndpointRuntimeState({
+      ? await (
+          forkOptions?.resolveEndpoint ??
+          resolveOpenAiCompatEndpointRuntimeState
+        )({
           endpoint: providerRuntimeResolution.endpoint,
           provider:
             providerId === 'codex' || providerId === 'copilot'
@@ -1474,8 +1496,96 @@ export async function prepareFlowOwnedAgentExecution(params: {
   });
 }
 
-// Forks resolve the destination afresh: saved source model/flags and fallback
-// selection must never become the target agent's execution configuration.
+export async function createAgentForkOptionsPreparation(
+  workingFolder?: string,
+) {
+  const agents = await discoverAgents({ seedAuth: false });
+  const byName = new Map(agents.map((agent) => [agent.name, agent]));
+  const deps = getEffectiveAgentServiceDeps();
+  let snapshot: Promise<ForkOptionsSnapshot> | undefined;
+  const getSnapshot = () =>
+    (snapshot ??= (async (): Promise<ForkOptionsSnapshot> => {
+      // Catalog rows share a request-local readiness/model snapshot. Building
+      // availability from these same states avoids probing Copilot/MCP twice,
+      // while create-time preparation continues to perform fresh full checks.
+      const providerStates = await collectDirectAgentProviderStates(
+        undefined,
+        deps,
+      );
+      const availabilityStates = {
+        codex: { providerId: 'codex' as const, ...providerStates.codex },
+        copilot: { providerId: 'copilot' as const, ...providerStates.copilot },
+        lmstudio: {
+          providerId: 'lmstudio' as const,
+          ...providerStates.lmstudio,
+        },
+      };
+      const endpointStates = new Map<
+        string,
+        ReturnType<typeof resolveOpenAiCompatEndpointRuntimeState>
+      >();
+      return {
+        providerStates,
+        availabilityContext: {
+          providerStates: availabilityStates,
+          fallbackCandidates: deps
+            .resolveAgentProviderFallbackOrder()
+            .normalizedProviders.map(
+              (providerId) => availabilityStates[providerId],
+            ),
+        },
+        executionContext: await resolveSharedExecutionContext({
+          workingFolder,
+        }),
+        resolveEndpoint: (params) => {
+          // Endpoint identity alone does not include credentials/capabilities.
+          // Reuse discovery only for the same complete definition and provider.
+          const key = JSON.stringify([params.provider, params.endpoint]);
+          let result = endpointStates.get(key);
+          if (!result) {
+            result = resolveOpenAiCompatEndpointRuntimeState(params);
+            endpointStates.set(key, result);
+          }
+          return result;
+        },
+      };
+    })());
+  return {
+    agents,
+    prepareTarget: async (agentName: string, sourceProvider?: string) => {
+      const agent = byName.get(agentName);
+      if (!agent) throw new Error(`Agent "${agentName}" was not found.`);
+      const metadata = await readAgentRequestedProviderMetadata({
+        configPath: agent.configPath,
+      });
+      // An explicit provider mismatch can be discarded without network work.
+      // Unspecified providers still need the normal current-provider selection.
+      if (
+        sourceProvider &&
+        metadata.requestedProviderId &&
+        metadata.requestedProviderId !== sourceProvider
+      )
+        throw new Error(
+          'Agent provider is incompatible with the source conversation.',
+        );
+      return prepareDirectAgentExecution(
+        {
+          agentName,
+          configPath: agent.configPath,
+          workingFolder,
+          source: 'REST',
+          surface: 'agents.run',
+          allowFallback: false,
+        },
+        deps,
+        await getSnapshot(),
+      );
+    },
+  };
+}
+
+// Creation resolves the destination afresh: saved source model/flags and the
+// options snapshot must never become the target's execution configuration.
 export async function prepareAgentForkTarget(
   agentName: string,
   workingFolder?: string,

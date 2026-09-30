@@ -30,7 +30,10 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from './runLock.js';
-import { listAgents, prepareAgentForkTarget } from './service.js';
+import {
+  createAgentForkOptionsPreparation,
+  prepareAgentForkTarget,
+} from './service.js';
 
 export type ForkInput = {
   sourceConversationId: string;
@@ -48,7 +51,10 @@ export type ForkResult = {
 
 export function assertForkCompatible(
   source: Pick<Conversation, 'provider' | 'flags'>,
-  target: Awaited<ReturnType<typeof prepareAgentForkTarget>>,
+  target: Pick<
+    Awaited<ReturnType<typeof prepareAgentForkTarget>>,
+    'requestedProviderId' | 'executionProviderId' | 'endpointId'
+  >,
 ) {
   if (
     !['codex', 'copilot'].includes(source.provider) ||
@@ -75,20 +81,32 @@ const loadSource = async (id: string): Promise<Conversation> => {
   return source;
 };
 
-export async function getForkOptions(sourceId: string, sourceTurnId?: string) {
-  const source = await loadSource(sourceId);
+export type ForkOptionsDeps = {
+  loadSource: typeof loadSource;
+  listTurns: typeof listAllTurns;
+  openNative: typeof openForkNative;
+  prepareOptions: typeof createAgentForkOptionsPreparation;
+};
+
+export async function getForkOptions(
+  sourceId: string,
+  sourceTurnId?: string,
+  deps: ForkOptionsDeps = {
+    loadSource,
+    listTurns: listAllTurns,
+    openNative: openForkNative,
+    prepareOptions: createAgentForkOptionsPreparation,
+  },
+) {
+  const source = await deps.loadSource(sourceId);
   const snapshot = selectForkSnapshot(
-    (await listAllTurns(sourceId)).items.reverse(),
+    (await deps.listTurns(sourceId)).items.reverse(),
     sourceTurnId,
   );
+  const preparation = await deps.prepareOptions(source.flags.workingFolder);
   const sourceProvider =
     source.provider ??
-    (
-      await prepareAgentForkTarget(
-        source.agentName!,
-        source.flags.workingFolder,
-      )
-    ).executionProviderId;
+    (await preparation.prepareTarget(source.agentName!)).executionProviderId;
   if (!['codex', 'copilot'].includes(sourceProvider))
     throw new ForkError(
       'FORK_UNSUPPORTED',
@@ -102,7 +120,7 @@ export async function getForkOptions(sourceId: string, sourceTurnId?: string) {
       'FORK_NATIVE_UNAVAILABLE',
       'The source has no native provider session.',
     );
-  const native = await openForkNative(
+  const native = await deps.openNative(
     sourceProvider as 'codex' | 'copilot',
     sessionId,
   );
@@ -113,11 +131,11 @@ export async function getForkOptions(sourceId: string, sourceTurnId?: string) {
     await native.close();
   }
   const compatible = [];
-  for (const agent of (await listAgents()).agents) {
+  for (const agent of preparation.agents) {
     try {
-      const target = await prepareAgentForkTarget(
+      const target = await preparation.prepareTarget(
         agent.name,
-        source.flags.workingFolder,
+        sourceProvider,
       );
       assertForkCompatible({ ...source, provider: sourceProvider }, target);
       compatible.push({

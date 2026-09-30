@@ -711,7 +711,6 @@ test('gpt-6.1-sol exposes supported reasoning efforts', async () => {
       'medium',
       'high',
       'xhigh',
-      'max',
     ]);
     assert.equal(currentSol?.defaultReasoningEffort, 'medium');
     assert.ok(previousSol?.supportedReasoningEfforts.includes('minimal'));

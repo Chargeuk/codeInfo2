@@ -35,7 +35,7 @@ export type ResolveCodexCapabilitiesOptions = {
 };
 
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
-const GPT_6_1_SOL_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+const GPT_6_1_SOL_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh'];
 
 const modelCapability = (
   model: string,
@@ -46,7 +46,7 @@ const modelCapability = (
     return { model, supportedReasoningEfforts, defaultReasoningEffort };
   }
 
-  // GPT-6.1 Sol has no minimal/none effort even when shared CLI metadata does.
+  // Offer only these GPT-6.1 Sol efforts, regardless of shared CLI metadata.
   return {
     model,
     supportedReasoningEfforts: GPT_6_1_SOL_REASONING_EFFORTS,

@@ -1201,6 +1201,16 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         const timeDelta = b.createdAt.getTime() - a.createdAt.getTime();
         if (timeDelta !== 0) return timeDelta;
 
+        // Fork copies carry explicit source order because new IDs and tied
+        // historic timestamps must not regroup alternating roles.
+        if (
+          'displayOrder' in a &&
+          'displayOrder' in b &&
+          typeof a.displayOrder === 'number' &&
+          typeof b.displayOrder === 'number'
+        ) {
+          return b.displayOrder - a.displayOrder;
+        }
         const roleDelta = rolePriority(a.role) - rolePriority(b.role);
         if (roleDelta !== 0) return roleDelta;
 

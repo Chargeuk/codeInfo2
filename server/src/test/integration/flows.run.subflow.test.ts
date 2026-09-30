@@ -56,7 +56,10 @@ import {
   enterTestEnvOverrides,
   getScopedEnvValue,
 } from '../support/testEnvOverrideScope.js';
-import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+import {
+  resolveConfiguredTestTimeoutMs,
+  waitForTestCondition,
+} from '../support/testTimeouts.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const createSlowChildControl = () => {
@@ -3217,7 +3220,16 @@ test('repeated repair gate skips empty batches, researches candidates, and prese
           }),
       });
 
-      await waitForAssistantStatus(result.conversationId, 'ok');
+      // A successful gate turn can precede the ordinary followup; wait for the flow itself to finish.
+      await waitForTestCondition(
+        async () =>
+          (await getFlowRunStatus(result.conversationId))?.terminal === true,
+        { description: 'repeated repair flow to reach terminal status' },
+      );
+      assert.equal(
+        (await getFlowRunStatus(result.conversationId))?.status,
+        'ok',
+      );
       assert.equal(
         executions.includes('repeated repair research'),
         scenario.expectsResearch,

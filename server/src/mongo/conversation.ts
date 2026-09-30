@@ -5,6 +5,18 @@ const { Schema, model, models } = mongoose;
 
 export type ConversationProvider = 'lmstudio' | 'codex' | 'copilot';
 export type ConversationSource = 'REST' | 'MCP';
+export interface ConversationFork {
+  requestId: string;
+  sourceConversationId: string;
+  sourceTurnId: string;
+  sourceAgentName: string;
+  targetAgentName: string;
+  nativeSessionId: string;
+  estimated: boolean;
+  handover: string;
+  handoverDelivered: boolean;
+  pendingHandovers?: string[];
+}
 export type ConversationFlags = {
   agentFlags?: Record<string, unknown>;
   threadId?: string;
@@ -30,6 +42,7 @@ export interface Conversation {
   updatedAt: Date;
   lastMessageAt: Date;
   archivedAt: Date | null;
+  fork?: ConversationFork;
 }
 
 export type ConversationDocument = HydratedDocument<Conversation>;
@@ -50,6 +63,7 @@ const conversationSchema = new Schema<Conversation>(
     flags: { type: Schema.Types.Mixed, default: {} },
     lastMessageAt: { type: Date, required: true, default: () => new Date() },
     archivedAt: { type: Date, default: null },
+    fork: { type: Schema.Types.Mixed, required: false },
   },
   { timestamps: true },
 );

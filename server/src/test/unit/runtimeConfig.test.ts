@@ -162,7 +162,7 @@ describe('copilot runtime env wiring', () => {
       withCliPath.clientOptions.connection?.kind === 'stdio'
         ? withCliPath.clientOptions.connection.args
         : undefined,
-      ['--allow-all-paths'],
+      undefined,
     );
     assert.equal(withCliPath.cliPathOverride, 'present');
     assert.equal(withCliPath.cliMode, 'cliPath');
@@ -177,7 +177,7 @@ describe('copilot runtime env wiring', () => {
       withoutCliPath.clientOptions.connection?.kind === 'stdio'
         ? withoutCliPath.clientOptions.connection.args
         : undefined,
-      ['--allow-all-paths'],
+      undefined,
     );
     assert.equal(withoutCliPath.cliPathOverride, 'absent');
     assert.equal(withoutCliPath.cliMode, 'path');

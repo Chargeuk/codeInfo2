@@ -5,6 +5,7 @@ import {
   CopilotLifecycle,
   type CopilotRuntimeClient,
 } from '../../chat/copilotLifecycle.js';
+import { ChatInterfaceCopilot } from '../../chat/interfaces/ChatInterfaceCopilot.js';
 
 const createRuntimeStub = (
   overrides: Partial<CopilotRuntimeClient> = {},
@@ -89,7 +90,7 @@ test('copilot lifecycle passes an explicit cliPath override into the runtime fac
   });
 
   assert.equal(receivedCliPath, '/custom/copilot');
-  assert.deepEqual(receivedCliArgs, ['--allow-all-paths']);
+  assert.equal(receivedCliArgs, undefined);
   assert.equal(lifecycle.cliMode, 'cliPath');
 });
 
@@ -107,6 +108,77 @@ test('copilot lifecycle leaves cliPath undefined when PATH discovery should be u
 
   assert.equal(receivedCliPath, undefined);
   assert.equal(lifecycle.cliMode, 'path');
+});
+
+test('managed Copilot chat approves outside-directory reads and writes on create and resume without legacy CLI flags', async () => {
+  const workingDirectory = '/workspace/project';
+  const configs: (
+    | import('@github/copilot-sdk').SessionConfig
+    | import('@github/copilot-sdk').ResumeSessionConfig
+  )[] = [];
+  const lifecycle = new CopilotLifecycle({
+    cwd: workingDirectory,
+    clientFactory: (options) => {
+      assert.equal(options.connection?.kind, 'stdio');
+      assert.equal(
+        options.connection?.kind === 'stdio'
+          ? options.connection.args
+          : undefined,
+        undefined,
+      );
+      assert.equal(options.workingDirectory, workingDirectory);
+      return createRuntimeStub({
+        createSession: async (config) => {
+          configs.push(config);
+          return { sessionId: 'path-permissions' } as never;
+        },
+        resumeSession: async (_sessionId, config) => {
+          configs.push(config);
+          return { sessionId: 'path-permissions' } as never;
+        },
+      });
+    },
+  });
+  const chat = new ChatInterfaceCopilot(lifecycle);
+  const flags = { workingDirectoryOverride: workingDirectory };
+  await chat.createConversationSession(
+    'path-permissions',
+    'copilot-gpt-5',
+    flags,
+  );
+  await chat.resumeConversationSession(
+    'path-permissions',
+    'copilot-gpt-5',
+    flags,
+  );
+
+  const requests: import('@github/copilot-sdk').PermissionRequest[] = [
+    {
+      kind: 'read',
+      path: '/workspace/shared/file.ts',
+      intention: 'Read a file outside the working directory',
+    },
+    {
+      kind: 'write',
+      fileName: '/workspace/shared/file.ts',
+      intention: 'Update a file outside the working directory',
+      diff: '+export const shared = true;',
+      canOfferSessionApproval: false,
+    },
+  ];
+  assert.equal(configs.length, 2);
+  for (const config of configs) {
+    assert.equal(config.workingDirectory, workingDirectory);
+    assert.ok(config.onPermissionRequest);
+    for (const request of requests) {
+      assert.deepEqual(
+        await config.onPermissionRequest(request, {
+          sessionId: 'path-permissions',
+        }),
+        { kind: 'approve-once' },
+      );
+    }
+  }
 });
 
 test('copilot lifecycle passes getAuthStatus through unchanged', async () => {

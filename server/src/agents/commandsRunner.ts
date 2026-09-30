@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { ForkInstructionOutcomeUnknownError } from '../chat/forkHandover.js';
 import {
   cleanupPendingConversationCancel,
   consumePendingConversationCancel,
@@ -538,7 +539,11 @@ export async function runAgentCommandRunner(
             source: params.source,
           });
         },
-        isRetryableError: (err) => !(err instanceof AbortError),
+        // A first fork batch can have reached Copilot despite losing its reply
+        // or idle event. Leave later intentional instructions to the user.
+        isRetryableError: (err) =>
+          !(err instanceof AbortError) &&
+          !(err instanceof ForkInstructionOutcomeUnknownError),
         maxAttempts,
         baseDelayMs: BASE_DELAY_MS,
         signal: combinedSignal,

@@ -31,6 +31,7 @@ import {
   TurnRuntimeMetadata,
   TurnTimingMetadata,
   TurnUsageMetadata,
+  TurnNativeMetadata,
 } from './turn.js';
 
 const repoReadyTimestamp = new Date().toISOString();
@@ -84,8 +85,10 @@ function mergeConversationMetaFlags(params: {
   );
 
   const safeNextFlags = Object.fromEntries(
-    Object.entries(nextFlags).filter(([key, value]) =>
-      isDeepStrictEqual(currentFlags[key], baseFlags[key]) && value !== undefined,
+    Object.entries(nextFlags).filter(
+      ([key, value]) =>
+        isDeepStrictEqual(currentFlags[key], baseFlags[key]) &&
+        value !== undefined,
     ),
   );
 
@@ -157,6 +160,7 @@ export interface AppendTurnInput {
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
   runtime?: TurnRuntimeMetadata;
+  native?: TurnNativeMetadata;
   createdAt?: Date;
 }
 
@@ -402,6 +406,7 @@ export async function appendTurn(input: AppendTurnInput): Promise<Turn> {
     usage: input.usage,
     timing: input.timing,
     runtime: input.runtime,
+    native: input.native,
     createdAt,
   });
 
@@ -544,6 +549,10 @@ export interface TurnSummary {
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
   runtime?: TurnRuntimeMetadata;
+  native?: TurnNativeMetadata;
+  displayOrder?: number;
+  chronologicalOrder?: number;
+  fork?: Turn['fork'];
   createdAt: Date;
 }
 
@@ -559,7 +568,7 @@ export async function listTurns(
   }
 
   const docs = (await TurnModel.find(query)
-    .sort({ createdAt: -1, _id: -1 })
+    .sort({ createdAt: -1, displayOrder: -1, _id: -1 })
     .limit(params.limit)
     .lean()) as Array<Turn & { _id?: unknown }>;
 
@@ -577,6 +586,10 @@ export async function listTurns(
     usage: doc.usage,
     timing: doc.timing,
     runtime: doc.runtime,
+    native: doc.native,
+    displayOrder: doc.displayOrder,
+    chronologicalOrder: doc.chronologicalOrder,
+    fork: doc.fork,
     createdAt: doc.createdAt,
   }));
 
@@ -587,7 +600,15 @@ export async function listAllTurns(
   conversationId: string,
 ): Promise<{ items: TurnSummary[] }> {
   const docs = (await TurnModel.find({ conversationId })
-    .sort({ createdAt: -1, _id: -1 })
+    // Fork boundaries follow source chronology; display tie breakers can put
+    // a later prompt before an earlier answer with the same timestamp. Older
+    // copies retain the source IDs, which are a better fallback than new IDs.
+    .sort({
+      createdAt: -1,
+      chronologicalOrder: -1,
+      'fork.sourceTurnId': -1,
+      _id: -1,
+    })
     .lean()) as Array<Turn & { _id?: unknown }>;
 
   const items: TurnSummary[] = docs.map((doc) => ({
@@ -604,6 +625,10 @@ export async function listAllTurns(
     usage: doc.usage,
     timing: doc.timing,
     runtime: doc.runtime,
+    native: doc.native,
+    displayOrder: doc.displayOrder,
+    chronologicalOrder: doc.chronologicalOrder,
+    fork: doc.fork,
     createdAt: doc.createdAt,
   }));
 

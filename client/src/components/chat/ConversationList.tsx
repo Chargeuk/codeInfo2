@@ -33,6 +33,7 @@ import type {
   ConversationFilterState,
 } from '../../hooks/useConversations';
 import { createLogger } from '../../logging/logger';
+import AgentConversationMenu from '../agents/AgentConversationMenu';
 import {
   formatConversationRowTimestamp,
   getConversationProviderPresentation,
@@ -151,6 +152,7 @@ type Props = {
   onFilterChange: (state: ConversationFilterState) => void;
   onArchive: (conversationId: string) => void;
   onRestore: (conversationId: string) => void;
+  onFork?: (conversationId: string) => void;
   onBulkArchive?: (
     conversationIds: string[],
   ) => Promise<ConversationBulkResult>;
@@ -183,6 +185,7 @@ export function ConversationList({
   onFilterChange,
   onArchive,
   onRestore,
+  onFork,
   onBulkArchive,
   onBulkRestore,
   onBulkDelete,
@@ -1036,7 +1039,51 @@ export function ConversationList({
                                 {timestamp}
                               </Typography>
                             </Box>
-                            {showRowActions ? (
+                            {showRowActions && onFork ? (
+                              <AgentConversationMenu
+                                archived={conversation.archived}
+                                disabled={bulkDisabled}
+                                onFork={() =>
+                                  onFork(conversation.conversationId)
+                                }
+                                onArchive={() => {
+                                  void Promise.resolve(
+                                    onArchive(conversation.conversationId),
+                                  )
+                                    .then(() =>
+                                      setToast({
+                                        severity: 'success',
+                                        message: 'Conversation archived',
+                                      }),
+                                    )
+                                    .catch((error: Error) =>
+                                      setToast({
+                                        severity: 'error',
+                                        message:
+                                          error.message || 'Archive failed',
+                                      }),
+                                    );
+                                }}
+                                onRestore={() => {
+                                  void Promise.resolve(
+                                    onRestore(conversation.conversationId),
+                                  )
+                                    .then(() =>
+                                      setToast({
+                                        severity: 'success',
+                                        message: 'Conversation restored',
+                                      }),
+                                    )
+                                    .catch((error: Error) =>
+                                      setToast({
+                                        severity: 'error',
+                                        message:
+                                          error.message || 'Restore failed',
+                                      }),
+                                    );
+                                }}
+                              />
+                            ) : showRowActions ? (
                               <Tooltip
                                 title={
                                   conversation.archived

@@ -10,7 +10,6 @@ import { getScopedProcessEnv } from '../test/support/testEnvOverrideScope.js';
 
 export const DEFAULT_CODEINFO_COPILOT_HOME = './copilot';
 export const DEFAULT_CODEINFO_LMSTUDIO_HOME = './lmstudio';
-export const DEFAULT_COPILOT_CLI_ARGS = ['--allow-all-paths'] as const;
 export const COPILOT_ENV_AUTH_KEYS = [
   'COPILOT_GITHUB_TOKEN',
   'GH_TOKEN',
@@ -715,14 +714,11 @@ export function buildCopilotClientOptions(params?: {
   const configDir = getCopilotConfigDirForHome(copilotHome);
   const cliPath = resolveCopilotCliPath(params?.cliPath, env);
   const cliMode: CopilotCliMode = cliPath ? 'cliPath' : 'path';
-  const normalizedCliArgs = (params?.cliArgs ?? [])
+  // The managed runtime rejects legacy --allow-all-paths; session permission
+  // handlers provide path approval. Keep explicit args under caller control.
+  const cliArgs = (params?.cliArgs ?? [])
     .map((arg) => arg.trim())
     .filter((arg) => arg.length > 0);
-  const providedCliArgs = new Set(normalizedCliArgs);
-  const cliArgs = [
-    ...DEFAULT_COPILOT_CLI_ARGS.filter((arg) => !providedCliArgs.has(arg)),
-    ...normalizedCliArgs,
-  ];
   const cacheDir = getCopilotCacheDirForHome(copilotHome);
   const mergedEnv: Record<string, string | undefined> = {
     ...process.env,

@@ -130,7 +130,10 @@ export function createToolExecutionStartEvent(params?: {
     data: {
       toolCallId: params?.toolCallId ?? 'tool-call-1',
       toolName: params?.toolName ?? 'read_file',
-      arguments: params?.arguments ?? { path: '/tmp/example.ts' },
+      // SDK events use JSON values, matching the wire serialization of tool arguments.
+      arguments: JSON.parse(
+        JSON.stringify(params?.arguments ?? { path: '/tmp/example.ts' }),
+      ),
     },
   };
 }

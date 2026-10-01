@@ -8,6 +8,7 @@ import type {
   ThreadOptions as CodexThreadOptions,
   TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
+import { readCompletedCodexTurn } from '../../agents/forkNative.js';
 import { buildCodexOptions } from '../../config/codexConfig.js';
 import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
@@ -21,7 +22,11 @@ import {
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
 } from '../memoryPersistence.js';
-import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
+import {
+  ChatInterface,
+  type ChatCompleteEvent,
+  type ChatToolResultEvent,
+} from './ChatInterface.js';
 
 type CodexRunFlags = {
   workingDirectoryOverride?: string;
@@ -570,6 +575,7 @@ export class ChatInterfaceCodex extends ChatInterface {
     const reasoningByItemKey = new Map<string, string>();
     let hasEmittedReasoning = false;
     let finalEmitted = false;
+    let pendingAgentComplete: ChatCompleteEvent | undefined;
 
     const getAssistantItemKey = (item: CodexAssistantMessageItem): string =>
       typeof item.id === 'string' && item.id.length > 0
@@ -854,15 +860,28 @@ export class ChatInterfaceCodex extends ChatInterface {
                 },
               });
             }
-            this.emitEvent({
+            const complete: ChatCompleteEvent = {
               type: 'complete',
               threadId: activeThreadId,
               ...(usage ? { usage } : {}),
-            });
+            };
+            if (disableSystemContext) pendingAgentComplete = complete;
+            else this.emitEvent(complete);
             break;
           default:
             break;
         }
+      }
+      if (pendingAgentComplete) {
+        // SDK exec must finish flushing its rollout before app-server reads the
+        // completed turn ID. Reading on the JSONL event can select the prior turn.
+        const native = activeThreadId
+          ? await readCompletedCodexTurn(activeThreadId).catch(() => undefined)
+          : undefined;
+        this.emitEvent({
+          ...pendingAgentComplete,
+          ...(native ? { native } : {}),
+        });
       }
     } catch (err) {
       emitFormattedCodexExecutionError(err);

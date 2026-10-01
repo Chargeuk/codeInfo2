@@ -18,14 +18,20 @@ import type { OpenAiCompatEndpointConfig } from '../../config/openaiCompatEndpoi
 import type { RuntimeTomlConfig } from '../../config/runtimeConfig.js';
 import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
+import { ConversationModel } from '../../mongo/conversation.js';
 import type { TurnSummary } from '../../mongo/repo.js';
 import type {
+  TurnNativeMetadata,
   TurnTimingMetadata,
   TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { CopilotLifecycle } from '../copilotLifecycle.js';
 import { buildCopilotMcpServers } from '../copilotMcpConfig.js';
 import { copilotModelSupportsReasoningEffort } from '../copilotModelSupport.js';
+import {
+  enforceForkMcpServers,
+  sendPendingForkHandover,
+} from '../forkHandover.js';
 import { buildOpenAiCompatProxyBaseUrl } from '../openaiCompatAdapter.js';
 import {
   resolveCopilotRuntimeAgentFlags,
@@ -46,6 +52,10 @@ type CopilotRunFlags = {
   resumeConversation?: boolean;
   copilotModels?: ModelInfo[];
   runtimeConfig?: RuntimeTomlConfig;
+  nativeSessionId?: string;
+  forkHandover?: string[];
+  isFork?: boolean;
+  signal?: AbortSignal;
 };
 
 type OpenAiCompatProviderConfig = {
@@ -54,7 +64,8 @@ type OpenAiCompatProviderConfig = {
   wireApi: 'responses' | 'completions';
 };
 
-type CopilotSessionLike = Pick<CopilotSession, 'sendAndWait' | 'disconnect'>;
+type CopilotSessionLike = Pick<CopilotSession, 'sendAndWait' | 'disconnect'> &
+  Partial<Pick<CopilotSession, 'getEvents' | 'rpc' | 'on'>>;
 type CopilotSessionHooks = NonNullable<SessionConfig['hooks']>;
 
 type SessionPhase = 'create' | 'resume';
@@ -198,7 +209,16 @@ export class ChatInterfaceCopilot extends ChatInterface {
     runtimeFlags: CopilotRuntimeAgentFlags;
     mcpServers?: Record<string, MCPServerConfig>;
   } {
-    const runtimeFlags = resolveCopilotRuntimeAgentFlags(flags.agentFlags);
+    const runtimeFlags = resolveCopilotRuntimeAgentFlags(
+      flags.isFork
+        ? {
+            modelReasoningEffort:
+              flags.runtimeConfig?.reasoning_effort ??
+              flags.runtimeConfig?.model_reasoning_effort,
+            toolAccess: flags.runtimeConfig?.tool_access,
+          }
+        : flags.agentFlags,
+    );
     const rawMcpServers = buildCopilotMcpServers(flags.runtimeConfig);
     return {
       runtimeFlags,
@@ -324,6 +344,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
     let latestUsage: TurnUsageMetadata | undefined;
     let latestTiming: TurnTimingMetadata | undefined;
     let terminalLogged = false;
+    let native: TurnNativeMetadata | undefined;
     let started = false;
     let session: CopilotSessionLike | undefined;
     const toolNameByCallId = new Map<string, string>();
@@ -354,6 +375,13 @@ export class ChatInterfaceCopilot extends ChatInterface {
       const timing = normalizeTiming(event);
       if (timing) latestTiming = timing;
 
+      if (event.type === 'assistant.turn_end' && !event.agentId) {
+        native = {
+          sessionId: typedFlags.nativeSessionId ?? conversationId,
+          turnId: event.data.turnId,
+          eventId: event.id,
+        };
+      }
       switch (event.type) {
         case 'session.start':
         case 'session.resume':
@@ -436,6 +464,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
             threadId: conversationId,
             usage: latestUsage,
             timing: latestTiming,
+            native,
           });
           logTerminal('completed');
           return;
@@ -451,7 +480,7 @@ export class ChatInterfaceCopilot extends ChatInterface {
       session =
         phase === 'resume'
           ? await this.resumeConversationSession(
-              conversationId,
+              typedFlags.nativeSessionId ?? conversationId,
               model,
               flags,
               onEvent,
@@ -473,10 +502,44 @@ export class ChatInterfaceCopilot extends ChatInterface {
         this.emitEvent({ type: 'thread', threadId: conversationId });
       }
 
-      await session.sendAndWait(
-        { prompt: message },
-        resolveCopilotSendAndWaitTimeoutMs(),
-      );
+      if (typedFlags.isFork) {
+        if (!session.rpc)
+          throw new Error(
+            'Copilot native fork runtime capabilities are unavailable',
+          );
+        const { mcpServers } = this.resolveSessionFlags(typedFlags);
+        // Resume implementations can merge MCP config. Explicitly disable any
+        // inherited server outside the destination agent's current catalog.
+        await enforceForkMcpServers(
+          session as Pick<CopilotSession, 'rpc'>,
+          mcpServers,
+        );
+      }
+      if (typedFlags.forkHandover?.length) {
+        if (!session.rpc || !session.getEvents || !session.on)
+          throw new Error('Copilot ordered handover messages are unavailable');
+        await sendPendingForkHandover({
+          session: session as Pick<
+            CopilotSession,
+            'rpc' | 'getEvents' | 'sendAndWait' | 'on'
+          >,
+          handovers: typedFlags.forkHandover,
+          instruction: message,
+          timeoutMs: resolveCopilotSendAndWaitTimeoutMs(),
+          signal: typedFlags.signal,
+          markDelivered: async () => {
+            await ConversationModel.updateOne(
+              { _id: conversationId },
+              { $set: { 'fork.handoverDelivered': true } },
+            );
+          },
+        });
+      } else {
+        await session.sendAndWait(
+          { prompt: message },
+          resolveCopilotSendAndWaitTimeoutMs(),
+        );
+      }
     } finally {
       await session?.disconnect().catch(() => undefined);
       if (started) {

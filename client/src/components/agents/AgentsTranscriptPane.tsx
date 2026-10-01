@@ -4,6 +4,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Box,
+  Button,
   Typography,
 } from '@mui/material';
 import { memo, useEffect, useMemo, useRef } from 'react';
@@ -34,6 +35,7 @@ type AgentsTranscriptPaneProps = {
   latestAssistantMessageId: string | null;
   liveStoppedMarker: LiveStoppedMarker;
   isStopping: boolean;
+  onForkFromTurn?: (turnId: string) => void;
   onToggleCitation: (messageId: string) => void;
   onToggleThink: (messageId: string) => void;
   onToggleTool: (toggleKey: string, messageId: string) => void;
@@ -96,6 +98,7 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
   liveStoppedMarker,
   isStopping,
   onToggleCitation,
+  onForkFromTurn,
   onToggleThink,
   onToggleTool,
   onToggleToolError,
@@ -183,6 +186,19 @@ const AgentsTranscriptPane = memo(function AgentsTranscriptPane({
         onToggleThink={onToggleThink}
         onToggleTool={onToggleTool}
         onToggleToolError={onToggleToolError}
+        renderHeaderContent={(message) =>
+          onForkFromTurn &&
+          message.storedTurnId &&
+          ['complete', 'warning'].includes(message.streamStatus ?? '') ? (
+            <Button
+              size="small"
+              onClick={() => onForkFromTurn(message.storedTurnId!)}
+              sx={{ minHeight: 44 }}
+            >
+              Fork from here...
+            </Button>
+          ) : null
+        }
         markdownLogSource="AgentsPage"
         userMarkdownTestId="agents-user-markdown"
         resolveStreamStatus={(message) => {

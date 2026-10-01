@@ -28,6 +28,9 @@ export type TurnCommandMetadata = {
 
 export type StoredTurn = {
   turnId?: string;
+  displayOrder?: number;
+  native?: { estimated?: boolean };
+  fork?: { handover?: boolean };
   conversationId: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -212,6 +215,8 @@ export function useConversationTurns(
         return aTime - bTime;
       }
 
+      if (a.displayOrder !== undefined && b.displayOrder !== undefined)
+        return a.displayOrder - b.displayOrder;
       const roleDelta = rolePriority(a.role) - rolePriority(b.role);
       if (roleDelta !== 0) return roleDelta;
 

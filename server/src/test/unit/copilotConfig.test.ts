@@ -80,12 +80,25 @@ test('buildCopilotClientOptions resolves COPILOT_HOME and optional cliPath toget
     resolved.clientOptions.connection?.kind === 'stdio'
       ? resolved.clientOptions.connection.args
       : undefined,
-    ['--allow-all-paths'],
+    undefined,
   );
   assert.equal(resolved.cliMode, 'cliPath');
 });
 
-test('buildCopilotClientOptions preserves caller CLI arg order and duplicates while forcing allow-all-paths', () => {
+test('buildCopilotClientOptions omits legacy path flags for default or empty managed-runtime args', () => {
+  for (const cliArgs of [undefined, [], [' ', '']]) {
+    const resolved = buildCopilotClientOptions({ cliArgs });
+    assert.equal(resolved.clientOptions.connection?.kind, 'stdio');
+    assert.equal(
+      resolved.clientOptions.connection?.kind === 'stdio'
+        ? resolved.clientOptions.connection.args
+        : undefined,
+      undefined,
+    );
+  }
+});
+
+test('buildCopilotClientOptions preserves explicit caller CLI args, order and duplicates', () => {
   const resolved = buildCopilotClientOptions({
     copilotHome: './tmp/copilot-home',
     cliArgs: [' --header ', 'A', '--header', 'B', '--allow-all-paths'],

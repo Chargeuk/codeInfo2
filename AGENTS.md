@@ -220,7 +220,7 @@ Shortcut:
 - Use test wrappers as the default test path.
 - Use raw underlying commands only when wrapper maintenance or diagnosis requires them.
 - Wrapper logs are the source of full diagnostic detail.
-- When a task requires running the full automated test suite across client, server, and e2e surfaces, use `npm run test:summary:all:parallel` as the required all-tests wrapper.
+- When full automated validation across client, server, and e2e surfaces is required, run exactly one of `npm run test:summary:all:parallel` or `npm run test:summary:all:stress` for each unchanged candidate. Both wrappers run the same client, server unit, server cucumber, and e2e suites; stress uses more workers and is preferred for concurrency-sensitive changes. Do not require both wrappers solely to complete full validation. A rerun is appropriate when code changes or a failure needs diagnosis.
 
 ### Parallel-Safe Test Authoring
 
@@ -234,7 +234,7 @@ Shortcut:
 - Isolate external resources. Prefer port `0` for test servers, `fs.mkdtemp` or the provider-home harness for filesystem state, and unique test-owned identities for Compose projects, databases, collections, and similar shared resources.
 - Await all asynchronous cleanup. Sockets, servers, timers, child processes, temporary directories, subscriptions, client pools, registry entries, and intentionally detached promises must be owned by the test and settled in `finally`, `afterEach`, or `afterAll`; do not rely on process exit.
 - Route timeouts through `resolveConfiguredTestTimeoutMs`, `resolveClientTestTimeoutMs`, or `resolveConfiguredE2eTimeoutMs` as appropriate. Do not introduce short hard-coded timeout assumptions that become invalid under CPU saturation.
-- Run the smallest applicable summary wrapper first. New or changed concurrency-sensitive tests must then be validated with `npm run test:summary:all:stress`; passing repeatedly in isolation is not sufficient proof of parallel safety.
+- Run the smallest applicable summary wrapper first. For new or changed concurrency-sensitive tests, use `npm run test:summary:all:stress` as the single full-suite validation wrapper; passing repeatedly in isolation is not sufficient proof of parallel safety. Do not require the parallel wrapper as an additional completion step.
 
 Safe event-ordering pattern:
 
@@ -269,7 +269,7 @@ expect(result).toBeDefined();
 - These wrappers do not have a fixed failure time budget.
 - As long as a wrapper continues to emit healthy `agent_action: wait` heartbeats at least about every 2 minutes and shows ongoing progress such as growing `log_size_bytes`, you must keep waiting no matter how long the run takes.
 - Standalone wrappers remain the self-contained default for diagnosis. Use the new `*:parallel` commands for batch validation when you want shared prebuilds and cross-harness parallelism.
-- Treat `npm run test:summary:all:parallel` as the canonical batch-validation wrapper whenever repo instructions, a plan, or a task says to run "all tests", "the full automated suite", or equivalent full-suite wording.
+- Treat either `npm run test:summary:all:parallel` or `npm run test:summary:all:stress` as the full-suite wrapper whenever repo instructions, a plan, or a task says to run "all tests", "the full automated suite", or equivalent full-suite wording. Run one per unchanged candidate; stress uses more workers and is preferred for concurrency-sensitive changes. Do not require both solely for completion.
 
 ### Targeted Test Runs
 
@@ -278,7 +278,7 @@ expect(result).toBeDefined();
 - Server cucumber wrapper supports `--tags`, `--feature`, `--scenario`, and `--skip-build`.
 - E2E Playwright wrapper supports `--file`, `--grep`, and `--skip-compose-build`.
 - For final validation, run the full relevant summary wrapper without targeted args.
-- When final validation must cover the entire automated repo test surface, that full wrapper is `npm run test:summary:all:parallel`.
+- When final validation must cover the entire automated repo test surface, run exactly one of `npm run test:summary:all:parallel` or `npm run test:summary:all:stress` per unchanged candidate. Either covers the same client, server unit, server cucumber, and e2e suites; stress uses more workers and is preferred for concurrency-sensitive changes. Do not require both solely for completion.
 
 ### Test Failure Diagnosis
 

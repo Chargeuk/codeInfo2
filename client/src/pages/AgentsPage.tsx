@@ -20,6 +20,7 @@ import {
   runAgentInstruction,
   AgentApiError,
 } from '../api/agents';
+import AgentForkDialog from '../components/agents/AgentForkDialog';
 import AgentsComposerPanel from '../components/agents/AgentsComposerPanel';
 import type { AgentsActionMode } from '../components/agents/AgentsComposerPanel';
 import AgentsTranscriptPane from '../components/agents/AgentsTranscriptPane';
@@ -140,6 +141,15 @@ export default function AgentsPage() {
     useState<AgentsActionMode>('instruction');
 
   const [agentModelId, setAgentModelId] = useState<string>('unknown');
+  const [forkSource, setForkSource] = useState<{
+    conversationId: string;
+    sourceTurnId?: string;
+    title?: string;
+  } | null>(null);
+  const [forkEstimated, setForkEstimated] = useState<{
+    conversationId: string;
+    agentName: string;
+  } | null>(null);
   const {
     messages,
     status,
@@ -1383,6 +1393,7 @@ export default function AgentsPage() {
                 ? `turn-${turn.turnId}`
                 : `${turn.createdAt}-${turn.role}-${turn.provider}`,
             role: turn.role === 'system' ? 'assistant' : turn.role,
+            storedTurnId: turn.role === 'assistant' ? turn.turnId : undefined,
             content: turn.content,
             provider: turn.provider,
             model: turn.model,
@@ -2094,6 +2105,14 @@ export default function AgentsPage() {
       onFilterChange={setFilterState}
       onArchive={archiveConversation}
       onRestore={restoreConversation}
+      onFork={(conversationId) =>
+        setForkSource({
+          conversationId,
+          title: conversations.find(
+            (item) => item.conversationId === conversationId,
+          )?.title,
+        })
+      }
       onBulkArchive={bulkArchive}
       onBulkRestore={bulkRestore}
       onBulkDelete={bulkDelete}
@@ -2120,6 +2139,16 @@ export default function AgentsPage() {
       latestAssistantMessageId={latestAssistantMessageId}
       liveStoppedMarker={liveStoppedMarker}
       isStopping={isStopping}
+      onForkFromTurn={
+        activeConversationId && !persistenceUnavailable
+          ? (sourceTurnId) =>
+              setForkSource({
+                conversationId: activeConversationId,
+                sourceTurnId,
+                title: selectedConversation?.title,
+              })
+          : undefined
+      }
       onToggleCitation={toggleCitation}
       onToggleThink={toggleThink}
       onToggleTool={handleToggleTool}
@@ -2276,7 +2305,39 @@ export default function AgentsPage() {
         width: '100%',
       }}
     >
+      {forkSource && (
+        <AgentForkDialog
+          {...forkSource}
+          sourceTitle={forkSource.title}
+          onClose={() => setForkSource(null)}
+          onCreated={(result) => {
+            // Changing the selected agent detaches the view; it must not stop
+            // a later run still executing in the source conversation.
+            flushSync(() => {
+              setSelectedAgentName(result.agentName);
+              setSelectedActionMode('instruction');
+              setStartStep(1);
+              setFilterState({ active: true, archived: false });
+            });
+            handleSelectConversation(result.conversationId);
+            setAgentModelId(result.model);
+            setWorkingFolder(result.workingFolder ?? '');
+            setForkEstimated(result.estimated ? result : null);
+            setForkSource(null);
+            setMobileConversationsOpen(false);
+            if (result.agentName === selectedAgentName)
+              void refreshConversations();
+          }}
+        />
+      )}
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+        {forkEstimated &&
+          forkEstimated.conversationId === activeConversationId &&
+          forkEstimated.agentName === selectedAgentName && (
+            <Alert severity="info" onClose={() => setForkEstimated(null)}>
+              This fork used an estimated match to older provider history.
+            </Alert>
+          )}
         {agentsError && (
           <Alert severity="error" data-testid="agents-error">
             {agentsError}

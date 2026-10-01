@@ -53,6 +53,7 @@ export type ChatSegment =
 
 export type ChatMessage = {
   id: string;
+  storedTurnId?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   optimistic?: boolean;

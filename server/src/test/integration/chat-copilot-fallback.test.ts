@@ -25,6 +25,7 @@ import {
   beginScopedTestEnvIsolation,
   endScopedTestEnvIsolation,
 } from '../support/processEnvIsolation.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
 import { bindCurrentTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { resolveConfiguredPollAttempts } from '../support/testTimeouts.js';
 import { startCopilotChatServer } from './support/copilotChatHarness.js';
@@ -235,7 +236,6 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
         conversationId,
         message: 'Use the external endpoint without Copilot auth',
       });
-
     assert.equal(response.status, 202);
     assert.equal(response.body.provider, 'copilot');
     assert.equal(response.body.model, 'endpoint-copilot-model');
@@ -261,9 +261,11 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
     }
   }
 });
-test('explicit Copilot chat requests remain closed when discovery fails without authentication', async () => {
-  let discoveryCalled = false;
+test('explicit Copilot chat requests fail closed on endpoint discovery failures during inference', async () => {
   let server: Awaited<ReturnType<typeof startCopilotChatServer>> | undefined;
+  let discoveryCalls = 0;
+  for (const key of ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN'])
+    clearScopedTestEnvValue(key);
   try {
     server = await startCopilotChatServer({
       scenario: {
@@ -276,7 +278,7 @@ test('explicit Copilot chat requests remain closed when discovery fails without 
         models: [],
       },
       providerDiscoveryResolver: async () => {
-        discoveryCalled = true;
+        discoveryCalls++;
         throw new Error('discovery exploded');
       },
     });
@@ -290,9 +292,12 @@ test('explicit Copilot chat requests remain closed when discovery fails without 
     assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
     assert.match(
       String(response.body.message),
+      // Unpinned inference is best-effort. Its failure cannot establish an
+      // endpoint or bypass the native authentication gate on an explicit request.
       /copilot authentication required/i,
     );
-    assert.equal(discoveryCalled, true);
+    assert.equal(discoveryCalls, 1);
+    assert.equal(server.harness.getState().lastCreateSessionConfig, undefined);
     assert.equal(
       memoryConversations.get('copilot-discovery-failure-tolerated'),
       undefined,
@@ -520,7 +525,6 @@ test('explicit Copilot chat requests fail closed when connectivity is unavailabl
         conversationId: 'copilot-explicit-endpoint-connectivity-unavailable',
         message: 'Do not use the endpoint when Copilot runtime is offline',
       });
-
     assert.equal(response.status, 503);
     assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
     assert.match(
@@ -675,62 +679,69 @@ test('chat started responses keep the same requested model first when cross-prov
     await server.stop();
   }
 });
-test('implicit degraded-bootstrap chat requests fall back at the route and keep warning context', async () => {
-  __setProviderBootstrapStatusForTests('copilot', {
-    healthy: false,
-    reason: 'copilot bootstrap degraded',
-    warnings: ['copilot bootstrap degraded warning'],
-  });
-  const server = await startCopilotChatServer({
-    scenario: {
-      name: 'copilot-chat-degraded-bootstrap-fallback',
+test('implicit degraded-bootstrap chat requests fall back at the route and keep warning context', () =>
+  withIsolatedProviderHomeTestEnv(
+    { prefix: 'copilot-bootstrap-fallback-' },
+    async () => {
+      // The Copilot model must resolve from a real local config before bootstrap
+      // can degrade that provider and preserve its warnings during runtime fallback.
+      __setProviderBootstrapStatusForTests('copilot', {
+        healthy: false,
+        reason: 'copilot bootstrap degraded',
+        warnings: ['copilot bootstrap degraded warning'],
+      });
+      const server = await startCopilotChatServer({
+        scenario: {
+          name: 'copilot-chat-degraded-bootstrap-fallback',
+        },
+        lmstudioAvailable: true,
+      });
+      const originalDefaultProvider =
+        process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
+      setScopedTestEnvValue('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
+      try {
+        const response = await request(server.httpServer).post('/chat').send({
+          conversationId: 'copilot-bootstrap-fallback',
+          message: 'Fallback from degraded bootstrap',
+        });
+        assert.equal(response.status, 202);
+        assert.equal(response.body.provider, 'lmstudio');
+        assert.equal(
+          response.body.warnings.some((warning: string) =>
+            warning.includes('copilot bootstrap degraded warning'),
+          ),
+          true,
+        );
+        assert.equal(
+          response.body.warnings.some((warning: string) =>
+            warning.includes('fell back to provider "lmstudio"'),
+          ),
+          true,
+        );
+        assert.equal(
+          response.body.warnings.some((warning: string) =>
+            warning.includes('Endpoint "unknown"'),
+          ),
+          false,
+        );
+        assert.equal(
+          memoryConversations.get('copilot-bootstrap-fallback')?.provider,
+          'lmstudio',
+        );
+      } finally {
+        __resetProviderBootstrapStatusForTests();
+        if (originalDefaultProvider === undefined) {
+          clearScopedTestEnvValue('CODEINFO_CHAT_DEFAULT_PROVIDER');
+        } else {
+          setScopedTestEnvValue(
+            'CODEINFO_CHAT_DEFAULT_PROVIDER',
+            originalDefaultProvider,
+          );
+        }
+        await server.stop();
+      }
     },
-    lmstudioAvailable: true,
-  });
-  const originalDefaultProvider = process.env.CODEINFO_CHAT_DEFAULT_PROVIDER;
-  setScopedTestEnvValue('CODEINFO_CHAT_DEFAULT_PROVIDER', 'copilot');
-  try {
-    const response = await request(server.httpServer).post('/chat').send({
-      conversationId: 'copilot-bootstrap-fallback',
-      message: 'Fallback from degraded bootstrap',
-    });
-    assert.equal(response.status, 202);
-    assert.equal(response.body.provider, 'lmstudio');
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes('copilot bootstrap degraded warning'),
-      ),
-      true,
-    );
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes('fell back to provider "lmstudio"'),
-      ),
-      true,
-    );
-    assert.equal(
-      response.body.warnings.some((warning: string) =>
-        warning.includes('Endpoint "unknown"'),
-      ),
-      false,
-    );
-    assert.equal(
-      memoryConversations.get('copilot-bootstrap-fallback')?.provider,
-      'lmstudio',
-    );
-  } finally {
-    __resetProviderBootstrapStatusForTests();
-    if (originalDefaultProvider === undefined) {
-      clearScopedTestEnvValue('CODEINFO_CHAT_DEFAULT_PROVIDER');
-    } else {
-      setScopedTestEnvValue(
-        'CODEINFO_CHAT_DEFAULT_PROVIDER',
-        originalDefaultProvider,
-      );
-    }
-    await server.stop();
-  }
-});
+  ));
 test('endpoint-unavailable Copilot chat falls back to the same provider native path before cross-provider fallback', async () => {
   const externalServer = await startExternalOpenAiCompatServer({
     responseMode: 'transport-failure',
@@ -758,7 +769,6 @@ test('endpoint-unavailable Copilot chat falls back to the same provider native p
         conversationId,
         message: 'Use native Copilot before any cross-provider fallback',
       });
-
     assert.equal(response.status, 202);
     assert.equal(response.body.provider, 'copilot');
     assert.equal(response.body.model, 'copilot-gpt-5');
@@ -810,7 +820,6 @@ test('endpoint-aware Copilot chat repairs to the first selectable model on the s
         conversationId,
         message: 'Repair to the first selectable model on the endpoint',
       });
-
     assert.equal(response.status, 202);
     assert.equal(response.body.provider, 'copilot');
     assert.equal(response.body.model, 'endpoint-copilot-model');

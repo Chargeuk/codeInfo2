@@ -16,7 +16,9 @@ import type {
   TurnStatus,
   TurnTimingMetadata,
   TurnUsageMetadata,
+  TurnNativeMetadata,
 } from '../../mongo/turn.js';
+import { ForkInstructionOutcomeUnknownError } from '../forkHandover.js';
 import { cleanupInflight, markInflightPersisted } from '../inflightRegistry.js';
 import {
   recordMemoryTurn,
@@ -215,6 +217,7 @@ export interface ChatCompleteEvent {
   threadId?: string | null;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+  native?: TurnNativeMetadata;
 }
 
 export interface ChatErrorEvent {
@@ -325,6 +328,7 @@ export abstract class ChatInterface extends EventEmitter {
     const runStartedAtMs = Date.now();
     let latestUsage: TurnUsageMetadata | undefined;
     let latestTiming: TurnTimingMetadata | undefined;
+    let latestNative: TurnNativeMetadata | undefined;
     let loggedPersistUsage = false;
     const externalSignal = (flags as { signal?: AbortSignal })?.signal;
     let executionError: unknown;
@@ -363,6 +367,7 @@ export abstract class ChatInterface extends EventEmitter {
 
     const onComplete: Listener<'complete'> = (event) => {
       sawComplete = true;
+      latestNative = event.native;
       if (event.usage) {
         latestUsage = normalizeUsage(event.usage);
       }
@@ -488,20 +493,47 @@ export abstract class ChatInterface extends EventEmitter {
         });
       }
 
-      const persistedAssistantTurnId = await this.persistAssistantTurn({
-        conversationId,
-        content,
-        model,
-        provider,
-        source,
-        command,
-        runtime: assistantRuntime,
-        usage,
-        timing,
-        status,
-        toolCalls,
-        skipPersistence,
-      });
+      let persistedAssistantTurnId: string | undefined;
+      try {
+        persistedAssistantTurnId = await this.persistAssistantTurn({
+          conversationId,
+          content,
+          model,
+          provider,
+          source,
+          command,
+          runtime: assistantRuntime,
+          native: latestNative,
+          usage,
+          timing,
+          status,
+          toolCalls,
+          skipPersistence,
+        });
+      } catch (persistenceError) {
+        if (!(executionError instanceof ForkInstructionOutcomeUnknownError))
+          throw persistenceError;
+        // The provider may already have accepted this first fork instruction.
+        // A secondary Mongo failure must not replace its nonretryable outcome,
+        // or the command runner would replay the accepted instruction.
+        append({
+          level: 'error',
+          message:
+            'DEV-0000040:fork_instruction_uncertain_assistant_persistence_failed',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: {
+            conversationId,
+            code: executionError.code,
+            persistenceError:
+              persistenceError instanceof Error
+                ? persistenceError.message
+                : String(persistenceError),
+          },
+        });
+        throw executionError;
+      }
 
       assistantPersisted = true;
       if (inflightId) {
@@ -579,6 +611,7 @@ export abstract class ChatInterface extends EventEmitter {
     source: TurnSource;
     command?: TurnCommandMetadata;
     runtime?: TurnRuntimeMetadata;
+    native?: TurnNativeMetadata;
     usage?: TurnUsageMetadata;
     timing?: TurnTimingMetadata;
     status: TurnStatus;
@@ -593,6 +626,7 @@ export abstract class ChatInterface extends EventEmitter {
       source,
       command,
       runtime,
+      native,
       usage,
       timing,
       status,
@@ -611,6 +645,7 @@ export abstract class ChatInterface extends EventEmitter {
       source,
       command,
       runtime,
+      native,
       usage,
       timing,
       toolCalls: toolCalls.length > 0 ? { calls: toolCalls } : null,

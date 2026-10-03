@@ -874,7 +874,7 @@ test('resumed chats reject codex-only agentFlags before a saved copilot conversa
       .post('/chat')
       .send({
         provider: 'codex',
-        model: 'gpt-5.6-luna',
+        model: 'gpt-6-luna',
         conversationId,
         message: 'Do not start with stale codex-only flags',
         agentFlags: {

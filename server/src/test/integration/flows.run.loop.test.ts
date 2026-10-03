@@ -2698,7 +2698,7 @@ test('github review resume keeps execution-scoped fetch and close authority even
         memoryConversations.set(conversationId, {
           _id: conversationId,
           provider: 'codex',
-          model: 'gpt-5.6-terra',
+          model: 'gpt-6.1-sol',
           title: 'Flow: github-review-resume-authority',
           flowName: 'github-review-resume-authority',
           source: 'REST',
@@ -2987,7 +2987,7 @@ test('github review fetch failure rejects a persisted and resumed PR identity mi
         memoryConversations.set(conversationId, {
           _id: conversationId,
           provider: 'codex',
-          model: 'gpt-5.6-terra',
+          model: 'gpt-6.1-sol',
           title: 'Flow: github-review-resume-mismatch',
           flowName: 'github-review-resume-mismatch',
           source: 'REST',
@@ -3245,7 +3245,7 @@ test('github review resume verifies the exact resumed PR when the execution-scop
         memoryConversations.set(conversationId, {
           _id: conversationId,
           provider: 'codex',
-          model: 'gpt-5.6-terra',
+          model: 'gpt-6.1-sol',
           title: 'Flow: github-review-resume-missing-handoff',
           flowName: 'github-review-resume-missing-handoff',
           source: 'REST',
@@ -3499,7 +3499,7 @@ test('continue resume starts the next iteration instead of replaying skipped ste
       memoryConversations.set(conversationId, {
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         title: 'Flow: loop-continue',
         flowName: 'loop-continue',
         source: 'REST',
@@ -3527,7 +3527,7 @@ test('continue resume starts the next iteration instead of replaying skipped ste
       memoryConversations.set(outerConversationId, {
         _id: outerConversationId,
         provider: 'codex',
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         title: 'Flow: loop-continue (outer)',
         agentName: 'coding_agent',
         source: 'REST',
@@ -3544,7 +3544,7 @@ test('continue resume starts the next iteration instead of replaying skipped ste
       memoryConversations.set(continueConversationId, {
         _id: continueConversationId,
         provider: 'codex',
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         title: 'Flow: loop-continue (outer-continue)',
         agentName: 'coding_agent',
         source: 'REST',
@@ -3675,7 +3675,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
       memoryConversations.set(conversationId, {
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         title: 'Flow: loop-continue',
         flowName: 'loop-continue',
         source: 'REST',
@@ -3703,7 +3703,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
       memoryConversations.set(outerConversationId, {
         _id: outerConversationId,
         provider: 'codex',
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         title: 'Flow: loop-continue (outer)',
         agentName: 'coding_agent',
         source: 'REST',
@@ -3720,7 +3720,7 @@ test('continue resume keeps its boundary marker until the next iteration makes p
       memoryConversations.set(continueConversationId, {
         _id: continueConversationId,
         provider: 'codex',
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         title: 'Flow: loop-continue (outer-continue)',
         agentName: 'coding_agent',
         source: 'REST',

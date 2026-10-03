@@ -19,9 +19,25 @@ Use only the assigned job directories:
 - put the clearest self-describing account of the review under `output/`;
 - leave `verification/` for the independent verifier.
 
-Launch every potentially long native review command with the direct `exec_command` tool. Never wrap it in `functions.exec`, JavaScript, or a nested `tools.exec_command` call: a completed orchestration cell proves only that its JavaScript evaluation returned and may discard the nested process's still-running `session_id`.
+Launch every potentially long native review command with direct `exec_command` when exposed, or use nested `tools.exec_command` through `functions.exec` when that is the available interface. Use direct `write_stdin` or nested `tools.write_stdin` through `functions.exec` for process polling, respectively. Every nested call must be awaited and its complete result emitted into the conversation, including output, the exact numeric `session_id` when present, and the numeric `exit_code` when terminal. Do not emit only stdout or a summary, leave an unawaited promise, or launch detached background work.
 
-When direct `exec_command` returns a `session_id`, retain that exact value and poll it with the direct `write_stdin` tool until the direct process result includes a numeric `exit_code`. A yielded direct process session is non-terminal. Do not use an orchestration-cell wait for the native command. Do not relaunch it, inspect still-growing artifacts as final, or classify the review as completed, failed, partial, or unavailable while its direct session remains active. If that direct session itself later becomes genuinely unavailable, preserve the partial evidence and report the lost continuation honestly.
+For the nested interface, substitute the assigned native command and repository in each launch cell. This example emits the complete terminal-tool result:
+
+```javascript
+text(
+  await tools.exec_command({ cmd: nativeCommand, workdir: targetRepository }),
+);
+```
+
+When a result returns a numeric `session_id` without a numeric `exit_code`, retain that exact value across calls. Set `nativeSessionId` to the returned number in each later polling cell, never a guessed value, a provider thread identity or an orchestration cell handle:
+
+```javascript
+text(await tools.write_stdin({ session_id: nativeSessionId, chars: '' }));
+```
+
+Keep the orchestration `cell_id` distinct from the native process `session_id`. If `functions.exec` itself yields `Script running with cell ID ...`, use `functions.wait` only for that running cell to recover the awaited nested tool result; repeat if the cell is still running. Never call `functions.wait` for a completed cell. After recovering the result, poll the native process with `write_stdin` using its exact numeric `session_id` until the same process returns a numeric `exit_code`. An orchestration wait recovers a tool result; it does not replace native process polling. Completion of a JavaScript orchestration cell is not evidence that the native command exited or that the provider failed.
+
+A yielded process session is non-terminal even if its enclosing cell completed. Do not relaunch the command, inspect still-growing artifacts as final, or classify the review as completed, failed, partial, or unavailable while its session remains active. Do not start a dependent command before the predecessor returns a numeric `exit_code`; a nonzero exit is terminal and must be accounted for honestly before deciding what dependent work remains safe. Only the terminal process result supplies the actual exit status. If process or orchestration continuation becomes genuinely unavailable, preserve the complete results already recovered and useful partial artifacts, record the lost continuation and missing exit status honestly, and continue with independent safe work. Lost continuation alone proves neither provider failure nor successful completion.
 
 There is no required review-result schema or filename. Make the output easy for another agent to discover and understand. State what was reviewed, the exact commits, findings with evidence, exclusions, incomplete coverage, provider failures, and residual uncertainty. Preserve useful partial work. If nothing trustworthy was produced, explain that honestly instead of inventing a successful review.
 

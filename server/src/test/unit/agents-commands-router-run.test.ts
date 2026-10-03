@@ -115,7 +115,7 @@ test('POST /agents/:agentName/commands/run keeps warning-bearing started respons
                 commandName: 'improve_plan',
                 conversationId: 'conv-warning',
                 providerId: 'codex',
-                modelId: 'gpt-5.6-luna',
+                modelId: 'gpt-6-luna',
                 warnings: [
                     'Provider "copilot" is unavailable: copilot unavailable.',
                     'Agent will use fallback provider "codex" because "copilot" cannot execute.',
@@ -555,7 +555,7 @@ test('direct command execution restores the saved folder from the owning agent c
         memoryConversations.set(conversationId, {
             _id: conversationId,
             provider: 'codex',
-            model: 'gpt-5.6-luna',
+            model: 'gpt-6-luna',
             title: 'Direct command conversation',
             agentName: 'planning_agent',
             source: 'REST',
@@ -582,7 +582,7 @@ test('direct command execution restores the saved folder from the owning agent c
                 },
                 models: [
                     {
-                        model: 'gpt-5.6-luna',
+                        model: 'gpt-6-luna',
                         supportedReasoningEfforts: ['high'],
                         defaultReasoningEffort: 'high',
                     },

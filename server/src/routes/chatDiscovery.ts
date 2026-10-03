@@ -119,7 +119,7 @@ const PROVIDER_LABELS: Record<ChatProviderId, string> = {
 };
 
 const DEFAULT_PROVIDER_MODELS = {
-  codex: 'gpt-5.6-sol',
+  codex: 'gpt-6.1-sol',
   copilot: 'gpt-5.4-mini',
   lmstudio: 'model-1',
 } as const;

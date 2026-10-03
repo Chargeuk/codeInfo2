@@ -2203,7 +2203,7 @@ export async function startAgentInstruction(
     },
   });
 
-  let modelId = 'gpt-5.6-sol';
+  let modelId = 'gpt-6.1-sol';
   let providerId: ChatProviderId = 'codex';
   let warnings: string[] = [];
   let startPathWasNewConversation = false;
@@ -2430,7 +2430,7 @@ function isSafeAgentCommandName(raw: string): boolean {
   return true;
 }
 
-const FALLBACK_COMMAND_MODEL_ID = 'gpt-5.6-sol';
+const FALLBACK_COMMAND_MODEL_ID = 'gpt-6.1-sol';
 
 const loadKnownRepositoryPathsStateForAgentRuns = async () =>
   await getEffectiveAgentServiceDeps()
@@ -2683,7 +2683,7 @@ export async function startAgentCommand(params: {
   const { runToken } = ownership;
 
   let backgroundScheduled = false;
-  let modelId = 'gpt-5.6-sol';
+  let modelId = 'gpt-6.1-sol';
   let providerId: ChatProviderId = 'codex';
   let warnings: string[] = [];
 

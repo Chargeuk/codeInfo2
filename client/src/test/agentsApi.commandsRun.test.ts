@@ -15,7 +15,7 @@ beforeEach(() => {
         agentName: 'planning_agent',
         commandName: 'smoke',
         conversationId: 'c1',
-        modelId: 'gpt-5.6-luna',
+        modelId: 'gpt-6-luna',
       },
       { status: 202 },
     ),

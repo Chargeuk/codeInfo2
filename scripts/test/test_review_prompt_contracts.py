@@ -77,9 +77,29 @@ class ReviewPromptContractTests(unittest.TestCase):
                 self.assertIn('run_agent_instruction', prompt)
                 self.assertIn('coding_agent', prompt)
                 self.assertIn('automated_testing_agent', prompt)
-                self.assertIn('Do not directly edit implementation files', prompt)
-                self.assertIn('returned worker model IDs are non-Astra', prompt)
-                self.assertIn('tester must not edit source, tests, or config', prompt)
+                self.assertIn('Delegate ALL coding tasks to coding_agent', prompt)
+                self.assertIn(
+                    'including logging, new or updated tests, source or '
+                    'configuration changes, and minor fixes',
+                    prompt,
+                )
+                self.assertIn('Do not implement changes yourself', prompt)
+                self.assertIn(
+                    'Delegate builds and test suite execution to '
+                    'automated_testing_agent strictly for validation',
+                    prompt,
+                )
+                self.assertIn('It must NEVER perform coding tasks or minor fixes', prompt)
+                self.assertIn(
+                    'coding_agent may iterate on fixes and run narrowly targeted '
+                    'tests while fixing issues',
+                    prompt,
+                )
+                self.assertIn(
+                    'must NEVER run full suites, including workspace-wide or '
+                    'all-repository suites; those belong to automated_testing_agent',
+                    prompt,
+                )
 
     def test_github_review_prompts_keep_imperfect_evidence_non_failing(
         self,
@@ -220,14 +240,14 @@ class ReviewPromptContractTests(unittest.TestCase):
             self.assertIn("`write_stdin`", prompt)
             self.assertRegex(prompt, r"(?i)do not relaunch")
 
-        self.assertIn("direct terminal process result", codex)
+        self.assertIn("terminal process result from either interface", codex)
         self.assertIn(
             "native-response file only after the process exits", codex
         )
         self.assertIn("before reading that command's output as complete", open_code)
         self.assertIn("starting the dependent command", open_code)
 
-    def test_native_review_commands_keep_direct_process_sessions(self) -> None:
+    def test_native_review_commands_keep_sessions_through_either_interface(self) -> None:
         contract = read_text(
             "codeinfo_markdown/review_job_workspace_contract.md"
         )
@@ -243,6 +263,16 @@ class ReviewPromptContractTests(unittest.TestCase):
             self.assertIn("numeric `exit_code`", prompt)
             self.assertIn("`functions.exec`", prompt)
             self.assertIn("nested `tools.exec_command`", prompt)
+            self.assertIn("nested `tools.write_stdin`", prompt)
+            self.assertIn("Every nested call must be awaited", prompt)
+            self.assertIn("its complete result emitted", prompt)
+            self.assertIn("exact numeric `session_id`", prompt)
+            self.assertIn("`cell_id`", prompt)
+            self.assertIn("`functions.wait`", prompt)
+            self.assertNotIn("Never wrap it in `functions.exec`", prompt)
+            self.assertNotIn("never with `functions.exec`", prompt)
+            self.assertRegex(prompt, r"(?i)never call.*for a completed cell")
+
 
         self.assertIn(
             "Completion of a JavaScript orchestration cell is not evidence",
@@ -256,8 +286,33 @@ class ReviewPromptContractTests(unittest.TestCase):
 
         verifier = read_text("codeinfo_markdown/verify_review_batch_jobs.md")
         self.assertIn("provider failure from lost process continuation", verifier)
-        self.assertIn("numeric direct-process exit status", verifier)
+        self.assertIn("numeric process exit status", verifier)
         self.assertIn("does not prove that the provider failed", verifier)
+
+    def test_native_review_continuation_recovery_and_dependency_guards(self) -> None:
+        contract = read_text("codeinfo_markdown/review_job_workspace_contract.md")
+        for required in (
+            "functions.wait` only for that running cell",
+            "recover the awaited nested tool result",
+            "Never call `functions.wait` for a completed cell",
+            "does not replace native process polling",
+            "Do not emit only stdout or a summary",
+            "leave an unawaited promise",
+            "Do not start a dependent command",
+            "Lost continuation alone proves neither provider failure nor successful completion",
+        ):
+            self.assertIn(required, contract)
+        codex = read_text("codeinfo_markdown/run_codex_review_workspace.md")
+        self.assertIn("Retain the complete launcher and polling tool results under `work/`", codex)
+        verifier = read_text("codeinfo_markdown/verify_review_batch_jobs.md")
+        self.assertIn("Accept trustworthy terminal process evidence from direct", verifier)
+        self.assertIn("awaited nested `tools.exec_command`", verifier)
+        self.assertIn("cannot invent a missing numeric process exit status", verifier)
+        self.assertIn("retained separate command outcomes", verifier)
+        open_code = read_text("codeinfo_markdown/run_open_code_review_workspace.md")
+        self.assertIn("`prepare` must exit before consuming its manifest", open_code)
+        self.assertIn("attempt every reviewable bundle before `validate-comments`", open_code)
+        self.assertIn("wait for validation to exit before `report`", open_code)
 
     def test_applicable_review_artifact_producers_verify_the_assigned_handoff(
         self,

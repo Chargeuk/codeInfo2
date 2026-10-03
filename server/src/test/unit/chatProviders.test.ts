@@ -185,7 +185,7 @@ afterEach(async () => {
 test('providers route orders lmstudio first when codex default is unavailable and lmstudio is available', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
-  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.6-sol');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-6.1-sol');
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   setCodexDetection({
     available: false,
@@ -224,7 +224,7 @@ test('providers route orders lmstudio first when codex default is unavailable an
 test('providers route keeps copilot visible in the shared provider order when unavailable', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
-  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.6-sol');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-6.1-sol');
   env.set('CODEINFO_LMSTUDIO_BASE_URL', 'ws://localhost:1234');
   setCodexDetection({
     available: true,
@@ -1295,7 +1295,7 @@ test('providers route degrades malformed Codex chat defaults to warnings instead
     assert.ok(codex);
     assert.equal(res.body.selectedProvider, 'codex');
     assert.equal(codex.available, true);
-    assert.equal(codex.defaultModel, 'gpt-5.6-sol');
+    assert.equal(codex.defaultModel, 'gpt-6.1-sol');
     assert.equal(codex.defaultModelSource, 'hardcoded');
     assert.equal(res.body.codexDefaults.sandboxMode, 'danger-full-access');
     assert.equal(res.body.codexDefaults.webSearchMode, 'live');

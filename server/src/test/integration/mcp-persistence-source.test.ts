@@ -108,7 +108,7 @@ test('MCP chat persists conversation/turn with source MCP when persistence is av
       {
         question: 'Hello world?',
         provider: 'codex',
-        model: 'gpt-5.6-luna',
+        model: 'gpt-6-luna',
       },
       {
         codexFactory: () => ({

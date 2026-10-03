@@ -38,18 +38,13 @@ const buildAvailableCodexDetection = (): CodexDetection => ({
 const buildDeterministicCodexCapabilities = (
   models: CodexModelCapability[] = [
     {
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       supportedReasoningEfforts: ['high'],
       defaultReasoningEffort: 'high',
     },
     {
-      model: 'gpt-5.6-terra',
-      supportedReasoningEfforts: ['medium', 'high'],
-      defaultReasoningEffort: 'medium',
-    },
-    {
-      model: 'gpt-5.6-sol',
-      supportedReasoningEfforts: ['medium', 'high'],
+      model: 'gpt-6.1-sol',
+      supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
       defaultReasoningEffort: 'medium',
     },
   ],

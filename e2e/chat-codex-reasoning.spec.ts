@@ -103,8 +103,8 @@ test('renders Codex thought process when analysis frames stream', async ({
           toolsAvailable: true,
           models: [
             {
-              key: 'gpt-5.6-luna',
-              displayName: 'gpt-5.6-luna',
+              key: 'gpt-6-luna',
+              displayName: 'gpt-6-luna',
               type: 'codex',
               supportedReasoningEfforts: ['high', 'xhigh'],
               defaultReasoningEffort: 'high',
@@ -183,7 +183,7 @@ test('renders Codex thought process when analysis frames stream', async ({
   await page.getByRole('option', { name: 'OpenAI Codex' }).click();
 
   await page.getByTestId('model-select').click();
-  await page.getByRole('option', { name: 'gpt-5.6-luna' }).click();
+  await page.getByRole('option', { name: 'gpt-6-luna' }).click();
 
   const agentFlagsPanel = page.locator('[data-testid="agent-flags-panel"]');
   if (await agentFlagsPanel.count()) {

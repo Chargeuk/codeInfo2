@@ -91,13 +91,13 @@ function mockCodexReady() {
           codexWarnings: [],
           models: [
             {
-              key: 'gpt-5.6-luna',
-              displayName: 'gpt-5.6-luna',
+              key: 'gpt-6-luna',
+              displayName: 'gpt-6-luna',
               type: 'codex',
             },
             {
-              key: 'gpt-5.6-terra',
-              displayName: 'gpt-5.6-terra',
+              key: 'gpt-6.1-sol',
+              displayName: 'gpt-6.1-sol',
               type: 'codex',
             },
           ],

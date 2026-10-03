@@ -283,7 +283,7 @@ import type {
   FlowRunStartResult,
 } from './types.js';
 
-const FALLBACK_MODEL_ID = 'gpt-5.6-sol';
+const FALLBACK_MODEL_ID = 'gpt-6.1-sol';
 const FLOW_STEP_BASE_DELAY_MS = 500;
 const T07_SUCCESS_LOG =
   '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success';

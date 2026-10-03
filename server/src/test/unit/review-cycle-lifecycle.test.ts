@@ -244,7 +244,7 @@ test('flow status ignores an active review cycle owned by a different conversati
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-sol',
+    model: 'gpt-6.1-sol',
     title: 'First review cycle',
     flowName: 'two_phase_review_cycle',
     source: 'REST',

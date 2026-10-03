@@ -203,7 +203,7 @@ describe('Chat shared shell transcript wrapping', () => {
                   label: 'OpenAI Codex',
                   available: true,
                   toolsAvailable: true,
-                  models: [{ id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' }],
+                  models: [{ id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' }],
                 },
               ],
             }),

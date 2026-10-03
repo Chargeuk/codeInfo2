@@ -14,16 +14,15 @@ export const mockModels: ChatModelInfo[] = [
 
 export const mockCodexModels: ChatModelInfo[] = [
   {
-    key: 'gpt-5.6-sol',
-    displayName: 'gpt-5.6-sol',
+    key: 'gpt-6.1-sol',
+    displayName: 'gpt-6.1-sol',
     type: 'codex',
-    supportedReasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+    supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
     defaultReasoningEffort: 'high',
     flagOverrides: [
       {
         key: 'modelReasoningEffort',
         supportedValues: [
-          { value: 'minimal', label: 'Minimal' },
           { value: 'low', label: 'Low' },
           { value: 'medium', label: 'Medium' },
           { value: 'high', label: 'High' },
@@ -107,7 +106,7 @@ export const mockModelsResponse: ChatModelsResponse = {
       toolsAvailable: false,
       endpointOnly: false,
       reason: 'not detected',
-      defaultModel: 'gpt-5.6-luna',
+      defaultModel: 'gpt-6-luna',
       defaultModelSource: 'config',
       warnings: [],
       agentFlags: [],
@@ -181,7 +180,7 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
     available: true,
     toolsAvailable: true,
     endpointOnly: false,
-    defaultModel: 'gpt-5.6-sol',
+    defaultModel: 'gpt-6.1-sol',
     defaultModelSource: 'config',
     warnings: [],
     agentFlags: [
@@ -193,7 +192,6 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
         seedDefault: 'high',
         resolvedDefault: 'high',
         supportedValues: [
-          { value: 'minimal', label: 'Minimal' },
           { value: 'low', label: 'Low' },
           { value: 'medium', label: 'Medium' },
           { value: 'high', label: 'High' },
@@ -209,7 +207,7 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
       available: true,
       toolsAvailable: true,
       endpointOnly: false,
-      defaultModel: 'gpt-5.6-sol',
+      defaultModel: 'gpt-6.1-sol',
       defaultModelSource: 'config',
       warnings: [],
       agentFlags: [
@@ -221,7 +219,6 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
           seedDefault: 'high',
           resolvedDefault: 'high',
           supportedValues: [
-            { value: 'minimal', label: 'Minimal' },
             { value: 'low', label: 'Low' },
             { value: 'medium', label: 'Medium' },
             { value: 'high', label: 'High' },
@@ -251,7 +248,6 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
       seedDefault: 'high',
       resolvedDefault: 'high',
       supportedValues: [
-        { value: 'minimal', label: 'Minimal' },
         { value: 'low', label: 'Low' },
         { value: 'medium', label: 'Medium' },
         { value: 'high', label: 'High' },
@@ -259,7 +255,7 @@ export const mockCodexModelsResponse: ChatModelsResponse = {
       ],
     },
   ],
-  defaultModel: 'gpt-5.6-sol',
+  defaultModel: 'gpt-6.1-sol',
   defaultModelSource: 'config',
   warnings: [],
   codexDefaults: {

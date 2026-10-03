@@ -142,7 +142,9 @@ function createUnavailableCopilotLifecycle() {
 }
 const test = (name: string, fn: () => Promise<void> | void) =>
   nodeTest(name, async () => {
-    beginScopedTestEnvIsolation();
+    beginScopedTestEnvIsolation({
+      Codex_model_list: 'gpt-6.1-sol,gpt-6-luna,gpt-6-astra',
+    });
     clearScopedTestEnvValue('CODEX_WORKDIR');
     clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
     tempCodexHomeForTest = await fs.mkdtemp(
@@ -158,7 +160,7 @@ const test = (name: string, fn: () => Promise<void> | void) =>
     );
     await fs.writeFile(
       path.join(tempCodexHomeForTest, 'chat', 'config.toml'),
-      'model = "gpt-5.6-luna"\n',
+      'model = "gpt-6-luna"\n',
       'utf8',
     );
     await fs.writeFile(
@@ -220,7 +222,7 @@ const test = (name: string, fn: () => Promise<void> | void) =>
 let conversationSeq = 0;
 const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
   provider: 'codex',
-  model: 'gpt-5.6-luna',
+  model: 'gpt-6-luna',
   conversationId: `conv-codex-basic-${++conversationSeq}`,
   message: 'Hi',
   ...overrides,
@@ -722,7 +724,7 @@ test('codex chat uses chat runtime config file for inherited behavior keys while
     assert.equal(capturedOptions.env?.CODEX_HOME, tempCodexHome);
     assert.equal(
       (capturedOptions.config as Record<string, unknown>)?.model,
-      'gpt-5.6-sol',
+      'gpt-6.1-sol',
     );
     const projects =
       (
@@ -1207,7 +1209,7 @@ test('codex chat resumes existing thread when threadId supplied', async () => {
     .post('/chat')
     .send(buildCodexBody({ threadId: 'thread-resume' }))
     .expect(202);
-  assert.equal(mockCodex.lastResumeOptions?.model, 'gpt-5.6-luna');
+  assert.equal(mockCodex.lastResumeOptions?.model, 'gpt-6-luna');
 });
 test('codex chat preserves persisted thread when resuming the same conversation without request threadId', async () => {
   setCodexDetection({
@@ -1220,7 +1222,7 @@ test('codex chat preserves persisted thread when resuming the same conversation 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Persisted thread conversation',
     source: 'REST',
     flags: { threadId: 'thread-persisted' },
@@ -1293,7 +1295,7 @@ test('implicit chat requests keep threadId until route-level fallback selects co
       .expect(202);
     await waitForAssistantTurn(conversationId);
     assert.equal(response.body.provider, 'codex');
-    assert.equal(response.body.model, 'gpt-5.6-luna');
+    assert.equal(response.body.model, 'gpt-6-luna');
     assert.equal(mockCodex.lastResumeThreadId, 'thread-fallback-eligible');
     assert.equal(
       response.body.warnings.some((warning: string) =>
@@ -1340,7 +1342,7 @@ test('endpoint-unavailable Codex chat falls back to the same provider native pat
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.6-sol"\n',
+    'model = "gpt-6.1-sol"\n',
     'utf8',
   );
   setScopedTestEnvValue('CODEINFO_CODEX_HOME', codexHome);
@@ -1369,12 +1371,12 @@ test('endpoint-unavailable Codex chat falls back to the same provider native pat
       })
       .expect(202);
     assert.equal(response.body.provider, 'codex');
-    assert.equal(response.body.model, 'gpt-5.6-sol');
-    assert.equal(mockCodex.lastStartOptions?.model, 'gpt-5.6-sol');
+    assert.equal(response.body.model, 'gpt-6.1-sol');
+    assert.equal(mockCodex.lastStartOptions?.model, 'gpt-6.1-sol');
     assert.equal(
       response.body.warnings.some((warning: string) =>
         warning.includes(
-          `Endpoint "${externalServer.baseUrl}/v1" was unavailable; falling back to native codex model "gpt-5.6-sol".`,
+          `Endpoint "${externalServer.baseUrl}/v1" was unavailable; falling back to native codex model "gpt-6.1-sol".`,
         ),
       ),
       true,
@@ -1528,7 +1530,7 @@ test('POST /chat does not inherit a config-pinned endpoint when the request expl
     },
     models: [
       {
-        model: 'gpt-5.6-luna',
+        model: 'gpt-6-luna',
         supportedReasoningEfforts: [
           'minimal',
           'low',
@@ -1541,9 +1543,9 @@ test('POST /chat does not inherit a config-pinned endpoint when the request expl
     ],
     byModel: new Map([
       [
-        'gpt-5.6-luna',
+        'gpt-6-luna',
         {
-          model: 'gpt-5.6-luna',
+          model: 'gpt-6-luna',
           supportedReasoningEfforts: [
             'minimal',
             'low',
@@ -1575,16 +1577,16 @@ test('POST /chat does not inherit a config-pinned endpoint when the request expl
       .post('/chat')
       .send({
         provider: 'codex',
-        model: 'gpt-5.6-luna',
+        model: 'gpt-6-luna',
         conversationId,
         message: 'Use the requested native model',
       })
       .expect(202);
     await waitForAssistantTurn(conversationId);
     assert.equal(response.body.provider, 'codex');
-    assert.equal(response.body.model, 'gpt-5.6-luna');
+    assert.equal(response.body.model, 'gpt-6-luna');
     assert.deepEqual(response.body.warnings, []);
-    assert.equal(mockCodex.lastStartOptions?.model, 'gpt-5.6-luna');
+    assert.equal(mockCodex.lastStartOptions?.model, 'gpt-6-luna');
     assert.equal(externalServer.requestCount(), 0);
     assert.equal(
       memoryConversations.get(conversationId)?.flags?.endpointId,
@@ -1627,7 +1629,7 @@ test('resumed Codex chat treats a missing saved endpoint as provider unavailabil
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Missing saved endpoint',
     source: 'REST',
     flags: {
@@ -1698,7 +1700,7 @@ test('pinned Codex chat fails in place when the saved endpoint later becomes una
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Pinned endpoint conversation',
     source: 'REST',
     flags: { endpointId: `${externalServer.baseUrl}/v1` },
@@ -1749,10 +1751,10 @@ test('resumed Codex chat ignores a contradictory request endpointId when a saved
     cliPath: '/usr/bin/codex',
   });
   const savedEndpointServer = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.6-luna'],
+    models: ['gpt-6-luna'],
   });
   const requestEndpointServer = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.6-luna'],
+    models: ['gpt-6-luna'],
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
@@ -1764,7 +1766,7 @@ test('resumed Codex chat ignores a contradictory request endpointId when a saved
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Saved endpoint identity',
     source: 'REST',
     flags: {
@@ -1800,7 +1802,7 @@ test('resumed Codex chat ignores a contradictory request endpointId when a saved
       .expect(202);
     await waitForAssistantTurn(conversationId);
     assert.equal(response.body.provider, 'codex');
-    assert.equal(response.body.model, 'gpt-5.6-luna');
+    assert.equal(response.body.model, 'gpt-6-luna');
     assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-endpoint');
     assert.equal(mockCodex.lastStartOptions, undefined);
     assert.equal(savedEndpointServer.requestCount(), 1);
@@ -1832,7 +1834,7 @@ test('resumed native Codex chat ignores a contradictory request endpointId when 
     cliPath: '/usr/bin/codex',
   });
   const requestEndpointServer = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.6-luna'],
+    models: ['gpt-6-luna'],
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
@@ -1844,7 +1846,7 @@ test('resumed native Codex chat ignores a contradictory request endpointId when 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Saved native execution identity',
     source: 'REST',
     flags: {
@@ -1879,7 +1881,7 @@ test('resumed native Codex chat ignores a contradictory request endpointId when 
       .expect(202);
     await waitForAssistantTurn(conversationId);
     assert.equal(response.body.provider, 'codex');
-    assert.equal(response.body.model, 'gpt-5.6-luna');
+    assert.equal(response.body.model, 'gpt-6-luna');
     assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-native');
     assert.equal(requestEndpointServer.requestCount(), 0);
     assert.equal(
@@ -1927,7 +1929,7 @@ test('resumed native Codex chat keeps the saved thread instead of drifting onto 
     }
   }
   const endpointServer = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.6-luna'],
+    models: ['gpt-6-luna'],
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
@@ -1939,7 +1941,7 @@ test('resumed native Codex chat keeps the saved thread instead of drifting onto 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Saved thread without endpoint identity',
     source: 'REST',
     flags: {
@@ -1975,7 +1977,7 @@ test('resumed native Codex chat keeps the saved thread instead of drifting onto 
       )
       .expect(202);
     assert.equal(response.body.provider, 'codex');
-    assert.equal(response.body.model, 'gpt-5.6-luna');
+    assert.equal(response.body.model, 'gpt-6-luna');
     assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-endpoint');
     assert.equal(mockCodex.lastStartOptions, undefined);
     assert.equal(
@@ -2011,7 +2013,7 @@ test('resumed contradictory provider-model input cannot rewrite saved execution 
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Saved execution identity',
     source: 'REST',
     flags: { threadId: 'thread-saved-identity' },
@@ -2043,12 +2045,12 @@ test('resumed contradictory provider-model input cannot rewrite saved execution 
     .expect(202);
   await waitForAssistantTurn(conversationId);
   assert.equal(response.body.provider, 'codex');
-  assert.equal(response.body.model, 'gpt-5.6-luna');
+  assert.equal(response.body.model, 'gpt-6-luna');
   assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-identity');
   assert.equal(memoryConversations.get(conversationId)?.provider, 'codex');
   assert.equal(
     memoryConversations.get(conversationId)?.model,
-    'gpt-5.6-luna',
+    'gpt-6-luna',
   );
 });
 test('repository-backed codex chat keeps the saved thread across a contradictory follow-up without rollout recording failure', async () => {
@@ -2177,7 +2179,7 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
     .filter((turn) => turn.role === 'assistant')
     .at(-1);
   assert.equal(firstResponse.body.provider, 'codex');
-  assert.equal(firstResponse.body.model, 'gpt-5.6-luna');
+  assert.equal(firstResponse.body.model, 'gpt-6-luna');
   assert.equal(firstAssistant?.status, 'ok');
   assert.equal(firstAssistant?.content, 'READY');
   const firstRuntimeHome = String(
@@ -2193,7 +2195,7 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
     path.join(firstRuntimeHome, 'chat', 'config.toml'),
     'utf8',
   );
-  assert.match(runtimeChatConfig, /model = "gpt-5\.6-luna"/u);
+  assert.match(runtimeChatConfig, /model = "gpt-6-luna"/u);
   assert.equal(
     memoryConversations.get(conversationId)?.flags?.threadId,
     'thread-repo-backed',
@@ -2217,7 +2219,7 @@ test('repository-backed codex chat keeps the saved thread across a contradictory
   );
   const resumedAssistant = assistantTurns.at(-1);
   assert.equal(resumedResponse.body.provider, 'codex');
-  assert.equal(resumedResponse.body.model, 'gpt-5.6-luna');
+  assert.equal(resumedResponse.body.model, 'gpt-6-luna');
   assert.equal(mockCodex.lastResumeThreadId, 'thread-repo-backed');
   assert.equal(mockCodex.lastResumeOptions?.model, undefined);
   assert.equal(lastCapturedCodexOptions?.env?.CODEX_HOME, firstRuntimeHome);
@@ -2376,7 +2378,7 @@ test('repository-backed codex chat skips managed web_tools when request-time web
   try {
     await fs.writeFile(
       path.join(String(tempCodexHomeForTest), 'chat', 'config.toml'),
-      ['model = "gpt-5.6-luna"', 'web_search = "live"', ''].join('\n'),
+      ['model = "gpt-6-luna"', 'web_search = "live"', ''].join('\n'),
       'utf8',
     );
     externalServer = await startExternalOpenAiCompatServer({
@@ -2497,7 +2499,7 @@ test('repository-backed codex chat refreshes cached web-search warnings when req
   try {
     await fs.writeFile(
       path.join(String(tempCodexHomeForTest), 'chat', 'config.toml'),
-      ['model = "gpt-5.6-luna"', 'web_search = "cached"', ''].join('\n'),
+      ['model = "gpt-6-luna"', 'web_search = "cached"', ''].join('\n'),
       'utf8',
     );
     externalServer = await startExternalOpenAiCompatServer({
@@ -2624,7 +2626,7 @@ test('repository-backed codex chat preserves config-owned live web search for Un
   try {
     await fs.writeFile(
       path.join(String(tempCodexHomeForTest), 'chat', 'config.toml'),
-      ['model = "gpt-5.6-luna"', 'web_search_mode = "live"', ''].join(
+      ['model = "gpt-6-luna"', 'web_search_mode = "live"', ''].join(
         '\n',
       ),
       'utf8',
@@ -2920,7 +2922,7 @@ test('explicit Codex /chat requests fail closed when bootstrap is degraded even 
     warnings: ['codex bootstrap degraded warning'],
   });
   const externalServer = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.6-luna'],
+    models: ['gpt-6-luna'],
   });
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;
@@ -2942,7 +2944,7 @@ test('explicit Codex /chat requests fail closed when bootstrap is degraded even 
       .send(
         buildCodexBody({
           endpointId: `${externalServer.baseUrl}/v1`,
-          model: 'gpt-5.6-luna',
+          model: 'gpt-6-luna',
         }),
       );
     assert.equal(response.status, 503);
@@ -3122,7 +3124,7 @@ test('RUN_IN_PROGRESS loser leaves persisted provider model and flags unchanged 
   const originalConversation = {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Locked conversation',
     source: 'REST',
     flags: {

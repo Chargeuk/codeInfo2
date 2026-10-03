@@ -637,9 +637,9 @@ describe('flow schema (v1)', () => {
       repeated?.steps?.[2]?.question ?? '',
       /invalid response must exit/u,
     );
-    assert.equal(repeated?.steps?.[3]?.agentType, 'research_agent_max');
+    assert.equal(repeated?.steps?.[3]?.agentType, 'research_agent');
     assert.equal(repeated?.steps?.[3]?.identifier, 'batch_repeat_researcher');
-    assert.equal(repeated?.steps?.[4]?.agentType, 'research_agent_max');
+    assert.equal(repeated?.steps?.[4]?.agentType, 'research_agent');
     assert.equal(repeated?.steps?.[4]?.identifier, 'batch_repeat_researcher');
     assert.equal(repeated?.steps?.[4]?.continueOnFailure, true);
     assert.equal(repeated?.steps?.at(-1)?.agentType, 'loop_control_agent');

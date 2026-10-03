@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from select_retrospective_story_number import select_number
+from archive_retrospective_story import archive_story
 
 
 class SelectRetrospectiveStoryNumberTests(unittest.TestCase):
@@ -97,6 +98,35 @@ class SelectRetrospectiveStoryNumberTests(unittest.TestCase):
         self.assertEqual(result["number"], "0000008")
         self.assertFalse(result["remote_verified"])
         self.assertTrue(result["warnings"])
+
+    def test_archive_frees_current_number_but_other_collisions_still_reserve_it(self) -> None:
+        self.run_git("switch", "-c", "feature/0000012-own")
+        plan = self.repo / "planning" / "0000012-original.md"
+        plan.write_text("original")
+        second = self.repo / "planning" / "0000012-second.md"
+        second.write_text("second matching story")
+        archive_dir = self.repo / "planning" / "one-shot"
+        archive_dir.mkdir()
+        existing = archive_dir / "one-shot-0000012-original.md"
+        existing.write_text("older archive")
+        self.assertEqual(select_number()["number"], "0000013")
+
+        archived = archive_story(self.repo)
+        self.assertEqual(archived["status"], "archived")
+        self.assertEqual(len(archived["entries"]), 2)
+        self.assertEqual(existing.read_text(), "older archive")
+        self.assertFalse(second.exists())
+        result = select_number()
+        self.assertEqual(result["number"], "0000012")
+        self.assertTrue(result["reuse_current_branch"])
+
+        # Archive files stay outside the top-level scan; peer branches still count.
+        self.run_git("branch", "feature/0000012-peer")
+        self.assertEqual(select_number()["number"], "0000013")
+        self.run_git("branch", "-D", "feature/0000012-peer")
+        plan.write_text("new canonical plan")
+        self.assertEqual(select_number()["number"], "0000013")
+        self.assertEqual(select_number(plan)["number"], "0000012")
 
 
 if __name__ == "__main__":

@@ -735,7 +735,7 @@ test('POST /flows/:flowName/run starts a fresh parent conversation when the sele
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
@@ -789,7 +789,7 @@ test('POST /flows/:flowName/run returns 409 for concurrent runs', async () => {
 
 test('resumed flow run keeps the saved child identity stable when the pinned model becomes unavailable', async () => {
   installDeterministicCodexAvailabilityBootstrap({
-    models: [{ model: 'gpt-5.6-luna' }],
+    models: [{ model: 'gpt-6-luna' }],
   });
 
   const tmpDir = await fs.mkdtemp(
@@ -822,7 +822,7 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
   memoryConversations.set(flowConversationId, {
     _id: flowConversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Flow: resume-unavailable',
     flowName: 'resume-unavailable',
     source: 'REST',
@@ -839,7 +839,7 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
           'coding_agent:resume-test': 'codex',
         },
         agentModels: {
-          'coding_agent:resume-test': 'gpt-5.6-terra',
+          'coding_agent:resume-test': 'gpt-6.1-sol',
         },
       },
     },
@@ -851,7 +851,7 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
   memoryConversations.set(childConversationId, {
     _id: childConversationId,
     provider: 'codex',
-    model: 'gpt-5.6-terra',
+    model: 'gpt-6.1-sol',
     title: 'Flow: resume-unavailable (resume-test)',
     agentName: 'coding_agent',
     source: 'REST',
@@ -877,7 +877,7 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
           (turn) =>
             turn.role === 'assistant' &&
             turn.status === 'failed' &&
-            /Saved model "gpt-5.6-terra" is unavailable/i.test(
+            /Saved model "gpt-6.1-sol" is unavailable/i.test(
               turn.content ?? '',
             ),
         ),
@@ -886,13 +886,13 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
         (turn) =>
           turn.role === 'assistant' &&
           turn.status === 'failed' &&
-          /Saved model "gpt-5.6-terra" is unavailable/i.test(
+          /Saved model "gpt-6.1-sol" is unavailable/i.test(
             turn.content ?? '',
           ),
       );
       assert.ok(failureTurn);
       assert.equal(failureTurn.provider, 'codex');
-      assert.equal(failureTurn.model, 'gpt-5.6-luna');
+      assert.equal(failureTurn.model, 'gpt-6-luna');
 
       const flowConversation = memoryConversations.get(flowConversationId);
       const childConversation = memoryConversations.get(childConversationId);
@@ -907,7 +907,7 @@ test('resumed flow run keeps the saved child identity stable when the pinned mod
         childConversationId,
       );
       assert.equal(childConversation?.provider, 'codex');
-      assert.equal(childConversation?.model, 'gpt-5.6-terra');
+      assert.equal(childConversation?.model, 'gpt-6.1-sol');
       assert.deepEqual(memoryTurns.get(childConversationId) ?? [], []);
     });
   } finally {
@@ -1589,7 +1589,7 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.6-luna"\n',
+    'model = "gpt-6-luna"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -1617,7 +1617,7 @@ test('Task 19 preserves fallback runtime warnings on successful flow starts', as
           },
           models: [
             {
-              model: 'gpt-5.6-luna',
+              model: 'gpt-6-luna',
               supportedReasoningEfforts: ['high'],
               defaultReasoningEffort: 'high',
             },
@@ -1690,7 +1690,7 @@ test('flow start does not surface warnings for supported Codex compatibility key
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
     [
-      'model = "gpt-5.6-luna"',
+      'model = "gpt-6-luna"',
       'model_auto_compact_token_limit = 300000',
       '',
     ].join('\n'),
@@ -1719,7 +1719,7 @@ test('flow start does not surface warnings for supported Codex compatibility key
   );
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.6-luna"\n',
+    'model = "gpt-6-luna"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -1747,7 +1747,7 @@ test('flow start does not surface warnings for supported Codex compatibility key
           },
           models: [
             {
-              model: 'gpt-5.6-luna',
+              model: 'gpt-6-luna',
               supportedReasoningEfforts: ['high'],
               defaultReasoningEffort: 'high',
             },
@@ -1834,7 +1834,7 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.6-luna"\n',
+    'model = "gpt-6-luna"\n',
     'utf8',
   );
   await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -1862,7 +1862,7 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
           },
           models: [
             {
-              model: 'gpt-5.6-luna',
+              model: 'gpt-6-luna',
               supportedReasoningEfforts: ['high'],
               defaultReasoningEffort: 'high',
             },
@@ -1906,7 +1906,7 @@ test('flow run start payload keeps providerId, warnings, and machine-readable la
 
             assert.equal(response.body.status, 'started');
             assert.equal(response.body.providerId, 'codex');
-            assert.equal(response.body.modelId, 'gpt-5.6-luna');
+            assert.equal(response.body.modelId, 'gpt-6-luna');
             assert.equal(
               response.body.warnings.some((warning: string) =>
                 warning.includes('unsupported provider "bad-provider"'),
@@ -1966,7 +1966,7 @@ test('Task 25 flow starts fall back to the same provider native path before cros
       await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
       await fs.writeFile(
         path.join(codexHome, 'chat', 'config.toml'),
-        'model = "gpt-5.6-luna"\n',
+        'model = "gpt-6-luna"\n',
         'utf8',
       );
       await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
@@ -1992,7 +1992,7 @@ test('Task 25 flow starts fall back to the same provider native path before cros
           },
           models: [
             {
-              model: 'gpt-5.6-luna',
+              model: 'gpt-6-luna',
               supportedReasoningEfforts: ['high'],
               defaultReasoningEffort: 'high',
             },
@@ -2093,7 +2093,7 @@ test('flow run survives provider-specific runtime-config failure by falling back
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.6-luna"\n',
+    'model = "gpt-6-luna"\n',
     'utf8',
   );
   await fs.writeFile(
@@ -2120,7 +2120,7 @@ test('flow run survives provider-specific runtime-config failure by falling back
           },
           models: [
             {
-              model: 'gpt-5.6-luna',
+              model: 'gpt-6-luna',
               supportedReasoningEfforts: ['high'],
               defaultReasoningEffort: 'high',
             },
@@ -2222,7 +2222,7 @@ test('flow run fails clearly when no fallback provider can execute after request
   await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
   await fs.writeFile(
     path.join(codexHome, 'chat', 'config.toml'),
-    'model = "gpt-5.6-luna"\n',
+    'model = "gpt-6-luna"\n',
     'utf8',
   );
   await fs.writeFile(
@@ -2347,7 +2347,7 @@ test('pre-launch persistence failure clears stale retry ownership for later legi
             originalSet.call(memoryConversations, conversationId, {
               _id: conversationId,
               provider: 'codex',
-              model: 'gpt-5.6-luna',
+              model: 'gpt-6-luna',
               title: 'retry-ownership-persist-fails',
               flowName: 'retry-ownership-persist-fails',
               source: 'REST',
@@ -2861,7 +2861,7 @@ test('flows containing only dedicated reingest steps start with the fallback mod
       source: 'REST',
       listIngestedRepositories: listDefaultReingestRepos,
     });
-    assert.equal(result.modelId, 'gpt-5.6-sol');
+    assert.equal(result.modelId, 'gpt-6.1-sol');
     await waitForFlowFinal({
       ws,
       conversationId: result.conversationId,
@@ -2872,9 +2872,9 @@ test('flows containing only dedicated reingest steps start with the fallback mod
       result.conversationId,
       (items) => items.length >= 2,
     );
-    assert.equal(conversation?.model, 'gpt-5.6-sol');
-    assert.equal(turns[0]?.model, 'gpt-5.6-sol');
-    assert.equal(turns[1]?.model, 'gpt-5.6-sol');
+    assert.equal(conversation?.model, 'gpt-6.1-sol');
+    assert.equal(turns[0]?.model, 'gpt-6.1-sol');
+    assert.equal(turns[1]?.model, 'gpt-6.1-sol');
   });
 });
 
@@ -3816,7 +3816,7 @@ test('wait resume fails clearly when persisted wait execution identity no longer
       memoryConversations.set(conversationId, {
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         title: 'Flow: wait-contradiction',
         flowName: 'wait-contradiction',
         source: 'REST',
@@ -3926,7 +3926,7 @@ test('wait wake does not resume after the flow has already reached a terminal st
           role: 'assistant',
           content: 'terminal',
           provider: 'codex',
-          model: 'gpt-5.6-terra',
+          model: 'gpt-6.1-sol',
           source: 'REST',
           toolCalls: null,
           status: 'failed',

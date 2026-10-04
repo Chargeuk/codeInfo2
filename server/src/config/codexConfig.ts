@@ -17,7 +17,7 @@ import {
 
 const TASK2_BOOTSTRAP_MARKER = 'DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP';
 
-const defaultCodexConfigTemplate = `model = "gpt-5.6-sol"
+const defaultCodexConfigTemplate = `model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"

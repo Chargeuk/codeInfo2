@@ -150,7 +150,7 @@ Corporate certificate directory requirements:
 - On server startup, if `${CODEINFO_CODEX_HOME:-./codex}/config.toml` is missing, the server writes one canonical in-code base template to that path (the `codex/` directory is git-ignored).
 - `config.toml.example` may remain in the repo as a human-facing sample, but runtime bootstrap does not read, parse, or copy it.
 - Customize `./codex/config.toml` after the first run; subsequent starts leave your edits intact.
-- Fresh base bootstrap uses `model = "gpt-5.6-sol"` and seeds Context7 in the no-key local stdio form `args = ['-y', '@upstash/context7-mcp']`; it does not seed any checked-in or placeholder `--api-key` pair.
+- Fresh base bootstrap uses `model = "gpt-6.1-sol"` and seeds Context7 in the no-key local stdio form `args = ['-y', '@upstash/context7-mcp']`; it does not seed any checked-in or placeholder `--api-key` pair.
 - Chat runtime config bootstrap (`./codex/chat/config.toml`) is deterministic and non-destructive:
   - if chat config exists: no overwrite (`existing_noop`).
   - if chat config is missing: write the canonical in-code chat template directly (`generated_template`), regardless of whether base config exists.
@@ -182,7 +182,7 @@ Corporate certificate directory requirements:
   - `@openai/codex` and `@openai/codex-sdk` are pinned at `0.159.1` in `server/package.json`.
   - startup guard requires exact `0.159.1`; pre-release, lower, and higher versions are rejected.
   - The OpenAI SDK is pinned at `7.25.0`.
-  - The Codex model catalog includes `gpt-6-luna`, `gpt-6-sol`, and `gpt-6.1-sol`. Active repository and manual-testing Sol agents use GPT-6.1 Sol with their existing reasoning effort preserved.
+  - The default Codex model catalog contains `gpt-6.1-sol`, `gpt-6-luna`, and `gpt-6-astra`. Explicit catalog overrides remain unchanged. Active repository and manual-testing Sol agents use GPT-6.1 Sol with their existing reasoning effort preserved.
   - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
 
 ## GitHub Copilot and provider-neutral runtime

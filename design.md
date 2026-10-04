@@ -3639,7 +3639,7 @@ sequenceDiagram
 - Missing-file creation stays non-destructive:
   - missing `codex/config.toml` -> write the canonical in-code template with exclusive create semantics
   - existing `codex/config.toml` -> short-circuit without overwrite
-- The canonical base template keeps server-port substitution, uses `model = "gpt-5.6-sol"`, and seeds Context7 in the no-key stdio form only.
+- The canonical base template keeps server-port substitution, uses `model = "gpt-6.1-sol"`, and seeds Context7 in the no-key stdio form only. Story 41 updates the fresh-bootstrap model; existing provider-home configurations retain their configured identity.
 - Bootstrap observability now emits `DEV_0000047_T02_BASE_CONFIG_BOOTSTRAP` with `outcome=seeded|existing`, `template_source=in_code`, and `success=true` on the success paths used during startup.
 
 ```mermaid

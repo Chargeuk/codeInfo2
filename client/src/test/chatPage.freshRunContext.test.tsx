@@ -87,13 +87,13 @@ describe('Chat page fresh-run context', () => {
                 toolsAvailable: true,
                 models: [
                   {
-                    key: 'gpt-5.6-luna',
-                    displayName: 'gpt-5.6-luna',
+                    key: 'gpt-6-luna',
+                    displayName: 'gpt-6-luna',
                     type: 'codex',
                   },
                   {
-                    key: 'gpt-5.6-terra',
-                    displayName: 'gpt-5.6-terra',
+                    key: 'gpt-6.1-sol',
+                    displayName: 'gpt-6.1-sol',
                     type: 'codex',
                   },
                 ],
@@ -237,12 +237,12 @@ describe('Chat page fresh-run context', () => {
       );
       await user.click(modelSelect);
       await user.click(
-        await screen.findByRole('option', { name: /gpt-5.6-terra/i }),
+        await screen.findByRole('option', { name: /gpt-6.1-sol/i }),
       );
 
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-5.6-terra/i,
+          /gpt-6.1-sol/i,
         ),
       );
 
@@ -254,7 +254,7 @@ describe('Chat page fresh-run context', () => {
       await waitFor(() => expect(chatBodies).toHaveLength(1));
       expect(chatBodies[0]).toMatchObject({
         provider: 'codex',
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
       });
       expect(chatBodies[0]?.conversationId).not.toBe('c1');
     },

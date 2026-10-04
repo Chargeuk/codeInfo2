@@ -132,9 +132,9 @@ describe('Conversation row parity', () => {
   });
 
   it('maps common OpenRouter and local model families onto model icons by model identity, not only prefix position', () => {
-    expect(
-      getConversationModelPresentation('codex', 'gpt-5.6-luna').label,
-    ).toBe('OpenAI');
+    expect(getConversationModelPresentation('codex', 'gpt-6-luna').label).toBe(
+      'OpenAI',
+    );
     expect(
       getConversationModelPresentation('copilot', 'anthropic/claude-3.7-sonnet')
         .label,

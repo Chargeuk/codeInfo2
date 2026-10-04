@@ -1152,7 +1152,7 @@ test('fresh flow start creates a new parent conversation when an older conversat
   memoryConversations.set(oldConversationId, {
     _id: oldConversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',
@@ -1866,7 +1866,7 @@ test('POST /flows/:flowName/run fails on invalid agent config supported key type
   await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
   await fs.writeFile(
     path.join(agentHome, 'config.toml'),
-    ['model = "gpt-5.6-luna"', 'approval_policy = 42'].join('\n'),
+    ['model = "gpt-6-luna"', 'approval_policy = 42'].join('\n'),
     'utf8',
   );
   await fs.cp(fixturesDir, tmpFlowsDir, { recursive: true });
@@ -2184,7 +2184,7 @@ test('memory-backed flow runs preserve saved workingFolder while updating flow r
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Flow: llm-basic',
     flowName: 'llm-basic',
     source: 'REST',

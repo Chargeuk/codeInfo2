@@ -519,7 +519,7 @@ test('chat models parity fixture remains deterministic across resolver-backed de
 test('codex models expose the Story 56 provider-neutral Agent Flags and workspace-write-scoped compatibility details', async () => {
   await setCodexHome(
     [
-      'model = "gpt-5.6-sol"',
+      'model = "gpt-6.1-sol"',
       'model_reasoning_effort = "high"',
       'approval_policy = "on-request"',
       'sandbox_mode = "workspace-write"',
@@ -549,7 +549,7 @@ test('codex models expose the Story 56 provider-neutral Agent Flags and workspac
     );
     const verbosity = flags.find((entry) => entry.key === 'modelVerbosity');
     const webSearch = flags.find((entry) => entry.key === 'webSearchMode');
-    assert.equal(res.body.providerInfo.defaultModel, 'gpt-5.6-sol');
+    assert.equal(res.body.providerInfo.defaultModel, 'gpt-6.1-sol');
     assert.equal(res.body.providerInfo.defaultModelSource, 'config');
     assert.equal(res.body.codexDefaults.sandboxMode, 'workspace-write');
     assert.equal(res.body.codexDefaults.networkAccessEnabled, false);
@@ -592,7 +592,7 @@ test('codex model list CSV trims, drops empties, and de-duplicates', async () =>
   await setCodexHome();
   env.set(
     'Codex_model_list',
-    ' gpt-5.6-luna , , gpt-5.6-terra, gpt-5.6-terra , gpt-6-astra , gpt-6-sol , gpt-6-luna, gpt-6-luna ',
+    ' gpt-6-luna , , gpt-6.1-sol, gpt-6.1-sol , gpt-6-astra , gpt-6.1-sol , gpt-6-luna, gpt-6-luna ',
   );
   setCodexDetection({
     available: true,
@@ -608,14 +608,7 @@ test('codex model list CSV trims, drops empties, and de-duplicates', async () =>
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
-    assert.deepEqual(modelKeys, [
-      'gpt-5.6-sol',
-      'gpt-5.6-luna',
-      'gpt-5.6-terra',
-      'gpt-6-astra',
-      'gpt-6-sol',
-      'gpt-6-luna',
-    ]);
+    assert.deepEqual(modelKeys, ['gpt-6.1-sol', 'gpt-6-luna', 'gpt-6-astra']);
   } finally {
     await stopServer(server);
   }
@@ -637,10 +630,7 @@ test('codex model list empty CSV falls back with warning', async () => {
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
-    assert.ok(modelKeys.includes('gpt-5.6-sol'));
-    assert.ok(modelKeys.includes('gpt-6-sol'));
-    assert.ok(modelKeys.includes('gpt-6.1-sol'));
-    assert.ok(modelKeys.includes('gpt-6-luna'));
+    assert.deepEqual(modelKeys, ['gpt-6.1-sol', 'gpt-6-luna', 'gpt-6-astra']);
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('Codex_model_list is empty'),
@@ -667,10 +657,7 @@ test('codex model list whitespace-only CSV falls back with warning', async () =>
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
-    assert.ok(modelKeys.includes('gpt-5.6-sol'));
-    assert.ok(modelKeys.includes('gpt-6-sol'));
-    assert.ok(modelKeys.includes('gpt-6.1-sol'));
-    assert.ok(modelKeys.includes('gpt-6-luna'));
+    assert.deepEqual(modelKeys, ['gpt-6.1-sol', 'gpt-6-luna', 'gpt-6-astra']);
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('Codex_model_list is empty'),
@@ -713,6 +700,7 @@ test('gpt-6.1-sol exposes supported reasoning efforts', async () => {
       'xhigh',
     ]);
     assert.equal(currentSol?.defaultReasoningEffort, 'medium');
+    // Deliberate compatibility: an explicit old model keeps its existing metadata.
     assert.ok(previousSol?.supportedReasoningEfforts.includes('minimal'));
   } finally {
     await stopServer(server);
@@ -1569,8 +1557,8 @@ test('codex payload includes non-standard reasoning effort values from shared ca
 test('codex models prioritize CODEINFO_CHAT_DEFAULT_MODEL when codex is default provider', async () => {
   await setCodexHome('model = "config-model"\n');
   env.set('CODEINFO_CHAT_DEFAULT_PROVIDER', 'codex');
-  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-5.6-luna');
-  env.set('Codex_model_list', 'config-model,gpt-5.6-luna,gpt-5.6-terra');
+  env.set('CODEINFO_CHAT_DEFAULT_MODEL', 'gpt-6-luna');
+  env.set('Codex_model_list', 'config-model,gpt-6-luna,gpt-6.1-sol');
   setCodexDetection({
     available: true,
     authPresent: true,

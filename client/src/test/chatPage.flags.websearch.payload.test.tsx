@@ -77,18 +77,18 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.6-luna',
-                displayName: 'gpt-5.6-luna',
+                key: 'gpt-6-luna',
+                displayName: 'gpt-6-luna',
                 type: 'codex',
                 supportedReasoningEfforts: ['medium', 'high'],
                 defaultReasoningEffort: 'medium',
               },
               {
-                key: 'gpt-5.6-terra',
-                displayName: 'gpt-5.6-terra',
+                key: 'gpt-6.1-sol',
+                displayName: 'gpt-6.1-sol',
                 type: 'codex',
-                supportedReasoningEfforts: ['minimal'],
-                defaultReasoningEffort: 'minimal',
+                supportedReasoningEfforts: ['low'],
+                defaultReasoningEffort: 'low',
               },
             ],
           });
@@ -189,7 +189,7 @@ describe('Codex web search flag payloads', () => {
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
-    await waitFor(() => expect(modelSelect).toHaveTextContent('gpt-5.6-luna'));
+    await waitFor(() => expect(modelSelect).toHaveTextContent('gpt-6-luna'));
 
     await user.clear(input);
     await user.type(input, 'Hello Codex');

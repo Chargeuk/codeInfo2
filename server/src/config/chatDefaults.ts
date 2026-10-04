@@ -132,7 +132,7 @@ export type DefaultsAppliedMarkerPayload = {
 export const ORDERED_CHAT_PROVIDERS = ORDERED_CHAT_PROVIDER_IDS;
 
 const FALLBACK_PROVIDER: ChatDefaultProvider = DEFAULT_CHAT_PROVIDER_ID;
-const FALLBACK_MODEL = 'gpt-5.6-sol';
+const FALLBACK_MODEL = 'gpt-6.1-sol';
 export const STORY_47_TASK_1_LOG_MARKER =
   'DEV_0000047_T01_CODEX_DEFAULTS_APPLIED';
 const VALID_PROVIDERS: readonly ChatDefaultProvider[] = ORDERED_CHAT_PROVIDERS;

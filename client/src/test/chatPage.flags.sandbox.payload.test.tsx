@@ -99,13 +99,13 @@ function mockProvidersWithBodies(
               : {}),
             models: [
               {
-                key: 'gpt-5.6-luna',
-                displayName: 'gpt-5.6-luna',
+                key: 'gpt-6-luna',
+                displayName: 'gpt-6-luna',
                 type: 'codex',
               },
               {
-                key: 'gpt-5.6-terra',
-                displayName: 'gpt-5.6-terra',
+                key: 'gpt-6.1-sol',
+                displayName: 'gpt-6.1-sol',
                 type: 'codex',
               },
             ],
@@ -265,9 +265,7 @@ describe('Codex sandbox flag payloads', () => {
       const modelSelect = await screen.findByRole('combobox', {
         name: /model/i,
       });
-      await waitFor(() =>
-        expect(modelSelect).toHaveTextContent('gpt-5.6-luna'),
-      );
+      await waitFor(() => expect(modelSelect).toHaveTextContent('gpt-6-luna'));
 
       await userEvent.clear(input);
       await userEvent.type(input, 'Hello Codex');

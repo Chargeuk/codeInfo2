@@ -70,14 +70,14 @@ test('callTool run_agent_instruction preserves delegated worker continuation han
       agentName: 'coding_agent',
       conversationId: 'coding-c1',
       providerId: 'copilot' as const,
-      modelId: 'gpt-5.6-terra',
+      modelId: 'gpt-6.1-sol',
       segments: [{ type: 'answer', text: 'stuck: formatter needs a revision' }],
     },
     {
       agentName: 'coding_agent',
       conversationId: 'coding-c1',
       providerId: 'copilot' as const,
-      modelId: 'gpt-5.6-terra',
+      modelId: 'gpt-6.1-sol',
       segments: [{ type: 'answer', text: 'revised repair is ready' }],
     },
     {
@@ -164,13 +164,13 @@ test('callTool run_agent_instruction preserves delegated worker continuation han
       {
         agentName: 'coding_agent',
         conversationId: 'coding-c1',
-        modelId: 'gpt-5.6-terra',
+        modelId: 'gpt-6.1-sol',
         answer: 'stuck: formatter needs a revision',
       },
       {
         agentName: 'coding_agent',
         conversationId: 'coding-c1',
-        modelId: 'gpt-5.6-terra',
+        modelId: 'gpt-6.1-sol',
         answer: 'revised repair is ready',
       },
       {

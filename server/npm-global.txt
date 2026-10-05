@@ -1,9 +1,9 @@
 @openai/codex@0.159.2
 @github/copilot@1.0.89
-mcp-remote
-@upstash/context7-mcp
-@mui/mcp@latest
-@playwright/mcp@latest
-chrome-devtools-mcp
-git-credential-forwarder
+mcp-remote@0.14.3
+@upstash/context7-mcp@4.1.1
+@mui/mcp@0.1.6
+@playwright/mcp@0.0.83
+chrome-devtools-mcp@1.10.1
+git-credential-forwarder@1.5.0
 @mermaid-js/mermaid-cli@11.15.0

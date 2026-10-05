@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # `node:22-slim` floated to 22.22.1 and started breaking the pinned
 # `tree-sitter@0.21.1` native rebuild during `npm ci`. Pin the image to the
 # repo's validated 22.21.1 patch level until the tree-sitter stack is upgraded.
-FROM node:22.21.1-slim AS deps
+FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS deps
 WORKDIR /app
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
@@ -41,7 +41,8 @@ COPY package*.json ./
 COPY package-lock.json ./
 COPY common/package*.json ./common/
 COPY server/package*.json ./server/
-RUN set -eu; \
+RUN --mount=type=cache,target=/root/.npm \
+    set -eu; \
     if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then \
       echo "[CODEINFO][T03_BUILD][deps] npm registry override enabled"; \
       NPM_CONFIG_REGISTRY="${CODEINFO_NPM_REGISTRY}" npm ci --workspaces --include-workspace-root --no-audit --no-fund; \
@@ -49,7 +50,7 @@ RUN set -eu; \
       echo "[CODEINFO][T03_BUILD][deps] npm registry override disabled"; \
       npm ci --workspaces --include-workspace-root --no-audit --no-fund; \
     fi
-FROM node:22.21.1-slim AS build
+FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS build
 WORKDIR /app
 ENV HUSKY=0
 COPY --from=deps /app/node_modules /app/node_modules
@@ -65,17 +66,12 @@ COPY common ./common
 COPY server ./server
 RUN npm run build --workspace common && npm run build --workspace server
 
-FROM node:22.21.1-slim AS runtime
-ARG HOME
-ARG CODEINFO_RUNTIME_UID=1000
-ARG CODEINFO_RUNTIME_GID=1000
+FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS runtime
 ARG GH_VERSION=2.94.0
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
 ARG CODEINFO_PIP_TRUSTED_HOST
 ARG CODEINFO_NODE_EXTRA_CA_CERTS
-RUN mkdir -p "${HOME}" "${HOME}/tmp" "${HOME}/.docker" && \
-    chown "${CODEINFO_RUNTIME_UID}:${CODEINFO_RUNTIME_GID}" "${HOME}" "${HOME}/tmp" "${HOME}/.docker"
 # Install prerequisites
 RUN apt-get update && apt-get install -y \
     curl \
@@ -144,6 +140,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     openssh-client \
     python3 \
     python3-dev \
+    build-essential \
+    xz-utils \
+    pkg-config \
+    libssl-dev \
     python3-pip \
     python3-venv \
     unzip \
@@ -165,31 +165,32 @@ RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
 RUN ln -s /usr/bin/chromium /usr/bin/google-chrome
 
 # Add Python tooling in an isolated, cacheable layer.
-COPY server/requirements.txt /tmp/requirements.txt
+ARG PIP_VERSION=26.2.1
+COPY server/requirements.txt server/requirements-constraints.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
     set -eu; \
     if [ -n "${CODEINFO_PIP_INDEX_URL:-}" ] || [ -n "${CODEINFO_PIP_TRUSTED_HOST:-}" ]; then \
       echo "[CODEINFO][T03_BUILD][runtime] pip override enabled"; \
       if [ -n "${CODEINFO_PIP_INDEX_URL:-}" ] && [ -n "${CODEINFO_PIP_TRUSTED_HOST:-}" ]; then \
         PIP_INDEX_URL="${CODEINFO_PIP_INDEX_URL}" PIP_TRUSTED_HOST="${CODEINFO_PIP_TRUSTED_HOST}" \
-          python3 -m pip install --break-system-packages --upgrade pip && \
+          python3 -m pip install --break-system-packages "pip==${PIP_VERSION}" && \
         PIP_INDEX_URL="${CODEINFO_PIP_INDEX_URL}" PIP_TRUSTED_HOST="${CODEINFO_PIP_TRUSTED_HOST}" \
-          python3 -m pip install --break-system-packages -r /tmp/requirements.txt; \
+          python3 -m pip install --break-system-packages -c /tmp/requirements-constraints.txt -r /tmp/requirements.txt; \
       elif [ -n "${CODEINFO_PIP_INDEX_URL:-}" ]; then \
         PIP_INDEX_URL="${CODEINFO_PIP_INDEX_URL}" \
-          python3 -m pip install --break-system-packages --upgrade pip && \
+          python3 -m pip install --break-system-packages "pip==${PIP_VERSION}" && \
         PIP_INDEX_URL="${CODEINFO_PIP_INDEX_URL}" \
-          python3 -m pip install --break-system-packages -r /tmp/requirements.txt; \
+          python3 -m pip install --break-system-packages -c /tmp/requirements-constraints.txt -r /tmp/requirements.txt; \
       else \
         PIP_TRUSTED_HOST="${CODEINFO_PIP_TRUSTED_HOST}" \
-          python3 -m pip install --break-system-packages --upgrade pip && \
+          python3 -m pip install --break-system-packages "pip==${PIP_VERSION}" && \
         PIP_TRUSTED_HOST="${CODEINFO_PIP_TRUSTED_HOST}" \
-          python3 -m pip install --break-system-packages -r /tmp/requirements.txt; \
+          python3 -m pip install --break-system-packages -c /tmp/requirements-constraints.txt -r /tmp/requirements.txt; \
       fi; \
     else \
       echo "[CODEINFO][T03_BUILD][runtime] pip override disabled"; \
-      python3 -m pip install --break-system-packages --upgrade pip && \
-      python3 -m pip install --break-system-packages -r /tmp/requirements.txt; \
+      python3 -m pip install --break-system-packages "pip==${PIP_VERSION}" && \
+      python3 -m pip install --break-system-packages -c /tmp/requirements-constraints.txt -r /tmp/requirements.txt; \
     fi
 
 # Install global CLI tooling in a cacheable layer.
@@ -230,6 +231,37 @@ RUN set -eu; \
       "$pip_trusted_host_override" \
       > /app/server/.codeinfo-server-build-override-state.env
 
+# Stable tool layers depend only on version/checksum inputs, not app source or HOME.
+ARG TARGETARCH
+ARG RUSTUP_VERSION=1.29.1
+ARG RUST_VERSION=1.99.0
+ARG WASM_PACK_VERSION=0.15.0
+ARG WASM_BINDGEN_VERSION=0.2.129
+ARG BINARYEN_VERSION=133
+ENV RUSTUP_HOME=/opt/rustup \
+    CARGO_HOME=/opt/cargo \
+    PATH=/opt/cargo/bin:/opt/wasm-tools/bin:/opt/binaryen/bin:${PATH}
+COPY server/toolchain-checksums.txt server/install-rust-toolchain.sh /tmp/
+RUN sh /tmp/install-rust-toolchain.sh
+COPY server/prepare-rust-homes.sh /usr/local/bin/codeinfo-prepare-rust-homes
+RUN chmod 755 /usr/local/bin/codeinfo-prepare-rust-homes
+
+# Invoke only the locked CLI. Browser files and apt-installed OS libs persist in image.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+COPY --from=deps /app/node_modules/playwright /opt/playwright/node_modules/playwright
+COPY --from=deps /app/node_modules/playwright-core /opt/playwright/node_modules/playwright-core
+RUN node -e "if (require('/opt/playwright/node_modules/playwright/package.json').version !== '1.56.1') process.exit(1)" && \
+    node /opt/playwright/node_modules/playwright/cli.js install --with-deps chromium
+
+# Runtime ownership is deliberately after expensive installs.
+ARG HOME=/app/codex
+ARG CODEINFO_RUNTIME_UID=1000
+ARG CODEINFO_RUNTIME_GID=1000
+RUN mkdir -p "${HOME}" "${HOME}/tmp" "${HOME}/.docker" && \
+    chown "${CODEINFO_RUNTIME_UID}:${CODEINFO_RUNTIME_GID}" "${HOME}" "${HOME}/tmp" "${HOME}/.docker"
+RUN CODEINFO_RUNTIME_UID="${CODEINFO_RUNTIME_UID}" CODEINFO_RUNTIME_GID="${CODEINFO_RUNTIME_GID}" \
+    codeinfo-prepare-rust-homes
+
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=deps /app/server/node_modules /app/server/node_modules
 COPY --from=build /app/common /app/common
@@ -247,12 +279,6 @@ COPY flows /app/flows
 COPY flows-sandbox /app/flows-sandbox
 COPY e2e/fixtures /fixtures
 COPY e2e/fixtures/repo /data
-
-# Set Playwright to use the browsers installed during build.
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-# Install Playwright system dependencies and browsers using the repo-pinned version.
-RUN npx playwright install-deps chromium
-RUN npx playwright install chromium
 
 # Use the forwarder for any user inside the container.
 RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'

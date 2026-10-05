@@ -1,14 +1,13 @@
 # Goal
 
-Run the selected task's automated proof, fix issues that arise, and leave the task in an honest state for audit.
+Run the selected task's automated proof and leave the task in an honest state for audit. Diagnose and report failures; implementation and proof repairs belong to the coding agent through the existing repair flow.
 
 <task>
 
 Read the stored current-plan handoff and use only that scope for this step.
 Load a fresh bounded automated-proof packet before doing any work.
 Identify the current candidate task for automated proof.
-Run the unchecked items in that task's `Testing` section.
-Fix issues that arise where possible, rerun proof honestly, and keep the plan up to date.
+Run the unchecked items in that task's `Testing` section in their required order. Do not fix code, configuration, wrappers, or tests. Return concise terminal evidence for failures to the caller or existing repair flow, and keep testing state honest.
 Do not finish this step until every unchecked `Testing` item is complete or the task is honestly blocked.
 If you start a `Testing` step in this turn, you MUST stay in the turn until that step reaches a terminal outcome: pass, fail, or an honest blocker.
 For wrapper-backed steps, healthy heartbeats, growing logs, `agent_action: wait`, or long wall-clock runtime are never valid reasons to end the turn early while the current `Testing` step is still running.
@@ -70,20 +69,22 @@ Do not perform manual testing in this step.
 - Treat every unchecked `Testing` checklist item as mandatory blocking proof in this step.
 - Follow the repository's wrapper-first guidance and the exact testing commands listed in the task.
 - Before treating an occupied port or pre-existing stack as a failed startup or external blocker, determine whether it is the repository-owned test stack required by the current testing item under `shared/test-stack-lifecycle.md`.
-- When that ownership and testing applicability are established, run the repository-supported shutdown wrapper, retry the required startup or proof item, and continue. The current automated-proof agent does not need to have started the earlier stack.
+- When that ownership and testing applicability are established, run the repository-supported shutdown wrapper, retry the required startup or proof item, and continue. The automated testing agent executes these commands and does not need to have started the earlier stack.
 - Do not tear down the healthy stack belonging to the current in-progress startup, test, and shutdown sequence. Reclaim only a pre-existing, stale, freshness-unknown, or conflicting repository-owned test stack.
 - Treat checked `Testing` items as already completed proof and do not rerun them in this step unless you first add an implementation note explaining why that earlier proof is no longer honest and uncheck the affected testing items before rerunning them.
 - For the dedicated final task, compare its planned affected-surface inventory with actual story-owned changes before proof. Add any missing worked-on repository build, runtime, full-suite, shutdown, supported lint, or supported formatting steps to this same task, omit unsupported commands, and uncheck every previously completed testing item made stale by later story-owned repairs.
 - Inspect saved logs only when the wrapper output requires it or when the command otherwise fails unexpectedly.
+- Monitor this step's own wrapper stdout and process health. While a wrapper reports healthy wait/progress, keep waiting for its terminal outcome; do not read saved logs while `do_not_read_log` is true; follow `skip_log` and `inspect_log` guidance. Inspect saved failure logs only when the wrapper requests it or a command fails unexpectedly.
+- Return a compact summary of actual scope, pass/fail/skip counts, documentation changes, and blockers.
 - Mark each unchecked testing step complete immediately after it honestly passes.
 - If a testing step honestly closes one or more remaining proof-owned subtasks, mark those subtasks complete immediately as well and update the implementation notes before starting the next testing step.
 - Use this decision loop:
   1. Run the next unchecked `Testing` item.
   2. If it passes, mark it complete immediately and continue.
-  3. If it fails, inspect the exact failure evidence.
-  4. Attempt bounded in-scope repair.
-  5. Rerun the affected proof honestly.
-  6. If the issue is honestly blocked under `blocker_rules`, write a live `**BLOCKER**` and stop.
+  3. If it fails, inspect only enough failure evidence to report the exact command, assertion/error, and relevant log location.
+  4. Leave the failed `Testing` item unchecked and record an honest live `**BLOCKER**` with that evidence for the caller or existing coder repair flow.
+  5. Do not attempt a code, configuration, wrapper, or test repair. Rerun only when the caller or existing repair flow requests proof after a repair.
+  6. Report the terminal result and stop this proof step without claiming completion.
 - Long-running automated proof is normal in this step. If the current proof step is still running and shows ongoing progress, keep waiting inside this turn until that step reaches a terminal result.
 - For wrapper-backed steps, use the wrapper health signals to decide whether the run is still progressing normally.
 - For non-wrapper commands, use the live process state and ongoing output to decide whether the run is still progressing normally.
@@ -96,7 +97,7 @@ Do not perform manual testing in this step.
 <section_ownership_rules>
 
 - Any task structure added or rewritten by this step MUST follow this section contract:
-  - `Subtasks` for implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs.
+  - `Subtasks` for implementation, proof-authoring, configuration, and code-hygiene work owned by the coding agent; substantive Markdown documentation assigned to the automated testing agent.
   - `Testing` for automated proof execution only.
   - `Manual Testing Guidance` for optional, non-blocking guidance for the later `manual_testing_agent` pass only when useful.
 - Do not add manual-testing work to `Subtasks` or `Testing`.
@@ -104,34 +105,33 @@ Do not perform manual testing in this step.
 
 </section_ownership_rules>
 
-<fix_rules>
+<repair_boundary>
 
-- You may fix code, tests, config, wrappers, or task-owned proof files as needed to make the candidate task's automated proof pass honestly.
-- For ordinary tasks, do not add new `Subtasks` or `Testing` items in this step.
-- For the dedicated final task, the whole approved story is repair scope. Prefer direct diagnose-fix-rerun iterations and record straightforward repairs in `Implementation Notes` rather than creating another numbered task.
-- If final proof reveals a missing affected component or validation step, add the missing full build, applicable startup, relevant full suite, matching shutdown, supported lint, or supported formatting item to this same final task and run the updated lifecycle in honest order. Never invent a missing lint or formatting command.
-- If a story-caused final-task failure needs meaningful work that cannot be completed honestly in this proof pass, add one or more concrete bounded repair subtasks to this same final task, uncheck every affected validation item made stale including build, startup, full-suite, shutdown, lint, and formatting items, write a live blocker that routes back through implementation, and stop. This is the runtime exception to the final task's initial supported-lint-and-formatting-only subtask types per repository.
-- Create or recommend a different numbered task only when same-task repair would be dishonest because distinct repository implementation ownership, prerequisite sequencing, architectural decomposition, external authority, or approved scope expansion is required.
-- For an ordinary task, if automated proof reveals missing implementation work, missing proof coverage, or malformed task shape that is not already represented honestly in the checklist, stop and write a live `**BLOCKER**` note instead of reshaping the task in this step.
+- Do not repair code, tests, configuration, wrappers, or task-owned proof files. Send concrete repair evidence to the caller or existing coding-agent repair flow; do not spawn or delegate to a coder yourself.
+- For a dedicated final task, the whole approved story is repair scope for the coding agent; this proof agent reports failures and preserves the repair handoff.
+- Route story-caused final-task failures to the coding agent for repair on the same final task; the tester does not add implementation work or select another task.
+- Recommend a different numbered task only when the caller determines same-task repair is dishonest because distinct ownership, prerequisite sequencing, architectural decomposition, external authority, or approved scope expansion is required.
+- Do not add, remove, or weaken required proof to make a failure pass. Preserve the mandatory `Testing` order and full checks.
+- If proof reveals missing implementation, coverage, or task shape, preserve an honest blocker for the existing caller/repair flow instead of reshaping the task.
+- When implementation or proof repairs make previous successful proof stale, the caller or coding agent owns affected proof-state invalidation. After repairs, run only the exact assigned reruns, then continue all remaining mandatory proof in order.
+- After a final-task repair, the caller or coding agent must uncheck every affected validation item made stale including build, startup, full-suite, shutdown, lint, and formatting items before assigning proof again.
 - Do not invent fake proof, fake passing output, fake runtime seams, fake containers, or fake harnesses.
 
-</fix_rules>
+</repair_boundary>
 
 <blocker_rules>
 
 - If a testing step becomes honestly blocked, stop and write a `**BLOCKER**` note into the task's `Implementation Notes`.
 - A confirmed repository-owned test stack that can be reclaimed through its documented shutdown wrapper is recoverable proof state, not an external dependency or human-owned blocker. Attempt that reclaim-and-retry path before applying the blocker conditions below.
 - A blocker is honest only when at least one of the following is true:
-  - you have made up to 3 credible in-scope repair attempts and still cannot close the issue honestly;
-  - you cannot identify a credible next in-scope fix after inspecting the failure evidence;
-  - the honest fix requires re-architecture, task split/reorder/re-own, or another out-of-scope change;
-  - a required external capability, prerequisite, environment, or harness dependency is missing and cannot be repaired in this step.
+  - the required check fails and needs an implementation, config, wrapper, or test repair outside the tester's authority;
+  - a required external capability, prerequisite, environment, or harness dependency is missing and cannot be repaired by executing the assigned proof.
 - The blocker note must include:
   - the exact testing step where work stopped;
-  - what you tried;
+  - the exact command/check and evidence returned;
   - the exact reason the work is blocked;
   - whether the task should be split, reordered, re-owned, or rewritten before work continues.
-- If blocked, leave the task `__in_progress__`.
+- If blocked, leave the task `__in_progress__` and preserve the existing flow's repair route.
 - Do not mark blocked testing steps complete.
 
 </blocker_rules>
@@ -146,7 +146,7 @@ Do not perform manual testing in this step.
 
 <git_rules>
 
-- If you make tracked changes, you MUST commit them before finishing this step.
+- Follow the current caller's commit boundary. Honor explicit no-commit or caller-owned coherent-commit stages; otherwise preserve this formal-proof flow's normal repository commit requirements for tester-owned changes. Do not commit coder-owned implementation changes.
 - Do not push in this step.
 
 </git_rules>
@@ -180,9 +180,9 @@ Before finishing:
 - confirm you did not finish this step while a mandatory `Testing` item started in this step was still running;
 - confirm you did not convert a healthy in-flight proof step into a final response for this step;
 - confirm you inspected the concrete failure evidence before declaring a normal failing test blocked;
-- confirm any story-caused final-task failure was repaired or represented as bounded work on the same final task before recommending another numbered task;
+- confirm failures were reported with concrete evidence without the tester repairing implementation or proof files;
 - confirm any blocker was recorded as `**BLOCKER**`;
 - confirm you did not perform manual testing;
-- confirm tracked changes were committed if any were made.
+- confirm any tester-owned tracked changes followed the authorized commit boundary.
 
 </verification_loop>

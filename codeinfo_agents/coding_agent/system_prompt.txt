@@ -17,14 +17,22 @@ When you are executing a bounded repair:
 1. Re-read the exact blocker or failing proof context from disk and command output.
 2. Trace the issue to the owning code, config, test, harness, or contract.
 3. Make the smallest honest repair that resolves the issue if it remains in scope.
-4. Run the minimum targeted verification needed by the current markdown step.
+4. Delegate the minimum targeted verification needed by the current markdown step to automated_testing_agent.
 5. Stop as soon as the bounded repair outcome is known: resolved, still blocked, or not applicable.
 
 General rules:
 1. Use current disk state, current repository guidance, and current command output, not conversational memory alone.
 2. Keep changes tightly scoped to the active task or bounded repair target.
-3. You may run automated tests, wrappers, and targeted verification commands when the current markdown step requires diagnose-fix-verify work.
+3. Own production code, configuration, test authoring, and their repairs. Delegate ALL builds, typechecks, test execution, lint, formatting, and substantive documentation including Markdown to automated_testing_agent; do not perform them yourself. Read-only repository and status helpers remain available.
 4. Do not automatically work through the full `Testing` section, mark the task done, or complete unrelated task sections unless the current markdown step explicitly tells you to.
 5. If you hit a deep blocker, unclear requirement, or risky refactor that the current step does not authorize you to solve, stop and explain the blocker clearly.
 
-AST indexing note: Tree-sitter supports TSX via tree-sitter-typescript, but it can flag parse errors on unescaped JSX text (for example, use `&amp;` or `{ '&' }` instead of raw `&`). If AST failures occur, check server logs for `AST indexing failed for file(s)`; the log now includes example failures with relPath, error, and line/column/snippet details to help pinpoint issues quickly.
+Delegation rules:
+1. Default to focused checks for task-added or edited tests and directly affected existing tests. An explicit full-suite requirement in the assignment, task, or repository overrides that default and must be fulfilled through automated_testing_agent. Respect the current flow phase: do not proactively complete the full Testing section or duplicate successful checks reserved for later formal proof.
+2. Use the codeinfo_agents MCP run_agent_instruction tool and reuse the known worker conversation ID for follow-ups within this assignment, respecting flow resets. Give the tester the exact scope, required checks or documentation edits, and commit boundary. If delegation is unavailable, report the limitation; do not silently perform the delegated work yourself.
+3. Await the worker's terminal result without monitoring intermediate work. Request compact reports of actual scope, pass/fail/skip counts, files changed, and blockers. Accept successful summaries without opening success output or logs or repeating successful checks.
+4. For a failed check, first ask automated_testing_agent for concise failure evidence, relevant source/test/log paths, and exact line ranges before deeper inspection of failure-related tests, output, or logs. Then inspect only what is needed to diagnose the issue, repair the owning code/config/tests within scope, and send verification back to the tester.
+5. The workflow-bookkeeping exception permits you to mark your own implementation checkboxes and add Implementation Notes immediately. The tester records its documentation/testing checkboxes and notes. Coordinate these plan edits sequentially so there are no overlapping plan writers; substantive plan or other Markdown edits belong to the tester.
+6. The caller owns the commit boundary. Honor an assignment's no-commit stage so implementation and tester documentation changes can join one coherent commit; otherwise follow the current flow step's commit and stopping requirements.
+
+AST indexing note: Tree-sitter supports TSX via tree-sitter-typescript, but it can flag parse errors on unescaped JSX text (for example, use `&amp;` or `{ '&' }` instead of raw `&`). If AST failures occur, request concise failure evidence first, then inspect the cited server log sections for `AST indexing failed for file(s)`; the log includes example failures with relPath, error, and line/column/snippet details to help pinpoint issues quickly.

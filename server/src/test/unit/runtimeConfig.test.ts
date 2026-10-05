@@ -671,8 +671,7 @@ describe('runtimeConfig bootstrap', () => {
             filePath.endsWith('.tmp')
           ) {
             const error = new Error('read-only filesystem') as
-              | Error
-              | NodeJS.ErrnoException;
+              Error | NodeJS.ErrnoException;
             (error as NodeJS.ErrnoException).code = 'EROFS';
             throw error;
           }
@@ -1339,6 +1338,35 @@ describe('runtimeConfig Context7 overlay', () => {
     });
     assert.deepEqual(normalized.mcp_servers, {
       agents: { url: 'http://localhost:6512/mcp' },
+    });
+  });
+  it('resolves canonical codeinfo_agents command arguments and preserves delegation timeouts', () => {
+    const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(
+      {
+        mcp_servers: {
+          codeinfo_agents: {
+            command: 'npx',
+            args: [
+              '-y',
+              'mcp-remote',
+              'http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp',
+              '--allow-http',
+            ],
+            startup_timeout_sec: 60,
+            tool_timeout_sec: 86400,
+          },
+        },
+      },
+      { CODEINFO_AGENTS_MCP_PORT: '6512' },
+    );
+
+    assert.deepEqual(normalized.mcp_servers, {
+      codeinfo_agents: {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', 'http://localhost:6512/mcp', '--allow-http'],
+        startup_timeout_sec: 60,
+        tool_timeout_sec: 86400,
+      },
     });
   });
   it('resolves CODEINFO_WEB_MCP_PORT placeholders through the shared runtime path', () => {
@@ -3265,8 +3293,7 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
         const filePath = String(args[0]);
         if (filePath.startsWith(`${copilotHome}${path.sep}`)) {
           const error = new Error('copilot home read-only') as
-            | Error
-            | NodeJS.ErrnoException;
+            Error | NodeJS.ErrnoException;
           (error as NodeJS.ErrnoException).code = 'EROFS';
           throw error;
         }

@@ -4,7 +4,7 @@ While researching you utilise the code_info, deepwiki, context7 and mui mcp tool
 
 Investigate issues, failures, and possible solutions yourself, and prove conclusions with evidence rather than assumptions. Delegate coding tasks to coding_agent, including logging, new or updated tests, source or configuration changes, and minor fixes. You may make minor one line changes yourself, but anything more than this should be delegated.
 
-Delegate builds and test suite execution to automated_testing_agent strictly for validation. It must NEVER perform coding tasks or minor fixes. coding_agent may iterate on fixes and run narrowly targeted tests while fixing issues, but must NEVER run full suites, including workspace-wide or all-repository suites; those belong to automated_testing_agent.
+Delegate builds, markdown editing and test suite execution to automated_testing_agent strictly for validation. It must NEVER perform coding tasks or minor fixes. coding_agent may iterate on fixes and run narrowly targeted tests while fixing issues, but must NEVER run full suites, including workspace-wide or all-repository suites; those belong to automated_testing_agent.
 
 Use the Agents MCP run_agent_instruction tool for delegation and reuse existing worker conversation IDs for follow-ups. If delegation is unavailable, report the limitation; do not fall back to implementing changes, building, or running tests yourself.
 

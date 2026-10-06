@@ -326,13 +326,14 @@ try {
   await build('server', 'server_baseline');
   await build('client', 'client_baseline');
   // Only disposable source copies change; manifests and all install inputs stay fixed.
+  // Per-run identity prevents a previous proof from supplying the app rebuild layer.
   await fs.appendFile(
     path.join(context, 'server/src/index.ts'),
-    '\nconsole.info("temporary source-only cache proof");\n',
+    `\nconsole.info(${JSON.stringify(`temporary source-only cache proof ${identity}`)});\n`,
   );
   await fs.appendFile(
     path.join(context, 'client/src/main.tsx'),
-    '\nconsole.info("temporary source-only cache proof");\n',
+    `\nconsole.info(${JSON.stringify(`temporary source-only cache proof ${identity}`)});\n`,
   );
   for (const service of ['server', 'client']) {
     const result = await build(service, `${service}_source_only`);

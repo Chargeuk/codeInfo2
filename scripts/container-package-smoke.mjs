@@ -8,8 +8,15 @@ const root = process.argv[2];
 const manifest = JSON.parse(
   await fs.readFile(path.join(root, 'package.json'), 'utf8'),
 );
-assert.equal(manifest.name, '@dimforge/rapier3d-compat');
-assert.equal(manifest.version, '0.21.0');
+assert.ok(
+  [
+    ['@dimforge/rapier3d-compat', '0.21.0'],
+    ['@chargeuk/rapier3d-compat', '0.21.0-chargeuk.1'],
+  ].some(
+    ([name, version]) => manifest.name === name && manifest.version === version,
+  ),
+  'Unsupported Rapier package name/version pair',
+);
 const require = createRequire(import.meta.url);
 const cjs = require(path.join(root, 'dist/rapier.cjs'));
 const esm = await import(pathToFileURL(path.join(root, 'dist/rapier.mjs')));

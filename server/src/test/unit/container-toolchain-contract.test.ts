@@ -146,66 +146,246 @@ test('tool installs use checksum-covered official architectures before runtime o
   assert.ok(install < server.indexOf('ARG HOME='));
   assert.ok(install < server.indexOf('ARG CODEINFO_RUNTIME_UID='));
   assert.ok(install < server.indexOf('COPY --from=build /app/server/dist'));
+  assert.doesNotMatch(server, /(?:^|\s)codeinfo-prepare-rust-homes(?:\s|$)/u);
+  assert.match(server, /RUN mkdir -p "\$\{HOME\}"/u);
   const entrypoint = read('server/entrypoint.sh');
-  assert.ok(
-    entrypoint.indexOf('codeinfo-prepare-rust-homes') <
-      entrypoint.indexOf('drop_privileges_and_exec_node()'),
-  );
+  const preparation = entrypoint.indexOf('codeinfo-prepare-rust-homes');
+  const privilegeDrop = entrypoint.indexOf('drop_privileges_and_exec_node()');
+  assert.ok(preparation >= 0 && privilegeDrop > preparation);
 });
 
-test('Rust home preparation handles ownership changes, skips matching owners and rejects invalid IDs', () => {
+const rustHomeFixture = () => {
   const temporary = fs.mkdtempSync(
     path.join(os.tmpdir(), 'codeinfo-rust-homes-'),
   );
-  try {
-    for (const directory of ['bin', 'cargo', 'rustup']) {
-      fs.mkdirSync(path.join(temporary, directory));
+  const bin = path.join(temporary, 'bin');
+  const cargo = path.join(temporary, 'cargo');
+  const rustup = path.join(temporary, 'rustup');
+  fs.mkdirSync(bin);
+  fs.mkdirSync(path.join(cargo, 'cache/nested'), { recursive: true });
+  fs.mkdirSync(path.join(rustup, 'toolchains/stable/bin'), { recursive: true });
+  const cargoFile = path.join(cargo, 'cache/nested/package');
+  const rustupFile = path.join(rustup, 'toolchains/stable/bin/rustc');
+  fs.writeFileSync(cargoFile, 'cache fixture');
+  fs.writeFileSync(rustupFile, 'toolchain fixture');
+  const ownershipFile = path.join(temporary, 'ownership.json');
+  const owners: Record<string, { uid: string; gid: string }> = {};
+  const recordTree = (directory: string) => {
+    owners[directory] = { uid: '1000', gid: '1000' };
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const child = path.join(directory, entry.name);
+      if (entry.isDirectory()) recordTree(child);
+      else owners[child] = { uid: '1000', gid: '1000' };
     }
-    fs.writeFileSync(
-      path.join(temporary, 'bin/id'),
-      '#!/bin/sh\nprintf "0\\n"\n',
-      {
-        mode: 0o755,
-      },
-    );
-    fs.writeFileSync(
-      path.join(temporary, 'bin/stat'),
-      '#!/bin/sh\nprintf "1000:1000\\n"\n',
-      { mode: 0o755 },
-    );
-    fs.writeFileSync(
-      path.join(temporary, 'bin/chown'),
-      '#!/bin/sh\nprintf "%s\\n" "$*" >> "$OWNERSHIP_LOG"\n',
-      { mode: 0o755 },
-    );
-    const log = path.join(temporary, 'owners');
-    const invoke = (uid: string) =>
+  };
+  recordTree(cargo);
+  recordTree(rustup);
+  fs.writeFileSync(ownershipFile, JSON.stringify(owners));
+  const ownershipLog = path.join(temporary, 'chown.log');
+  const findLog = path.join(temporary, 'find.log');
+  fs.writeFileSync(path.join(bin, 'id'), '#!/bin/sh\nprintf "0\\n"\n', {
+    mode: 0o755,
+  });
+  // Portable ownership mapping avoids requiring host root/chown permissions.
+  // GNU find still traverses real nested trees and evaluates the actual expression.
+  fs.writeFileSync(
+    path.join(bin, 'find'),
+    String.raw`#!${process.execPath}
+    const fs = require('node:fs');
+    const { spawnSync } = require('node:child_process');
+    const args = process.argv.slice(2);
+    fs.appendFileSync(process.env.FIND_LOG, JSON.stringify(args) + '\n');
+    if (process.env.FIND_FAILURE_HOME === args[0]) {
+      process.stdout.write(args[0] + '\n');
+      process.stderr.write('simulated traversal error\n');
+      process.exit(7);
+    }
+    const owners = JSON.parse(fs.readFileSync(process.env.OWNERSHIP_FILE));
+    const translated = [];
+    for (let i = 0; i < args.length; i++) {
+      const token = args[i];
+      if (token !== '-uid' && token !== '-gid') { translated.push(token); continue; }
+      const key = token === '-uid' ? 'uid' : 'gid';
+      const value = String(Number(args[++i]));
+      const matches = Object.entries(owners).filter(([, owner]) => owner[key] === value).map(([file]) => file);
+      if (!matches.length) translated.push('-false');
+      else {
+        translated.push('(');
+        matches.forEach((file, index) => { if (index) translated.push('-o'); translated.push('-path', file); });
+        translated.push(')');
+      }
+    }
+    const result = spawnSync('/usr/bin/find', translated, { encoding: 'utf8' });
+    if (result.error) throw result.error;
+    process.stdout.write(result.stdout);
+    process.stderr.write(result.stderr);
+    process.exit(result.status);
+  `,
+    { mode: 0o755 },
+  );
+  fs.writeFileSync(
+    path.join(bin, 'chown'),
+    String.raw`#!${process.execPath}
+    const fs = require('node:fs');
+    const args = process.argv.slice(2);
+    fs.appendFileSync(process.env.OWNERSHIP_LOG, JSON.stringify(args) + '\n');
+    if (process.env.CHOWN_FAILURE === '1') {
+      process.stderr.write('simulated ownership repair error\n');
+      process.exit(9);
+    }
+    if (args[0] !== '-R') throw new Error('fixture expects recursive ownership repair');
+    const [uid, gid] = args[1].split(':');
+    const owners = JSON.parse(fs.readFileSync(process.env.OWNERSHIP_FILE));
+    for (const file of Object.keys(owners))
+      if (file === args[2] || file.startsWith(args[2] + '/')) owners[file] = { uid, gid };
+    fs.writeFileSync(process.env.OWNERSHIP_FILE, JSON.stringify(owners));
+  `,
+    { mode: 0o755 },
+  );
+  const lines = (file: string): string[][] =>
+    fs.existsSync(file)
+      ? fs
+          .readFileSync(file, 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line))
+      : [];
+  return {
+    cargo,
+    rustup,
+    cargoFile,
+    rustupFile,
+    cleanup: () => fs.rmSync(temporary, { recursive: true, force: true }),
+    calls: () => lines(ownershipLog),
+    inspections: () => lines(findLog),
+    owner: (file: string) =>
+      JSON.parse(fs.readFileSync(ownershipFile, 'utf8'))[file],
+    setOwner: (file: string, uid: string, gid: string) => {
+      const state = JSON.parse(fs.readFileSync(ownershipFile, 'utf8'));
+      state[file] = { uid, gid };
+      fs.writeFileSync(ownershipFile, JSON.stringify(state));
+    },
+    invoke: (uid = '1000', gid = '1000', extra: Record<string, string> = {}) =>
       spawnSync('/bin/sh', [path.join(root, 'server/prepare-rust-homes.sh')], {
         encoding: 'utf8',
         env: {
           ...process.env,
-          PATH: `${temporary}/bin:/usr/bin:/bin`,
-          CARGO_HOME: `${temporary}/cargo`,
-          RUSTUP_HOME: `${temporary}/rustup`,
+          PATH: `${bin}:/usr/bin:/bin`,
+          CARGO_HOME: cargo,
+          RUSTUP_HOME: rustup,
           CODEINFO_RUNTIME_UID: uid,
-          CODEINFO_RUNTIME_GID: '1000',
-          OWNERSHIP_LOG: log,
+          CODEINFO_RUNTIME_GID: gid,
+          OWNERSHIP_LOG: ownershipLog,
+          OWNERSHIP_FILE: ownershipFile,
+          FIND_LOG: findLog,
+          ...extra,
         },
-      });
-    assert.equal(invoke('1000').status, 0);
-    assert.equal(fs.existsSync(log), false);
-    assert.equal(invoke('12345').status, 0);
-    const calls = fs.readFileSync(log, 'utf8').trim().split('\n');
-    assert.deepEqual(calls, [
-      `-R 12345:1000 ${temporary}/cargo`,
-      `-R 12345:1000 ${temporary}/rustup`,
-    ]);
-    assert.notEqual(invoke('bad').status, 0);
-    assert.notEqual(invoke('1:2').status, 0);
-    assert.equal(fs.readFileSync(log, 'utf8').trim().split('\n').length, 2);
-  } finally {
-    fs.rmSync(temporary, { recursive: true, force: true });
+      }),
+  };
+};
+
+test('Rust home preparation skips fully matching nested trees', (t) => {
+  const f = rustHomeFixture();
+  t.after(f.cleanup);
+  const result = f.invoke();
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.calls(), []);
+  assert.deepEqual(
+    f.inspections().map((args) => args[0]),
+    [f.cargo, f.rustup],
+  );
+});
+
+test('Rust home preparation repairs a nested UID mismatch despite matching home owners', (t) => {
+  const f = rustHomeFixture();
+  t.after(f.cleanup);
+  f.setOwner(f.cargoFile, '12345', '1000');
+  assert.deepEqual(f.owner(f.cargo), { uid: '1000', gid: '1000' });
+  const result = f.invoke();
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.calls(), [['-R', '1000:1000', f.cargo]]);
+  assert.deepEqual(f.owner(f.cargoFile), { uid: '1000', gid: '1000' });
+  assert.equal(f.invoke().status, 0);
+  assert.equal(f.calls().length, 1);
+});
+
+test('Rust home preparation repairs a nested GID-only mismatch despite matching home owners', (t) => {
+  const f = rustHomeFixture();
+  t.after(f.cleanup);
+  f.setOwner(f.rustupFile, '1000', '12345');
+  assert.deepEqual(f.owner(f.rustup), { uid: '1000', gid: '1000' });
+  const result = f.invoke();
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.calls(), [['-R', '1000:1000', f.rustup]]);
+  assert.deepEqual(f.owner(f.rustupFile), { uid: '1000', gid: '1000' });
+});
+
+test('Rust home preparation handles runtime UID override and root UID without unconditional repair', (t) => {
+  const f = rustHomeFixture();
+  t.after(f.cleanup);
+  for (const uid of ['12345', '0']) {
+    const result = f.invoke(uid);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(f.owner(f.cargoFile), { uid, gid: '1000' });
+    assert.deepEqual(f.owner(f.rustupFile), { uid, gid: '1000' });
+    assert.equal(f.invoke(uid).status, 0);
   }
+  assert.deepEqual(
+    f.calls(),
+    ['12345', '0'].flatMap((uid) =>
+      [f.cargo, f.rustup].map((home) => ['-R', `${uid}:1000`, home]),
+    ),
+  );
+});
+
+test('Rust home preparation rejects invalid UID or GID before inspection or mutation', (t) => {
+  const f = rustHomeFixture();
+  t.after(f.cleanup);
+  for (const [uid, gid] of [
+    ['bad', '1000'],
+    ['1:2', '1000'],
+    ['1000', 'bad'],
+  ]) {
+    const result = f.invoke(uid, gid);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /UID\/GID must be numeric/u);
+  }
+  assert.deepEqual(f.calls(), []);
+  assert.deepEqual(f.inspections(), []);
+});
+
+test('Rust home preparation rejects a missing home with an actionable path', (t) => {
+  const f = rustHomeFixture();
+  t.after(f.cleanup);
+  fs.rmSync(f.rustup, { recursive: true });
+  const result = f.invoke();
+  assert.notEqual(result.status, 0);
+  assert.ok(result.stderr.includes(`Missing Rust home: ${f.rustup}`));
+  assert.deepEqual(f.calls(), []);
+});
+
+test('Rust home traversal errors propagate even with partial mismatch output', (t) => {
+  const f = rustHomeFixture();
+  t.after(f.cleanup);
+  const result = f.invoke('1000', '1000', { FIND_FAILURE_HOME: f.cargo });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /simulated traversal error/u);
+  assert.ok(
+    result.stderr.includes(`Cannot inspect Rust home ownership: ${f.cargo}`),
+  );
+  assert.deepEqual(f.calls(), []);
+  assert.equal(f.inspections().length, 1);
+});
+
+test('Rust home repair errors propagate without inspecting the next home', (t) => {
+  const f = rustHomeFixture();
+  t.after(f.cleanup);
+  f.setOwner(f.cargoFile, '12345', '1000');
+  const result = f.invoke('1000', '1000', { CHOWN_FAILURE: '1' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /simulated ownership repair error/u);
+  assert.deepEqual(f.owner(f.cargoFile), { uid: '12345', gid: '1000' });
+  assert.equal(f.inspections().length, 1);
 });
 
 test('cache proof accepts real step statuses and rejects missing, rebuilt or ambiguous stable installs', async () => {
@@ -259,6 +439,64 @@ test('cache proof accepts real step statuses and rejects missing, rebuilt or amb
     ),
     { npm: 'CACHED', app: 'DONE' },
   );
+});
+
+test('package smoke accepts only paired baseline/fork identities before importing modules', (t) => {
+  const temporary = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'codeinfo-package-gate-'),
+  );
+  t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(temporary, 'dist'));
+  const imported = path.join(temporary, 'module-imported');
+  // Probe the CLI's identity boundary without inventing a mock physics engine.
+  fs.writeFileSync(
+    path.join(temporary, 'dist/rapier.cjs'),
+    `require('node:fs').writeFileSync(${JSON.stringify(imported)}, 'imported'); throw new Error('fixture module import probe');`,
+  );
+  const valid = [
+    { name: '@dimforge/rapier3d-compat', version: '0.21.0' },
+    { name: '@chargeuk/rapier3d-compat', version: '0.21.0-chargeuk.1' },
+  ];
+  const invalid = [
+    { name: '@dimforge/rapier3d-compat', version: '0.21.0-chargeuk.1' },
+    { name: '@chargeuk/rapier3d-compat', version: '0.21.0' },
+    { name: '@chargeuk/rapier3d-compat', version: '0.21.0-chargeuk.2' },
+    { name: '@dimforge/rapier3d-compat', version: '0.22.0' },
+    { name: '@unknown/rapier3d-compat', version: '0.21.0' },
+    { name: '@unknown/rapier3d-compat', version: '0.21.0-chargeuk.1' },
+    {},
+  ];
+  for (const { manifest, accepted } of [
+    ...valid.map((manifest) => ({ manifest, accepted: true })),
+    ...invalid.map((manifest) => ({ manifest, accepted: false })),
+  ]) {
+    fs.rmSync(imported, { force: true });
+    fs.writeFileSync(
+      path.join(temporary, 'package.json'),
+      JSON.stringify(manifest),
+    );
+    const result = spawnSync(
+      process.execPath,
+      [path.join(root, 'scripts/container-package-smoke.mjs'), temporary],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, NODE_OPTIONS: '' },
+      },
+    );
+    assert.notEqual(result.status, 0); // Valid pairs deliberately reach the throwing import probe.
+    assert.equal(fs.existsSync(imported), accepted, JSON.stringify(manifest));
+    if (accepted) {
+      assert.match(result.stderr, /fixture module import probe/u);
+      assert.doesNotMatch(result.stderr, /Unsupported Rapier package/u);
+    } else {
+      assert.match(
+        result.stderr,
+        /Unsupported Rapier package name\/version pair/u,
+      );
+      assert.doesNotMatch(result.stderr, /fixture module import probe/u);
+    }
+  }
 });
 
 test('proof help and invalid flags stop before any Docker operation', () => {

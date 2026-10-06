@@ -259,8 +259,6 @@ ARG CODEINFO_RUNTIME_UID=1000
 ARG CODEINFO_RUNTIME_GID=1000
 RUN mkdir -p "${HOME}" "${HOME}/tmp" "${HOME}/.docker" && \
     chown "${CODEINFO_RUNTIME_UID}:${CODEINFO_RUNTIME_GID}" "${HOME}" "${HOME}/tmp" "${HOME}/.docker"
-RUN CODEINFO_RUNTIME_UID="${CODEINFO_RUNTIME_UID}" CODEINFO_RUNTIME_GID="${CODEINFO_RUNTIME_GID}" \
-    codeinfo-prepare-rust-homes
 
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=deps /app/server/node_modules /app/server/node_modules

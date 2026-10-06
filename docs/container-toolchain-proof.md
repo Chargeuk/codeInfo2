@@ -1,49 +1,19 @@
 # Container pins and proof
 
 This story changes image construction and focused proof support only. Parent
-accepted completed tester reports without opening successful logs. Native ARM64
-image/cache/runtime/Rapier proof passed; formal suite execution completed with
-two pre-existing server test mismatches. User authorized committing and pushing this reviewed candidate.
+accepted the final PR262 ARM64 image/cache/runtime/package proof and compact
+validation reports on 2026-10-06 without opening successful logs. Required proof
+execution is complete; the full suite is **not green** because two unchanged
+capability-baseline failures remain. AMD64 runtime execution was not attempted.
 
-## Completed proof and limits (2026-10-05)
+## Historical baseline (2026-10-05)
 
-- Native ARM64/aarch64 host: Node 22.21.1, npm 10.9.4.
-  `npm run compose:build:summary` passed 2/2; the container-toolchain summary passed.
-  Source-only rebuilds kept server npm/browser/Rust and client npm steps `CACHED`,
-  while app compilation was `DONE` after disposable source edits.
-- Fresh runtimes UID 1000/12345 with mounted empty HOME passed actual native and
-  WASM compilation and Chromium page launch. UID 1000 also passed copied Rapier
-  full 3D baseline build, `@dimforge/rapier3d-compat@0.21.0`, CJS/ESM initialization
-  and World step/free, and npm pack dry-run. Original Rapier remained unchanged.
-- Main `npm run compose:up` passed, with HTTP 200 at server `5010/health` and
-  client `5001/`. Normal runtime UID/GID 1000 has writable Cargo/Rustup homes.
-  Actual runtime: Node 22.21.1, npm 10.9.4, Rust/Cargo 1.99.0, wasm-pack 0.15.0,
-  wasm-bindgen 0.2.129, wasm-opt 133, Playwright 1.56.1, Chromium 141.0.7390.37.
-  Healthy main stack was left running; protected local stack was untouched.
-- Lint, `format:check`, explicit Prettier coverage of new files, `sh -n` on four
-  scripts and shell tests 37/37 passed after the import-order fix. Exactly one
-  `npm run test:summary:all:parallel`: client 919 passed, cucumber 138 passed,
-  E2E 80 passed; server unit 3038 total, 3033 passed, 2 failed, 3 skipped.
-- AMD64 execution was not attempted. Focused contracts passed AMD64/ARM64
-  source/checksum selection coverage; this is not dual-architecture runtime proof.
-
-The full suite is **not green**. Two unchanged baseline test/source mismatches
-remain: `capabilityResolver.test.ts` selects default first `gpt-6.1-sol` and expects
-minimal/turbo despite the existing low/medium/high/xhigh restriction;
-`chatValidators.test.ts` supplies an unlisted SDK model, falls back to the first
-restricted model and expects every effort. Parent confirmed empty `git diff HEAD`
-for both tests and resolver/config/validator, unchanged global Codex 0.159.2, and
-resolver reads environment rather than CLI. An ordinary-env targeted rerun
-reproduced 30 passed/2 failed. No unrelated baseline test fix was made.
-
-Failure evidence: `test-results/server-unit-tests-2026-10-05T16-52-38-204Z.log`,
-lines 70293–70310 and 77486–77497; targeted
-`test-results/server-unit-tests-2026-10-05T17-02-55-735Z.log`, lines 51–64 and
-689–699. Compact image/cache evidence:
-`logs/test-summaries/container-toolchain-evidence.json`; retained copied package
-and native/WASM artifacts: `/tmp/codeinfo-toolchain-proof-iVHGeI`.
-These build/smoke results do not establish Rapier behavioral regression,
-performance, or iPhone proof.
+Initial image/cache/runtime proof passed on native ARM64/aarch64 with Node
+22.21.1 and npm 10.9.4, including the then-upstream baseline package
+`@dimforge/rapier3d-compat@0.21.0`. The main stack passed startup/health checks and
+was left running; the protected local stack was untouched. Historical artifacts:
+`/tmp/codeinfo-toolchain-proof-iVHGeI`. Final PR262 results below supersede the
+initial proof for the current candidate and use the scoped Chargeuk fork.
 
 ## Pins and provenance
 
@@ -115,11 +85,107 @@ Fresh shell PATH is:
 export PATH=/opt/cargo/bin:/opt/wasm-tools/bin:/opt/binaryen/bin:/usr/local/bin:/usr/bin:/bin
 ```
 
-Ownership preparation follows heavy installs. The entrypoint reuses
-`codeinfo-prepare-rust-homes` before dropping privileges; root changes ownership
-only when the requested UID/GID differs, and a non-root unwritable home fails with
-an actionable error. Start the normal entrypoint as root for a new runtime UID.
-Registry, proxy, certificate, provider home and Compose contracts remain intact.
+Rust-home ownership is prepared only at runtime, by the entrypoint before dropping
+privileges and by standalone proof containers. Image construction still creates
+and owns HOME but no longer recursively reowns `/opt/cargo` or `/opt/rustup`.
+Root inspects each complete tree with GNU find: any nested UID **or** GID mismatch
+triggers recursive repair, even if the home directory already matches. Matching
+trees skip chown. Traversal errors are reported and fail before repair; a non-root
+unwritable home still fails with actionable guidance. Start the normal entrypoint
+as root for runtime UID preparation.
+
+Removing the build-time recursive chown avoids an extra ownership/copy-up layer;
+the final ARM64 image is 7.8% smaller in aggregate uncompressed image bytes.
+Fresh startup pays the scan and, where needed, recursive ownership/copy-up cost.
+Fully matching warm trees still require a scan but no chown. The measured cold
+startup tradeoff is recorded below; it is specific to the tested image/storage.
+Registry, proxy, certificate, provider home and Compose configuration are unchanged.
+
+## Completed PR262 proof and limits (2026-10-06)
+
+- Scoped contract tests **15/15**, read-only ESLint/Prettier and shell syntax
+  checks passed. Main Compose image build passed 2/2.
+- The standalone toolchain summary passed using the clean scoped fork
+  `/home/dan/code/rapier` at
+  `55725fc55c95b664292e1d94f1dab344c67f87ab`. Disposable source-only rebuilds
+  kept npm/Rust/Chromium install layers `CACHED` and server/client app layers
+  `DONE`. Per-run source identities avoid reusing a previous invocation's app
+  layer; strict cache evidence checks remain unchanged.
+- UID/GID 1000 passed full native/tiny-WASM/Chromium and non-SIMD 3D Rapier
+  compilation, actual CJS/ESM initialization and World step/free, and npm pack
+  dry-run. The wrapper's UID/GID 12345 basic proof passed; a separate copied-source
+  run without `uid-only` also passed the same full Rapier compile/package proof
+  at UID/GID 12345. Actual package:
+  `@chargeuk/rapier3d-compat@0.21.0-chargeuk.1`.
+- The original Rapier checkout remained clean. Disposable copies, stacks and
+  volumes were cleaned; both protected local and main live CodeInfo stacks stayed
+  running unchanged. Retained artifacts: `/tmp/codeinfo-toolchain-proof-FiuggN`;
+  compact evidence: `logs/test-summaries/container-toolchain-evidence.json`.
+
+The focused ownership fixtures traverse real nested directories with GNU find,
+but map ownership IDs and record repairs to avoid host chown privileges. Separate
+accepted real-OS proof verified zero chown for matching trees and repair of
+nested UID-only and GID-only mismatches despite matching roots. The final helper
+has SHA-256 `3d95addd64c16c87f97fc93849aeb334926d8296af2b88a5f4c3304b4078e966`,
+identical to that OS-tested candidate. Docker contracts retain entrypoint
+preparation before privilege drop and prohibit build-time Rust-home preparation.
+
+### Image size and startup tradeoff
+
+| Image           | Tag                                                   | ID prefix (abbreviated) | Platform      | Image.Size (bytes) |
+| --------------- | ----------------------------------------------------- | ----------------------- | ------------- | -----------------: |
+| Baseline        | `codeinfo2-server:baseline-f2332787-20261006`         | `sha256:6da51e76…`      | `linux/arm64` |      8,558,828,612 |
+| Final candidate | `codeinfo2-server:candidate-rust-home-final-20261006` | `sha256:55fd5085…`      | `linux/arm64` |      7,891,139,352 |
+
+Saving: **667,689,260 bytes (~667.7 MB, 7.8%)**. Docker `Image.Size` is
+aggregate uncompressed image bytes, not deduplicated host disk usage.
+
+These three-trial startup medians were measured earlier against a
+helper-identical candidate, **not repeated on the final image**:
+
+| Image             | Runtime UID/GID | Helper (ms) | Helper + drop (ms) | Full Docker startup (ms) |
+| ----------------- | --------------: | ----------: | -----------------: | -----------------------: |
+| Baseline          |            1000 |         6.1 |               13.0 |                      224 |
+| Baseline          |           12345 |         404 |                410 |                      672 |
+| Earlier candidate |            1000 |         369 |                376 |                      651 |
+| Earlier candidate |           12345 |         345 |                351 |                      606 |
+
+The default UID cold start now pays runtime ownership cost; override startup was
+lower in these trials. These bounded ARM64/storage observations do not establish
+a universal startup improvement. Measurements used fresh disposable containers;
+the existing wrapper has no timing report and no benchmark framework was added.
+
+### Full-suite outcome and remaining limits
+
+Exactly one new-candidate, no-filter `npm run test:summary:all:parallel`
+completed: client **919/919**, cucumber **138/138**, E2E **80/80**; server
+**3046 run, 3041 passed, 2 failed, 3 skipped**. The two baseline failures remain:
+
+- `resolveCodexCapabilities` metadata expects minimal/turbo against the restricted
+  default `gpt-6.1-sol` efforts.
+- `chatValidators` supplies an unlisted model and expects all SDK efforts despite
+  fallback to the restricted model.
+
+Parent verified the related tests/source unchanged. No unrelated capability fix
+is included. Failed-log references:
+`test-results/server-unit-tests-2026-10-06T08-52-27-358Z.log`, lines
+70359–70377 and 77552–77568; summary 91240–91245. Completion records performed
+validation, not a green suite. Successful logs were not read for this closeout.
+
+Actual runtime proof is ARM64 only. AMD64 checksum/source selection coverage is
+not AMD64 runtime execution. These build/package smokes establish no Rapier
+behavioral regression, performance or iPhone proof.
+
+### Supported Rapier input
+
+Use the actual scoped fork and revision above. Its generation scripts implement
+`RAPIER_COMPAT_VARIANT=3d`; unmodified upstream master `846c463e` ignores that flag
+and expects six variants, so it cannot use this 3D-only recipe unchanged.
+The package gate accepts only these exact pairs before module import/init:
+`@chargeuk/rapier3d-compat@0.21.0-chargeuk.1` (current proof) and
+`@dimforge/rapier3d-compat@0.21.0` (historical baseline). Mixed versions and unknown
+names fail. The baseline allowlist does not establish upstream script compatibility;
+real CJS/ESM World step/free checks remain required.
 
 ## Parent-tester commands
 
@@ -147,7 +213,12 @@ Root prepares ownership, then `setpriv` runs
 the smoke as UID 1000 and again as override UID 12345. Both check tool/package
 versions, writable Rust homes, native and WASM Rust compilation and a real
 Playwright Chromium launch. The UID 1000 run additionally installs the copied
-Rapier locked npm trees with scripts disabled and runs:
+scoped fork's locked npm trees with scripts disabled and runs the recipe below.
+For full Rapier proof at UID 12345, use the same standalone runtime script without
+`uid-only` on a separately populated disposable copy; the default wrapper's
+12345 pass covers only basic runtime proof. Both full runs passed for this candidate.
+
+Scoped fork recipe:
 
 ```sh
 cd /work/rapier
@@ -163,10 +234,10 @@ RAPIER_COMPAT_VARIANT=3d ./node_modules/.bin/rollup --config rollup.config.js --
 RAPIER_COMPAT_VARIANT=3d bash ./fix_raw_file.sh
 ```
 
-The copied upstream baseline package must be
-`@dimforge/rapier3d-compat@0.21.0`, with CJS/ESM initialization and World
-step/free plus `npm pack --dry-run` passing. No `@chargeuk` port or behavioral
-regression proof is implied. Native and binding targets are separate; the binding
+Use the scoped fork revision above; the copied package must be
+`@chargeuk/rapier3d-compat@0.21.0-chargeuk.1`, with CJS/ESM initialization and
+World step/free plus `npm pack --dry-run` passing. These are package/runtime
+smokes, not behavioral regression proof. Native and binding targets are separate; the binding
 script cleans only its disposable target. Generated package:
 `/work/rapier/bindings/typescript/rapier-compat/builds/3d/pkg/` in the copied tree.
 

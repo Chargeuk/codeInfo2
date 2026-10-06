@@ -139,6 +139,20 @@ Corporate certificate directory requirements:
 
 # CodeInfo2 Details
 
+### Pinned container tooling and cache proof
+
+Server and client images use the verified multiarch Node 22.21.1 digest. Workspace
+dependency installs cache `/root/.npm` downloads before source copies. The server
+runtime keeps pinned Python/global npm tools, image-persisted Playwright 1.56.1
+Chromium and the Rust 1.99.0/WASM toolchain ahead of volatile application copies.
+Rust homes live under `/opt` and remain usable with mounted provider homes and
+configured runtime UID overrides.
+
+See [container toolchain pins and proof](docs/container-toolchain-proof.md) for
+version provenance, architecture checksums, exact parent-tester commands and
+disposable-context cache/runtime validation. Image builds and smoke results must
+be recorded separately from full-suite or behavioral proof.
+
 ## MongoDB (conversation history)
 
 - Conversation persistence depends on MongoDB. Compose-owned container runtime defaults come from `docker-compose.yml` and point the server container at `mongodb://host.docker.internal:27517/db?directConnection=true`; host-only non-compose overrides belong in `server/.env.local`.

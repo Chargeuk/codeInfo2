@@ -1,29 +1,19 @@
-FROM node:22-slim AS build
+# syntax=docker/dockerfile:1.7
+FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS build
 WORKDIR /app
 ENV HUSKY=0
-ARG VITE_CODEINFO_API_URL
-ARG VITE_CODEINFO_LMSTUDIO_URL
-ARG VITE_CODEINFO_LOG_FORWARD_ENABLED
-ARG VITE_CODEINFO_LOG_MAX_BYTES
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_NPM_FETCH_RETRIES=5
 ARG CODEINFO_NPM_FETCH_RETRY_FACTOR=2
 ARG CODEINFO_NPM_FETCH_RETRY_MINTIMEOUT=10000
 ARG CODEINFO_NPM_FETCH_RETRY_MAXTIMEOUT=120000
 ARG CODEINFO_NPM_FETCH_TIMEOUT=300000
-ENV VITE_CODEINFO_API_URL=${VITE_CODEINFO_API_URL}
-ENV VITE_CODEINFO_LMSTUDIO_URL=${VITE_CODEINFO_LMSTUDIO_URL}
-ENV VITE_CODEINFO_LOG_FORWARD_ENABLED=${VITE_CODEINFO_LOG_FORWARD_ENABLED}
-ENV VITE_CODEINFO_LOG_MAX_BYTES=${VITE_CODEINFO_LOG_MAX_BYTES}
 COPY package*.json ./
 COPY package-lock.json ./
 COPY common/package*.json ./common/
 COPY client/package*.json ./client/
-COPY tsconfig*.json ./
-COPY tsconfig.base.json ./
-COPY common ./common
-COPY client ./client
-RUN set -eu; \
+RUN --mount=type=cache,target=/root/.npm \
+    set -eu; \
     if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then \
       echo "[CODEINFO][T04_BUILD][client] npm registry override enabled"; \
       NPM_CONFIG_REGISTRY="${CODEINFO_NPM_REGISTRY}" \
@@ -42,6 +32,10 @@ RUN set -eu; \
       NPM_CONFIG_FETCH_TIMEOUT="${CODEINFO_NPM_FETCH_TIMEOUT}" \
       npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund; \
     fi
+COPY tsconfig*.json ./
+COPY tsconfig.base.json ./
+COPY common ./common
+COPY client ./client
 RUN set -eu; \
     client_npm_override="off"; \
     if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then \
@@ -49,9 +43,17 @@ RUN set -eu; \
     fi; \
     printf 'CODEINFO_CLIENT_BUILD_OVERRIDE_STATE=client_npm=%s\n' "$client_npm_override" \
       > /app/client/.codeinfo-client-build-override-state.env
+ARG VITE_CODEINFO_API_URL
+ARG VITE_CODEINFO_LMSTUDIO_URL
+ARG VITE_CODEINFO_LOG_FORWARD_ENABLED
+ARG VITE_CODEINFO_LOG_MAX_BYTES
+ENV VITE_CODEINFO_API_URL=${VITE_CODEINFO_API_URL}
+ENV VITE_CODEINFO_LMSTUDIO_URL=${VITE_CODEINFO_LMSTUDIO_URL}
+ENV VITE_CODEINFO_LOG_FORWARD_ENABLED=${VITE_CODEINFO_LOG_FORWARD_ENABLED}
+ENV VITE_CODEINFO_LOG_MAX_BYTES=${VITE_CODEINFO_LOG_MAX_BYTES}
 RUN npm run build --workspace client
 
-FROM node:22-slim AS runtime
+FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS runtime
 WORKDIR /app/client
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/node_modules /app/node_modules

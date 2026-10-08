@@ -71,33 +71,48 @@ class ReviewPromptContractTests(unittest.TestCase):
                 self.assertEqual(research_config["model"], "gpt-6-astra")
                 self.assertNotEqual(coding_config["model"], "gpt-6-astra")
                 self.assertNotEqual(testing_config["model"], "gpt-6-astra")
-                self.assertIn('[mcp_servers.agents]', config)
+                self.assertIn('[mcp_servers.codeinfo_agents]', config)
                 self.assertIn('${CODEINFO_AGENTS_MCP_PORT}', config)
                 self.assertIn('tool_timeout_sec = 86400', config)
                 self.assertIn('run_agent_instruction', prompt)
                 self.assertIn('coding_agent', prompt)
                 self.assertIn('automated_testing_agent', prompt)
-                self.assertIn('Delegate ALL coding tasks to coding_agent', prompt)
                 self.assertIn(
-                    'including logging, new or updated tests, source or '
-                    'configuration changes, and minor fixes',
+                    'Delegate ALL implementation, configuration, test authoring, '
+                    'logging, and repairs to coding_agent, including one-line changes',
                     prompt,
                 )
                 self.assertIn('Do not implement changes yourself', prompt)
                 self.assertIn(
-                    'Delegate builds and test suite execution to '
-                    'automated_testing_agent strictly for validation',
-                    prompt,
-                )
-                self.assertIn('It must NEVER perform coding tasks or minor fixes', prompt)
-                self.assertIn(
-                    'coding_agent may iterate on fixes and run narrowly targeted '
-                    'tests while fixing issues',
+                    'Delegate ALL builds, typechecks, test execution, lint, '
+                    'formatting, and substantive documentation including Markdown '
+                    'to automated_testing_agent',
                     prompt,
                 )
                 self.assertIn(
-                    'must NEVER run full suites, including workspace-wide or '
-                    'all-repository suites; those belong to automated_testing_agent',
+                    'It must not repair production code, configuration, wrappers, or tests',
+                    prompt,
+                )
+                self.assertIn(
+                    'coding_agent authors and repairs those files and delegates '
+                    'all execution to the tester',
+                    prompt,
+                )
+                self.assertIn(
+                    'Default to focused checks for task-added or edited tests '
+                    'and directly affected existing tests',
+                    prompt,
+                )
+                self.assertIn(
+                    'An explicit full-suite requirement in the assignment, task, '
+                    'or repository overrides that default and must be fulfilled '
+                    'through the tester',
+                    prompt,
+                )
+                self.assertIn(
+                    'Respect the current phase; do not proactively complete the '
+                    'full Testing section or duplicate successful checks reserved '
+                    'for later formal proof',
                     prompt,
                 )
 
@@ -955,6 +970,195 @@ class ReviewPromptContractTests(unittest.TestCase):
         self.assertIn("materiality-filtered-findings.md", materiality)
         self.assertIn("Do not modify implementation code", materiality)
         self.assertIn("completed, partial, or unavailable", materiality)
+
+    def test_materiality_requires_production_reachability_or_concrete_security(
+        self,
+    ) -> None:
+        materiality = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md"
+        )
+        behavior_lock = read_text(
+            "codeinfo_markdown/shared/story_behavior_lock.md"
+        )
+        reachability = materiality.split("2. **Realistic reachability**", 1)[1]
+        reachability = reachability.split("3. **Meaningful impact**", 1)[0]
+        for requirement in (
+            "Supported-workflow route",
+            "actual user operation",
+            "actual application-produced inputs and invariants",
+            "upstream checks",
+            "earlier validation or rejection",
+            "Documented supported assumptions bind reviewers",
+            "A synthetic test proves behavior, not realistic reachability",
+            "ordinary supported inputs",
+            "synthetic normal valid input failure remains eligible",
+            "No observed production incident is required",
+            "Credible-security route",
+            "reviewed story-owned server surface",
+            "attacker access and permissions",
+            "vulnerable operation",
+            "auth bypass, unauthorized changes, code execution, or resource exhaustion",
+            "Crafted malicious requests need not originate from the UI",
+            "upstream authorization, validation, or resource controls",
+            "smallest authorized repair effectively prevents",
+            "Merely accepting malformed data is not security evidence",
+            "permissions the attacker cannot obtain",
+            "unrelated or pre-existing security repairs",
+            "explicit scope exclusions",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(requirement, reachability)
+        for requirement in (
+            "Supported Assumptions And Security Repairs",
+            'A broad requirement to "validate" does not authorize invented caps',
+            "exact current approved story authority",
+            "story must own the affected behavior seam",
+            "not blanket authority",
+            "pre-existing server security repairs",
+            "Current approved scope is authoritative",
+            "non-actionable evidence without a task, blocker, or repair continuation",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(requirement, behavior_lock)
+
+    def test_materiality_distinguishes_lasting_complexity_from_repair_difficulty(
+        self,
+    ) -> None:
+        materiality = read_text(
+            "codeinfo_markdown/filter_review_batch_findings_by_materiality.md"
+        )
+        proportionality = materiality.split(
+            "4. **Value proportionate to change risk**", 1
+        )[1].split("## Findings normally below", 1)[0]
+        for requirement in (
+            "Qualitatively weigh practical impact and likelihood",
+            "permanent branches, scans, allocations, duplicated validation",
+            "configuration, new reject behavior, and maintenance",
+            "Do not invent numeric probability thresholds",
+            "extremely rare low-impact issue",
+            "substantial permanent machinery",
+            "rare credible severe security or data-loss",
+            "Distinguish repair difficulty from lasting complexity",
+            "Do not evade a material necessary fix",
+            "new evidence disproves reachability",
+            "disproportionately complex lasting machinery for negligible impact",
+            "Research effort alone",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(requirement, proportionality)
+        self.assertIn("## Unused-code exception", materiality)
+        self.assertIn("Removal must preserve required side effects", materiality)
+        self.assertIn("survivor-only", materiality.lower())
+        self.assertIn("Earlier removals are an append-only", materiality)
+        self.assertIn("immutable job evidence was unchanged", materiality)
+        self.assertIn("Uncertain reachability remains non-actionable", materiality)
+        self.assertIn("do not create a task, continue repair", materiality)
+
+    def test_policy_consumers_apply_central_routes_without_changing_gate_roles(
+        self,
+    ) -> None:
+        for filename in (
+            "authorize_review_batch_findings_for_story.md",
+            "audit_review_batch_scope_filter.md",
+            "disposition_review_batch.md",
+            "implement_review_batch_direct_fixes.md",
+            "implement_review_batch_remaining_fixes.md",
+            "research_and_fix_repeated_review_findings.md",
+        ):
+            with self.subTest(filename=filename):
+                prompt = read_text("codeinfo_markdown/" + filename)
+                self.assertIn("shared/story_behavior_lock.md", prompt)
+                self.assertIn("filter_review_batch_findings_by_materiality.md", prompt)
+        legacy = read_text("codeinfo_markdown/filter_review_findings_to_story_scope.md")
+        gates = legacy.split("<rejection_gates>", 1)[1].split(
+            "</rejection_gates>", 1
+        )[0]
+        self.assertIn("Supported Assumptions And Security Repairs", gates)
+        self.assertIn("crafted malicious request", gates)
+        self.assertIn("explicit Out Of Scope restrictions", gates)
+        self.assertIn("does not replace positive authorization or materiality", gates)
+        batch = read_text("codeinfo_markdown/filter_review_batch_findings_to_story_scope.md")
+        self.assertIn("legacy `<rejection_gates>`", batch)
+        self.assertIn("Do not silently remove", batch)
+        self.assertIn("lacking UI origin", batch)
+        self.assertIn("survivor-only rules", batch)
+        audit = read_text("codeinfo_markdown/audit_review_batch_scope_filter.md")
+        for requirement in (
+            "Independently challenge the supported production path",
+            "upstream rejection",
+            "attacker access and permissions",
+            'Do not trust a "security" label',
+            "effective proportional minimal repair",
+            "preserve uncertainty as non-actionable",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(requirement, audit)
+
+    def test_all_repair_paths_reassess_materiality_without_evading_necessary_fixes(
+        self,
+    ) -> None:
+        for filename in (
+            "implement_review_batch_direct_fixes.md",
+            "implement_review_batch_remaining_fixes.md",
+            "research_and_fix_repeated_review_findings.md",
+        ):
+            with self.subTest(filename=filename):
+                prompt = read_text("codeinfo_markdown/" + filename)
+                self.assertIn("Repair difficulty alone does not excuse", prompt)
+                self.assertIn("Fresh evidence disproving reachability", prompt)
+                self.assertIn("disproportionate lasting machinery for negligible impact", prompt)
+                self.assertIn("gate conflict", prompt)
+                self.assertIn("non-actionable preservation", prompt)
+                self.assertIn("task or repair continuation", prompt)
+        stronger = read_text("codeinfo_markdown/implement_review_batch_remaining_fixes.md")
+        self.assertNotIn("Complexity, an apparent implementation decision", stronger)
+        self.assertIn("while authorization and materiality remain evidenced", stronger)
+        self.assertIn("fresh evidence removes authorization or materiality", stronger)
+        self.assertIn("Continue while any untried evidence source", stronger)
+        repeated = read_text("codeinfo_markdown/research_and_fix_repeated_review_findings.md")
+        self.assertIn("Pass these central rules in every worker request", repeated)
+        self.assertIn("Historical acceptance, tasks, commits, and tests are evidence only", repeated)
+
+    def test_materiality_security_fixture_covers_bounded_semantic_decisions(
+        self,
+    ) -> None:
+        fixture = (FIXTURES_DIR / "materiality-and-security.md").read_text()
+        normalized = " ".join(fixture.split())
+        self.assertIn("not retrospective production findings", normalized)
+        self.assertIn("Bounded read-only exercise", fixture)
+        self.assertIn("not proof that a model or production flow", normalized)
+        self.assertIn("Do not inspect a production story, run commands", normalized)
+        self.assertIn("story_behavior_lock.md", fixture)
+        self.assertIn("filter_review_batch_findings_by_materiality.md", fixture)
+        outcomes = {
+            "Overlapping head/body painted UVs": "rejected",
+            "UV2": "rejected",
+            "Nondefault UV transforms": "rejected",
+            "0.015 guide-root scalp distance": "rejected",
+            "Full server PNG decode solely for validity after browser decode": "rejected",
+            "Unusable unused external scalp after usable embedded scalp selection": "rejected",
+            "Genuine combined-hair-budget failure": "accepted",
+            "Extremely rare low-impact issue with permanent machinery": "rejected",
+            "Synthetic normal valid input failure": "accepted",
+            "Credible malicious request auth bypass": "accepted",
+            "Credible malicious request resource attack": "accepted",
+            "Malformed unused data alone": "rejected",
+            "Rare credible data loss": "accepted",
+            "Uncertain reachability": "non-actionable",
+            "Attacker permissions and scope challenge": "rejected",
+            "Reachable pre-existing auth bypass outside story scope": "rejected for this story",
+            "Upstream rejection prevents supported failure": "rejected",
+        }
+        for title, outcome in outcomes.items():
+            with self.subTest(title=title):
+                marker = "## " + title + "\n"
+                self.assertEqual(fixture.count(marker), 1)
+                case = fixture.split(marker, 1)[1].split("\n## ", 1)[0]
+                self.assertIn("- Expected outcome: " + outcome + ".", case)
+                self.assertIn("- Scope/evidence:", case)
+                self.assertIn("- Proposed remedy:", case)
+                if title in list(outcomes)[:6]:
+                    self.assertIn("explicitly OUT OF SCOPE", case)
 
     def test_review_acceptance_requires_a_proven_in_scope_repair_seam(
         self,

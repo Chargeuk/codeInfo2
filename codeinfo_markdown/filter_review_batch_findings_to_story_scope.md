@@ -18,6 +18,7 @@ Reopen immutable job output and verification evidence only as needed to make an 
 
 ## Filtering boundary
 
+- Apply the legacy `<rejection_gates>` with the shared behavior lock's Supported Assumptions And Security Repairs, including its reference to the central materiality policy. Do not silently remove an otherwise scoped credible-security candidate for lacking UI origin before positive authorization and materiality can assess it. Preserve all other negative-gate restrictions, survivor-only rules, and this step's output contract.
 - Treat the audited batch reconciliation as the derived actionable working set, not as immutable reviewer evidence.
 - Evaluate only the actionable candidates present when this gate begins. Do not restore or reconsider a finding already rejected or removed before this gate.
 - Separate each candidate's technical observation, demonstrated consequence, and every proposed remedy before applying the rejection policy. A story requirement for an outcome does not automatically put every mechanism for achieving that outcome in scope.

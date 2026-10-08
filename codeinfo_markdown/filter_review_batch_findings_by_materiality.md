@@ -8,7 +8,7 @@ This is an autonomous flow execution step, not a planning interview. Do not ask 
 
 Decide whether each remaining positively authorized finding is sufficiently realistic and materially important to justify implementation work and another review iteration. Technical correctness and positive story authorization are necessary but not sufficient. A finding remains actionable when it meets the unused-code exception below or its realistic impact justifies changing otherwise completed code.
 
-This gate reduces low-value review churn without suppressing credible defects. It does not decide repair difficulty, invent product policy, or reinterpret earlier scope decisions.
+This gate reduces low-value review churn without suppressing credible defects. It assesses lasting complexity against practical value, not repair difficulty, and does not invent product policy or reinterpret earlier scope decisions. Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md`, including Supported Assumptions And Security Repairs.
 
 Materiality can never restore, legitimize, or broaden an observation or remedy removed by negative scope or positive authorization. Evaluate only the exact narrowed, positively authorized issue and concrete repair seam passed to this gate. A realistic or severe consequence does not cure missing authorization.
 
@@ -48,7 +48,9 @@ For findings outside the unused-code exception, keep a surviving finding actiona
 
 2. **Realistic reachability**
 
-   A concrete failure scenario can occur through a supported or intended workflow. It must not depend entirely on prohibited concurrent top-level flows, deliberately malformed internal state, unsupported manual modification, impossible timing assumptions, or behavior explicitly outside the story contract.
+   Demonstrate one of the following routes with current evidence:
+   - **Supported-workflow route:** identify the actual user operation, actual application-produced inputs and invariants, and upstream checks. Trace a concrete reachable failure through the supported production path, including why earlier validation or rejection does not prevent it. Documented supported assumptions bind reviewers; do not substitute arbitrary malformed internal state, unsupported manual modification, prohibited concurrent top-level flows, impossible timing, or explicitly excluded behavior. Broad "validate" wording does not authorize invented caps or new reject behavior. A synthetic test proves behavior, not realistic reachability, unless it reproduces ordinary supported inputs. A synthetic normal valid input failure remains eligible when that supported path is demonstrated. No observed production incident is required.
+   - **Credible-security route:** on a reviewed story-owned server surface authorized under the behavior lock, demonstrate attacker access and permissions, the vulnerable operation, and concrete harm such as auth bypass, unauthorized changes, code execution, or resource exhaustion. Crafted malicious requests need not originate from the UI. Explain why upstream authorization, validation, or resource controls do not prevent the attack and why the smallest authorized repair effectively prevents the demonstrated harm. Merely accepting malformed data is not security evidence. A request requiring permissions the attacker cannot obtain does not establish reachability. This route does not authorize unrelated or pre-existing security repairs or override explicit scope exclusions.
 
 3. **Meaningful impact**
 
@@ -56,17 +58,19 @@ For findings outside the unused-code exception, keep a surviving finding actiona
 
 4. **Value proportionate to change risk**
 
-   Correcting the problem provides meaningful value compared with the regression and churn risk of changing completed working code. Do not reject a material finding merely because it is difficult to repair or may require the stronger repair agent. Repair difficulty is not a materiality decision.
+   Correcting the problem provides meaningful value compared with regression risk and lasting complexity. Qualitatively weigh practical impact and likelihood against permanent branches, scans, allocations, duplicated validation, configuration, new reject behavior, and maintenance. Do not invent numeric probability thresholds. An extremely rare low-impact issue needing substantial permanent machinery is normally non-actionable; rare credible severe security or data-loss harm may justify a minimal proportional repair.
+
+   Distinguish repair difficulty from lasting complexity. Do not evade a material necessary fix merely because it is difficult to diagnose or implement or needs the stronger repair agent. Reassess acceptance when new evidence disproves reachability or demonstrates disproportionately complex lasting machinery for negligible impact. Research effort alone does not establish that disproportion.
 
 ## Findings normally below the materiality threshold
 
 Treat a finding as non-actionable when it is technically plausible but its demonstrated value is limited to matters such as:
 
 - naming, formatting, style, or code-organization preference;
-- speculative defensive hardening without a concrete supported failure;
+- speculative defensive hardening without a concrete supported failure or credible-security scenario;
 - an extremely theoretical sequence with no convincing reachable example;
 - an internal inconsistency with no meaningful downstream effect;
-- malformed or manually corrupted input outside supported behavior;
+- malformed or manually corrupted input outside supported behavior, without concrete security harm under the credible-security route;
 - a small provenance or wording defect that the existing agent recovery path already corrects reliably;
 - test tidiness that does not leave meaningful production behavior unprotected;
 - a micro-optimization without evidence of meaningful cost;
@@ -83,14 +87,16 @@ When realistic reachability or meaningful impact cannot be convincingly demonstr
 
 Record the finding as technically supported and positively authorized but below the materiality threshold or insufficiently demonstrated for this story. Do not describe uncertainty as proof that no defect exists. Preserve the evidence so separately approved future work remains possible.
 
+Uncertain reachability remains non-actionable: do not create a task, continue repair, or keep a review loop alive to settle speculation. During repair, fresh contrary evidence requires recording a gate conflict and preserving the observation without further implementation; it never permits resurrection of earlier removals.
+
 ## Required actions
 
 For each surviving positively authorized finding:
 
 1. Confirm its exact identity and reviewed commit.
-2. State a concrete supported scenario in which it could occur.
+2. State a concrete supported scenario in which it could occur, or establish the credible-security route with attacker access, permissions, vulnerable operation, and concrete harm.
 3. Explain the practical consequence in simple language.
-4. Decide whether that consequence is materially worth implementation work.
+4. Decide whether that consequence is materially worth implementation work, accounting qualitatively for likelihood and lasting complexity and evidencing an effective proportional minimal repair.
 5. Keep the finding actionable, narrow it to its materially supported core, or remove it from the actionable reconciliation.
 6. Preserve every generating and corroborating review harness already established.
 
@@ -100,7 +106,7 @@ When narrowing a mixed finding, retain only the materially supported core. Recor
 
 Always write `reconciliation/materiality-filtered-findings.md`, even when every survivor remains material or the gate is partial or unavailable. Use flexible self-describing Markdown rather than a rigid schema.
 
-State whether the result is completed, partial, or unavailable. Record the exact story, cycle, batch, repository, and reviewed-commit identities; every finding presented to this gate; whether it remains actionable, was narrowed, or was removed; its realistic scenario and practical impact; why that impact is or is not material; uncertainty and missing evidence; confirmation that previously removed findings were not reconsidered; and confirmation that immutable job evidence was unchanged.
+State whether the result is completed, partial, or unavailable. Record the exact story, cycle, batch, repository, and reviewed-commit identities; every finding presented to this gate; whether it remains actionable, was narrowed, or was removed; its evidenced reachability route and practical impact; upstream checks and supported assumptions or attacker permissions; proportional repair and lasting complexity; why that impact is or is not material; uncertainty and missing evidence; confirmation that previously removed findings were not reconsidered; and confirmation that immutable job evidence was unchanged.
 
 Update only the derived actionable reconciliation to remove or narrow below-threshold findings.
 

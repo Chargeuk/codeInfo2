@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
+import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import {
   __resetProviderBootstrapStatusForTests,
@@ -268,16 +269,39 @@ web_search_mode = "disabled"
   });
 });
 test('accepts every SDK-native reasoning effort value for Codex requests', async () => {
+  await setChatConfig('model = "sdk-capability-model"\n');
+  const capability = {
+    model: 'sdk-capability-model',
+    supportedReasoningEfforts: [...modelReasoningEfforts],
+    defaultReasoningEffort: 'high',
+  };
+  const capabilities: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'never',
+      modelReasoningEffort: 'high',
+      networkAccessEnabled: true,
+      webSearchEnabled: false,
+      webSearchMode: 'disabled',
+    },
+    models: [capability],
+    byModel: new Map([[capability.model, capability]]),
+    warnings: [],
+    fallbackUsed: false,
+  };
   for (const reasoningEffort of modelReasoningEfforts) {
-    const result = await validateChatRequest({
-      model: 'sdk-capability-model',
-      message: 'hello',
-      conversationId: `reasoning-${reasoningEffort}`,
-      provider: 'codex',
-      agentFlags: {
-        modelReasoningEffort: reasoningEffort,
+    const result = await validateChatRequest(
+      {
+        model: capability.model,
+        message: 'hello',
+        conversationId: `reasoning-${reasoningEffort}`,
+        provider: 'codex',
+        agentFlags: {
+          modelReasoningEffort: reasoningEffort,
+        },
       },
-    });
+      { codexCapabilityResolver: async () => capabilities },
+    );
     assert.equal(result.agentFlags.modelReasoningEffort, reasoningEffort);
   }
 });

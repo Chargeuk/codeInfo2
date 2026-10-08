@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -6,6 +7,7 @@ import nodeTest from 'node:test';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
+import { releaseConversationLock } from '../../agents/runLock.js';
 import {
   __resetAgentServiceDepsForTests,
   __setAgentServiceDepsForTests,
@@ -15,6 +17,10 @@ import {
   startAgentCommand,
 } from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import {
+  ChatInterfaceCodex,
+  type CodexLikeThread,
+} from '../../chat/interfaces/ChatInterfaceCodex.js';
 import {
   memoryConversations,
   memoryTurns,
@@ -112,6 +118,26 @@ class DeferredChat extends ChatInterface {
     await this.release;
     this.emit('final', { type: 'final', content: 'ok' });
     this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+class AgentPromptCodexChat extends ChatInterfaceCodex {
+  constructor(
+    private readonly capture: (flags: Record<string, unknown>) => void,
+    thread: CodexLikeThread,
+  ) {
+    super(() => ({
+      startThread: () => thread,
+      resumeThread: () => thread,
+    }));
+  }
+  async execute(
+    message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    model: string,
+  ) {
+    this.capture({ ...flags });
+    await super.execute(message, flags, conversationId, model);
   }
 }
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -399,6 +425,238 @@ const test = (name: string, fn: () => Promise<void> | void) =>
       endScopedTestEnvIsolation();
     }
   });
+const AGENT_SYSTEM_PROMPT =
+  'DEV-0000042: Use the temporary agent instructions.\nPreserve this second line.\n';
+type AgentPromptFixture = {
+  agentName: string;
+  conversationId: string;
+};
+const withAgentPromptFixture = async (
+  withPrompt: boolean,
+  fn: (fixture: AgentPromptFixture) => Promise<void>,
+) => {
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-system-prompt-'),
+  );
+  const agentsHome = path.join(tempRoot, 'agents');
+  const agentName = 'prompt_agent';
+  const agentHome = path.join(agentsHome, agentName);
+  const codexHome = path.join(tempRoot, 'codex-home');
+  const conversationId = randomUUID();
+  try {
+    await fs.mkdir(agentHome, { recursive: true });
+    await fs.mkdir(path.join(codexHome, 'chat'), { recursive: true });
+    await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(
+      path.join(agentHome, 'config.toml'),
+      'codeinfo_provider = "codex"\nmodel = "gpt-6-luna"\n',
+      'utf8',
+    );
+    if (withPrompt) {
+      await fs.writeFile(
+        path.join(agentHome, 'system_prompt.txt'),
+        AGENT_SYSTEM_PROMPT,
+        'utf8',
+      );
+    }
+    await fs.writeFile(path.join(codexHome, 'auth.json'), '{}', 'utf8');
+    await fs.writeFile(path.join(codexHome, 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(codexHome, 'chat', 'config.toml'),
+      'model = "gpt-6-luna"\n',
+      'utf8',
+    );
+    await runWithTestEnvOverrides(
+      {
+        CODEINFO_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_AGENT_HOME: agentsHome,
+        CODEINFO_CODEX_HOME: codexHome,
+        CODEINFO_CODEX_WORKDIR: tempRoot,
+        CODEX_WORKDIR: tempRoot,
+      },
+      () => fn({ agentName, conversationId }),
+    );
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+};
+const withWebAgentPromptCapture = async (
+  fixture: AgentPromptFixture,
+  instruction: string,
+  inspect: (flags: Record<string, unknown>, sdkInput: string) => void,
+) => {
+  const executeSignal = createExecuteSignal();
+  const sdkSignal = createExecuteSignal();
+  let releaseRun!: () => void;
+  const releasePromise = new Promise<void>((resolve) => {
+    releaseRun = resolve;
+  });
+  let markFinished!: () => void;
+  const finished = new Promise<void>((resolve) => {
+    markFinished = resolve;
+  });
+  // Register both observations before the request can start background work.
+  const captured = Promise.race([
+    Promise.all([executeSignal.promise, sdkSignal.promise]),
+    finished.then(() => {
+      throw new Error(
+        'Agent run finished before the fake Codex SDK received input',
+      );
+    }),
+  ]);
+  // Observe rejection even if the HTTP request fails before we await capture.
+  void captured.catch(() => {});
+  const threadId = randomUUID();
+  const events = async function* () {
+    yield { type: 'thread.started', thread_id: threadId };
+    await releasePromise;
+    yield {
+      type: 'item.completed',
+      item: { type: 'agent_message', text: 'ok' },
+    };
+    yield { type: 'turn.completed' };
+  };
+  const thread: CodexLikeThread = {
+    runStreamed: async (input) => {
+      sdkSignal.onExecute({ input });
+      return { events: events() };
+    },
+  };
+  let backgroundStarted = false;
+  const app = express();
+  app.use(
+    createAgentsRunRouter({
+      startAgentInstruction: bindCurrentTestOverrides(async (params) => {
+        const result = await startAgentInstruction({
+          ...params,
+          chatFactory: () =>
+            new AgentPromptCodexChat(executeSignal.onExecute, thread),
+          releaseConversationLockFn: (conversationId, runToken) => {
+            const released = releaseConversationLock(conversationId, runToken);
+            markFinished();
+            return released;
+          },
+        });
+        backgroundStarted = true;
+        return result;
+      }),
+    }),
+  );
+  try {
+    const response = await supertest(app)
+      .post(`/agents/${fixture.agentName}/run`)
+      .send({ instruction, conversationId: fixture.conversationId });
+    assert.equal(response.status, 202);
+    assert.equal(response.body.status, 'started');
+    assert.equal(response.body.conversationId, fixture.conversationId);
+    const [flags, sdkFlags] = await captured;
+    assert.equal(typeof sdkFlags.input, 'string');
+    inspect(flags, sdkFlags.input as string);
+  } finally {
+    releaseRun();
+    if (backgroundStarted) await finished;
+  }
+};
+
+test('DEV-0000042 web first message delivers the agent system prompt to the Codex SDK', async () => {
+  await withAgentPromptFixture(true, async (fixture) => {
+    assert.equal(memoryConversations.has(fixture.conversationId), false);
+    await withWebAgentPromptCapture(
+      fixture,
+      'First web message',
+      (flags, input) => {
+        assert.equal(
+          flags.systemPrompt,
+          AGENT_SYSTEM_PROMPT,
+          'startAgentInstruction must deliver system_prompt.txt on the first web message',
+        );
+        assert.equal(
+          input,
+          `System:\n${AGENT_SYSTEM_PROMPT.trim()}\n\nUser:\nFirst web message`,
+        );
+      },
+    );
+  });
+});
+
+for (const surface of ['direct', 'MCP'] as const) {
+  test(`DEV-0000042 fresh ${surface} message receives the agent system prompt`, async () => {
+    await withAgentPromptFixture(true, async (fixture) => {
+      const executeSignal = createExecuteSignal();
+      const chatFactory = () => new CapturingChat(executeSignal.onExecute);
+      assert.equal(memoryConversations.has(fixture.conversationId), false);
+      if (surface === 'direct') {
+        await runAgentInstruction({
+          ...fixture,
+          instruction: 'First direct message',
+          source: 'REST',
+          chatFactory,
+        });
+      } else {
+        await callTool(
+          'run_agent_instruction',
+          { ...fixture, instruction: 'First MCP message' },
+          {
+            runAgentInstruction: (params) =>
+              runAgentInstruction({
+                ...(params as Parameters<typeof runAgentInstruction>[0]),
+                chatFactory,
+              }),
+          },
+        );
+      }
+      assert.equal(executeSignal.wasTriggered(), true);
+      const flags = await executeSignal.promise;
+      assert.equal(flags.systemPrompt, AGENT_SYSTEM_PROMPT);
+    });
+  });
+}
+
+test('DEV-0000042 web follow-up does not re-inject the agent system prompt', async () => {
+  await withAgentPromptFixture(true, async (fixture) => {
+    const firstExecute = createExecuteSignal();
+    await runAgentInstruction({
+      ...fixture,
+      instruction: 'Seed the conversation',
+      source: 'REST',
+      chatFactory: () => new CapturingChat(firstExecute.onExecute),
+    });
+    assert.equal(firstExecute.wasTriggered(), true);
+    assert.equal(
+      (await firstExecute.promise).systemPrompt,
+      AGENT_SYSTEM_PROMPT,
+    );
+    assert.equal(memoryConversations.has(fixture.conversationId), true);
+    await withWebAgentPromptCapture(
+      fixture,
+      'Follow-up message',
+      (flags, input) => {
+        assert.equal(flags.systemPrompt, undefined);
+        assert.equal(input, 'Follow-up message');
+      },
+    );
+  });
+});
+
+test('DEV-0000042 web first message supports an agent without a system prompt file', async () => {
+  await withAgentPromptFixture(false, async (fixture) => {
+    await withWebAgentPromptCapture(
+      fixture,
+      'No prompt message',
+      (flags, input) => {
+        assert.equal(flags.systemPrompt, undefined);
+        assert.equal(input, 'No prompt message');
+      },
+    );
+    assert.equal(
+      findTerminalAssistantTurn(fixture.conversationId)?.status,
+      'ok',
+    );
+  });
+});
+
 test('Agents runs accept a client-supplied conversationId even when it does not exist yet', async () => {
   resetStore();
   const prevPreferredAgentsHome = process.env.CODEINFO_AGENT_HOME;

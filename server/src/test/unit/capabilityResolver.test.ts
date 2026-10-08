@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import { baseLogger } from '../../logger.js';
+import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
 test('resolveCodexCapabilities uses fallback capabilities when injected metadata resolver throws', async (t) => {
     const errorLines: string[] = [];
     t.mock.method(baseLogger, 'error', (...args: unknown[]) => {
@@ -23,18 +24,29 @@ test('resolveCodexCapabilities uses fallback capabilities when injected metadata
     assert.ok(result.warnings.some((warning) => warning.includes('fallback capabilities')));
     assert.ok(errorLines.some((line) => line.includes('[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=error')));
 });
-test('resolveCodexCapabilities parses metadata values without env sentinels', async () => {
-    const result = await resolveCodexCapabilities({
+test('resolveCodexCapabilities parses metadata values without env sentinels', () =>
+  withIsolatedProviderHomeTestEnv(
+    {
+      prefix: 'capability-metadata-',
+      overrides: { Codex_model_list: 'metadata-capability-model' },
+    },
+    async ({ codexHome }) => {
+      const result = await resolveCodexCapabilities({
         consumer: 'chat_validation',
-        resolveReasoningEffortsMetadata: () => ' minimal,high, minimal , turbo ',
-    });
-    assert.equal(result.fallbackUsed, false);
-    const supported = result.models[0]?.supportedReasoningEfforts ?? [];
-    assert.ok(supported.includes('minimal'));
-    assert.ok(supported.includes('high'));
-    assert.ok(supported.includes('turbo'));
-    assert.equal(new Set(supported).size, supported.length);
-});
+        codexHome,
+        resolveReasoningEffortsMetadata: () =>
+          ' minimal,high, minimal , turbo ',
+      });
+      assert.equal(result.fallbackUsed, false);
+      const capability = result.byModel.get('metadata-capability-model');
+      assert.ok(capability);
+      const supported = capability.supportedReasoningEfforts;
+      assert.ok(supported.includes('minimal'));
+      assert.ok(supported.includes('high'));
+      assert.ok(supported.includes('turbo'));
+      assert.equal(new Set(supported).size, supported.length);
+    },
+  ));
 test('resolveCodexCapabilities does not duplicate a chat-config model already present in Codex_model_list', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codeinfo2-capability-resolver-'));
     const codexHome = path.join(root, 'codex');

@@ -261,51 +261,63 @@ test('explicit Copilot chat requests start in endpoint-only mode when Copilot au
     }
   }
 });
-test('explicit Copilot chat requests fail closed on endpoint discovery failures during inference', async () => {
-  let server: Awaited<ReturnType<typeof startCopilotChatServer>> | undefined;
-  let discoveryCalls = 0;
-  for (const key of ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN'])
-    clearScopedTestEnvValue(key);
-  try {
-    server = await startCopilotChatServer({
-      scenario: {
-        name: 'copilot-chat-discovery-failure-tolerated',
-        authStatus: {
-          isAuthenticated: false,
-          authType: 'user',
-          statusMessage: 'login required',
+test('explicit Copilot chat requests fail closed on endpoint discovery failures during inference', () =>
+  withIsolatedProviderHomeTestEnv(
+    {
+      prefix: 'copilot-discovery-failure-',
+      overrides: {
+        CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS: undefined,
+        COPILOT_GITHUB_TOKEN: undefined,
+        GH_TOKEN: undefined,
+        GITHUB_TOKEN: undefined,
+      },
+    },
+    async () => {
+      let discoveryCalls = 0;
+      const server = await startCopilotChatServer({
+        scenario: {
+          name: 'copilot-chat-discovery-failure-tolerated',
+          authStatus: {
+            isAuthenticated: false,
+            authType: 'user',
+            statusMessage: 'login required',
+          },
+          models: [],
         },
-        models: [],
-      },
-      providerDiscoveryResolver: async () => {
-        discoveryCalls++;
-        throw new Error('discovery exploded');
-      },
-    });
-    const response = await request(server.httpServer).post('/chat').send({
-      provider: 'copilot',
-      model: 'endpoint-copilot-model',
-      conversationId: 'copilot-discovery-failure-tolerated',
-      message: 'Fail if endpoint discovery throws',
-    });
-    assert.equal(response.status, 503);
-    assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
-    assert.match(
-      String(response.body.message),
-      // Unpinned inference is best-effort. Its failure cannot establish an
-      // endpoint or bypass the native authentication gate on an explicit request.
-      /copilot authentication required/i,
-    );
-    assert.equal(discoveryCalls, 1);
-    assert.equal(server.harness.getState().lastCreateSessionConfig, undefined);
-    assert.equal(
-      memoryConversations.get('copilot-discovery-failure-tolerated'),
-      undefined,
-    );
-  } finally {
-    await server?.stop();
-  }
-});
+        providerDiscoveryResolver: async () => {
+          discoveryCalls++;
+          throw new Error('discovery exploded');
+        },
+      });
+      try {
+        const response = await request(server.httpServer).post('/chat').send({
+          provider: 'copilot',
+          model: 'endpoint-copilot-model',
+          conversationId: 'copilot-discovery-failure-tolerated',
+          message: 'Fail if endpoint discovery throws',
+        });
+        assert.equal(response.status, 503);
+        assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+        assert.match(
+          String(response.body.message),
+          // Unpinned inference is best-effort. Its failure cannot establish an
+          // endpoint or bypass the native authentication gate on an explicit request.
+          /copilot authentication required/i,
+        );
+        assert.equal(discoveryCalls, 1);
+        assert.equal(
+          server.harness.getState().lastCreateSessionConfig,
+          undefined,
+        );
+        assert.equal(
+          memoryConversations.get('copilot-discovery-failure-tolerated'),
+          undefined,
+        );
+      } finally {
+        await server.stop();
+      }
+    },
+  ));
 test('explicit Copilot chat requests honor a pinned external endpoint when the request model matches config', async () => {
   const originalCompatEndpoints =
     process.env.CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS;

@@ -702,6 +702,9 @@ test('startFlowRun skips whitespace-only markdown-backed flow steps through the 
             relativePath: 'blank-flow.md',
             content: ' \n ',
         });
+    __setAgentServiceDepsForTests({
+      getLmStudioBaseUrl: () => undefined,
+    });
         __setMarkdownFileResolverDepsForTests({
             listIngestedRepositories: async () => ({ repos: [], lockedModelId: null }) as never,
         });

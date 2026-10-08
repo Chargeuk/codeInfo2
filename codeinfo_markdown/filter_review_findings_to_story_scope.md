@@ -53,6 +53,8 @@ This step is an explicit scope gate only. It must not fix findings, task up find
 
 <rejection_gates>
 
+Apply these gates with Supported Assumptions And Security Repairs in `$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md`. Do not reject an otherwise story-authorized credible server vulnerability merely because a crafted malicious request bypasses UI-produced input assumptions or its minimal necessary enforcement is described as hardening. Establish the central policy's attacker, harm, authority, and proportional repair evidence; preserve explicit Out Of Scope restrictions and reject unrelated or pre-existing work. This exception changes neither this step's state/output contract nor the no-resurrection boundary, and does not replace positive authorization or materiality.
+
 Reject a finding if any of the following are true.
 
 1. The finding is explicitly listed in the plan's `### Out Of Scope` section.

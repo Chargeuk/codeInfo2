@@ -28,6 +28,15 @@
 - A preserved-behavior restoration must identify comparison-base code, tests, documentation, or another repository-owned source that establishes the behavior before the current story changed it. A prior review label or implemented commit cannot establish preserved behavior by itself.
 - When no allowed authority source can be demonstrated, preserve the finding as non-actionable evidence and do not implement, task, or use it to block the story.
 
+## Supported Assumptions And Security Repairs
+
+- Documented supported assumptions bind reviewers. For supported-workflow findings, establish the actual user operation, application-produced inputs and invariants, and upstream checks before proposing a behavior change. A broad requirement to "validate" does not authorize invented caps or new rejection behavior for otherwise supported inputs.
+- Apply the supported-workflow and credible-security routes in `$CODEINFO_ROOT/codeinfo_markdown/filter_review_batch_findings_by_materiality.md`. A synthetic test proves behavior, not realistic reachability, unless it reproduces ordinary supported inputs. An observed production incident is not required.
+- The security exception permits an evidenced minimal repair of a credible server vulnerability on a reviewed story-owned surface. Crafted malicious requests need not originate from the UI or satisfy ordinary application-produced input assumptions. This exception concerns reachability and necessary security enforcement; it is not blanket authority for hardening or a new product policy.
+- Establish attacker access and permissions, the vulnerable operation, concrete unauthorized harm, and an effective proportional minimal repair. Tie the operation and violated permission or safety contract to exact current approved story authority or comparison-base preserved behavior. The story must own the affected behavior seam, or explicitly authorize its repair. Same-file proximity and a security label do not suffice.
+- Do not broaden into unrelated or pre-existing server security repairs, override an explicit Out Of Scope restriction, or invent arbitrary caps, configuration, parsers, or reject behavior. Necessary enforcement must follow from the demonstrated vulnerability and authorized contract; general acceptance of malformed data is not security evidence.
+- Current approved scope is authoritative even if historical accepted or tested commits implemented a different policy. When reachability, harm, authority, or a proportional repair remains uncertain, preserve non-actionable evidence without a task, blocker, or repair continuation. The safely removable unused-code exception in the materiality policy remains available within authorized scope.
+
 ## What To Do Instead
 
 - If proof needs a seam, prefer read-only observability, test-only harness work, fixture or setup work, or helper improvements over a production behavior change.

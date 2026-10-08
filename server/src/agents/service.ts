@@ -3262,7 +3262,7 @@ async function runAgentInstructionUnlockedWithDeps(
     });
 
     let systemPrompt: string | undefined;
-    if (isNewConversation && agent.systemPromptPath) {
+    if (startedAsNewConversation && agent.systemPromptPath) {
       try {
         systemPrompt = await fs.readFile(agent.systemPromptPath, 'utf8');
       } catch {

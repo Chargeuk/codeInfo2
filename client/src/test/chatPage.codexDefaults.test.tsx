@@ -46,8 +46,8 @@ const defaultCodexDefaults: CodexDefaults = {
 
 const defaultCodexModels = [
   {
-    key: 'gpt-5.6-luna',
-    displayName: 'gpt-5.6-luna',
+    key: 'gpt-6-luna',
+    displayName: 'gpt-6-luna',
     type: 'codex',
     supportedReasoningEfforts: ['minimal', 'medium', 'high', 'xhigh'],
     defaultReasoningEffort: 'medium',

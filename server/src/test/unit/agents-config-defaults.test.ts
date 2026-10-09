@@ -12,16 +12,17 @@ import {
   resolveAgentRuntimeExecutionConfig,
 } from '../../agents/config.js';
 import { getActiveRunOwnership } from '../../agents/runLock.js';
-import {
-  startAgentInstruction,
-} from '../../agents/service.js';
+import { startAgentInstruction } from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
 import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { normalizeRuntimeConfig } from '../../config/runtimeConfig.js';
+import {
+  normalizeRuntimeConfig,
+  readAndNormalizeRuntimeTomlConfig,
+} from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { runWithTestOverrides } from '../support/testOverrideScope.js';
@@ -71,7 +72,9 @@ const waitFor = async (predicate: () => boolean, timeoutMs = 2000) => {
     if (predicate()) return;
     await delay(25);
   }
-  throw new Error(`Timed out waiting for condition after ${resolvedTimeoutMs}ms`);
+  throw new Error(
+    `Timed out waiting for condition after ${resolvedTimeoutMs}ms`,
+  );
 };
 
 describe('Agent config defaults', () => {
@@ -126,7 +129,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.6-terra"\nmodel_reasoning_effort = "high"\n',
+      'model = "gpt-6.1-sol"\nmodel_reasoning_effort = "high"\n',
       'utf8',
     );
 
@@ -135,7 +138,7 @@ describe('Agent config defaults', () => {
       entrypoint: 'agents.service',
     });
 
-    assert.equal(resolved.modelId, 'gpt-5.6-terra');
+    assert.equal(resolved.modelId, 'gpt-6.1-sol');
     assert.equal(resolved.providerId, 'codex');
   });
 
@@ -143,7 +146,7 @@ describe('Agent config defaults', () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
     const configPath = path.join(tmp, 'config.toml');
 
-    await fs.writeFile(configPath, 'model = "gpt-5.6-terra"\n', 'utf8');
+    await fs.writeFile(configPath, 'model = "gpt-6.1-sol"\n', 'utf8');
 
     const resolved = await resolveAgentRuntimeExecutionConfig({
       configPath,
@@ -160,7 +163,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.6-terra"\ncodeinfo_provider = ""\n',
+      'model = "gpt-6.1-sol"\ncodeinfo_provider = ""\n',
       'utf8',
     );
 
@@ -179,7 +182,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.6-terra"\ncodeinfo_provider = "   "\n',
+      'model = "gpt-6.1-sol"\ncodeinfo_provider = "   "\n',
       'utf8',
     );
 
@@ -198,7 +201,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.6-terra"\ncodeinfo_provider = "not-a-provider"\n',
+      'model = "gpt-6.1-sol"\ncodeinfo_provider = "not-a-provider"\n',
       'utf8',
     );
 
@@ -217,7 +220,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.6-terra"\ncodeinfo_provider = "not-a-provider"\n',
+      'model = "gpt-6.1-sol"\ncodeinfo_provider = "not-a-provider"\n',
       'utf8',
     );
 
@@ -258,15 +261,19 @@ describe('Agent config defaults', () => {
         CODEINFO_LMSTUDIO_HOME: undefined,
       },
       async () => {
-      const metadata = await readAgentRequestedProviderMetadata({ configPath });
-      assert.equal(metadata.providerId, 'copilot');
-      assert.equal(metadata.requestedProviderId, 'copilot');
+        const metadata = await readAgentRequestedProviderMetadata({
+          configPath,
+        });
+        assert.equal(metadata.providerId, 'copilot');
+        assert.equal(metadata.requestedProviderId, 'copilot');
       },
     );
   });
 
   it('normalizes and preserves codeinfo_openai_endpoint on the accepted agent config path', async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-endpoint-'));
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'agent-config-endpoint-'),
+    );
     const agentsHome = path.join(tmp, 'agents');
     const agentHome = path.join(agentsHome, 'coding_agent');
     const copilotHome = path.join(tmp, 'copilot-home');
@@ -319,7 +326,9 @@ describe('Agent config defaults', () => {
   });
 
   it('rejects blank codeinfo_openai_endpoint values in agent configs', async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-endpoint-blank-'));
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'agent-config-endpoint-blank-'),
+    );
     const agentHome = path.join(tmp, 'agents', 'coding_agent');
     const configPath = path.join(agentHome, 'config.toml');
     const codexHome = path.join(tmp, 'codex-home');
@@ -362,7 +371,9 @@ describe('Agent config defaults', () => {
   });
 
   it('rejects whitespace-only codeinfo_openai_endpoint values in agent configs', async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-endpoint-space-'));
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'agent-config-endpoint-space-'),
+    );
     const agentHome = path.join(tmp, 'agents', 'coding_agent');
     const configPath = path.join(agentHome, 'config.toml');
     const codexHome = path.join(tmp, 'codex-home');
@@ -407,7 +418,9 @@ describe('Agent config defaults', () => {
   });
 
   it('preserves the Codex responses requirement when agent configs target incompatible endpoints', async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-endpoint-codex-compat-'));
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'agent-config-endpoint-codex-compat-'),
+    );
     const agentHome = path.join(tmp, 'agents', 'coding_agent');
     const configPath = path.join(agentHome, 'config.toml');
     const codexHome = path.join(tmp, 'codex-home');
@@ -452,7 +465,9 @@ describe('Agent config defaults', () => {
   });
 
   it('preserves the Copilot completions requirement when agent configs target incompatible endpoints', async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-endpoint-copilot-compat-'));
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'agent-config-endpoint-copilot-compat-'),
+    );
     const agentHome = path.join(tmp, 'agents', 'coding_agent');
     const configPath = path.join(agentHome, 'config.toml');
     const copilotHome = path.join(tmp, 'copilot-home');
@@ -460,7 +475,11 @@ describe('Agent config defaults', () => {
     await fs.mkdir(path.join(copilotHome, 'chat'), { recursive: true });
     await fs.mkdir(path.dirname(configPath), { recursive: true });
     await fs.writeFile(path.join(copilotHome, 'config.toml'), '', 'utf8');
-    await fs.writeFile(path.join(copilotHome, 'chat', 'config.toml'), '', 'utf8');
+    await fs.writeFile(
+      path.join(copilotHome, 'chat', 'config.toml'),
+      '',
+      'utf8',
+    );
     await fs.writeFile(
       configPath,
       [
@@ -481,17 +500,20 @@ describe('Agent config defaults', () => {
                 configPath,
                 entrypoint: 'agents.service',
               }),
-        (error) => {
-          const typed = error as Error & { code?: string; surface?: string };
-          return (
-            typed.code === 'RUNTIME_CONFIG_VALIDATION_FAILED' &&
-            typed.surface === 'agent' &&
-            typed.message.includes(
-              'Copilot requires completions support on codeinfo_openai_endpoint',
-            )
-          );
-          },
-        ),
+            (error) => {
+              const typed = error as Error & {
+                code?: string;
+                surface?: string;
+              };
+              return (
+                typed.code === 'RUNTIME_CONFIG_VALIDATION_FAILED' &&
+                typed.surface === 'agent' &&
+                typed.message.includes(
+                  'Copilot requires completions support on codeinfo_openai_endpoint',
+                )
+              );
+            },
+          ),
       );
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });
@@ -502,7 +524,7 @@ describe('Agent config defaults', () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
     const configPath = path.join(tmp, 'config.toml');
 
-    await fs.writeFile(configPath, 'model = "gpt-5.6-terra"\n', 'utf8');
+    await fs.writeFile(configPath, 'model = "gpt-6.1-sol"\n', 'utf8');
 
     const originalInfo = console.info;
     const logs: string[] = [];
@@ -593,6 +615,59 @@ describe('Agent config defaults', () => {
     }
   });
 
+  it('configures canonical delegation for coders and researchers in both catalogs without tester delegation', async () => {
+    const repoRoot = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../../../',
+    );
+
+    for (const catalog of [
+      'codeinfo_agents',
+      'manual_testing/codeinfo_agents',
+    ]) {
+      for (const role of [
+        'coding_agent',
+        'coding_agent_lite',
+        'research_agent',
+        'research_agent_max',
+        'automated_testing_agent',
+      ]) {
+        const configPath = path.join(repoRoot, catalog, role, 'config.toml');
+        const config = await readAndNormalizeRuntimeTomlConfig(configPath, {
+          required: true,
+        });
+        const servers = config?.mcp_servers as
+          | Record<string, unknown>
+          | undefined;
+        assert.ok(servers, `${catalog}/${role} must configure MCP servers`);
+        assert.equal(servers.agents, undefined, `${catalog}/${role}`);
+        if (role === 'automated_testing_agent') {
+          assert.equal(
+            servers.codeinfo_agents,
+            undefined,
+            `${catalog}/${role}`,
+          );
+        } else {
+          assert.deepEqual(
+            servers.codeinfo_agents,
+            {
+              command: 'npx',
+              args: [
+                '-y',
+                'mcp-remote',
+                'http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp',
+                '--allow-http',
+              ],
+              startup_timeout_sec: 60,
+              tool_timeout_sec: 86400,
+            },
+            `${catalog}/${role}`,
+          );
+        }
+      }
+    }
+  });
+
   it('omits config-owned ThreadOptions when useConfigDefaults is enabled', async () => {
     setCodexDetection({
       available: true,
@@ -648,7 +723,7 @@ describe('Agent config defaults', () => {
             },
           },
           'conv-1',
-          'gpt-5.6-luna',
+          'gpt-6-luna',
         );
       },
     );
@@ -1071,12 +1146,12 @@ describe('Agent config defaults', () => {
                 capturedFlags.push(flags);
               }),
           });
-      await waitFor(
-        () =>
-          capturedFlags.length === 1 &&
-          getActiveRunOwnership(conversationId) === null,
-        5000,
-      );
+          await waitFor(
+            () =>
+              capturedFlags.length === 1 &&
+              getActiveRunOwnership(conversationId) === null,
+            5000,
+          );
 
           await startAgentInstruction({
             agentName: 'coding_agent',

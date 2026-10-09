@@ -1,1 +1,1 @@
-Automated testing agent that runs repository-defined automated proof steps, diagnoses failures, and applies focused fixes when they are clearly in scope.
+Automated testing agent that runs assigned repository checks, owns assigned substantive Markdown documentation, and reports concise terminal results and failure evidence. It does not repair code, configuration, wrappers, or tests, or delegate to another agent.

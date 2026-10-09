@@ -57,13 +57,15 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 - Use `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <bound-task-number>` as the source of truth for blocker state.
 - Treat only `selected_task.live_blockers` as active blockers for this step.
 - If `selected_task` is null or `selected_task.live_blockers` is empty, this step is a no-op: make no edits and append no note.
+- If the blocker involves a failed automated check, first request the automated testing agent's concise terminal failure evidence. Do not inspect deep logs or tests until that evidence arrives; do not monitor intermediate worker output.
 - Inspect the concrete blocker evidence first: the exact blocker text, recent implementation notes, relevant code, wrapper output, or local command evidence.
 - Perform a deeper analysis than the normal implementation step by tracing the blocker to the owning code, config, proof obligation, harness usage, or contract before deciding what to change.
 - Prefer fixing the underlying task-owned issue rather than widening scope or writing more blocker prose.
-- When the blocker is a pre-existing repository-owned test stack needed by current proof, reclaim it through the documented shutdown wrapper and retry under `shared/test-stack-lifecycle.md`. Do not stop merely because the current agent did not start it.
+- When the blocker is a pre-existing repository-owned test stack needed by current proof, establish ownership and applicability under `shared/test-stack-lifecycle.md`, then have the automated testing agent run the documented shutdown wrapper and retry. Do not stop merely because the current agent did not start it; never stop or restart the protected `compose:local` stack.
 - Continue the diagnose-fix-verify cycle while there is a credible in-scope next fix and the blocker remains task-owned.
-- Use the minimum honest verification needed to confirm the blocker repair. Do not run the full task `Testing` section in this step unless that exact proof is the only honest way to verify the implementation blocker is gone.
-- If you use a narrow verification command in this step, record only the honest result it proved and leave the later full automated-proof pass to run the task's listed testing gates.
+- Delegate any required build, typecheck, test, lint, format, diagnostic, or review-wrapper execution to the automated testing agent. Use the minimum honest verification needed to confirm the blocker repair; do not run the full task `Testing` section here unless that exact proof is the only honest way to verify the implementation blocker is gone.
+- Wait for the tester's terminal result and request a compact scope/pass/fail/skip/documentation summary. Do not monitor intermediate worker output or open successful output. Reuse returned conversation IDs only within the same assignment and respect resets.
+- If a narrow check is used here, record only what it proves and leave the later formal automated-proof pass to run every listed testing gate in order. The tester owns testing-state updates; coordinate those updates sequentially with your implementation checkbox and note updates.
 - If the repair requires external contract confirmation, use current official documentation and repository evidence before changing code.
 - When a blocker concerns a missing `$CODEINFO_ROOT` asset or runtime mapping, inspect the Compose file named by `CODEINFO_RUNTIME_COMPOSE_FILE` and the relevant Dockerfile before classifying it as external. A missing mapping in the active checked-in Compose file is repository-owned config work when the current task permits that repair; another Compose variant is not evidence that the active runtime is correctly provisioned.
 - Implement an in-scope checked-in Compose repair when possible, but never stop or restart `compose:local` from this step. Record the required later container recreation as a runtime handoff rather than claiming the current container changed immediately.
@@ -103,7 +105,7 @@ Perform a deep repair pass only for a live implementation blocker on the bound c
 
 <git_rules>
 
-- If you make tracked changes, you MUST commit them before finishing this step.
+- If you make tracked changes, commit them before finishing unless the caller explicitly assigns a no-commit or caller-owned coherent-commit stage; in that case, leave the combined commit to the caller.
 - Do not push in this step.
 
 </git_rules>

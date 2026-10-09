@@ -42,7 +42,7 @@ class TestChatInterfaceCodex extends ChatInterfaceCodex {
         conversationId: 'conv-1',
         role: 'user',
         content: 'prev',
-        model: 'gpt-5.6-luna',
+        model: 'gpt-6-luna',
         provider: 'codex',
         source: 'REST',
         toolCalls: null,
@@ -120,7 +120,7 @@ describe('ChatInterfaceCodex', () => {
     chat.on('final', (e) => emitted.push(e));
     chat.on('complete', (e) => emitted.push(e));
 
-    await chat.run('Hello', { threadId: null }, 'conv-1', 'gpt-5.6-luna');
+    await chat.run('Hello', { threadId: null }, 'conv-1', 'gpt-6-luna');
 
     const order = emitted.map((e) => e.type);
     assert.deepEqual(order, [
@@ -206,7 +206,7 @@ describe('ChatInterfaceCodex', () => {
     chat.on('final', (e) => emitted.push(e));
     chat.on('complete', (e) => emitted.push(e));
 
-    await chat.run('Hello', { threadId: null }, 'conv-nonprefix', 'gpt-5.6-luna');
+    await chat.run('Hello', { threadId: null }, 'conv-nonprefix', 'gpt-6-luna');
 
     const finals = emitted.filter((e) => e.type === 'final');
     assert.equal(finals.length, 1);
@@ -258,7 +258,12 @@ describe('ChatInterfaceCodex', () => {
     chat.on('token', (e) => emitted.push(e));
     chat.on('final', (e) => emitted.push(e));
 
-    await chat.run('Hello', { threadId: null }, 'conv-interleaved', 'gpt-5.6-luna');
+    await chat.run(
+      'Hello',
+      { threadId: null },
+      'conv-interleaved',
+      'gpt-6-luna',
+    );
 
     const finals = emitted.filter((e) => e.type === 'final');
     assert.equal(finals.length, 1);
@@ -290,7 +295,12 @@ describe('ChatInterfaceCodex', () => {
     const chat = new TestChatInterfaceCodex(codexFactory);
     chat.on('error', (event) => errors.push(event.message));
 
-    await chat.run('Hello', { threadId: null }, 'conv-object-stderr', 'gpt-5.6-luna');
+    await chat.run(
+      'Hello',
+      { threadId: null },
+      'conv-object-stderr',
+      'gpt-6-luna',
+    );
 
     assert.deepEqual(errors, ['spawn codex ENOENT']);
   });
@@ -319,7 +329,12 @@ describe('ChatInterfaceCodex', () => {
     const chat = new TestChatInterfaceCodex(codexFactory);
     chat.on('error', (event) => errors.push(event.message));
 
-    await chat.run('Hello', { threadId: null }, 'conv-object-generic', 'gpt-5.6-luna');
+    await chat.run(
+      'Hello',
+      { threadId: null },
+      'conv-object-generic',
+      'gpt-6-luna',
+    );
 
     assert.deepEqual(errors, ['codex unavailable']);
   });
@@ -354,7 +369,7 @@ describe('ChatInterfaceCodex', () => {
     });
     const chat = new TestChatInterfaceCodex(codexFactory);
 
-    await chat.run('Hello', { threadId: null }, 'conv-usage', 'gpt-5.6-luna');
+    await chat.run('Hello', { threadId: null }, 'conv-usage', 'gpt-6-luna');
 
     const turns = getMemoryTurns('conv-usage');
     const assistant = turns.find((turn) => turn.role === 'assistant');
@@ -405,7 +420,7 @@ describe('ChatInterfaceCodex', () => {
         forceWebSearchModeWhenUsingConfigDefaults: 'live',
       },
       'conv-live-search',
-      'gpt-5.6-luna',
+      'gpt-6-luna',
     );
 
     assert.equal(captured.start?.model, undefined);
@@ -442,7 +457,7 @@ describe('ChatInterfaceCodex', () => {
     });
     const chat = new TestChatInterfaceCodex(codexFactory);
 
-    await chat.run('Hello', { threadId: null }, 'conv-nocache', 'gpt-5.6-luna');
+    await chat.run('Hello', { threadId: null }, 'conv-nocache', 'gpt-6-luna');
 
     const turns = getMemoryTurns('conv-nocache');
     const assistant = turns.find((turn) => turn.role === 'assistant');
@@ -484,7 +499,7 @@ describe('ChatInterfaceCodex', () => {
     });
     const chat = new TestChatInterfaceCodex(codexFactory);
 
-    await chat.run('Hello', { threadId: null }, 'conv-total', 'gpt-5.6-luna');
+    await chat.run('Hello', { threadId: null }, 'conv-total', 'gpt-6-luna');
 
     const turns = getMemoryTurns('conv-total');
     const assistant = turns.find((turn) => turn.role === 'assistant');
@@ -537,7 +552,7 @@ describe('ChatInterfaceCodex', () => {
         },
       },
       'conv-flags',
-      'gpt-5.6-luna',
+      'gpt-6-luna',
     );
 
     assert.equal(lastOptions?.sandboxMode, 'danger-full-access');
@@ -579,7 +594,7 @@ describe('ChatInterfaceCodex', () => {
       {
         threadId: null,
         runtimeConfig: {
-          model: 'gpt-5.6-luna',
+          model: 'gpt-6-luna',
         },
         codexFlags: {
           modelReasoningSummary: 'concise',
@@ -587,13 +602,13 @@ describe('ChatInterfaceCodex', () => {
         },
       },
       'conv-runtime-overrides',
-      'gpt-5.6-luna',
+      'gpt-6-luna',
     );
 
     const config = capturedOptions?.config as
       | Record<string, unknown>
       | undefined;
-    assert.equal(config?.model, 'gpt-5.6-luna');
+    assert.equal(config?.model, 'gpt-6-luna');
     assert.equal(config?.model_reasoning_summary, 'concise');
     assert.equal(config?.model_verbosity, 'high');
   });
@@ -636,7 +651,7 @@ describe('ChatInterfaceCodex', () => {
         },
       },
       'conv-invalid-endpoint-only',
-      'gpt-5.6-luna',
+      'gpt-6-luna',
     );
 
     assert.equal(factoryCalled, false);
@@ -674,7 +689,7 @@ describe('ChatInterfaceCodex', () => {
       'Hello',
       { threadId: null, codexFlags: {} },
       'conv-flags-undefined',
-      'gpt-5.6-luna',
+      'gpt-6-luna',
     );
 
     assert.equal(lastOptions?.sandboxMode, undefined);

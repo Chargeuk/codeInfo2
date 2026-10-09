@@ -33,7 +33,7 @@ const baseConversations = [
     conversationId: 'c1',
     title: 'Active conversation',
     provider: 'codex',
-    model: 'gpt-5.6-terra',
+    model: 'gpt-6.1-sol',
     lastMessageAt: '2025-01-02T00:00:00.000Z',
     archived: false,
     agentName: 'a1',
@@ -42,7 +42,7 @@ const baseConversations = [
     conversationId: 'c2',
     title: 'Archived conversation',
     provider: 'codex',
-    model: 'gpt-5.6-terra',
+    model: 'gpt-6.1-sol',
     lastMessageAt: '2025-01-01T00:00:00.000Z',
     archived: true,
     agentName: 'a1',
@@ -255,7 +255,7 @@ describe('estimated fork history notice', () => {
           return mockJsonResponse({
             conversationId: 'estimated-fork',
             agentName: 'a1',
-            model: 'gpt-5.6-terra',
+            model: 'gpt-6.1-sol',
             estimated: true,
           });
         }

@@ -270,7 +270,7 @@ test('chat send payload includes endpointId when the selected model is endpoint-
             },
           ],
           selectedProvider: 'codex',
-          selectedModel: 'gpt-5.6-luna',
+          selectedModel: 'gpt-6-luna',
           selectedEndpointId: 'https://alpha.example/v1',
         });
       }
@@ -281,8 +281,8 @@ test('chat send payload includes endpointId when the selected model is endpoint-
           toolsAvailable: true,
           models: [
             {
-              key: 'gpt-5.6-luna',
-              displayName: 'gpt-5.6-luna',
+              key: 'gpt-6-luna',
+              displayName: 'gpt-6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/v1',
             },
@@ -325,9 +325,7 @@ test('chat send payload includes endpointId when the selected model is endpoint-
     ),
   );
   await waitFor(() =>
-    expect(screen.getByTestId('model-select')).toHaveTextContent(
-      /gpt-5\.6-luna/i,
-    ),
+    expect(screen.getByTestId('model-select')).toHaveTextContent(/gpt-6-luna/i),
   );
 
   const input = await screen.findByTestId('chat-input');
@@ -344,7 +342,7 @@ test('chat send payload includes endpointId when the selected model is endpoint-
 
   expect(chatBody).toMatchObject({
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     endpointId: 'https://alpha.example/v1',
   });
 });
@@ -382,7 +380,7 @@ test('chat send payload clears stale endpointId after switching to LM Studio', a
             },
           ],
           selectedProvider: 'codex',
-          selectedModel: 'gpt-5.6-luna',
+          selectedModel: 'gpt-6-luna',
           selectedEndpointId: 'https://alpha.example/v1',
         });
       }
@@ -393,8 +391,8 @@ test('chat send payload clears stale endpointId after switching to LM Studio', a
           toolsAvailable: true,
           models: [
             {
-              key: 'gpt-5.6-luna',
-              displayName: 'gpt-5.6-luna',
+              key: 'gpt-6-luna',
+              displayName: 'gpt-6-luna',
               type: 'codex',
               endpointId: 'https://alpha.example/v1',
             },
@@ -500,7 +498,7 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
             },
           ],
           selectedProvider: 'codex',
-          selectedModel: 'gpt-5.6-terra',
+          selectedModel: 'gpt-6.1-sol',
           selectedEndpointId: 'https://alpha.example/stale/v1',
         });
       }
@@ -514,18 +512,18 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
             label: 'OpenAI Codex',
             available: true,
             toolsAvailable: true,
-            defaultModel: 'gpt-5.6-terra',
+            defaultModel: 'gpt-6.1-sol',
             defaultModelSource: 'config',
           },
           models: [
             {
-              key: 'gpt-5.6-terra',
-              displayName: 'gpt-5.6-terra',
+              key: 'gpt-6.1-sol',
+              displayName: 'gpt-6.1-sol',
               type: 'codex',
             },
             {
-              key: 'gpt-5.6-terra',
-              displayName: 'gpt-5.6-terra',
+              key: 'gpt-6.1-sol',
+              displayName: 'gpt-6.1-sol',
               type: 'codex',
               endpointId: 'https://alpha.example/alt/v1',
             },
@@ -577,7 +575,7 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
     await waitFor(() => {
       const modelInput = modelButton.querySelector('input');
       expect(modelInput).not.toBeNull();
-      expect(modelInput).toHaveValue('gpt-5.6-terra');
+      expect(modelInput).toHaveValue('gpt-6.1-sol');
     });
 
     const input = await screen.findByTestId('chat-input');
@@ -596,7 +594,7 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
 
     expect(chatBody).toMatchObject({
       provider: 'codex',
-      model: 'gpt-5.6-terra',
+      model: 'gpt-6.1-sol',
     });
     expect(chatBody).not.toHaveProperty('endpointId');
   } finally {
@@ -840,8 +838,8 @@ test('chat send payload keeps the Copilot request provider-neutral without legac
           codexWarnings: [],
           models: [
             {
-              key: 'gpt-5.6-luna',
-              displayName: 'gpt-5.6-luna',
+              key: 'gpt-6-luna',
+              displayName: 'gpt-6-luna',
               type: 'codex',
             },
           ],
@@ -1079,8 +1077,8 @@ test('chat send payload omits hidden incompatible Codex values after switching t
           codexWarnings: [],
           models: [
             {
-              key: 'gpt-5.6-luna',
-              displayName: 'gpt-5.6-luna',
+              key: 'gpt-6-luna',
+              displayName: 'gpt-6-luna',
               type: 'codex',
             },
           ],

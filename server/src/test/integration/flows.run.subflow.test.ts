@@ -473,7 +473,7 @@ test('child lifecycle observation stays coherent across terminal persistence and
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Child lifecycle transition',
     flowName: 'child-lifecycle-transition',
     source: 'REST',
@@ -529,7 +529,7 @@ test('child lifecycle observation stays coherent across terminal persistence and
       conversationId,
       role: 'assistant',
       content: 'child completed',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       provider: 'codex',
       toolCalls: null,
       status: 'ok',
@@ -562,7 +562,7 @@ test('orphaned flow lifecycle observation remains recoverable', async () => {
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     title: 'Orphaned lifecycle observation',
     flowName: 'orphaned-lifecycle-observation',
     source: 'REST',
@@ -803,7 +803,7 @@ test('startup reattaches an interrupted parent while its persisted child wait re
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Restarted waiting child',
       flowName: 'restart-child-wait',
       source: 'REST',
@@ -831,7 +831,7 @@ test('startup reattaches an interrupted parent while its persisted child wait re
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Restarted parent',
       flowName: 'restart-parent-wait',
       source: 'REST',
@@ -2569,7 +2569,7 @@ test('resuming a subflow wave reattaches by instance id without duplicate launch
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Wave Resume Parent',
       flowName: 'parent-wave-resume',
       source: 'REST',
@@ -2650,7 +2650,7 @@ test('rewinding before a completed subflow launches a fresh child without retain
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Rewind Parent',
       flowName: 'rewind-parent',
       source: 'REST',
@@ -2901,7 +2901,7 @@ test('resume skips validating child subflow commands that are already behind res
     memoryConversations.set(conversationId, {
       _id: conversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Resume Child Command Validation',
       flowName: 'parent-command-resume-validation',
       source: 'REST',
@@ -4226,7 +4226,7 @@ test('resume reattaches to an already running child subflow instead of launching
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Resume Parent',
       flowName: 'parent-resume',
       source: 'REST',
@@ -4322,7 +4322,7 @@ test('resume reattaches when persisted state still uses legacy activeSubflow', a
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Resume Parent',
       flowName: 'parent-resume-legacy',
       source: 'REST',
@@ -4442,7 +4442,7 @@ test('resume reattaches to already running parallel child subflows instead of la
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Resume Parent',
       flowName: 'parent-resume-parallel',
       source: 'REST',
@@ -4541,7 +4541,7 @@ test('resumed parent stop wins when the restored child already finished', async 
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Resume Parent',
       flowName: 'parent-resume-terminal',
       source: 'REST',
@@ -4653,7 +4653,7 @@ test('resumed parent stop clears remembered terminal parallel child tracking bef
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Resume Parent',
       flowName: 'parent-resume-terminal-parallel',
       source: 'REST',
@@ -4749,7 +4749,7 @@ test('resume tolerates stale subflows that have no active child run or terminal 
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Stale Child',
       flowName: 'child-stale',
       source: 'REST',
@@ -4771,7 +4771,7 @@ test('resume tolerates stale subflows that have no active child run or terminal 
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Stale Parent',
       flowName: 'parent-stale',
       source: 'REST',
@@ -4850,7 +4850,7 @@ test('resume rejects malformed persisted wave progress instead of discarding its
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Malformed Wave Recovery Parent',
       flowName: 'parent-wave-malformed-recovery',
       source: 'REST',
@@ -4941,7 +4941,7 @@ test('resume rejects malformed persisted child inputs and prior flow values', as
       memoryConversations.set(conversationId, {
         _id: conversationId,
         provider: 'codex',
-        model: 'gpt-5.6-luna',
+        model: 'gpt-6-luna',
         title: `Malformed Resume ${suffix}`,
         flowName: 'parent-malformed-resume-inputs',
         source: 'REST',
@@ -5017,7 +5017,7 @@ test('restart recovery rejects a stale wave input hash and launches the current 
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Restarted Wave Child',
       flowName: 'child-wave-restart',
       source: 'REST',
@@ -5040,7 +5040,7 @@ test('restart recovery rejects a stale wave input hash and launches the current 
       conversationId: childConversationId,
       role: 'assistant',
       content: 'stale terminal assistant result',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       provider: 'codex',
       toolCalls: null,
       status: 'ok',
@@ -5050,7 +5050,7 @@ test('restart recovery rejects a stale wave input hash and launches the current 
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Restarted Wave Parent',
       flowName: 'parent-wave-restart',
       source: 'REST',
@@ -5182,7 +5182,7 @@ test('restart recovery re-enters an interrupted later-loop wave with its existin
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Later Loop Restarted Wave Child',
       flowName: 'child-wave-later-loop-restart',
       source: 'REST',
@@ -5210,7 +5210,7 @@ test('restart recovery re-enters an interrupted later-loop wave with its existin
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Later Loop Restarted Wave Parent',
       flowName: 'parent-wave-later-loop-restart',
       source: 'REST',
@@ -5326,7 +5326,7 @@ test('restart recovery reattaches only the matching wave invocation when the par
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Crash Window Wave Child',
       flowName: 'child-wave-crash-window',
       source: 'REST',
@@ -5370,7 +5370,7 @@ test('restart recovery reattaches only the matching wave invocation when the par
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Crash Window Wave Parent',
       flowName: 'parent-wave-crash-window',
       source: 'REST',
@@ -5462,7 +5462,7 @@ test('resume tolerates stale legacy activeSubflow state that has no active child
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Stale Child',
       flowName: 'child-stale-legacy',
       source: 'REST',
@@ -5484,7 +5484,7 @@ test('resume tolerates stale legacy activeSubflow state that has no active child
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Stale Parent',
       flowName: 'parent-stale-legacy',
       source: 'REST',
@@ -5562,7 +5562,7 @@ test('resume tolerates stale remembered subflows before launching missing parall
     memoryConversations.set(childConversationId, {
       _id: childConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Stale Child',
       flowName: 'child-stale',
       source: 'REST',
@@ -5584,7 +5584,7 @@ test('resume tolerates stale remembered subflows before launching missing parall
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Stale Parent',
       flowName: 'parent-stale-parallel',
       source: 'REST',
@@ -5662,7 +5662,7 @@ test('resumed parent flow uses its persisted conversation title for new subflow 
     memoryConversations.set(parentConversationId, {
       _id: parentConversationId,
       provider: 'codex',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-6-luna',
       title: 'Persisted Parent Title',
       flowName: 'parent-title',
       source: 'REST',

@@ -10,6 +10,8 @@ Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `p
 
 This is a separate positive authorization gate after negative filtering. Technical validity and positive story authorization are different decisions. A finding may be factually correct, caused by story-added code, and worth separate follow-up while still being unauthorized for implementation in this story.
 
+Apply Supported Assumptions And Security Repairs in the shared behavior lock and the reachability routes in `$CODEINFO_ROOT/codeinfo_markdown/filter_review_batch_findings_by_materiality.md`. Supported assumptions and upstream checks constrain the claimed requirement and repair. For a credible-security candidate, independently establish story-local authority and necessary enforcement under those rules; lack of UI origin is not a scope rejection. Broad "validate" wording and malformed-data acceptance alone authorize neither a cap nor new reject behavior. Preserve this gate's separate positive decision and output contract.
+
 ## Survivor-only boundary
 
 Evaluate only findings that remain actionable after the completed negative scope gate. Findings and remedies already removed, narrowed away, rejected, unsupported, duplicated, or resolved are an append-only audit and reporting trail, not authorization candidates.

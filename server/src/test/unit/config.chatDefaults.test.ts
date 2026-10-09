@@ -61,10 +61,10 @@ test('shared provider order is codex, copilot, lmstudio', () => {
 test('same-provider model repair keeps the requested provider when that provider is healthy but the requested model is missing there', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.6-sol',
+    requestedModel: 'gpt-6-astra',
     codex: {
       available: true,
-      models: ['gpt-5.6-luna', 'gpt-5.6-terra'],
+      models: ['gpt-6-luna', 'gpt-6.1-sol'],
       reason: undefined,
     },
     copilot: {
@@ -79,7 +79,7 @@ test('same-provider model repair keeps the requested provider when that provider
     },
   });
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.6-luna');
+  assert.equal(result.executionModel, 'gpt-6-luna');
   assert.equal(result.fallbackApplied, false);
   assert.equal(result.decision, 'selected');
 });
@@ -111,7 +111,7 @@ test('cross-provider fallback keeps the same requested model first when the fall
 test('cross-provider fallback drops from the requested model to the fallback provider preferred model when the requested model is unavailable there', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.6-sol',
+    requestedModel: 'gpt-6.1-sol',
     codex: {
       available: false,
       models: [],
@@ -136,16 +136,16 @@ test('cross-provider fallback drops from the requested model to the fallback pro
 test('endpoint-aware selection keeps the configured endpoint when the requested model exists there', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.6-sol',
+    requestedModel: 'gpt-6.1-sol',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: true,
-      models: ['gpt-5.6-sol', 'gpt-5.6-luna'],
+      models: ['gpt-6.1-sol', 'gpt-6-luna'],
       reason: undefined,
     },
     codex: {
       available: true,
-      models: ['gpt-5.6-luna'],
+      models: ['gpt-6-luna'],
       reason: undefined,
     },
     copilot: {
@@ -160,7 +160,7 @@ test('endpoint-aware selection keeps the configured endpoint when the requested 
     },
   });
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.6-sol');
+  assert.equal(result.executionModel, 'gpt-6.1-sol');
   assert.equal(result.executionPath, 'configured_endpoint');
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'selected');
@@ -173,16 +173,16 @@ test('endpoint-aware selection fails closed when the provider bootstrap is degra
   });
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.6-sol',
+    requestedModel: 'gpt-6.1-sol',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: true,
-      models: ['gpt-5.6-sol', 'gpt-5.6-luna'],
+      models: ['gpt-6.1-sol', 'gpt-6-luna'],
       reason: undefined,
     },
     codex: {
       available: false,
-      models: ['gpt-5.6-luna'],
+      models: ['gpt-6-luna'],
       reason: 'codex bootstrap degraded',
       unavailableKind: 'bootstrap',
     },
@@ -199,7 +199,7 @@ test('endpoint-aware selection fails closed when the provider bootstrap is degra
     allowCrossProviderFallback: false,
   });
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.6-sol');
+  assert.equal(result.executionModel, 'gpt-6.1-sol');
   assert.equal(result.executionPath, 'unavailable');
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'unavailable');
@@ -209,16 +209,16 @@ test('endpoint-aware selection fails closed when the provider bootstrap is degra
 test('endpoint-aware selection repairs to the first selectable model on the same endpoint before broader fallback', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.6-sol',
+    requestedModel: 'gpt-6-astra',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: true,
-      models: ['gpt-5.6-luna', 'gpt-5.6-terra'],
+      models: ['gpt-6-luna', 'gpt-6.1-sol'],
       reason: undefined,
     },
     codex: {
       available: true,
-      models: ['gpt-5.6-luna'],
+      models: ['gpt-6-luna'],
       reason: undefined,
     },
     copilot: {
@@ -233,7 +233,7 @@ test('endpoint-aware selection repairs to the first selectable model on the same
     },
   });
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.6-luna');
+  assert.equal(result.executionModel, 'gpt-6-luna');
   assert.equal(result.executionPath, 'same_endpoint_repair');
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'selected');
@@ -242,7 +242,7 @@ test('endpoint-aware selection repairs to the first selectable model on the same
 test('endpoint-aware selection falls back to the same provider native path before cross-provider fallback when the endpoint is unavailable', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.6-sol',
+    requestedModel: 'gpt-6-astra',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: false,
@@ -251,7 +251,7 @@ test('endpoint-aware selection falls back to the same provider native path befor
     },
     codex: {
       available: true,
-      models: ['gpt-5.6-luna', 'gpt-5.6-terra'],
+      models: ['gpt-6-luna', 'gpt-6.1-sol'],
       reason: undefined,
     },
     copilot: {
@@ -266,7 +266,7 @@ test('endpoint-aware selection falls back to the same provider native path befor
     },
   });
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.6-luna');
+  assert.equal(result.executionModel, 'gpt-6-luna');
   assert.equal(result.executionPath, 'same_provider_native_fallback');
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'fallback');
@@ -275,7 +275,7 @@ test('endpoint-aware selection falls back to the same provider native path befor
 test('endpoint-aware selection reaches cross-provider fallback only after the endpoint path and same-provider native path are both unavailable', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.6-sol',
+    requestedModel: 'gpt-6.1-sol',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: false,
@@ -308,7 +308,7 @@ test('endpoint-aware selection reaches cross-provider fallback only after the en
 test('endpoint-aware selection can fail in place when a pinned endpoint becomes unavailable', () => {
   const result = resolveRuntimeProviderSelection({
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.6-sol',
+    requestedModel: 'gpt-6-astra',
     endpoint: {
       endpointId: 'https://alpha.example/v1',
       available: false,
@@ -318,7 +318,7 @@ test('endpoint-aware selection can fail in place when a pinned endpoint becomes 
     failInPlaceOnEndpointUnavailable: true,
     codex: {
       available: true,
-      models: ['gpt-5.6-luna', 'gpt-5.6-terra'],
+      models: ['gpt-6-luna', 'gpt-6.1-sol'],
       reason: undefined,
     },
     copilot: {
@@ -333,7 +333,7 @@ test('endpoint-aware selection can fail in place when a pinned endpoint becomes 
     },
   });
   assert.equal(result.executionProvider, 'codex');
-  assert.equal(result.executionModel, 'gpt-5.6-sol');
+  assert.equal(result.executionModel, 'gpt-6-astra');
   assert.equal(result.executionPath, 'unavailable');
   assert.equal(result.endpointId, 'https://alpha.example/v1');
   assert.equal(result.decision, 'unavailable');
@@ -352,7 +352,7 @@ test('healthy endpoints still run when the requested provider is unavailable onl
     allowCrossProviderFallback: false,
     codex: {
       available: true,
-      models: ['gpt-5.6-sol'],
+      models: ['gpt-6.1-sol'],
       reason: undefined,
     },
     copilot: {
@@ -377,8 +377,8 @@ test('defaults applied marker payload includes the resolved runtime path', () =>
   const payload = buildDefaultsAppliedMarkerPayload({
     surface: '/chat',
     requestedProvider: 'codex',
-    requestedModel: 'gpt-5.6-sol',
-    resolvedModel: 'gpt-5.6-luna',
+    requestedModel: 'gpt-6.1-sol',
+    resolvedModel: 'gpt-6-luna',
     modelSource: 'request',
     runtimePath: 'same_provider_native_fallback',
     warnings: ['endpoint unavailable'],
@@ -482,7 +482,7 @@ test('resolver falls back deterministically and warns when codex chat config TOM
   assert.equal(result.values.sandboxMode, 'danger-full-access');
   assert.equal(result.values.approvalPolicy, 'on-request');
   assert.equal(result.values.modelReasoningEffort, 'high');
-  assert.equal(result.values.model, 'gpt-5.6-sol');
+  assert.equal(result.values.model, 'gpt-6.1-sol');
   assert.equal(result.values.webSearch, 'live');
   assert.ok(
     result.warnings.some(
@@ -507,7 +507,7 @@ web_search = "broken"
   assert.equal(result.values.sandboxMode, 'workspace-write');
   assert.equal(result.values.approvalPolicy, 'never');
   assert.equal(result.values.modelReasoningEffort, 'medium');
-  assert.equal(result.values.model, 'gpt-5.6-sol');
+  assert.equal(result.values.model, 'gpt-6.1-sol');
   assert.equal(result.values.webSearch, 'disabled');
   assert.ok(
     result.warnings.some((warning) =>
@@ -640,14 +640,42 @@ test('model precedence is override > config > hardcoded', async () => {
   const withHardcoded = await resolveCodexChatDefaults({
     codexHome: noConfigHome,
   });
-  assert.equal(withHardcoded.values.model, 'gpt-5.6-sol');
+  assert.equal(withHardcoded.values.model, 'gpt-6.1-sol');
   assert.equal(withHardcoded.sources.model, 'hardcoded');
+});
+// Deliberate compatibility: existing homes and explicit legacy IDs are not migrated.
+test('legacy provider-home and request model identities survive the new fallback', async () => {
+  const originalConfig =
+    'model = "gpt-5.6-sol"\nmodel_reasoning_effort = "high"\n';
+  const codexHome = await createCodexHome(originalConfig);
+  await ensureChatRuntimeConfigBootstrapped({ codexHome });
+  const configDefaults = await resolveCodexChatDefaults({ codexHome });
+  assert.equal(configDefaults.values.model, 'gpt-5.6-sol');
+  assert.equal(configDefaults.sources.model, 'config');
+  assert.equal(
+    await fs.readFile(path.join(codexHome, 'chat', 'config.toml'), 'utf8'),
+    originalConfig,
+  );
+  for (const model of [
+    'gpt-5.6-sol',
+    'gpt-5.6-terra',
+    'gpt-5.6-luna',
+    'gpt-6-sol',
+  ]) {
+    const requested = resolveChatDefaults({
+      requestProvider: 'codex',
+      requestModel: model,
+      codexHome,
+    });
+    assert.equal(requested.model, model);
+    assert.equal(requested.modelSource, 'request');
+  }
 });
 test('missing codex chat config falls back without creating the file', async () => {
   const codexHome = await createCodexHome();
   const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
   const result = await resolveCodexChatDefaults({ codexHome });
-  assert.equal(result.values.model, 'gpt-5.6-sol');
+  assert.equal(result.values.model, 'gpt-6.1-sol');
   await assert.rejects(fs.access(chatConfigPath));
 });
 test('unreadable codex chat config warns and falls back without repair', async () => {
@@ -656,7 +684,7 @@ test('unreadable codex chat config warns and falls back without repair', async (
   await fs.rm(chatConfigPath);
   await fs.mkdir(chatConfigPath, { recursive: true });
   const result = await resolveCodexChatDefaults({ codexHome });
-  assert.equal(result.values.model, 'gpt-5.6-sol');
+  assert.equal(result.values.model, 'gpt-6.1-sol');
   assert.ok(
     result.warnings.some((warning) => warning.includes('could not be read')),
   );
@@ -673,7 +701,7 @@ test('bootstrap leaves invalid existing chat config untouched while defaults sti
   const chatContents = await fs.readFile(chatConfigPath, 'utf8');
   assert.equal(bootstrapResult.branch, 'existing_noop');
   assert.equal(chatContents, '[broken');
-  assert.equal(result.values.model, 'gpt-5.6-sol');
+  assert.equal(result.values.model, 'gpt-6.1-sol');
   assert.ok(
     result.warnings.some(
       (warning) =>

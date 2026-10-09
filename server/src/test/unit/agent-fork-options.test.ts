@@ -125,7 +125,7 @@ async function withCatalog(
               path.join(home, 'config.toml'),
               [
                 `codeinfo_provider = "${provider}"`,
-                `model = "${provider === 'copilot' ? 'copilot-gpt-5' : 'gpt-5.6-luna'}"`,
+                `model = "${provider === 'copilot' ? 'copilot-gpt-5' : 'gpt-6-luna'}"`,
                 extra,
               ].join('\n'),
             );
@@ -152,7 +152,7 @@ function optionsFixture(
     _id: crypto.randomUUID(),
     provider,
     agentName: 'agent-00',
-    model: provider === 'copilot' ? 'copilot-gpt-5' : 'gpt-5.6-luna',
+    model: provider === 'copilot' ? 'copilot-gpt-5' : 'gpt-6-luna',
     title: 'Source title',
     flags: {
       workingFolder,
@@ -431,7 +431,7 @@ test('creation rereads the selected target provider after the options request', 
 
 test('options share endpoint discovery by definition, filter native/different endpoints, and creation probes afresh', async (t) => {
   const first = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.6-luna'],
+    models: ['gpt-6-luna'],
     modelResponses: [{}, { body: { object: 'list', data: [] } }],
   });
   let second:
@@ -439,7 +439,7 @@ test('options share endpoint discovery by definition, filter native/different en
     | undefined;
   try {
     const other = await startExternalOpenAiCompatServer({
-      models: ['gpt-5.6-luna'],
+      models: ['gpt-6-luna'],
     });
     second = other;
     await withCatalog(async ({ addAgent, workingFolder, counts }) => {
@@ -482,7 +482,7 @@ test('options share endpoint discovery by definition, filter native/different en
 
 test('the same endpoint ID with different capabilities gets separate discovery snapshots', async () => {
   const endpoint = await startExternalOpenAiCompatServer({
-    models: ['gpt-5.6-luna'],
+    models: ['gpt-6-luna'],
   });
   try {
     await withCatalog(async ({ addAgent, workingFolder, counts }) => {

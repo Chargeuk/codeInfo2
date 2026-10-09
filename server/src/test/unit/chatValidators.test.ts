@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
+import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { STORY_47_TASK_1_LOG_MARKER } from '../../config/chatDefaults.js';
 import {
   __resetProviderBootstrapStatusForTests,
@@ -95,7 +96,7 @@ web_search = "disabled"
     Codex_network_access_enabled: 'false',
   });
   const result = await validateChatRequest({
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     message: 'hello',
     conversationId: 'c1',
     provider: 'codex',
@@ -112,7 +113,7 @@ web_search = "disabled"
   assert.equal(result.warnings.length, 0);
 });
 test('chat request resolves provider and model from provider-local defaults after env provider selection', async () => {
-  await setChatConfig('model = "gpt-5.6-luna"\n');
+  await setChatConfig('model = "gpt-6-luna"\n');
   setEnv({
     CODEINFO_CHAT_DEFAULT_PROVIDER: 'codex',
   });
@@ -121,7 +122,7 @@ test('chat request resolves provider and model from provider-local defaults afte
     conversationId: 'shared-defaults-1',
   });
   assert.equal(result.provider, 'codex');
-  assert.equal(result.model, 'gpt-5.6-luna');
+  assert.equal(result.model, 'gpt-6-luna');
   assert.equal(result.defaultsResolution.providerSource, 'env');
   assert.equal(result.defaultsResolution.modelSource, 'config');
 });
@@ -135,7 +136,7 @@ test('invalid shared env defaults fallback without leaking invalid state', async
     conversationId: 'shared-defaults-2',
   });
   assert.equal(result.provider, 'codex');
-  assert.equal(result.model, 'gpt-5.6-sol');
+  assert.equal(result.model, 'gpt-6.1-sol');
   assert.equal(result.defaultsResolution.providerSource, 'fallback');
   assert.equal(result.defaultsResolution.modelSource, 'fallback');
   assert.ok(
@@ -243,7 +244,7 @@ web_search_mode = "disabled"
     Codex_network_access_enabled: 'false',
   });
   const result = await validateChatRequest({
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     message: 'hello',
     conversationId: 'c2',
     provider: 'codex',
@@ -268,16 +269,39 @@ web_search_mode = "disabled"
   });
 });
 test('accepts every SDK-native reasoning effort value for Codex requests', async () => {
+  await setChatConfig('model = "sdk-capability-model"\n');
+  const capability = {
+    model: 'sdk-capability-model',
+    supportedReasoningEfforts: [...modelReasoningEfforts],
+    defaultReasoningEffort: 'high',
+  };
+  const capabilities: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'never',
+      modelReasoningEffort: 'high',
+      networkAccessEnabled: true,
+      webSearchEnabled: false,
+      webSearchMode: 'disabled',
+    },
+    models: [capability],
+    byModel: new Map([[capability.model, capability]]),
+    warnings: [],
+    fallbackUsed: false,
+  };
   for (const reasoningEffort of modelReasoningEfforts) {
-    const result = await validateChatRequest({
-      model: 'gpt-5.6-terra',
-      message: 'hello',
-      conversationId: `reasoning-${reasoningEffort}`,
-      provider: 'codex',
-      agentFlags: {
-        modelReasoningEffort: reasoningEffort,
+    const result = await validateChatRequest(
+      {
+        model: capability.model,
+        message: 'hello',
+        conversationId: `reasoning-${reasoningEffort}`,
+        provider: 'codex',
+        agentFlags: {
+          modelReasoningEffort: reasoningEffort,
+        },
       },
-    });
+      { codexCapabilityResolver: async () => capabilities },
+    );
     assert.equal(result.agentFlags.modelReasoningEffort, reasoningEffort);
   }
 });
@@ -285,7 +309,7 @@ test('rejects legacy top-level chat flags instead of silently remapping them', a
   await assert.rejects(
     async () =>
       await validateChatRequest({
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         message: 'hello',
         conversationId: 'legacy-top-level',
         provider: 'codex',
@@ -365,7 +389,7 @@ test('chat request rejects a stale endpointId when defaults resolve to LM Studio
 });
 test('chat request normalizes endpointId before later runtime selection uses it', async () => {
   const result = await validateChatRequest({
-    model: 'gpt-5.6-luna',
+    model: 'gpt-6-luna',
     message: 'hello',
     conversationId: 'normalized-endpoint-id',
     provider: 'codex',
@@ -468,7 +492,7 @@ test('chat validation accepts a valid working_folder', async () => {
   try {
     const result = await validateChatRequest(
       {
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         message: 'hello',
         conversationId: 'chat-working-folder-valid',
         provider: 'codex',
@@ -502,7 +526,7 @@ test('chat validation rejects existing absolute working_folder when it is not in
     async () =>
       await validateChatRequest(
         {
-          model: 'gpt-5.6-terra',
+          model: 'gpt-6.1-sol',
           message: 'hello',
           conversationId: 'chat-working-folder-non-ingested',
           provider: 'codex',
@@ -539,7 +563,7 @@ test('chat validation rejects a mounted local execution-root child working_folde
       async () =>
         await validateChatRequest(
           {
-            model: 'gpt-5.6-terra',
+            model: 'gpt-6.1-sol',
             message: 'hello',
             conversationId: 'chat-working-folder-execution-root',
             provider: 'codex',
@@ -571,7 +595,7 @@ test('chat validation accepts an ingested absolute working_folder', async () => 
   tempDirs.push(workingFolder);
   const result = await validateChatRequest(
     {
-      model: 'gpt-5.6-terra',
+      model: 'gpt-6.1-sol',
       message: 'hello',
       conversationId: 'chat-working-folder-ingested-valid',
       provider: 'codex',
@@ -592,7 +616,7 @@ test('chat validation surfaces repository-enumeration failure instead of accepti
     async () =>
       await validateChatRequest(
         {
-          model: 'gpt-5.6-terra',
+          model: 'gpt-6.1-sol',
           message: 'hello',
           conversationId: 'chat-working-folder-enum-unavailable',
           provider: 'codex',
@@ -623,7 +647,7 @@ test('chat validation rejects invalid absolute-path working_folder with shared m
   await assert.rejects(
     async () =>
       await validateChatRequest({
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         message: 'hello',
         conversationId: 'chat-working-folder-invalid',
         provider: 'codex',
@@ -640,7 +664,7 @@ test('chat validation rejects missing-on-disk working_folder with shared message
   await assert.rejects(
     async () =>
       await validateChatRequest({
-        model: 'gpt-5.6-terra',
+        model: 'gpt-6.1-sol',
         message: 'hello',
         conversationId: 'chat-working-folder-missing',
         provider: 'codex',
@@ -701,7 +725,7 @@ web_search_mode = "disabled"
     Codex_network_access_enabled: 'false',
   });
   const result = await validateChatRequest({
-    model: 'gpt-5.6-terra',
+    model: 'gpt-6.1-sol',
     message: 'hello parity',
     conversationId: 'c-parity',
     provider: 'codex',

@@ -249,7 +249,7 @@ const RESERVED_PROVIDER_CHAT_MCP_BLOCKS: Record<
 };
 const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
   codex: [
-    'model = "gpt-5.6-sol"',
+    'model = "gpt-6.1-sol"',
     'model_reasoning_effort = "high"',
     'approval_policy = "on-request"',
     'sandbox_mode = "danger-full-access"',
@@ -460,13 +460,16 @@ async function acquireChatConfigLock(
         pid: process.pid,
       });
       if (attempt > 0) {
-        appendRuntimeTestDiagnostic('runtime.chat_config_lock_acquired_after_retry', {
-          chatConfigPath,
-          lockPath,
-          attempts: attempt + 1,
-          waitedMs: Date.now() - startedAt,
-          pid: process.pid,
-        });
+        appendRuntimeTestDiagnostic(
+          'runtime.chat_config_lock_acquired_after_retry',
+          {
+            chatConfigPath,
+            lockPath,
+            attempts: attempt + 1,
+            waitedMs: Date.now() - startedAt,
+            pid: process.pid,
+          },
+        );
       }
       return async () => {
         await handle?.close().catch(() => {});

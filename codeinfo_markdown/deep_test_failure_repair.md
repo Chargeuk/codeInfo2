@@ -52,20 +52,21 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 
 <repair_rules>
 
+- Before inspecting test files or saved logs deeply, request the automated testing agent's concise terminal evidence for the failed check. Wait for that result; do not monitor intermediate worker output or open successful output. Reuse a returned conversation ID only for the same assignment and follow any reset instruction.
 - Use the returned bounded task sections, especially `Subtasks`, `Testing`, `Task Exit Criteria`, and `Implementation Notes`, before changing code or the plan.
 - Follow the repository's wrapper-first workflow and begin from:
   - the failing task-owned proof step; or
   - when the live blocker is only that automated proof is still incomplete, the first unchecked task-owned `Testing` step.
-- If the blocker is only incomplete automated proof, treat the first unchecked `Testing` step as the next required action rather than as a passive blocked state. Run that step before deciding whether a narrower blocker still exists.
-- Before attempting a repair, re-run the exact failed task-owned proof step when one is identifiable from the blocker, task `Testing` section, wrapper summary, or saved log path. If the blocker is only that automated proof is incomplete, run the first unchecked task-owned `Testing` step first. Use that fresh rerun output as the primary debugging evidence unless rerunning is impossible or would be unsafe.
-- When fresh evidence identifies a pre-existing repository-owned test stack required by the failing proof, reclaim it with the documented shutdown wrapper and retry under `shared/test-stack-lifecycle.md`. Do not preserve the blocker merely because a different agent or flow step started the stack.
+- If the blocker is only incomplete automated proof, treat the first unchecked `Testing` step as the next required action rather than as a passive blocked state. Have the automated testing agent execute that step and report its terminal result before deciding whether a narrower blocker still exists. All executable proof, build, and test wrappers remain tester-owned; the coder may run read-only status helpers while diagnosing.
+- Before attempting a repair, ask the automated testing agent to re-run the exact failed task-owned proof step when one is identifiable from the blocker, task `Testing` section, wrapper summary, or saved log path. If proof is merely incomplete, have the tester run the first unchecked task-owned `Testing` step. Use its fresh terminal summary as primary evidence unless rerunning is impossible or unsafe; the tester executes and reports checks but does not repair code, config, wrappers, or tests.
+- When fresh evidence identifies a pre-existing repository-owned test stack required by the failing proof, establish ownership and applicability under `shared/test-stack-lifecycle.md`, then have the automated testing agent execute the documented shutdown wrapper and retry. Do not preserve the blocker merely because a different agent or flow step started the stack.
 - Inspect the concrete failure evidence first:
   - for a failed proof step, the failing assertion, error, stack, wrapper summary, or saved log path;
   - for an incomplete-proof blocker, the exact next unchecked `Testing` step and the wrapper or command it names.
 - Perform a deeper analysis than the normal automated-proof step by tracing the failure to the owning code, test, config, harness, or contract before deciding what to change.
 - Prefer fixing the underlying task-owned implementation or proof rather than papering over the failure with a weaker assertion or broader timeout unless the evidence shows that is the honest repair.
-- Use targeted wrapper reruns for diagnosis when repository guidance supports them, then rerun the original task-listed proof step honestly after each repair checkpoint.
-- When a formerly incomplete proof step passes, mark that `Testing` item complete immediately and retire any generic close-out blocker that was only preventing the next proof step from running.
+- Delegate targeted wrapper reruns for diagnosis to the tester when repository guidance supports them, then have it rerun the original task-listed proof step honestly after each repair checkpoint.
+- When a formerly incomplete proof step passes, the tester marks that `Testing` item complete immediately and retires any generic close-out blocker that was only preventing the next proof step from running. Coordinate sequentially with the coder's implementation checkbox and notes.
 - If additional `Testing` steps still remain after that pass, keep the task `__in_progress__` without preserving a generic live `**BLOCKER**` solely because more listed proof work remains.
 - If running the next unchecked proof step fails, replace any generic blocker with a narrower blocker that names the exact failing wrapper or command and whether the failure is task-owned or a prerequisite, harness, runtime, or baseline seam.
 - Continue the diagnose-fix-rerun cycle while there is a credible in-scope next fix and the failure remains task-owned.
@@ -79,7 +80,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 <section_ownership_rules>
 
 - Any task structure added or rewritten by this step MUST follow this section contract:
-  - `Subtasks` for implementation work, proof-authoring work, documentation updates, config changes, and explicitly allowed code-hygiene work that the coding agent can complete before formal proof runs.
+  - `Subtasks` for implementation, proof-authoring, config, and code-hygiene work owned by the coding agent; substantive Markdown documentation assigned to the automated testing agent.
   - `Testing` for automated proof execution only.
   - `Manual Testing Guidance` for optional, non-blocking guidance for the later `manual_testing_agent` pass only when useful.
 - Do not add manual-testing checklist items in `Subtasks` or `Testing`.
@@ -94,7 +95,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - If there is no applicable live blocker, do not edit the plan and do not append a no-op note.
 - If you resolve the failing-test or incomplete-proof blocker, retire the live `**BLOCKER**` note and preserve the outcome as `**RESOLVED ISSUE**` or `**BLOCKING ANSWER**`, whichever is the honest fit for the existing task history.
 - Keep the blocker-history update concise and avoid appending repeated essays when the same failure mode has already been documented.
-- Mark testing steps complete only when they honestly pass.
+- The automated testing agent owns execution and updates to `Testing` items and its documentation subtasks. Mark those items complete only from its honest terminal result; the coder owns implementation checkboxes and `Implementation Notes` for code repairs.
 - Mark any proof-owned subtasks complete immediately when the passing proof now honestly closes them.
 - If the deeper pass discovers new in-scope work that must be tracked explicitly, add only:
   - concise unchecked implementation or proof-authoring subtasks; or
@@ -115,7 +116,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 
 <git_rules>
 
-- If you make tracked changes, you MUST commit them before finishing this step.
+- If you make tracked changes, commit them before finishing unless the caller explicitly assigns a no-commit or caller-owned coherent-commit stage; in that case, leave the combined commit to the caller.
 - Do not push in this step.
 
 </git_rules>

@@ -2274,7 +2274,7 @@ describe('agent commands runner (v1)', () => {
       });
       assert.equal(bootstrapCalls, 0);
       assert.equal(result.providerId, 'codex');
-      assert.equal(result.modelId, 'gpt-5.6-sol');
+      assert.equal(result.modelId, 'gpt-6.1-sol');
     } finally {
       if (previousCodexHome === undefined) {
         clearScopedTestEnvValue('CODEINFO_CODEX_HOME');

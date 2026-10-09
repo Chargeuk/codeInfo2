@@ -8,13 +8,13 @@ Read the stored current-plan handoff and use only that scope for this step.
 Load the bounded current-task implementation packet before doing any work.
 Identify the active task from the current plan.
 Work through that task's `Subtasks` section fully and honestly.
-If completing the current subtask honestly requires running a test, wrapper, or other task-listed check, run only the minimum command(s) needed for that subtask and record the result immediately.
+If completing the current subtask honestly requires a test, wrapper, or other task-listed check, delegate only the minimum required command(s) to the automated testing agent and wait for its terminal result. The tester records testing state; record your own implementation subtask and notes.
 Do not treat this as permission to work through the task's broader `Testing` section during implementation.
 Do not finish this step until every unchecked subtask is complete or the task is honestly blocked.
 
-When an unchecked subtask requires launching `two_phase_review_cycle` through the supported main stack, use `npm run review:cycle:summary -- --working-folder <repository-path>` as the owning command. Do not issue a detached HTTP 202 request followed by bounded polling. While the wrapper reports `agent_action: wait`, keep waiting and do not run Compose shutdown; the wrapper must observe terminal server-owned flow state before this step may finish.
+When an unchecked subtask requires launching `two_phase_review_cycle` through the supported main stack, delegate `npm run review:cycle:summary -- --working-folder <repository-path>` to the automated testing agent as the owning command. Do not issue a detached HTTP 202 request followed by bounded polling. While the wrapper reports `agent_action: wait`, keep waiting and do not run Compose shutdown; the tester must observe terminal server-owned flow state before reporting completion.
 
-Before any such launch, run `python3 "$CODEINFO_ROOT/scripts/check_review_plan_contract.py"`. The final `two_phase_review_cycle` is not valid unfinished task work: if the helper reports a violation, do not launch it as implementation. Preserve the task honestly for plan repair or use `npm run review:diagnostic:summary -- --working-folder <repository-path>` when the task asks only for diagnostic reviewer evidence; that isolated flow must not mutate final review disposition, advance fast/slow phases, create final-review tasks, or claim story convergence. The server-owned final-cycle initializer is authoritative and will also return a normal skipped outcome when implementation or mandatory testing remains.
+Before any such launch, delegate `python3 "$CODEINFO_ROOT/scripts/check_review_plan_contract.py"` to the automated testing agent and use its terminal result. The final `two_phase_review_cycle` is not valid unfinished task work: if the helper reports a violation, do not launch it as implementation. Preserve the task honestly for plan repair or delegate `npm run review:diagnostic:summary -- --working-folder <repository-path>` when the task asks only for diagnostic reviewer evidence; that isolated flow must not mutate final review disposition, advance fast/slow phases, create final-review tasks, or claim story convergence. The server-owned final-cycle initializer is authoritative and will also return a normal skipped outcome when implementation or mandatory testing remains.
 
 </task>
 
@@ -48,10 +48,12 @@ Before any such launch, run `python3 "$CODEINFO_ROOT/scripts/check_review_plan_c
 
 - Work only on the selected task's `Subtasks` section until all unchecked subtasks are complete or the task is honestly blocked.
 - If the selected task has no unchecked subtasks, do not implement a later task in this step.
-- If the next honest action required to complete the current subtask is to run a test, wrapper, or task-listed check, do that instead of stopping.
+- If the next honest action required to complete the current subtask is a build, typecheck, test, lint, format, or other check, assign the exact check to `automated_testing_agent` and wait for its terminal result instead of running it directly. Delegate substantive Markdown documentation work to that agent as well. The coding agent owns production/config/test authoring and all code repairs.
 - Complete subtasks in `Subtasks` list order unless a later item is strictly required first to complete the current one honestly.
 - Mark each completed subtask complete immediately.
-- If a command or wrapper honestly completes a directly corresponding `Testing` item while you are finishing a subtask, mark that `Testing` item complete immediately as well.
+- The automated testing agent owns execution and updates to `Testing` items and documentation subtasks assigned to it. Do not mark those items complete from a check you ran directly; wait for the tester's terminal result and coordinate plan updates sequentially. Mark your own implementation subtask and `Implementation Notes` immediately when complete.
+- For delegated work, await the terminal result and request a compact scope/pass/fail/skip/documentation summary. Do not monitor intermediate worker output or open successful output. Reuse returned conversation IDs only within the same assignment and respect resets.
+- If a delegated check fails, request the tester's concise failure evidence before inspecting tests or saved logs deeply; then repair only the directly causal implementation within task scope.
 - Do not add new `Subtasks` in this step.
 - You may add a new unchecked `Testing` item only when implementation in this step created a genuinely new automated proof obligation for the current task and the existing `Testing` section does not already cover that same harness or check.
 - Do not add a `Testing` item merely to capture screenshots, logs, proof-home paths, reruns, or other outputs from a harness that is already covered by an existing `Testing` item.
@@ -92,7 +94,7 @@ Before any such launch, run `python3 "$CODEINFO_ROOT/scripts/check_review_plan_c
 
 <git_rules>
 
-- If you make tracked changes, you MUST commit them before finishing this step.
+- If you make tracked changes, commit them before finishing unless the caller explicitly assigns a no-commit or caller-owned coherent-commit stage; in that case, leave the combined commit to the caller.
 - Do not push in this step.
 
 </git_rules>

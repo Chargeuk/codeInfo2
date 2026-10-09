@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -83,9 +84,15 @@ function collectProductionFlowAgentTypes(
 }
 
 test('root compose inventory for Task 11 remains scoped to the checked-in files', () => {
-  const rootComposeFiles = fs
-    .readdirSync(repoRoot)
-    .filter((entry) => /^docker-compose.*\.ya?ml$/u.test(entry))
+  const rootComposeFiles = execFileSync('git', ['ls-files', '-z', '--cached'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  })
+    .split('\0')
+    .filter(
+      (entry) =>
+        !entry.includes('/') && /^docker-compose.*\.ya?ml$/u.test(entry),
+    )
     .sort();
 
   assert.deepEqual(rootComposeFiles, [

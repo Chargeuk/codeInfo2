@@ -298,7 +298,7 @@ export async function runAgentCommandRunner(
     },
   });
 
-  let modelId = params.initialModelId ?? 'gpt-5.6-sol';
+  let modelId = params.initialModelId ?? 'gpt-6.1-sol';
   const logger = params.logger ?? (baseLogger as LoggerLike);
   const maxAttempts = getFlowAndCommandRetries();
 

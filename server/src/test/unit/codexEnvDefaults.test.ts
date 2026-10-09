@@ -133,16 +133,24 @@ test('empty Codex_model_list still falls back to the parser-owned model defaults
   const { models, warnings, fallbackUsed } = getCodexModelList();
 
   assert.equal(fallbackUsed, true);
-  assert.deepEqual(models, [
-    'gpt-5.6-sol',
-    'gpt-5.6-terra',
-    'gpt-5.6-luna',
-    'gpt-6-astra',
-    'gpt-6-sol',
-    'gpt-6.1-sol',
-    'gpt-6-luna',
-  ]);
+  assert.deepEqual(models, ['gpt-6.1-sol', 'gpt-6-luna', 'gpt-6-astra']);
   assert.ok(
     warnings.some((warning) => warning.includes('Codex_model_list is empty')),
   );
+});
+
+// Deliberate legacy compatibility: catalog overrides are exact identities, not aliases.
+test('explicit legacy catalog entries remain unchanged and deduplicate only exact IDs', () => {
+  setEnv({
+    Codex_model_list: ' gpt-5.6-sol, gpt-6-sol, gpt-5.6-sol, custom-model ',
+  });
+  const { models, fallbackUsed } = getCodexModelList();
+  assert.equal(fallbackUsed, false);
+  assert.deepEqual(models, ['gpt-5.6-sol', 'gpt-6-sol', 'custom-model']);
+  assert.deepEqual(mergeCodexModelList(models, 'gpt-5.6-terra'), [
+    'gpt-5.6-sol',
+    'gpt-6-sol',
+    'custom-model',
+    'gpt-5.6-terra',
+  ]);
 });

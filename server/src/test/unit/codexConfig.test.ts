@@ -48,7 +48,7 @@ describe('codexConfig', () => {
   });
   it('buildDefaultCodexConfig seeds the canonical base template without a Context7 api key pair', () => {
     const config = buildDefaultCodexConfig();
-    assert.match(config, /model = "gpt-5\.6-sol"/u);
+    assert.match(config, /model = "gpt-6\.1-sol"/u);
     assert.match(config, /args = \['-y', '@upstash\/context7-mcp'\]/u);
     assert.doesNotMatch(config, /ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866/u);
     assert.doesNotMatch(config, /--api-key/u);
@@ -361,7 +361,7 @@ describe('codexConfig', () => {
       const configPath = ensureCodexConfigSeeded();
       const seeded = await fs.readFile(configPath, 'utf8');
       assert.equal(configPath, path.join(codexHome, 'config.toml'));
-      assert.match(seeded, /model = "gpt-5\.6-sol"/u);
+      assert.match(seeded, /model = "gpt-6\.1-sol"/u);
       assert.match(seeded, /command = "npx"/u);
     } finally {
       if (originalCodeinfoHome === undefined) {
@@ -509,7 +509,7 @@ describe('codexConfig', () => {
     });
     try {
       await fs.writeFile(authPath, '{"token":"shared"}', 'utf8');
-      await fs.writeFile(configPath, 'model = "gpt-5.6-sol"\n', 'utf8');
+      await fs.writeFile(configPath, 'model = "gpt-6.1-sol"\n', 'utf8');
       const detection = detectCodex({
         codexHome,
         resolveCliPath: () => '/usr/local/bin/codex',
@@ -538,7 +538,7 @@ describe('codexConfig', () => {
       errorLogs.push(args.map(String).join(' '));
     });
     try {
-      await fs.writeFile(configPath, 'model = "gpt-5.6-sol"\n', 'utf8');
+      await fs.writeFile(configPath, 'model = "gpt-6.1-sol"\n', 'utf8');
       const detection = detectCodex({
         codexHome,
         resolveCliPath: () => '/usr/local/bin/codex',
@@ -571,7 +571,7 @@ describe('codexConfig', () => {
       reason: undefined,
     });
     try {
-      await fs.writeFile(configPath, 'model = "gpt-5.6-sol"\n', 'utf8');
+      await fs.writeFile(configPath, 'model = "gpt-6.1-sol"\n', 'utf8');
       const failed = refreshCodexDetection({
         codexHome,
         resolveCliPath: () => '/usr/local/bin/codex',

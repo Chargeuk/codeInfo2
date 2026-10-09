@@ -65,6 +65,8 @@ else
   normalized_runtime_groups=""
 fi
 
+codeinfo-prepare-rust-homes
+
 drop_privileges_and_exec_node() {
   if [ "$(id -u)" != "0" ]; then
     exec node dist/index.js

@@ -116,13 +116,13 @@ function mockApi() {
             codexWarnings: [],
             models: [
               {
-                key: 'gpt-5.6-luna',
-                displayName: 'gpt-5.6-luna',
+                key: 'gpt-6-luna',
+                displayName: 'gpt-6-luna',
                 type: 'codex',
               },
               {
-                key: 'gpt-5.6-terra',
-                displayName: 'gpt-5.6-terra',
+                key: 'gpt-6.1-sol',
+                displayName: 'gpt-6.1-sol',
                 type: 'codex',
               },
             ],
@@ -176,7 +176,7 @@ function mockApi() {
                 conversationId: codexConversationId,
                 title: 'Codex conversation',
                 provider: 'codex',
-                model: 'gpt-5.6-luna',
+                model: 'gpt-6-luna',
                 lastMessageAt: '2025-12-09T12:00:02.000Z',
                 archived: false,
               },
@@ -435,7 +435,7 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.6-luna/i,
+        /gpt-6-luna/i,
       ),
     );
     expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
@@ -677,8 +677,8 @@ describe('Chat shared shell conversation selection', () => {
               codexWarnings: [],
               models: [
                 {
-                  key: 'gpt-5.6-luna',
-                  displayName: 'gpt-5.6-luna',
+                  key: 'gpt-6-luna',
+                  displayName: 'gpt-6-luna',
                   type: 'codex',
                   supportedReasoningEfforts: ['high'],
                   defaultReasoningEffort: 'high',
@@ -698,7 +698,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: codexConversationId,
                   role: 'user',
                   content: 'hello codex',
-                  model: 'gpt-5.6-luna',
+                  model: 'gpt-6-luna',
                   provider: 'codex',
                   toolCalls: null,
                   status: 'ok',
@@ -708,7 +708,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: codexConversationId,
                   role: 'assistant',
                   content: 'codex reply',
-                  model: 'gpt-5.6-luna',
+                  model: 'gpt-6-luna',
                   provider: 'codex',
                   toolCalls: null,
                   status: 'ok',
@@ -729,7 +729,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: codexConversationId,
                   title: 'Codex conversation',
                   provider: 'codex',
-                  model: 'gpt-5.6-luna',
+                  model: 'gpt-6-luna',
                   lastMessageAt: '2025-12-09T12:00:02.000Z',
                   archived: false,
                 },
@@ -862,7 +862,7 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.6-luna/i,
+        /gpt-6-luna/i,
       ),
     );
     expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
@@ -902,7 +902,7 @@ describe('Chat shared shell conversation selection', () => {
       expect(screen.getByTestId('model-select')).toHaveTextContent(/LM Model/i),
     );
     expect(screen.getByTestId('model-select')).not.toHaveTextContent(
-      /gpt-5\.6-luna/i,
+      /gpt-6-luna/i,
     );
   });
 
@@ -929,7 +929,7 @@ describe('Chat shared shell conversation selection', () => {
                 },
               ],
               selectedProvider: 'codex',
-              selectedModel: 'gpt-5.6-terra',
+              selectedModel: 'gpt-6.1-sol',
               selectedEndpointId: 'https://alpha.example/stale/v1',
             });
           }
@@ -948,35 +948,35 @@ describe('Chat shared shell conversation selection', () => {
                 label: 'OpenAI Codex',
                 available: true,
                 toolsAvailable: true,
-                defaultModel: 'gpt-5.6-terra',
+                defaultModel: 'gpt-6.1-sol',
               },
               models: [
                 {
-                  key: 'gpt-5.6-terra',
-                  displayName: 'gpt-5.6-terra',
+                  key: 'gpt-6.1-sol',
+                  displayName: 'gpt-6.1-sol',
                   type: 'codex',
                 },
                 {
-                  key: 'gpt-5.6-luna',
-                  displayName: 'gpt-5.6-luna',
+                  key: 'gpt-6-luna',
+                  displayName: 'gpt-6-luna',
                   type: 'codex',
                   endpointId: 'https://alpha.example/base/v1',
                 },
                 {
-                  key: 'gpt-5.6-luna',
-                  displayName: 'gpt-5.6-luna',
+                  key: 'gpt-6-luna',
+                  displayName: 'gpt-6-luna',
                   type: 'codex',
                   endpointId: 'https://alpha.example/alt/v1',
                 },
                 {
-                  key: 'gpt-5.6-terra',
-                  displayName: 'gpt-5.6-terra',
+                  key: 'gpt-6.1-sol',
+                  displayName: 'gpt-6.1-sol',
                   type: 'codex',
                   endpointId: 'https://alpha.example/base/v1',
                 },
                 {
-                  key: 'gpt-5.6-terra',
-                  displayName: 'gpt-5.6-terra',
+                  key: 'gpt-6.1-sol',
+                  displayName: 'gpt-6.1-sol',
                   type: 'codex',
                   endpointId: 'https://alpha.example/alt/v1',
                 },
@@ -991,7 +991,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: 'codex-conv',
                   role: 'user',
                   content: 'hello codex',
-                  model: 'gpt-5.6-luna',
+                  model: 'gpt-6-luna',
                   provider: 'codex',
                   toolCalls: null,
                   status: 'ok',
@@ -1001,7 +1001,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: 'codex-conv',
                   role: 'assistant',
                   content: 'codex reply',
-                  model: 'gpt-5.6-luna',
+                  model: 'gpt-6-luna',
                   provider: 'codex',
                   toolCalls: null,
                   status: 'ok',
@@ -1018,7 +1018,7 @@ describe('Chat shared shell conversation selection', () => {
                   conversationId: 'codex-conv',
                   title: 'Codex conversation',
                   provider: 'codex',
-                  model: 'gpt-5.6-luna',
+                  model: 'gpt-6-luna',
                   flags: {
                     endpointId: 'https://alpha.example/alt/v1',
                   },
@@ -1036,7 +1036,7 @@ describe('Chat shared shell conversation selection', () => {
               conversationId: 'draft-conversation',
               inflightId: 'i1',
               provider: 'codex',
-              model: 'gpt-5.6-terra',
+              model: 'gpt-6.1-sol',
             });
           }
 
@@ -1069,7 +1069,7 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.6-terra/i,
+        /gpt-6\.1-sol/i,
       ),
     );
     expect(screen.getByTestId('model-select')).not.toHaveTextContent(
@@ -1088,7 +1088,7 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.6-luna \(alpha\.example \/ alt\)/i,
+        /gpt-6-luna \(alpha\.example \/ alt\)/i,
       ),
     );
     expect(screen.getByRole('combobox', { name: /provider/i })).toHaveAttribute(
@@ -1120,7 +1120,7 @@ describe('Chat shared shell conversation selection', () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId('model-select')).toHaveTextContent(
-        /gpt-5\.6-terra/i,
+        /gpt-6\.1-sol/i,
       ),
     );
     expect(screen.getByTestId('model-select')).not.toHaveTextContent(

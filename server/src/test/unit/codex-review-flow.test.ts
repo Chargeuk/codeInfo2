@@ -4,8 +4,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { compileFunction } from 'node:vm';
 
 import { parseFlowFile } from '../../flows/flowSchema.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 const repoRoot = path.resolve(process.cwd(), '..');
 const launcherPath = path.join(repoRoot, 'scripts/run-codex-review.sh');
@@ -67,16 +69,22 @@ test('Codex review flow uses the generic workspace agent and launcher prompt', (
   for (const required of [
     '$CODEINFO_ROOT/scripts/run-codex-review.sh',
     'do not construct or invoke `codex exec review` directly',
-    'model `gpt-5.6-terra`',
+    'model `gpt-6.1-sol`',
     'reasoning effort `high`',
     '--dangerously-bypass-approvals-and-sandbox',
     "Redirect the launcher's JSONL stdout and diagnostic stderr",
     'work/review-usage/native-codex.md',
     "Do not include this wrapper agent's own usage",
-    'Invoke it with the direct `exec_command` tool',
-    'never with `functions.exec`',
-    'poll it with direct `write_stdin` until the same process result includes a numeric `exit_code`',
-    'Only that direct terminal process result supplies the actual exit status',
+    'direct `exec_command` when exposed',
+    'nested `tools.exec_command` through `functions.exec`',
+    'Every nested call must be awaited and its complete result emitted',
+    'exact numeric `session_id`',
+    'nested `tools.write_stdin`',
+    '`cell_id`',
+    '`functions.wait` only while that cell is running',
+    'never call it for a completed cell',
+    'until its result includes a numeric `exit_code`',
+    'Only the terminal process result from either interface supplies the actual exit status',
     'native-response file only after the process exits',
   ]) {
     assert.match(
@@ -106,7 +114,7 @@ test('Codex review launcher fixes Docker-native invocation settings', (t) => {
       '--base',
       '0123456789abcdef',
       '--model',
-      'gpt-5.6-terra',
+      'gpt-6.1-sol',
       '--reasoning-effort',
       'high',
       '--instructions-file',
@@ -140,7 +148,7 @@ test('Codex review launcher fixes Docker-native invocation settings', (t) => {
     '--dangerously-bypass-approvals-and-sandbox',
     '--ephemeral',
     '--model',
-    'gpt-5.6-terra',
+    'gpt-6.1-sol',
     '--base',
     '0123456789abcdef',
     '--config',
@@ -209,7 +217,7 @@ test('Codex review launcher preserves the native process exit status', (t) => {
       '--base',
       'base-commit',
       '--model',
-      'gpt-5.6-terra',
+      'gpt-6.1-sol',
       '--reasoning-effort',
       'high',
       '--instructions-file',
@@ -244,7 +252,7 @@ test('Codex review launcher rejects missing model or mismatched reasoning before
 
   const mismatches: ReadonlyArray<readonly [string, string, RegExp]> = [
     ['', 'high', /--model is required/u],
-    ['gpt-5.6-terra', 'medium', /--reasoning-effort must be high/u],
+    ['gpt-6.1-sol', 'medium', /--reasoning-effort must be high/u],
   ];
 
   for (const [model, reasoningEffort, expectedError] of mismatches) {
@@ -299,7 +307,7 @@ test('Codex review launcher rejects missing input before invoking Codex', (t) =>
       '--base',
       'base-commit',
       '--model',
-      'gpt-5.6-terra',
+      'gpt-6.1-sol',
       '--reasoning-effort',
       'high',
       '--instructions-file',
@@ -323,3 +331,125 @@ test('Codex review launcher rejects missing input before invoking Codex', (t) =>
   assert.match(result.stderr, /instructions file does not exist/u);
   assert.equal(fs.existsSync(path.join(tempRoot, 'args.bin')), false);
 });
+
+// Execute the actual shared prompt examples with deterministic fake tools. This
+// guards await/emission/session behavior; it is not real runtime or provider proof.
+for (const exitCode of [0, 17]) {
+  test(
+    `nested review prompt examples retain complete results and one process through exit ${exitCode}`,
+    { timeout: resolveConfiguredTestTimeoutMs(10000) },
+    async () => {
+      const contract = readRepoFile(
+        'codeinfo_markdown/review_job_workspace_contract.md',
+      );
+      const snippets = [
+        ...contract.matchAll(/```javascript\n([\s\S]*?)\n```/gu),
+      ].map((match) => match[1]);
+      assert.equal(snippets.length, 2);
+      const evaluate = (
+        snippet: string,
+        tools: object,
+        text: (value: unknown) => void,
+        sessionId?: number,
+      ) =>
+        compileFunction(`return (async () => { ${snippet} })();`, [
+          'tools',
+          'text',
+          'nativeCommand',
+          'targetRepository',
+          'nativeSessionId',
+        ])(
+          tools,
+          text,
+          'assigned-review-command',
+          '/assigned-repository',
+          sessionId,
+        ) as Promise<void>;
+
+      let markEntered!: () => void;
+      let releaseGate!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        markEntered = resolve;
+      });
+      const release = new Promise<void>((resolve) => {
+        releaseGate = resolve;
+      });
+      const emitted: unknown[] = [];
+      const liveResult = {
+        session_id: 81427,
+        output: 'partial output',
+        chunk_id: 'launch-chunk',
+        wall_time_seconds: 1,
+      };
+      const pollResult = {
+        session_id: 81427,
+        output: 'more output',
+        chunk_id: 'poll-chunk',
+        wall_time_seconds: 1,
+      };
+      const terminalResult = {
+        exit_code: exitCode,
+        output: 'terminal output',
+        chunk_id: 'exit-chunk',
+        wall_time_seconds: 1,
+      };
+      let launches = 0;
+      let polls = 0;
+      const tools = {
+        exec_command: async (args: Record<string, unknown>) => {
+          launches += 1;
+          assert.equal(args.cmd, 'assigned-review-command');
+          assert.equal(args.workdir, '/assigned-repository');
+          markEntered();
+          await release;
+          return liveResult;
+        },
+        write_stdin: async (args: Record<string, unknown>) => {
+          assert.equal(args.session_id, liveResult.session_id);
+          assert.equal(typeof args.session_id, 'number');
+          assert.equal(args.chars, '');
+          polls += 1;
+          return polls === 1 ? pollResult : terminalResult;
+        },
+      };
+      let cellCompleted = false;
+      const launch = evaluate(snippets[0], tools, (value) =>
+        emitted.push(value),
+      ).then(() => {
+        cellCompleted = true;
+      });
+      try {
+        await entered;
+        // Held at an explicit gate: no forgotten await or premature emission.
+        assert.equal(cellCompleted, false);
+        assert.equal(emitted.length, 0);
+        releaseGate();
+        await launch;
+        assert.equal(cellCompleted, true);
+        assert.equal(emitted[0], liveResult);
+        assert.equal('exit_code' in liveResult, false);
+        await evaluate(
+          snippets[1],
+          tools,
+          (value) => emitted.push(value),
+          liveResult.session_id,
+        );
+        assert.equal(emitted[1], pollResult);
+        assert.equal('exit_code' in pollResult, false);
+        await evaluate(
+          snippets[1],
+          tools,
+          (value) => emitted.push(value),
+          liveResult.session_id,
+        );
+        assert.equal(emitted[2], terminalResult);
+        assert.equal(terminalResult.exit_code, exitCode);
+        assert.equal(launches, 1);
+        assert.equal(polls, 2);
+      } finally {
+        releaseGate();
+        await launch;
+      }
+    },
+  );
+}

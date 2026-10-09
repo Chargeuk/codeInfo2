@@ -62,7 +62,7 @@ test('actual-review usage keeps input, cached input, and output separate', async
     invocation: 1,
     attempt: 1,
     providerId: 'codex',
-    modelId: 'gpt-5.6-sol',
+    modelId: 'gpt-6.1-sol',
     status: 'ok',
     usage: {
       inputTokens: 120,
@@ -94,7 +94,7 @@ test('missing usage writes honest non-blocking evidence', async (t) => {
     invocation: 1,
     attempt: 1,
     providerId: 'codex',
-    modelId: 'gpt-5.6-terra',
+    modelId: 'gpt-6.1-sol',
     status: 'failed',
   });
 

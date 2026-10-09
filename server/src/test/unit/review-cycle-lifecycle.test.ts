@@ -244,13 +244,12 @@ test('flow status ignores an active review cycle owned by a different conversati
       randomHex: () => '22222222',
     },
   );
-  const conversationId =
-    `review-cycle-status-first-conversation-${randomUUID()}`;
+  const conversationId = `review-cycle-status-first-conversation-${randomUUID()}`;
   const now = new Date();
   memoryConversations.set(conversationId, {
     _id: conversationId,
     provider: 'codex',
-    model: 'gpt-5.6-sol',
+    model: 'gpt-6.1-sol',
     title: 'First review cycle',
     flowName: 'two_phase_review_cycle',
     source: 'REST',

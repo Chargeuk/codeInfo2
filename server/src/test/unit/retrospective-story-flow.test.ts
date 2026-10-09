@@ -22,10 +22,16 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     'llm',
     'reingest',
   ]);
-  assert.equal(steps[1]?.type, 'llm');
   assert.equal(
-    steps[2]?.type === 'llm' && 'markdownFile' in steps[2]
-      ? steps[2].markdownFile
+    steps[0]?.type === 'llm' && 'markdownFile' in steps[0]
+      ? steps[0].markdownFile
+      : null,
+    'retrospective_story/00-archive-existing-story.md',
+  );
+  assert.equal(steps[2]?.type, 'llm');
+  assert.equal(
+    steps[3]?.type === 'llm' && 'markdownFile' in steps[3]
+      ? steps[3].markdownFile
       : null,
     'retrospective_story/01-publish-branch.md',
   );
@@ -38,9 +44,9 @@ test('retrospective story flow reingests around distinct planning and tasking pa
       step.type === 'reingest' && 'target' in step ? step.target : null,
     ]),
     [
-      [0, 'working'],
-      [8, 'plan_scope'],
-      [16, 'plan_scope'],
+      [1, 'working'],
+      [9, 'plan_scope'],
+      [17, 'plan_scope'],
     ],
   );
 
@@ -54,6 +60,7 @@ test('retrospective story flow reingests around distinct planning and tasking pa
   assert.deepEqual(
     prompts.map(({ agent }) => agent),
     [
+      'planning_agent_lite',
       'planning_agent',
       'planning_agent_lite',
       'planning_agent_lite',
@@ -373,4 +380,117 @@ test('retrospective agents document provenance without creating blockers or revi
   assert.ok(check.includes('Flag any `- **BLOCKER**` line'));
   assert.ok(repair.includes('Remove blocker lines'));
   assert.ok(audit.includes('Remove every `- **BLOCKER**` line'));
+});
+
+test('archive prompts preserve ownership and keep relocation out of delivered scope', () => {
+  const archive = read(
+    'codeinfo_markdown/retrospective_story/00-archive-existing-story.md',
+  );
+  const shared = read('codeinfo_markdown/retrospective_story/shared.md');
+  const layout = read(
+    'codeinfo_markdown/retrospective_story/01-create-layout.md',
+  );
+  const commit = read(
+    'codeinfo_markdown/retrospective_story/11-commit-and-push.md',
+  );
+
+  for (const required of [
+    'FIRST step, before working reingest',
+    'archive_retrospective_story.py',
+    'fresh current branch',
+    'never an old current-plan handoff',
+    'No matching story is a normal no-op',
+    'safe no-ops with reasons',
+    'Do not select the archived one-shot filename',
+    'retrospective-archive.json',
+  ]) {
+    assert.ok(archive.includes(required), required);
+  }
+  assert.ok(shared.includes('source deletion from delivered implementation'));
+  assert.ok(shared.includes('planning/*.md'));
+  assert.ok(shared.includes('Do not let the archive alter'));
+  assert.ok(layout.includes('Copy a verified archived receipt'));
+  assert.ok(layout.includes('new canonical numbered plan'));
+  assert.ok(shared.includes('preserve it through branch publication'));
+  assert.ok(
+    shared.includes('all `retrospective_archive.entries` independently'),
+  );
+  assert.ok(
+    shared.includes(
+      'a prior receipt never suppresses a present replacement source',
+    ),
+  );
+  assert.ok(
+    shared.includes(
+      'Several matching files are confirmed scope, not ambiguity',
+    ),
+  );
+  assert.ok(shared.includes('positive integer suffix relationship'));
+  assert.ok(archive.includes('deterministic filename order'));
+  assert.ok(
+    archive.includes('Exclusive destination creation retries occupied names'),
+  );
+  assert.ok(archive.includes('Per-file archive errors are nonfatal'));
+  assert.ok(
+    archive.includes('If no sources remain, recover verified prior entries'),
+  );
+  assert.ok(!archive.includes('destination collisions are safe no-ops'));
+  assert.ok(!archive.includes('ambiguous matches'));
+  assert.ok(commit.includes('Include ALL verified archive destinations'));
+  assert.ok(commit.includes('Retain earlier verified pending mappings'));
+  assert.ok(commit.includes('deduplicated explicit path list'));
+  assert.ok(
+    commit.includes('an absent untracked source is not a Git pathspec'),
+  );
+  assert.ok(commit.includes('git add -A -- <story paths>'));
+  assert.ok(commit.includes('do not attempt a separate `git rm`'));
+  assert.ok(commit.includes('Preserve unrelated staged files'));
+  assert.ok(commit.includes('ignored archive receipt must remain uncommitted'));
+  assert.ok(read('.gitignore').includes('retrospective-archive.json'));
+});
+
+test('every writing and checking pass applies branch documentation evidence rules', () => {
+  const flow = JSON.parse(
+    read('flows/document_completed_branch_story.json'),
+  ) as {
+    steps: Array<{ type: string; markdownFile?: string }>;
+  };
+  const shared = read('codeinfo_markdown/retrospective_story/shared.md');
+  for (const required of [
+    'story-owned staged, unstaged, and untracked documentation',
+    'Current behavior claims must agree with current implementation and the actual diff',
+    'Use relevant earlier commits and code for historical evolution',
+    'abandoned or superseded approaches as historical',
+    'code does not prove motivation',
+    'Authored documentation and tests do not prove execution or test passes',
+    'Original-plan proposals, template text, and unsupported documentation claims',
+    'factual evidence limits, not blockers or code-review findings',
+  ]) {
+    assert.ok(shared.includes(required), required);
+  }
+  for (const step of flow.steps.filter((item) => item.type === 'llm')) {
+    assert.ok(step.markdownFile);
+    const prompt = read(`codeinfo_markdown/${step.markdownFile}`);
+    if (step.markdownFile.endsWith('00-archive-existing-story.md')) {
+      assert.ok(prompt.includes('Relevant branch-authored documentation'));
+      continue;
+    }
+    // Individual prompts must invoke the contract even in independent agent turns.
+    for (const required of [
+      'shared documentation evidence contract',
+      'branch-authored README/docs',
+      'design and architecture notes, changelogs',
+      'archived original story',
+      'staged, unstaged, and untracked docs',
+      'implementation and actual diff',
+      'attribute documented rationale',
+      'superseded approaches as historical',
+      'never extra tasks, blockers, review findings, or proof of test passes',
+      'Process all `retrospective_archive.entries` independently',
+      'preserve every verified mapping in any handoff update',
+      'exclude administrative archive changes from delivered implementation',
+    ]) {
+      assert.ok(prompt.includes(required), `${step.markdownFile}: ${required}`);
+    }
+  }
 });

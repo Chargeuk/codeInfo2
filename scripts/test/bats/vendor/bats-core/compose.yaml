@@ -3,6 +3,8 @@ services:
     build:
       context: '.'
       dockerfile: 'Dockerfile'
+      additional_contexts:
+        corp_certs: ${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}
     networks:
       - 'default'
     user: 'root'

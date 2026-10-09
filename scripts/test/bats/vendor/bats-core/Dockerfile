@@ -1,7 +1,23 @@
 # syntax=docker/dockerfile:1
 ARG bashver=latest
 
+# corp_certs is empty unless overridden with --build-context corp_certs=PATH.
+FROM scratch AS corp_certs
+COPY certs/empty-corp-ca/ /
+
 FROM bash:${bashver}
+
+COPY --from=corp_certs / /usr/local/share/ca-certificates/codeinfo-build/
+# Bootstrap HTTPS package downloads before installing the CA management tools.
+RUN set -eu; \
+    mkdir -p /etc/ssl/certs; \
+    for cert in /usr/local/share/ca-certificates/codeinfo-build/*.crt; do \
+      [ -f "$cert" ] || continue; \
+      printf '\n' >> /etc/ssl/certs/ca-certificates.crt; \
+      cat "$cert" >> /etc/ssl/certs/ca-certificates.crt; \
+    done; \
+    apk add --no-cache ca-certificates; \
+    update-ca-certificates
 ARG TINI_VERSION=v0.19.0
 ARG TARGETPLATFORM
 ARG LIBS_VER_SUPPORT=0.3.0

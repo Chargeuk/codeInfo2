@@ -30,6 +30,36 @@ resolve_repo_root() {
   cd "${script_dir}/.." && pwd
 }
 
+resolve_corp_certs_dir() {
+  local cert_dir
+  # Compose handles dotenv quoting, interpolation and environment precedence.
+  if ! cert_dir="$(cd "${REPO_ROOT}" && "${DOCKER_BIN}" compose \
+    --env-file server/.env --env-file server/.env.local --env-file client/.env.local \
+    -f docker-compose.local.yml config --environment | node -e '
+let input = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (chunk) => { input += chunk; });
+process.stdin.on("end", () => {
+  const prefix = "CODEINFO_CORP_CERTS_DIR=";
+  const line = input.split(/\r?\n/).find((entry) => entry.startsWith(prefix));
+  if (line) process.stdout.write(line.slice(prefix.length));
+});
+')"; then
+    printf 'Unable to resolve the corporate certificate setting from Compose.\n' >&2
+    return 1
+  fi
+  cert_dir="${cert_dir:-${REPO_ROOT}/certs/empty-corp-ca}"
+  case "${cert_dir}" in
+    /*) ;;
+    *) cert_dir="${REPO_ROOT}/${cert_dir}" ;;
+  esac
+  if [ ! -d "${cert_dir}" ]; then
+    printf 'Corporate certificate directory does not exist: %s\n' "${cert_dir}" >&2
+    return 1
+  fi
+  cd "${cert_dir}" && pwd -P
+}
+
 resolve_docker_socket() {
   local endpoint path
   if [ -n "${CODEINFO_LOCAL_HELPER_SOCKET_PATH:-}" ]; then
@@ -182,6 +212,7 @@ if [ "${HOST_OS}" = "Darwin" ] && [ "${CODEINFO_DOCKER_FORCE_ROOT_ON_DARWIN:-1}"
 fi
 
 CONTAINER_LOG_PATH="/workspace/${LOG_RELATIVE_PATH}"
+CORP_CERTS_DIR="$(resolve_corp_certs_dir)"
 helper_args=(
   bash
   /workspace/scripts/local-stack-helper-restart.sh
@@ -198,7 +229,8 @@ if [ "${HELPER_DRY_RUN}" = "1" ]; then
 fi
 
 if [ "${SKIP_IMAGE_BUILD}" != "1" ]; then
-  run_or_echo "${DOCKER_BIN}" build -f "${REPO_ROOT}/Dockerfile.local-restarter" -t "${IMAGE_TAG}" "${REPO_ROOT}"
+  run_or_echo "${DOCKER_BIN}" build -f "${REPO_ROOT}/Dockerfile.local-restarter" -t "${IMAGE_TAG}" \
+    --build-context "corp_certs=${CORP_CERTS_DIR}" "${REPO_ROOT}"
 fi
 
 remove_existing_helper
@@ -208,9 +240,11 @@ run_or_echo \
   --group-add "${HELPER_SOCKET_GID}" \
   -v "${SOCKET_PATH}:/var/run/docker.sock" \
   -v "${REPO_ROOT}:/workspace" \
+  -v "${CORP_CERTS_DIR}:${CORP_CERTS_DIR}:ro" \
   -w /workspace \
   -e "CODEINFO_LOCAL_HELPER_REPO_ROOT=/workspace" \
   -e "CODEINFO_LOCAL_HELPER_DELAY_SECONDS=${DELAY_SECONDS}" \
   -e "CODEINFO_LOCAL_HELPER_LOG_PATH=${CONTAINER_LOG_PATH}" \
+  -e "CODEINFO_CORP_CERTS_DIR=${CORP_CERTS_DIR}" \
   "${IMAGE_TAG}" \
   "${helper_args[@]}"

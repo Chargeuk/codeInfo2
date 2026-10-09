@@ -1,5 +1,7 @@
 {
   "name": "Bats core development environment",
-  "dockerFile": "Dockerfile",
-  "build": { "args": { "bashver": "5.3" } }
+  "dockerComposeFile": ["../compose.yaml", "compose.yaml"],
+  "service": "bats",
+  "workspaceFolder": "/opt/bats",
+  "overrideCommand": true
 }

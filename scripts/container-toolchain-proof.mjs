@@ -155,7 +155,17 @@ async function repositoryFingerprint(source) {
 }
 
 const platformArgs = platform ? ['--platform', platform] : [];
+const certificateContextArgs = process.env.CODEINFO_CORP_CERTS_DIR
+  ? [
+      '--build-context',
+      `corp_certs=${path.resolve(root, process.env.CODEINFO_CORP_CERTS_DIR)}`,
+    ]
+  : [];
 const buildOverrides = [
+  'CODEINFO_INSTALL_GH',
+  'CODEINFO_GOPROXY',
+  'CODEINFO_CARGO_REGISTRY',
+  'CODEINFO_WASM_INSTALL_METHOD',
   'CODEINFO_NPM_REGISTRY',
   'CODEINFO_PIP_INDEX_URL',
   'CODEINFO_PIP_TRUSTED_HOST',
@@ -175,6 +185,7 @@ async function build(service, phase) {
       'build',
       '--progress=plain',
       ...platformArgs,
+      ...certificateContextArgs,
       ...buildOverrides,
       '-f',
       path.join(context, service, 'Dockerfile'),

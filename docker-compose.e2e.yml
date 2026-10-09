@@ -6,6 +6,8 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
+      additional_contexts:
+        corp_certs: ${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}
       args:
         HOME: ${HOME}
         CODEINFO_RUNTIME_UID: ${CODEINFO_DOCKER_UID:-1000}
@@ -14,6 +16,10 @@ services:
         CODEINFO_PIP_INDEX_URL: ${CODEINFO_PIP_INDEX_URL:-}
         CODEINFO_PIP_TRUSTED_HOST: ${CODEINFO_PIP_TRUSTED_HOST:-}
         CODEINFO_NODE_EXTRA_CA_CERTS: ${CODEINFO_NODE_EXTRA_CA_CERTS:-}
+        CODEINFO_INSTALL_GH: ${CODEINFO_INSTALL_GH:-true}
+        CODEINFO_GOPROXY: ${CODEINFO_GOPROXY:-https://proxy.golang.org,direct}
+        CODEINFO_CARGO_REGISTRY: ${CODEINFO_CARGO_REGISTRY:-}
+        CODEINFO_WASM_INSTALL_METHOD: ${CODEINFO_WASM_INSTALL_METHOD:-release}
     image: codeinfo2-server-e2e
     network_mode: host
     env_file:
@@ -76,6 +82,8 @@ services:
     build:
       context: .
       dockerfile: client/Dockerfile
+      additional_contexts:
+        corp_certs: ${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}
       args:
         VITE_CODEINFO_API_URL: ${E2E_API_URL:-http://host.docker.internal:6010}
         VITE_CODEINFO_LMSTUDIO_URL: ${VITE_CODEINFO_LMSTUDIO_URL:-http://host.docker.internal:1234}

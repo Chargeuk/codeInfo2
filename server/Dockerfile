@@ -3,11 +3,28 @@ ARG OPEN_CODE_REVIEW_REPOSITORY=https://github.com/Chargeuk/open-code-review.git
 ARG OPEN_CODE_REVIEW_REF=codex/fix-codex-owned-review
 ARG OPEN_CODE_REVIEW_COMMIT=a93c4868a4b8b3adfb20895a1e0c3a95333b3ae9
 
+# corp_certs is empty unless overridden with --build-context corp_certs=PATH.
+FROM scratch AS corp_certs
+COPY certs/empty-corp-ca/ /
+
 FROM golang:1.25.12-bookworm AS open-code-review-build
 ARG OPEN_CODE_REVIEW_REPOSITORY
 ARG OPEN_CODE_REVIEW_REF
 ARG OPEN_CODE_REVIEW_COMMIT
+ARG CODEINFO_GOPROXY=https://proxy.golang.org,direct
 WORKDIR /src
+COPY --from=corp_certs / /usr/local/share/ca-certificates/codeinfo-build/
+RUN set -eu; \
+    mkdir -p /etc/ssl/certs; \
+    for cert in /usr/local/share/ca-certificates/codeinfo-build/*.crt; do \
+      [ -f "$cert" ] || continue; \
+      printf '\n' >> /etc/ssl/certs/ca-certificates.crt; \
+      cat "$cert" >> /etc/ssl/certs/ca-certificates.crt; \
+    done; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates; \
+    update-ca-certificates; \
+    rm -rf /var/lib/apt/lists/*
 RUN set -eu; \
     git init; \
     git remote add origin "${OPEN_CODE_REVIEW_REPOSITORY}"; \
@@ -18,7 +35,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     set -eu; \
     mkdir -p /out; \
-    CGO_ENABLED=0 go build -trimpath \
+    GOPROXY="${CODEINFO_GOPROXY}" CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X main.Version=codex-${OPEN_CODE_REVIEW_COMMIT} -X main.GitCommit=${OPEN_CODE_REVIEW_COMMIT}" \
       -o /out/ocr ./cmd/opencodereview
 
@@ -31,11 +48,22 @@ ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
 ARG CODEINFO_PIP_TRUSTED_HOST
 ARG CODEINFO_NODE_EXTRA_CA_CERTS
+ENV NODE_EXTRA_CA_CERTS=${CODEINFO_NODE_EXTRA_CA_CERTS:-/etc/ssl/certs/ca-certificates.crt}
 ENV HUSKY=0
-RUN apt-get update && apt-get install -y \
+COPY --from=corp_certs / /usr/local/share/ca-certificates/codeinfo-build/
+RUN set -eu; \
+    mkdir -p /etc/ssl/certs; \
+    for cert in /usr/local/share/ca-certificates/codeinfo-build/*.crt; do \
+      [ -f "$cert" ] || continue; \
+      printf '\n' >> /etc/ssl/certs/ca-certificates.crt; \
+      cat "$cert" >> /etc/ssl/certs/ca-certificates.crt; \
+    done; \
+    apt-get update && apt-get install -y \
+    ca-certificates \
     python3 \
     make \
     g++ \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 COPY package-lock.json ./
@@ -52,6 +80,20 @@ RUN --mount=type=cache,target=/root/.npm \
     fi
 FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS build
 WORKDIR /app
+ARG CODEINFO_NODE_EXTRA_CA_CERTS
+ENV NODE_EXTRA_CA_CERTS=${CODEINFO_NODE_EXTRA_CA_CERTS:-/etc/ssl/certs/ca-certificates.crt}
+COPY --from=corp_certs / /usr/local/share/ca-certificates/codeinfo-build/
+RUN set -eu; \
+    mkdir -p /etc/ssl/certs; \
+    for cert in /usr/local/share/ca-certificates/codeinfo-build/*.crt; do \
+      [ -f "$cert" ] || continue; \
+      printf '\n' >> /etc/ssl/certs/ca-certificates.crt; \
+      cat "$cert" >> /etc/ssl/certs/ca-certificates.crt; \
+    done; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates; \
+    update-ca-certificates; \
+    rm -rf /var/lib/apt/lists/*
 ENV HUSKY=0
 COPY --from=deps /app/node_modules /app/node_modules
 COPY --from=deps /app/server/node_modules /app/server/node_modules
@@ -67,17 +109,30 @@ COPY server ./server
 RUN npm run build --workspace common && npm run build --workspace server
 
 FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS runtime
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 ARG GH_VERSION=2.94.0
+ARG CODEINFO_INSTALL_GH=true
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
 ARG CODEINFO_PIP_TRUSTED_HOST
 ARG CODEINFO_NODE_EXTRA_CA_CERTS
-# Install prerequisites
-RUN apt-get update && apt-get install -y \
+ENV NODE_EXTRA_CA_CERTS=${CODEINFO_NODE_EXTRA_CA_CERTS:-/etc/ssl/certs/ca-certificates.crt}
+# Install corporate trust before any HTTPS tooling downloads.
+COPY --from=corp_certs / /usr/local/share/ca-certificates/codeinfo-build/
+RUN set -eu; \
+    mkdir -p /etc/ssl/certs; \
+    for cert in /usr/local/share/ca-certificates/codeinfo-build/*.crt; do \
+      [ -f "$cert" ] || continue; \
+      printf '\n' >> /etc/ssl/certs/ca-certificates.crt; \
+      cat "$cert" >> /etc/ssl/certs/ca-certificates.crt; \
+    done; \
+    apt-get update && apt-get install -y \
     curl \
     ca-certificates \
     gnupg \
     lsb-release \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Add Docker’s official GPG key
@@ -96,8 +151,13 @@ RUN echo \
   $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
 
 # Install the pinned GitHub CLI release directly so builds do not depend on the
-# package repository's release lag.
+# package repository's release lag. Bitbucket-only builds can disable it.
 RUN set -eu; \
+    case "${CODEINFO_INSTALL_GH}" in \
+      true) ;; \
+      false) echo "GitHub CLI installation disabled (CODEINFO_INSTALL_GH=false)"; exit 0 ;; \
+      *) echo "CODEINFO_INSTALL_GH must be true or false" >&2; exit 1 ;; \
+    esac; \
     GH_ARCH="$(dpkg --print-architecture)"; \
     case "${GH_ARCH}" in \
       amd64|arm64) ;; \
@@ -155,7 +215,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     terraform \
     tzdata \
     chromium; \
-    gh --version; \
+    if [ "${CODEINFO_INSTALL_GH}" = "true" ]; then gh --version; fi; \
     rm -rf /var/lib/apt/lists/*
 
 # Debian installs fd-find as fdfind; provide fd for tooling expectations.
@@ -238,11 +298,22 @@ ARG RUST_VERSION=1.99.0
 ARG WASM_PACK_VERSION=0.15.0
 ARG WASM_BINDGEN_VERSION=0.2.129
 ARG BINARYEN_VERSION=133
+ARG BINARYEN_SOURCE_COMMIT=fba5005a132d85d578be5bd010e0487ed8e2ce3e
+ARG CODEINFO_CARGO_REGISTRY
+ARG CODEINFO_WASM_INSTALL_METHOD=release
 ENV RUSTUP_HOME=/opt/rustup \
     CARGO_HOME=/opt/cargo \
     PATH=/opt/cargo/bin:/opt/wasm-tools/bin:/opt/binaryen/bin:${PATH}
+ENV CARGO_REGISTRIES_CODEINFO_INDEX=${CODEINFO_CARGO_REGISTRY}
+RUN if [ -n "${CODEINFO_CARGO_REGISTRY}" ]; then \
+      mkdir -p "${CARGO_HOME}"; \
+      printf '[source.crates-io]\nreplace-with = "codeinfo"\n' > "${CARGO_HOME}/config.toml"; \
+    fi
 COPY server/toolchain-checksums.txt server/install-rust-toolchain.sh /tmp/
-RUN sh /tmp/install-rust-toolchain.sh
+RUN --mount=type=cache,target=/opt/cargo/registry \
+    --mount=type=cache,target=/opt/cargo/git \
+    --mount=type=cache,target=/var/cache/codeinfo-cargo-target \
+    sh /tmp/install-rust-toolchain.sh
 COPY server/prepare-rust-homes.sh /usr/local/bin/codeinfo-prepare-rust-homes
 RUN chmod 755 /usr/local/bin/codeinfo-prepare-rust-homes
 

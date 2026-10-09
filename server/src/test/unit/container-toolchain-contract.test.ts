@@ -142,7 +142,7 @@ test('tool installs use checksum-covered official architectures before runtime o
   assert.match(server, /xz-utils/u);
   assert.match(server, /RUSTUP_HOME=\/opt\/rustup/u);
   assert.match(server, /CARGO_HOME=\/opt\/cargo/u);
-  const install = server.indexOf('RUN sh /tmp/install-rust-toolchain.sh');
+  const install = server.indexOf('sh /tmp/install-rust-toolchain.sh');
   assert.ok(install < server.indexOf('ARG HOME='));
   assert.ok(install < server.indexOf('ARG CODEINFO_RUNTIME_UID='));
   assert.ok(install < server.indexOf('COPY --from=build /app/server/dist'));

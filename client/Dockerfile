@@ -1,6 +1,23 @@
 # syntax=docker/dockerfile:1.7
+# corp_certs is empty unless overridden with --build-context corp_certs=PATH.
+FROM scratch AS corp_certs
+COPY certs/empty-corp-ca/ /
+
 FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS build
 WORKDIR /app
+COPY --from=corp_certs / /usr/local/share/ca-certificates/codeinfo-build/
+RUN set -eu; \
+    mkdir -p /etc/ssl/certs; \
+    for cert in /usr/local/share/ca-certificates/codeinfo-build/*.crt; do \
+      [ -f "$cert" ] || continue; \
+      printf '\n' >> /etc/ssl/certs/ca-certificates.crt; \
+      cat "$cert" >> /etc/ssl/certs/ca-certificates.crt; \
+    done; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates; \
+    update-ca-certificates; \
+    rm -rf /var/lib/apt/lists/*
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
 ENV HUSKY=0
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_NPM_FETCH_RETRIES=5
@@ -55,7 +72,19 @@ RUN npm run build --workspace client
 
 FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS runtime
 WORKDIR /app/client
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+COPY --from=corp_certs / /usr/local/share/ca-certificates/codeinfo-build/
+RUN set -eu; \
+    mkdir -p /etc/ssl/certs; \
+    for cert in /usr/local/share/ca-certificates/codeinfo-build/*.crt; do \
+      [ -f "$cert" ] || continue; \
+      printf '\n' >> /etc/ssl/certs/ca-certificates.crt; \
+      cat "$cert" >> /etc/ssl/certs/ca-certificates.crt; \
+    done; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends curl ca-certificates; \
+    update-ca-certificates; \
+    rm -rf /var/lib/apt/lists/*
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common
 COPY --from=build /app/client/dist ./dist

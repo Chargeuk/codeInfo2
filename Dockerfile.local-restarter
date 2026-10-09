@@ -1,4 +1,22 @@
+# syntax=docker/dockerfile:1.7
+# corp_certs is empty unless overridden with --build-context corp_certs=PATH.
+FROM scratch AS corp_certs
+COPY certs/empty-corp-ca/ /
+
 FROM node:22-alpine
+
+COPY --from=corp_certs / /usr/local/share/ca-certificates/codeinfo-build/
+# Bootstrap HTTPS package downloads before installing the CA management tools.
+RUN set -eu; \
+    mkdir -p /etc/ssl/certs; \
+    for cert in /usr/local/share/ca-certificates/codeinfo-build/*.crt; do \
+      [ -f "$cert" ] || continue; \
+      printf '\n' >> /etc/ssl/certs/ca-certificates.crt; \
+      cat "$cert" >> /etc/ssl/certs/ca-certificates.crt; \
+    done; \
+    apk add --no-cache ca-certificates; \
+    update-ca-certificates
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
 
 RUN apk add --no-cache bash docker-cli docker-cli-compose
 

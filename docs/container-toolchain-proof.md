@@ -64,6 +64,27 @@ Sources: [rustup archive](https://static.rust-lang.org/rustup/archive/1.29.1/),
 [wasm-bindgen release](https://github.com/wasm-bindgen/wasm-bindgen/releases/tag/0.2.129),
 [Binaryen release](https://github.com/WebAssembly/binaryen/releases/tag/version_133).
 
+Restricted-network builds can select `CODEINFO_WASM_INSTALL_METHOD=source` and
+provide `CODEINFO_CARGO_REGISTRY` as a sparse Cargo mirror index URL. The source
+path retains the same tool versions, uses `cargo install --locked` with registry
+checksum verification for wasm-pack and wasm-bindgen CLI, and builds Binaryen
+from Git tag `version_133` at verified revision
+`fba5005a132d85d578be5bd010e0487ed8e2ce3e`. Source-built executables do not use the
+release archive checksums; the default `release` path continues to verify them.
+The image persists the Cargo mirror configuration under `/opt/cargo` for runtime
+projects. The proof wrapper forwards exported `CODEINFO_CARGO_REGISTRY` and
+`CODEINFO_WASM_INSTALL_METHOD` settings; it does not load Compose env files.
+
+On 2026-10-09 the Marex source path built both main Compose images on Linux AMD64.
+The successful initial source build took about 11 minutes; a follow-up build took
+1 minute 27 seconds. A disposable UID 1000 container verified the image's mirror
+mapping and the WSL account's Cargo config, fetched fixture dependencies through
+Artifactory, compiled a wasm-bindgen 0.2.129 fixture with wasm-pack 0.15.0,
+optimised it with Binaryen 133, and executed the result in Node (returned 42).
+The server unit suite passed 3060 tests with zero failures (3 skips). This checks
+the new source path on AMD64; the full copied Rapier proof, ARM64 source path,
+client tests and e2e tests were not rerun for this configuration change.
+
 ## Layer and runtime behavior
 
 Workspace npm installs use manifest-only inputs with BuildKit `/root/.npm`

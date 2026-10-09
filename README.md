@@ -123,8 +123,80 @@ Client env contract:
 Corporate certificate directory requirements:
 
 - Example host path: `/home/<user>/corp-certs`
-- Put corporate CA files in that directory as `.crt` files.
-- `CODEINFO_CORP_CERTS_DIR` points to this host directory and is mounted into `/usr/local/share/ca-certificates/codeinfo-corp`.
+- Put corporate CA files in that directory as PEM-format `.crt` files, one certificate per file. Copy the actual files rather than links into the Windows filesystem. Keep this directory outside the repository.
+- Set `CODEINFO_CORP_CERTS_DIR` to its absolute host path in `server/.env.local` (main/local workflows), or `.env.e2e` (e2e). An exported shell value takes precedence over the env files.
+- Compose supplies this directory to server and client builds as the `corp_certs` named context. Docker Compose 2.17+ and a builder supporting named contexts are required.
+- Each independent Dockerfile stage installs the supplied certificates before dependency downloads. Final images retain them under `/usr/local/share/ca-certificates/codeinfo-build`, covering runtime HTTPS without a certificate mount or startup refresh.
+- Node uses the combined system CA bundle during builds and at runtime. Server Python tooling also uses that bundle through `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE`.
+- The existing server runtime mount at `/usr/local/share/ca-certificates/codeinfo-corp` remains available for optional startup refresh; it does not hide certificates baked into `codeinfo-build`.
+
+For Windows certificate export and WSL trust installation, follow [the command-based setup guide](docker_ssl_setup.md). Once the exported PEM certificate is available in WSL, the CodeInfo-specific setup is:
+
+```bash
+mkdir -p "$HOME/corp-certs"
+# Replace the source with your exported corporate root certificate.
+cp -L /path/to/exported-company-root.pem "$HOME/corp-certs/company-root.crt"
+sudo install -m 644 "$HOME/corp-certs/company-root.crt" /usr/local/share/ca-certificates/company-root.crt
+sudo update-ca-certificates
+```
+
+Then add this setting to `server/.env.local`, replacing `<user>` with your WSL username:
+
+```dotenv
+CODEINFO_CORP_CERTS_DIR=/home/<user>/corp-certs
+```
+
+Build with `npm run compose:build:summary`. The certificate files are baked into the images, so rebuild after changing them. Existing running containers pick up the new image when you recreate them through your normal workflow.
+
+Direct Docker builds can use the same folder:
+
+```bash
+docker build --build-context "corp_certs=$HOME/corp-certs" -f server/Dockerfile -t codeinfo2-server .
+docker build --build-context "corp_certs=$HOME/corp-certs" -f client/Dockerfile -t codeinfo2-client .
+docker build --build-context "corp_certs=$HOME/corp-certs" -f Dockerfile.local-restarter -t codeinfo2-local-restarter .
+```
+
+Without a named context, all five Dockerfiles use their checked-in empty certificate directory. The detached local-stack helper resolves the same env-file setting, passes it to its image build, and mounts the folder read-only at the original host path so nested Compose builds can access it.
+
+The disposable `test:summary:container-toolchain` wrapper also passes the named context when `CODEINFO_CORP_CERTS_DIR` is exported in the shell; it does not load the Compose env files.
+
+The two vendored Bats Dockerfiles also support this context. For those builds, export the setting before running Compose or opening the Bats devcontainer from WSL:
+
+```bash
+export CODEINFO_CORP_CERTS_DIR="$HOME/corp-certs"
+docker compose -f scripts/test/bats/vendor/bats-core/compose.yaml build
+```
+
+The Bats devcontainer uses that Compose configuration with its own Dockerfile override. To build either Bats Dockerfile directly, use `scripts/test/bats/vendor/bats-core` as the build context and pass `--build-context "corp_certs=$HOME/corp-certs"`.
+
+These changes cover images built from the repository's five Dockerfiles. Prebuilt services such as Playwright MCP, MongoDB and Chroma have their own trust stores.
+
+For Bitbucket-only work, add `CODEINFO_INSTALL_GH=false` to `server/.env.local` to skip the GitHub CLI download and its build-time version checks. Installation stays enabled by default. E2e builds read this setting from `.env.e2e`; direct Docker builds accept `--build-arg CODEINFO_INSTALL_GH=false`, and the toolchain-proof wrapper reads an exported shell value. Disabling it removes GitHub PR/review automation and Copilot's `gh` authentication fallback; Git, Bitbucket tooling, and Copilot's token/device authentication remain available.
+
+If OpenCode Review's Go dependency downloads fail with `unexpected EOF` from `proxy.golang.org`, add `CODEINFO_GOPROXY=direct` to `server/.env.local`. Go then downloads from the dependencies' source repositories with TLS and checksum verification still enabled. This setting only affects the server's OpenCode Review build. The default remains `https://proxy.golang.org,direct`; its automatic fallback only handles HTTP 404/410, so it does not recover from truncated downloads. You can also set this variable to your company's approved Go module proxy URL. E2e builds read `.env.e2e`, direct Docker builds accept `--build-arg CODEINFO_GOPROXY=direct`, and the toolchain-proof wrapper reads an exported shell value. See the [Go module download settings](https://go.dev/ref/mod#environment-variables).
+
+For Cargo packages and WebAssembly tools behind a corporate mirror, add these settings to `server/.env.local`:
+
+```dotenv
+CODEINFO_CARGO_REGISTRY=sparse+https://artifactory.marex.com/artifactory/api/cargo/cargo-remote/index/
+CODEINFO_WASM_INSTALL_METHOD=source
+```
+
+The registry URL must include the `sparse+` prefix and trailing slash. Server images persist the URL as `CARGO_REGISTRIES_CODEINFO_INDEX` and create `/opt/cargo/config.toml` to replace crates.io with that registry. This covers both build-time Cargo installs and agents' runtime Cargo downloads, including when provider homes are mounted. It does not redirect Git dependencies or rustup downloads. The client, helper and Bats images do not include Cargo.
+
+`source` installs the pinned wasm-pack and wasm-bindgen CLI versions with Cargo's lockfile and checksum checks, then compiles Binaryen 133 from its pinned Git revision. It avoids their GitHub release archive downloads and limits compilation to four jobs. Cargo download and compilation caches are reused between Docker builds. Without these settings, Cargo keeps its normal registry and WebAssembly tools use the original checksum-verified release archives. E2e reads `.env.e2e`; direct Docker builds accept these settings as build arguments, and the toolchain-proof wrapper reads exported shell values.
+
+WSL has its own independent configuration. To apply the same mirror to your account, merge this into `${CARGO_HOME:-$HOME/.cargo}/config.toml` (create its directory and file if absent; preserve existing settings):
+
+```toml
+[source.crates-io]
+replace-with = "marex"
+
+[source.marex]
+registry = "sparse+https://artifactory.marex.com/artifactory/api/cargo/cargo-remote/index/"
+```
+
+Cargo must be installed and on your WSL PATH to use this configuration. Source replacement itself has no supported environment-variable equivalent; the server image's small config file supplies that mapping. See [Cargo source replacement](https://doc.rust-lang.org/cargo/reference/source-replacement.html). Rebuild the server image after changing the build settings; existing containers use their previous image until recreated through your normal workflow.
 
 `CODEINFO_REFRESH_CA_CERTS_ON_START=false` is the default behavior. Only case-insensitive `true` enables refresh. If refresh is enabled and certs are missing/invalid, server startup fails fast with non-zero exit.
 
@@ -133,8 +205,8 @@ Corporate certificate directory requirements:
 | `CODEINFO_NPM_REGISTRY`              | npm default registry behavior                      | Docker build-time npm install steps in server/client images, and host helper install in `start-gcf-server.sh` |
 | `CODEINFO_PIP_INDEX_URL`             | pip default index behavior                         | Server Docker build-time `pip install`                                                                        |
 | `CODEINFO_PIP_TRUSTED_HOST`          | pip default trusted-host behavior                  | Server Docker build-time `pip install`                                                                        |
-| `CODEINFO_NODE_EXTRA_CA_CERTS`       | `/etc/ssl/certs/ca-certificates.crt`               | Server runtime export before Node starts                                                                      |
-| `CODEINFO_CORP_CERTS_DIR`            | `./certs/empty-corp-ca` compose fallback source    | Compose server cert mount source to `/usr/local/share/ca-certificates/codeinfo-corp:ro`                       |
+| `CODEINFO_NODE_EXTRA_CA_CERTS`       | `/etc/ssl/certs/ca-certificates.crt`               | Server build-time Node trust and runtime export before Node starts                                            |
+| `CODEINFO_CORP_CERTS_DIR`            | `./certs/empty-corp-ca` compose fallback source    | Server/client/helper/Bats build context and optional server runtime certificate mount                         |
 | `CODEINFO_REFRESH_CA_CERTS_ON_START` | Disabled (`false` behavior unless value is `true`) | Server entrypoint CA refresh gate before `exec node dist/index.js`                                            |
 
 # CodeInfo2 Details

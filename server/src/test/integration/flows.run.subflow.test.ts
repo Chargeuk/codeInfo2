@@ -25,7 +25,13 @@ import {
   recordMemoryTurn,
 } from '../../chat/memoryPersistence.js';
 import { __resetProviderBootstrapStatusForTests } from '../../config/runtimeConfig.js';
+import { __resetFlowDefinitionCatalogForTests } from '../../flows/flowDefinitionCatalog.js';
 import { hashFlowInput } from '../../flows/flowInput.js';
+import type { FlowResumeState } from '../../flows/flowState.js';
+import {
+  __setMarkdownFileResolverDepsForTests,
+  __resetMarkdownFileResolverDepsForTests,
+} from '../../flows/markdownFileResolver.js';
 import {
   __resumePendingFlowWaitsForTests,
   __resetFlowWaitResumeDepsForTests,
@@ -55,6 +61,7 @@ import {
 import {
   enterTestEnvOverrides,
   getScopedEnvValue,
+  runWithTestEnvOverrides,
 } from '../support/testEnvOverrideScope.js';
 import {
   resolveConfiguredTestTimeoutMs,
@@ -323,6 +330,1080 @@ const llmStep = (content: string) => ({
   agentType: 'planning_agent',
   identifier: 'planner',
   messages: [{ role: 'user' as const, content: [content] }],
+});
+
+const withChildLookupFixture = async (
+  run: (fixture: {
+    root: string;
+    working: string;
+    owner: string;
+    other: string;
+    harness: string;
+    fallback: string;
+    write: (root: string, name: string, steps: unknown[]) => Promise<void>;
+    launch: (
+      params?: Partial<Parameters<typeof startFlowRun>[0]>,
+    ) => ReturnType<typeof startFlowRun>;
+  }) => Promise<void>,
+) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'native-child-lookup-'));
+  const working = path.join(root, 'working');
+  const owner = path.join(root, 'owner');
+  const other = path.join(root, 'other');
+  const harness = path.join(root, 'harness');
+  const fallback = path.join(harness, 'custom-flows');
+  for (const repo of [working, owner, other, harness]) {
+    await fs.mkdir(path.join(repo, 'flows'), { recursive: true });
+  }
+  await fs.mkdir(fallback);
+  const agentHome = path.join(harness, 'codeinfo_agents', 'planning_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    'model = "gpt-6-luna"\napproval_policy = "never"\nsandbox_mode = "danger-full-access"\n',
+  );
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}');
+  const write = async (flowsRoot: string, name: string, steps: unknown[]) =>
+    writeFlowFile({ tmpDir: flowsRoot, flowName: name, steps });
+  const listRepos = async () => ({
+    repos: [working, owner, other, harness].map(buildRepoEntry),
+    lockedModelId: null,
+  });
+  try {
+    await runWithTestEnvOverrides(
+      {
+        FLOWS_DIR: fallback,
+        CODEINFO_AGENT_HOME: path.join(harness, 'codeinfo_agents'),
+        CODEINFO_CODEX_AGENT_HOME: undefined,
+      },
+      async () => {
+        __setMarkdownFileResolverDepsForTests({
+          listIngestedRepositories: listRepos,
+        });
+        await run({
+          root,
+          working,
+          owner,
+          other,
+          harness,
+          fallback,
+          write,
+          launch: (params = {}) =>
+            startFlowRun({
+              flowName: 'parent',
+              sourceId: owner,
+              working_folder: working,
+              source: 'REST',
+              listIngestedRepositories: listRepos,
+              chatFactory: () => new SubflowChat(0),
+              ...params,
+            }),
+        });
+      },
+    );
+  } finally {
+    // Own every child and parent, including authored waits, before removing fixtures.
+    for (const conversation of memoryConversations.values()) {
+      if (conversation.flowName) await stopFlowRun(conversation._id);
+    }
+    await waitForTestCondition(
+      () =>
+        [...memoryConversations.values()].every(
+          (conversation) => !getActiveRunOwnership(conversation._id),
+        ),
+      { description: 'native child fixture run cleanup' },
+    );
+    __resetMarkdownFileResolverDepsForTests();
+    await fs.rm(root, { recursive: true, force: true });
+  }
+};
+
+const childLookupStep = (
+  mode: 'subflow' | 'subflowWave',
+  ...flowNames: string[]
+) =>
+  mode === 'subflow'
+    ? subflowStep('Lookup children', ...flowNames)
+    : {
+        type: 'subflowWave',
+        failureMode: 'best_effort',
+        groups: flowNames.map((flowName, index) => ({
+          kind: 'singleton',
+          id: `job${index}`,
+          flowName,
+        })),
+      };
+
+const persistedLookupState = (conversationId: string) =>
+  memoryConversations.get(conversationId)?.flags?.flow as
+    | FlowResumeState
+    | undefined;
+
+const waitForLookupRun = async (conversationId: string) => {
+  await waitForTestCondition(
+    () => {
+      const status = persistedLookupState(conversationId)?.runLifecycle?.status;
+      return Boolean(
+        status &&
+          status !== 'running' &&
+          !getActiveRunOwnership(conversationId),
+      );
+    },
+    { description: `native child lookup run ${conversationId} to settle` },
+  );
+};
+
+for (const mode of ['subflow', 'subflowWave'] as const) {
+  for (const local of [true, false]) {
+    test(`native ${mode} ${local ? 'selects working definition' : 'falls back only after working absence'} and keeps cwd`, async () => {
+      await withChildLookupFixture(
+        async ({ working, owner, other, fallback, write, launch }) => {
+          await write(path.join(owner, 'flows'), 'parent', [
+            childLookupStep(mode, 'child'),
+          ]);
+          await write(path.join(owner, 'flows'), 'child', [
+            llmStep('wrong parent owner'),
+          ]);
+          await write(path.join(other, 'flows'), 'child', [
+            llmStep('wrong unrelated repository'),
+          ]);
+          await write(fallback, 'child', [llmStep('configured child')]);
+          if (local)
+            await write(path.join(working, 'flows'), 'child', [
+              llmStep('working child'),
+            ]);
+          const executions: Array<{ message: string; cwd: unknown }> = [];
+          const parent = await launch({
+            chatFactory: () =>
+              new SubflowChat(0, ({ message, flags }) => {
+                executions.push({
+                  message,
+                  cwd: flags.workingDirectoryOverride,
+                });
+              }),
+          });
+          await waitForLookupRun(parent.conversationId);
+          assert.deepEqual(executions, [
+            {
+              message: local ? 'working child' : 'configured child',
+              cwd: working,
+            },
+          ]);
+          const child = findChildFlowConversation({
+            parentConversationId: parent.conversationId,
+            childFlowName: 'child',
+          });
+          assert.ok(child);
+          const state = persistedLookupState(child._id);
+          assert.equal(state?.sourceId, local ? working : undefined);
+          assert.equal(state?.workingFolder, working);
+          assert.equal(
+            state?.flowDefinitionRoot,
+            local ? path.join(working, 'flows') : fallback,
+          );
+          assert.equal(child.flags?.workingFolder, working);
+        },
+      );
+    });
+  }
+
+  test(`native ${mode} missing or invalid local children do not use owner or unrelated definitions and isolate success`, async () => {
+    await withChildLookupFixture(
+      async ({ working, owner, other, fallback, write, launch }) => {
+        await write(path.join(owner, 'flows'), 'parent', [
+          childLookupStep(mode, 'missing', 'invalid', 'good'),
+        ]);
+        for (const repo of [owner, other])
+          await write(path.join(repo, 'flows'), 'missing', [
+            llmStep('must not use other repository'),
+          ]);
+        await fs.writeFile(path.join(working, 'flows', 'invalid.json'), '{');
+        await write(fallback, 'invalid', [
+          llmStep('must not hide local invalid'),
+        ]);
+        await write(fallback, 'good', [llmStep('independent success')]);
+        const messages: string[] = [];
+        const parent = await launch({
+          chatFactory: () =>
+            new SubflowChat(0, ({ message }) => {
+              messages.push(message);
+            }),
+        });
+        await waitForLookupRun(parent.conversationId);
+        assert.deepEqual(messages, ['independent success']);
+        const turns = memoryTurns.get(parent.conversationId) ?? [];
+        const content = turns.map((turn) => String(turn.content)).join('\n');
+        assert.match(content, /missing/);
+        assert.match(content, /invalid/);
+        if (mode === 'subflowWave') {
+          const progress = persistedLookupState(
+            parent.conversationId,
+          )?.subflowWaveProgress;
+          assert.equal(progress?.failed, 2);
+          assert.equal(progress?.completed, 1);
+        }
+      },
+    );
+  });
+}
+
+test('native default child uses harness instructions with working overrides and nested lookup returns to working repository', async () => {
+  await withChildLookupFixture(
+    async ({ working, owner, harness, fallback, write, launch }) => {
+      for (const repo of [working, owner, harness])
+        await fs.mkdir(path.join(repo, 'codeinfo_markdown'));
+      await fs.writeFile(
+        path.join(harness, 'codeinfo_markdown', 'default.md'),
+        'harness instructions',
+      );
+      await fs.writeFile(
+        path.join(owner, 'codeinfo_markdown', 'default.md'),
+        'wrong parent owner instructions',
+      );
+      await fs.writeFile(
+        path.join(harness, 'codeinfo_markdown', 'override.md'),
+        'harness overridden instructions',
+      );
+      await fs.writeFile(
+        path.join(working, 'codeinfo_markdown', 'override.md'),
+        'working instructions',
+      );
+      const markdownStep = (markdownFile: string) => ({
+        type: 'llm',
+        agentType: 'planning_agent',
+        identifier: 'planner',
+        markdownFile,
+      });
+      await write(path.join(owner, 'flows'), 'parent', [
+        subflowStep('Default child', 'outer'),
+      ]);
+      await write(fallback, 'outer', [
+        markdownStep('default.md'),
+        markdownStep('override.md'),
+        subflowStep('Nested local', 'leaf'),
+      ]);
+      await write(path.join(working, 'flows'), 'leaf', [
+        llmStep('nested working definition'),
+      ]);
+      await write(fallback, 'leaf', [llmStep('wrong nested default')]);
+      const messages: string[] = [];
+      const parent = await launch({
+        chatFactory: () =>
+          new SubflowChat(0, ({ message }) => {
+            messages.push(message);
+          }),
+      });
+      await waitForLookupRun(parent.conversationId);
+      assert.deepEqual(messages, [
+        'harness instructions',
+        'working instructions',
+        'nested working definition',
+      ]);
+      const outer = findChildFlowConversation({
+        parentConversationId: parent.conversationId,
+        childFlowName: 'outer',
+      });
+      const leaf = findChildFlowConversation({
+        parentConversationId: parent.conversationId,
+        childFlowName: 'leaf',
+      });
+      assert.equal(persistedLookupState(outer!._id)?.sourceId, undefined);
+      assert.equal(persistedLookupState(leaf!._id)?.sourceId, working);
+      assert.equal(persistedLookupState(leaf!._id)?.workingFolder, working);
+    },
+  );
+});
+
+test('native wave resolves each validated target cwd independently and isolates missing and invalid targets', async () => {
+  await withChildLookupFixture(
+    async ({ root, working, owner, fallback, write, launch }) => {
+      const second = path.join(root, 'second');
+      await fs.mkdir(path.join(second, 'flows'), { recursive: true });
+      await write(path.join(working, 'flows'), 'review', [
+        llmStep('first working review'),
+      ]);
+      await write(path.join(second, 'flows'), 'review', [
+        llmStep('second working review'),
+      ]);
+      await write(fallback, 'review', [llmStep('fallback review')]);
+      await write(path.join(owner, 'flows'), 'parent', [
+        {
+          type: 'subflowWave',
+          failureMode: 'best_effort',
+          groups: [
+            {
+              kind: 'matrix',
+              id: 'reviews',
+              itemsFrom: 'targets',
+              itemName: 'target',
+              flowNames: ['review'],
+              bindings: { workingFolderFrom: 'target.repo_root' },
+            },
+          ],
+        },
+      ]);
+      const messages: string[] = [];
+      const parent = await launch({
+        input: {
+          targets: [
+            { target_id: 'first', repo_root: working },
+            { target_id: 'second', repo_root: second },
+            { target_id: 'default', repo_root: owner },
+            { target_id: 'unsafe', repo_root: path.join(root, 'unlisted') },
+          ],
+        },
+        listIngestedRepositories: async () => ({
+          repos: [working, owner, second].map(buildRepoEntry),
+          lockedModelId: null,
+        }),
+        chatFactory: () =>
+          new SubflowChat(0, ({ message }) => {
+            messages.push(message);
+          }),
+      });
+      await waitForLookupRun(parent.conversationId);
+      assert.deepEqual(messages.sort(), [
+        'fallback review',
+        'first working review',
+        'second working review',
+      ]);
+      const progress = persistedLookupState(
+        parent.conversationId,
+      )?.subflowWaveProgress;
+      assert.equal(progress?.completed, 3);
+      assert.equal(progress?.failed, 1);
+      const children = findChildFlowConversations({
+        parentConversationId: parent.conversationId,
+        childFlowNames: ['review'],
+      });
+      assert.equal(children.length, 3);
+      assert.deepEqual(
+        children
+          .map((child) => persistedLookupState(child._id)?.workingFolder)
+          .sort(),
+        [owner, second, working].sort(),
+      );
+    },
+  );
+});
+
+test('native cycle identity permits same names across roots and detects true root recursion', async () => {
+  await withChildLookupFixture(async ({ working, owner, write, launch }) => {
+    await write(path.join(owner, 'flows'), 'parent', [
+      subflowStep('Same name different root', 'parent'),
+    ]);
+    await write(path.join(working, 'flows'), 'parent', [
+      llmStep('distinct root child'),
+      childLookupStep('subflowWave', 'parent'),
+    ]);
+    const messages: string[] = [];
+    const parent = await launch({
+      chatFactory: () =>
+        new SubflowChat(0, ({ message }) => {
+          messages.push(message);
+        }),
+    });
+    await waitForLookupRun(parent.conversationId);
+    assert.deepEqual(messages, ['distinct root child']);
+    const children = findChildFlowConversations({
+      parentConversationId: parent.conversationId,
+      childFlowNames: ['parent'],
+    });
+    assert.equal(children.length, 1);
+    const progress = persistedLookupState(
+      children[0]!._id,
+    )?.subflowWaveProgress;
+    assert.equal(progress?.failed, 1);
+    assert.match(progress?.jobs[0]?.reason ?? '', /Subflow cycle detected/);
+    assert.match(
+      progress?.jobs[0]?.reason ?? '',
+      new RegExp(path.join(working, 'flows')),
+    );
+  });
+});
+
+test('native unreadable local child reports its underlying cause and isolates an independent fallback child', async (t) => {
+  await withChildLookupFixture(
+    async ({ working, owner, fallback, write, launch }) => {
+      await write(path.join(owner, 'flows'), 'parent', [
+        childLookupStep('subflowWave', 'unreadable', 'good'),
+      ]);
+      await write(path.join(working, 'flows'), 'unreadable', [
+        llmStep('must not execute unreadable local'),
+      ]);
+      await write(fallback, 'unreadable', [
+        llmStep('must not execute shadowing fallback'),
+      ]);
+      await write(fallback, 'good', [llmStep('successful independent child')]);
+      const originalRead = fs.readFile;
+      const localFile = path.join(working, 'flows', 'unreadable.json');
+      const mocked = t.mock.method(
+        fs,
+        'readFile',
+        (...args: Parameters<typeof fs.readFile>) => {
+          if (String(args[0]) === localFile)
+            throw Object.assign(
+              new Error('EACCES controlled local flow read'),
+              { code: 'EACCES' },
+            );
+          return originalRead(...args);
+        },
+      );
+      try {
+        const messages: string[] = [];
+        const parent = await launch({
+          chatFactory: () =>
+            new SubflowChat(0, ({ message }) => {
+              messages.push(message);
+            }),
+        });
+        await waitForLookupRun(parent.conversationId);
+        assert.deepEqual(messages, ['successful independent child']);
+        const progress = persistedLookupState(
+          parent.conversationId,
+        )?.subflowWaveProgress;
+        assert.equal(progress?.completed, 1);
+        assert.equal(progress?.failed, 1);
+        const reason =
+          progress?.jobs.find((job) => job.flowName === 'unreadable')?.reason ??
+          '';
+        assert.match(reason, /EACCES controlled local flow read/);
+        assert.ok(reason.includes(localFile));
+      } finally {
+        mocked.mock.restore();
+      }
+    },
+  );
+});
+
+for (const mode of ['subflow', 'subflowWave'] as const) {
+  for (const local of [true, false]) {
+    test(`native ${mode} pins ${local ? 'local' : 'default'} root through authored wait and startup wait recovery`, async () => {
+      await withChildLookupFixture(
+        async ({ working, owner, fallback, write, launch }) => {
+          const selectedRoot = local ? path.join(working, 'flows') : fallback;
+          const messages: string[] = [];
+          const chatFactory = () =>
+            new SubflowChat(0, ({ message }) => {
+              messages.push(message);
+            });
+          const wakes: Array<() => void> = [];
+          let parentObservedWait = false;
+          __setFlowWaitResumeDepsForTests({
+            scheduleWake: ({ onWake }) => {
+              wakes.push(onWake);
+              return { cancel: () => undefined };
+            },
+            resumeFlowRun: (params) => launch({ ...params, chatFactory }),
+          });
+          await write(path.join(owner, 'flows'), 'parent', [
+            childLookupStep(mode, 'child'),
+          ]);
+          await write(selectedRoot, 'child', [
+            { type: 'wait', seconds: 60 },
+            llmStep(local ? 'pinned local' : 'pinned default'),
+          ]);
+          await write(path.join(owner, 'flows'), 'child', [
+            llmStep('wrong inherited parent definition'),
+          ]);
+          const parent = await launch({
+            chatFactory,
+            onStopUnwindCheckpoint: ({ checkpoint }) => {
+              if (checkpoint === 'runSubflowJobs.child_wait_observed')
+                parentObservedWait = true;
+            },
+          });
+          await waitForTestCondition(() => wakes.length === 1, {
+            description: 'native child authored wait to schedule',
+          });
+          const child = findChildFlowConversation({
+            parentConversationId: parent.conversationId,
+            childFlowName: 'child',
+          });
+          assert.ok(child);
+          await waitForTestCondition(() => !getActiveRunOwnership(child._id), {
+            description: 'waiting child ownership to release',
+          });
+          assert.equal(
+            persistedLookupState(child._id)?.flowDefinitionRoot,
+            selectedRoot,
+          );
+          await waitForTestCondition(() => parentObservedWait, {
+            description: 'parent to observe authored child wait',
+          });
+          // A fresh process catalog may now see a competing definition; the saved binding wins.
+          await write(local ? fallback : path.join(working, 'flows'), 'child', [
+            { type: 'wait', seconds: 60 },
+            llmStep('wrong competing definition'),
+          ]);
+          __resetFlowDefinitionCatalogForTests();
+          __resetFlowWaitResumeDepsForTests();
+          wakes.length = 0;
+          __setFlowWaitResumeDepsForTests({
+            scheduleWake: ({ onWake }) => {
+              wakes.push(onWake);
+              return { cancel: () => undefined };
+            },
+            // Deliberately supply the parent source to exercise intentional-default binding.
+            resumeFlowRun: (params) =>
+              launch({ ...params, sourceId: owner, chatFactory }),
+          });
+          assert.equal(await __resumePendingFlowWaitsForTests(), 1);
+          assert.equal(wakes.length, 1);
+          wakes[0]!();
+          await waitForLookupRun(child._id);
+          await waitForLookupRun(parent.conversationId);
+          assert.equal(
+            persistedLookupState(parent.conversationId)?.runLifecycle?.status,
+            'ok',
+          );
+          assert.equal(
+            persistedLookupState(child._id)?.runLifecycle?.status,
+            'ok',
+          );
+          assert.deepEqual(messages, [
+            local ? 'pinned local' : 'pinned default',
+          ]);
+          assert.equal(
+            persistedLookupState(child._id)?.flowDefinitionRoot,
+            selectedRoot,
+          );
+          assert.equal(
+            persistedLookupState(child._id)?.sourceId,
+            local ? working : undefined,
+          );
+          assert.equal(persistedLookupState(child._id)?.workingFolder, working);
+        },
+      );
+    });
+  }
+}
+
+test('native pinned root rejects changed configuration, arbitrary persisted roots and missing selected definitions', async () => {
+  await withChildLookupFixture(
+    async ({ root, working, owner, fallback, write, launch }) => {
+      __setFlowWaitResumeDepsForTests({
+        scheduleWake: () => ({ cancel: () => undefined }),
+      });
+      await write(path.join(owner, 'flows'), 'parent', [
+        subflowStep('Waiting child', 'child'),
+      ]);
+      await write(fallback, 'child', [
+        { type: 'wait', seconds: 60 },
+        { type: 'wait', seconds: 1 },
+      ]);
+      const parent = await launch();
+      await waitForTestCondition(
+        () =>
+          Boolean(
+            findChildFlowConversation({
+              parentConversationId: parent.conversationId,
+              childFlowName: 'child',
+            })?.flags?.flow,
+          ),
+        { description: 'bound child state to persist' },
+      );
+      const child = findChildFlowConversation({
+        parentConversationId: parent.conversationId,
+        childFlowName: 'child',
+      })!;
+      await waitForTestCondition(
+        () =>
+          Boolean(persistedLookupState(child._id)?.wait) &&
+          !getActiveRunOwnership(child._id),
+        { description: 'bound child to pause' },
+      );
+      await stopFlowRun(parent.conversationId);
+      const resume = () =>
+        launch({
+          flowName: 'child',
+          conversationId: child._id,
+          resumeStepPath: [0],
+        });
+      const untrusted = path.join(root, 'untrusted');
+      (
+        persistedLookupState(child._id) as unknown as Record<string, unknown>
+      ).flowDefinitionRoot = 42;
+      await assert.rejects(
+        resume(),
+        (error: unknown) =>
+          (error as { code: string }).code === 'INVALID_REQUEST',
+      );
+      persistedLookupState(child._id)!.flowDefinitionRoot = untrusted;
+      await assert.rejects(
+        resume(),
+        (error: unknown) =>
+          (error as { code: string }).code === 'INVALID_REQUEST',
+      );
+      persistedLookupState(child._id)!.flowDefinitionRoot = fallback;
+      await fs.mkdir(untrusted);
+      await write(untrusted, 'child', [{ type: 'wait', seconds: 1 }]);
+      await runWithTestEnvOverrides({ FLOWS_DIR: untrusted }, async () => {
+        await assert.rejects(
+          resume(),
+          (error: unknown) =>
+            (error as { code: string }).code === 'INVALID_REQUEST',
+        );
+      });
+      await fs.rm(path.join(fallback, 'child.json'));
+      await write(path.join(working, 'flows'), 'child', [
+        { type: 'wait', seconds: 1 },
+      ]);
+      __resetFlowDefinitionCatalogForTests();
+      await assert.rejects(
+        resume(),
+        (error: unknown) =>
+          (error as { code: string }).code === 'FLOW_NOT_FOUND',
+      );
+    },
+  );
+});
+
+test('native local harness definition resumes with an unlisted harness owner and a distinct configured fallback', async () => {
+  await withChildLookupFixture(
+    async ({ owner, harness, fallback, write, launch }) => {
+      const wakes: Array<() => void> = [];
+      let parentObservedWait = false;
+      const messages: string[] = [];
+      const chatFactory = () =>
+        new SubflowChat(0, ({ message }) => {
+          messages.push(message);
+        });
+      const listRepos = async () => ({
+        repos: [buildRepoEntry(owner)],
+        lockedModelId: null,
+      });
+      __setFlowWaitResumeDepsForTests({
+        scheduleWake: ({ onWake }) => {
+          wakes.push(onWake);
+          return { cancel: () => undefined };
+        },
+        resumeFlowRun: (params) =>
+          launch({
+            ...params,
+            working_folder: harness,
+            listIngestedRepositories: listRepos,
+            chatFactory,
+          }),
+      });
+      await write(path.join(owner, 'flows'), 'parent', [
+        subflowStep('Harness local', 'child'),
+      ]);
+      await write(path.join(harness, 'flows'), 'child', [
+        { type: 'wait', seconds: 60 },
+        llmStep('harness local child'),
+      ]);
+      await write(fallback, 'child', [
+        { type: 'wait', seconds: 60 },
+        llmStep('wrong harness fallback child'),
+      ]);
+      const parent = await launch({
+        working_folder: harness,
+        listIngestedRepositories: listRepos,
+        chatFactory,
+        onStopUnwindCheckpoint: ({ checkpoint }) => {
+          if (checkpoint === 'runSubflowJobs.child_wait_observed')
+            parentObservedWait = true;
+        },
+      });
+      await waitForTestCondition(() => wakes.length === 1, {
+        description: 'unlisted harness local child wait',
+      });
+      const child = findChildFlowConversation({
+        parentConversationId: parent.conversationId,
+        childFlowName: 'child',
+      })!;
+      await waitForTestCondition(() => !getActiveRunOwnership(child._id), {
+        description: 'unlisted harness child wait release',
+      });
+      await waitForTestCondition(() => parentObservedWait, {
+        description: 'parent to observe validated child wait',
+      });
+      wakes[0]!();
+      await waitForLookupRun(parent.conversationId);
+      assert.equal(
+        persistedLookupState(parent.conversationId)?.runLifecycle?.status,
+        'ok',
+      );
+      assert.deepEqual(messages, ['harness local child']);
+      assert.equal(persistedLookupState(child._id)?.sourceId, harness);
+      assert.equal(
+        persistedLookupState(child._id)?.flowDefinitionRoot,
+        path.join(harness, 'flows'),
+      );
+    },
+  );
+});
+
+test('native child lookup and resume use the validated mounted working path', async () => {
+  await withChildLookupFixture(
+    async ({ root, owner, fallback, write, launch }) => {
+      const host = path.join(root, 'host');
+      const mounted = path.join(root, 'mounted');
+      const working = path.join(mounted, 'mapped-repo');
+      await fs.mkdir(path.join(working, 'flows'), { recursive: true });
+      await write(path.join(owner, 'flows'), 'parent', [
+        subflowStep('Mounted child', 'child'),
+      ]);
+      await write(path.join(working, 'flows'), 'child', [
+        { type: 'wait', seconds: 60 },
+        llmStep('mounted local child'),
+      ]);
+      await write(fallback, 'child', [
+        { type: 'wait', seconds: 60 },
+        llmStep('wrong mounted fallback'),
+      ]);
+      const wakes: Array<() => void> = [];
+      let parentObservedWait = false;
+      const calls: unknown[] = [];
+      const chatFactory = () =>
+        new SubflowChat(0, ({ flags }) => {
+          calls.push(flags.workingDirectoryOverride);
+        });
+      const listRepos = async () => ({
+        repos: [buildRepoEntry(owner), buildRepoEntry('/data/mapped-repo')],
+        lockedModelId: null,
+      });
+      await runWithTestEnvOverrides(
+        {
+          CODEINFO_HOST_INGEST_DIR: host,
+          CODEINFO_CODEX_WORKDIR: mounted,
+          CODEX_WORKDIR: undefined,
+        },
+        async () => {
+          __setFlowWaitResumeDepsForTests({
+            scheduleWake: ({ onWake }) => {
+              wakes.push(onWake);
+              return { cancel: () => undefined };
+            },
+            resumeFlowRun: (params) =>
+              launch({
+                ...params,
+                working_folder: undefined,
+                listIngestedRepositories: listRepos,
+                chatFactory,
+              }),
+          });
+          const parent = await launch({
+            working_folder: path.join(host, 'mapped-repo'),
+            listIngestedRepositories: listRepos,
+            chatFactory,
+            onStopUnwindCheckpoint: ({ checkpoint }) => {
+              if (checkpoint === 'runSubflowJobs.child_wait_observed')
+                parentObservedWait = true;
+            },
+          });
+          await waitForTestCondition(() => wakes.length === 1, {
+            description: 'mapped native child wait',
+          });
+          const child = findChildFlowConversation({
+            parentConversationId: parent.conversationId,
+            childFlowName: 'child',
+          })!;
+          await waitForTestCondition(() => !getActiveRunOwnership(child._id), {
+            description: 'mapped child wait release',
+          });
+          assert.equal(persistedLookupState(child._id)?.workingFolder, working);
+          await waitForTestCondition(() => parentObservedWait, {
+            description: 'parent to observe validated child wait',
+          });
+          wakes[0]!();
+          await waitForLookupRun(parent.conversationId);
+          assert.equal(
+            persistedLookupState(parent.conversationId)?.runLifecycle?.status,
+            'ok',
+          );
+          assert.deepEqual(calls, [working]);
+          assert.equal(
+            persistedLookupState(child._id)?.flowDefinitionRoot,
+            path.join(working, 'flows'),
+          );
+        },
+      );
+    },
+  );
+});
+
+for (const local of [true, false]) {
+  test(`native child cancellation resume retains ${local ? 'local' : 'default'} definition after catalog restart`, async () => {
+    await withChildLookupFixture(
+      async ({ working, owner, fallback, write, launch }) => {
+        const selectedRoot = local ? path.join(working, 'flows') : fallback;
+        await write(path.join(owner, 'flows'), 'parent', [
+          childLookupStep('subflowWave', 'child'),
+        ]);
+        await write(selectedRoot, 'child', [
+          llmStep('before cancellation'),
+          llmStep('slow child selected root'),
+        ]);
+        const control = createSlowChildControl();
+        const messages: string[] = [];
+        const parent = await launch({
+          chatFactory: () =>
+            new SubflowChat(
+              0,
+              ({ message }) => {
+                messages.push(message);
+                if (message.includes('slow child')) control.markStarted();
+              },
+              control.gate,
+            ),
+        });
+        try {
+          await control.started;
+          const child = findChildFlowConversation({
+            parentConversationId: parent.conversationId,
+            childFlowName: 'child',
+          });
+          assert.ok(child);
+          await waitForTestCondition(
+            () =>
+              Boolean(
+                persistedLookupState(
+                  parent.conversationId,
+                )?.activeSubflows?.some(
+                  (entry) => entry.conversationId === child._id,
+                ),
+              ),
+            { description: 'parent to track gated child before cancellation' },
+          );
+          await stopFlowRun(parent.conversationId);
+          await waitForLookupRun(parent.conversationId);
+          await waitForLookupRun(child._id);
+          assert.equal(
+            persistedLookupState(child._id)?.runLifecycle?.status,
+            'stopped',
+          );
+          await write(local ? fallback : path.join(working, 'flows'), 'child', [
+            llmStep('wrong before cancellation'),
+            llmStep('wrong competing resumed child'),
+          ]);
+          __resetFlowDefinitionCatalogForTests();
+          const resumed = await launch({
+            conversationId: parent.conversationId,
+            resumeStepPath: persistedLookupState(parent.conversationId)!
+              .stepPath,
+            chatFactory: () =>
+              new SubflowChat(0, ({ message }) => {
+                messages.push(message);
+              }),
+          });
+          await waitForLookupRun(resumed.conversationId);
+          assert.equal(
+            persistedLookupState(resumed.conversationId)?.runLifecycle?.status,
+            'ok',
+          );
+          assert.deepEqual(messages, [
+            'before cancellation',
+            'slow child selected root',
+            'slow child selected root',
+          ]);
+          assert.equal(
+            persistedLookupState(child._id)?.flowDefinitionRoot,
+            selectedRoot,
+          );
+          assert.equal(
+            persistedLookupState(child._id)?.sourceId,
+            local ? working : undefined,
+          );
+        } finally {
+          control.release();
+        }
+      },
+    );
+  });
+}
+
+test('native legacy default child resume does not inherit the ingested parent source', async () => {
+  await withChildLookupFixture(
+    async ({ working, owner, fallback, write, launch }) => {
+      __setFlowWaitResumeDepsForTests({
+        scheduleWake: () => ({ cancel: () => undefined }),
+      });
+      await write(path.join(owner, 'flows'), 'parent', [
+        childLookupStep('subflowWave', 'child'),
+      ]);
+      await write(fallback, 'child', [
+        { type: 'wait', seconds: 60 },
+        llmStep('legacy default child'),
+      ]);
+      await write(path.join(owner, 'flows'), 'child', [
+        { type: 'wait', seconds: 60 },
+        llmStep('wrong legacy parent source'),
+      ]);
+      const parent = await launch();
+      await waitForTestCondition(
+        () =>
+          Boolean(
+            findChildFlowConversation({
+              parentConversationId: parent.conversationId,
+              childFlowName: 'child',
+            })?.flags?.flow,
+          ),
+        { description: 'legacy child state' },
+      );
+      const child = findChildFlowConversation({
+        parentConversationId: parent.conversationId,
+        childFlowName: 'child',
+      })!;
+      await waitForTestCondition(
+        () =>
+          Boolean(persistedLookupState(child._id)?.wait) &&
+          !getActiveRunOwnership(child._id),
+        { description: 'legacy child authored pause' },
+      );
+      await stopFlowRun(parent.conversationId);
+      await waitForLookupRun(parent.conversationId);
+      delete persistedLookupState(child._id)!.flowDefinitionRoot;
+      await write(path.join(working, 'flows'), 'child', [
+        { type: 'wait', seconds: 60 },
+        llmStep('new local definition must not replace legacy default'),
+      ]);
+      __resetFlowDefinitionCatalogForTests();
+      const messages: string[] = [];
+      await launch({
+        conversationId: parent.conversationId,
+        resumeStepPath: persistedLookupState(parent.conversationId)!.stepPath,
+        chatFactory: () =>
+          new SubflowChat(0, ({ message }) => {
+            messages.push(message);
+          }),
+      });
+      await waitForLookupRun(parent.conversationId);
+      assert.deepEqual(messages, ['legacy default child']);
+      assert.equal(persistedLookupState(child._id)?.sourceId, undefined);
+    },
+  );
+});
+
+test('native startup keeps pinned parent and child roots when resuming the saved cursor', async () => {
+  await withChildLookupFixture(async ({ harness, fallback, write }) => {
+    const wakes: Array<{ resumeAt: number; onWake: () => void }> = [];
+    __setFlowWaitResumeDepsForTests({
+      now: () => now.getTime(),
+      nowIso: () => now.toISOString(),
+      scheduleWake: ({ resumeAt, onWake }) => {
+        wakes.push({ resumeAt, onWake });
+        return { cancel: () => undefined };
+      },
+    });
+    await write(fallback, 'parent', [
+      subflowStep('Waiting child', 'child'),
+      { type: 'wait', seconds: 17 },
+    ]);
+    await write(fallback, 'child', [{ type: 'wait', seconds: 60 }]);
+    await write(path.join(harness, 'flows'), 'parent', [
+      subflowStep('Wrong parent', 'child'),
+      { type: 'wait', seconds: 31 },
+    ]);
+    await write(path.join(harness, 'flows'), 'child', [
+      { type: 'wait', seconds: 60 },
+      { type: 'wait', seconds: 60 },
+    ]);
+    const now = new Date();
+    const parentId = randomUUID();
+    const childId = randomUUID();
+    const parentExecutionId = randomUUID();
+    const childExecutionId = randomUUID();
+    const baseConversation = {
+      provider: 'codex',
+      model: 'gpt-6-luna',
+      source: 'REST',
+      lastMessageAt: now,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    memoryConversations.set(childId, {
+      ...baseConversation,
+      _id: childId,
+      title: 'Pinned child',
+      flowName: 'child',
+      flags: {
+        workingFolder: harness,
+        flow: {
+          executionId: childExecutionId,
+          flowDefinitionRoot: fallback,
+          workingFolder: harness,
+          stepPath: [0],
+          loopStack: [],
+          agentConversations: {},
+          agentThreads: {},
+          runLifecycle: { status: 'running', updatedAt: now.toISOString() },
+          wait: {
+            executionId: childExecutionId,
+            stepPath: [0],
+            loopStack: [],
+            workingFolder: harness,
+            resumeAt: now.getTime() + 60_000,
+          },
+        },
+      },
+    } as Conversation);
+    memoryConversations.set(parentId, {
+      ...baseConversation,
+      _id: parentId,
+      title: 'Pinned parent',
+      flowName: 'parent',
+      flags: {
+        workingFolder: harness,
+        flow: {
+          executionId: parentExecutionId,
+          flowDefinitionRoot: fallback,
+          workingFolder: harness,
+          stepPath: [0],
+          loopStack: [],
+          agentConversations: {},
+          agentThreads: {},
+          activeSubflows: [
+            activeSubflowState({
+              stepPath: [0],
+              flowName: 'child',
+              conversationId: childId,
+              runToken: 'pre-restart-child-token',
+            }),
+          ],
+          runLifecycle: { status: 'orphaned', updatedAt: now.toISOString() },
+          restartReconciliation: {
+            status: 'interrupted',
+            reconciledAt: now.toISOString(),
+            resumeStepPath: [0],
+            interruptedSubflowCount: 1,
+            interruptedWaveRunningCount: 0,
+          },
+        },
+      },
+    } as Conversation);
+    assert.equal(
+      await resumeInterruptedParentsWithPersistedChildWaitsForStartup(),
+      1,
+    );
+    await waitForTestCondition(
+      () =>
+        Boolean(persistedLookupState(parentId)?.wait) &&
+        !getActiveRunOwnership(parentId),
+      {
+        description:
+          'startup parent to resume the saved cursor and reach its authored wait',
+      },
+    );
+    // Resume cursors refer to completed steps; the next wait identifies the loaded definition.
+    assert.deepEqual(persistedLookupState(parentId)?.wait?.stepPath, [1]);
+    assert.equal(
+      persistedLookupState(parentId)?.wait?.resumeAt,
+      now.getTime() + 17_000,
+    );
+    assert.equal(persistedLookupState(parentId)?.flowDefinitionRoot, fallback);
+    assert.equal(persistedLookupState(childId)?.flowDefinitionRoot, fallback);
+    assert.equal(
+      persistedLookupState(parentId)?.executionId,
+      parentExecutionId,
+    );
+    assert.equal(persistedLookupState(childId)?.executionId, childExecutionId);
+    assert.ok(persistedLookupState(childId)?.wait);
+    assert.equal(await __resumePendingFlowWaitsForTests([childId]), 1);
+    assert.equal(wakes.length, 2);
+  });
 });
 
 const continueStep = (question: string) => ({

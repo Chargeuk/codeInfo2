@@ -22,6 +22,74 @@ const catalogByRoot = new Map<
   Promise<Map<string, FlowDefinitionCatalogEntry>>
 >();
 
+const isSafeFlowName = (raw: string): boolean => {
+  const name = raw.trim();
+  return (
+    Boolean(name) &&
+    !name.includes('/') &&
+    !name.includes('\\') &&
+    !name.includes('..')
+  );
+};
+
+export const resolveSafeFlowFilePath = (
+  flowsRoot: string,
+  flowName: string,
+) => {
+  if (!isSafeFlowName(flowName)) throw new Error('Invalid flow name');
+  const root = path.resolve(flowsRoot);
+  const filePath = path.resolve(root, `${flowName}.json`);
+  const relative = path.relative(root, filePath);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('Invalid flow path');
+  }
+  return filePath;
+};
+
+export const canonicalFlowRoot = async (root: string): Promise<string> => {
+  try {
+    return await fs.realpath(path.resolve(root));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+      return path.resolve(root);
+    throw error;
+  }
+};
+
+const childFlowRootCandidates = (workingRepositoryPath?: string) => [
+  ...(workingRepositoryPath
+    ? [
+        {
+          flowsRoot: path.join(workingRepositoryPath, 'flows'),
+          sourceId: workingRepositoryPath,
+        },
+      ]
+    : []),
+  { flowsRoot: resolveConfiguredFlowsRoot(), sourceId: undefined },
+];
+
+export const resolveChildFlowDefinition = async (params: {
+  flowName: string;
+  workingRepositoryPath?: string;
+}) => {
+  // Validate before touching either directory. Absence alone permits fallback.
+  resolveSafeFlowFilePath('.', params.flowName);
+  const visited = new Set<string>();
+  for (const candidate of childFlowRootCandidates(
+    params.workingRepositoryPath,
+  )) {
+    const flowsRoot = await canonicalFlowRoot(candidate.flowsRoot);
+    if (visited.has(flowsRoot)) continue;
+    visited.add(flowsRoot);
+    const entry = await getFlowDefinitionCatalogEntry({
+      flowsRoot,
+      flowName: params.flowName,
+    });
+    if (entry) return { ...candidate, flowsRoot, entry };
+  }
+  return undefined;
+};
+
 export const resolveConfiguredFlowsRoot = (): string => {
   const configuredFlowsDir = getScopedEnvValue('FLOWS_DIR');
   if (configuredFlowsDir) return path.resolve(configuredFlowsDir);
@@ -75,7 +143,7 @@ const loadCatalog = async (
 export const getFlowDefinitionCatalog = async (
   flowsRoot: string,
 ): Promise<FlowDefinitionCatalog> => {
-  const resolvedRoot = path.resolve(flowsRoot);
+  const resolvedRoot = await canonicalFlowRoot(flowsRoot);
   let catalog = catalogByRoot.get(resolvedRoot);
   if (!catalog) {
     catalog = loadCatalog(resolvedRoot);

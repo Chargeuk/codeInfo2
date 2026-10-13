@@ -346,7 +346,9 @@ const withChildLookupFixture = async (
     ) => ReturnType<typeof startFlowRun>;
   }) => Promise<void>,
 ) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'native-child-lookup-'));
+  const root = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'native-child-lookup-')),
+  );
   const working = path.join(root, 'working');
   const owner = path.join(root, 'owner');
   const other = path.join(root, 'other');

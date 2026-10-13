@@ -24,7 +24,9 @@ const fixture = async (
     fallback: string;
   }) => Promise<void>,
 ) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'child-flow-catalog-'));
+  const root = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'child-flow-catalog-')),
+  );
   const working = path.join(root, 'working');
   const local = path.join(working, 'flows');
   const fallback = path.join(root, 'configured');

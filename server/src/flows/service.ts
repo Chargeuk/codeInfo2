@@ -183,6 +183,9 @@ import { executeFlowDecisionScript } from './flowDecisionScript.js';
 import {
   __resetFlowDefinitionCatalogForTests,
   getFlowDefinitionCatalogEntry,
+  canonicalFlowRoot,
+  resolveSafeFlowFilePath,
+  resolveChildFlowDefinition,
   resolveConfiguredFlowsRoot,
 } from './flowDefinitionCatalog.js';
 import {
@@ -1155,14 +1158,6 @@ const isFlowRunError = (error: unknown): error is FlowRunError =>
   'code' in error &&
   typeof (error as { code?: unknown }).code === 'string';
 
-const isSafeFlowName = (raw: string): boolean => {
-  const name = raw.trim();
-  if (!name) return false;
-  if (name.includes('/') || name.includes('\\')) return false;
-  if (name.includes('..')) return false;
-  return true;
-};
-
 const isSafeCommandName = (raw: string): boolean => {
   const name = raw.trim();
   if (!name) return false;
@@ -1491,6 +1486,11 @@ const parseFlowResumeState = (
 ): FlowResumeState | null => {
   const flow = flags?.flow;
   if (!isRecord(flow)) return null;
+  if (
+    'flowDefinitionRoot' in flow &&
+    !normalizeOptionalString(flow.flowDefinitionRoot)
+  )
+    return null;
   const executionId =
     typeof flow.executionId === 'string' && flow.executionId.trim().length > 0
       ? flow.executionId.trim()
@@ -1697,6 +1697,9 @@ const parseFlowResumeState = (
       ? { workingFolder: flow.workingFolder.trim() }
       : {}),
     ...(sourceId ? { sourceId } : {}),
+    ...(normalizeOptionalString(flow.flowDefinitionRoot)
+      ? { flowDefinitionRoot: normalizeOptionalString(flow.flowDefinitionRoot) }
+      : {}),
     agentConversations,
     ...(Object.keys(agentWorkingFolders).length > 0
       ? { agentWorkingFolders }
@@ -2497,16 +2500,11 @@ const flowsDirForRun = resolveConfiguredFlowsRoot;
 const codeInfo2RootForRun = () => resolveAgentHomeEnv().codeInfoRoot;
 
 const resolveFlowFilePath = (flowName: string, flowsRoot: string) => {
-  if (!isSafeFlowName(flowName)) {
-    throw toFlowRunError('FLOW_NOT_FOUND', 'Invalid flow name');
+  try {
+    return resolveSafeFlowFilePath(flowsRoot, flowName);
+  } catch (error) {
+    throw toFlowRunError('FLOW_NOT_FOUND', (error as Error).message);
   }
-
-  const filePath = path.resolve(flowsRoot, `${flowName}.json`);
-  const relativePath = path.relative(flowsRoot, filePath);
-  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-    throw toFlowRunError('FLOW_NOT_FOUND', 'Invalid flow path');
-  }
-  return filePath;
 };
 
 const loadFlowFile = async (params: {
@@ -2532,7 +2530,10 @@ const loadFlowFile = async (params: {
   });
   if (!entry) throw toFlowRunError('FLOW_NOT_FOUND');
   if (!entry.parsed?.ok) {
-    throw toFlowRunError('FLOW_INVALID');
+    throw toFlowRunError(
+      'FLOW_INVALID',
+      `Flow ${params.flowName} at ${filePath} is invalid: ${entry.readError ?? 'Invalid flow schema or JSON'}`,
+    );
   }
 
   return structuredClone(entry.parsed.flow);
@@ -4238,6 +4239,7 @@ const buildFlowResumeState = (params: {
   codexReviewModelId?: string;
   workingFolder?: string;
   sourceId?: string;
+  flowDefinitionRoot?: string;
   retryOwnershipPending?: FreshRunRetryOwnershipPending | null;
   retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion | null;
   input?: FlowJsonObject;
@@ -4356,6 +4358,9 @@ const buildFlowResumeState = (params: {
       : {}),
     ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
     ...(params.sourceId ? { sourceId: params.sourceId } : {}),
+    ...(params.flowDefinitionRoot
+      ? { flowDefinitionRoot: params.flowDefinitionRoot }
+      : {}),
     ...(params.input ? { input: params.input } : {}),
     ...(params.inputHash ? { inputHash: params.inputHash } : {}),
     ...(params.values ? { values: params.values } : {}),
@@ -4411,6 +4416,7 @@ const persistFlowResumeState = async (params: {
   codexReviewModelId?: string;
   workingFolder?: string;
   sourceId?: string;
+  flowDefinitionRoot?: string;
   retryOwnershipPending?: FreshRunRetryOwnershipPending | null;
   retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion | null;
   input?: FlowJsonObject;
@@ -4434,6 +4440,7 @@ const persistFlowResumeState = async (params: {
     codexReviewModelId: params.codexReviewModelId,
     workingFolder: params.workingFolder,
     sourceId: params.sourceId,
+    flowDefinitionRoot: params.flowDefinitionRoot,
     retryOwnershipPending: params.retryOwnershipPending,
     retryOwnershipCompletion: params.retryOwnershipCompletion,
     input: params.input,
@@ -4446,7 +4453,11 @@ const persistFlowResumeState = async (params: {
       ? (existingConversation.flags as Record<string, unknown>)
       : undefined,
   );
-  if (!flowState.sourceId && existingFlowState?.sourceId) {
+  if (
+    !flowState.flowDefinitionRoot &&
+    !flowState.sourceId &&
+    existingFlowState?.sourceId
+  ) {
     flowState.sourceId = existingFlowState.sourceId;
   }
   if (
@@ -5754,6 +5765,7 @@ type LoadCommandResult =
 
 type FlowCommandRepositoryContext = {
   flowName: string;
+  flowDefinitionRoot?: string;
   workingRepositoryPath?: string;
   defaultRepositoryRoot?: string;
   flowSourceId?: string;
@@ -6334,6 +6346,7 @@ async function runFlowUnlocked(params: {
       codexReviewModelId: params.codexReviewModelId,
       workingFolder: params.repositoryContext.workingRepositoryPath,
       sourceId: params.repositoryContext.flowSourceId,
+      flowDefinitionRoot: params.repositoryContext.flowDefinitionRoot,
       input: params.input,
       inputHash: params.inputHash,
       values: flowValues,
@@ -9328,10 +9341,12 @@ async function runFlowUnlocked(params: {
       let resumedRunToken: string | undefined;
       await startFlowRun({
         flowName: childRun.flowName,
-        sourceId: params.repositoryContext.flowSourceId,
+        sourceId: childResumeState.sourceId,
+        nativeChild: true,
         flowPath: params.flowPath,
         codexReviewModelId: params.codexReviewModelId,
         working_folder:
+          childResumeState.workingFolder ??
           childRun.workingFolder ??
           params.repositoryContext.workingRepositoryPath,
         input: childRun.input,
@@ -9374,9 +9389,15 @@ async function runFlowUnlocked(params: {
       });
       if (
         status === 'running' &&
-        !getActiveRunOwnership(childRun.conversationId)
+        !getActiveRunOwnership(childRun.conversationId) &&
+        !childrenAwaitingScheduledWake.has(childRun.conversationId)
       ) {
         childrenAwaitingScheduledWake.add(childRun.conversationId);
+        params.onStopUnwindCheckpoint?.({
+          checkpoint: 'runSubflowJobs.child_wait_observed',
+          conversationId: params.conversationId,
+          detail: childRun.conversationId,
+        });
       }
       return status;
     };
@@ -9755,7 +9776,7 @@ async function runFlowUnlocked(params: {
           });
           const started = await startFlowRun({
             flowName: job.flowName,
-            sourceId: params.repositoryContext.flowSourceId,
+            nativeChild: true,
             flowPath: params.flowPath,
             codexReviewModelId: params.codexReviewModelId,
             working_folder:
@@ -12733,9 +12754,10 @@ async function runFlowUnlocked(params: {
 }
 
 export async function startFlowRun(
-  params: FlowRunStartParams,
+  params: FlowRunStartParams & { nativeChild?: true },
 ): Promise<FlowRunStartResult> {
   const flowName = params.flowName.trim();
+  resolveFlowFilePath(flowName, '.');
   let requestedInput: FlowJsonObject | undefined;
   try {
     requestedInput = params.input
@@ -12763,22 +12785,33 @@ export async function startFlowRun(
             | undefined,
         )
       : null;
-  const persistedSourceId =
-    trustedRequestedFlowState?.sourceId ??
-    trustedRequestedFlowState?.wait?.sourceId;
-  const sourceId =
-    params.resumeStepPath && persistedSourceId
-      ? persistedSourceId
-      : requestedSourceId;
-  const flowPathEntry = buildFlowPathEntry({ flowName, sourceId });
-  if (params.flowPath?.includes(flowPathEntry)) {
-    const cyclePath = [...params.flowPath, flowPathEntry].join(' -> ');
+  const savedFlow =
+    existingConversation?.flowName === flowName
+      ? existingConversation.flags?.flow
+      : undefined;
+  if (
+    params.resumeStepPath &&
+    isRecord(savedFlow) &&
+    'flowDefinitionRoot' in savedFlow &&
+    !normalizeOptionalString(savedFlow.flowDefinitionRoot)
+  ) {
     throw toFlowRunError(
       'INVALID_REQUEST',
-      `Subflow cycle detected: ${cyclePath}.`,
+      'Saved child flow root binding is invalid.',
     );
   }
-  const flowPath = [...(params.flowPath ?? []), flowPathEntry];
+  const persistedSourceId = trustedRequestedFlowState?.flowDefinitionRoot
+    ? trustedRequestedFlowState.sourceId
+    : (trustedRequestedFlowState?.sourceId ??
+      trustedRequestedFlowState?.wait?.sourceId);
+  let sourceId =
+    params.resumeStepPath &&
+    (persistedSourceId ||
+      trustedRequestedFlowState?.flowDefinitionRoot ||
+      params.nativeChild)
+      ? persistedSourceId
+      : requestedSourceId;
+  let flowPath = params.flowPath ?? [];
   const retryOwnershipId = params.retryOwnershipId?.trim() || undefined;
   const inflightId = params.inflightId ?? crypto.randomUUID();
   const resumeStepPath = params.resumeStepPath;
@@ -12874,10 +12907,13 @@ export async function startFlowRun(
         knownRepositoryPathsState: knownRepositoryPathsUnavailable(error),
       }));
     const listedRepos = listedReposResult.repos;
-    const sourceRepo = sourceId
+    let sourceRepo = sourceId
       ? listedRepos.find((item) => item.containerPath === sourceId)
       : undefined;
-    if (sourceId) {
+    if (
+      sourceId &&
+      !(resumeStepPath && trustedRequestedFlowState?.flowDefinitionRoot)
+    ) {
       if (!sourceRepo) {
         throw toFlowRunError('FLOW_NOT_FOUND');
       }
@@ -12891,26 +12927,10 @@ export async function startFlowRun(
       });
       flowsRoot = path.resolve(sourceRepo.containerPath, 'flows');
     }
-    flow = await loadFlowFile({ flowName, flowsRoot, sourceId });
-    appendFlowRuntimeDiagnostic('flows.test.start.flow_loaded', {
-      flowName,
-      conversationId,
-      flowPath,
-      flowPathDepth: flowPath.length,
-      sourceId: sourceId ?? null,
-      flowsRoot,
-      stepCount: flow.steps.length,
-    });
-    if (!flow.steps.length) {
-      throw toFlowRunError('NO_STEPS', 'Flow has no steps');
-    }
-
     existingConversation =
       conversationId === requestedConversationId ? existingConversation : null;
-    if (existingConversation?.archivedAt) {
+    if (existingConversation?.archivedAt)
       throw toFlowRunError('CONVERSATION_ARCHIVED');
-    }
-
     const effectiveWorkingFolder = await resolveConversationWorkingFolderForRun(
       {
         conversationId,
@@ -12920,6 +12940,76 @@ export async function startFlowRun(
         knownRepositoryPathsState: listedReposResult.knownRepositoryPathsState,
       },
     );
+
+    let flowDefinitionRoot = params.resumeStepPath
+      ? trustedRequestedFlowState?.flowDefinitionRoot
+      : undefined;
+    if (flowDefinitionRoot) {
+      const expectedRoot = sourceId
+        ? path.join(sourceId, 'flows')
+        : resolveConfiguredFlowsRoot();
+      if (
+        (sourceId && sourceId !== effectiveWorkingFolder) ||
+        flowDefinitionRoot !== (await canonicalFlowRoot(expectedRoot))
+      ) {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'Saved child flow root is outside the current trusted flow roots.',
+        );
+      }
+      flowsRoot = flowDefinitionRoot;
+    } else if (params.nativeChild && !params.resumeStepPath) {
+      resolveFlowFilePath(flowName, flowsRoot);
+      try {
+        const selected = await resolveChildFlowDefinition({
+          flowName,
+          workingRepositoryPath: effectiveWorkingFolder,
+        });
+        if (!selected)
+          throw toFlowRunError(
+            'FLOW_NOT_FOUND',
+            `FLOW_NOT_FOUND: Child flow ${flowName} was not found in the working repository or configured flows directory.`,
+          );
+        flowsRoot = selected.flowsRoot;
+        sourceId = selected.sourceId;
+        sourceRepo = sourceId
+          ? listedRepos.find((repo) => repo.containerPath === sourceId)
+          : undefined;
+        flowDefinitionRoot = flowsRoot;
+      } catch (error) {
+        if (isFlowRunError(error)) throw error;
+        throw toFlowRunError(
+          'FLOW_INVALID',
+          `Unable to resolve child flow ${flowName}: ${(error as Error).message}`,
+        );
+      }
+    }
+    const canonicalRoot = await canonicalFlowRoot(flowsRoot);
+    const flowPathEntry = `${flowName}@${canonicalRoot}`;
+    // Accept the old name/source path representation for in-flight legacy callers.
+    if (
+      flowPath.includes(flowPathEntry) ||
+      flowPath.includes(buildFlowPathEntry({ flowName, sourceId }))
+    ) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        `Subflow cycle detected: ${[...flowPath, flowPathEntry].join(' -> ')}.`,
+      );
+    }
+    flowPath = [...flowPath, flowPathEntry];
+    flow = await loadFlowFile({ flowName, flowsRoot, sourceId });
+    if (!flow.steps.length)
+      throw toFlowRunError('NO_STEPS', 'Flow has no steps');
+
+    appendFlowRuntimeDiagnostic('flows.test.start.flow_loaded', {
+      flowName,
+      conversationId,
+      flowPath,
+      flowPathDepth: flowPath.length,
+      sourceId: sourceId ?? null,
+      flowsRoot,
+      stepCount: flow.steps.length,
+    });
     appendFlowRuntimeDiagnostic('flows.test.start.working_folder_resolved', {
       flowName,
       conversationId,
@@ -13026,6 +13116,7 @@ export async function startFlowRun(
     const codeInfo2Root = codeInfo2RootForRun();
     repositoryContext = {
       flowName,
+      flowDefinitionRoot,
       workingRepositoryPath: effectiveWorkingFolder,
       defaultRepositoryRoot: flowRunDefaultRepositoryRoot,
       flowSourceId: sourceRepo?.containerPath
@@ -13287,7 +13378,8 @@ export async function startFlowRun(
       codexReviewModelId:
         params.codexReviewModelId ?? resumeState?.codexReviewModelId,
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
-      sourceId: sourceId ?? resumeState?.sourceId,
+      sourceId,
+      flowDefinitionRoot,
       input: effectiveFlowInput,
       inputHash: effectiveFlowInputHash,
       values: resumeState?.values as FlowJsonObject | undefined,

@@ -102,6 +102,9 @@ test('retrospective story flow reingests around distinct planning and tasking pa
   );
   for (const { file } of prompts) {
     assert.ok(file);
+    // This repair belongs to the retrospective flow. Its steps must not pick
+    // up ordinary planning/tasking prompts or run shared workflow controls.
+    assert.match(file, /^retrospective_story\//u);
     assert.ok(fs.existsSync(path.join(repoRoot, 'codeinfo_markdown', file)));
     const prompt = read(`codeinfo_markdown/${file}`);
     assert.ok(!prompt.includes('### Questions'), file);
@@ -109,6 +112,7 @@ test('retrospective story flow reingests around distinct planning and tasking pa
   }
   assert.equal(steps.at(-2)?.type, 'llm');
   assert.equal(steps.at(-1)?.type, 'reingest');
+  assert.equal(new Set(prompts.map(({ file }) => file)).size, prompts.length);
 });
 
 test('lite tasker is available in both supported agent catalogs', () => {
@@ -152,8 +156,19 @@ test('retrospective prompts preserve an open full-validation task and best-effor
   assert.ok(audit.includes('final task is the only open task'));
   assert.ok(publish.includes('git diff --cached --check'));
   assert.ok(publish.includes('remove any `- **BLOCKER**` line'));
-  assert.ok(publish.includes('git push -u origin HEAD'));
-  assert.ok(publish.includes('A commit or push failure is nonfatal'));
+  // Final publication inherits the normal push command from shared/early
+  // publication, then independently verifies the exact remote branch.
+  assert.match(
+    publish,
+    /After the story-only commit, publish using the bounded collision protocol/u,
+  );
+  for (const publication of [earlyPublish, publish]) {
+    assert.ok(
+      publication.includes('git ls-remote --heads origin refs/heads/<branch>'),
+    );
+    assert.match(publication, /exact full ref SHA (?:equals|to equal) local/u);
+  }
+  assert.match(publish, /Commit\/push failure remains nonfatal/u);
   assert.ok(layout.includes('select_retrospective_story_number.py'));
   assert.ok(earlyPublish.includes('--owned-plan'));
   assert.ok(earlyPublish.includes('git push -u origin HEAD'));
@@ -168,7 +183,10 @@ test('tasking uses separate inventory, creation, final task, check, and repair p
   const check = read(`${taskingRoot}/04-check.md`);
   const repair = read(`${taskingRoot}/05-repair.md`);
 
-  assert.ok(inventory.includes('Do not edit the plan'));
+  assert.match(
+    inventory,
+    /Do not edit the plan, create tasks, commit, or push/u,
+  );
   assert.ok(completed.includes('Do not create the final validation task'));
   assert.ok(
     completed.includes(
@@ -202,7 +220,14 @@ test('acceptance and audit passes enforce test coverage and code-quality criteri
     acceptance.includes('Appropriate automated tests cover the new behavior'),
   );
   assert.ok(acceptance.includes('When the work is internal only'));
-  assert.ok(acceptance.includes('no additional user-facing behavior'));
+  assert.match(
+    acceptance,
+    /no newly invented user-facing behavior[^.]+beyond observed implementation and preserved explicit archive requirements/u,
+  );
+  assert.match(
+    acceptance,
+    /still-required visible as a validation requirement/u,
+  );
   assert.ok(tasking.includes('four standing acceptance requirements'));
   assert.ok(audit.includes('Restore missing criteria'));
   assert.ok(audit.includes('appropriate automated test coverage'));
@@ -223,7 +248,7 @@ test('acceptance and audit passes enforce test coverage and code-quality criteri
   );
 });
 
-test('retrospective scope stays tied to observed branch work for later review', () => {
+test('retrospective scope preserves explicit original requirements alongside observed branch work for later review', () => {
   const flow = JSON.parse(
     read('flows/document_completed_branch_story.json'),
   ) as {
@@ -247,20 +272,29 @@ test('retrospective scope stays tied to observed branch work for later review', 
   );
   const audit = read('codeinfo_markdown/retrospective_story/10-audit.md');
   assert.ok(description.includes('Fill `## Implementation Ideas`'));
-  assert.ok(
-    outOfScope.includes(
-      'Additional user-facing behavior beyond the observed implementation',
-    ),
+  assert.match(
+    outOfScope,
+    /New user-facing behavior beyond observed implementation and preserved explicit archive requirements[^.]+outside this story/u,
   );
   assert.ok(outOfScope.includes('For every implemented behavior or workflow'));
   assert.ok(outOfScope.includes('concrete conceptual boundary'));
   assert.ok(outOfScope.includes('shared file, subsystem, keyword'));
   assert.ok(outOfScope.includes('For internal-only work'));
-  assert.ok(
-    outOfScope.includes('further user-facing behavior or interface change'),
+  assert.match(
+    outOfScope,
+    /For internal-only work, explicitly say that user-facing behavior, screens, interactions, visuals, and external API changes are outside scope when they are neither observed implementation nor preserved explicit archive requirements;/u,
   );
+  assert.match(
+    outOfScope,
+    /Do not classify an explicit requirement[^;]+as speculative or erase it/u,
+  );
+  assert.match(outOfScope, /Original exclusions remain exclusions/u);
   assert.ok(inventory.includes('observed changes'));
   assert.ok(audit.includes('inferred future behavior'));
+  assert.match(
+    audit,
+    /preserving every explicit original requirement and its honest status/u,
+  );
   assert.ok(audit.includes('story-specific conceptual boundaries'));
 });
 
@@ -271,8 +305,15 @@ test('retrospective steps recover inputs without a previous agent conversation',
     steps: Array<{ type: string; markdownFile?: string }>;
   };
   const shared = read('codeinfo_markdown/retrospective_story/shared.md');
-  assert.ok(shared.includes('The initial layout step creates this flow'));
-  assert.ok(shared.includes('recover needed facts from the plan, Git, source'));
+  assert.match(shared, /The initial layout creates the plan/u);
+  assert.match(
+    shared,
+    /Every later step reads `current-plan\.json` for exact plan path/u,
+  );
+  assert.match(
+    shared,
+    /Recover outcomes independently from the ignored `codeInfoStatus\/flow-state\/retrospective-archive\.json` receipt and repository evidence, never a previous agent report\./u,
+  );
 
   for (const step of flow.steps.filter((item) => item.type === 'llm')) {
     assert.ok(step.markdownFile);
@@ -358,8 +399,15 @@ test('retrospective agents document provenance without creating blockers or revi
   );
   const audit = read('codeinfo_markdown/retrospective_story/10-audit.md');
 
-  assert.ok(shared.includes('Omit the Questions section'));
-  assert.ok(shared.includes('do not create or consult it'));
+  assert.match(shared, /Do not create a Questions heading/u);
+  assert.match(
+    shared,
+    /preserve material facts, unresolved questions, and answers\/status[^.]+existing sections/iu,
+  );
+  assert.match(
+    shared,
+    /exclude prospective planning instructions, a Questions heading\/placeholder/u,
+  );
   assert.ok(
     shared.includes('Never build, execute tests, run lint or formatting tools'),
   );
@@ -401,14 +449,20 @@ test('archive prompts preserve ownership and keep relocation out of delivered sc
     'never an old current-plan handoff',
     'No matching story is a normal no-op',
     'safe no-ops with reasons',
-    'Do not select the archived one-shot filename',
     'retrospective-archive.json',
   ]) {
     assert.ok(archive.includes(required), required);
   }
+  assert.match(
+    shared,
+    /Never repoint the active handoff to a one-shot filename/u,
+  );
   assert.ok(shared.includes('source deletion from delivered implementation'));
   assert.ok(shared.includes('planning/*.md'));
-  assert.ok(shared.includes('Do not let the archive alter'));
+  assert.match(
+    shared,
+    /Do not let the archive alter the supported comparison base or manufacture delivered behavior/u,
+  );
   assert.ok(layout.includes('Copy a verified archived receipt'));
   assert.ok(layout.includes('new canonical numbered plan'));
   assert.ok(shared.includes('preserve it through branch publication'));
@@ -463,16 +517,30 @@ test('every writing and checking pass applies branch documentation evidence rule
     'abandoned or superseded approaches as historical',
     'code does not prove motivation',
     'Authored documentation and tests do not prove execution or test passes',
-    'Original-plan proposals, template text, and unsupported documentation claims',
     'factual evidence limits, not blockers or code-review findings',
   ]) {
     assert.ok(shared.includes(required), required);
   }
+  assert.match(
+    shared,
+    /Generic instructions[^.]+apply to speculative suggestions and unverified claims/u,
+  );
+  assert.match(shared, /do not erase explicit original requirements/u);
   for (const step of flow.steps.filter((item) => item.type === 'llm')) {
     assert.ok(step.markdownFile);
     const prompt = read(`codeinfo_markdown/${step.markdownFile}`);
     if (step.markdownFile.endsWith('00-archive-existing-story.md')) {
       assert.ok(prompt.includes('Relevant branch-authored documentation'));
+      // Archival moves original bytes and records a receipt; it does not write
+      // replacement story sections or need their carryforward editing header.
+      assert.match(
+        prompt,
+        /This step only archives verified stories and records the receipt/u,
+      );
+      assert.match(
+        prompt,
+        /preserve every verified prior mapping alongside newly archived files/u,
+      );
       continue;
     }
     // Individual prompts must invoke the contract even in independent agent turns.
@@ -485,12 +553,21 @@ test('every writing and checking pass applies branch documentation evidence rule
       'implementation and actual diff',
       'attribute documented rationale',
       'superseded approaches as historical',
-      'never extra tasks, blockers, review findings, or proof of test passes',
       'Process all `retrospective_archive.entries` independently',
       'preserve every verified mapping in any handoff update',
       'exclude administrative archive changes from delivered implementation',
     ]) {
       assert.ok(prompt.includes(required), `${step.markdownFile}: ${required}`);
     }
+    assert.match(
+      prompt,
+      /preserve every verified original explicit requirement, even when unimplemented/u,
+      step.markdownFile,
+    );
+    assert.match(
+      prompt,
+      /never claim unsupported implementation or test passes, create repair work, blockers, or review findings/u,
+      step.markdownFile,
+    );
   }
 });

@@ -86,7 +86,7 @@ test('global npm/Python and pip bootstrap are pinned while required provider ver
   const npm = read('server/npm-global.txt').trim().split('\n');
   assert.ok(npm.every((line) => /@\d+\.\d+\.\d+(?:[-.\w]*)?$/u.test(line)));
   for (const pin of [
-    '@openai/codex@0.159.2',
+    '@openai/codex@0.162.1',
     '@github/copilot@1.0.89',
     '@mermaid-js/mermaid-cli@11.15.0',
   ]) {

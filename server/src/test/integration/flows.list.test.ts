@@ -184,6 +184,127 @@ describe('GET /flows', () => {
     __resetProviderBootstrapStatusForTests();
   });
 
+  test('repository parent discovery follows configured children back into the original repository and keeps warnings nonblocking', async () => {
+    const root = await fs.mkdtemp(path.join(process.cwd(), 'tmp-native-list-'));
+    const working = path.join(root, 'working');
+    const fallback = path.join(root, 'configured');
+    try {
+      await writeRawFlowFile(
+        path.join(working, 'flows'),
+        'parent',
+        JSON.stringify({
+          description: 'parent',
+          steps: [
+            { type: 'subflow', flowNames: ['bridge', 'broken', 'absent'] },
+          ],
+        }),
+      );
+      await writeRawFlowFile(
+        fallback,
+        'bridge',
+        JSON.stringify({
+          description: 'bridge',
+          steps: [{ type: 'subflow', flowNames: ['leaf'] }],
+        }),
+      );
+      await writeRawFlowFile(path.join(working, 'flows'), 'leaf', '{');
+      await writeRawFlowFile(path.join(working, 'flows'), 'broken', '{');
+      await writeRawFlowFile(
+        fallback,
+        'broken',
+        JSON.stringify({
+          description: 'valid default must not hide local invalid',
+          steps: [{ type: 'wait', seconds: 1 }],
+        }),
+      );
+      await writeRawFlowFile(
+        fallback,
+        'leaf',
+        JSON.stringify({
+          description: 'valid default must not hide local invalid',
+          steps: [{ type: 'wait', seconds: 1 }],
+        }),
+      );
+      await withFlowsDir(fallback, async () => {
+        const response = await supertest(
+          buildApp({
+            listIngestedRepositories: async () => ({
+              repos: [
+                buildRepoEntry({ id: 'working', containerPath: working }),
+              ],
+              lockedModelId: null,
+            }),
+          }),
+        ).get('/flows');
+        assert.equal(response.status, 200);
+        const parent = response.body.flows.find(
+          (flow: { name: string; sourceId?: string }) =>
+            flow.name === 'parent' && flow.sourceId === working,
+        );
+        assert.ok(parent);
+        assert.equal(parent.disabled, false);
+        const warnings = (parent.warnings ?? []).join('\n');
+        assert.match(warnings, /Subflow "leaf" is invalid/);
+        assert.match(warnings, /Subflow "broken" is invalid/);
+        assert.match(warnings, /Subflow "absent" could not be read/);
+        assert.doesNotMatch(warnings, /Subflow "bridge" could not be read/);
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test('default listing with unknown execution cwd conservatively warns about local-only children and stays enabled', async () => {
+    const root = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-native-list-default-'),
+    );
+    const working = path.join(root, 'working');
+    const fallback = path.join(root, 'configured');
+    try {
+      await writeRawFlowFile(
+        fallback,
+        'parent',
+        JSON.stringify({
+          description: 'default parent',
+          steps: [{ type: 'subflow', flowNames: ['local-only'] }],
+        }),
+      );
+      await writeRawFlowFile(
+        path.join(working, 'flows'),
+        'local-only',
+        JSON.stringify({
+          description: 'local child',
+          steps: [{ type: 'wait', seconds: 1 }],
+        }),
+      );
+      await withFlowsDir(fallback, async () => {
+        const response = await supertest(
+          buildApp({
+            listIngestedRepositories: async () => ({
+              repos: [
+                buildRepoEntry({ id: 'working', containerPath: working }),
+              ],
+              lockedModelId: null,
+            }),
+          }),
+        ).get('/flows');
+        assert.equal(response.status, 200);
+        const parent = response.body.flows.find(
+          (flow: { name: string; sourceId?: string }) =>
+            flow.name === 'parent' && !flow.sourceId,
+        );
+        assert.ok(parent);
+        assert.equal(parent.disabled, false);
+        assert.match(
+          (parent.warnings ?? []).join('\n'),
+          /Subflow "local-only" could not be read/,
+        );
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   test('missing flows folder returns empty list', async () => {
     installDeterministicCodexAvailabilityBootstrap();
     const missingDir = path.join(process.cwd(), 'tmp-flows-missing');

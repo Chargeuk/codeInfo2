@@ -1,5 +1,6 @@
 export const DEV_0000037_T01_EVENT = 'codex_sdk_upgraded';
-export const DEV_0000037_T01_REQUIRED_VERSION = '0.159.2';
+// Keep the startup guard aligned with the paired Codex CLI and SDK pins.
+export const DEV_0000037_T01_REQUIRED_VERSION = '0.162.1';
 const DEV_0000037_T01_PREFIX = '[DEV-0000037][T01]';
 export const DEV_0000040_T10_CODEX_SDK_GUARD =
   'DEV_0000040_T10_CODEX_SDK_GUARD';

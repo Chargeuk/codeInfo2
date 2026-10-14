@@ -5,7 +5,7 @@ import rootLock from '../../../../package-lock.json' with { type: 'json' };
 import rootPackage from '../../../../package.json' with { type: 'json' };
 import serverPackage from '../../../package.json' with { type: 'json' };
 
-const CODEX_VERSION = '0.159.2';
+const CODEX_VERSION = '0.162.1';
 const OPENAI_VERSION = '7.25.0';
 const COPILOT_CLI_VERSION = '1.0.89';
 const COPILOT_SDK_VERSION = '1.0.15';

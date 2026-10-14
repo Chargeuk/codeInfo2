@@ -23,6 +23,9 @@ import { append } from '../logStore.js';
 import { appendRepoBackedTransitiveConsumerLogs } from '../logging/transitiveConsumerMarkers.js';
 import {
   getFlowDefinitionCatalog,
+  canonicalFlowRoot,
+  resolveSafeFlowFilePath,
+  resolveChildFlowDefinition,
   resolveConfiguredFlowsRoot,
   type FlowDefinitionCatalog,
 } from './flowDefinitionCatalog.js';
@@ -59,37 +62,6 @@ const isSafeCommandName = (raw: string): boolean => {
     !trimmed.includes('/') &&
     !trimmed.includes('\\')
   );
-};
-
-const isSafeFlowName = (raw: string): boolean => {
-  const trimmed = raw.trim();
-  return (
-    trimmed.length > 0 &&
-    trimmed === path.posix.basename(trimmed) &&
-    !trimmed.includes('/') &&
-    !trimmed.includes('\\') &&
-    !trimmed.includes('..')
-  );
-};
-
-const resolveSafeChildFlowPath = (
-  flowsDir: string,
-  flowName: string,
-): string => {
-  if (!isSafeFlowName(flowName)) {
-    throw new Error(`Subflow name "${flowName}" must be a valid flow name.`);
-  }
-  const resolvedFlowsDir = path.resolve(flowsDir);
-  const childFlowPath = path.resolve(resolvedFlowsDir, `${flowName}.json`);
-  const relativePath = path.relative(resolvedFlowsDir, childFlowPath);
-  if (
-    relativePath === '' ||
-    relativePath.startsWith('..') ||
-    path.isAbsolute(relativePath)
-  ) {
-    throw new Error(`Subflow name "${flowName}" must stay within flowsDir.`);
-  }
-  return childFlowPath;
 };
 
 const resolveFlowsDir = (baseDir?: string): string => {
@@ -148,15 +120,17 @@ const collectSubflowReferenceWarnings = async (params: {
   warnings?: Set<string>;
   warningDetails?: AgentAvailabilityWarning[];
   visited?: Set<string>;
+  workingRepositoryPath?: string;
 }) => {
   const warnings = params.warnings ?? new Set<string>();
   const warningDetails = params.warningDetails ?? [];
   const visited = params.visited ?? new Set<string>();
-  visited.add(params.flowName);
+  visited.add(`${params.flowName}@${await canonicalFlowRoot(params.flowsDir)}`);
 
   for (const step of params.steps) {
     if (step.type === 'startLoop') {
       await collectSubflowReferenceWarnings({
+        ...params,
         flowName: params.flowName,
         steps: step.steps,
         flowsDir: params.flowsDir,
@@ -199,20 +173,35 @@ const collectSubflowReferenceWarnings = async (params: {
     }
 
     for (const childFlowName of childFlowNames) {
-      if (visited.has(childFlowName)) {
-        continue;
-      }
+      let childFlow;
+      let childFlowsDir = params.flowsDir;
       try {
-        resolveSafeChildFlowPath(params.flowsDir, childFlowName);
+        resolveSafeFlowFilePath(params.flowsDir, childFlowName);
+        if (params.workingRepositoryPath) {
+          const selected = await resolveChildFlowDefinition({
+            flowName: childFlowName,
+            workingRepositoryPath: params.workingRepositoryPath,
+          });
+          childFlow = selected?.entry;
+          childFlowsDir = selected?.flowsRoot ?? params.flowsDir;
+        } else {
+          // Default listings have no execution cwd. Runtime resolves the authoritative child.
+          childFlow = params.catalog.get(childFlowName);
+        }
+        if (
+          visited.has(
+            `${childFlowName}@${await canonicalFlowRoot(childFlowsDir)}`,
+          )
+        )
+          continue;
       } catch (error) {
         appendDiscoveryWarning({
           warnings,
           warningDetails,
-          message: error instanceof Error ? error.message : 'Invalid flow file',
+          message: `Subflow "${childFlowName}" could not be resolved: ${(error as Error).message}`,
         });
         continue;
       }
-      const childFlow = params.catalog.get(childFlowName);
       if (!childFlow) {
         appendDiscoveryWarning({
           warnings,
@@ -230,13 +219,14 @@ const collectSubflowReferenceWarnings = async (params: {
         continue;
       }
       await collectSubflowReferenceWarnings({
+        ...params,
         flowName: childFlowName,
         steps: childFlow.parsed.flow.steps,
-        flowsDir: params.flowsDir,
-        catalog: params.catalog,
+        flowsDir: childFlowsDir,
+        catalog: await getFlowDefinitionCatalog(childFlowsDir),
         warnings,
         warningDetails,
-        visited: new Set(visited).add(childFlowName),
+        visited: new Set(visited),
       });
     }
   }
@@ -628,6 +618,7 @@ const collectFlowAvailability = async (params: {
     steps: params.parsedFlow.steps,
     flowsDir: params.flowsDir,
     catalog: params.catalog,
+    workingRepositoryPath: params.sourceId,
   });
   for (const warning of subflowWarnings.warnings) {
     warnings.add(warning);

@@ -202,7 +202,9 @@ Cargo must be installed and on your WSL PATH to use this configuration. Source r
 
 | Variable                             | Default when unset                                 | Where used                                                                                                    |
 | ------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `CODEINFO_NPM_REGISTRY`              | npm default registry behavior                      | Docker build-time npm install steps in server/client images, and host helper install in `start-gcf-server.sh` |
+| `CODEINFO_NPM_REGISTRY`              | npm default registry behavior                      | Selects the registry for Docker build-time npm installs and the host helper; does not configure registry credentials |
+| `CODEINFO_PLAYWRIGHT_MCP_URL`         | Resolved by the CodeInfo runtime                   | Agent config harness placeholder for the reachable Playwright MCP HTTP endpoint; standalone Codex needs a concrete URL |
+| `CODEINFO_PLAYWRIGHT_MCP_IMAGE`       | `mcr.microsoft.com/playwright/mcp:latest`          | Optional Compose image override for the approved Playwright MCP package and compatible browser assets |
 | `CODEINFO_PIP_INDEX_URL`             | pip default index behavior                         | Server Docker build-time `pip install`                                                                        |
 | `CODEINFO_PIP_TRUSTED_HOST`          | pip default trusted-host behavior                  | Server Docker build-time `pip install`                                                                        |
 | `CODEINFO_NODE_EXTRA_CA_CERTS`       | `/etc/ssl/certs/ca-certificates.crt`               | Server build-time Node trust and runtime export before Node starts                                            |
@@ -358,6 +360,10 @@ be recorded separately from full-suite or behavioral proof.
 
 - The server container starts a **headless** Chrome instance on boot with remote debugging enabled.
 - `docker-compose.local.yml` exposes the Chrome DevTools endpoint on port `9222` (e.g., `http://localhost:9222`) so the DevTools MCP server can attach.
+- Agent configurations use the installed `chrome-devtools-mcp` command with `--browser-url=http://localhost:9222`; `CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS=1` keeps startup independent of update-check network access. The browser MCP packages and browser assets must already be installed in their runtime images; do not depend on a first-run package or browser download in restricted or offline environments.
+- Playwright MCP uses `CODEINFO_PLAYWRIGHT_MCP_URL`, which the CodeInfo runtime resolves to its host-visible Compose endpoint. Standalone Codex configurations must replace that harness placeholder with a concrete reachable HTTP MCP URL. Playwright browser assets must match the installed MCP package; use an approved prebuilt image and set `CODEINFO_PLAYWRIGHT_MCP_IMAGE` when the default public image is unavailable or unsuitable. The override changes Compose image resolution and does not itself build or fetch an image.
+- Docker build-time npm installs use `CODEINFO_NPM_REGISTRY` when configured. This setting selects the registry URL only; host npm authentication is not automatically passed into Docker builds, and the Dockerfiles do not mount an npm credential secret. If the registry requires authentication, provision the build environment with the required credentials through an approved secure mechanism; never commit them here.
+- For offline Compose startup, make sure every required image is already present locally, then use `npm run compose:up -- --pull never`. Compose otherwise pulls images tagged `latest` by default, even when a local copy is available. Prefer an approved pinned internal Playwright MCP image via `CODEINFO_PLAYWRIGHT_MCP_IMAGE` when its reference is known; the override does not fetch or build the image.
 
 ## Agent folders (provider-neutral layout)
 

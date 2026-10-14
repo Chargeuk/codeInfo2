@@ -20,8 +20,9 @@ url = "https://mcp.deepwiki.com/mcp"
 startup_timeout_sec = 20.0
 
 [mcp_servers.chrome_devtools]
-command = "npx"
-args = ["-y", "chrome-devtools-mcp@latest", "--browser-url=http://127.0.0.1:9222"]
+command = "chrome-devtools-mcp"
+env = { CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS = "1" }
+args = ["--browser-url=http://127.0.0.1:9222"]
 startup_timeout_sec = 20.0
 
 [mcp_servers.code_info]

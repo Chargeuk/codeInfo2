@@ -25,16 +25,14 @@ startup_timeout_sec = 60
 tool_timeout_sec = 1800
 
 [mcp_servers.playwright]
-command = "npx"
-args    = ["-y", "mcp-remote", "CODEINFO_PLAYWRIGHT_MCP_URL", "--allow-http"]
+url = "CODEINFO_PLAYWRIGHT_MCP_URL"
 startup_timeout_sec = 60
 tool_timeout_sec = 180
 
 [mcp_servers."chrome-devtools"]
-command = "npx"
+command = "chrome-devtools-mcp"
+env = { CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS = "1" }
 args = [
-"-y",
-"chrome-devtools-mcp@latest",
 "--browser-url=http://localhost:9222"
 ]
 startup_timeout_sec = 20

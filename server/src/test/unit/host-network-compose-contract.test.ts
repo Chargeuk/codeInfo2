@@ -207,6 +207,10 @@ test('compose stacks expose harness instructions while local uses live workflow 
   );
 
   const mainPlaywright = getServiceBlock(mainCompose, 'playwright-mcp');
+  assert.match(
+    mainPlaywright,
+    /image: \$\{CODEINFO_PLAYWRIGHT_MCP_IMAGE:-mcr\.microsoft\.com\/playwright\/mcp:latest\}/u,
+  );
   assert.match(mainPlaywright, /network_mode: host/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+networks:/u);
@@ -290,6 +294,10 @@ test('compose stacks expose harness instructions while local uses live workflow 
   );
 
   const localPlaywright = getServiceBlock(localCompose, 'playwright-mcp');
+  assert.match(
+    localPlaywright,
+    /image: \$\{CODEINFO_PLAYWRIGHT_MCP_IMAGE:-mcr\.microsoft\.com\/playwright\/mcp:latest\}/u,
+  );
   assert.match(localPlaywright, /network_mode: host/u);
   assert.doesNotMatch(localPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(localPlaywright, /\n\s+networks:/u);

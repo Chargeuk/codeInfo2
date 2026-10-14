@@ -1459,12 +1459,9 @@ describe('runtimeConfig Context7 overlay', () => {
         startup_timeout_sec: 20,
       },
       chrome_devtools: {
-        command: 'npx',
-        args: [
-          '-y',
-          'chrome-devtools-mcp@latest',
-          '--browser-url=http://127.0.0.1:9222',
-        ],
+        command: 'chrome-devtools-mcp',
+        env: { CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS: '1' },
+        args: ['--browser-url=http://127.0.0.1:9222'],
         startup_timeout_sec: 20,
       },
       code_info: {
@@ -1473,6 +1470,91 @@ describe('runtimeConfig Context7 overlay', () => {
         startup_timeout_sec: 60,
       },
     });
+  });
+  it('keeps checked-in browser MCPs independent of npm downloads and resolves native HTTP endpoints', async () => {
+    const catalogs = [
+      {
+        root: 'codeinfo_agents',
+        roles: [
+          'coding_agent',
+          'coding_agent_lite',
+          'manual_testing_agent',
+          'research_agent',
+          'research_agent_lite',
+          'research_agent_max',
+        ],
+      },
+      {
+        root: 'manual_testing/codeinfo_agents',
+        roles: [
+          'copilot_manual_agent',
+          'manual_testing_agent',
+          'research_agent',
+          'research_agent_max',
+        ],
+      },
+    ];
+
+    for (const catalog of catalogs) {
+      for (const role of catalog.roles) {
+        const configPath = path.join(
+          repoRoot,
+          catalog.root,
+          role,
+          'config.toml',
+        );
+        const parsed = await readAndNormalizeRuntimeTomlConfig(configPath, {
+          required: true,
+        });
+        assert.ok(parsed, configPath);
+        const toolTimeout = role.startsWith('coding_agent') ? 600 : 180;
+        const servers = parsed.mcp_servers as Record<string, unknown>;
+        assert.deepEqual(
+          servers.playwright,
+          {
+            url: 'CODEINFO_PLAYWRIGHT_MCP_URL',
+            startup_timeout_sec: 60,
+            tool_timeout_sec: toolTimeout,
+          },
+          configPath,
+        );
+        if (!role.startsWith('coding_agent')) {
+          assert.deepEqual(
+            servers['chrome-devtools'],
+            {
+              command: 'chrome-devtools-mcp',
+              env: { CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS: '1' },
+              args: ['--browser-url=http://localhost:9222'],
+              startup_timeout_sec: 20,
+            },
+            configPath,
+          );
+        }
+
+        for (const port of ['8931', '8932']) {
+          const url = `http://host.docker.internal:${port}/mcp`;
+          const normalized = normalizeCodeinfoRuntimeConfigPlaceholders(
+            parsed,
+            {
+              CODEINFO_SERVER_PORT: '5010',
+              CODEINFO_CHAT_MCP_PORT: '5011',
+              CODEINFO_AGENTS_MCP_PORT: '5012',
+              CODEINFO_WEB_MCP_PORT: '5013',
+              CODEINFO_PLAYWRIGHT_MCP_URL: url,
+            },
+          );
+          assert.deepEqual(
+            (normalized.mcp_servers as Record<string, unknown>).playwright,
+            {
+              url,
+              startup_timeout_sec: 60,
+              tool_timeout_sec: toolTimeout,
+            },
+            `${configPath} with Playwright port ${port}`,
+          );
+        }
+      }
+    }
   });
   it('resolves checked-in chat MCP placeholders from CODEINFO_CHAT_MCP_PORT', async () => {
     const configPath = path.join(

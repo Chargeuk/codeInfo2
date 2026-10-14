@@ -189,7 +189,7 @@ services:
       - internal
 
   playwright-mcp:
-    image: mcr.microsoft.com/playwright/mcp:latest
+    image: ${CODEINFO_PLAYWRIGHT_MCP_IMAGE:-mcr.microsoft.com/playwright/mcp:latest}
     user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
     network_mode: host
     entrypoint: ['node', '/app/cli.js']

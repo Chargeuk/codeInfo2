@@ -13,6 +13,10 @@ Keep the same behavior and standards described here even when the exact task cha
 4. If required context is missing and can be gathered from the repo or tools, gather it before asking the user.
 5. If required context cannot be retrieved, ask the user only for the missing piece.
 
+## Assumptions and Scope
+
+Before acting on an assumption that could affect correctness, user-visible behaviour, scope, complexity, or substantial effort, verify it against current source, callers, tests, or relevant documentation. Distinguish confirmed facts from inference and unresolved questions. Prefer existing patterns and helpers; an unsuccessful search does not prove a capability is missing. If a consequential uncertainty remains, investigate the specific question or ask the user before taking the dependent action, while continuing safe independent work. Do not invent requirements or expand the task to resolve speculative concerns. Stop when the requested outcome and required validation are complete.
+
 ## Session Start
 
 Re-read this file at the start of each session. Assume it may have changed since the last context window.

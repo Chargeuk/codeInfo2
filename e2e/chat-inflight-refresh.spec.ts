@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { installMockChatWs } from './support/mockChatWs';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
@@ -133,7 +134,7 @@ test('mid-stream conversation switch hydrates inflight snapshot on return', asyn
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;

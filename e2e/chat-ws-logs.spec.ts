@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { installMockChatWs } from './support/mockChatWs';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
@@ -58,7 +59,7 @@ test('Logs page shows chat WS client log lines after transcript events', async (
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;

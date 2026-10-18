@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import IngestForm from '../components/ingest/IngestForm';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { mockJsonResponse } from './support/fetchMock';
 describe('IngestForm', () => {
   const mockFetch = jest.fn<typeof fetch>();
@@ -120,7 +121,7 @@ describe('IngestForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-123'));
-    const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
+    const body = decodeJsonBody(mockFetch.mock.calls[0]?.[1]);
     expect(body).toMatchObject({
       path: '/repo',
       name: 'Repo',
@@ -200,12 +201,10 @@ describe('IngestForm', () => {
     expect(screen.getByLabelText(/display name/i)).toHaveValue(
       'Repo edited locally',
     );
-    expect(JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string).name).toBe(
-      'Repo',
-    );
+    expect(decodeJsonBody(mockFetch.mock.calls[0]?.[1]).name).toBe('Repo');
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
-    expect(JSON.parse(mockFetch.mock.calls[1]?.[1]?.body as string).name).toBe(
+    expect(decodeJsonBody(mockFetch.mock.calls[1]?.[1]).name).toBe(
       'Repo edited locally',
     );
   });
@@ -240,9 +239,7 @@ describe('IngestForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
-    expect(
-      JSON.parse(mockFetch.mock.calls[1]?.[1]?.body as string),
-    ).toMatchObject({
+    expect(decodeJsonBody(mockFetch.mock.calls[1]?.[1])).toMatchObject({
       path: '/repo-b',
       name: 'Repo B',
     });
@@ -322,7 +319,7 @@ describe('IngestForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-stale'));
-    const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
+    const body = decodeJsonBody(mockFetch.mock.calls[0]?.[1]);
     expect(body).toMatchObject({
       model: 'embed-a',
       embeddingProvider: 'lmstudio',
@@ -447,7 +444,7 @@ describe('IngestForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(mockFetch).toHaveBeenCalled());
-    const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
+    const body = decodeJsonBody(mockFetch.mock.calls[0]?.[1]);
     expect(body.embeddingProvider).toBe('openai');
     expect(body.embeddingModel).toBe('shared-id');
     expect(body.model).toBe('shared-id');
@@ -477,7 +474,7 @@ describe('IngestForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-300'));
-    const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
+    const body = decodeJsonBody(mockFetch.mock.calls[0]?.[1]);
     expect(body).toMatchObject({
       embeddingProvider: 'openai',
       embeddingModel: 'dup-model',
@@ -517,7 +514,7 @@ describe('IngestForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-301'));
-    const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
+    const body = decodeJsonBody(mockFetch.mock.calls[0]?.[1]);
     expect(body).toMatchObject({
       embeddingProvider: 'openai',
       embeddingModel: 'dup-model',

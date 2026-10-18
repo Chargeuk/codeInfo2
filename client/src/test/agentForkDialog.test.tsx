@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { mockJsonResponse } from './support/fetchMock';
 
 const fetchMock = jest.fn<typeof fetch>();
@@ -81,7 +82,7 @@ test('pending creation disables cancellation and duplicate sends, then navigates
   expect(screen.getByRole('button', { name: 'Creating…' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   expect(fetchMock).toHaveBeenCalledTimes(2);
-  const body = JSON.parse(fetchMock.mock.calls[1][1]!.body as string);
+  const body = decodeJsonBody(fetchMock.mock.calls[1][1]!);
   expect(body.sourceTurnId).toBe('completed-turn');
   expect(body.requestId).toEqual(expect.any(String));
   await act(async () => {
@@ -114,11 +115,11 @@ test('inline failure allows retry with the same request identity and no duplicat
   expect(await screen.findByText('Retry this request')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Create fork' }));
   await waitFor(() => expect(created).toHaveBeenCalledWith(result));
-  expect(
-    JSON.parse(fetchMock.mock.calls[1][1]!.body as string).sourceTurnId,
-  ).toBe('server-selected-response');
-  expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string).requestId).toBe(
-    JSON.parse(fetchMock.mock.calls[2][1]!.body as string).requestId,
+  expect(decodeJsonBody(fetchMock.mock.calls[1][1]!).sourceTurnId).toBe(
+    'server-selected-response',
+  );
+  expect(decodeJsonBody(fetchMock.mock.calls[1][1]!).requestId).toBe(
+    decodeJsonBody(fetchMock.mock.calls[2][1]!).requestId,
   );
 });
 

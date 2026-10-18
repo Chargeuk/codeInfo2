@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 const mockFetch = jest.fn<typeof fetch>();
 beforeAll(() => {
   global.fetch = mockFetch;
@@ -235,9 +236,7 @@ function setupFlowsFetch(params?: {
     }
     if (target.includes('/flows/smoke/run')) {
       const body =
-        typeof init?.body === 'string'
-          ? (JSON.parse(init.body) as FetchBody)
-          : {};
+        init?.body != null ? (decodeJsonBody(init) as FetchBody) : {};
       runBodies.push(body);
       if (params?.runFlowFetch) {
         return Promise.resolve(params.runFlowFetch(body, init));

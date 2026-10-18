@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import ChatPage from '../pages/ChatPage';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
@@ -103,9 +104,7 @@ test('chat send payload includes conversationId, message, provider, and model', 
       }
       if (url.includes('/chat')) {
         chatBody =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as ChatBody)
-            : null;
+          init?.body != null ? (decodeJsonBody(init) as ChatBody) : null;
         return new Response(
           streamFromFrames([
             'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
@@ -186,9 +185,7 @@ test('chat send payload includes working_folder when selected', async () => {
       }
       if (url.includes('/chat')) {
         chatBody =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as ChatBody)
-            : null;
+          init?.body != null ? (decodeJsonBody(init) as ChatBody) : null;
         return new Response(
           streamFromFrames([
             'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
@@ -299,9 +296,7 @@ test('chat send payload includes endpointId when the selected model is endpoint-
       }
       if (url.includes('/chat')) {
         chatBody =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as ChatBody)
-            : null;
+          init?.body != null ? (decodeJsonBody(init) as ChatBody) : null;
         return new Response(
           streamFromFrames([
             'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
@@ -409,9 +404,7 @@ test('chat send payload clears stale endpointId after switching to LM Studio', a
       }
       if (url.includes('/chat')) {
         chatBody =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as ChatBody)
-            : null;
+          init?.body != null ? (decodeJsonBody(init) as ChatBody) : null;
         return new Response(
           streamFromFrames([
             'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
@@ -540,9 +533,7 @@ test('chat send payload omits a stale endpointId on the compact mobile picker pa
       }
       if (url.includes('/chat')) {
         chatBody =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as ChatBody)
-            : null;
+          init?.body != null ? (decodeJsonBody(init) as ChatBody) : null;
         return new Response(
           streamFromFrames([
             'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
@@ -847,9 +838,7 @@ test('chat send payload keeps the Copilot request provider-neutral without legac
       }
       if (url.includes('/chat')) {
         chatBody =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as ChatBody)
-            : null;
+          init?.body != null ? (decodeJsonBody(init) as ChatBody) : null;
         return new Response(
           streamFromFrames([
             'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
@@ -1086,9 +1075,7 @@ test('chat send payload omits hidden incompatible Codex values after switching t
       }
       if (url.includes('/chat')) {
         chatBody =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as ChatBody)
-            : null;
+          init?.body != null ? (decodeJsonBody(init) as ChatBody) : null;
         return new Response(
           streamFromFrames([
             'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',

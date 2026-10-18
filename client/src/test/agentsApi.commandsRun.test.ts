@@ -1,3 +1,4 @@
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = getFetchMock();
@@ -35,7 +36,7 @@ describe('Agents API runAgentCommand', () => {
     expect(new URL(url).pathname).toBe('/agents/planning_agent/commands/run');
     expect(init.method).toBe('POST');
     expect(init.headers).toEqual({ 'content-type': 'application/json' });
-    expect(JSON.parse(init.body as string)).toEqual({ commandName: 'smoke' });
+    expect(decodeJsonBody(init)).toEqual({ commandName: 'smoke' });
   });
 
   it('includes sourceId when provided', async () => {
@@ -46,7 +47,7 @@ describe('Agents API runAgentCommand', () => {
     });
 
     const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const body = decodeJsonBody(init) as Record<string, unknown>;
 
     expect(body).toHaveProperty('commandName', 'smoke');
     expect(body).toHaveProperty('sourceId', '/data/repo-a');
@@ -60,7 +61,7 @@ describe('Agents API runAgentCommand', () => {
     });
 
     const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const body = decodeJsonBody(init) as Record<string, unknown>;
 
     expect(body).toHaveProperty('commandName', 'smoke');
     expect(body).toHaveProperty('startStep', 2);
@@ -73,7 +74,7 @@ describe('Agents API runAgentCommand', () => {
     });
 
     const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const body = decodeJsonBody(init) as Record<string, unknown>;
 
     expect(body).toHaveProperty('commandName', 'smoke');
     expect(body).not.toHaveProperty('startStep');

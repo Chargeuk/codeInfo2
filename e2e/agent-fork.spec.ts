@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
@@ -56,7 +57,7 @@ for (const viewport of [
           ],
         };
       else if (url.pathname.endsWith('/fork')) {
-        forkBodies.push(request.postDataJSON());
+        forkBodies.push(decodeJsonBody(request));
         childCreated = true;
         payload = {
           conversationId: 'child',

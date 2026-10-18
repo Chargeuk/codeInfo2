@@ -1,5 +1,6 @@
 import { createLogger } from '../logging/logger';
 import { getApiBaseUrl } from './baseUrl';
+import { fetchJson } from './fetchJson';
 
 export type FlowSummary = {
   name: string;
@@ -302,7 +303,7 @@ export async function runFlow(params: {
     isNewConversation: params.isNewConversation === true,
   });
 
-  const res = await fetch(
+  const res = await fetchJson(
     new URL(
       `/flows/${encodeURIComponent(params.flowName)}/run`,
       serverBase,

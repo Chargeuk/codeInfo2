@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -213,9 +214,7 @@ function setupAgentsFetch(params?: {
 
     if (target.includes('/agents/a1/run')) {
       const body =
-        typeof init?.body === 'string'
-          ? (JSON.parse(init.body) as FetchBody)
-          : {};
+        init?.body != null ? (decodeJsonBody(init) as FetchBody) : {};
       instructionBodies.push(body);
       if (params?.instructionRunFetch) {
         return Promise.resolve(params.instructionRunFetch(body, init));
@@ -237,9 +236,7 @@ function setupAgentsFetch(params?: {
 
     if (target.includes('/agents/a1/commands/run')) {
       const body =
-        typeof init?.body === 'string'
-          ? (JSON.parse(init.body) as FetchBody)
-          : {};
+        init?.body != null ? (decodeJsonBody(init) as FetchBody) : {};
       commandBodies.push(body);
       if (params?.commandRunFetch) {
         return Promise.resolve(params.commandRunFetch(body, init));

@@ -3,6 +3,7 @@ import {
   knownRepositoryPathsAvailable,
   validateRequestedWorkingFolder,
 } from '../server/src/workingFolders/state';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { installMockChatWs } from './support/mockChatWs';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
@@ -115,7 +116,7 @@ test('flows keep one accepted launch for an ambiguous fresh-run retry and clear 
     }
 
     if (path === '/flows/echo/run' && method === 'POST') {
-      const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
+      const payload = (decodeJsonBody(req) ?? {}) as Record<string, unknown>;
       runBodies.push(payload);
       const runIndex = runBodies.length;
       const freshConversationId =
@@ -533,7 +534,7 @@ test('flows warning rendering and disabled run guard stay visible at the browser
     }
 
     if (path === '/flows/daily/run' && method === 'POST') {
-      runBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
+      runBodies.push((decodeJsonBody(req) ?? {}) as Record<string, unknown>);
       await route.fulfill({
         status: 202,
         contentType: 'application/json',
@@ -673,7 +674,7 @@ test('flows let operators select the GitHub review variant without mutating the 
       method === 'POST'
     ) {
       runPaths.push(pathname);
-      runBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
+      runBodies.push((decodeJsonBody(req) ?? {}) as Record<string, unknown>);
       await route.fulfill({
         status: 202,
         contentType: 'application/json',
@@ -691,7 +692,7 @@ test('flows let operators select the GitHub review variant without mutating the 
 
     if (pathname === '/flows/implement_next_plan/run' && method === 'POST') {
       runPaths.push(pathname);
-      runBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
+      runBodies.push((decodeJsonBody(req) ?? {}) as Record<string, unknown>);
       await route.fulfill({
         status: 202,
         contentType: 'application/json',
@@ -1021,7 +1022,7 @@ test('flows existing-conversation working-folder picker applies a local reposito
     }
 
     if (path === '/conversations/flow-1/working-folder' && method === 'POST') {
-      const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
+      const payload = (decodeJsonBody(req) ?? {}) as Record<string, unknown>;
       workingFolderBodies.push(payload);
       const workingFolder =
         typeof payload.workingFolder === 'string'
@@ -1204,7 +1205,7 @@ test('flows existing conversations open at the newest visible content and preser
     }
 
     if (path === '/conversations/flow-1/working-folder' && method === 'POST') {
-      const payload = req.postDataJSON?.() ?? {};
+      const payload = decodeJsonBody(req) ?? {};
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

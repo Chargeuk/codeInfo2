@@ -3,6 +3,7 @@ import { render, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import useChatStream, { type ChatMessage } from '../hooks/useChatStream';
 import type { ChatWsTranscriptEvent } from '../hooks/useChatWs';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 function Wrapper({
@@ -579,8 +580,8 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
       });
       const requestInit = chatPostCall?.[1] as RequestInit | undefined;
       const requestBody =
-        typeof requestInit?.body === 'string'
-          ? (JSON.parse(requestInit.body) as Record<string, unknown>)
+        requestInit?.body != null
+          ? (decodeJsonBody(requestInit) as Record<string, unknown>)
           : {};
 
       expect(requestBody.message).toBe(rawMessage);
@@ -634,8 +635,8 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
       });
       const requestInit = chatPostCall?.[1] as RequestInit | undefined;
       const requestBody =
-        typeof requestInit?.body === 'string'
-          ? (JSON.parse(requestInit.body) as Record<string, unknown>)
+        requestInit?.body != null
+          ? (decodeJsonBody(requestInit) as Record<string, unknown>)
           : {};
 
       expect(requestBody.message).toBe(rawMessage);

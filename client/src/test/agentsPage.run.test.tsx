@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -164,7 +165,7 @@ describe('Agents page - run', () => {
         if (target.includes('/agents/coding_agent/run')) {
           expect(init?.method).toBe('POST');
           if (init?.body) {
-            runBodies.push(JSON.parse(init.body.toString()));
+            runBodies.push(decodeJsonBody(init));
           }
           return Promise.resolve({
             ok: true,
@@ -298,7 +299,7 @@ describe('Agents page - run', () => {
         if (target.includes('/agents/coding_agent/run')) {
           expect(init?.method).toBe('POST');
           if (init?.body) {
-            runBodies.push(JSON.parse(init.body.toString()));
+            runBodies.push(decodeJsonBody(init));
           }
           return Promise.resolve({
             ok: true,
@@ -673,7 +674,7 @@ describe('Agents page - run', () => {
         if (target.includes('/agents/coding_agent/run')) {
           expect(init?.method).toBe('POST');
           if (init?.body) {
-            runBodies.push(JSON.parse(init.body.toString()));
+            runBodies.push(decodeJsonBody(init));
           }
           return Promise.resolve({
             ok: true,
@@ -760,7 +761,7 @@ describe('Agents page - run', () => {
           if (target.includes('/agents/coding_agent/run')) {
             expect(init?.method).toBe('POST');
             if (init?.body) {
-              runBodies.push(JSON.parse(init.body.toString()));
+              runBodies.push(decodeJsonBody(init));
             }
             return Promise.resolve({
               ok: true,
@@ -931,7 +932,7 @@ describe('Agents page - run', () => {
           if (target.includes('/agents/coding_agent/run')) {
             expect(init?.method).toBe('POST');
             if (init?.body) {
-              runBodies.push(JSON.parse(init.body.toString()));
+              runBodies.push(decodeJsonBody(init));
             }
             return Promise.resolve({
               ok: true,
@@ -1074,7 +1075,7 @@ describe('Agents page - run', () => {
           if (target.includes('/agents/coding_agent/run')) {
             expect(init?.method).toBe('POST');
             if (init?.body) {
-              runBodies.push(JSON.parse(init.body.toString()));
+              runBodies.push(decodeJsonBody(init));
             }
             return Promise.resolve({
               ok: true,
@@ -1165,7 +1166,7 @@ describe('Agents page - run', () => {
         if (target.includes('/agents/coding_agent/run')) {
           expect(init?.method).toBe('POST');
           if (init?.body) {
-            runBodies.push(JSON.parse(init.body.toString()));
+            runBodies.push(decodeJsonBody(init));
           }
           return Promise.resolve({
             ok: true,
@@ -1342,7 +1343,7 @@ describe('Agents page - run', () => {
 
         if (target.includes('/agents/coding_agent/run')) {
           if (init?.body) {
-            runBodies.push(JSON.parse(init.body.toString()));
+            runBodies.push(decodeJsonBody(init));
           }
           const body = runBodies.at(-1) ?? {};
           return Promise.resolve({

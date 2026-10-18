@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from './baseUrl';
+import { fetchJson } from './fetchJson';
 
 type AgentSummary = {
   name: string;
@@ -374,7 +375,7 @@ export async function runAgentInstruction(params: {
     trimmedLength: instructionRaw.trim().length,
   });
 
-  const res = await fetch(
+  const res = await fetchJson(
     new URL(
       `/agents/${encodeURIComponent(params.agentName)}/run`,
       serverBase,
@@ -456,7 +457,7 @@ export async function runAgentCommand(params: {
     startStep: typeof params.startStep === 'number' ? params.startStep : null,
   });
 
-  const res = await fetch(
+  const res = await fetchJson(
     new URL(
       `/agents/${encodeURIComponent(params.agentName)}/commands/run`,
       serverBase,
@@ -589,7 +590,7 @@ export async function forkAgentConversation(params: {
   sourceTurnId?: string;
   requestId: string;
 }): Promise<AgentForkResult> {
-  const response = await fetch(
+  const response = await fetchJson(
     new URL(
       `/agents/conversations/${encodeURIComponent(params.conversationId)}/fork`,
       serverBase,

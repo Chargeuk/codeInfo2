@@ -5,6 +5,7 @@ import type {
 } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
+import { fetchJson } from '../api/fetchJson';
 import { createLogger } from '../logging/logger';
 import type {
   ChatWsCancelAckEvent,
@@ -1399,7 +1400,7 @@ export function useChatStream(
           }),
         );
 
-        const res = await fetch(new URL('/chat', API_BASE).toString(), {
+        const res = await fetchJson(new URL('/chat', API_BASE).toString(), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({

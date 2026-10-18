@@ -2252,12 +2252,32 @@ const ensureFlowConversation = async (params: {
   source: 'REST' | 'MCP';
   workingFolder?: string;
   parentWave?: FlowRunStartParams['parentWave'];
+  parentConversationId?: string;
+  nativeChild?: true;
 }): Promise<void> => {
   const now = new Date();
   const title = buildFlowConversationTitle({
     flowName: params.flowName,
     customTitle: params.customTitle,
   });
+  // An empty list marks a newly recorded root. Older conversations are never
+  // retrofitted, so their later child waves retain the old presentation too.
+  const parent = params.parentConversationId
+    ? await getConversation(params.parentConversationId)
+    : null;
+  const parentAncestors = parent?.flags?.flowChild?.ancestors;
+  const ancestors = Array.isArray(parentAncestors)
+    ? [
+        ...parentAncestors,
+        { conversationId: parent!._id, flowName: parent!.flowName },
+      ]
+    : params.nativeChild
+      ? undefined
+      : [];
+  const childFlags = {
+    ...(params.parentWave ?? {}),
+    ...(ancestors ? { ancestors } : {}),
+  };
   if (shouldUseMemoryPersistence()) {
     const existing = memoryConversations.get(params.conversationId);
     if (existing) {
@@ -2267,7 +2287,14 @@ const ensureFlowConversation = async (params: {
         flowName: existing.flowName ?? params.flowName,
         flags: {
           ...(existing.flags ?? {}),
-          ...(params.parentWave ? { flowChild: params.parentWave } : {}),
+          ...(params.parentWave
+            ? {
+                flowChild: {
+                  ...existing.flags?.flowChild,
+                  ...params.parentWave,
+                },
+              }
+            : {}),
         },
         lastMessageAt: now,
       });
@@ -2284,7 +2311,7 @@ const ensureFlowConversation = async (params: {
         ...(params.workingFolder
           ? { workingFolder: params.workingFolder }
           : {}),
-        ...(params.parentWave ? { flowChild: params.parentWave } : {}),
+        ...(Object.keys(childFlags).length ? { flowChild: childFlags } : {}),
       },
       lastMessageAt: now,
       archivedAt: null,
@@ -2319,10 +2346,16 @@ const ensureFlowConversation = async (params: {
     source: params.source,
     flags: {
       ...(params.workingFolder ? { workingFolder: params.workingFolder } : {}),
-      ...(params.parentWave ? { flowChild: params.parentWave } : {}),
+      ...(Object.keys(childFlags).length ? { flowChild: childFlags } : {}),
     },
     lastMessageAt: now,
   });
+  if (Object.keys(childFlags).length) {
+    await updateConversationMeta({
+      conversationId: params.conversationId,
+      flags: { flowChild: childFlags },
+    });
+  }
   if (params.customTitle) {
     baseLogger.info(
       {
@@ -9343,6 +9376,7 @@ async function runFlowUnlocked(params: {
         flowName: childRun.flowName,
         sourceId: childResumeState.sourceId,
         nativeChild: true,
+        parentConversationId: params.conversationId,
         flowPath: params.flowPath,
         codexReviewModelId: params.codexReviewModelId,
         working_folder:
@@ -9777,6 +9811,7 @@ async function runFlowUnlocked(params: {
           const started = await startFlowRun({
             flowName: job.flowName,
             nativeChild: true,
+            parentConversationId: params.conversationId,
             flowPath: params.flowPath,
             codexReviewModelId: params.codexReviewModelId,
             working_folder:
@@ -13289,6 +13324,8 @@ export async function startFlowRun(
       source: params.source,
       workingFolder: effectiveWorkingFolder,
       parentWave: params.parentWave,
+      parentConversationId: params.parentConversationId,
+      nativeChild: params.nativeChild,
     });
     appendFlowRuntimeDiagnostic('flows.test.start.conversation_ensured', {
       flowName,

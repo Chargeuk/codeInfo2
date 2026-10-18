@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import { memoryConversations } from '../../chat/memoryPersistence.js';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
@@ -491,4 +492,115 @@ test('returns validation_error on bad cursor', async () => {
     .get('/conversations?cursor=not-a-date')
     .expect(400);
   assert.equal(res.body.error, 'validation_error');
+});
+
+test('descendant history discovery paginates nested flow conversations, keeps archives and excludes legacy and agent rows', async () => {
+  const prefix = crypto.randomUUID();
+  const rootId = `${prefix}-root`;
+  const childId = `${prefix}-child`;
+  const grandchildId = `${prefix}-grandchild`;
+  const ids: string[] = [];
+  const insert = (suffix: string, options: Partial<Conversation>) => {
+    const id = `${prefix}-${suffix}`;
+    ids.push(id);
+    memoryConversations.set(id, {
+      _id: id,
+      provider: 'codex',
+      model: 'gpt-5',
+      title: suffix,
+      source: 'REST',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-01T00:00:00Z'),
+      lastMessageAt: new Date('2026-01-01T00:00:00Z'),
+      archivedAt: null,
+      ...options,
+    } as Conversation);
+  };
+  const ancestor = { conversationId: rootId, flowName: 'root' };
+  insert('root', { flowName: 'root', flags: { flowChild: { ancestors: [] } } });
+  insert('child', {
+    flowName: 'child',
+    flags: { flowChild: { ancestors: [ancestor] } },
+  });
+  insert('grandchild', {
+    flowName: 'grandchild',
+    archivedAt: new Date(),
+    lastMessageAt: new Date('2026-01-01T00:00:01Z'),
+    flags: {
+      flowChild: {
+        ancestors: [ancestor, { conversationId: childId, flowName: 'child' }],
+      },
+    },
+  });
+  insert('agent', {
+    flowName: 'child',
+    agentName: 'coding_agent',
+    flags: { flowChild: { ancestors: [ancestor] } },
+  });
+  insert('legacy', {
+    flowName: 'child',
+    flags: { flowChild: { executionId: 'old' } },
+  });
+  try {
+    const app = appWith({
+      listIngestedRepositories: async () => ({
+        repos: [],
+        lockedModelId: null,
+      }),
+    });
+    const first = await request(app)
+      .get('/conversations')
+      .query({ state: 'all', ancestorConversationId: rootId, limit: 1 })
+      .expect(200);
+    assert.deepEqual(
+      first.body.items.map(
+        (item: { conversationId: string }) => item.conversationId,
+      ),
+      [grandchildId],
+    );
+    assert.equal(first.body.items[0].archived, true);
+    assert.equal(first.body.items[0].flags.flowChild.ancestors.length, 2);
+    const second = await request(app)
+      .get('/conversations')
+      .query({
+        state: 'all',
+        ancestorConversationId: rootId,
+        limit: 1,
+        cursor: first.body.nextCursor,
+      })
+      .expect(200);
+    assert.deepEqual(
+      second.body.items.map(
+        (item: { conversationId: string }) => item.conversationId,
+      ),
+      [childId],
+    );
+    const childView = await request(app)
+      .get('/conversations')
+      .query({ state: 'all', ancestorConversationId: childId })
+      .expect(200);
+    assert.deepEqual(
+      childView.body.items.map(
+        (item: { conversationId: string }) => item.conversationId,
+      ),
+      [grandchildId],
+    );
+    const legacy = await request(app)
+      .get('/conversations')
+      .query({ state: 'all', ancestorConversationId: `${prefix}-legacy` })
+      .expect(200);
+    assert.deepEqual(legacy.body.items, []);
+    const unfiltered = await request(app)
+      .get('/conversations')
+      .query({ state: 'all', flowName: 'child' })
+      .expect(200);
+    assert.ok(
+      unfiltered.body.items.some(
+        (item: { conversationId: string }) =>
+          item.conversationId === `${prefix}-legacy`,
+      ),
+    );
+  } finally {
+    for (const id of ids) memoryConversations.delete(id);
+  }
 });

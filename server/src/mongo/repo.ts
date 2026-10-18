@@ -165,6 +165,7 @@ export interface AppendTurnInput {
 }
 
 export interface ListConversationsParams {
+  ancestorConversationId?: string;
   limit: number;
   cursor?: string | Date;
   state?: 'active' | 'archived' | 'all';
@@ -494,6 +495,16 @@ export async function listConversations(
         query.flowName = flowName;
       }
     }
+  }
+
+  if (params.ancestorConversationId) {
+    query['flags.flowChild.ancestors.conversationId'] =
+      params.ancestorConversationId;
+    query.$and = [
+      ...((query.$and as Record<string, unknown>[]) ?? []),
+      { flowName: { $exists: true, $nin: [null, ''] } },
+      { agentName: { $in: [null, ''] } },
+    ];
   }
 
   if (params.cursor) {

@@ -11,6 +11,8 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { decodeJsonBody } from './support/decodeJsonBody';
 import { setupChatWsHarness } from './support/mockChatWs';
+import { MockWebSocket } from './support/mockWebSocket';
+import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 const mockFetch = jest.fn<typeof fetch>();
 beforeAll(() => {
@@ -2811,5 +2813,535 @@ describe('Flows page run/resume controls', () => {
         expect(chip).not.toHaveTextContent('Complete');
       });
     });
+  });
+});
+
+describe('descendant flow transcripts', () => {
+  const root = { conversationId: 'flow-1', flowName: 'daily' };
+  const child = {
+    conversationId: 'child-1',
+    title: 'Child flow',
+    provider: 'codex',
+    model: 'gpt-5',
+    flowName: 'child',
+    flags: { flowChild: { ancestors: [root] } },
+  };
+  const grandchild = {
+    conversationId: 'grandchild-1',
+    title: 'Grandchild flow',
+    provider: 'codex',
+    model: 'gpt-5',
+    flowName: 'grandchild',
+    flags: {
+      flowChild: {
+        ancestors: [root, { conversationId: 'child-1', flowName: 'child' }],
+      },
+    },
+  };
+  const makeTurns = (id: string, prefix: string) =>
+    ['user', 'assistant'].map((role, index) => ({
+      turnId: `${id}-${role}`,
+      conversationId: id,
+      role,
+      content: `${prefix} ${role}`,
+      model: 'gpt-5',
+      provider: 'codex',
+      status: 'ok',
+      createdAt: `2026-01-01T00:00:0${index}.000Z`,
+    }));
+  function installDescendantFixture() {
+    setupFlowsRunHarness({ turns: { items: makeTurns('flow-1', 'Parent') } });
+    const baseFetch = mockFetch.getMockImplementation()!;
+    const histories: Record<string, unknown[]> = {
+      'child-1': makeTurns('child-1', 'Child'),
+      'grandchild-1': makeTurns('grandchild-1', 'Grandchild'),
+      'late-1': [],
+    };
+    mockFetch.mockImplementation((url, init) => {
+      const target = new URL(typeof url === 'string' ? url : url.toString());
+      if (target.searchParams.has('ancestorConversationId'))
+        return mockJsonResponse(
+          target.searchParams.has('cursor')
+            ? {
+                items: [
+                  grandchild,
+                  {
+                    ...child,
+                    conversationId: 'agent-copy',
+                    agentName: 'coding_agent',
+                  },
+                ],
+              }
+            : { items: [child], nextCursor: '2026-01-01T00:00:00.000Z' },
+        );
+      const id = target.pathname.match(
+        /^\/conversations\/([^/]+)\/turns$/,
+      )?.[1];
+      if (id && Object.hasOwn(histories, id))
+        return mockJsonResponse({ items: histories[id] });
+      return baseFetch(url, init);
+    });
+    return histories;
+  }
+  async function selectParentForViewport() {
+    if (window.innerWidth <= 600)
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Open conversations' }),
+      );
+    await selectFirstConversation();
+    const closeDrawer = screen.queryByRole('button', {
+      name: 'Close conversations',
+    });
+    if (closeDrawer) {
+      await userEvent.click(closeDrawer);
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId('workspace-mobile-conversations-overlay'),
+        ).not.toBeInTheDocument(),
+      );
+    }
+  }
+  async function renderSelectedParent() {
+    const view = render(
+      <RouterProvider
+        router={createMemoryRouter(routes, { initialEntries: ['/flows'] })}
+      />,
+    );
+    await selectParentForViewport();
+    await screen.findByText('Grandchild assistant');
+    return view;
+  }
+  it.each([1280, 390])(
+    'shows descendant labels and full ancestry for both roles at width %i and remembers filtering after reopening',
+    async (width) => {
+      const originalWidth = window.innerWidth;
+      act(() => {
+        window.innerWidth = width;
+        window.dispatchEvent(new Event('resize'));
+      });
+      try {
+        installDescendantFixture();
+        let view = await renderSelectedParent();
+        expect(screen.getAllByTestId('chat-bubble')).toHaveLength(6);
+        expect(screen.getAllByText('Level 1 · child')).toHaveLength(2);
+        expect(screen.getAllByText('Level 2 · grandchild')).toHaveLength(2);
+        for (const content of ['Grandchild user', 'Grandchild assistant']) {
+          const bubble = screen
+            .getByText(content)
+            .closest('[data-testid="chat-bubble"]') as HTMLElement;
+          await userEvent.click(within(bubble).getByTestId('bubble-info'));
+          const ancestry = await screen.findByTestId('bubble-flow-ancestry');
+          expect(ancestry).toHaveTextContent(
+            'daily (flow-1) → child (child-1) → grandchild (grandchild-1)',
+          );
+          expect(ancestry).toHaveStyle({
+            overflowWrap: 'anywhere',
+            whiteSpace: 'normal',
+          });
+          fireEvent.keyDown(screen.getByRole('presentation'), {
+            key: 'Escape',
+          });
+          await waitFor(() =>
+            expect(
+              screen.queryByTestId('bubble-flow-ancestry'),
+            ).not.toBeInTheDocument(),
+          );
+        }
+        expect(
+          within(
+            screen
+              .getByText('Parent user')
+              .closest('[data-testid="chat-bubble"]') as HTMLElement,
+          ).queryByTestId('bubble-flow-origin'),
+        ).not.toBeInTheDocument();
+        await userEvent.click(
+          screen.getByRole('button', { name: 'Additional options' }),
+        );
+        const options = await screen.findByTestId(
+          width < 600 ? 'flow-options-dialog' : 'flow-options-popover',
+        );
+        const toggle = within(options).getByRole('checkbox', {
+          name: 'Show descendant messages',
+        });
+        expect(toggle).toBeChecked();
+        await userEvent.click(toggle);
+        await waitFor(() =>
+          expect(screen.getAllByTestId('chat-bubble')).toHaveLength(2),
+        );
+        expect(
+          window.localStorage.getItem('flows.showDescendantMessages'),
+        ).toBe('false');
+        view.unmount();
+        view = render(
+          <RouterProvider
+            router={createMemoryRouter(routes, { initialEntries: ['/flows'] })}
+          />,
+        );
+        await selectParentForViewport();
+        await screen.findByText('Parent assistant');
+        expect(
+          screen.queryByText('Grandchild assistant'),
+        ).not.toBeInTheDocument();
+        await userEvent.click(
+          screen.getByRole('button', { name: 'Additional options' }),
+        );
+        const reopened = await screen.findByTestId(
+          width < 600 ? 'flow-options-dialog' : 'flow-options-popover',
+        );
+        await userEvent.click(
+          within(reopened).getByRole('checkbox', {
+            name: 'Show descendant messages',
+          }),
+        );
+        await screen.findByText('Grandchild assistant');
+        expect(screen.getAllByTestId('chat-bubble')).toHaveLength(6);
+        view.unmount();
+      } finally {
+        act(() => {
+          window.innerWidth = originalWidth;
+          window.dispatchEvent(new Event('resize'));
+        });
+      }
+    },
+  );
+  it('keeps one descendant response when subscription delivers immediately before a filtered continuation', async () => {
+    installDescendantFixture();
+    await renderSelectedParent();
+    const transcript = screen.getByTestId('flows-transcript');
+    const inflightId = 'boundary-child-i';
+    let markDelivered!: () => void;
+    const delivered = new Promise<void>((resolve) => {
+      markDelivered = resolve;
+    });
+    const originalSend = MockWebSocket.prototype.send;
+    let initialDelivered = false;
+    const sendSpy = jest
+      .spyOn(MockWebSocket.prototype, 'send')
+      .mockImplementation(function (this: MockWebSocket, data: unknown) {
+        originalSend.call(this, data);
+        const request = JSON.parse(String(data)) as {
+          type?: string;
+          conversationId?: string;
+        };
+        if (
+          initialDelivered ||
+          request.type !== 'subscribe_conversation' ||
+          request.conversationId !== 'late-1'
+        )
+          return;
+        initialDelivered = true;
+        // Model a subscription catch-up arriving in the same effect as subscribe,
+        // before any later render/effect can finish changing the stream identity.
+        const envelope = { protocolVersion: 'v1', conversationId: 'late-1' };
+        this._receive({
+          ...envelope,
+          type: 'inflight_snapshot',
+          seq: 1,
+          inflight: {
+            inflightId,
+            assistantText: 'Boundary',
+            assistantThink: '',
+            toolEvents: [],
+            startedAt: '2026-01-01T00:00:02.000Z',
+          },
+        });
+        this._receive({
+          ...envelope,
+          type: 'user_turn',
+          seq: 2,
+          inflightId,
+          content: 'Boundary prompt',
+          createdAt: '2026-01-01T00:00:02.000Z',
+        });
+        this._receive({
+          ...envelope,
+          type: 'assistant_delta',
+          seq: 3,
+          inflightId,
+          delta: ' response',
+        });
+        markDelivered();
+      });
+    try {
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'conversation_upsert',
+        seq: 20,
+        conversation: {
+          ...grandchild,
+          conversationId: 'late-1',
+          flowName: 'late',
+        },
+      });
+      await waitFor(() => expect(initialDelivered).toBe(true));
+      await delivered;
+      await screen.findByText('Boundary response');
+      expect(screen.getAllByText('Boundary prompt')).toHaveLength(1);
+      expect(screen.getByTestId('flow-run')).toBeEnabled();
+      const commands = () =>
+        globalThis.__wsMock!.last()!.sent.map(
+          (raw) =>
+            JSON.parse(raw) as {
+              type: string;
+              conversationId?: string;
+            },
+        );
+      const beforeToggle = commands().length;
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Additional options' }),
+      );
+      const options = await screen.findByTestId('flow-options-popover');
+      const toggle = within(options).getByRole('checkbox', {
+        name: 'Show descendant messages',
+      });
+      await userEvent.click(toggle);
+      await waitFor(() =>
+        expect(within(transcript).getAllByTestId('chat-bubble')).toHaveLength(
+          2,
+        ),
+      );
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        seq: 4,
+        conversationId: 'late-1',
+        inflightId,
+        delta: ' continued while filtered',
+      });
+      await userEvent.click(toggle);
+      const lateAssistantRows = () =>
+        transcript.querySelectorAll<HTMLElement>(
+          '[data-transcript-row-id^="late-1:"] [data-testid="chat-bubble"][data-role="assistant"]',
+        );
+      await waitFor(() => {
+        const rows = lateAssistantRows();
+        expect(rows).toHaveLength(1);
+        expect(
+          within(rows[0]).getByTestId('assistant-markdown'),
+        ).toHaveTextContent('Boundary response continued while filtered');
+      });
+      expect(within(transcript).getAllByTestId('chat-bubble')).toHaveLength(8);
+      expect(screen.getAllByText('Boundary prompt')).toHaveLength(1);
+      expect(screen.getByTestId('flow-run')).toBeEnabled();
+      expect(screen.queryByTestId('flow-stop')).not.toBeInTheDocument();
+      expect(globalThis.__wsMock!.instances).toHaveLength(1);
+      expect(
+        commands().filter(
+          (command) =>
+            command.type === 'subscribe_conversation' &&
+            command.conversationId === 'late-1',
+        ),
+      ).toHaveLength(1);
+      expect(
+        commands()
+          .slice(beforeToggle)
+          .filter(
+            (command) =>
+              command.type === 'cancel_inflight' ||
+              command.type === 'unsubscribe_conversation',
+          ),
+      ).toHaveLength(0);
+    } finally {
+      sendSpy.mockRestore();
+    }
+  });
+  it('merges an initial descendant snapshot with delayed history and subsequent deltas without duplicates', async () => {
+    const histories = installDescendantFixture();
+    const baseFetch = mockFetch.getMockImplementation()!;
+    let releaseHistory!: (response: Response) => void;
+    const pendingHistory = new Promise<Response>((resolve) => {
+      releaseHistory = resolve;
+    });
+    let initialRequest = true;
+    mockFetch.mockImplementation((url, init) => {
+      if (
+        initialRequest &&
+        String(url).includes('/conversations/child-1/turns')
+      ) {
+        initialRequest = false;
+        return pendingHistory;
+      }
+      return baseFetch(url, init);
+    });
+    const snapshot = {
+      inflightId: 'initial-child-i',
+      assistantText: 'Initial child answer',
+      assistantThink: '',
+      toolEvents: [],
+      startedAt: '2026-01-01T00:00:01.000Z',
+      seq: 1,
+    };
+    try {
+      await renderSelectedParent();
+      await waitFor(() =>
+        expect(
+          globalThis.__wsMock?.last()?.sent.some((raw) => {
+            const event = JSON.parse(raw);
+            return (
+              event.type === 'subscribe_conversation' &&
+              event.conversationId === 'child-1'
+            );
+          }),
+        ).toBe(true),
+      );
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        seq: 1,
+        conversationId: 'child-1',
+        inflight: snapshot,
+      });
+      await screen.findByText('Initial child answer');
+      await act(async () => {
+        releaseHistory(
+          new Response(
+            JSON.stringify({
+              items: [makeTurns('child-1', 'Child')[0]],
+              inflight: snapshot,
+            }),
+            { headers: { 'content-type': 'application/json' } },
+          ),
+        );
+      });
+      await screen.findByText('Child user');
+      expect(screen.getAllByText('Initial child answer')).toHaveLength(1);
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        seq: 2,
+        conversationId: 'child-1',
+        inflightId: 'initial-child-i',
+        delta: ' continued',
+      });
+      await screen.findByText('Initial child answer continued');
+      histories['child-1'] = [
+        makeTurns('child-1', 'Child')[0],
+        {
+          ...makeTurns('child-1', 'Child')[1],
+          content: 'Initial child answer continued',
+        },
+      ];
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        seq: 3,
+        conversationId: 'child-1',
+        inflightId: 'initial-child-i',
+        status: 'ok',
+      });
+      await waitFor(() =>
+        expect(screen.getAllByTestId('chat-bubble')).toHaveLength(6),
+      );
+      expect(
+        screen.getAllByText('Initial child answer continued'),
+      ).toHaveLength(1);
+      expect(screen.getAllByText('Child user')).toHaveLength(1);
+      expect(screen.getByTestId('flow-run')).toBeInTheDocument();
+    } finally {
+      releaseHistory(new Response(JSON.stringify({ items: [] })));
+    }
+  });
+  it('discovers late descendants on the same socket, preserves scroll, and isolates parent stop state', async () => {
+    const measurement = installTranscriptMeasurementHarness();
+    try {
+      const histories = installDescendantFixture();
+      await renderSelectedParent();
+      const transcript = screen.getByTestId('flows-transcript');
+      measurement.setContainerMetrics(transcript, {
+        width: 640,
+        height: 320,
+        clientHeight: 320,
+        scrollHeight: 1400,
+        scrollTop: 1080,
+      });
+      act(() => {
+        measurement.setScrollMetrics(transcript, {
+          scrollHeight: 1400,
+          scrollTop: 360,
+        });
+        fireEvent.wheel(transcript, { deltaY: -320 });
+        fireEvent.scroll(transcript);
+      });
+      await screen.findByTestId('transcript-jump-to-latest');
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'conversation_upsert',
+        seq: 20,
+        conversation: {
+          ...grandchild,
+          conversationId: 'late-1',
+          flowName: 'late',
+        },
+      });
+      await waitFor(() =>
+        expect(
+          globalThis.__wsMock?.last()?.sent.some((raw) => {
+            const event = JSON.parse(raw);
+            return (
+              event.type === 'subscribe_conversation' &&
+              event.conversationId === 'late-1'
+            );
+          }),
+        ).toBe(true),
+      );
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        seq: 1,
+        conversationId: 'late-1',
+        inflightId: 'late-i',
+        content: 'Late prompt',
+        createdAt: '2026-01-01T00:00:02.000Z',
+      });
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        seq: 2,
+        conversationId: 'late-1',
+        inflightId: 'late-i',
+        delta: 'Late answer',
+      });
+      await screen.findByText('Late answer');
+      expect(screen.getByTestId('flows-transcript')).toBe(transcript);
+      expect(transcript.scrollTop).toBe(360);
+      expect(screen.getByTestId('flow-run')).toBeInTheDocument();
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        seq: 1,
+        conversationId: 'flow-1',
+        inflightId: 'parent-i',
+        content: 'Parent live prompt',
+        createdAt: '2026-01-01T00:00:03.000Z',
+      });
+      await screen.findByTestId('flow-stop');
+      histories['late-1'] = makeTurns('late-1', 'Late saved');
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        seq: 3,
+        conversationId: 'late-1',
+        inflightId: 'late-i',
+        status: 'ok',
+      });
+      await screen.findByText('Late saved assistant');
+      expect(screen.getByTestId('flow-stop')).toBeInTheDocument();
+      await userEvent.click(screen.getByTestId('flow-stop'));
+      await waitFor(() =>
+        expect(
+          globalThis.__wsMock?.last()?.sent.some((raw) => {
+            const event = JSON.parse(raw);
+            return (
+              event.type === 'cancel_inflight' &&
+              event.conversationId === 'flow-1' &&
+              event.inflightId === 'parent-i'
+            );
+          }),
+        ).toBe(true),
+      );
+      expect(globalThis.__wsMock?.instances).toHaveLength(1);
+    } finally {
+      measurement.restore();
+    }
   });
 });

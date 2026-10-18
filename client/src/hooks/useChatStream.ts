@@ -53,6 +53,11 @@ export type ChatSegment =
   | { id: string; kind: 'tool'; tool: ToolCall };
 
 export type ChatMessage = {
+  flowOrigin?: {
+    level: number;
+    flowName: string;
+    ancestry: { conversationId: string; flowName: string }[];
+  };
   id: string;
   storedTurnId?: string;
   role: 'user' | 'assistant' | 'system';

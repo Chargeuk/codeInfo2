@@ -44,7 +44,11 @@ import {
 } from '../../flows/service.js';
 import type { FlowJsonObject } from '../../flows/types.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
-import type { Conversation } from '../../mongo/conversation.js';
+import {
+  ConversationModel,
+  type Conversation,
+} from '../../mongo/conversation.js';
+import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
@@ -454,6 +458,204 @@ const waitForLookupRun = async (conversationId: string) => {
     { description: `native child lookup run ${conversationId} to settle` },
   );
 };
+
+test('descendant transcript ancestry survives the sanitized Mongo creation path', async () => {
+  await withChildLookupFixture(async ({ working, owner, write, launch }) => {
+    await write(path.join(owner, 'flows'), 'parent', [
+      subflowStep('Child', 'child'),
+    ]);
+    await write(path.join(working, 'flows'), 'child', [
+      subflowStep('Grandchild', 'grandchild'),
+    ]);
+    await write(path.join(working, 'flows'), 'grandchild', [
+      llmStep('Mongo descendant'),
+    ]);
+    await withMockedMongoConversationPersistence({
+      seedConversations: [],
+      run: async ({ conversations }) => {
+        const originalSave = ConversationModel.prototype.save;
+        const createdFlags = new Map<string, unknown>();
+        ConversationModel.prototype.save = async function (
+          this: InstanceType<typeof ConversationModel>,
+        ) {
+          const now = new Date();
+          this.createdAt = now;
+          this.updatedAt = now;
+          const conversation = this.toObject() as Conversation;
+          conversations.set(conversation._id, conversation);
+          createdFlags.set(
+            conversation._id,
+            structuredClone(conversation.flags),
+          );
+          return this;
+        } as typeof ConversationModel.prototype.save;
+        try {
+          const parent = await launch();
+          await waitForTestCondition(
+            () =>
+              Boolean(
+                conversations.get(parent.conversationId)?.flags?.flow
+                  ?.runLifecycle,
+              ) &&
+              (
+                conversations.get(parent.conversationId)?.flags?.flow
+                  ?.runLifecycle as { status: string }
+              ).status !== 'running' &&
+              !getActiveRunOwnership(parent.conversationId),
+            { description: 'Mongo nested flow tree to complete' },
+          );
+          const child = [...conversations.values()].find(
+            (conversation) => conversation.flowName === 'child',
+          )!;
+          const grandchild = [...conversations.values()].find(
+            (conversation) => conversation.flowName === 'grandchild',
+          )!;
+          assert.ok(child);
+          assert.ok(grandchild);
+          assert.equal(
+            (createdFlags.get(child._id) as Record<string, unknown>).flowChild,
+            undefined,
+          );
+          const parentAncestor = {
+            conversationId: parent.conversationId,
+            flowName: 'parent',
+          };
+          assert.deepEqual(
+            conversations.get(parent.conversationId)?.flags?.flowChild
+              ?.ancestors,
+            [],
+          );
+          assert.deepEqual(child.flags?.flowChild?.ancestors, [parentAncestor]);
+          assert.deepEqual(grandchild.flags?.flowChild?.ancestors, [
+            parentAncestor,
+            { conversationId: child._id, flowName: 'child' },
+          ]);
+        } finally {
+          for (const conversation of conversations.values())
+            if (conversation.flowName) await stopFlowRun(conversation._id);
+          await waitForTestCondition(
+            () =>
+              [...conversations.keys()].every(
+                (id) => !getActiveRunOwnership(id),
+              ),
+            { description: 'Mongo descendant fixture cleanup' },
+          );
+          ConversationModel.prototype.save = originalSave;
+        }
+      },
+    });
+  });
+});
+
+for (const mode of ['subflow', 'subflowWave'] as const) {
+  test(`descendant transcript ancestry persists for new nested ${mode} runs and later waves`, async () => {
+    await withChildLookupFixture(async ({ working, owner, write, launch }) => {
+      await write(path.join(owner, 'flows'), 'parent', [
+        childLookupStep(mode, 'child'),
+        llmStep('after child wave'),
+      ]);
+      await write(path.join(working, 'flows'), 'child', [
+        childLookupStep(mode, 'grandchild'),
+      ]);
+      await write(path.join(working, 'flows'), 'grandchild', [
+        llmStep('nested response'),
+      ]);
+      const parent = await launch();
+      await waitForLookupRun(parent.conversationId);
+      assert.deepEqual(
+        memoryConversations.get(parent.conversationId)?.flags?.flowChild
+          ?.ancestors,
+        [],
+      );
+      const children = [...memoryConversations.values()].filter(
+        (conversation) =>
+          Array.isArray(conversation.flags?.flowChild?.ancestors) &&
+          conversation.flags.flowChild.ancestors.some(
+            (ancestor) => ancestor.conversationId === parent.conversationId,
+          ),
+      );
+      const child = children.find(
+        (conversation) => conversation.flowName === 'child',
+      )!;
+      const grandchild = children.find(
+        (conversation) => conversation.flowName === 'grandchild',
+      )!;
+      const parentAncestor = {
+        conversationId: parent.conversationId,
+        flowName: 'parent',
+      };
+      assert.deepEqual(child.flags?.flowChild?.ancestors, [parentAncestor]);
+      assert.deepEqual(grandchild.flags?.flowChild?.ancestors, [
+        parentAncestor,
+        { conversationId: child._id, flowName: 'child' },
+      ]);
+      assert.equal(
+        persistedLookupState(parent.conversationId)?.activeSubflows?.length ??
+          0,
+        0,
+      );
+      assert.ok(
+        (memoryTurns.get(grandchild._id) ?? []).some(
+          (turn) => turn.role === 'assistant',
+        ),
+      );
+      const resumed = await launch({
+        conversationId: parent.conversationId,
+        resumeStepPath: [],
+      });
+      await waitForLookupRun(resumed.conversationId);
+      assert.equal(resumed.conversationId, parent.conversationId);
+      assert.deepEqual(
+        memoryConversations.get(parent.conversationId)?.flags?.flowChild
+          ?.ancestors,
+        [],
+      );
+      const laterChildren = [...memoryConversations.values()].filter(
+        (conversation) => conversation.flowName === 'child',
+      );
+      assert.ok(laterChildren.length >= 2);
+      for (const laterChild of laterChildren)
+        assert.deepEqual(laterChild.flags?.flowChild?.ancestors, [
+          parentAncestor,
+        ]);
+    });
+  });
+
+  test(`older ${mode} roots stay unrecorded when resumed with new children`, async () => {
+    await withChildLookupFixture(async ({ working, owner, write, launch }) => {
+      await write(path.join(owner, 'flows'), 'parent', [
+        llmStep('old parent'),
+        childLookupStep(mode, 'child'),
+        llmStep('after old child wave'),
+      ]);
+      await write(path.join(working, 'flows'), 'child', [llmStep('old child')]);
+      const parent = await launch();
+      await waitForLookupRun(parent.conversationId);
+      // Simulate the persisted shape written before descendant recording existed.
+      const stored = memoryConversations.get(parent.conversationId)!;
+      delete stored.flags!.flowChild;
+      const existingIds = new Set(memoryConversations.keys());
+      const resumed = await launch({
+        conversationId: parent.conversationId,
+        resumeStepPath: [0],
+      });
+      await waitForLookupRun(resumed.conversationId);
+      assert.equal(
+        memoryConversations.get(parent.conversationId)?.flags?.flowChild
+          ?.ancestors,
+        undefined,
+      );
+      const children = [...memoryConversations.values()].filter(
+        (conversation) =>
+          conversation.flowName === 'child' &&
+          !existingIds.has(conversation._id),
+      );
+      assert.ok(children.length > 0);
+      for (const child of children)
+        assert.equal(child.flags?.flowChild?.ancestors, undefined);
+    });
+  });
+}
 
 for (const mode of ['subflow', 'subflowWave'] as const) {
   for (const local of [true, false]) {
@@ -1169,6 +1371,12 @@ for (const local of [true, false]) {
               ),
             { description: 'parent to track gated child before cancellation' },
           );
+          const recordedAncestry = structuredClone(
+            child.flags?.flowChild?.ancestors,
+          );
+          assert.deepEqual(recordedAncestry, [
+            { conversationId: parent.conversationId, flowName: 'parent' },
+          ]);
           await stopFlowRun(parent.conversationId);
           await waitForLookupRun(parent.conversationId);
           await waitForLookupRun(child._id);
@@ -1191,6 +1399,10 @@ for (const local of [true, false]) {
               }),
           });
           await waitForLookupRun(resumed.conversationId);
+          assert.deepEqual(
+            memoryConversations.get(child._id)?.flags?.flowChild?.ancestors,
+            recordedAncestry,
+          );
           assert.equal(
             persistedLookupState(resumed.conversationId)?.runLifecycle?.status,
             'ok',

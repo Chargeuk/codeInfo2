@@ -1,56 +1,36 @@
-import {
-  CompressionStream as NativeCompressionStream,
-  ReadableStream as NativeReadableStream,
-  TransformStream as NativeTransformStream,
-  WritableStream as NativeWritableStream,
-} from 'node:stream/web';
+import { TransformStream as NativeTransformStream } from 'node:stream/web';
 import { gunzipSync } from 'node:zlib';
 import { fetchJson } from '../api/fetchJson';
 import { decodeJsonBody } from './support/decodeJsonBody';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
+import { installNativeCompression } from './support/nativeCompression';
 
-const globals = {
-  CompressionStream: NativeCompressionStream,
-  ReadableStream: NativeReadableStream,
-  WritableStream: NativeWritableStream,
-};
-let descriptors: Record<string, PropertyDescriptor | undefined>;
+let native: ReturnType<typeof installNativeCompression>;
 
 beforeEach(() => {
-  descriptors = Object.fromEntries(
-    [...Object.keys(globals), 'fetch'].map((key) => [
-      key,
-      Object.getOwnPropertyDescriptor(globalThis, key),
-    ]),
-  );
-  for (const [key, value] of Object.entries(globals)) {
-    Object.defineProperty(globalThis, key, {
-      configurable: true,
-      writable: true,
-      value,
-    });
-  }
+  native = installNativeCompression();
   getFetchMock().mockReset();
   getFetchMock().mockResolvedValue(mockJsonResponse({ accepted: true }));
 });
 
-afterEach(() => {
-  for (const [key, descriptor] of Object.entries(descriptors)) {
-    if (descriptor) Object.defineProperty(globalThis, key, descriptor);
-    else Reflect.deleteProperty(globalThis, key);
-  }
+afterEach(async () => {
+  await native.restore();
 });
 
 it('buffers native gzip bytes and roundtrips JSON and Unicode', async () => {
   const payload = { text: 'Hello 世界 🌍 '.repeat(200), nested: { value: 42 } };
   const body = JSON.stringify(payload);
+  const expectedResponse = mockJsonResponse({ accepted: true });
+  getFetchMock().mockResolvedValue(expectedResponse);
   const response = await fetchJson('/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body,
   });
   const [, sent] = getFetchMock().mock.calls[0];
-  expect(sent?.body).toBeInstanceOf(ArrayBuffer);
+  expect(Object.prototype.toString.call(sent?.body)).toBe(
+    '[object ArrayBuffer]',
+  );
   const bytes = Buffer.from(sent!.body as ArrayBuffer);
   expect(bytes.byteLength).toBeLessThan(
     new TextEncoder().encode(body).byteLength,
@@ -62,6 +42,7 @@ it('buffers native gzip bytes and roundtrips JSON and Unicode', async () => {
     'application/json',
   );
   expect(await response.json()).toEqual({ accepted: true });
+  expect(response).toBe(expectedResponse);
   expect(getFetchMock()).toHaveBeenCalledTimes(1);
 });
 
@@ -127,9 +108,12 @@ it.each<{ headers: HeadersInit }>([
     expect(sentUrl).toBe(url);
     expect(sent).toEqual({
       ...init,
-      body: expect.any(ArrayBuffer),
+      body: sent?.body,
       headers: expect.anything(),
     });
+    expect(Object.prototype.toString.call(sent?.body)).toBe(
+      '[object ArrayBuffer]',
+    );
     expect(new Headers(sent?.headers).get('x-request-id')).toBe('test');
     expect(new Headers(sent?.headers).get('content-type')).toBe(
       'application/json',
@@ -201,6 +185,35 @@ it('propagates compression errors without sending or retrying', async () => {
   });
   await expect(fetchJson('/chat', { body: '{}' })).rejects.toBe(error);
   expect(getFetchMock()).not.toHaveBeenCalled();
+});
+
+it('matches the target buffer despite an unrelated gzip request and checks cancellation before fetch', async () => {
+  const gate = native.holdNextBuffer((body) => body.text === 'a'.repeat(500));
+  await fetchJson('/logs', {
+    body: JSON.stringify([{ message: 'background '.repeat(100) }]),
+  });
+  expect(getFetchMock()).toHaveBeenCalledTimes(1);
+  expect(
+    new Headers(getFetchMock().mock.calls[0][1]?.headers).get(
+      'content-encoding',
+    ),
+  ).toBe('gzip');
+  const controller = new AbortController();
+  const reason = new Error('cancelled after buffering');
+  const request = fetchJson('/chat', {
+    body: JSON.stringify({ text: 'a'.repeat(500) }),
+    signal: controller.signal,
+  });
+  const rejected = expect(request).rejects.toBe(reason);
+  try {
+    await gate.entered;
+    controller.abort(reason);
+  } finally {
+    gate.release();
+    await rejected;
+  }
+  expect(getFetchMock()).toHaveBeenCalledTimes(1);
+  expect(getFetchMock().mock.calls[0][0]).toBe('/logs');
 });
 
 it('propagates fetch errors without retrying a submission', async () => {

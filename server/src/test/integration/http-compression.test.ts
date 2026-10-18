@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { finished } from 'node:stream/promises';
 import { StringDecoder } from 'node:string_decoder';
 import test from 'node:test';
 import { createGunzip, gunzipSync, gzipSync } from 'node:zlib';
@@ -7,12 +8,147 @@ import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
 import { append, resetStore } from '../../logStore.js';
+import { createMcpRouter } from '../../mcp/server.js';
 import { createLogsRouter } from '../../routes/logs.js';
 import {
   closeHttpServer,
   waitForHttpServerPort,
 } from '../support/httpServer.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+
+test('classic MCP flushes decoded keep-alive whitespace before the tool gate opens with identity and gzip', async () => {
+  const results: unknown[] = [];
+  for (const encoding of ['identity', 'gzip']) {
+    let release!: () => void;
+    let enter!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    const app = express();
+    app.use(compression());
+    app.use(express.json());
+    app.use(
+      createMcpRouter({
+        listIngestedRepositories: async () => {
+          enter();
+          await gate;
+          return { repos: [], lockedModelId: null };
+        },
+      }),
+    );
+    const server = http.createServer(app);
+    const portPromise = waitForHttpServerPort(server);
+    server.listen(0, '127.0.0.1');
+    const port = await portPromise;
+    let response: http.IncomingMessage | undefined;
+    const unzip = encoding === 'gzip' ? createGunzip() : undefined;
+    const utf8 = new StringDecoder('utf8');
+    let text = '';
+    let released = false;
+    let preambleResolve!: () => void;
+    let preambleReject!: (error: Error) => void;
+    let completeResolve!: () => void;
+    let completeReject!: (error: Error) => void;
+    const preamble = new Promise<void>((resolve, reject) => {
+      preambleResolve = resolve;
+      preambleReject = reject;
+    });
+    const complete = new Promise<void>((resolve, reject) => {
+      completeResolve = resolve;
+      completeReject = reject;
+    });
+    void complete.catch(() => {});
+    const fail = (error: Error) => {
+      preambleReject(error);
+      completeReject(error);
+    };
+    unzip?.on('error', fail);
+    const req = http.request(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path: '/mcp',
+        method: 'POST',
+        agent: false,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept-Encoding': encoding,
+        },
+      },
+      (res) => {
+        response = res;
+        res.on('error', fail);
+        res.on('aborted', () => fail(new Error('MCP response aborted')));
+        const decoded = unzip ?? res;
+        decoded.on('data', (chunk: Buffer) => {
+          text += utf8.write(chunk);
+          if (!released && /^\s+$/.test(text)) preambleResolve();
+        });
+        decoded.on('end', () => {
+          text += utf8.end();
+          completeResolve();
+        });
+        if (unzip) res.pipe(unzip);
+      },
+    );
+    req.on('error', fail);
+    const timer = setTimeout(() => {
+      const error = new Error(
+        `MCP ${encoding} did not deliver preamble/final JSON within deadline`,
+      );
+      fail(error);
+      req.destroy(error);
+      unzip?.destroy(error);
+    }, resolveConfiguredTestTimeoutMs(5_000));
+    try {
+      const ready = Promise.all([entered, preamble]);
+      req.end(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'compression-test',
+          method: 'tools/call',
+          params: { name: 'ListIngestedRepositories', arguments: {} },
+        }),
+      );
+      await ready;
+      assert.equal(response?.statusCode, 200);
+      assert.equal(
+        response?.headers['content-encoding'] ?? 'identity',
+        encoding,
+      );
+      assert.match(text, /^\s+$/);
+      assert.equal(response?.complete, false);
+      released = true;
+      release();
+      await complete;
+      const json = JSON.parse(text);
+      assert.equal(json.jsonrpc, '2.0');
+      assert.equal(json.id, 'compression-test');
+      assert.equal(json.error, undefined);
+      assert.deepEqual(json.result.structuredContent.repos, []);
+      assert.deepEqual(
+        JSON.parse(json.result.content[0].text),
+        json.result.structuredContent,
+      );
+      results.push(json);
+    } finally {
+      clearTimeout(timer);
+      release();
+      const streams = [req, response, unzip].filter((stream) => stream != null);
+      const closed = streams.map((stream) =>
+        finished(stream, { cleanup: true }).catch(() => {}),
+      );
+      streams.forEach((stream) => stream.destroy());
+      server.closeAllConnections();
+      await Promise.all(closed);
+      await closeHttpServer(server);
+    }
+  }
+  assert.deepEqual(results[0], results[1]);
+});
 
 async function startServer() {
   const app = express();

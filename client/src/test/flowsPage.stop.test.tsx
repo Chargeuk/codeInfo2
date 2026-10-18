@@ -1,8 +1,9 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { decodeJsonBody } from './support/decodeJsonBody';
+import { installNativeCompression } from './support/nativeCompression';
 const mockFetch = jest.fn<typeof fetch>();
 beforeAll(() => {
   global.fetch = mockFetch;
@@ -273,6 +274,85 @@ async function startFlowRun(user: ReturnType<typeof userEvent.setup>) {
   });
 }
 describe('Flows page stop control', () => {
+  it.each(['run', 'resume'] as const)(
+    'aborts buffered %s requests without old cleanup releasing the new pending run',
+    async (mode) => {
+      const native = installNativeCompression();
+      const matchesLaunch = (body: Record<string, unknown>) =>
+        typeof body.conversationId === 'string' &&
+        (mode === 'run'
+          ? typeof body.retryOwnershipId === 'string'
+          : Array.isArray(body.resumeStepPath));
+      const first = native.holdNextBuffer(matchesLaunch);
+      const user = userEvent.setup();
+      const { runBodies } = setupFlowsFetch({
+        conversations:
+          mode === 'resume'
+            ? [
+                {
+                  conversationId: 'resume-compression',
+                  title: 'Flow: smoke',
+                  provider: 'codex',
+                  model: 'm1',
+                  source: 'REST',
+                  lastMessageAt: new Date().toISOString(),
+                  archived: false,
+                  flowName: 'smoke',
+                  flags: { flow: { stepPath: [1] } },
+                },
+              ]
+            : [],
+      });
+      const start = async () => {
+        if (mode === 'run') await startFlowRun(user);
+        else {
+          const resume = await screen.findByTestId('flow-resume');
+          await waitFor(() => expect(resume).toBeEnabled());
+          await user.click(resume);
+        }
+      };
+      try {
+        renderFlowsPage();
+        await start();
+        await first.entered;
+        await user.click(screen.getByTestId('flow-stop'));
+        const cancel = await findLatestCancelMessage();
+        emitWsEvent({
+          type: 'cancel_ack',
+          result: 'noop',
+          conversationId: cancel.conversationId,
+          requestId: cancel.requestId,
+        });
+        const second = native.holdNextBuffer(matchesLaunch);
+        await start();
+        await second.entered;
+        await act(async () => {
+          first.release();
+          await first.finished;
+        });
+        expect(runBodies).toHaveLength(0);
+        expect(screen.getByTestId('flow-stop')).toBeEnabled();
+        await user.click(screen.getByTestId('flow-stop'));
+        await act(async () => {
+          second.release();
+          await second.finished;
+        });
+        expect(runBodies).toHaveLength(0);
+        expect(
+          parseSocketMessages().filter(
+            (message) => message.type === 'cancel_inflight',
+          ),
+        ).toHaveLength(2);
+        expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument();
+      } finally {
+        cleanup();
+        await act(async () => {
+          await native.restore();
+        });
+      }
+    },
+  );
+
   it('shows visible stopping UX and disables duplicate stop actions while cancellation is pending', async () => {
     const user = userEvent.setup();
     let resolveRun: ((value: Response) => void) | null = null;

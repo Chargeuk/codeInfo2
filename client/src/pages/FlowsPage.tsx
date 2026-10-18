@@ -224,6 +224,7 @@ export default function FlowsPage() {
   const workingFolderLockKeyRef = useRef<string | null>(null);
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [startPending, setStartPending] = useState(false);
+  const pendingRequestRef = useRef<AbortController | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [runErrorCode, setRunErrorCode] = useState<string | null>(null);
   const [launchWarnings, setLaunchWarnings] = useState<string[]>([]);
@@ -1278,6 +1279,12 @@ export default function FlowsPage() {
     if (!selectedFlowName || !activeConversationId || status === 'stopping') {
       return;
     }
+    if (pendingRequestRef.current) {
+      pendingRequestRef.current.abort();
+      pendingRequestRef.current = null;
+      setStartPending(false);
+      freshRunReplayGuardRef.current = false;
+    }
     log('info', 'flows.ui.stop_clicked', { flowName: selectedFlowName });
     const inflightId =
       inflightSnapshot?.inflightId ??
@@ -1422,6 +1429,8 @@ export default function FlowsPage() {
 
       subscribeConversation(nextConversationId);
 
+      const requestController = new AbortController();
+      pendingRequestRef.current = requestController;
       try {
         log('info', 'DEV-0000034:T6:flows.run_payload', {
           flowName: selectedFlowName,
@@ -1439,7 +1448,13 @@ export default function FlowsPage() {
           mode,
           working_folder: workingFolder.trim() || undefined,
           resumeStepPath: mode === 'resume' ? resumeStepPath : undefined,
+          signal: requestController.signal,
         });
+        if (
+          requestController.signal.aborted ||
+          pendingRequestRef.current !== requestController
+        )
+          return;
         setActiveConversationId(result.conversationId);
         setLaunchConversationId(result.conversationId);
         acceptedLaunchConversationIdRef.current = result.conversationId;
@@ -1459,15 +1474,30 @@ export default function FlowsPage() {
         });
         try {
           await refreshConversations();
+          if (
+            requestController.signal.aborted ||
+            pendingRequestRef.current !== requestController
+          )
+            return;
           console.info('[flows-ui] refreshConversations (after)');
           if (shouldGuardFreshRun) {
             // Allow the UI to paint and then refresh once more to ensure the
             // latest server-side run appears in conversation lists in environments
             // where async routing or rapid replays can cause timing races.
             await waitForNextPaint();
+            if (
+              requestController.signal.aborted ||
+              pendingRequestRef.current !== requestController
+            )
+              return;
             await refreshConversations();
           }
         } catch (refreshError) {
+          if (
+            requestController.signal.aborted ||
+            pendingRequestRef.current !== requestController
+          )
+            return;
           log('warn', 'flows.ui.accepted_launch_refresh_failed', {
             conversationId: result.conversationId,
             message:
@@ -1477,6 +1507,11 @@ export default function FlowsPage() {
           });
         }
       } catch (err) {
+        if (
+          requestController.signal.aborted ||
+          pendingRequestRef.current !== requestController
+        )
+          return;
         if (
           err instanceof FlowApiError &&
           err.status === 409 &&
@@ -1514,8 +1549,11 @@ export default function FlowsPage() {
           freshRunRetryOwnershipIdRef.current = null;
         }
       } finally {
-        releaseFreshRunReplayGuard();
-        setStartPending(false);
+        if (pendingRequestRef.current === requestController) {
+          pendingRequestRef.current = null;
+          releaseFreshRunReplayGuard();
+          setStartPending(false);
+        }
       }
     },
     [

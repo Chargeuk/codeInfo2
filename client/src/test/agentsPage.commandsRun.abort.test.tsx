@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -9,6 +10,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { decodeJsonBody } from './support/decodeJsonBody';
+import { installNativeCompression } from './support/nativeCompression';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -293,6 +295,75 @@ async function startInstructionRun(
 }
 
 describe('Agents page stop control', () => {
+  it.each(['instruction', 'command'] as const)(
+    'aborts buffered %s requests and protects a newer attempt from old cleanup',
+    async (mode) => {
+      const native = installNativeCompression();
+      const matchesLaunch = (body: Record<string, unknown>) =>
+        typeof body.conversationId === 'string' &&
+        (mode === 'instruction'
+          ? body.instruction === 'cancel me '.repeat(200)
+          : body.commandName === 'improve_plan');
+      const first = native.holdNextBuffer(matchesLaunch);
+      const user = userEvent.setup();
+      const bodies = setupAgentsFetch();
+      const start = async () => {
+        if (mode === 'instruction')
+          await startInstructionRun(user, 'cancel me '.repeat(200));
+        else await clickExecuteCommand(user);
+      };
+      try {
+        renderAgentsPage();
+        if (mode === 'command') await openCommandPicker(user);
+        await start();
+        await first.entered;
+        const stopButton = await screen.findByTestId('agent-stop');
+        await waitFor(() => expect(stopButton).toBeEnabled());
+        await user.click(stopButton);
+        const cancel = await findLatestCancelMessage();
+        emitWsEvent({
+          type: 'cancel_ack',
+          result: 'noop',
+          conversationId: cancel.conversationId,
+          requestId: cancel.requestId,
+        });
+        const second = native.holdNextBuffer(matchesLaunch);
+        await start();
+        await second.entered;
+        await act(async () => {
+          first.release();
+          await first.finished;
+        });
+        expect(bodies.instructionBodies).toHaveLength(0);
+        expect(bodies.commandBodies).toHaveLength(0);
+        expect(screen.getByTestId('agent-stop')).toBeEnabled();
+        await user.click(screen.getByTestId('agent-stop'));
+        await act(async () => {
+          second.release();
+          await second.finished;
+        });
+        expect(bodies.instructionBodies).toHaveLength(0);
+        expect(bodies.commandBodies).toHaveLength(0);
+        expect(
+          parseSocketMessages().filter(
+            (message) => message.type === 'cancel_inflight',
+          ),
+        ).toHaveLength(2);
+        expect(
+          screen.queryByTestId('agents-run-error'),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(/Failed to run agent|aborted/i),
+        ).not.toBeInTheDocument();
+      } finally {
+        cleanup();
+        await act(async () => {
+          await native.restore();
+        });
+      }
+    },
+  );
+
   it('shows visible stopping UX and disables duplicate stop actions while cancellation is pending for command runs', async () => {
     const user = userEvent.setup();
     const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});

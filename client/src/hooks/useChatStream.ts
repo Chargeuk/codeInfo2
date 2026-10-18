@@ -287,6 +287,7 @@ export function useChatStream(
   const confirmedInflightIdsRef = useRef<Set<string>>(new Set());
   const finalizedInflightIdsRef = useRef<Set<string>>(new Set());
   const stopRequestIdRef = useRef<string | null>(null);
+  const pendingRequestRef = useRef<AbortController | null>(null);
   const stopInflightIdRef = useRef<string | null>(null);
   const toolCallsRef = useRef<Map<string, ToolCall>>(new Map());
   const segmentsRef = useRef<ChatSegment[]>([]);
@@ -910,6 +911,10 @@ export function useChatStream(
 
   const stop = useCallback(
     (options?: { requestId?: string | null; showStatusBubble?: boolean }) => {
+      if (options?.showStatusBubble === true) {
+        pendingRequestRef.current?.abort();
+        pendingRequestRef.current = null;
+      }
       clearThinkingTimer();
       markAssistantThinking(false);
       syncAssistantMessage(
@@ -1382,6 +1387,8 @@ export function useChatStream(
       syncAssistantMessage({ streamStatus: 'processing' });
       scheduleThinkingTimer();
 
+      const requestController = new AbortController();
+      pendingRequestRef.current = requestController;
       try {
         const baseCodexPayload = threadIdRef.current
           ? { threadId: threadIdRef.current }
@@ -1402,6 +1409,7 @@ export function useChatStream(
 
         const res = await fetchJson(new URL('/chat', API_BASE).toString(), {
           method: 'POST',
+          signal: requestController.signal,
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             provider: effectiveProvider,
@@ -1431,6 +1439,12 @@ export function useChatStream(
           provider?: string;
           model?: string;
         } | null;
+
+        if (
+          requestController.signal.aborted ||
+          pendingRequestRef.current !== requestController
+        )
+          return;
 
         if (res.status === 409 && payload?.code === 'RUN_IN_PROGRESS') {
           handleErrorBubble(
@@ -1474,6 +1488,11 @@ export function useChatStream(
           inflightId: payload.inflightId,
         });
       } catch (err) {
+        if (
+          requestController.signal.aborted ||
+          pendingRequestRef.current !== requestController
+        )
+          return;
         if ((err as Error).name === 'AbortError') return;
         handleErrorBubble((err as Error).message);
         setIsStreaming(false);
@@ -1484,6 +1503,9 @@ export function useChatStream(
           thinking: false,
           thinkStreaming: false,
         });
+      } finally {
+        if (pendingRequestRef.current === requestController)
+          pendingRequestRef.current = null;
       }
     },
     [

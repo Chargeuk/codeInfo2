@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -9,6 +10,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
+import { installNativeCompression } from './support/nativeCompression';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -97,6 +99,88 @@ const startChatTurn = async (
 };
 
 describe('Chat page stop control', () => {
+  it('stops a buffered native request and keeps a newer attempt intact without submitting either stopped request', async () => {
+    const native = installNativeCompression();
+    const first = native.holdNextBuffer(
+      (body) => body.message === 'first '.repeat(200),
+    );
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    try {
+      renderChatPage();
+      await startChatTurn(user, 'first '.repeat(200));
+      await first.entered;
+      await user.click(screen.getByTestId('chat-stop'));
+      const cancel = await findLatestCancel();
+      await harness.emitCancelAck({
+        conversationId: String(cancel.conversationId),
+        requestId: String(cancel.requestId),
+      });
+      const second = native.holdNextBuffer(
+        (body) => body.message === 'second '.repeat(200),
+      );
+      await startChatTurn(user, 'second '.repeat(200));
+      await second.entered;
+      await act(async () => {
+        first.release();
+        await first.finished;
+      });
+      expect(harness.chatBodies).toHaveLength(0);
+      expect(screen.getByTestId('chat-stop')).toBeEnabled();
+      await user.click(screen.getByTestId('chat-stop'));
+      await act(async () => {
+        second.release();
+        await second.finished;
+      });
+      expect(harness.chatBodies).toHaveLength(0);
+      expect(
+        parseSocketMessages().filter(
+          (message) => message.type === 'cancel_inflight',
+        ),
+      ).toHaveLength(2);
+      expect(
+        screen.queryByText(/Chat request failed|aborted/i),
+      ).not.toBeInTheDocument();
+    } finally {
+      cleanup();
+      await act(async () => {
+        await native.restore();
+      });
+    }
+  });
+
+  it('preserves a buffered request when Chat unmounts without an explicit Stop', async () => {
+    const native = installNativeCompression();
+    const gate = native.holdNextBuffer(
+      (body) => body.message === 'continue after navigation '.repeat(100),
+    );
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    try {
+      const router = renderChatPage();
+      await startChatTurn(user, 'continue after navigation '.repeat(100));
+      await gate.entered;
+      await act(async () => {
+        await router.navigate('/');
+      });
+      await act(async () => {
+        gate.release();
+        await gate.finished;
+      });
+      await waitFor(() => expect(harness.chatBodies).toHaveLength(1));
+      expect(
+        parseSocketMessages().filter(
+          (message) => message.type === 'cancel_inflight',
+        ),
+      ).toHaveLength(0);
+    } finally {
+      cleanup();
+      await act(async () => {
+        await native.restore();
+      });
+    }
+  });
+
   it('shows visible stopping UX and disables duplicate stop actions while cancellation is pending', async () => {
     const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();

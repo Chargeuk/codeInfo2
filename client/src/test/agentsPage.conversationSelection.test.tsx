@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -82,7 +83,7 @@ describe('Agents page - conversation selection', () => {
 
         if (target.includes('/agents/coding_agent/run')) {
           if (init?.body) {
-            bodies.push(JSON.parse(init.body.toString()));
+            bodies.push(decodeJsonBody(init));
           }
           return Promise.resolve({
             ok: true,

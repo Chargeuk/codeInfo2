@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from './baseUrl';
+import { fetchJson } from './fetchJson';
 
 type AgentSummary = {
   name: string;
@@ -358,6 +359,7 @@ export async function runAgentInstruction(params: {
   working_folder?: string;
   conversationId?: string;
   signal?: AbortSignal;
+  beforeFetch?: () => void;
 }): Promise<{
   status: 'started';
   agentName: string;
@@ -374,7 +376,7 @@ export async function runAgentInstruction(params: {
     trimmedLength: instructionRaw.trim().length,
   });
 
-  const res = await fetch(
+  const res = await fetchJson(
     new URL(
       `/agents/${encodeURIComponent(params.agentName)}/run`,
       serverBase,
@@ -393,6 +395,7 @@ export async function runAgentInstruction(params: {
       }),
       signal: params.signal,
     },
+    params.beforeFetch,
   );
   if (!res.ok) {
     await throwAgentApiError(
@@ -427,6 +430,7 @@ export async function runAgentCommand(params: {
   conversationId?: string;
   working_folder?: string;
   signal?: AbortSignal;
+  beforeFetch?: () => void;
 }): Promise<{
   status: 'started';
   agentName: string;
@@ -456,7 +460,7 @@ export async function runAgentCommand(params: {
     startStep: typeof params.startStep === 'number' ? params.startStep : null,
   });
 
-  const res = await fetch(
+  const res = await fetchJson(
     new URL(
       `/agents/${encodeURIComponent(params.agentName)}/commands/run`,
       serverBase,
@@ -467,6 +471,7 @@ export async function runAgentCommand(params: {
       body: JSON.stringify(payload),
       signal: params.signal,
     },
+    params.beforeFetch,
   );
 
   if (!res.ok) {
@@ -589,7 +594,7 @@ export async function forkAgentConversation(params: {
   sourceTurnId?: string;
   requestId: string;
 }): Promise<AgentForkResult> {
-  const response = await fetch(
+  const response = await fetchJson(
     new URL(
       `/agents/conversations/${encodeURIComponent(params.conversationId)}/fork`,
       serverBase,

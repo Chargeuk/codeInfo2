@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { installMockChatWs } from './support/mockChatWs';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
@@ -179,7 +180,7 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
 
   await page.route('**/chat', async (route) => {
     if (route.request().method() !== 'POST') return route.continue();
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;

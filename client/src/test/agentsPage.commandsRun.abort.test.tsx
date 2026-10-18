@@ -1,13 +1,17 @@
 import { jest } from '@jest/globals';
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
+import { installNativeCompression } from './support/nativeCompression';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -213,9 +217,7 @@ function setupAgentsFetch(params?: {
 
     if (target.includes('/agents/a1/run')) {
       const body =
-        typeof init?.body === 'string'
-          ? (JSON.parse(init.body) as FetchBody)
-          : {};
+        init?.body != null ? (decodeJsonBody(init) as FetchBody) : {};
       instructionBodies.push(body);
       if (params?.instructionRunFetch) {
         return Promise.resolve(params.instructionRunFetch(body, init));
@@ -237,9 +239,7 @@ function setupAgentsFetch(params?: {
 
     if (target.includes('/agents/a1/commands/run')) {
       const body =
-        typeof init?.body === 'string'
-          ? (JSON.parse(init.body) as FetchBody)
-          : {};
+        init?.body != null ? (decodeJsonBody(init) as FetchBody) : {};
       commandBodies.push(body);
       if (params?.commandRunFetch) {
         return Promise.resolve(params.commandRunFetch(body, init));
@@ -296,6 +296,263 @@ async function startInstructionRun(
 }
 
 describe('Agents page stop control', () => {
+  it.each(
+    ['instruction', 'command'].flatMap((mode) =>
+      ['A', 'B'].map((stopTarget) => ({ mode, stopTarget })),
+    ),
+  )(
+    'discards only $stopTarget preparation with overlapping $mode launches',
+    async ({ mode, stopTarget }) => {
+      const native = installNativeCompression();
+      const gate = native.holdNextBuffer(
+        (body) =>
+          body.conversationId === 'A' &&
+          (mode === 'instruction'
+            ? body.instruction === 'prepare A'
+            : body.commandName === 'improve_plan'),
+      );
+      const bodies = setupAgentsFetch({
+        conversations: ['A', 'B'].map((id) => ({
+          conversationId: id,
+          title: `Agent ${id}`,
+          provider: 'codex',
+          model: 'm1',
+          lastMessageAt: '2026-01-01T00:00:00.000Z',
+        })),
+      });
+      const user = userEvent.setup();
+      try {
+        renderAgentsPage();
+        await user.click(await screen.findByText('Agent A'));
+        if (mode === 'instruction')
+          await startInstructionRun(user, 'prepare A');
+        else {
+          await openCommandPicker(user);
+          await clickExecuteCommand(user);
+        }
+        await gate.entered;
+        await user.click(screen.getByTestId('agent-new-conversation-trigger'));
+        await user.click(screen.getByText('Agent B'));
+        const second = native.holdNextBuffer(
+          (body) =>
+            body.conversationId === 'B' &&
+            (mode === 'instruction'
+              ? body.instruction === 'prepare B'
+              : body.commandName === 'improve_plan'),
+        );
+        if (mode === 'instruction')
+          await startInstructionRun(user, 'prepare B');
+        else {
+          await openCommandPicker(user);
+          await clickExecuteCommand(user);
+        }
+        await second.entered;
+        if (stopTarget === 'A') await user.click(screen.getByText('Agent A'));
+        await user.click(await screen.findByTestId('agent-stop'));
+        const cancel = await findLatestCancelMessage();
+        expect(cancel.conversationId).toBe(stopTarget);
+        emitWsEvent({
+          type: 'cancel_ack',
+          result: 'noop',
+          conversationId: stopTarget,
+          requestId: cancel.requestId,
+        });
+        const cancelled = stopTarget === 'A' ? gate : second;
+        const retained = stopTarget === 'A' ? second : gate;
+        await act(async () => {
+          cancelled.release();
+          await cancelled.finished;
+        });
+        expect(
+          bodies.instructionBodies.length + bodies.commandBodies.length,
+        ).toBe(0);
+        if (stopTarget === 'A')
+          expect(screen.getByTestId('agent-stop')).toBeEnabled();
+        await act(async () => {
+          retained.release();
+          await retained.finished;
+        });
+        const submitted =
+          mode === 'instruction'
+            ? bodies.instructionBodies
+            : bodies.commandBodies;
+        await waitFor(() => expect(submitted).toHaveLength(1));
+        expect(submitted[0].conversationId).toBe(
+          stopTarget === 'A' ? 'B' : 'A',
+        );
+        await waitFor(() =>
+          expect(screen.getByTestId('agent-send')).toBeEnabled(),
+        );
+        expect(
+          screen.queryByTestId('agents-run-error'),
+        ).not.toBeInTheDocument();
+      } finally {
+        cleanup();
+        await act(async () => {
+          await native.restore();
+        });
+      }
+    },
+  );
+
+  it.each(
+    ['instruction', 'command'].flatMap((mode) =>
+      ['success', 'error'].map((outcome) => ({ mode, outcome })),
+    ),
+  )(
+    'handles delayed sent $mode $outcome after Stop without aborting HTTP',
+    async ({ mode, outcome }) => {
+      const native = installNativeCompression();
+      let resolve!: (response: Response) => void;
+      let reject!: (error: Error) => void;
+      let requestInit: RequestInit | undefined;
+      let sentBody: FetchBody = {};
+      const response = new Promise<Response>((done, fail) => {
+        resolve = done;
+        reject = fail;
+      });
+      const pending = (body: FetchBody, init?: RequestInit) => {
+        sentBody = body;
+        requestInit = init;
+        return response;
+      };
+      const bodies = setupAgentsFetch({
+        instructionRunFetch: pending,
+        commandRunFetch: pending,
+      });
+      const user = userEvent.setup();
+      try {
+        renderAgentsPage();
+        if (mode === 'instruction')
+          await startInstructionRun(user, 'sent instruction');
+        else {
+          await openCommandPicker(user);
+          await clickExecuteCommand(user);
+        }
+        await waitFor(() =>
+          expect(
+            bodies.instructionBodies.length + bodies.commandBodies.length,
+          ).toBe(1),
+        );
+        await user.click(await screen.findByTestId('agent-stop'));
+        const cancel = await findLatestCancelMessage();
+        expect(requestInit?.signal).toBeUndefined();
+        emitWsEvent({
+          type: 'cancel_ack',
+          result: 'noop',
+          conversationId: cancel.conversationId,
+          requestId: cancel.requestId,
+        });
+        await act(async () => {
+          if (outcome === 'error') reject(new Error('sent agent failure'));
+          else
+            resolve(
+              new Response(
+                JSON.stringify({
+                  status: 'started',
+                  agentName: 'a1',
+                  commandName: 'improve_plan',
+                  conversationId: sentBody.conversationId,
+                  inflightId: 'accepted-agent',
+                  modelId: 'accepted-agent-model',
+                }),
+                { status: 202 },
+              ),
+            );
+        });
+        if (outcome === 'error')
+          expect(
+            await screen.findByTestId('agents-run-error'),
+          ).toHaveTextContent('sent agent failure');
+        else {
+          await user.click(screen.getByTestId('agent-info'));
+          const info = await screen.findByTestId('agent-info-popover');
+          expect(
+            await within(info).findByText('accepted-agent-model'),
+          ).toBeVisible();
+          expect(
+            screen.queryByTestId('agents-run-error'),
+          ).not.toBeInTheDocument();
+        }
+      } finally {
+        resolve(new Response('{}', { status: 202 }));
+        cleanup();
+        await act(async () => {
+          await native.restore();
+        });
+      }
+    },
+  );
+
+  it.each(['instruction', 'command'] as const)(
+    'discards buffered %s preparations and protects a newer attempt from old cleanup',
+    async (mode) => {
+      const native = installNativeCompression();
+      const matchesLaunch = (body: Record<string, unknown>) =>
+        typeof body.conversationId === 'string' &&
+        (mode === 'instruction'
+          ? body.instruction === 'cancel me '.repeat(200)
+          : body.commandName === 'improve_plan');
+      const first = native.holdNextBuffer(matchesLaunch);
+      const user = userEvent.setup();
+      const bodies = setupAgentsFetch();
+      const start = async () => {
+        if (mode === 'instruction')
+          await startInstructionRun(user, 'cancel me '.repeat(200));
+        else await clickExecuteCommand(user);
+      };
+      try {
+        renderAgentsPage();
+        if (mode === 'command') await openCommandPicker(user);
+        await start();
+        await first.entered;
+        const stopButton = await screen.findByTestId('agent-stop');
+        await waitFor(() => expect(stopButton).toBeEnabled());
+        await user.click(stopButton);
+        const cancel = await findLatestCancelMessage();
+        emitWsEvent({
+          type: 'cancel_ack',
+          result: 'noop',
+          conversationId: cancel.conversationId,
+          requestId: cancel.requestId,
+        });
+        const second = native.holdNextBuffer(matchesLaunch);
+        await start();
+        await second.entered;
+        await act(async () => {
+          first.release();
+          await first.finished;
+        });
+        expect(bodies.instructionBodies).toHaveLength(0);
+        expect(bodies.commandBodies).toHaveLength(0);
+        expect(screen.getByTestId('agent-stop')).toBeEnabled();
+        await user.click(screen.getByTestId('agent-stop'));
+        await act(async () => {
+          second.release();
+          await second.finished;
+        });
+        expect(bodies.instructionBodies).toHaveLength(0);
+        expect(bodies.commandBodies).toHaveLength(0);
+        expect(
+          parseSocketMessages().filter(
+            (message) => message.type === 'cancel_inflight',
+          ),
+        ).toHaveLength(2);
+        expect(
+          screen.queryByTestId('agents-run-error'),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByText(/Failed to run agent|aborted/i),
+        ).not.toBeInTheDocument();
+      } finally {
+        cleanup();
+        await act(async () => {
+          await native.restore();
+        });
+      }
+    },
+  );
+
   it('shows visible stopping UX and disables duplicate stop actions while cancellation is pending for command runs', async () => {
     const user = userEvent.setup();
     const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});

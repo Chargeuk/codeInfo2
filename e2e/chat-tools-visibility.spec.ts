@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { expect, test, type Page } from '@playwright/test';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { installMockChatWs, type MockChatWsServer } from './support/mockChatWs';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
@@ -129,7 +130,7 @@ async function mockChatStream(
 ) {
   await page.route('**/chat', async (route) => {
     if (route.request().method() !== 'POST') return route.continue();
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;
@@ -461,7 +462,7 @@ test.describe('Chat tool visibility details', () => {
 
     await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
-      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
         string,
         unknown
       >;
@@ -570,7 +571,7 @@ test.describe('Chat tool visibility details', () => {
 
     await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
-      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
         string,
         unknown
       >;
@@ -669,7 +670,7 @@ test.describe('Chat tool visibility details', () => {
 
     await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
-      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
         string,
         unknown
       >;

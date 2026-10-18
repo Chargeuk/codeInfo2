@@ -356,7 +356,7 @@ export function broadcastIngestUpdate(status: IngestJobStatus) {
 }
 
 export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, perMessageDeflate: true });
   const sidebarPublisher: SidebarPublisher = startSidebarPublisher();
 
   const connectionIdBySocket = new WeakMap<WebSocket, string>();

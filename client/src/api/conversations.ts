@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from './baseUrl';
+import { fetchJson } from './fetchJson';
 
 const serverBase = getApiBaseUrl();
 
@@ -199,7 +200,7 @@ export async function updateConversationWorkingFolder(params: {
     throw new Error('workingFolder must be a non-empty string or null');
   }
 
-  const res = await fetch(
+  const res = await fetchJson(
     new URL(
       `/conversations/${encodeURIComponent(trimmedConversationId)}/working-folder`,
       serverBase,

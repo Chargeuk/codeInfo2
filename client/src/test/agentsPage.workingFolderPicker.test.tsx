@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -91,8 +92,8 @@ function mockAgentsFetch(options?: {
           init?.method === 'POST'
         ) {
           const body =
-            typeof init.body === 'string'
-              ? (JSON.parse(init.body) as Record<string, unknown>)
+            init.body != null
+              ? (decodeJsonBody(init) as Record<string, unknown>)
               : {};
           const workingFolder =
             typeof body.workingFolder === 'string'
@@ -629,9 +630,7 @@ describe('Agents page - working folder picker', () => {
       });
       expect(updateCall).toBeDefined();
       const body =
-        typeof updateCall?.[1]?.body === 'string'
-          ? JSON.parse(updateCall[1].body)
-          : null;
+        updateCall?.[1]?.body != null ? decodeJsonBody(updateCall[1]) : null;
       expect(body).toEqual({ workingFolder: '/repos/edited' });
     });
   });
@@ -808,9 +807,7 @@ describe('Agents page - working folder picker', () => {
       });
       expect(updateCall).toBeDefined();
       const body =
-        typeof updateCall?.[1]?.body === 'string'
-          ? JSON.parse(updateCall[1].body)
-          : null;
+        updateCall?.[1]?.body != null ? decodeJsonBody(updateCall[1]) : null;
       expect(body).toEqual({ workingFolder: null });
     });
 

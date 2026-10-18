@@ -29,9 +29,12 @@ function rawDataToString(raw: RawData): string {
 export async function connectWs(params: {
   baseUrl: string;
   timeoutMs?: number;
+  perMessageDeflate?: boolean;
 }): Promise<WebSocket> {
   const wsUrl = `${params.baseUrl.replace(/^http/, 'ws')}/ws`;
-  const ws = new WebSocket(wsUrl);
+  const ws = new WebSocket(wsUrl, {
+    perMessageDeflate: params.perMessageDeflate ?? true,
+  });
   const timeoutMs = resolveConfiguredTestTimeoutMs(params.timeoutMs ?? 2000);
 
   const buffer = getBuffer(ws);

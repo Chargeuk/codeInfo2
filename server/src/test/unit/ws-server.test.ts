@@ -169,6 +169,77 @@ test.afterEach(() => {
   __resetIngestJobsForTest();
   setScopedTestEnvValue('NODE_ENV', ORIGINAL_ENV);
 });
+for (const perMessageDeflate of [true, false]) {
+  test(`WS preserves Unicode messages and order with perMessageDeflate=${perMessageDeflate}`, async () => {
+    const server = await startServer();
+    let ws: WebSocket | undefined;
+    const conversationId = `compression-${perMessageDeflate}-${'世界🌍'.repeat(200)}`;
+    try {
+      ws = await connectWs({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        perMessageDeflate,
+      });
+      assert.equal(
+        ws.extensions.includes('permessage-deflate'),
+        perMessageDeflate,
+      );
+      // A large client subscription proves the negotiated inbound data is decoded.
+      await subscribeConversationAndWaitReady({ ws, conversationId });
+      const socket = ws;
+      const received = (async () => {
+        const events: Record<string, unknown>[] = [];
+        for (let index = 0; index < 2; index += 1) {
+          events.push(
+            await waitForEvent({
+              ws: socket,
+              predicate: (event): event is Record<string, unknown> =>
+                typeof event === 'object' &&
+                event !== null &&
+                (event as Record<string, unknown>).type === 'turn_final' &&
+                (event as Record<string, unknown>).conversationId ===
+                  conversationId,
+              describe: () => `ordered compression event ${index + 1}`,
+            }),
+          );
+        }
+        return events;
+      })();
+      const threadId = '圧縮🙂'.repeat(500);
+      publishTurnFinal({
+        conversationId,
+        inflightId: 'first',
+        status: 'ok',
+        threadId,
+        seq: 1,
+      });
+      publishTurnFinal({
+        conversationId,
+        inflightId: 'second',
+        status: 'ok',
+        threadId,
+        seq: 2,
+      });
+      const events = await received;
+      assert.deepEqual(
+        events.map((event) => event.inflightId),
+        ['first', 'second'],
+      );
+      assert.deepEqual(
+        events.map((event) => event.seq),
+        [1, 2],
+      );
+      for (const event of events) {
+        assert.equal(event.protocolVersion, 'v1');
+        assert.equal(event.conversationId, conversationId);
+        assert.equal(event.threadId, threadId);
+        assert.equal(event.status, 'ok');
+      }
+    } finally {
+      if (ws) await closeWs(ws);
+      await stopServer(server);
+    }
+  });
+}
 test('WS accepts connection on /ws and processes JSON message (happy path)', async () => {
   const server = await startServer();
   const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);

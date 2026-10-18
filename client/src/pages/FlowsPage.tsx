@@ -224,6 +224,14 @@ export default function FlowsPage() {
   const workingFolderLockKeyRef = useRef<string | null>(null);
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [startPending, setStartPending] = useState(false);
+  const preparationsRef = useRef(
+    new Set<{
+      conversationId: string;
+      cancelled: boolean;
+      pending: boolean;
+      freshRun: boolean;
+    }>(),
+  );
   const [runError, setRunError] = useState<string | null>(null);
   const [runErrorCode, setRunErrorCode] = useState<string | null>(null);
   const [launchWarnings, setLaunchWarnings] = useState<string[]>([]);
@@ -1278,6 +1286,14 @@ export default function FlowsPage() {
     if (!selectedFlowName || !activeConversationId || status === 'stopping') {
       return;
     }
+    for (const preparation of preparationsRef.current) {
+      if (preparation.conversationId === activeConversationId) {
+        preparation.cancelled = true;
+        preparationsRef.current.delete(preparation);
+        if (preparation.pending) setStartPending(false);
+        if (preparation.freshRun) freshRunReplayGuardRef.current = false;
+      }
+    }
     log('info', 'flows.ui.stop_clicked', { flowName: selectedFlowName });
     const inflightId =
       inflightSnapshot?.inflightId ??
@@ -1422,6 +1438,14 @@ export default function FlowsPage() {
 
       subscribeConversation(nextConversationId);
 
+      for (const previous of preparationsRef.current) previous.pending = false;
+      const preparation = {
+        conversationId: nextConversationId,
+        cancelled: false,
+        pending: true,
+        freshRun: shouldGuardFreshRun,
+      };
+      preparationsRef.current.add(preparation);
       try {
         log('info', 'DEV-0000034:T6:flows.run_payload', {
           flowName: selectedFlowName,
@@ -1439,6 +1463,14 @@ export default function FlowsPage() {
           mode,
           working_folder: workingFolder.trim() || undefined,
           resumeStepPath: mode === 'resume' ? resumeStepPath : undefined,
+          beforeFetch: () => {
+            preparationsRef.current.delete(preparation);
+            if (preparation.cancelled)
+              throw new DOMException(
+                'Request preparation cancelled',
+                'AbortError',
+              );
+          },
         });
         setActiveConversationId(result.conversationId);
         setLaunchConversationId(result.conversationId);
@@ -1477,6 +1509,7 @@ export default function FlowsPage() {
           });
         }
       } catch (err) {
+        if (preparation.cancelled) return;
         if (
           err instanceof FlowApiError &&
           err.status === 409 &&
@@ -1514,8 +1547,11 @@ export default function FlowsPage() {
           freshRunRetryOwnershipIdRef.current = null;
         }
       } finally {
-        releaseFreshRunReplayGuard();
-        setStartPending(false);
+        preparationsRef.current.delete(preparation);
+        if (!preparation.cancelled) {
+          releaseFreshRunReplayGuard();
+          setStartPending(false);
+        }
       }
     },
     [

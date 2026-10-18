@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { installMockChatWs } from './support/mockChatWs';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
@@ -182,7 +183,7 @@ test('cross-tab follow-up creates a new assistant bubble in passive window', asy
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;
@@ -544,7 +545,7 @@ test('stale stop from one context does not cancel a later replacement run in ano
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;

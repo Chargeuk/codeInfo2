@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page, Route } from '@playwright/test';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
@@ -146,7 +147,7 @@ const routeAgentsApis = async (
     }
 
     if (path === '/agents/coding_agent/commands/run' && method === 'POST') {
-      const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
+      const payload = (decodeJsonBody(req) ?? {}) as Record<string, unknown>;
       commandRunBodies.push(payload);
       await route.fulfill({
         status: 202,
@@ -166,7 +167,7 @@ const routeAgentsApis = async (
     }
 
     if (path === '/agents/coding_agent/run' && method === 'POST') {
-      const payload = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
+      const payload = (decodeJsonBody(req) ?? {}) as Record<string, unknown>;
       runBodies.push(payload);
       await route.fulfill({
         status: 202,
@@ -656,7 +657,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
 
     if (path === '/agents/coding_agent/commands/run' && method === 'POST') {
       commandRunBodies.push(
-        (req.postDataJSON?.() ?? {}) as Record<string, unknown>,
+        (decodeJsonBody(req) ?? {}) as Record<string, unknown>,
       );
       await route.fulfill({
         status: 202,
@@ -673,7 +674,7 @@ test('agents warning timing and disabled-state guard stay visible at the browser
     }
 
     if (path === '/agents/coding_agent/run' && method === 'POST') {
-      runBodies.push((req.postDataJSON?.() ?? {}) as Record<string, unknown>);
+      runBodies.push((decodeJsonBody(req) ?? {}) as Record<string, unknown>);
       await route.fulfill({
         status: 202,
         contentType: 'application/json',

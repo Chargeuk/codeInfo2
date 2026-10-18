@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
@@ -127,7 +128,7 @@ function mockProvidersWithBodies(
       if (href.includes('/chat') && opts?.method === 'POST') {
         if (opts?.body) {
           try {
-            chatBodies.push(JSON.parse(opts.body as string));
+            chatBodies.push(decodeJsonBody(opts));
           } catch {
             chatBodies.push({});
           }

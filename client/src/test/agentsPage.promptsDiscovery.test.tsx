@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -77,7 +78,7 @@ function setupPromptRaceFetch(params: {
         }
         if (target.includes('/agents/coding_agent/run')) {
           if (init?.body) {
-            runBodies.push(JSON.parse(init.body.toString()));
+            runBodies.push(decodeJsonBody(init));
           }
           return mockJsonResponse(
             {
@@ -376,7 +377,7 @@ describe('Agents page - prompts discovery lifecycle', () => {
           return okJson({ prompts: [] });
         }
         if (target.includes('/agents/coding_agent/run')) {
-          if (init?.body) runBodies.push(JSON.parse(init.body.toString()));
+          if (init?.body) runBodies.push(decodeJsonBody(init));
           return okJson(
             {
               status: 'started',

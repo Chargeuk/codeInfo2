@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { mockJsonResponse } from './support/fetchMock';
 import { setupChatWsHarness } from './support/mockChatWs';
 
@@ -88,8 +89,8 @@ function renderChatWorkingFolderPage(options?: {
         method === 'POST'
       ) {
         const body =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as Record<string, unknown>)
+          init?.body != null
+            ? (decodeJsonBody(init) as Record<string, unknown>)
             : {};
         workingFolderBodies.push(body);
         const workingFolder =

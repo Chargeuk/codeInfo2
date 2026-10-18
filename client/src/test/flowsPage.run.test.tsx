@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { setupChatWsHarness } from './support/mockChatWs';
 import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 const mockFetch = jest.fn<typeof fetch>();
@@ -127,8 +128,8 @@ function mockFlowsFetch(options?: {
       method === 'POST'
     ) {
       const body =
-        typeof init?.body === 'string'
-          ? (JSON.parse(init.body) as Record<string, unknown>)
+        init?.body != null
+          ? (decodeJsonBody(init) as Record<string, unknown>)
           : {};
       const workingFolder =
         typeof body.workingFolder === 'string' ? body.workingFolder : undefined;
@@ -319,8 +320,8 @@ function setupFlowsRunHarness(options?: {
         method === 'POST'
       ) {
         const body =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as Record<string, unknown>)
+          init?.body != null
+            ? (decodeJsonBody(init) as Record<string, unknown>)
             : {};
         workingFolderBodies.push(body);
         const workingFolder =
@@ -466,8 +467,8 @@ describe('Flows page run/resume controls', () => {
           method === 'POST'
         ) {
           const body =
-            typeof init?.body === 'string'
-              ? (JSON.parse(init.body) as Record<string, unknown>)
+            init?.body != null
+              ? (decodeJsonBody(init) as Record<string, unknown>)
               : {};
           const workingFolder =
             typeof body.workingFolder === 'string'
@@ -647,7 +648,7 @@ describe('Flows page run/resume controls', () => {
       expect(runCall).toBeTruthy();
       const [, init] = runCall as [unknown, RequestInit];
       expect(init.method).toBe('POST');
-      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      const body = decodeJsonBody(init) as Record<string, unknown>;
       expect(body.conversationId).toBe('flow-1');
       expect(body.working_folder).toBe('/tmp/work');
     });
@@ -987,10 +988,11 @@ describe('Flows page run/resume controls', () => {
       if (target.includes('/flows/daily/run')) {
         const body =
           mockFetch.mock.calls.at(-1)?.[1]?.body &&
-          typeof mockFetch.mock.calls.at(-1)?.[1]?.body === 'string'
-            ? (JSON.parse(
-                mockFetch.mock.calls.at(-1)?.[1]?.body as string,
-              ) as Record<string, unknown>)
+          mockFetch.mock.calls.at(-1)?.[1]?.body != null
+            ? (decodeJsonBody(mockFetch.mock.calls.at(-1)?.[1]) as Record<
+                string,
+                unknown
+              >)
             : {};
         return mockJsonResponse({
           status: 'started',
@@ -1023,7 +1025,7 @@ describe('Flows page run/resume controls', () => {
       );
       expect(runCall).toBeTruthy();
       const [, init] = runCall as [unknown, RequestInit];
-      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      const body = decodeJsonBody(init) as Record<string, unknown>;
       expect(body.conversationId).not.toBe('flow-1');
       expect(body.customTitle).toBe('Daily recap');
     });
@@ -1211,10 +1213,11 @@ describe('Flows page run/resume controls', () => {
       if (target.includes('/flows/daily/run')) {
         const body =
           mockFetch.mock.calls.at(-1)?.[1]?.body &&
-          typeof mockFetch.mock.calls.at(-1)?.[1]?.body === 'string'
-            ? (JSON.parse(
-                mockFetch.mock.calls.at(-1)?.[1]?.body as string,
-              ) as Record<string, unknown>)
+          mockFetch.mock.calls.at(-1)?.[1]?.body != null
+            ? (decodeJsonBody(mockFetch.mock.calls.at(-1)?.[1]) as Record<
+                string,
+                unknown
+              >)
             : {};
         return mockJsonResponse({
           status: 'started',
@@ -1249,7 +1252,7 @@ describe('Flows page run/resume controls', () => {
       );
       expect(runCall).toBeTruthy();
       const [, init] = runCall as [unknown, RequestInit];
-      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      const body = decodeJsonBody(init) as Record<string, unknown>;
       expect(body.conversationId).not.toBe('flow-resume-1');
       expect(body.customTitle).toBeUndefined();
     });
@@ -1299,7 +1302,7 @@ describe('Flows page run/resume controls', () => {
       );
       expect(runCall).toBeTruthy();
       const [, init] = runCall as [unknown, RequestInit];
-      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      const body = decodeJsonBody(init) as Record<string, unknown>;
       expect(body.customTitle).toBe('Daily recap');
     });
   });
@@ -1348,10 +1351,7 @@ describe('Flows page run/resume controls', () => {
     );
     expect(firstRunCall).toBeTruthy();
     const [, firstInit] = firstRunCall as [unknown, RequestInit];
-    const firstBody = JSON.parse(firstInit.body as string) as Record<
-      string,
-      unknown
-    >;
+    const firstBody = decodeJsonBody(firstInit) as Record<string, unknown>;
     expect(typeof firstBody.conversationId).toBe('string');
     expect(firstBody.conversationId).not.toBe('');
     const completeRun = resolveRun;
@@ -1389,10 +1389,7 @@ describe('Flows page run/resume controls', () => {
     )[1];
     expect(secondRunCall).toBeTruthy();
     const [, secondInit] = secondRunCall as [unknown, RequestInit];
-    const secondBody = JSON.parse(secondInit.body as string) as Record<
-      string,
-      unknown
-    >;
+    const secondBody = decodeJsonBody(secondInit) as Record<string, unknown>;
     expect(secondBody.conversationId).toBeDefined();
     expect(secondBody.conversationId).not.toBe(firstBody.conversationId);
   });
@@ -1465,8 +1462,8 @@ describe('Flows page run/resume controls', () => {
         }
         if (target.includes('/flows/echo/run')) {
           const body =
-            typeof init?.body === 'string'
-              ? (JSON.parse(init.body) as Record<string, unknown>)
+            init?.body != null
+              ? (decodeJsonBody(init) as Record<string, unknown>)
               : {};
           requestBodies.push(body);
           const runIndex = requestBodies.length;
@@ -2463,9 +2460,7 @@ describe('Flows page run/resume controls', () => {
       });
       expect(updateCall).toBeDefined();
       const body =
-        typeof updateCall?.[1]?.body === 'string'
-          ? JSON.parse(updateCall[1].body)
-          : null;
+        updateCall?.[1]?.body != null ? decodeJsonBody(updateCall[1]) : null;
       expect(body).toEqual({ workingFolder: '/repos/flow-updated' });
     });
   });
@@ -2624,9 +2619,7 @@ describe('Flows page run/resume controls', () => {
       });
       expect(updateCall).toBeDefined();
       const body =
-        typeof updateCall?.[1]?.body === 'string'
-          ? JSON.parse(updateCall[1].body)
-          : null;
+        updateCall?.[1]?.body != null ? decodeJsonBody(updateCall[1]) : null;
       expect(body).toEqual({ workingFolder: null });
     });
     await waitFor(() =>
@@ -2688,7 +2681,7 @@ describe('Flows page run/resume controls', () => {
       );
       expect(runCall).toBeTruthy();
       const [, init] = runCall as [unknown, RequestInit];
-      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      const body = decodeJsonBody(init) as Record<string, unknown>;
       expect(body.resumeStepPath).toEqual([2, 0]);
     });
   });

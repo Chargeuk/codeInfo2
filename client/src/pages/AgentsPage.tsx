@@ -254,7 +254,9 @@ export default function AgentsPage() {
   const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
 
   const [startPending, setStartPending] = useState(false);
-  const pendingRequestRef = useRef<AbortController | null>(null);
+  const preparationsRef = useRef(
+    new Set<{ conversationId: string; cancelled: boolean; pending: boolean }>(),
+  );
   const [runError, setRunError] = useState<string | null>(null);
 
   const metadataLoggedRef = useRef(new Set<string>());
@@ -1054,10 +1056,12 @@ export default function AgentsPage() {
     if (!activeConversationId || isStopping) {
       return;
     }
-    if (pendingRequestRef.current) {
-      pendingRequestRef.current.abort();
-      pendingRequestRef.current = null;
-      setStartPending(false);
+    for (const preparation of preparationsRef.current) {
+      if (preparation.conversationId === activeConversationId) {
+        preparation.cancelled = true;
+        preparationsRef.current.delete(preparation);
+        if (preparation.pending) setStartPending(false);
+      }
     }
 
     const inflightId =
@@ -1136,22 +1140,28 @@ export default function AgentsPage() {
       });
       subscribeConversation(nextConversationId);
 
-      const requestController = new AbortController();
-      pendingRequestRef.current = requestController;
+      for (const previous of preparationsRef.current) previous.pending = false;
+      const preparation = {
+        conversationId: nextConversationId,
+        cancelled: false,
+        pending: true,
+      };
+      preparationsRef.current.add(preparation);
       try {
         const result = await runAgentInstruction({
           agentName: selectedAgentName,
           instruction: params.instruction,
           working_folder: params.workingFolder,
           conversationId: nextConversationId,
-          signal: requestController.signal,
+          beforeFetch: () => {
+            preparationsRef.current.delete(preparation);
+            if (preparation.cancelled)
+              throw new DOMException(
+                'Request preparation cancelled',
+                'AbortError',
+              );
+          },
         });
-        if (
-          requestController.signal.aborted ||
-          pendingRequestRef.current !== requestController
-        ) {
-          return { status: 'cancelled' as const };
-        }
         bindOptimisticUserMessageToInflight(
           optimisticMessageId,
           result.inflightId,
@@ -1163,12 +1173,7 @@ export default function AgentsPage() {
         void refreshConversations();
         return { status: 'started' as const };
       } catch (err) {
-        if (
-          requestController.signal.aborted ||
-          pendingRequestRef.current !== requestController
-        ) {
-          return { status: 'cancelled' as const };
-        }
+        if (preparation.cancelled) return { status: 'cancelled' as const };
         if (
           err instanceof AgentApiError &&
           err.status === 409 &&
@@ -1205,10 +1210,8 @@ export default function AgentsPage() {
           code: err instanceof AgentApiError ? err.code : undefined,
         };
       } finally {
-        if (pendingRequestRef.current === requestController) {
-          pendingRequestRef.current = null;
-          setStartPending(false);
-        }
+        preparationsRef.current.delete(preparation);
+        if (!preparation.cancelled) setStartPending(false);
       }
     },
     [
@@ -1727,8 +1730,13 @@ export default function AgentsPage() {
     stoppedVisibleConversationRef.current = null;
     setStartPending(true);
 
-    const requestController = new AbortController();
-    pendingRequestRef.current = requestController;
+    for (const previous of preparationsRef.current) previous.pending = false;
+    const preparation = {
+      conversationId: nextConversationId,
+      cancelled: false,
+      pending: true,
+    };
+    preparationsRef.current.add(preparation);
     try {
       if (isNewConversation) {
         setConversation(nextConversationId, { clearMessages: true });
@@ -1762,13 +1770,15 @@ export default function AgentsPage() {
         sourceId: selectedCommand.sourceId,
         working_folder: workingFolder.trim() || undefined,
         conversationId: nextConversationId,
-        signal: requestController.signal,
+        beforeFetch: () => {
+          preparationsRef.current.delete(preparation);
+          if (preparation.cancelled)
+            throw new DOMException(
+              'Request preparation cancelled',
+              'AbortError',
+            );
+        },
       });
-      if (
-        requestController.signal.aborted ||
-        pendingRequestRef.current !== requestController
-      )
-        return;
 
       if (result.modelId) {
         setAgentModelId(result.modelId);
@@ -1779,11 +1789,6 @@ export default function AgentsPage() {
       try {
         await refreshConversations();
       } catch (refreshError) {
-        if (
-          requestController.signal.aborted ||
-          pendingRequestRef.current !== requestController
-        )
-          return;
         log('warn', 'agents.ui.accepted_launch_refresh_failed', {
           conversationId: result.conversationId,
           message:
@@ -1793,11 +1798,7 @@ export default function AgentsPage() {
         });
       }
     } catch (err) {
-      if (
-        requestController.signal.aborted ||
-        pendingRequestRef.current !== requestController
-      )
-        return;
+      if (preparation.cancelled) return;
       if (
         err instanceof AgentApiError &&
         err.status === 409 &&
@@ -1837,10 +1838,8 @@ export default function AgentsPage() {
       );
       setRunError(message);
     } finally {
-      if (pendingRequestRef.current === requestController) {
-        pendingRequestRef.current = null;
-        setStartPending(false);
-      }
+      preparationsRef.current.delete(preparation);
+      if (!preparation.cancelled) setStartPending(false);
     }
   }, [
     activeConversationId,

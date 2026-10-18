@@ -9,14 +9,11 @@ const NativeResponse = runInThisContext('Response') as typeof Response;
 export function installNativeCompression() {
   function bufferGate(matches: (body: Record<string, unknown>) => boolean) {
     let enter!: () => void;
-    let fail!: (error: unknown) => void;
     let release!: () => void;
     let finish!: () => void;
-    const entered = new Promise<void>((resolve, reject) => {
+    const entered = new Promise<void>((resolve) => {
       enter = resolve;
-      fail = reject;
     });
-    void entered.catch(() => {});
     return {
       matches,
       entered,
@@ -29,7 +26,6 @@ export function installNativeCompression() {
       enter: () => enter(),
       release: () => release(),
       finish: () => finish(),
-      fail: (error: unknown) => fail(error),
       used: false,
     };
   }
@@ -61,9 +57,6 @@ export function installNativeCompression() {
           await gate.released;
         }
         return bytes;
-      } catch (error) {
-        gate?.fail(error);
-        throw error;
       } finally {
         gate?.finish();
       }

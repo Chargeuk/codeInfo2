@@ -17,6 +17,45 @@ afterEach(async () => {
   await native.restore();
 });
 
+it.each([
+  {
+    branch: 'gzip',
+    body: JSON.stringify({ text: 'a'.repeat(500) }),
+    unsupported: false,
+  },
+  { branch: 'not smaller', body: '{}', unsupported: false },
+  { branch: 'unsupported', body: '{}', unsupported: true },
+])(
+  'checks preparation synchronously immediately before fetch for $branch',
+  async ({ body, unsupported }) => {
+    if (unsupported)
+      Object.defineProperty(globalThis, 'CompressionStream', {
+        value: undefined,
+      });
+    const reason = new Error('discard unsent preparation');
+    await expect(
+      fetchJson('/chat', { body }, () => {
+        throw reason;
+      }),
+    ).rejects.toBe(reason);
+    expect(getFetchMock()).not.toHaveBeenCalled();
+    const order: string[] = [];
+    const controller = new AbortController();
+    const response = mockJsonResponse({ accepted: true });
+    getFetchMock().mockImplementation(async (_url, init) => {
+      order.push('fetch');
+      expect(init?.signal).toBe(controller.signal);
+      return response;
+    });
+    expect(
+      await fetchJson('/chat', { body, signal: controller.signal }, () => {
+        order.push('check');
+      }),
+    ).toBe(response);
+    expect(order).toEqual(['check', 'fetch']);
+  },
+);
+
 it('buffers native gzip bytes and roundtrips JSON and Unicode', async () => {
   const payload = { text: 'Hello 世界 🌍 '.repeat(200), nested: { value: 42 } };
   const body = JSON.stringify(payload);

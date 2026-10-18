@@ -359,6 +359,7 @@ export async function runAgentInstruction(params: {
   working_folder?: string;
   conversationId?: string;
   signal?: AbortSignal;
+  beforeFetch?: () => void;
 }): Promise<{
   status: 'started';
   agentName: string;
@@ -394,6 +395,7 @@ export async function runAgentInstruction(params: {
       }),
       signal: params.signal,
     },
+    params.beforeFetch,
   );
   if (!res.ok) {
     await throwAgentApiError(
@@ -428,6 +430,7 @@ export async function runAgentCommand(params: {
   conversationId?: string;
   working_folder?: string;
   signal?: AbortSignal;
+  beforeFetch?: () => void;
 }): Promise<{
   status: 'started';
   agentName: string;
@@ -468,6 +471,7 @@ export async function runAgentCommand(params: {
       body: JSON.stringify(payload),
       signal: params.signal,
     },
+    params.beforeFetch,
   );
 
   if (!res.ok) {

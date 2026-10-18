@@ -1,5 +1,12 @@
 import { jest } from '@jest/globals';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { decodeJsonBody } from './support/decodeJsonBody';
@@ -274,8 +281,292 @@ async function startFlowRun(user: ReturnType<typeof userEvent.setup>) {
   });
 }
 describe('Flows page stop control', () => {
+  it.each([
+    { mode: 'run', stopTarget: 'B' },
+    { mode: 'resume', stopTarget: 'B' },
+    { mode: 'resume', stopTarget: 'A' },
+  ])(
+    'keeps the other $mode preparation when Stop targets $stopTarget',
+    async ({ mode, stopTarget }) => {
+      const native = installNativeCompression();
+      const first = native.holdNextBuffer(
+        (body) =>
+          typeof body.conversationId === 'string' &&
+          body.conversationId !== 'B',
+      );
+      const { runBodies } = setupFlowsFetch({
+        conversations: ['A', 'B'].map((id) => ({
+          conversationId: id,
+          title: `Flow ${id}`,
+          provider: 'codex',
+          model: 'm1',
+          source: 'REST',
+          lastMessageAt: '2026-01-01T00:00:00.000Z',
+          archived: false,
+          flowName: 'smoke',
+          flags: { flow: { stepPath: [1] } },
+        })),
+      });
+      const user = userEvent.setup();
+      try {
+        renderFlowsPage();
+        await user.click(
+          await within(
+            await screen.findByTestId('conversation-list'),
+          ).findByText('Flow A', {
+            selector: '[data-testid="conversation-title"]',
+          }),
+        );
+        if (mode === 'run') {
+          await user.click(screen.getByTestId('flow-new'));
+          await startFlowRun(user);
+        } else {
+          const resume = await screen.findByTestId('flow-resume');
+          await waitFor(() => expect(resume).toBeEnabled());
+          await user.click(resume);
+        }
+        await first.entered;
+        const origin = await findLatestSubscribedConversationId();
+        if (mode === 'resume') await user.click(screen.getByTestId('flow-new'));
+        await user.click(
+          within(screen.getByTestId('conversation-list')).getByText('Flow B', {
+            selector: '[data-testid="conversation-title"]',
+          }),
+        );
+        // A fresh run remains replay-guarded; resume can overlap after the draft reset.
+        const second =
+          mode === 'resume'
+            ? native.holdNextBuffer(
+                (body) =>
+                  body.conversationId === 'B' &&
+                  Array.isArray(body.resumeStepPath),
+              )
+            : null;
+        if (second) {
+          const resume = await screen.findByTestId('flow-resume');
+          await waitFor(() => expect(resume).toBeEnabled());
+          await user.click(resume);
+          await second.entered;
+        }
+        if (stopTarget === 'A')
+          await user.click(
+            within(screen.getByTestId('conversation-list')).getByText(
+              'Flow A',
+              {
+                selector: '[data-testid="conversation-title"]',
+              },
+            ),
+          );
+        await user.click(await screen.findByTestId('flow-stop'));
+        const cancel = await findLatestCancelMessage();
+        expect(cancel.conversationId).toBe(stopTarget);
+        emitWsEvent({
+          type: 'cancel_ack',
+          result: 'noop',
+          conversationId: stopTarget,
+          requestId: cancel.requestId,
+        });
+        const cancelled = stopTarget === 'A' ? first : second;
+        const retained = stopTarget === 'A' ? second! : first;
+        if (cancelled)
+          await act(async () => {
+            cancelled.release();
+            await cancelled.finished;
+          });
+        expect(runBodies).toHaveLength(0);
+        if (stopTarget === 'A')
+          expect(screen.getByTestId('flow-stop')).toBeEnabled();
+        await act(async () => {
+          retained.release();
+          await retained.finished;
+        });
+        await waitFor(() => expect(runBodies).toHaveLength(1));
+        expect(runBodies[0].conversationId).toBe(
+          stopTarget === 'A' ? 'B' : origin,
+        );
+        if (mode === 'run') {
+          expect(typeof runBodies[0].retryOwnershipId).toBe('string');
+          expect(runBodies[0]).not.toHaveProperty('resumeStepPath');
+        } else {
+          expect(runBodies[0].resumeStepPath).toEqual([1]);
+          expect(runBodies[0]).not.toHaveProperty('retryOwnershipId');
+        }
+        expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument();
+        await waitForRunEnabled();
+      } finally {
+        cleanup();
+        await act(async () => {
+          await native.restore();
+        });
+      }
+    },
+  );
+
   it.each(['run', 'resume'] as const)(
-    'aborts buffered %s requests without old cleanup releasing the new pending run',
+    'processes a late sent %s 202 after Stop before the next fresh launch',
+    async (mode) => {
+      const native = installNativeCompression();
+      let resolve!: (response: Response) => void;
+      const response = new Promise<Response>((done) => {
+        resolve = done;
+      });
+      let sentInit: RequestInit | undefined;
+      let count = 0;
+      const { runBodies } = setupFlowsFetch({
+        conversations:
+          mode === 'resume'
+            ? [
+                {
+                  conversationId: 'resume-late',
+                  title: 'Flow: smoke',
+                  provider: 'codex',
+                  model: 'm1',
+                  source: 'REST',
+                  lastMessageAt: '2026-01-01T00:00:00.000Z',
+                  archived: false,
+                  flowName: 'smoke',
+                  flags: { flow: { stepPath: [1] } },
+                },
+              ]
+            : [],
+        runFlowFetch: (body, init) => {
+          sentInit = init;
+          if (++count === 1) return response;
+          return mockJsonResponse(
+            {
+              status: 'started',
+              flowName: 'smoke',
+              conversationId: body.conversationId,
+              inflightId: 'second-late',
+              providerId: 'codex',
+              modelId: 'm1',
+            },
+            { status: 202 },
+          );
+        },
+      });
+      const user = userEvent.setup();
+      try {
+        renderFlowsPage();
+        if (mode === 'run') await startFlowRun(user);
+        else {
+          const resume = await screen.findByTestId('flow-resume');
+          await waitFor(() => expect(resume).toBeEnabled());
+          await user.click(resume);
+        }
+        await waitFor(() => expect(runBodies).toHaveLength(1));
+        await user.click(screen.getByTestId('flow-stop'));
+        const cancel = await findLatestCancelMessage();
+        expect(sentInit?.signal).toBeUndefined();
+        emitWsEvent({
+          type: 'cancel_ack',
+          result: 'noop',
+          conversationId: cancel.conversationId,
+          requestId: cancel.requestId,
+        });
+        await act(async () => {
+          resolve(
+            new Response(
+              JSON.stringify({
+                status: 'started',
+                flowName: 'smoke',
+                conversationId: runBodies[0].conversationId,
+                inflightId: 'first-late',
+                providerId: 'codex',
+                modelId: 'accepted-flow-model',
+                warnings: ['accepted after Stop'],
+              }),
+              { status: 202 },
+            ),
+          );
+        });
+        expect(
+          await screen.findAllByText('accepted after Stop'),
+        ).not.toHaveLength(0);
+        await waitForRunEnabled();
+        if (mode === 'resume') await user.click(screen.getByTestId('flow-new'));
+        await startFlowRun(user);
+        await waitFor(() => expect(runBodies).toHaveLength(2));
+        expect(typeof runBodies[1].retryOwnershipId).toBe('string');
+        if (mode === 'run') {
+          expect(typeof runBodies[0].retryOwnershipId).toBe('string');
+          expect(runBodies[1].conversationId).not.toBe(
+            runBodies[0].conversationId,
+          );
+          expect(runBodies[1].retryOwnershipId).not.toBe(
+            runBodies[0].retryOwnershipId,
+          );
+        }
+        await waitForRunEnabled();
+      } finally {
+        resolve(new Response('{}', { status: 202 }));
+        cleanup();
+        await act(async () => {
+          await native.restore();
+        });
+      }
+    },
+  );
+
+  it('retains intentional fresh-run ownership reuse after a sent network failure following Stop', async () => {
+    const native = installNativeCompression();
+    let reject!: (error: Error) => void;
+    const response = new Promise<Response>((_resolve, fail) => {
+      reject = fail;
+    });
+    void response.catch(() => {});
+    let count = 0;
+    const { runBodies } = setupFlowsFetch({
+      runFlowFetch: (body) => {
+        if (++count === 1) return response;
+        return mockJsonResponse(
+          {
+            status: 'started',
+            flowName: 'smoke',
+            conversationId: body.conversationId,
+            inflightId: 'retry-success',
+            providerId: 'codex',
+            modelId: 'm1',
+          },
+          { status: 202 },
+        );
+      },
+    });
+    const user = userEvent.setup();
+    try {
+      renderFlowsPage();
+      await startFlowRun(user);
+      await waitFor(() => expect(runBodies).toHaveLength(1));
+      await user.click(screen.getByTestId('flow-stop'));
+      const cancel = await findLatestCancelMessage();
+      emitWsEvent({
+        type: 'cancel_ack',
+        result: 'noop',
+        conversationId: cancel.conversationId,
+        requestId: cancel.requestId,
+      });
+      await act(async () => {
+        reject(new Error('ambiguous sent network failure'));
+      });
+      expect(await screen.findByTestId('flows-run-error')).toHaveTextContent(
+        'ambiguous sent network failure',
+      );
+      await startFlowRun(user);
+      await waitFor(() => expect(runBodies).toHaveLength(2));
+      expect(typeof runBodies[0].retryOwnershipId).toBe('string');
+      expect(runBodies[1].retryOwnershipId).toBe(runBodies[0].retryOwnershipId);
+      await waitForRunEnabled();
+    } finally {
+      reject(new Error('cleanup'));
+      cleanup();
+      await act(async () => {
+        await native.restore();
+      });
+    }
+  });
+
+  it.each(['run', 'resume'] as const)(
+    'discards buffered %s preparations without old cleanup releasing the new pending run',
     async (mode) => {
       const native = installNativeCompression();
       const matchesLaunch = (body: Record<string, unknown>) =>

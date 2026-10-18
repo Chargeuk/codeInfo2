@@ -99,6 +99,191 @@ const startChatTurn = async (
 };
 
 describe('Chat page stop control', () => {
+  it('keeps overlapping preparation A when Stop targets conversation B', async () => {
+    const native = installNativeCompression();
+    const first = native.holdNextBuffer((body) => body.message === 'prepare A');
+    const second = native.holdNextBuffer(
+      (body) => body.message === 'prepare B',
+    );
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: ['A', 'B'].map((id) => ({
+          conversationId: id,
+          title: `Conversation ${id}`,
+          provider: 'lmstudio',
+          model: 'm1',
+          lastMessageAt: '2026-01-01T00:00:00.000Z',
+          archived: false,
+        })),
+        nextCursor: null,
+      },
+    });
+    const user = userEvent.setup();
+    try {
+      renderChatPage();
+      await user.click(await screen.findByText('Conversation A'));
+      await startChatTurn(user, 'prepare A');
+      await first.entered;
+      await user.click(screen.getByText('Conversation B'));
+      await startChatTurn(user, 'prepare B');
+      await second.entered;
+      await user.click(screen.getByTestId('chat-stop'));
+      const cancel = await findLatestCancel();
+      expect(cancel.conversationId).toBe('B');
+      await harness.emitCancelAck({
+        conversationId: 'B',
+        requestId: String(cancel.requestId),
+      });
+      await act(async () => {
+        second.release();
+        await second.finished;
+      });
+      expect(harness.chatBodies).toHaveLength(0);
+      await act(async () => {
+        first.release();
+        await first.finished;
+      });
+      await waitFor(() => expect(harness.chatBodies).toHaveLength(1));
+      expect(harness.chatBodies[0]).toMatchObject({
+        conversationId: 'A',
+        message: 'prepare A',
+      });
+      expect(
+        screen.queryByText(/Request preparation cancelled/i),
+      ).not.toBeInTheDocument();
+    } finally {
+      cleanup();
+      await act(async () => {
+        await native.restore();
+      });
+    }
+  });
+
+  it('retains an older A preparation across overlapping B and A attempts so Stop A discards both unsent A requests', async () => {
+    const native = installNativeCompression();
+    const first = native.holdNextBuffer((body) => body.message === 'old A');
+    const other = native.holdNextBuffer((body) => body.message === 'other B');
+    const latest = native.holdNextBuffer((body) => body.message === 'new A');
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: ['A', 'B'].map((id) => ({
+          conversationId: id,
+          title: `Conversation ${id}`,
+          provider: 'lmstudio',
+          model: 'm1',
+          lastMessageAt: '2026-01-01T00:00:00.000Z',
+          archived: false,
+        })),
+        nextCursor: null,
+      },
+    });
+    const user = userEvent.setup();
+    try {
+      renderChatPage();
+      await user.click(await screen.findByText('Conversation A'));
+      await startChatTurn(user, 'old A');
+      await first.entered;
+      await user.click(screen.getByText('Conversation B'));
+      await startChatTurn(user, 'other B');
+      await other.entered;
+      await user.click(screen.getByText('Conversation A'));
+      await startChatTurn(user, 'new A');
+      await latest.entered;
+      await user.click(screen.getByTestId('chat-stop'));
+      const cancel = await findLatestCancel();
+      expect(cancel.conversationId).toBe('A');
+      await act(async () => {
+        first.release();
+        latest.release();
+        await Promise.all([first.finished, latest.finished]);
+      });
+      expect(harness.chatBodies).toHaveLength(0);
+      await act(async () => {
+        other.release();
+        await other.finished;
+      });
+      await waitFor(() => expect(harness.chatBodies).toHaveLength(1));
+      expect(harness.chatBodies[0]).toMatchObject({
+        conversationId: 'B',
+        message: 'other B',
+      });
+    } finally {
+      cleanup();
+      await act(async () => {
+        await native.restore();
+      });
+    }
+  });
+
+  it.each(['success', 'error'] as const)(
+    'preserves a delayed sent HTTP %s after Stop',
+    async (outcome) => {
+      const native = installNativeCompression();
+      let resolve!: (response: Response) => void;
+      let reject!: (error: Error) => void;
+      let requestInit: RequestInit | undefined;
+      const response = new Promise<Response>((done, fail) => {
+        resolve = done;
+        reject = fail;
+      });
+      const harness = setupChatWsHarness({
+        mockFetch,
+        chatFetch: (_body, init) => {
+          requestInit = init;
+          return response;
+        },
+      });
+      const user = userEvent.setup();
+      try {
+        renderChatPage();
+        await startChatTurn(user, 'already sent');
+        await waitFor(() => expect(harness.chatBodies).toHaveLength(1));
+        await user.click(screen.getByTestId('chat-stop'));
+        expect((await findLatestCancel()).type).toBe('cancel_inflight');
+        expect(requestInit?.signal).toBeUndefined();
+        await act(async () => {
+          if (outcome === 'error') reject(new Error('sent chat failure'));
+          else
+            resolve(
+              new Response(
+                JSON.stringify({
+                  status: 'started',
+                  conversationId: 'accepted-chat',
+                  inflightId: 'accepted-inflight',
+                }),
+                { status: 202 },
+              ),
+            );
+        });
+        if (outcome === 'error')
+          expect(
+            await screen.findByText('sent chat failure'),
+          ).toBeInTheDocument();
+        else
+          await waitFor(() =>
+            expect(parseSocketMessages()).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'subscribe_conversation',
+                  conversationId: 'accepted-chat',
+                }),
+              ]),
+            ),
+          );
+      } finally {
+        resolve(
+          new Response(JSON.stringify({ status: 'started' }), { status: 202 }),
+        );
+        cleanup();
+        await act(async () => {
+          await native.restore();
+        });
+      }
+    },
+  );
+
   it('stops a buffered native request and keeps a newer attempt intact without submitting either stopped request', async () => {
     const native = installNativeCompression();
     const first = native.holdNextBuffer(

@@ -287,7 +287,9 @@ export function useChatStream(
   const confirmedInflightIdsRef = useRef<Set<string>>(new Set());
   const finalizedInflightIdsRef = useRef<Set<string>>(new Set());
   const stopRequestIdRef = useRef<string | null>(null);
-  const pendingRequestRef = useRef<AbortController | null>(null);
+  const preparationsRef = useRef(
+    new Set<{ conversationId: string; cancelled: boolean }>(),
+  );
   const stopInflightIdRef = useRef<string | null>(null);
   const toolCallsRef = useRef<Map<string, ToolCall>>(new Map());
   const segmentsRef = useRef<ChatSegment[]>([]);
@@ -912,8 +914,12 @@ export function useChatStream(
   const stop = useCallback(
     (options?: { requestId?: string | null; showStatusBubble?: boolean }) => {
       if (options?.showStatusBubble === true) {
-        pendingRequestRef.current?.abort();
-        pendingRequestRef.current = null;
+        for (const preparation of preparationsRef.current) {
+          if (preparation.conversationId === conversationIdRef.current) {
+            preparation.cancelled = true;
+            preparationsRef.current.delete(preparation);
+          }
+        }
       }
       clearThinkingTimer();
       markAssistantThinking(false);
@@ -1387,8 +1393,11 @@ export function useChatStream(
       syncAssistantMessage({ streamStatus: 'processing' });
       scheduleThinkingTimer();
 
-      const requestController = new AbortController();
-      pendingRequestRef.current = requestController;
+      const preparation = {
+        conversationId: currentConversationId,
+        cancelled: false,
+      };
+      preparationsRef.current.add(preparation);
       try {
         const baseCodexPayload = threadIdRef.current
           ? { threadId: threadIdRef.current }
@@ -1407,28 +1416,38 @@ export function useChatStream(
           }),
         );
 
-        const res = await fetchJson(new URL('/chat', API_BASE).toString(), {
-          method: 'POST',
-          signal: requestController.signal,
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            provider: effectiveProvider,
-            model: effectiveModel,
-            ...(submissionEndpointId
-              ? { endpointId: submissionEndpointId }
-              : {}),
-            conversationId: currentConversationId,
-            inflightId: nextInflightId,
-            message: text,
-            ...(options?.workingFolder?.trim()
-              ? { working_folder: options.workingFolder.trim() }
-              : {}),
-            ...(Object.keys(normalizedAgentFlags).length > 0
-              ? { agentFlags: normalizedAgentFlags }
-              : {}),
-            ...codexPayload,
-          }),
-        });
+        const res = await fetchJson(
+          new URL('/chat', API_BASE).toString(),
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              provider: effectiveProvider,
+              model: effectiveModel,
+              ...(submissionEndpointId
+                ? { endpointId: submissionEndpointId }
+                : {}),
+              conversationId: currentConversationId,
+              inflightId: nextInflightId,
+              message: text,
+              ...(options?.workingFolder?.trim()
+                ? { working_folder: options.workingFolder.trim() }
+                : {}),
+              ...(Object.keys(normalizedAgentFlags).length > 0
+                ? { agentFlags: normalizedAgentFlags }
+                : {}),
+              ...codexPayload,
+            }),
+          },
+          () => {
+            preparationsRef.current.delete(preparation);
+            if (preparation.cancelled)
+              throw new DOMException(
+                'Request preparation cancelled',
+                'AbortError',
+              );
+          },
+        );
 
         const payload = (await res.json().catch(() => null)) as {
           status?: string;
@@ -1439,12 +1458,6 @@ export function useChatStream(
           provider?: string;
           model?: string;
         } | null;
-
-        if (
-          requestController.signal.aborted ||
-          pendingRequestRef.current !== requestController
-        )
-          return;
 
         if (res.status === 409 && payload?.code === 'RUN_IN_PROGRESS') {
           handleErrorBubble(
@@ -1488,11 +1501,7 @@ export function useChatStream(
           inflightId: payload.inflightId,
         });
       } catch (err) {
-        if (
-          requestController.signal.aborted ||
-          pendingRequestRef.current !== requestController
-        )
-          return;
+        if (preparation.cancelled) return;
         if ((err as Error).name === 'AbortError') return;
         handleErrorBubble((err as Error).message);
         setIsStreaming(false);
@@ -1504,8 +1513,7 @@ export function useChatStream(
           thinkStreaming: false,
         });
       } finally {
-        if (pendingRequestRef.current === requestController)
-          pendingRequestRef.current = null;
+        preparationsRef.current.delete(preparation);
       }
     },
     [

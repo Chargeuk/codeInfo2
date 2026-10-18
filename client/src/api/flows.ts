@@ -278,6 +278,7 @@ export async function runFlow(params: {
   working_folder?: string;
   resumeStepPath?: number[];
   signal?: AbortSignal;
+  beforeFetch?: () => void;
 }): Promise<{
   status: 'started';
   flowName: string;
@@ -331,6 +332,7 @@ export async function runFlow(params: {
       }),
       signal: params.signal,
     },
+    params.beforeFetch,
   );
 
   if (!res.ok) {

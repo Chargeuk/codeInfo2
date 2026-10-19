@@ -3241,6 +3241,183 @@ describe('descendant flow transcripts', () => {
       releaseHistory(new Response(JSON.stringify({ items: [] })));
     }
   });
+  it('keeps four distinct late descendant pairs single after every saved-history refresh', async () => {
+    const histories = installDescendantFixture();
+    const baseFetch = mockFetch.getMockImplementation()!;
+    // Prepare all response/readiness gates before discovery or any final event.
+    const historyGates = Array.from({ length: 5 }, () => {
+      let release!: () => void;
+      let markRequested!: () => void;
+      let markConsumed!: () => void;
+      const released = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const requested = new Promise<void>((resolve) => {
+        markRequested = resolve;
+      });
+      const consumed = new Promise<void>((resolve) => {
+        markConsumed = resolve;
+      });
+      return {
+        released,
+        requested,
+        consumed,
+        release,
+        markRequested,
+        markConsumed,
+      };
+    });
+    let historyRequestCount = 0;
+    mockFetch.mockImplementation((url, init) => {
+      if (!String(url).includes('/conversations/late-1/turns'))
+        return baseFetch(url, init);
+      const gate = historyGates[historyRequestCount++];
+      if (!gate)
+        return Promise.reject(
+          new Error('Unexpected extra late-1 history request'),
+        );
+      gate.markRequested();
+      return gate.released.then(async () => {
+        const response = await baseFetch(url, init);
+        const readJson = response.json.bind(response);
+        response.json = async () => {
+          const payload = await readJson();
+          gate.markConsumed();
+          return payload;
+        };
+        return response;
+      });
+    });
+    async function flushHistory(index: number) {
+      const gate = historyGates[index];
+      await gate.requested;
+      // Await body consumption and drain the real history/stream/publish effects.
+      await act(async () => {
+        gate.release();
+        await gate.consumed;
+      });
+      expect(historyRequestCount).toBe(index + 1);
+    }
+    const view = await renderSelectedParent();
+    try {
+      const transcript = screen.getByTestId('flows-transcript');
+      const stageCounts: Array<{ stage: string; count: number }> = [];
+      const expectedTexts: string[] = [];
+      function assertPairs(stage: string, pairs: number) {
+        const bubbles = Array.from(
+          transcript.querySelectorAll<HTMLElement>(
+            '[data-transcript-row-id^="late-1:"] [data-testid="chat-bubble"]',
+          ),
+        );
+        stageCounts.push({ stage, count: bubbles.length });
+        const observed = {
+          stage,
+          stageCounts: [...stageCounts],
+          bubbleCount: bubbles.length,
+          rows: bubbles.map((bubble) => ({
+            id: bubble
+              .closest('[data-transcript-row-id]')
+              ?.getAttribute('data-transcript-row-id'),
+            role: bubble.getAttribute('data-role'),
+            text: bubble.textContent,
+          })),
+          occurrences: Object.fromEntries(
+            expectedTexts.map((text) => [
+              text,
+              bubbles.reduce(
+                (count, bubble) =>
+                  count +
+                  within(bubble).queryAllByText(text, { exact: true }).length,
+                0,
+              ),
+            ]),
+          ),
+        };
+        expect(observed).toEqual(
+          expect.objectContaining({
+            bubbleCount: pairs * 2,
+            occurrences: Object.fromEntries(
+              expectedTexts.map((text) => [text, 1]),
+            ),
+          }),
+        );
+      }
+      const subscriptionReady = waitFor(() =>
+        expect(
+          globalThis.__wsMock?.last()?.sent.some((raw) => {
+            const event = JSON.parse(raw);
+            return (
+              event.type === 'subscribe_conversation' &&
+              event.conversationId === 'late-1'
+            );
+          }),
+        ).toBe(true),
+      );
+      emitWsEvent({
+        protocolVersion: 'v1',
+        type: 'conversation_upsert',
+        seq: 20,
+        conversation: { ...child, conversationId: 'late-1', flowName: 'late' },
+      });
+      await subscriptionReady;
+      await flushHistory(0);
+      assertPairs('initial empty history hydrated', 0);
+      for (let pair = 1; pair <= 4; pair += 1) {
+        const prompt = `Late diagnostic prompt ${pair}`;
+        const answer = `Late diagnostic answer ${pair}`;
+        const inflightId = `late-proof-inflight-${pair}`;
+        const createdAt = new Date().toISOString();
+        const envelope = {
+          protocolVersion: 'v1',
+          conversationId: 'late-1',
+          inflightId,
+        };
+        expectedTexts.push(prompt, answer);
+        emitWsEvent({
+          ...envelope,
+          type: 'user_turn',
+          seq: pair * 3 - 2,
+          content: prompt,
+          createdAt,
+        });
+        emitWsEvent({
+          ...envelope,
+          type: 'assistant_delta',
+          seq: pair * 3 - 1,
+          delta: answer,
+        });
+        await screen.findByText(answer);
+        assertPairs(`pair ${pair} live`, pair);
+        // Preserve every completed pair with distinct stored IDs and matching
+        // content/timestamps, within the existing hydration dedupe window.
+        histories['late-1'].push(
+          ...['user', 'assistant'].map((role) => ({
+            turnId: `late-1-saved-${pair}-${role}`,
+            conversationId: 'late-1',
+            role,
+            content: role === 'user' ? prompt : answer,
+            model: 'gpt-5',
+            provider: 'codex',
+            status: 'ok',
+            createdAt: role === 'user' ? createdAt : new Date().toISOString(),
+          })),
+        );
+        emitWsEvent({
+          ...envelope,
+          type: 'turn_final',
+          seq: pair * 3,
+          status: 'ok',
+        });
+        await flushHistory(pair);
+        assertPairs(`pair ${pair} saved history hydrated`, pair);
+      }
+    } finally {
+      await act(async () => {
+        historyGates.forEach((gate) => gate.release());
+      });
+      view.unmount();
+    }
+  });
   it('discovers late descendants on the same socket, preserves scroll, and isolates parent stop state', async () => {
     const measurement = installTranscriptMeasurementHarness();
     try {

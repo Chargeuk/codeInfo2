@@ -2023,6 +2023,102 @@ describe('useChatStream inflight mismatch handling', () => {
     });
   });
 
+  it('matches full descendant history one-to-one for repeated content while the next response is active', () => {
+    const conversationId = 'descendant-history-active-next-response';
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
+    const startedAt = Date.now() - 60_000;
+    // Seed completed history directly: live repeated-prompt handling is separate
+    // from the history reconciliation guarantee exercised here.
+    const completed: ChatMessage[] = Array.from({ length: 4 }, (_, pair) =>
+      (['user', 'assistant'] as const).map((role, index) => ({
+        id: `completed-${pair}-${role}`,
+        role,
+        content: `Completed ${role} ${pair === 1 ? 0 : pair}`,
+        streamStatus: 'complete' as const,
+        createdAt: new Date(startedAt + pair * 2 + index).toISOString(),
+      })),
+    ).flat();
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
+    });
+    act(() => {
+      result.current.hydrateHistory(conversationId, completed, 'replace');
+    });
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'user_turn',
+        conversationId,
+        inflightId: 'next-child-response',
+        seq: 1,
+        content: 'Next child prompt',
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        inflightId: 'next-child-response',
+        seq: 2,
+        delta: 'Next child answer',
+      }),
+    );
+    expect(result.current.messages).toHaveLength(10);
+    const activeAssistant = getAssistantMessages(result).at(-1)!;
+    expect(activeAssistant.streamStatus).toBe('processing');
+    const saved = completed.map((message, index) => ({
+      ...message,
+      id: `stored-${index}`,
+      storedTurnId: `saved-${index}`,
+    }));
+    // Three persisted occurrences, but only two existing candidates per role:
+    // keep the unmatched repeat instead of consuming a candidate twice.
+    const savedOnlyRepeat = saved.slice(0, 2).map((message) => ({
+      ...message,
+      id: `${message.id}-extra`,
+      storedTurnId: `${message.storedTurnId}-extra`,
+    }));
+    act(() => {
+      result.current.hydrateHistory(
+        conversationId,
+        [...saved, ...savedOnlyRepeat],
+        'replace',
+        { matchFullHistory: true },
+      );
+    });
+    expect(result.current.messages).toHaveLength(12);
+    completed.forEach((message, index) => {
+      expect(
+        result.current.messages.find((entry) => entry.id === message.id),
+      ).toMatchObject({ storedTurnId: saved[index].storedTurnId });
+    });
+    savedOnlyRepeat.forEach((message) => {
+      expect(result.current.messages).toContainEqual(message);
+    });
+    expect(
+      result.current.messages.find((message) => message.id === activeAssistant.id),
+    ).toMatchObject({ content: 'Next child answer', streamStatus: 'processing' });
+    act(() =>
+      result.current.handleWsEvent({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId,
+        inflightId: 'next-child-response',
+        seq: 3,
+        delta: ' continues',
+      }),
+    );
+    expect(result.current.messages).toHaveLength(12);
+    expect(
+      result.current.messages.find((message) => message.id === activeAssistant.id),
+    ).toMatchObject({
+      content: 'Next child answer continues',
+      streamStatus: 'processing',
+    });
+  });
+
   it('enters stopping and preserves a distinct stopped terminal status when the matching final arrives', async () => {
     const conversationId = 'stop-state-happy-path';
     const consoleInfoSpy = jest

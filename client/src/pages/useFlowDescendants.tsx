@@ -89,7 +89,9 @@ function DescendantStream({
   useEffect(() => {
     if (isLoading || hydratedTurns.current === turns) return;
     hydratedTurns.current = turns;
-    hydrateHistory(id, mapFlowTurnsToMessages(turns), 'replace');
+    hydrateHistory(id, mapFlowTurnsToMessages(turns), 'replace', {
+      matchFullHistory: true,
+    });
     hydrateInflightSnapshot(id, inflight);
   }, [id, turns, inflight, isLoading, hydrateHistory, hydrateInflightSnapshot]);
   const ancestors = conversation.flags!.flowChild!.ancestors!;

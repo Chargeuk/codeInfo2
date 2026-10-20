@@ -34,7 +34,7 @@ function DescendantStream({
   register: (id: string, stream: StreamRegistration | null) => void;
   subscribe: Subscription;
   unsubscribe: Subscription;
-  publish: (id: string, messages: ChatMessage[]) => void;
+  publish: (id: string, messages: ChatMessage[], error?: string) => void;
 }) {
   const id = conversation.conversationId;
   const {
@@ -45,10 +45,8 @@ function DescendantStream({
     hydrateInflightSnapshot,
     handleWsEvent,
   } = useChatStream(conversation.model, conversation.provider);
-  const { turns, inflight, isLoading, refresh, reset } = useConversationTurns(
-    id,
-    { autoFetch: false },
-  );
+  const { turns, inflight, isLoading, isError, error, refresh, reset } =
+    useConversationTurns(id, { autoFetch: false });
   // Stream callbacks change with streaming state; initializing again would clear
   // an incoming child message. Keep initialization tied to conversation identity.
   const streamRef = useRef({ setConversation, handleWsEvent });
@@ -116,16 +114,22 @@ function DescendantStream({
     [messages, id, ancestors, parentId, conversation.flowName],
   );
   useEffect(() => {
-    publish(id, enriched);
-  }, [id, enriched, publish]);
+    publish(
+      id,
+      enriched,
+      isError
+        ? `History unavailable for ${conversation.flowName} (${id})${error ? `: ${error}` : ''}`
+        : undefined,
+    );
+  }, [id, enriched, publish, isError, error, conversation.flowName]);
   return null;
 }
 
 export default function useFlowDescendants(parentId: string | undefined) {
   const [descendants, setDescendants] = useState<Descendant[]>([]);
-  const [transcripts, setTranscripts] = useState<Record<string, ChatMessage[]>>(
-    {},
-  );
+  const [transcripts, setTranscripts] = useState<
+    Record<string, { messages: ChatMessage[]; error?: string }>
+  >({});
   const [error, setError] = useState<string>();
   const streams = useRef(new Map<string, StreamRegistration>());
   const discoveryController = useRef<AbortController | null>(null);
@@ -150,9 +154,12 @@ export default function useFlowDescendants(parentId: string | undefined) {
     },
     [],
   );
-  const publish = useCallback((id: string, messages: ChatMessage[]) => {
-    setTranscripts((previous) => ({ ...previous, [id]: messages }));
-  }, []);
+  const publish = useCallback(
+    (id: string, messages: ChatMessage[], error?: string) => {
+      setTranscripts((previous) => ({ ...previous, [id]: { messages, error } }));
+    },
+    [],
+  );
   const discover = useCallback(
     async (signal?: AbortSignal) => {
       if (!parentId) return;
@@ -245,7 +252,7 @@ export default function useFlowDescendants(parentId: string | undefined) {
   );
   const visibleDescendants = descendants.filter(matches);
   const messages = visibleDescendants.flatMap(
-    (conversation) => transcripts[conversation.conversationId] ?? [],
+    (conversation) => transcripts[conversation.conversationId]?.messages ?? [],
   );
   const controllers = (subscribe: Subscription, unsubscribe: Subscription) =>
     parentId
@@ -261,5 +268,19 @@ export default function useFlowDescendants(parentId: string | undefined) {
           />
         ))
       : null;
-  return { messages, controllers, onEvent, refresh, error };
+  return {
+    messages,
+    controllers,
+    onEvent,
+    refresh,
+    error:
+      [
+        error,
+        ...visibleDescendants.map(
+          (conversation) => transcripts[conversation.conversationId]?.error,
+        ),
+      ]
+        .filter(Boolean)
+        .join(' ') || undefined,
+  };
 }

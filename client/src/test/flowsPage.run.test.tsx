@@ -2911,6 +2911,113 @@ describe('descendant flow transcripts', () => {
     await screen.findByText('Grandchild assistant');
     return view;
   }
+  it('warns when completed descendant history fails and clears only after its successful reload', async () => {
+    const histories = installDescendantFixture();
+    const baseFetch = mockFetch.getMockImplementation()!;
+    let failChild = true;
+    mockFetch.mockImplementation((url, init) => {
+      if (failChild && String(url).includes('/conversations/child-1/turns'))
+        return mockJsonResponse({}, { status: 500 });
+      return baseFetch(url, init);
+    });
+    await renderSelectedParent();
+    const warning = /History unavailable for child \(child-1\)/;
+    const alert = (await screen.findByText(warning)).closest('[role="alert"]');
+    expect(alert).toHaveTextContent('Failed to load conversation turns (500)');
+    expect(screen.getByText('Parent assistant')).toBeInTheDocument();
+    expect(screen.getByText('Grandchild assistant')).toBeInTheDocument();
+    expect(screen.queryByText('Child assistant')).not.toBeInTheDocument();
+
+    for (const recover of [false, true]) {
+      failChild = !recover;
+      const healthyPrefix = recover ? 'Healthy recovery' : 'Healthy reload';
+      histories['grandchild-1'] = makeTurns('grandchild-1', healthyPrefix);
+      const previousSocket = globalThis.__wsMock!.last()!;
+      // Reconnect refreshes discovery and every history. Re-subscription is the
+      // observable completion boundary for those asynchronous refresh calls.
+      const reloaded = waitFor(
+        () => {
+          const socket = globalThis.__wsMock!.last()!;
+          expect(socket).not.toBe(previousSocket);
+          expect(
+            socket.sent.some((raw) => {
+              const event = JSON.parse(raw);
+              return (
+                event.type === 'subscribe_conversation' &&
+                event.conversationId === 'child-1'
+              );
+            }),
+          ).toBe(true);
+        },
+        { timeout: resolveClientTestTimeoutMs(5000) },
+      );
+      act(() => previousSocket.close());
+      await reloaded;
+      await screen.findByText(`${healthyPrefix} assistant`);
+      expect(screen.getByText('Parent assistant')).toBeInTheDocument();
+      if (recover) {
+        await screen.findByText('Child assistant');
+        await waitFor(() =>
+          expect(screen.queryByText(warning)).not.toBeInTheDocument(),
+        );
+      } else {
+        // Neither a healthy sibling nor successful discovery clears this error.
+        expect(screen.getByText(warning)).toBeInTheDocument();
+      }
+    }
+  });
+  it.each(['child removal', 'parent switch'])(
+    'clears a descendant history warning after %s',
+    async (change) => {
+      installDescendantFixture();
+      const baseFetch = mockFetch.getMockImplementation()!;
+      mockFetch.mockImplementation((url, init) => {
+        if (String(url).includes('/conversations/child-1/turns'))
+          return mockJsonResponse({}, { status: 500 });
+        if (String(url).includes('/conversations/flow-2/turns'))
+          return mockJsonResponse({ items: makeTurns('flow-2', 'Other parent') });
+        return baseFetch(url, init);
+      });
+      await renderSelectedParent();
+      const warning = /History unavailable for child \(child-1\)/;
+      await screen.findByText(warning);
+      if (change === 'child removal') {
+        emitWsEvent({
+          protocolVersion: 'v1',
+          type: 'conversation_delete',
+          seq: 30,
+          conversationId: 'child-1',
+        });
+        expect(screen.getByText('Parent assistant')).toBeInTheDocument();
+        expect(screen.getByText('Grandchild assistant')).toBeInTheDocument();
+      } else {
+        emitWsEvent({
+          protocolVersion: 'v1',
+          type: 'conversation_upsert',
+          seq: 30,
+          conversation: {
+            conversationId: 'flow-2',
+            title: 'Other parent',
+            provider: 'codex',
+            model: 'gpt-5',
+            flowName: 'daily',
+            flags: {},
+          },
+        });
+        const otherParent = await screen.findByText('Other parent');
+        await userEvent.click(
+          otherParent.closest('[data-testid="conversation-row"]')!,
+        );
+        await screen.findByText('Other parent assistant');
+        expect(
+          screen.queryByText('Grandchild assistant'),
+        ).not.toBeInTheDocument();
+      }
+      await waitFor(() =>
+        expect(screen.queryByText(warning)).not.toBeInTheDocument(),
+      );
+    },
+  );
   it.each([1280, 390])(
     'shows descendant labels and full ancestry for both roles at width %i and remembers filtering after reopening',
     async (width) => {

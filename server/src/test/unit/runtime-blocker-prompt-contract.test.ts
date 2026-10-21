@@ -88,6 +88,62 @@ test('proof prompts isolate blocked checks without weakening mandatory proof', (
   assert.match(manual, /This is partial proof, not task completion/u);
 });
 
+test('manual proof prompt text requires preserved partial work and a fresh completion gate', () => {
+  // This checks the instruction contract, not whether an agent follows it.
+  const manual = readRepoFile(
+    'codeinfo_markdown/manual_test_latest_completed_task.md',
+  );
+  const candidateRules = manual.match(
+    /<candidate_selection_rules>([\s\S]*?)<\/candidate_selection_rules>/u,
+  )?.[1];
+  const outcomeRules = manual.match(
+    /<outcome_rules>([\s\S]*?)<\/outcome_rules>/u,
+  )?.[1];
+  const selfAudit = manual.match(
+    /<verification_loop>([\s\S]*?)<\/verification_loop>/u,
+  )?.[1];
+  assert.ok(candidateRules);
+  assert.ok(outcomeRules);
+  assert.ok(selfAudit);
+
+  assert.match(
+    candidateRules,
+    /For partial independent proof, preserve existing unchecked implementation subtasks, unchecked mandatory `Testing` items, and live blockers; keep[^\n]*`__in_progress__`[^\n]*even when the independent surfaces pass or have a permitted skip\/not-applicable outcome/u,
+  );
+  assert.match(
+    outcomeRules,
+    /Before setting or keeping[^\n]*`__done__` under any outcome below, apply this completion gate/u,
+  );
+  assert.match(
+    outcomeRules,
+    /re-read[^\n]*shared\/current-task-handoff\.md[^\n]*rerun `python3 "\$CODEINFO_ROOT\/scripts\/plan_status\.py" --task-number <that-number>` against fresh disk state/u,
+  );
+  assert.match(
+    outcomeRules,
+    /require the parser-selected task to match the bound task from `current-task\.json`[^\n]*`selected_task\.subtasks_unchecked` equal to zero[^\n]*`selected_task\.testing_unchecked` equal to zero[^\n]*`selected_task\.live_blockers` empty/u,
+  );
+  assert.match(
+    outcomeRules,
+    /separately confirm from recorded proof evidence that all required manual proof is complete or has a repository-permitted skip\/not-applicable outcome; the checklist parser alone does not establish manual-proof completion/u,
+  );
+  assert.match(
+    outcomeRules,
+    /if any requirement fails or cannot be established, preserve existing unchecked work and live blockers and keep the task `__in_progress__`/u,
+  );
+  assert.match(
+    outcomeRules,
+    /If manual testing succeeds without finding further work:\n\s+- set[^\n]*`__done__` only if the completion gate above passes; otherwise record partial proof and keep the task `__in_progress__`/u,
+  );
+  assert.match(
+    selfAudit,
+    /Confirm partial independent proof preserved existing unchecked implementation subtasks, unchecked mandatory `Testing` items, and live blockers and kept the task `__in_progress__`/u,
+  );
+  assert.match(
+    selfAudit,
+    /Confirm every decision to set or keep the task `__done__` passed the fresh parser-backed completion gate:[^\n]*matched the current handoff[^\n]*no unchecked implementation subtasks, no unchecked mandatory `Testing` items, and no live blocker[^\n]*all required manual proof was complete or had a repository-permitted skip\/not-applicable outcome/u,
+  );
+});
+
 test('current-plan blocker exit assesses remaining progress instead of executing the blanket blocker predicate', () => {
   const flow = JSON.parse(readRepoFile('flows/implement_current_plan.json'));
   const flatten = (

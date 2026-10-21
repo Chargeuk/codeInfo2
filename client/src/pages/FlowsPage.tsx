@@ -2,12 +2,15 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import TitleRoundedIcon from '@mui/icons-material/TitleRounded';
 import {
   Alert,
   Box,
   Paper,
   Button,
+  FormControlLabel,
+  Switch,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -63,17 +66,17 @@ import ComposerInfoPanel, {
 import ComposerMobileDialog from '../components/workspace/composer/ComposerMobileDialog';
 import ComposerSendButton from '../components/workspace/composer/ComposerSendButton';
 import { getWorkingFolderName } from '../components/workspace/composer/composerFormatting';
-import useChatStream, { ChatMessage, ToolCall } from '../hooks/useChatStream';
+import useChatStream, { ChatMessage } from '../hooks/useChatStream';
 import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
-import useConversationTurns, {
-  StoredTurn,
-} from '../hooks/useConversationTurns';
+import useConversationTurns from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
 import buildStoredTurnHydrationKey from '../utils/buildStoredTurnHydrationKey';
 import { copyTextToClipboard } from '../utils/copyTextToClipboard';
 import { reconcileFlowDetailsCache } from './flowsPage.shared';
+import { mapFlowTurnsToMessages as mapTurnsToMessages } from './flowTranscriptHistory';
+import useFlowDescendants from './useFlowDescendants';
 
 const buildFlowMetaLine = (command: ChatMessage['command']) => {
   if (!command || command.name !== 'flow') return null;
@@ -206,6 +209,9 @@ export default function FlowsPage() {
   const [selectedFlowKey, setSelectedFlowKey] = useState('');
   const [customTitle, setCustomTitle] = useState('');
   const [suppressAutoSelect, setSuppressAutoSelect] = useState(false);
+  const [optionsAnchorEl, setOptionsAnchorEl] = useState<HTMLElement | null>(
+    null,
+  );
   const [flowInfoAnchorEl, setFlowInfoAnchorEl] = useState<HTMLElement | null>(
     null,
   );
@@ -323,7 +329,29 @@ export default function FlowsPage() {
     getAssistantMessageIdForInflight,
   } = useChatStream(flowModelId, flowProviderId);
 
-  const displayMessages = messages;
+  const descendants = useFlowDescendants(
+    persistenceUnavailable ? undefined : activeConversationId,
+  );
+  const [showDescendants, setShowDescendants] = useState(() => {
+    try {
+      return (
+        window.localStorage.getItem('flows.showDescendantMessages') !== 'false'
+      );
+    } catch {
+      return true;
+    }
+  });
+  const displayMessages = useMemo(
+    () =>
+      showDescendants && descendants.messages.length > 0
+        ? [...messages, ...descendants.messages].sort(
+            (a, b) =>
+              (Date.parse(a.createdAt ?? '') || 0) -
+              (Date.parse(b.createdAt ?? '') || 0),
+          )
+        : messages,
+    [messages, descendants.messages, showDescendants],
+  );
   const hasFlowMetaLine = useMemo(
     () =>
       displayMessages.some(
@@ -589,10 +617,11 @@ export default function FlowsPage() {
     realtimeEnabled: mongoConnected !== false,
     onReconnectBeforeResubscribe: async () => {
       if (mongoConnected === false) return;
-      await refreshSnapshots();
+      await Promise.all([refreshSnapshots(), descendants.refresh()]);
     },
     onEvent: (event: ChatWsServerEvent) => {
       if (mongoConnected === false) return;
+      descendants.onEvent(event);
       switch (event.type) {
         case 'conversation_upsert': {
           const agentName = event.conversation.agentName;
@@ -613,6 +642,7 @@ export default function FlowsPage() {
         case 'tool_event':
         case 'turn_final':
         case 'cancel_ack':
+          if (event.conversationId !== getConversationId()) return;
           if (event.type === 'inflight_snapshot') {
             serverVisibleInflightIdRef.current = event.inflight.inflightId;
           } else if (
@@ -983,75 +1013,6 @@ export default function FlowsPage() {
       });
     });
   }, [activeConversationId, displayMessages, getConversationId]);
-
-  const mapToolCalls = useCallback((toolCalls: unknown): ToolCall[] => {
-    const calls =
-      toolCalls &&
-      typeof toolCalls === 'object' &&
-      'calls' in (toolCalls as Record<string, unknown>) &&
-      Array.isArray((toolCalls as { calls?: unknown }).calls)
-        ? ((toolCalls as { calls?: unknown[] }).calls as unknown[])
-        : [];
-
-    return calls.map((call, idx) => {
-      const callObj = (call ?? {}) as Record<string, unknown>;
-      const callId =
-        typeof callObj.callId === 'string'
-          ? callObj.callId
-          : typeof callObj.callId === 'number'
-            ? callObj.callId.toString()
-            : `call-${idx}`;
-      const stage =
-        typeof callObj.stage === 'string' ? callObj.stage : undefined;
-      const error =
-        callObj.error && typeof callObj.error === 'object'
-          ? (callObj.error as { code?: string; message?: string })
-          : undefined;
-
-      return {
-        id: callId,
-        name: typeof callObj.name === 'string' ? callObj.name : undefined,
-        status: stage === 'error' ? 'error' : 'done',
-        payload: callObj.result,
-        parameters:
-          callObj.parameters && typeof callObj.parameters === 'object'
-            ? callObj.parameters
-            : undefined,
-        stage,
-        errorTrimmed: error ?? null,
-      } satisfies ToolCall;
-    });
-  }, []);
-
-  const mapTurnsToMessages = useCallback(
-    (items: StoredTurn[]) =>
-      items.map(
-        (turn) =>
-          ({
-            id:
-              typeof turn.turnId === 'string' && turn.turnId.trim().length > 0
-                ? `turn-${turn.turnId}`
-                : `${turn.createdAt}-${turn.role}-${turn.provider}`,
-            role: turn.role === 'system' ? 'assistant' : turn.role,
-            content: turn.content,
-            model: turn.model,
-            tools: mapToolCalls(turn.toolCalls ?? null),
-            streamStatus:
-              turn.status === 'failed'
-                ? 'failed'
-                : turn.status === 'warning'
-                  ? 'warning'
-                  : turn.status === 'stopped'
-                    ? 'stopped'
-                    : 'complete',
-            command: turn.command,
-            usage: turn.usage,
-            timing: turn.timing,
-            createdAt: turn.createdAt,
-          }) satisfies ChatMessage,
-      ),
-    [mapToolCalls],
-  );
 
   const lastHydratedRef = useRef<string | null>(null);
   const hydratedStatusLogKeysRef = useRef<Set<string>>(new Set());
@@ -1703,6 +1664,10 @@ export default function FlowsPage() {
 
   const transcriptSurface = (
     <SharedTranscriptSurface>
+      {descendants.controllers(subscribeConversation, unsubscribeConversation)}
+      {descendants.error && (
+        <Alert severity="warning">{descendants.error}</Alert>
+      )}
       <SharedTranscript
         surface="flows"
         conversationId={selectedConversation?.conversationId ?? null}
@@ -1735,11 +1700,23 @@ export default function FlowsPage() {
         onToggleTool={toggleTool}
         onToggleToolError={toggleToolError}
         renderHeaderContent={(message) => {
+          const origin = message.flowOrigin;
+          const descendantLabel = origin
+            ? `Level ${origin.level} · ${origin.flowName}`
+            : null;
           if (message.role !== 'assistant') {
-            return null;
+            return descendantLabel ? (
+              <Typography
+                variant="caption"
+                data-testid="bubble-flow-origin"
+                sx={{ display: 'block', overflowWrap: 'anywhere' }}
+              >
+                {descendantLabel}
+              </Typography>
+            ) : null;
           }
           const headerLine = buildFlowStepHeaderLine(message.command);
-          if (!headerLine) {
+          if (!headerLine && !descendantLabel) {
             return null;
           }
           return (
@@ -1754,6 +1731,15 @@ export default function FlowsPage() {
                 lineHeight: 1.35,
               }}
             >
+              {descendantLabel && (
+                <Box
+                  component="span"
+                  data-testid="bubble-flow-origin"
+                  sx={{ display: 'block', overflowWrap: 'anywhere' }}
+                >
+                  {descendantLabel}
+                </Box>
+              )}
               {headerLine}
             </Typography>
           );
@@ -1763,7 +1749,7 @@ export default function FlowsPage() {
             message.role === 'assistant'
               ? buildFlowMetaLine(message.command)
               : null;
-          if (!flowLine) {
+          if (!flowLine && !message.flowOrigin) {
             return null;
           }
           return (
@@ -1773,6 +1759,25 @@ export default function FlowsPage() {
               data-testid="bubble-flow-meta"
             >
               {flowLine}
+              {message.flowOrigin && (
+                <Box
+                  component="span"
+                  data-testid="bubble-flow-ancestry"
+                  sx={{
+                    display: 'block',
+                    overflowWrap: 'anywhere',
+                    whiteSpace: 'normal',
+                  }}
+                >
+                  Ancestry:{' '}
+                  {message.flowOrigin.ancestry
+                    .map(
+                      (ancestor) =>
+                        `${ancestor.flowName} (${ancestor.conversationId})`,
+                    )
+                    .join(' → ')}
+                </Box>
+              )}
             </Typography>
           );
         }}
@@ -2051,6 +2056,28 @@ export default function FlowsPage() {
     </CommonComposerMainInputRow>
   );
 
+  const optionsContent = (
+    <FormControlLabel
+      label="Show descendant messages"
+      control={
+        <Switch
+          checked={showDescendants}
+          onChange={(_, checked) => {
+            setShowDescendants(checked);
+            try {
+              window.localStorage.setItem(
+                'flows.showDescendantMessages',
+                String(checked),
+              );
+            } catch {
+              /* Display preference still applies for this visit. */
+            }
+          }}
+        />
+      }
+    />
+  );
+
   const footerRow = (
     <CommonComposerFooter>
       <Tooltip title="Flow info">
@@ -2118,6 +2145,15 @@ export default function FlowsPage() {
         }
         ariaHaspopup={titleLockedToConversation ? undefined : 'dialog'}
         ariaExpanded={Boolean(titleAnchorEl)}
+      />
+      <ComposerFooterButton
+        icon={<TuneRoundedIcon fontSize="small" />}
+        label="Options"
+        iconOnly
+        ariaLabel="Additional options"
+        selected={Boolean(optionsAnchorEl)}
+        onClick={(event) => setOptionsAnchorEl(event.currentTarget)}
+        data-testid="flow-options"
       />
     </CommonComposerFooter>
   );
@@ -2221,6 +2257,25 @@ export default function FlowsPage() {
         footerRow={footerRow}
       />
 
+      <ComposerDesktopPopover
+        open={!effectiveIsMobile && Boolean(optionsAnchorEl)}
+        anchorEl={optionsAnchorEl}
+        onClose={() => setOptionsAnchorEl(null)}
+        data-testid="flow-options-popover"
+      >
+        {optionsContent}
+      </ComposerDesktopPopover>
+      <ComposerMobileDialog
+        open={effectiveIsMobile && Boolean(optionsAnchorEl)}
+        onClose={() => setOptionsAnchorEl(null)}
+        data-testid="flow-options-dialog"
+      >
+        <DialogTitle>Additional options</DialogTitle>
+        <DialogContent>{optionsContent}</DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOptionsAnchorEl(null)}>Close</Button>
+        </DialogActions>
+      </ComposerMobileDialog>
       <ComposerDesktopPopover
         open={!effectiveIsMobile && Boolean(flowInfoAnchorEl)}
         anchorEl={flowInfoAnchorEl}

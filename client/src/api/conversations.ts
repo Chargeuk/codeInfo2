@@ -39,6 +39,7 @@ export type ConversationFlags = Record<string, unknown> & {
     };
   };
   flowChild?: {
+    ancestors?: { conversationId: string; flowName: string }[];
     executionId?: string;
     instanceId?: string;
     targetId?: string;

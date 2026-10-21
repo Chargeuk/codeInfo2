@@ -207,3 +207,38 @@ test('listConversations agentName filtering stays keyed to the saved agentName e
     );
   }
 });
+
+test('ancestor list filtering uses persisted ancestry and excludes agent transcript copies while preserving scopes', async () => {
+  const originalFind = ConversationModel.find;
+  let capturedQuery: Record<string, unknown> = {};
+  (ConversationModel as unknown as Record<string, unknown>).find = (
+    query: Record<string, unknown>,
+  ) => {
+    capturedQuery = query;
+    return { sort: () => ({ limit: () => ({ lean: async () => [] }) }) };
+  };
+  try {
+    await listConversations({
+      limit: 100,
+      state: 'all',
+      ancestorConversationId: 'root',
+      flowName: 'child',
+    });
+    assert.equal(
+      capturedQuery['flags.flowChild.ancestors.conversationId'],
+      'root',
+    );
+    assert.equal(capturedQuery.flowName, 'child');
+    assert.deepEqual(capturedQuery.$and, [
+      { flowName: { $exists: true, $nin: [null, ''] } },
+      { agentName: { $in: [null, ''] } },
+    ]);
+    assert.equal(capturedQuery.archivedAt, undefined);
+  } finally {
+    restore(
+      ConversationModel as unknown as Record<string, unknown>,
+      'find',
+      originalFind,
+    );
+  }
+});

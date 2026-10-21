@@ -1,4 +1,5 @@
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import { Box, Button, Stack, Tooltip, Typography } from '@mui/material';
 import {
@@ -14,6 +15,7 @@ import {
 import type { ChatMessage, ChatSegment } from '../../hooks/useChatStream';
 import { copyTextToClipboard } from '../../utils/copyTextToClipboard';
 import Markdown from '../Markdown';
+import ComposerDesktopPopover from '../workspace/composer/ComposerDesktopPopover';
 import { buildSharedTranscriptCopyText } from './sharedTranscriptCopyText';
 import { formatTranscriptTimestamp } from './transcriptSurfaceFormatting';
 import { transcriptSurfaceTokens } from './transcriptSurfaceTokens';
@@ -28,6 +30,7 @@ type UserTranscriptBubbleProps = {
     context?: Record<string, unknown>,
   ) => void;
   markdownLogSource?: string;
+  renderHeaderContent?: (message: ChatMessage) => ReactNode;
   renderMetadataContent?: (message: ChatMessage) => ReactNode;
 };
 
@@ -40,7 +43,11 @@ function UserTranscriptBubble({
   userMarkdownTestId = 'user-markdown',
   log,
   markdownLogSource = 'SharedTranscript',
+  renderHeaderContent,
+  renderMetadataContent,
 }: UserTranscriptBubbleProps) {
+  const [infoAnchorEl, setInfoAnchorEl] = useState<HTMLElement | null>(null);
+  const metadataContent = renderMetadataContent?.(message);
   const copyFeedbackTimerRef = useRef<number | null>(null);
   const bubbleSurfaceRef = useRef<HTMLDivElement | null>(null);
   const textContentRef = useRef<HTMLDivElement | null>(null);
@@ -308,6 +315,17 @@ function UserTranscriptBubble({
       >
         {completionLabel}
       </Typography>
+      {metadataContent && (
+        <Button
+          size="small"
+          color="inherit"
+          startIcon={<InfoOutlinedIcon fontSize="small" />}
+          data-testid="bubble-info"
+          onClick={(event) => setInfoAnchorEl(event.currentTarget)}
+        >
+          Info
+        </Button>
+      )}
       <Tooltip title="Copy visible message content">
         <Button
           size="small"
@@ -366,6 +384,7 @@ function UserTranscriptBubble({
           boxShadow: 0,
         }}
       >
+        {renderHeaderContent?.(message)}
         {footerLayoutMode === 'inline' ? (
           <Stack
             direction="row"
@@ -399,6 +418,16 @@ function UserTranscriptBubble({
           </Typography>
         )}
       </Box>
+      {metadataContent && (
+        <ComposerDesktopPopover
+          open={Boolean(infoAnchorEl)}
+          anchorEl={infoAnchorEl}
+          onClose={() => setInfoAnchorEl(null)}
+          data-testid="bubble-info-popover"
+        >
+          {metadataContent}
+        </ComposerDesktopPopover>
+      )}
     </Stack>
   );
 }

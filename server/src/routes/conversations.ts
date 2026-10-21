@@ -64,6 +64,7 @@ const listConversationsQuerySchema = z
     archived: z.union([z.literal('true'), z.literal('false')]).optional(),
     agentName: z.string().min(1).optional(),
     flowName: z.string().min(1).optional(),
+    ancestorConversationId: z.string().min(1).optional(),
   })
   .strict();
 
@@ -324,6 +325,7 @@ type Deps = {
 };
 
 const listMemoryConversations = async (params: {
+  ancestorConversationId?: string;
   limit: number;
   cursor?: string;
   state?: 'active' | 'archived' | 'all';
@@ -349,6 +351,19 @@ const listMemoryConversations = async (params: {
         } else if (conversation.flowName !== params.flowName) {
           return false;
         }
+      }
+      if (params.ancestorConversationId) {
+        const ancestors = conversation.flags?.flowChild?.ancestors;
+        if (
+          !conversation.flowName ||
+          conversation.agentName ||
+          !Array.isArray(ancestors) ||
+          !ancestors.some(
+            (ancestor) =>
+              ancestor.conversationId === params.ancestorConversationId,
+          )
+        )
+          return false;
       }
       if (params.cursor) {
         const cursorDate = new Date(params.cursor);
@@ -508,7 +523,14 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
       });
     }
 
-    const { limit, cursor, archived, agentName, flowName } = parsed.data;
+    const {
+      limit,
+      cursor,
+      archived,
+      agentName,
+      flowName,
+      ancestorConversationId,
+    } = parsed.data;
     const stateRaw = parsed.data.state?.toLowerCase();
 
     const archivedQuery = archived;
@@ -583,6 +605,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         state,
         agentName,
         flowName,
+        ancestorConversationId,
       });
       const repoPathsState = await knownRepositoryPathsState();
       const normalizedItems: typeof items = [];

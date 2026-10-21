@@ -53,6 +53,11 @@ export type ChatSegment =
   | { id: string; kind: 'tool'; tool: ToolCall };
 
 export type ChatMessage = {
+  flowOrigin?: {
+    level: number;
+    flowName: string;
+    ancestry: { conversationId: string; flowName: string }[];
+  };
   id: string;
   storedTurnId?: string;
   role: 'user' | 'assistant' | 'system';
@@ -1052,6 +1057,7 @@ export function useChatStream(
       historyConversationId: string,
       history: ChatMessage[],
       mode: 'replace' | 'prepend' = 'replace',
+      options?: { matchFullHistory?: boolean },
     ) => {
       const sameConversation =
         conversationIdRef.current === historyConversationId;
@@ -1090,10 +1096,12 @@ export function useChatStream(
         let filteredHistory = history;
         let nextPrev = prev;
         if (hasInFlight && history.length > 0 && prev.length > 0) {
-          const candidates = prev.slice(-6);
+          const candidates = options?.matchFullHistory ? prev : prev.slice(-6);
           const replacements = new Map<string, ChatMessage>();
           filteredHistory = history.filter((entry) => {
             const match = candidates.find((existing) => {
+              if (options?.matchFullHistory && replacements.has(existing.id))
+                return false;
               if (existing.role !== entry.role) return false;
               const entryContent = entry.content ?? '';
               const existingContent = existing.content ?? '';

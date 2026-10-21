@@ -61,7 +61,10 @@ import {
 import { withIsolatedProviderHomeTestEnv } from '../support/providerHomeHarness.js';
 import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
-import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+import {
+  resolveConfiguredTestTimeoutMs,
+  waitForTestCondition,
+} from '../support/testTimeouts.js';
 import {
   subscribeConversationAndWaitReady,
   closeWs,
@@ -5830,3 +5833,105 @@ test('shared decision seam follows valid script-driven continue branch through h
     { registerTmpDirAsRepo: true },
   );
 });
+
+for (const independentWorkRemains of [true, false]) {
+  test(`current-plan assessed blocker gate preserves independent progress: ${independentWorkRemains}`, async () => {
+    const definition = JSON.parse(
+      await fs.readFile(
+        path.join(repoRoot, 'flows/implement_current_plan.json'),
+        'utf8',
+      ),
+    );
+    const findGate = (
+      steps: Array<Record<string, unknown>>,
+    ): Record<string, unknown> | undefined => {
+      for (const step of steps) {
+        if (
+          step.label ===
+          'Exit story flow successfully while durable blocker remains'
+        )
+          return step;
+        for (const key of ['steps', 'then', 'else']) {
+          if (Array.isArray(step[key])) {
+            const found = findGate(step[key] as Array<Record<string, unknown>>);
+            if (found) return found;
+          }
+        }
+      }
+      return undefined;
+    };
+    const gate = findGate(definition.steps);
+    assert.ok(gate);
+    const seen: string[] = [];
+    await withFlowServer(
+      (message) => {
+        seen.push(message);
+        return message.includes('Answer yes to exit INCOMPLETE')
+          ? JSON.stringify({ answer: independentWorkRemains ? 'no' : 'yes' })
+          : 'Independent proof and owned cleanup recorded; blocked proof stays open.';
+      },
+      async ({ baseUrl, wsUrl, tmpDir }) => {
+        const conversationId = `assessed-blocker-${independentWorkRemains}`;
+        await fs.writeFile(
+          path.join(tmpDir, 'assessed-blocker.json'),
+          JSON.stringify({
+            steps: [
+              gate,
+              {
+                type: 'llm',
+                agentType: 'loop_control_agent',
+                identifier: 'loop_controller',
+                messages: [
+                  {
+                    role: 'user',
+                    content: [
+                      'Perform remaining independent proof and owned cleanup.',
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+        );
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+        await supertest(baseUrl)
+          .post('/flows/assessed-blocker/run')
+          .send({ conversationId })
+          .expect(202);
+        await waitForTestCondition(
+          async () => {
+            const response = await supertest(baseUrl)
+              .get(`/flows/runs/${conversationId}`)
+              .expect(200);
+            return response.body.terminal === true;
+          },
+          {
+            timeoutMs: 10000,
+            description: `assessed blocker flow ${conversationId} to become terminal`,
+          },
+        );
+        assert.equal(
+          seen.some((message) =>
+            message.includes('Perform remaining independent proof'),
+          ),
+          independentWorkRemains,
+        );
+        const status = await supertest(baseUrl)
+          .get(`/flows/runs/${conversationId}`)
+          .expect(200);
+        assert.equal(status.body.terminal, true);
+        assert.equal(
+          status.body.terminalOutcome,
+          independentWorkRemains ? null : 'not_applicable',
+        );
+        await cleanupConversationRuntime(
+          conversationId,
+          getAgentConversationId(
+            conversationId,
+            'loop_control_agent:loop_controller',
+          ),
+        );
+      },
+    );
+  });
+}

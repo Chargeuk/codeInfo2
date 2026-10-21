@@ -7,7 +7,7 @@ Run the selected task's automated proof and leave the task in an honest state fo
 Read the stored current-plan handoff and use only that scope for this step.
 Load a fresh bounded automated-proof packet before doing any work.
 Identify the current candidate task for automated proof.
-Run the unchecked items in that task's `Testing` section in their required order. Do not fix code, configuration, wrappers, or tests. Return concise terminal evidence for failures to the caller or existing repair flow, and keep testing state honest.
+Run the unchecked items in that task's `Testing` section in their required order, isolating a failed item from later checks whose independence is verified. Do not fix code, configuration, wrappers, or tests. Return concise terminal evidence for failures to the caller or existing repair flow, and keep testing state honest.
 Do not finish this step until every unchecked `Testing` item is complete or the task is honestly blocked.
 If you start a `Testing` step in this turn, you MUST stay in the turn until that step reaches a terminal outcome: pass, fail, or an honest blocker.
 For wrapper-backed steps, healthy heartbeats, growing logs, `agent_action: wait`, or long wall-clock runtime are never valid reasons to end the turn early while the current `Testing` step is still running.
@@ -55,8 +55,8 @@ Do not perform manual testing in this step.
 <skip_rules>
 
 - Before applying skip or blocker rules, inspect every unchecked `Testing` item semantically. If an item is actually a browser walkthrough, screenshot request, agent-driven manual scenario, or other manual-testing-agent action rather than a runnable automated command, do not attempt it and do not create a blocker. Preserve and merge its useful meaning into checkbox-free `Manual Testing Guidance`, remove only the misplaced checklist item, add a concise correction note, rerun the plan helper, and continue with the remaining automated items. This is task-shape recovery, not completion of the unperformed manual scenario.
-- If `selected_task.live_blockers` is non-empty, do not run automated proof.
-- If the candidate task still has unchecked subtasks that require additional non-proof implementation work, do not run automated proof.
+- If `selected_task.live_blockers` is non-empty, map each blocker to its affected checks and actual prerequisites. Keep those checks open, but continue other safe independent checks. Verify independence against the task, source and current runtime; do not bypass an explicit prerequisite or invent a new ordering requirement. If independence is uncertain, leave only the affected work blocked and report the uncertainty.
+- If unchecked subtasks require non-proof implementation work, defer only proof dependent on that missing implementation; continue verified independent checks.
 - If the candidate task has no unchecked items left in its `Testing` section, do not run automated proof again in this step.
 - Do not skip an unchecked `Testing` item merely because it is difficult, broad, slow, or currently failing.
 - If you skip automated proof for any of these reasons, return a concise explanation and leave the task `__in_progress__`.
@@ -79,12 +79,12 @@ Do not perform manual testing in this step.
 - Mark each unchecked testing step complete immediately after it honestly passes.
 - If a testing step honestly closes one or more remaining proof-owned subtasks, mark those subtasks complete immediately as well and update the implementation notes before starting the next testing step.
 - Use this decision loop:
-  1. Run the next unchecked `Testing` item.
+  1. Run the next executable unchecked `Testing` item. Within a multi-command item, attempt every independent command; leave the item unchecked until all required results pass.
   2. If it passes, mark it complete immediately and continue.
   3. If it fails, inspect only enough failure evidence to report the exact command, assertion/error, and relevant log location.
   4. Leave the failed `Testing` item unchecked and record an honest live `**BLOCKER**` with that evidence for the caller or existing coder repair flow.
   5. Do not attempt a code, configuration, wrapper, or test repair. Rerun only when the caller or existing repair flow requests proof after a repair.
-  6. Report the terminal result and stop this proof step without claiming completion.
+  6. Continue the remaining verified independent checks without retrying the unchanged failure. Before returning, settle started operations and perform the documented owned cleanup when safe, preserving evidence needed for diagnosis or later proof. Stop only when no safe executable proof remains, and report each blocked item and the next repair owner without claiming completion.
 - Long-running automated proof is normal in this step. If the current proof step is still running and shows ongoing progress, keep waiting inside this turn until that step reaches a terminal result.
 - For wrapper-backed steps, use the wrapper health signals to decide whether the run is still progressing normally.
 - For non-wrapper commands, use the live process state and ongoing output to decide whether the run is still progressing normally.
@@ -121,7 +121,7 @@ Do not perform manual testing in this step.
 
 <blocker_rules>
 
-- If a testing step becomes honestly blocked, stop and write a `**BLOCKER**` note into the task's `Implementation Notes`.
+- If a testing step becomes honestly blocked, stop only that dependent proof path and write a `**BLOCKER**` note into the task's `Implementation Notes`. Continue verified independent checks and safe owned cleanup before returning. Do not ask an unavailable human; use the existing caller/repair route for authorized repairs and report genuine external authority limits.
 - A confirmed repository-owned test stack that can be reclaimed through its documented shutdown wrapper is recoverable proof state, not an external dependency or human-owned blocker. Attempt that reclaim-and-retry path before applying the blocker conditions below.
 - A blocker is honest only when at least one of the following is true:
   - the required check fails and needs an implementation, config, wrapper, or test repair outside the tester's authority;

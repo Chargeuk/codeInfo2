@@ -63,3 +63,65 @@ test('stronger implementation blocker repair is autonomous, cross-task, minimal,
   assert.match(prompt, /not valid stopping reasons/u);
   assert.match(prompt, /speculative redesign or unrelated improvement/u);
 });
+
+test('proof prompts isolate blocked checks without weakening mandatory proof', () => {
+  const automated = readRepoFile(
+    'codeinfo_markdown/run_automated_proof_and_fix_issues.md',
+  );
+  assert.ok(
+    !automated.includes(
+      'If `selected_task.live_blockers` is non-empty, do not run automated proof.',
+    ),
+  );
+  assert.match(automated, /map each blocker to its affected checks/u);
+  assert.match(automated, /attempt every independent command/u);
+  assert.match(
+    automated,
+    /leave the item unchecked until all required results pass/u,
+  );
+  assert.match(automated, /perform the documented owned cleanup/u);
+  assert.match(automated, /do not bypass an explicit prerequisite/u);
+  const manual = readRepoFile(
+    'codeinfo_markdown/manual_test_latest_completed_task.md',
+  );
+  assert.match(manual, /Perform only verified independent manual proof/u);
+  assert.match(manual, /This is partial proof, not task completion/u);
+});
+
+test('current-plan blocker exit assesses remaining progress instead of executing the blanket blocker predicate', () => {
+  const flow = JSON.parse(readRepoFile('flows/implement_current_plan.json'));
+  const flatten = (
+    steps: Array<Record<string, unknown>>,
+  ): Array<Record<string, unknown>> =>
+    steps.flatMap((step) => [
+      step,
+      ...['steps', 'then', 'else'].flatMap((key) =>
+        Array.isArray(step[key])
+          ? flatten(step[key] as Array<Record<string, unknown>>)
+          : [],
+      ),
+    ]);
+  const steps = flatten(flow.steps);
+  const exit = steps.find(
+    (step) =>
+      step.label ===
+      'Exit story flow successfully while durable blocker remains',
+  );
+  assert.ok(exit);
+  assert.equal(exit.decisionScript, undefined);
+  assert.equal(exit.exitFlow, true);
+  assert.match(
+    String(exit.question),
+    /every safe independent required implementation, automated proof, manual proof and owned cleanup action/u,
+  );
+  assert.match(String(exit.question), /exit INCOMPLETE/u);
+  for (const label of [
+    'Exit current task loop if implementation left a blocker',
+    'Exit current task loop if task is blocked after proof',
+    'Return to the top of current task rework if automated proof still has unchecked testing',
+  ]) {
+    const gate = steps.find((step) => step.label === label);
+    assert.ok(gate);
+    assert.match(String(gate.question), /independent manual/u);
+  }
+});

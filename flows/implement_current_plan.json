@@ -200,7 +200,7 @@
                   "label": "Exit current task loop if implementation left a blocker",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_blocker.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+                  "question": "Use fresh persisted handoffs, plan_status.py and bounded task requirements. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when a live blocker remains and no verified independent automated proof, independent manual proof or safe owned cleanup is executable. Answer no when any such independent action remains so the following proof phase can assess its own dependencies. Preserve all missing implementation and failed proof; do not bypass genuine prerequisites or mandatory order. No edits, tests or side effects in this decision.",
                   "breakOn": "yes"
                 },
                 {
@@ -284,7 +284,7 @@
                   "label": "Exit current task loop if task is blocked after proof",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_blocker.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+                  "question": "Use fresh persisted current-task and current-plan handoffs, plan_status.py and the bounded blocker-repair packet. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when a live blocker remains and no verified independent required manual proof or owned cleanup can safely run in the following manual phase. A blocked automated check alone does not prevent independent manual proof. Answer no when there is no blocker or safe independent manual work remains. Preserve blocked proof and task status; no edits, tests or side effects in this decision.",
                   "breakOn": "yes"
                 },
                 {
@@ -292,7 +292,7 @@
                   "label": "Return to the top of current task rework if proof added unchecked subtasks",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_unchecked_subtasks.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+                  "question": "Use fresh persisted handoffs, plan_status.py and bounded task sections. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when unchecked implementation subtasks have a safe authorized executable next action; answer no for subtasks blocked by an unchanged external prerequisite so following independent manual proof can proceed. Preserve all unchecked work and blockers; no edits, tests or side effects.",
                   "continueOn": "yes"
                 },
                 {
@@ -300,7 +300,7 @@
                   "label": "Return to the top of current task rework if automated proof still has unchecked testing",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_unchecked_testing.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+                  "question": "Use fresh persisted handoffs, plan_status.py, bounded Testing and the latest tester report. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when unchecked automated proof has a safe executable next action or a materially changed repair to verify. Answer no when the remaining automated checks depend on an unchanged blocker, allowing following independent manual proof and owned cleanup. Never mark those checks complete or rerun unchanged failures. No edits, tests or side effects.",
                   "continueOn": "yes"
                 },
                 {
@@ -472,10 +472,9 @@
               "label": "Exit story flow successfully while durable blocker remains",
               "agentType": "loop_control_agent",
               "identifier": "loop_controller",
-              "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_has_blocker.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+              "question": "Use fresh persisted handoffs, plan_status.py, the bounded blocker-repair packet and latest actual coder/tester/manual outcomes. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes to exit INCOMPLETE only when a live blocker remains after the existing bounded repair/research route and every safe independent required implementation, automated proof, manual proof and owned cleanup action has been attempted or has a verified dependency preventing it. A blocker alone, an old failed check or unchanged helper count is insufficient. Answer no while an authorized repair or untried safe independent action can make meaningful progress; retain valid evidence, do not ask an unavailable human or retry unchanged failures indefinitely. Never claim story completion; report exact remaining obligations and external authority limits through the preceding worker handoff. No edits, tests or side effects in this decision.",
               "breakOn": "yes",
-              "exitFlow": true,
-              "decisionScript": "scripts/flow_control/check_current_task_has_blocker.py"
+              "exitFlow": true
             },
             {
               "type": "llm",

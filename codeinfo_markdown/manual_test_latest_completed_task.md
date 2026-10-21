@@ -86,8 +86,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Use the task already resolved into `current-task.json` as the candidate task for this loop iteration.
 - Determine candidate eligibility from honest checklist and blocker state, not from `Task Status` alone.
 - Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**` when deciding whether the task is still blocked.
-- If the parser-selected task still has unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`, do not perform manual testing.
-- Add a brief implementation note to that task stating that manual testing was skipped because the latest task is not honestly complete yet.
+- If the parser-selected task has unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`, assess the required manual surfaces against the actual missing prerequisite. Perform only verified independent manual proof on usable current behavior; defer dependent or uncertain surfaces. This is partial proof, not task completion.
+- Add a brief implementation note naming the proof performed, evidence applicability, deferred surfaces and exact dependencies. Do not infer a skip for every manual surface from one unrelated automated failure.
 - If the parser-selected task has no unchecked subtasks, no unchecked testing steps, and no live standalone `**BLOCKER**`, it is eligible for manual testing whether its `Task Status` is `__in_progress__` or `__done__`.
 - Before adding a manual-testing implementation note for any outcome, re-read that task's existing implementation notes and avoid adding a duplicate note if the same manual-testing outcome is already recorded from the latest loop pass.
 

@@ -88,6 +88,40 @@ test('proof prompts isolate blocked checks without weakening mandatory proof', (
   assert.match(manual, /This is partial proof, not task completion/u);
 });
 
+test('deep proof repair consumes reliability guidance only within authorized scope', () => {
+  // Static instruction contracts do not prove agent behavior or successful repair.
+  const repair = readRepoFile('codeinfo_markdown/deep_test_failure_repair.md');
+  const guide = readRepoFile(
+    'codeinfo_markdown/shared/test-reliability-patterns.md',
+  );
+  assert.match(
+    repair,
+    /\$CODEINFO_ROOT\/codeinfo_markdown\/shared\/test-reliability-patterns\.md/u,
+  );
+  assert.match(
+    repair,
+    /approved story\/user contract authorizes brittle-test repairs/u,
+  );
+  assert.match(
+    repair,
+    /unrelated to or predating the story[^\n]*same-task proof-repair scope/u,
+  );
+  assert.match(repair, /coder owns test\/harness repairs/u);
+  assert.match(
+    repair,
+    /automated testing agent owns execution and proof reporting/u,
+  );
+  assert.match(repair, /complete required full proof[^\n]*bounded recovery/u);
+  assert.match(guide, /failed check[^\n]*not proof of brittleness/u);
+  assert.match(guide, /BEFORE the trigger[^\n]*then await/u);
+  assert.match(guide, /Dispatch accepted does not mean finished/u);
+  assert.match(guide, /nonexhaustive guidance, not an all-story checklist/u);
+  assert.match(
+    guide,
+    /Test-repair authority alone does not permit changing production behavior/u,
+  );
+});
+
 test('manual proof prompt text requires preserved partial work and a fresh completion gate', () => {
   // This checks the instruction contract, not whether an agent follows it.
   const manual = readRepoFile(

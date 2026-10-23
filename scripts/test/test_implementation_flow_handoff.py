@@ -58,7 +58,28 @@ class ImplementationFlowHandoffTests(unittest.TestCase):
                             self.assertEqual(preparation[-1]["type"], "llm")
                             self.assertEqual(preparation[-1]["agentType"], "planning_agent")
                             self.assertEqual(preparation[-1]["identifier"], "planner")
-                            self.assertEqual(step["decisionScript"], "scripts/flow_control/check_current_task_has_blocker.py")
+                            # Only the unchanged GitHub-review variant still uses script dispatch.
+                            if name == "implement_next_plan_github_review":
+                                self.assertEqual(step["decisionScript"], "scripts/flow_control/check_current_task_has_blocker.py")
+                            else:
+                                self.assertNotIn("decisionScript", step)
+                                question = step["question"]
+                                for clause in (
+                                    "Use fresh persisted handoffs, plan_status.py",
+                                    "latest actual coder/tester/manual outcomes",
+                                    'Return exactly {"answer":"yes"} or {"answer":"no"}',
+                                    "exit INCOMPLETE only when a live blocker remains",
+                                    "after the existing bounded repair/research route",
+                                    "every safe independent required implementation, automated proof, manual proof and owned cleanup action",
+                                    "has been attempted or has a verified dependency preventing it",
+                                    "A blocker alone, an old failed check or unchanged helper count is insufficient",
+                                    "Answer no while an authorized repair or untried safe independent action can make meaningful progress",
+                                    "retain valid evidence",
+                                    "do not ask an unavailable human or retry unchanged failures indefinitely",
+                                    "Never claim story completion; report exact remaining obligations and external authority limits",
+                                    "No edits, tests or side effects",
+                                ):
+                                    self.assertIn(clause, question)
                             self.assertEqual(step["breakOn"], "yes")
                             self.assertIs(step["exitFlow"], True)
                 self.assertEqual(len(gates), 1)

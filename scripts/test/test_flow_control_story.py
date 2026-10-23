@@ -162,15 +162,55 @@ class FlowControlPromptContractTests(unittest.TestCase):
         for flow_path in self.FLOW_FILES:
             self._find_nodes(json.loads(flow_path.read_text()), found)
 
+        # These approved gates assess executable work instead of blanket blocker counts.
+        assessed_contracts = {
+            "Exit current task loop if implementation left a blocker": (
+                "no verified independent automated proof, independent manual proof or safe owned cleanup is executable",
+                "Answer no when any such independent action remains",
+                "Preserve all missing implementation and failed proof",
+                "do not bypass genuine prerequisites or mandatory order",
+            ),
+            "Exit current task loop if task is blocked after proof": (
+                "bounded blocker-repair packet",
+                "no verified independent required manual proof or owned cleanup can safely run",
+                "A blocked automated check alone does not prevent independent manual proof",
+                "Answer no when there is no blocker or safe independent manual work remains",
+                "Preserve blocked proof and task status",
+            ),
+            "Return to the top of current task rework if proof added unchecked subtasks": (
+                "unchecked implementation subtasks have a safe authorized executable next action",
+                "answer no for subtasks blocked by an unchanged external prerequisite",
+                "following independent manual proof can proceed",
+                "Preserve all unchecked work and blockers",
+            ),
+            "Return to the top of current task rework if automated proof still has unchecked testing": (
+                "latest tester report",
+                "unchecked automated proof has a safe executable next action or a materially changed repair to verify",
+                "Answer no when the remaining automated checks depend on an unchanged blocker",
+                "following independent manual proof and owned cleanup",
+                "Never mark those checks complete or rerun unchanged failures",
+            ),
+        }
         self.assertGreater(len(found), 20)
         for node in found:
             question = node["question"]
             if node["label"] == "Exit Task-Up Path After Encoding Review Findings":
                 continue
-            self.assertIn("scripts/flow_control/", question)
-            self.assertIn(self.FRESHNESS_TEXT, question)
-            self.assertIn(self.STDOUT_TEXT, question)
-            self.assertIn("Do not recompute the answer.", question)
+            if node["label"] in assessed_contracts:
+                self.assertNotIn("decisionScript", node)
+                self.assertIn("Use fresh persisted", question)
+                self.assertIn("plan_status.py", question)
+                self.assertIn('Return exactly {"answer":"yes"} or {"answer":"no"}', question)
+                self.assertIn("no edits, tests or side effects", question.lower())
+                self.assertEqual(node["type"], "break" if "breakOn" in node else "continue")
+                self.assertEqual(node.get("breakOn", node.get("continueOn")), "yes")
+                for clause in assessed_contracts[node["label"]]:
+                    self.assertIn(clause, question)
+            else:
+                self.assertIn("scripts/flow_control/", question)
+                self.assertIn(self.FRESHNESS_TEXT, question)
+                self.assertIn(self.STDOUT_TEXT, question)
+                self.assertIn("Do not recompute the answer.", question)
 
 
 if __name__ == "__main__":

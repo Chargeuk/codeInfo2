@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { memoryConversations } from '../../chat/memoryPersistence.js';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
+import { memoryConversations } from '../../chat/memoryPersistence.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import {

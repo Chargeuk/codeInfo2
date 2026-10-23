@@ -48,11 +48,11 @@ import {
   ConversationModel,
   type Conversation,
 } from '../../mongo/conversation.js';
-import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import {
   installDeterministicCodexAvailabilityBootstrap,
   resetDeterministicCodexAvailabilityBootstrap,
 } from '../support/codexAvailabilityBootstrap.js';
+import { withMockedMongoConversationPersistence } from '../support/conversationMongoPersistenceStub.js';
 import { removeWritableTree } from '../support/fsCleanup.js';
 import {
   clearScopedTestEnvValue,

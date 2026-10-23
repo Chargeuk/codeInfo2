@@ -12,8 +12,8 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { decodeJsonBody } from './support/decodeJsonBody';
 import { setupChatWsHarness } from './support/mockChatWs';
 import { MockWebSocket } from './support/mockWebSocket';
-import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 import { resolveClientTestTimeoutMs } from './support/testTimeouts';
+import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
 const mockFetch = jest.fn<typeof fetch>();
 beforeAll(() => {
   global.fetch = mockFetch;
@@ -2975,7 +2975,9 @@ describe('descendant flow transcripts', () => {
         if (String(url).includes('/conversations/child-1/turns'))
           return mockJsonResponse({}, { status: 500 });
         if (String(url).includes('/conversations/flow-2/turns'))
-          return mockJsonResponse({ items: makeTurns('flow-2', 'Other parent') });
+          return mockJsonResponse({
+            items: makeTurns('flow-2', 'Other parent'),
+          });
         return baseFetch(url, init);
       });
       await renderSelectedParent();

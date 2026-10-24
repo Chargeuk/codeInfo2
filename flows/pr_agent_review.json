@@ -1,0 +1,50 @@
+{
+  "description": "Prepare one pinned target PR, request remote-agent review once, poll with native five-minute waits, and collect all feedback into the assigned ordinary review-job output.",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Prepare Pinned PR And Request Remote Agent Review",
+      "agentType": "planning_agent",
+      "identifier": "pr_reviewer",
+      "continueOnFailure": true,
+      "markdownFile": "prepare_pr_agent_review.md"
+    },
+    {
+      "type": "startLoop",
+      "label": "Observe Requested Remote Agent Reviewers",
+      "steps": [
+        {
+          "type": "llm",
+          "label": "Check Remote Review Status Immediately",
+          "agentType": "planning_agent",
+          "identifier": "pr_reviewer",
+          "continueOnFailure": true,
+          "markdownFile": "poll_pr_agent_review.md"
+        },
+        {
+          "type": "break",
+          "label": "Stop Polling Only For Accounted Terminal Or Unavailable Coverage",
+          "agentType": "loop_control_agent",
+          "identifier": "pr_poll_controller",
+          "question": "Read this scheduler-assigned review job's input and work evidence from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when every requested reviewer for the exact pinned pushed candidate has an evidenced terminal outcome (success, explicit refusal, quota exhaustion or failure) or an individually demonstrated inability to continue observing that reviewer, with reasons recorded. Actual unavailable preparation/authentication preventing requests may also end this job honestly. While any requested reviewer remains observably pending, running or unknown without factual incapability, answer no regardless of sibling terminal or unavailable outcomes. Unknown status, empty reviewRequests, an unacknowledged request, stale feedback or a transient failed query alone means no and must keep waiting. Wait for every requested reviewer to finish whether successful or not; one reviewer's refusal, quota or failure does not end waiting for another pending, running or unknown reviewer. Healthy pending, running or unknown states have no arbitrary timeout or observation limit. Actual unavailable preparation/authentication, or sustained demonstrable API capability failure preventing further observation, may end the affected observation honestly; a failed query alone cannot. Preserve each unsuccessful or unavailable reviewer separately alongside useful sibling results without claiming every reviewer succeeded or forcing the entire flow incomplete merely because a provider declined. Do not mutate GitHub or files. Missing work evidence alone means no.",
+          "breakOn": "yes",
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true
+        },
+        {
+          "type": "wait",
+          "label": "Wait Five Minutes Before Next Remote Status Check",
+          "seconds": 300
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Collect PR Review Bodies Inline And Issue Comments",
+      "agentType": "planning_agent",
+      "identifier": "pr_reviewer",
+      "continueOnFailure": true,
+      "markdownFile": "collect_pr_agent_review.md"
+    }
+  ]
+}

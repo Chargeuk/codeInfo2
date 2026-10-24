@@ -110,6 +110,7 @@ class FlowControlPromptContractTests(unittest.TestCase):
 
     FLOW_FILES = [
         REPO_ROOT / "flows" / "implement_current_plan.json",
+        REPO_ROOT / "flows" / "improve_task_implement_current_plan.json",
         REPO_ROOT / "flows" / "implement_next_plan.json",
         REPO_ROOT / "flows" / "task_and_implement_plan.json",
         REPO_ROOT / "flows" / "improve_task_implement_plan.json",
@@ -211,6 +212,54 @@ class FlowControlPromptContractTests(unittest.TestCase):
                 self.assertIn(self.FRESHNESS_TEXT, question)
                 self.assertIn(self.STDOUT_TEXT, question)
                 self.assertIn("Do not recompute the answer.", question)
+
+
+class PRReviewPollingContractTests(unittest.TestCase):
+    # Static instruction contracts; these do not execute or predict agent decisions.
+    def read_contracts(self):
+        flow = json.loads((REPO_ROOT / "flows" / "pr_agent_review.json").read_text())
+        poll_loop = next(step for step in flow["steps"] if step["type"] == "startLoop")
+        question = next(
+            step["question"] for step in poll_loop["steps"] if step["type"] == "break"
+        )
+        prompt = (REPO_ROOT / "codeinfo_markdown" / "poll_pr_agent_review.md").read_text()
+        return poll_loop, {
+            name: text.replace("`", "").casefold()
+            for name, text in {"question": question, "prompt": prompt}.items()
+        }
+
+    def test_polling_retains_native_wait_without_a_general_iteration_cap(self):
+        poll_loop, _ = self.read_contracts()
+        self.assertNotIn("maxIterations", poll_loop)
+        self.assertEqual(
+            [step["type"] for step in poll_loop["steps"]],
+            ["llm", "break", "wait"],
+        )
+        self.assertEqual(poll_loop["steps"][-1]["seconds"], 300)
+
+    def test_ambiguous_delivery_requires_three_successful_attributable_readbacks(self):
+        _, contracts = self.read_contracts()
+        for name, contract in contracts.items():
+            with self.subTest(contract=name):
+                self.assertIn("ambiguous-delivery", contract)
+                self.assertIn("three completed successful reconciliation/readback observations", contract)
+                self.assertIn("300-second", contract)
+                self.assertIn("request/trigger/comment/check/review", contract)
+                self.assertIn("exact candidate/reviewer", contract)
+                self.assertIn("failed api queries and empty reviewrequests alone do not count", contract)
+                self.assertIn("existing assigned work evidence", contract)
+
+    def test_confirmed_delivery_and_observable_siblings_remain_protected(self):
+        _, contracts = self.read_contracts()
+        for name, contract in contracts.items():
+            with self.subTest(contract=name):
+                self.assertIn("once delivery/acceptance or provider acknowledgement or pending/running is confirmed", contract)
+                self.assertIn("this exception never applies", contract)
+                self.assertIn("even if status later becomes unknown", contract)
+                self.assertIn("while any sibling remains pending, running or unknown", contract)
+                self.assertIn("answer no", contract)
+                self.assertIn("never retry the review request", contract)
+                self.assertIn("not a terminal review or a clean result", contract)
 
 
 if __name__ == "__main__":

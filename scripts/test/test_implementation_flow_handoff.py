@@ -15,6 +15,7 @@ import unittest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FLOW_NAMES = (
     "implement_current_plan",
+    "improve_task_implement_current_plan",
     "implement_next_plan",
     "implement_next_plan_github_review",
     "improve_task_implement_plan",
@@ -50,7 +51,7 @@ class ImplementationFlowHandoffTests(unittest.TestCase):
                                 [
                                     "refresh_current_plan_handoff.md",
                                     "repair_current_plan_workflow_state.md"
-                                    if name == "implement_current_plan"
+                                    if name in ("implement_current_plan", "improve_task_implement_current_plan")
                                     else "repair_story_workflow_state.md",
                                     "select_current_task.md",
                                 ],

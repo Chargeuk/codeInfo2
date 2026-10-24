@@ -6,6 +6,7 @@ Perform a deep repair pass only for a live blocker caused by automated-proof fai
 
 Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before inspecting, stopping, repairing, or classifying a Docker or Compose stack involved in automated proof.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-reliability-patterns.md` for evidence-based test/harness repair guidance; it grants no scope beyond the approved story/user contract.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
 Load a fresh bounded blocker-repair packet before doing anything else.
@@ -26,6 +27,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - Do not run `git switch`, `git checkout`, `git branch`, or otherwise create or change branches in this step.
 - Perform all work on the current repository branch that matches the story selected by `codeInfoStatus/flow-state/current-plan.json`.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. When the selected task is the dedicated current closeout owner, treat the whole approved story and every listed affected repository as available same-task repair scope.
+- When the approved story/user contract authorizes brittle-test repairs needed for required validation, existing tests unrelated to or predating the story are valid same-task proof-repair scope, including for the dedicated closeout owner. Do not decline solely because a test predates the story. Establish brittleness from concrete failure evidence; test-repair authority alone does not authorize an unrelated product bug fix or production behavior change.
 
 </scope_rules>
 
@@ -64,6 +66,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
   - for a failed proof step, the failing assertion, error, stack, wrapper summary, or saved log path;
   - for an incomplete-proof blocker, the exact next unchecked `Testing` step and the wrapper or command it names.
 - Perform a deeper analysis than the normal automated-proof step by tracing the failure to the owning code, test, config, harness, or contract before deciding what to change.
+- The coder owns test/harness repairs; the automated testing agent owns execution and proof reporting. Apply the shared reliability patterns only to an evidenced authorized failure, preserve intended coverage and correctness checks, and complete required full proof under the existing bounded recovery rules rather than skipping, weakening assertions, blanket-increasing timeouts or masking failures with retries.
 - Prefer fixing the underlying task-owned implementation or proof rather than papering over the failure with a weaker assertion or broader timeout unless the evidence shows that is the honest repair.
 - Delegate targeted wrapper reruns for diagnosis to the tester when repository guidance supports them, then have it rerun the original task-listed proof step honestly after each repair checkpoint.
 - When a formerly incomplete proof step passes, the tester marks that `Testing` item complete immediately and retires any generic close-out blocker that was only preventing the next proof step from running. Coordinate sequentially with the coder's implementation checkbox and notes.
@@ -86,7 +89,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - Do not add manual-testing checklist items in `Subtasks` or `Testing`.
 - Do not add subtasks that depend on future screenshots, logs, later manual-testing-agent reruns, or later automated-proof outputs in order to become complete.
 - Do not add subtasks that tell the coding agent to perform browser validation, Playwright MCP validation, screenshot review, or other manual-testing-agent proof work.
-- Preserve the dedicated final task's initial supported-lint-and-formatting-only subtask types per repository, with unsupported commands omitted, unless a real story-caused failure has triggered the shared contract's bounded runtime repair-subtask exception.
+- Preserve the dedicated final task's initial supported-lint-and-formatting-only subtask types per repository, with unsupported commands omitted, unless a real story-caused failure has triggered the shared contract's bounded runtime repair-subtask exception, or an approved contract-authorized brittle-test failure requires a bounded same-task proof-repair subtask.
 
 </section_ownership_rules>
 

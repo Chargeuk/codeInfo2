@@ -2098,8 +2098,13 @@ describe('useChatStream inflight mismatch handling', () => {
       expect(result.current.messages).toContainEqual(message);
     });
     expect(
-      result.current.messages.find((message) => message.id === activeAssistant.id),
-    ).toMatchObject({ content: 'Next child answer', streamStatus: 'processing' });
+      result.current.messages.find(
+        (message) => message.id === activeAssistant.id,
+      ),
+    ).toMatchObject({
+      content: 'Next child answer',
+      streamStatus: 'processing',
+    });
     act(() =>
       result.current.handleWsEvent({
         protocolVersion: 'v1',
@@ -2112,7 +2117,9 @@ describe('useChatStream inflight mismatch handling', () => {
     );
     expect(result.current.messages).toHaveLength(12);
     expect(
-      result.current.messages.find((message) => message.id === activeAssistant.id),
+      result.current.messages.find(
+        (message) => message.id === activeAssistant.id,
+      ),
     ).toMatchObject({
       content: 'Next child answer continues',
       streamStatus: 'processing',

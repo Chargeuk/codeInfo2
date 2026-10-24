@@ -2,8 +2,8 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
-import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import TitleRoundedIcon from '@mui/icons-material/TitleRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import {
   Alert,
   Box,
@@ -74,8 +74,8 @@ import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
 import buildStoredTurnHydrationKey from '../utils/buildStoredTurnHydrationKey';
 import { copyTextToClipboard } from '../utils/copyTextToClipboard';
-import { reconcileFlowDetailsCache } from './flowsPage.shared';
 import { mapFlowTurnsToMessages as mapTurnsToMessages } from './flowTranscriptHistory';
+import { reconcileFlowDetailsCache } from './flowsPage.shared';
 import useFlowDescendants from './useFlowDescendants';
 
 const buildFlowMetaLine = (command: ChatMessage['command']) => {
@@ -1048,7 +1048,6 @@ export default function FlowsPage() {
     activeConversationId,
     hydrateHistory,
     log,
-    mapTurnsToMessages,
     messages.length,
     turns,
     turnsLoading,

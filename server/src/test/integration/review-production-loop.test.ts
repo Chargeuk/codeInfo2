@@ -630,6 +630,41 @@ class ProductionReviewChat extends ChatInterface {
       return;
     }
 
+    // Assessed gates use model decisions rather than the blanket blocker script.
+    // This review-reentry fixture has no live blocker; independent-blocker cases
+    // are exercised by the flow-loop runtime tests.
+    if (
+      message.includes('Use fresh persisted') &&
+      message.includes('plan_status.py')
+    ) {
+      const result = await execFile(
+        'python3',
+        [path.join(repositoryRoot, 'scripts', 'plan_status.py')],
+        {
+          cwd: this.probe.repo,
+          env: { ...getScopedProcessEnv(), CODEINFO_ROOT: repositoryRoot },
+        },
+      );
+      const state = JSON.parse(result.stdout).selected_task;
+      assert.ok(state, 'assessed gate must resolve the fixture task');
+      assert.equal(
+        state.has_live_blocker,
+        false,
+        'fixture has no external blocker',
+      );
+      const answer = message.includes('unchecked implementation subtasks')
+        ? state.has_unchecked_subtasks
+        : message.includes('unchecked automated proof')
+          ? state.has_unchecked_testing
+          : false;
+      this.emit('final', {
+        type: 'final',
+        content: JSON.stringify({ answer: answer ? 'yes' : 'no' }),
+      });
+      this.emit('complete', { type: 'complete', threadId: conversationId });
+      return;
+    }
+
     if (
       message.includes(
         'Read the current immutable batch reconciliation and reconciliation audit from disk.',

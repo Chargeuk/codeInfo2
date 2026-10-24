@@ -156,7 +156,10 @@ export default function useFlowDescendants(parentId: string | undefined) {
   );
   const publish = useCallback(
     (id: string, messages: ChatMessage[], error?: string) => {
-      setTranscripts((previous) => ({ ...previous, [id]: { messages, error } }));
+      setTranscripts((previous) => ({
+        ...previous,
+        [id]: { messages, error },
+      }));
     },
     [],
   );

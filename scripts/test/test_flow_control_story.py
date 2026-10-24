@@ -110,6 +110,7 @@ class FlowControlPromptContractTests(unittest.TestCase):
 
     FLOW_FILES = [
         REPO_ROOT / "flows" / "implement_current_plan.json",
+        REPO_ROOT / "flows" / "improve_task_implement_current_plan.json",
         REPO_ROOT / "flows" / "implement_next_plan.json",
         REPO_ROOT / "flows" / "task_and_implement_plan.json",
         REPO_ROOT / "flows" / "improve_task_implement_plan.json",
@@ -162,15 +163,103 @@ class FlowControlPromptContractTests(unittest.TestCase):
         for flow_path in self.FLOW_FILES:
             self._find_nodes(json.loads(flow_path.read_text()), found)
 
+        # These approved gates assess executable work instead of blanket blocker counts.
+        assessed_contracts = {
+            "Exit current task loop if implementation left a blocker": (
+                "no verified independent automated proof, independent manual proof or safe owned cleanup is executable",
+                "Answer no when any such independent action remains",
+                "Preserve all missing implementation and failed proof",
+                "do not bypass genuine prerequisites or mandatory order",
+            ),
+            "Exit current task loop if task is blocked after proof": (
+                "bounded blocker-repair packet",
+                "no verified independent required manual proof or owned cleanup can safely run",
+                "A blocked automated check alone does not prevent independent manual proof",
+                "Answer no when there is no blocker or safe independent manual work remains",
+                "Preserve blocked proof and task status",
+            ),
+            "Return to the top of current task rework if proof added unchecked subtasks": (
+                "unchecked implementation subtasks have a safe authorized executable next action",
+                "answer no for subtasks blocked by an unchanged external prerequisite",
+                "following independent manual proof can proceed",
+                "Preserve all unchecked work and blockers",
+            ),
+            "Return to the top of current task rework if automated proof still has unchecked testing": (
+                "latest tester report",
+                "unchecked automated proof has a safe executable next action or a materially changed repair to verify",
+                "Answer no when the remaining automated checks depend on an unchanged blocker",
+                "following independent manual proof and owned cleanup",
+                "Never mark those checks complete or rerun unchanged failures",
+            ),
+        }
         self.assertGreater(len(found), 20)
         for node in found:
             question = node["question"]
             if node["label"] == "Exit Task-Up Path After Encoding Review Findings":
                 continue
-            self.assertIn("scripts/flow_control/", question)
-            self.assertIn(self.FRESHNESS_TEXT, question)
-            self.assertIn(self.STDOUT_TEXT, question)
-            self.assertIn("Do not recompute the answer.", question)
+            if node["label"] in assessed_contracts:
+                self.assertNotIn("decisionScript", node)
+                self.assertIn("Use fresh persisted", question)
+                self.assertIn("plan_status.py", question)
+                self.assertIn('Return exactly {"answer":"yes"} or {"answer":"no"}', question)
+                self.assertIn("no edits, tests or side effects", question.lower())
+                self.assertEqual(node["type"], "break" if "breakOn" in node else "continue")
+                self.assertEqual(node.get("breakOn", node.get("continueOn")), "yes")
+                for clause in assessed_contracts[node["label"]]:
+                    self.assertIn(clause, question)
+            else:
+                self.assertIn("scripts/flow_control/", question)
+                self.assertIn(self.FRESHNESS_TEXT, question)
+                self.assertIn(self.STDOUT_TEXT, question)
+                self.assertIn("Do not recompute the answer.", question)
+
+
+class PRReviewPollingContractTests(unittest.TestCase):
+    # Static instruction contracts; these do not execute or predict agent decisions.
+    def read_contracts(self):
+        flow = json.loads((REPO_ROOT / "flows" / "pr_agent_review.json").read_text())
+        poll_loop = next(step for step in flow["steps"] if step["type"] == "startLoop")
+        question = next(
+            step["question"] for step in poll_loop["steps"] if step["type"] == "break"
+        )
+        prompt = (REPO_ROOT / "codeinfo_markdown" / "poll_pr_agent_review.md").read_text()
+        return poll_loop, {
+            name: text.replace("`", "").casefold()
+            for name, text in {"question": question, "prompt": prompt}.items()
+        }
+
+    def test_polling_retains_native_wait_without_a_general_iteration_cap(self):
+        poll_loop, _ = self.read_contracts()
+        self.assertNotIn("maxIterations", poll_loop)
+        self.assertEqual(
+            [step["type"] for step in poll_loop["steps"]],
+            ["llm", "break", "wait"],
+        )
+        self.assertEqual(poll_loop["steps"][-1]["seconds"], 300)
+
+    def test_ambiguous_delivery_requires_three_successful_attributable_readbacks(self):
+        _, contracts = self.read_contracts()
+        for name, contract in contracts.items():
+            with self.subTest(contract=name):
+                self.assertIn("ambiguous-delivery", contract)
+                self.assertIn("three completed successful reconciliation/readback observations", contract)
+                self.assertIn("300-second", contract)
+                self.assertIn("request/trigger/comment/check/review", contract)
+                self.assertIn("exact candidate/reviewer", contract)
+                self.assertIn("failed api queries and empty reviewrequests alone do not count", contract)
+                self.assertIn("existing assigned work evidence", contract)
+
+    def test_confirmed_delivery_and_observable_siblings_remain_protected(self):
+        _, contracts = self.read_contracts()
+        for name, contract in contracts.items():
+            with self.subTest(contract=name):
+                self.assertIn("once delivery/acceptance or provider acknowledgement or pending/running is confirmed", contract)
+                self.assertIn("this exception never applies", contract)
+                self.assertIn("even if status later becomes unknown", contract)
+                self.assertIn("while any sibling remains pending, running or unknown", contract)
+                self.assertIn("answer no", contract)
+                self.assertIn("never retry the review request", contract)
+                self.assertIn("not a terminal review or a clean result", contract)
 
 
 if __name__ == "__main__":

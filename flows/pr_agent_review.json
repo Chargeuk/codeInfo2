@@ -1,0 +1,50 @@
+{
+  "description": "Prepare one pinned target PR, request remote-agent review once, poll with native five-minute waits, and collect all feedback into the assigned ordinary review-job output.",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Prepare Pinned PR And Request Remote Agent Review",
+      "agentType": "planning_agent",
+      "identifier": "pr_reviewer",
+      "continueOnFailure": true,
+      "markdownFile": "prepare_pr_agent_review.md"
+    },
+    {
+      "type": "startLoop",
+      "label": "Observe Requested Remote Agent Reviewers",
+      "steps": [
+        {
+          "type": "llm",
+          "label": "Check Remote Review Status Immediately",
+          "agentType": "planning_agent",
+          "identifier": "pr_reviewer",
+          "continueOnFailure": true,
+          "markdownFile": "poll_pr_agent_review.md"
+        },
+        {
+          "type": "break",
+          "label": "Stop Polling Only For Accounted Terminal Or Unavailable Coverage",
+          "agentType": "loop_control_agent",
+          "identifier": "pr_poll_controller",
+          "question": "Read this scheduler-assigned review job's input and work evidence from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when every requested reviewer for the exact pinned pushed candidate has an evidenced terminal outcome (success, explicit refusal, quota exhaustion or failure), an individually demonstrated inability to continue observation, or the narrowly bounded ambiguous-delivery exception below. Actual unavailable preparation/authentication preventing requests may also end this job honestly. While any sibling remains pending, running or unknown without an applicable individual exception, answer no regardless of another reviewer's terminal or unavailable outcome. For an ambiguous-delivery launch only, observation may become unavailable after three completed successful reconciliation/readback observations separated by the existing 300-second polling waits, with no confirmed delivery/acceptance or provider acknowledgement established. Inspect actual live request/trigger/comment/check/review evidence attributable to the exact candidate/reviewer on each readback; failed API queries and empty reviewRequests alone do not count as completed observations or proof. Track only existing assigned work evidence; no new timer, schema or file. Once delivery/acceptance or provider acknowledgement or pending/running is confirmed for this candidate/reviewer, this exception never applies, even if status later becomes unknown. Outside this ambiguous-delivery exception, unknown status, empty reviewRequests, an unacknowledged request, stale feedback or a transient failed query alone means no and must keep waiting, with no general observation cap or timeout for confirmed active work. Never retry the review request. Actual unavailable preparation/authentication, or sustained demonstrable API capability failure preventing further observation, may end the affected observation honestly; a failed query alone cannot. Unavailable observation is coverage, not a terminal review or a clean result. Preserve each unsuccessful or unavailable reviewer alongside useful sibling results without claiming every reviewer succeeded or forcing the entire flow incomplete merely because a provider declined. Do not mutate GitHub or files. Missing work evidence alone means no.",
+          "breakOn": "yes",
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true
+        },
+        {
+          "type": "wait",
+          "label": "Wait Five Minutes Before Next Remote Status Check",
+          "seconds": 300
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "Collect PR Review Bodies Inline And Issue Comments",
+      "agentType": "planning_agent",
+      "identifier": "pr_reviewer",
+      "continueOnFailure": true,
+      "markdownFile": "collect_pr_agent_review.md"
+    }
+  ]
+}

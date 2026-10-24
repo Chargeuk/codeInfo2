@@ -178,8 +178,7 @@ test('manual proof prompt text requires preserved partial work and a fresh compl
   );
 });
 
-test('current-plan blocker exit assesses remaining progress instead of executing the blanket blocker predicate', () => {
-  const flow = JSON.parse(readRepoFile('flows/implement_current_plan.json'));
+test('both current-plan durable exits use the story script and preserve independent-proof gates', () => {
   const flatten = (
     steps: Array<Record<string, unknown>>,
   ): Array<Record<string, unknown>> =>
@@ -191,27 +190,34 @@ test('current-plan blocker exit assesses remaining progress instead of executing
           : [],
       ),
     ]);
-  const steps = flatten(flow.steps);
-  const exit = steps.find(
-    (step) =>
-      step.label ===
-      'Exit story flow successfully while durable blocker remains',
-  );
-  assert.ok(exit);
-  assert.equal(exit.decisionScript, undefined);
-  assert.equal(exit.exitFlow, true);
-  assert.match(
-    String(exit.question),
-    /every safe independent required implementation, automated proof, manual proof and owned cleanup action/u,
-  );
-  assert.match(String(exit.question), /exit INCOMPLETE/u);
-  for (const label of [
-    'Exit current task loop if implementation left a blocker',
-    'Exit current task loop if task is blocked after proof',
-    'Return to the top of current task rework if automated proof still has unchecked testing',
-  ]) {
-    const gate = steps.find((step) => step.label === label);
-    assert.ok(gate);
-    assert.match(String(gate.question), /independent manual/u);
+  for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
+    const flow = JSON.parse(readRepoFile(`flows/${flowName}.json`));
+    const steps = flatten(flow.steps);
+    const exit = steps.find(
+      (step) =>
+        step.label ===
+        'Exit story flow successfully while durable blocker remains',
+    );
+    assert.ok(exit);
+    assert.equal(
+      exit.decisionScript,
+      'scripts/flow_control/check_story_has_durable_blocker.py',
+    );
+    assert.equal(exit.exitFlow, true);
+    assert.match(
+      String(exit.question),
+      /Return its current stdout exactly and nothing else/u,
+    );
+    assert.match(String(exit.question), /Do not recompute the answer/u);
+    for (const label of [
+      'Exit current task loop if implementation left a blocker',
+      'Exit current task loop if task is blocked after proof',
+      'Return to the top of current task rework if automated proof still has unchecked testing',
+    ]) {
+      const gate = steps.find((step) => step.label === label);
+      assert.ok(gate);
+      assert.equal(gate.decisionScript, undefined);
+      assert.match(String(gate.question), /independent manual/u);
+    }
   }
 });

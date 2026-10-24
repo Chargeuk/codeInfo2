@@ -44,6 +44,78 @@ def check_story_complete() -> DecisionOutcome:
     return no("story_incomplete", **_status_context(status))
 
 
+def check_story_has_durable_blocker() -> DecisionOutcome:
+    """Exit incomplete only at the current-plan flows' post-repair boundary.
+
+    Callers must first run bounded repair/research, planner impact repair,
+    handoff refresh, workflow repair and task reselection. The upstream
+    research_blocker_impact_on_plan.md contract owns live markers: it retires
+    actionable blockers and exposes executable prerequisites as unfinished
+    unblocked tasks. Intermediate gates and workers still own independent
+    proof within a blocked task; counting markers does not prove exhaustion.
+    Never use this predicate as a task-level proof eligibility gate.
+    """
+    try:
+        status = story_workflow_status.get_story_workflow_status(include_tasks=True)
+    except (OSError, ValueError, SystemExit) as exc:
+        return no("story_state_repair_needed", error=str(exc))
+
+    context = _status_context(status)
+    if status.get("repair_needed") is not False or status.get("scope_valid") is not True:
+        return no(
+            "story_scope_repair_needed",
+            repair_reason=status.get("repair_reason"),
+            scope_error=status.get("scope_error"),
+            **context,
+        )
+
+    tasks = status.get("tasks")
+    if not tasks:
+        return no("story_task_state_repair_needed", issue="missing_tasks", **context)
+
+    numbers: set[int] = set()
+    remaining: list[dict[str, Any]] = []
+    for task in tasks:
+        number = task["number"]
+        task_status = task["status"]
+        if (
+            number <= 0
+            or number in numbers
+            or task_status not in ("__done__", "__in_progress__", "__to_do__")
+        ):
+            return no(
+                "story_task_state_repair_needed",
+                issue="task_identity_or_status",
+                task_number=number,
+                **context,
+            )
+        numbers.add(number)
+        if task_status == "__done__":
+            if (
+                task["live_blockers"]
+                or task["has_unchecked_subtasks"]
+                or task["has_unchecked_testing"]
+            ):
+                return no(
+                    "story_task_state_repair_needed",
+                    issue="done_task_has_open_obligations",
+                    task_number=number,
+                    **context,
+                )
+        else:
+            remaining.append(task)
+
+    # Plan completion must continue to review, including when settlement is pending
+    # and reselection deliberately leaves no current-task handoff.
+    if not remaining:
+        return no("story_complete", **context)
+    if not any(task["live_blockers"] for task in remaining):
+        return no("no_live_blockers", **context)
+    if any(not task["live_blockers"] for task in remaining):
+        return no("unfinished_unblocked_tasks_remain", **context)
+    return yes("story_durably_blocked_after_repair", tasks=remaining, **context)
+
+
 def check_review_should_exit_to_main_loop() -> DecisionOutcome:
     status = _workflow_status()
     should_exit = (

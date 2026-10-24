@@ -7,6 +7,7 @@ codex/.config
 codex/.local
 codeInfoStatus/manual-testing/
 artifacts/story-0000055-screenshots/
+browser/vendor/
 # Intentional invalid test fixture; must remain syntactically broken.
 server/src/test/fixtures/flows/invalid-json.json
 server/tmp-flows-*/invalid-json.json

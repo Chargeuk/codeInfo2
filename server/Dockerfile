@@ -253,6 +253,10 @@ COPY --from=deps /app/node_modules/playwright-core /opt/playwright/node_modules/
 RUN node -e "if (require('/opt/playwright/node_modules/playwright/package.json').version !== '1.56.1') process.exit(1)" && \
     node /opt/playwright/node_modules/playwright/cli.js install --with-deps chromium
 
+# Shared, offline browser initialization; normal pages keep their native XR APIs.
+COPY browser /app/browser
+RUN node /app/browser/xr-init.mjs > /app/browser/xr-init.js
+
 # Runtime ownership is deliberately after expensive installs.
 ARG HOME=/app/codex
 ARG CODEINFO_RUNTIME_UID=1000

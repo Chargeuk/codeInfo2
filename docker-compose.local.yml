@@ -196,7 +196,10 @@ services:
 
   playwright-mcp:
     container_name: codeinfo2-playwright-mcp-local
-    image: mcr.microsoft.com/playwright/mcp:latest
+    build:
+      context: .
+      dockerfile: browser/Dockerfile
+    image: codeinfo2-playwright-mcp-local
     user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
     network_mode: host
     entrypoint: ['node', '/app/cli.js']
@@ -210,6 +213,8 @@ services:
         '--ignore-https-errors',
         '--no-sandbox',
         '--isolated',
+        '--init-script',
+        '/app/browser/xr-init.js',
         '--port',
         '8931',
         '--allowed-hosts',

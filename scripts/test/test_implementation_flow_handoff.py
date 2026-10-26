@@ -15,6 +15,7 @@ import unittest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FLOW_NAMES = (
     "implement_current_plan",
+    "pr_current_plan",
     "improve_task_implement_current_plan",
     "implement_next_plan",
     "implement_next_plan_github_review",
@@ -51,7 +52,7 @@ class ImplementationFlowHandoffTests(unittest.TestCase):
                                 [
                                     "refresh_current_plan_handoff.md",
                                     "repair_current_plan_workflow_state.md"
-                                    if name in ("implement_current_plan", "improve_task_implement_current_plan")
+                                    if name in ("implement_current_plan", "pr_current_plan", "improve_task_implement_current_plan")
                                     else "repair_story_workflow_state.md",
                                     "select_current_task.md",
                                 ],
@@ -59,8 +60,11 @@ class ImplementationFlowHandoffTests(unittest.TestCase):
                             self.assertEqual(preparation[-1]["type"], "llm")
                             self.assertEqual(preparation[-1]["agentType"], "planning_agent")
                             self.assertEqual(preparation[-1]["identifier"], "planner")
-                            # Only the unchanged GitHub-review variant still uses script dispatch.
-                            if name == "implement_next_plan_github_review":
+                            if name in ("implement_current_plan", "pr_current_plan"):
+                                self.assertEqual(step["decisionScript"], "scripts/flow_control/check_story_has_durable_blocker.py")
+                                self.assertIn("Return its current stdout exactly and nothing else.", step["question"])
+                                self.assertIn("Do not recompute the answer.", step["question"])
+                            elif name == "implement_next_plan_github_review":
                                 self.assertEqual(step["decisionScript"], "scripts/flow_control/check_current_task_has_blocker.py")
                             else:
                                 self.assertNotIn("decisionScript", step)

@@ -1386,7 +1386,8 @@ test('checked-in GitHub review flow is opt-in, runs after internal completion, a
       'Generate Final Revalidation Task Unless Review Work Is Already Tasked Up',
   );
   const existingTaskExitIndex = dispositionSteps.findIndex(
-    (step) => step.label === 'Exit Review Loop After Serious Review Work Was Tasked Up',
+    (step) =>
+      step.label === 'Exit Review Loop After Serious Review Work Was Tasked Up',
   );
   const cleanExitIndex = dispositionSteps.findIndex(
     (step) =>
@@ -1424,8 +1425,7 @@ test('checked-in GitHub review flow is opt-in, runs after internal completion, a
   assert.equal(
     flattened.filter(
       (step) =>
-        step.markdownFile ===
-        'generate_or_update_pr_fix_revalidation_task.md',
+        step.markdownFile === 'generate_or_update_pr_fix_revalidation_task.md',
     ).length,
     1,
   );
@@ -5834,104 +5834,231 @@ test('shared decision seam follows valid script-driven continue branch through h
   );
 });
 
-for (const independentWorkRemains of [true, false]) {
-  test(`current-plan assessed blocker gate preserves independent progress: ${independentWorkRemains}`, async () => {
-    const definition = JSON.parse(
-      await fs.readFile(
-        path.join(repoRoot, 'flows/implement_current_plan.json'),
-        'utf8',
-      ),
-    );
-    const findGate = (
-      steps: Array<Record<string, unknown>>,
-    ): Record<string, unknown> | undefined => {
-      for (const step of steps) {
-        if (
-          step.label ===
-          'Exit story flow successfully while durable blocker remains'
-        )
-          return step;
-        for (const key of ['steps', 'then', 'else']) {
-          if (Array.isArray(step[key])) {
-            const found = findGate(step[key] as Array<Record<string, unknown>>);
-            if (found) return found;
+for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
+  for (const scenario of [
+    'complete',
+    'review-pending',
+    'blocked',
+    'independent',
+    'blocked-dependency',
+    'blocked-dependency-and-independent',
+  ]) {
+    test(`${flowName} durable story decisionScript routes persisted ${scenario} state`, async () => {
+      const definition = JSON.parse(
+        await fs.readFile(
+          path.join(repoRoot, `flows/${flowName}.json`),
+          'utf8',
+        ),
+      );
+      const findGate = (
+        steps: Array<Record<string, unknown>>,
+      ): Record<string, unknown> | undefined => {
+        for (const step of steps) {
+          if (
+            step.label ===
+            'Exit story flow successfully while durable blocker remains'
+          ) {
+            return step;
+          }
+          for (const key of ['steps', 'then', 'else']) {
+            if (Array.isArray(step[key])) {
+              const found = findGate(
+                step[key] as Array<Record<string, unknown>>,
+              );
+              if (found) return found;
+            }
           }
         }
-      }
-      return undefined;
-    };
-    const gate = findGate(definition.steps);
-    assert.ok(gate);
-    const seen: string[] = [];
-    await withFlowServer(
-      (message) => {
-        seen.push(message);
-        return message.includes('Answer yes to exit INCOMPLETE')
-          ? JSON.stringify({ answer: independentWorkRemains ? 'no' : 'yes' })
-          : 'Independent proof and owned cleanup recorded; blocked proof stays open.';
-      },
-      async ({ baseUrl, wsUrl, tmpDir }) => {
-        const conversationId = `assessed-blocker-${independentWorkRemains}`;
-        await fs.writeFile(
-          path.join(tmpDir, 'assessed-blocker.json'),
-          JSON.stringify({
-            steps: [
-              gate,
-              {
-                type: 'llm',
-                agentType: 'loop_control_agent',
-                identifier: 'loop_controller',
-                messages: [
-                  {
-                    role: 'user',
-                    content: [
-                      'Perform remaining independent proof and owned cleanup.',
-                    ],
-                  },
-                ],
+        return undefined;
+      };
+      const gate = findGate(definition.steps);
+      assert.ok(gate);
+      assert.equal(
+        gate.decisionScript,
+        'scripts/flow_control/check_story_has_durable_blocker.py',
+      );
+      const seen: string[] = [];
+      await withFlowServer(
+        (message) => {
+          seen.push(message);
+          // No model decision is stubbed: both decisions below execute Python.
+          return 'Sentinel reached.';
+        },
+        async ({ baseUrl, wsUrl, tmpDir }) => {
+          const conversationId = `${flowName}-${scenario}-${path.basename(tmpDir)}`;
+          const planPath = 'planning/0000123-sample-story.md';
+          const flowState = path.join(tmpDir, 'codeInfoStatus/flow-state');
+          const complete =
+            scenario === 'complete' || scenario === 'review-pending';
+          const dependencyScenario = scenario.startsWith('blocked-dependency');
+          const shouldExit =
+            scenario === 'blocked' || scenario === 'blocked-dependency';
+          const task = (
+            number: number,
+            status: string,
+            blocked: boolean,
+            dependency?: number,
+          ) =>
+            [
+              `### Task ${number}. Work ${number}`,
+              '',
+              `- Task Status: \`${status}\``,
+              ...(dependency === undefined
+                ? []
+                : [`- Task Dependencies: \`${dependency}\``]),
+              '',
+              '#### Subtasks',
+              '',
+              `1. [${status === '__done__' ? 'x' : ' '}] Implementation`,
+              '',
+              '#### Testing',
+              '',
+              `1. [${status === '__done__' ? 'x' : ' '}] Required proof`,
+              '',
+              '#### Implementation Notes',
+              '',
+              ...(blocked
+                ? ['- **BLOCKER** External provider requires human authority.']
+                : []),
+              '',
+            ].join('\n');
+          // Only independent work prevents exit at this post-repair boundary;
+          // unfinished work behind a blocked prerequisite must also wait.
+          const plan = complete
+            ? task(1, '__done__', false)
+            : dependencyScenario
+              ? task(1, '__in_progress__', true) +
+                task(2, '__to_do__', false, 1) +
+                (scenario === 'blocked-dependency-and-independent'
+                  ? task(3, '__to_do__', false)
+                  : '')
+              : scenario === 'blocked'
+                ? task(1, '__done__', false) + task(2, '__in_progress__', true)
+                : task(1, '__in_progress__', false) +
+                  task(2, '__to_do__', true);
+          await fs.mkdir(path.join(tmpDir, 'planning'), { recursive: true });
+          await fs.mkdir(flowState, { recursive: true });
+          await fs.writeFile(path.join(tmpDir, planPath), plan);
+          await fs.writeFile(
+            path.join(flowState, 'current-plan.json'),
+            JSON.stringify({
+              plan_path: planPath,
+              additional_repositories: [],
+            }),
+          );
+          // Completed plans deliberately have no current-task handoff.
+          if (!complete) {
+            await fs.writeFile(
+              path.join(flowState, 'current-task.json'),
+              JSON.stringify({
+                plan_path: planPath,
+                selected_task: { number: scenario === 'blocked' ? 2 : 1 },
+              }),
+            );
+          }
+          if (scenario === 'review-pending') {
+            await fs.writeFile(
+              path.join(flowState, 'active-review-cycle.json'),
+              JSON.stringify({
+                schema_version: 'codeinfo-active-review-cycle/v2',
+                review_cycle_id: '0000123-rc-20260721T120000Z-aabbccdd',
+                review_mode: 'final',
+                story_id: '0000123',
+                plan_path: planPath,
+                status: 'incomplete',
+                created_at: '2026-07-21T12:00:00Z',
+                completed_at: '2026-07-21T12:05:00Z',
+                incomplete_reason: 'Review settlement pending.',
+              }),
+            );
+          }
+          await execFile(
+            'git',
+            ['switch', '-c', 'feature/0000123-sample-story'],
+            {
+              cwd: tmpDir,
+            },
+          );
+          const sentinel = (content: string) => ({
+            type: 'llm',
+            agentType: 'loop_control_agent',
+            identifier: 'loop_controller',
+            messages: [{ role: 'user', content: [content] }],
+          });
+          await fs.writeFile(
+            path.join(tmpDir, 'durable-blocker.json'),
+            JSON.stringify({
+              steps: [
+                gate,
+                {
+                  type: 'if',
+                  condition: 'Route completed implementation to review.',
+                  decisionScript:
+                    'scripts/flow_control/check_story_complete.py',
+                  then: [sentinel('REVIEW_SENTINEL')],
+                  else: [sentinel('CONTINUATION_SENTINEL')],
+                },
+              ],
+            }),
+          );
+          try {
+            await subscribeConversationAndWaitReady({
+              ws: wsUrl,
+              conversationId,
+            });
+            await supertest(baseUrl)
+              .post('/flows/durable-blocker/run')
+              .send({ conversationId, working_folder: tmpDir })
+              .expect(202);
+            await waitForTestCondition(
+              async () => {
+                const response = await supertest(baseUrl)
+                  .get(`/flows/runs/${conversationId}`)
+                  .expect(200);
+                return response.body.terminal === true;
               },
-            ],
-          }),
-        );
-        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
-        await supertest(baseUrl)
-          .post('/flows/assessed-blocker/run')
-          .send({ conversationId })
-          .expect(202);
-        await waitForTestCondition(
-          async () => {
-            const response = await supertest(baseUrl)
+              {
+                timeoutMs: 10000,
+                description: `${flowName} durable blocker ${scenario} to become terminal`,
+              },
+            );
+            assert.equal(
+              seen.some((message) => message.includes('REVIEW_SENTINEL')),
+              complete,
+            );
+            assert.equal(
+              seen.some((message) => message.includes('CONTINUATION_SENTINEL')),
+              !complete && !shouldExit,
+            );
+            assert.equal(
+              seen.some((message) =>
+                message.includes('Do not recompute the answer'),
+              ),
+              false,
+              'the durable decision must execute its script, never ask the model',
+            );
+            const status = await supertest(baseUrl)
               .get(`/flows/runs/${conversationId}`)
               .expect(200);
-            return response.body.terminal === true;
-          },
-          {
-            timeoutMs: 10000,
-            description: `assessed blocker flow ${conversationId} to become terminal`,
-          },
-        );
-        assert.equal(
-          seen.some((message) =>
-            message.includes('Perform remaining independent proof'),
-          ),
-          independentWorkRemains,
-        );
-        const status = await supertest(baseUrl)
-          .get(`/flows/runs/${conversationId}`)
-          .expect(200);
-        assert.equal(status.body.terminal, true);
-        assert.equal(
-          status.body.terminalOutcome,
-          independentWorkRemains ? null : 'not_applicable',
-        );
-        await cleanupConversationRuntime(
-          conversationId,
-          getAgentConversationId(
-            conversationId,
-            'loop_control_agent:loop_controller',
-          ),
-        );
-      },
-    );
-  });
+            assert.equal(
+              status.body.terminalOutcome,
+              shouldExit ? 'not_applicable' : null,
+            );
+            assert.equal(
+              await fs.readFile(path.join(tmpDir, planPath), 'utf8'),
+              plan,
+            );
+          } finally {
+            await cleanupConversationRuntime(
+              conversationId,
+              ...getAgentConversationIds(conversationId, [
+                'loop_control_agent:loop_controller',
+              ]),
+            );
+          }
+        },
+        { registerTmpDirAsRepo: true },
+      );
+    });
+  }
 }

@@ -64,6 +64,20 @@ describe('flow schema (v1)', () => {
     return flattened;
   };
 
+  // Current/PR durable-exit wiring is asserted separately in
+  // runtime-blocker-prompt-contract.test.ts; compare every other field here.
+  const normalizeDurableExitDecision = (steps: FlowStep[]): FlowStep[] =>
+    steps.map((step) => ({
+      ...step,
+      ...(step.label ===
+      'Exit story flow successfully while durable blocker remains'
+        ? { question: 'durable exit decision', decisionScript: undefined }
+        : {}),
+      ...(step.steps
+        ? { steps: normalizeDurableExitDecision(step.steps) }
+        : {}),
+    }));
+
   const loadExpandedFlowSteps = async (
     relativePath: string,
     ancestors: string[] = [],
@@ -1518,8 +1532,8 @@ describe('flow schema (v1)', () => {
           : {}),
       }));
     assert.deepEqual(
-      normalizeCurrentRepairPrompt(currentSteps),
-      nextSteps.slice(storyLoopIndex),
+      normalizeDurableExitDecision(normalizeCurrentRepairPrompt(currentSteps)),
+      normalizeDurableExitDecision(nextSteps.slice(storyLoopIndex)),
     );
     assert.match(repairPrompt, /retain its exact `plan_path`/u);
     assert.match(repairPrompt, /Never run next-plan discovery/u);
@@ -1552,7 +1566,10 @@ describe('flow schema (v1)', () => {
 
     assert.match(improveCurrent.description ?? '', /persisted current plan/u);
     assert.notEqual(storyLoopIndex, -1);
-    assert.deepEqual(steps.slice(storyLoopIndex), current.steps ?? []);
+    assert.deepEqual(
+      normalizeDurableExitDecision(steps.slice(storyLoopIndex)),
+      normalizeDurableExitDecision(current.steps ?? []),
+    );
     assert.deepEqual(prefixLabels.slice(0, 3), [
       'Planner Use Current Plan',
       'Lite Planner Use Current Plan',

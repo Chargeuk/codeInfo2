@@ -5840,6 +5840,8 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
     'review-pending',
     'blocked',
     'independent',
+    'blocked-dependency',
+    'blocked-dependency-and-independent',
   ]) {
     test(`${flowName} durable story decisionScript routes persisted ${scenario} state`, async () => {
       const definition = JSON.parse(
@@ -5888,11 +5890,22 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
           const flowState = path.join(tmpDir, 'codeInfoStatus/flow-state');
           const complete =
             scenario === 'complete' || scenario === 'review-pending';
-          const task = (number: number, status: string, blocked: boolean) =>
+          const dependencyScenario = scenario.startsWith('blocked-dependency');
+          const shouldExit =
+            scenario === 'blocked' || scenario === 'blocked-dependency';
+          const task = (
+            number: number,
+            status: string,
+            blocked: boolean,
+            dependency?: number,
+          ) =>
             [
               `### Task ${number}. Work ${number}`,
               '',
               `- Task Status: \`${status}\``,
+              ...(dependency === undefined
+                ? []
+                : [`- Task Dependencies: \`${dependency}\``]),
               '',
               '#### Subtasks',
               '',
@@ -5909,13 +5922,20 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
                 : []),
               '',
             ].join('\n');
-          // This fixture represents the existing post-repair boundary. An
-          // executable prerequisite remains unblocked and must prevent exit.
+          // Only independent work prevents exit at this post-repair boundary;
+          // unfinished work behind a blocked prerequisite must also wait.
           const plan = complete
             ? task(1, '__done__', false)
-            : scenario === 'blocked'
-              ? task(1, '__done__', false) + task(2, '__in_progress__', true)
-              : task(1, '__in_progress__', false) + task(2, '__to_do__', true);
+            : dependencyScenario
+              ? task(1, '__in_progress__', true) +
+                task(2, '__to_do__', false, 1) +
+                (scenario === 'blocked-dependency-and-independent'
+                  ? task(3, '__to_do__', false)
+                  : '')
+              : scenario === 'blocked'
+                ? task(1, '__done__', false) + task(2, '__in_progress__', true)
+                : task(1, '__in_progress__', false) +
+                  task(2, '__to_do__', true);
           await fs.mkdir(path.join(tmpDir, 'planning'), { recursive: true });
           await fs.mkdir(flowState, { recursive: true });
           await fs.writeFile(path.join(tmpDir, planPath), plan);
@@ -6008,7 +6028,7 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
             );
             assert.equal(
               seen.some((message) => message.includes('CONTINUATION_SENTINEL')),
-              scenario === 'independent',
+              !complete && !shouldExit,
             );
             assert.equal(
               seen.some((message) =>
@@ -6022,7 +6042,7 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
               .expect(200);
             assert.equal(
               status.body.terminalOutcome,
-              scenario === 'blocked' ? 'not_applicable' : null,
+              shouldExit ? 'not_applicable' : null,
             );
             assert.equal(
               await fs.readFile(path.join(tmpDir, planPath), 'utf8'),

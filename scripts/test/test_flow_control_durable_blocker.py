@@ -19,12 +19,16 @@ from flow_control import story
 
 
 class DurableStoryBlockerTests(unittest.TestCase):
-    def task(self, number=1, status="__in_progress__", *, blocker=False, notes=""):
+    def task(
+        self, number=1, status="__in_progress__", *, blocker=False, notes="", dependencies=None
+    ):
+        """Render task metadata and obligations for a disk-backed story fixture."""
         checked = "x" if status == "__done__" else " "
         return (
             f"### Task {number}. Work {number}\n\n"
             f"- Task Status: `{status}`\n\n"
-            f"#### Subtasks\n\n1. [{checked}] Implement\n\n"
+            + (f"- Task Dependencies: {dependencies}\n\n" if dependencies is not None else "")
+            + f"#### Subtasks\n\n1. [{checked}] Implement\n\n"
             f"#### Testing\n\n1. [{checked}] Required proof\n\n"
             "#### Implementation Notes\n\n"
             + (
@@ -35,6 +39,7 @@ class DurableStoryBlockerTests(unittest.TestCase):
         )
 
     def make_repo(self, content=None, **kwargs):
+        """Create an isolated repository using the shared workflow fixture."""
         repo, _ = workflow_fixtures.StoryWorkflowStatusTests.make_repo(
             self,
             plan_content=content if content is not None else self.task(blocker=True),
@@ -43,6 +48,7 @@ class DurableStoryBlockerTests(unittest.TestCase):
         return repo
 
     def wrapper(self, repo, script="check_story_has_durable_blocker.py", answer="no"):
+        """Assert the script answer and return its diagnostic reason and details."""
         debug_dir = repo / "debug"
         result = subprocess.run(
             [sys.executable, str(REPO_ROOT / "scripts" / "flow_control" / script)],
@@ -108,14 +114,65 @@ class DurableStoryBlockerTests(unittest.TestCase):
                 self.assertEqual(plan.read_bytes(), before)
 
     def test_independent_unfinished_or_repaired_prerequisite_prevents_exit(self):
-        for content in (
-            self.task(blocker=True) + self.task(2, "__to_do__"),
-            self.task() + self.task(2, "__to_do__", blocker=True),
-            self.task(notes="- **RESOLVED ISSUE** Same-task repair is executable.\n"),
+        for content, reason in (
+            (self.task(blocker=True) + self.task(2, "__to_do__"),
+             "unfinished_unblocked_tasks_remain"),
+            (self.task() + self.task(2, "__to_do__", blocker=True),
+             "unfinished_unblocked_tasks_remain"),
+            (self.task(notes="- **RESOLVED ISSUE** Same-task repair is executable.\n"),
+             "no_live_blockers"),
         ):
             with self.subTest(content=content):
                 repo = self.make_repo(content)
-                self.wrapper(repo)
+                self.assertEqual(self.wrapper(repo)["reason_code"], reason)
+
+    def test_blocked_dependencies_allow_exit_without_duplicate_blocker_markers(self):
+        """Direct, chained and multiple dependencies inherit a retained blocker."""
+        for content in (
+            self.task(blocker=True) + self.task(2, "__to_do__", dependencies="`1`"),
+            # Reverse dependency order requires more than one propagation pass.
+            self.task(blocker=True)
+            + self.task(2, "__to_do__", dependencies="Task 3")
+            + self.task(3, "__to_do__", dependencies="Task 1"),
+            self.task(blocker=True) + self.task(2, "__done__")
+            + self.task(3, "__to_do__", dependencies="`Task 1`, `Task 2`"),
+        ):
+            with self.subTest(content=content):
+                repo = self.make_repo(content)
+                plan = repo / "planning/0000123-sample-story.md"
+                before = plan.read_bytes()
+                result = self.wrapper(repo, answer="yes")
+                self.assertEqual(result["reason_code"], "story_durably_blocked_after_repair")
+                self.assertEqual(plan.read_bytes(), before)
+
+    def test_dependencies_do_not_hide_independent_or_ready_work(self):
+        """Independent work and work with completed prerequisites prevent exit."""
+        for content in (
+            self.task(blocker=True)
+            + self.task(2, "__to_do__", dependencies="1") + self.task(3, "__to_do__"),
+            self.task(blocker=True) + self.task(2, "__done__")
+            + self.task(3, "__to_do__", dependencies="Task 2"),
+            self.task(blocker=True) + self.task(2, "__to_do__", dependencies="None"),
+            self.task(blocker=True) + self.task(2, "__to_do__", dependencies="3")
+            + self.task(3, "__to_do__", dependencies="2"),
+        ):
+            with self.subTest(content=content):
+                repo = self.make_repo(content)
+                self.assertEqual(
+                    self.wrapper(repo)["reason_code"], "unfinished_unblocked_tasks_remain"
+                )
+
+    def test_unverified_dependencies_require_repair_instead_of_exit(self):
+        """Unknown task references and ambiguous dependency text cannot prove blocking."""
+        for dependencies in ("99", "1, 99", "Task 1 or Task 2", "previous tasks", "0"):
+            with self.subTest(dependencies=dependencies):
+                repo = self.make_repo(
+                    self.task(blocker=True)
+                    + self.task(2, "__to_do__", dependencies=dependencies)
+                )
+                result = self.wrapper(repo)
+                self.assertEqual(result["reason_code"], "story_task_state_repair_needed")
+                self.assertEqual(result["details"]["issue"], "task_dependencies_unreadable")
 
     def test_missing_malformed_handoff_plan_and_task_state_need_repair(self):
         mutations = (

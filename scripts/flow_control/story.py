@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+import re
 from typing import Any
 
 import story_workflow_status
@@ -51,7 +53,9 @@ def check_story_has_durable_blocker() -> DecisionOutcome:
     handoff refresh, workflow repair and task reselection. The upstream
     research_blocker_impact_on_plan.md contract owns live markers: it retires
     actionable blockers and exposes executable prerequisites as unfinished
-    unblocked tasks. Intermediate gates and workers still own independent
+    unblocked tasks. Explicit dependencies propagate retained blockers to
+    unfinished downstream tasks without duplicating blocker markers.
+    Intermediate gates and workers still own independent
     proof within a blocked task; counting markers does not prove exhaustion.
     Never use this predicate as a task-level proof eligibility gate.
     """
@@ -111,8 +115,53 @@ def check_story_has_durable_blocker() -> DecisionOutcome:
         return no("story_complete", **context)
     if not any(task["live_blockers"] for task in remaining):
         return no("no_live_blockers", **context)
-    if any(not task["live_blockers"] for task in remaining):
-        return no("unfinished_unblocked_tasks_remain", **context)
+    blocked = {task["number"] for task in remaining if task["live_blockers"]}
+    if len(blocked) != len(remaining):
+        # Keep dependency reads local to this decision; other story/review checks
+        # retain their existing inputs and behavior.
+        from plan_sections import task_index_entry
+
+        dependencies: dict[int, set[int]] = {}
+        try:
+            lines = Path(status["plan_path"]).read_text().splitlines()
+            for task in remaining:
+                if task["number"] in blocked:
+                    continue
+                raw = task_index_entry(lines, task).get("task_dependencies", "")
+                raw = raw.replace("`", "").strip()
+                if raw.lower() in ("", "none"):
+                    required: set[int] = set()
+                else:
+                    if not re.fullmatch(
+                        r"(?:Task\s+)?[1-9]\d*(?:\s*,\s*(?:Task\s+)?[1-9]\d*)*",
+                        raw,
+                        re.IGNORECASE,
+                    ):
+                        raise ValueError("Dependencies must be explicit task numbers")
+                    required = {int(number) for number in re.findall(r"\d+", raw)}
+                    if not required <= numbers:
+                        raise ValueError("Dependency refers to an unknown task")
+                dependencies[task["number"]] = required
+        except (OSError, ValueError, IndexError) as exc:
+            return no(
+                "story_task_state_repair_needed",
+                issue="task_dependencies_unreadable",
+                error=str(exc),
+                **context,
+            )
+
+        # Only propagate from proven blockers. Unseeded cycles stay unresolved,
+        # completed tasks never propagate, and independent work prevents exit.
+        while True:
+            newly_blocked = {
+                number for number, required in dependencies.items()
+                if number not in blocked and required & blocked
+            }
+            if not newly_blocked:
+                break
+            blocked.update(newly_blocked)
+        if len(blocked) != len(remaining):
+            return no("unfinished_unblocked_tasks_remain", **context)
     return yes("story_durably_blocked_after_repair", tasks=remaining, **context)
 
 

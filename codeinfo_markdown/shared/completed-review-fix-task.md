@@ -44,6 +44,8 @@ The task must be `Task Status: __done__` and contain:
 
 If no focused test ran for a repair, do not invent or check a test. Record that limitation as checkbox-free prose in `Testing` or `Implementation Notes`; final revalidation remains responsible for broad proof.
 
+When the affected plan/task explicitly excludes agent-run testing, preserve that restriction as checkbox-free prose in this task's `Testing` section and do not create, repair, execute, or mark excluded proof complete. Otherwise record only focused tests that actually ran. A scoped exclusion does not suppress source review, review repair, settlement, or proof required by other tasks; unavailable execution evidence remains explicit rather than a fabricated pass.
+
 Use one task for the whole batch even when fixes span repositories or both repair agents. `Affected Repositories`, not the administrative `Repository Name`, defines its evidence scope.
 
 ## Evidence And Best Effort

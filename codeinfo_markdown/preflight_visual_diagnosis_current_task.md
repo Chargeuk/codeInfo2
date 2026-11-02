@@ -64,6 +64,8 @@ Before implementation starts on the current task, inspect the live supported UI 
 
 <scope_and_runtime_rules>
 
+- Before starting or reclaiming a runtime for visual diagnosis, read the bound task's complete Testing section and applicable approved story restrictions through bounded plan extraction. An explicit exclusion prohibits only the covered runtime/testing activity; do not launch or reclaim excluded setups. Continue safe source/visual review that does not perform the excluded activity, preserve permitted checks, and report the limitation without claiming proof or treating it as an agent blocker.
+
 - Before using browser tools, read:
   - `AGENTS.md`
   - `README.md`

@@ -22,6 +22,9 @@ Audit the generated task list so every task has realistic proof, testing, and co
 
 <proof_and_testing_rules>
 
+- Before generating proof-authoring subtasks or `Testing` items, read the full applicable task Testing text and approved story-level testing restrictions through the existing bounded plan extraction. The agent interprets the language semantically; do not use a Python keyword classifier. An explicit exclusion applies only to the stated scope and activities: it governs test authoring/repair, static/syntax/contract checks, builds/typechecks, lint/format, manual/browser/E2E proof, or runtime setup only when the actual restriction covers them. Preserve every permitted mandatory proof item for this and other tasks. Missing/empty Testing, “no tests exist,” or ambiguity is not permission to omit proof; carry ambiguity and contradictions forward honestly. When a restriction excludes agent testing, write it as checkbox-free prose in the applicable Testing section; do not invent a checked test or count external human acceptance as completed.
+- Explicit exclusions qualify the generic test-authoring and proof-generation requirements below. Keep source/visual review, implementation audits, review cycles, and permitted documentation/source review active; an excluded proof item is not a reason to block task completion or bypass a mixed-purpose audit.
+
 - `Testing` must contain automated proof execution only.
 - Manual Playwright, browser, or agent-driven validation does not belong in `Testing`; place optional later guidance in `Manual Testing Guidance` instead.
 - When the active plan already contains tasks, limit substantive rewrites to tasks that are still `__to_do__`.

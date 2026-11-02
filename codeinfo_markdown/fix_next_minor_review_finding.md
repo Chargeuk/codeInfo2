@@ -13,6 +13,8 @@ This step performs the code/config/docs/test edit for one routed inline-fix find
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
 - Use only the stored `plan_path`, `additional_repositories`, and review disposition state as the active scope.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile review-scope` before touching files. Request the selected finding's owning task sections separately if the disposition state identifies one.
+- Use the assigned plan path and selected finding in the freshly read disposition as the pinned authority. Identify every actual task whose scope/proof this finding's repair affects, and retrieve each complete `Testing` section plus applicable story contract/restrictions with the existing `plan_sections.py --plan <assigned-plan> --task-number <n> --section Testing` and bounded story-section queries. Never use a stale `current-task` pointer to infer scope after task completion. The agent interprets the complete text semantically; Python only extracts it.
+- Determine separately whether the applicable contract permits test authoring, test repair, focused proof execution, and any proposed static/syntax/contract check, build/typecheck, lint, format, manual/browser/E2E proof, or runtime setup. An explicit exclusion removes only the activity and task scope it actually covers. Missing or empty Testing, “no tests exist,” or ambiguity is not permission to skip; preserve permitted required proof and report ambiguity honestly.
 - Do not answer from conversational memory or an earlier snapshot when these files can be re-read from disk now.
 - Do not rediscover review artifacts by timestamp.
 - If `needs_minor_fix_path` is not true, do not change repository files. Write a skipped result and stop.
@@ -20,9 +22,10 @@ This step performs the code/config/docs/test edit for one routed inline-fix find
 - Select exactly one finding from `unresolved_minor_batchable_findings`, preferably the first listed item unless the state names a selected finding.
 - Treat this queue as the review loop's inline-fix queue, not merely as tiny-cleanup work. Re-inspect the selected finding and the relevant source files, create the required internal one-shot resolution plan, and make every safe concrete attempt allowed by the rules below before deciding that task-up is required.
 - Do not perform manual browser, Playwright MCP, or agent-driven validation.
-- Do not run broad final validation in this step. Run only bounded local automated proof that is directly needed for the selected minor fix. This may include a small test update or one or two new focused tests in the owning repository.
-- If the step is going to exit with `status = fixed` and tracked files were changed, commit them before finishing this step.
+- Do not run broad final validation in this step. Run only bounded local automated proof directly needed for the selected minor fix and permitted by the affected task contracts. Author or repair a small test only when test authoring/repair is also permitted. Preserve every permitted required proof item.
+- If the step is going to exit with `status = fixed` and tracked files were changed, commit them before finishing this step. `fixed` requires a completed source repair and every permitted required proof item to pass; explicitly excluded proof is recorded as `not_run`, not passed, and is not a commit/status gate.
 - If the step is going to exit with any status other than `fixed`, do not commit. Revert any tracked edits made during this minor-fix attempt before writing the terminal result so the next loop pass does not inherit this attempt's partial tracked changes.
+- Excluded proof is recorded as `not_run` with the exclusion in `targeted_proof`; it is never a pass and does not prevent an otherwise complete source fix from receiving `status = fixed`. A failed or unavailable permitted required check is unresolved: do not set `fixed`, do not claim acceptance, and use the existing retry, blocked, or reclassification path according to its actual cause. Keep the existing result fields and terminal status values.
 - When `status` is `fixed`, `commit_sha` MUST be the exact full 40-character git commit SHA for the newly created fix commit. Do not write a guessed expansion of a short SHA, and do not copy a short SHA into this field.
 - Resolve that exact SHA from git after the fix commit is created, for example with `git rev-parse HEAD` or `git rev-parse <new-short-sha>`.
 - Do not push.
@@ -46,10 +49,10 @@ This step performs the code/config/docs/test edit for one routed inline-fix find
   - the evidence-backed root cause;
   - the exact in-scope behavior to restore or establish;
   - the files and implementation seams likely to change;
-  - the focused automated proof needed;
+  - the focused automated proof permitted and required by the affected task contract, distinguishing an explicit exclusion from an unavailable or failed required check;
   - the important scope, contract, and repository-safety constraints.
 - Follow that plan immediately when it identifies a safe in-scope implementation that can be completed in this coding pass.
-- After each edit, run the focused proof needed for the finding. If proof fails, diagnose the failure, revise the plan or implementation, and retry while a safe concrete next action remains.
+- After each edit, run each focused proof required and permitted by the affected task contract. If a permitted check fails, diagnose the failure, revise the plan or implementation, and retry while a safe concrete next action remains. Record explicitly excluded proof as `not_run`, never as passed; it does not block the source fix. A failed or unavailable permitted required check remains incomplete.
 - Do not repeat the same failed code change and proof command without new evidence. Continue only when the next attempt follows a new diagnosis, makes a materially different safe change, or runs focused proof that can reveal new information. If no new safe action remains, record the evidence and return `reclassify_task_required` unless a separate operational blocker requires `blocked`.
 - Do not stop merely because the first approach failed, more than one file is involved, the finding was initially classified as task-required, or the implementation is more substantial than expected.
 - Treat an original task-required reason preserved by `promote_actionable_review_findings_to_minor_path.md` as risk and scope context. It is not by itself evidence that the required inline attempt should be skipped.
@@ -64,7 +67,7 @@ This step performs the code/config/docs/test edit for one routed inline-fix find
 - Keep the edit minimal and directly tied to the selected finding.
 - Do not combine unrelated findings in one fix.
 - Findings routed into this path should be treated as inline-fix candidates first, even when they are more substantial than a trivial cleanup, as long as the work still fits one bounded same-repository coding pass.
-- A minor fix may include one or two small focused automated test updates or additions in the owning repository when that keeps the change bounded and honest.
+- A minor fix may include one or two small focused automated test updates or additions in the owning repository only when the affected task contract permits test authoring and that keeps the change bounded and honest.
 - A minor fix may still restore an already intended same-repository contract, validation parity, or route-check ordering when that work remains bounded to one clear seam and does not broaden into a larger contract redesign.
 - A bounded producer-consumer alignment fix may remain minor when it restores an already-settled returned-result contract in one same-repository service or helper seam.
 - A bounded validation-order fix may remain minor when it moves malformed-input or unsupported-input validation ahead of dependency I/O to restore an already-settled request contract.
@@ -82,11 +85,11 @@ This step performs the code/config/docs/test edit for one routed inline-fix find
 - Before returning any non-`fixed` terminal result, restore the repository to the pre-attempt tracked state for this step so a failed inline attempt does not create overlapping local tracked edits for the next loop pass.
 - Do not change public API, OpenAPI schema, persistence schema, queue contract, model shape, shared protocol, or user-visible workflow contracts in this minor path.
 - Do not tighten, loosen, or reinterpret a destructive public authority boundary in this minor path.
-- This step does not need to establish full end-to-end story confidence. Broader cross-repository proof and any required manual testing belong to the later final revalidation task.
+- This step does not need to establish full end-to-end story confidence. Broader cross-repository proof and manual testing belong to the later final revalidation task only when permitted by the applicable task/story contract.
 - If the one-shot plan or implementation proves that the fix requires a broader design change, write a `reclassify_task_required` result with the evidence that ruled out a safe inline resolution.
 - Escalate only after attempting every safe concrete action identified by the one-shot plan and confirming that the remaining change requires broader contract choice, broader lifecycle redesign, wider multi-surface coordination, or another form of planning that the coding agent cannot honestly complete on its own in this pass.
 - If the implementation or proof needed for the selected finding proves to require broader proof-authoring, multi-repository change coordination, contract reinterpretation, or a larger refactor, write a `reclassify_task_required` or `blocked` result only after recording why no safe bounded next action remains.
-- If targeted proof fails for an ordinary in-scope reason, diagnose and repair the selected fix while the repair remains bounded and a safe concrete next action exists.
+- If permitted required targeted proof fails for an ordinary in-scope reason, diagnose and repair the selected fix while the repair remains bounded and a safe concrete next action exists. Excluded proof remains `not_run`; failed or unavailable permitted proof remains unresolved and cannot support `fixed`.
 - If the failure points to broader behavior or missing capability for only the selected finding, stop and write either a `reclassify_task_required` result or a `blocked` result with `blocker_scope: "finding_only"`.
 - If the failure points to repository-wide safety trouble, broken branch scope, stale flow state, or another problem that makes further inline attempts unsafe for the remaining minor findings in this pass, stop and write a `blocked` result with `blocker_scope: "global"`.
 
@@ -133,10 +136,11 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
 - If local uncommitted changes overlap the files needed for the selected minor fix, write a `blocked` result with `blocker_scope: "global"` instead of overwriting or mixing work.
 - If the selected finding does not satisfy every minor-batchable rule after source inspection, still complete the internal one-shot plan and attempt any honest bounded in-scope alternative before writing a `reclassify_task_required` result.
 - If the selected finding would require an out-of-scope user-facing behavior change and no honest in-scope repair exists for the underlying issue, do not write `reclassify_task_required` or `blocked`. Write an `out_of_scope_current_story` result instead.
-- If targeted proof fails, follow the one-shot plan's diagnosis and retry while a safe bounded repair remains. Do not rerun an unchanged proof against an unchanged implementation or repeat an equivalent failed approach without new evidence. Prefer `reclassify_task_required` only when a materially different bounded alternative has been attempted or the resulting evidence shows that no new safe action remains and the finding clearly needs deeper current-story repair outside this path's contract. Use `blocked` only when the failure is a temporary operational or safety interruption that prevents honest work in this pass. When `blocked` is still the honest result, use `blocker_scope: "finding_only"` when the interruption is local to the selected finding and `blocker_scope: "global"` when the interruption means later inline attempts are unsafe too.
+- If permitted targeted proof fails, follow the one-shot plan's diagnosis and retry while a safe bounded repair remains. Do not rerun an unchanged proof against an unchanged implementation or repeat an equivalent failed approach without new evidence. Explicitly excluded proof is `not_run`, never passed, and does not block an otherwise complete source fix. A failed or unavailable permitted required check remains unresolved and cannot support `fixed`; use the existing recovery, `reclassify_task_required`, or `blocked` route according to the evidence. Prefer `reclassify_task_required` only when a materially different bounded alternative has been attempted or the resulting evidence shows that no new safe action remains and the finding clearly needs deeper current-story repair outside this path's contract. Use `blocked` only when the failure is a temporary operational or safety interruption that prevents honest work in this pass. When `blocked` is still the honest result, use `blocker_scope: "finding_only"` when the interruption is local to the selected finding and `blocker_scope: "global"` when the interruption means later inline attempts are unsafe too.
 - If you wrote tracked edits during the attempt and the terminal result is not `fixed`, revert those tracked edits before writing `minor-review-fix-result.json`.
 - If no tracked files changed after the attempted fix, write a `skipped` result explaining why no commit was made.
-- If `status` is `fixed` and the exact `commit_sha` written to `minor-review-fix-result.json` cannot be re-verified as a commit object with git, stop and rewrite the result before finishing this step.
+- If `status` is `fixed`, record the exact full `commit_sha` from Git. If the exact `commit_sha` cannot be re-verified with Git as a commit object, stop and rewrite the result.
+- Validate the result artifact's JSON/schema only when permitted by the applicable contract; if explicitly excluded, do not run that check and do not claim validation. Ordinary Git identity and provenance bookkeeping remains required and is not a testing exclusion.
 
 </failure_modes>
 
@@ -170,7 +174,7 @@ Then write that exact `full_commit_sha` value into `minor-review-fix-result.json
 - Confirm a failed first approach, initial task-required disposition, or multi-file edit was not used by itself as the reason to stop.
 - Confirm no manual testing was performed.
 - Confirm no broad final validation was run.
-- Confirm `minor-review-fix-result.json` exists and is valid JSON.
+- Confirm `minor-review-fix-result.json` exists and retains the established fields/status schema. Run JSON/schema validation only when permitted by the applicable contract; if excluded, do not run it and do not claim validation.
 - Confirm any non-`fixed` terminal result left no tracked edits behind from this failed or abandoned inline attempt.
 - Confirm tracked changes were committed if `status` is `fixed`.
 - Confirm the stored `commit_sha` is the exact full 40-character value returned by git for the fix commit when `status` is `fixed`.

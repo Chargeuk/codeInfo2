@@ -1,5 +1,7 @@
 # Audit the agent-native review settlement
 
+Audit task scope using the assigned/pinned plan and actual affected task Testing sections, not a stale current-task pointer after task completion. Verify exclusions are retained as checkbox-free scoped prose, excluded proof is neither generated nor marked passed, and permitted proof for other tasks remains. Keep all reviews, repairs, and settlement audits active; excluded or external human acceptance is not an agent blocker.
+
 Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/repeated-review-repair.md` for repeated-finding routing, research contributions, unavailable coverage, and settlement. References below to repair agents, audits, repair opportunities, or fix-bearing batches include the repeated-research stage when applicable. Its invocation (or honestly unavailable attempt) satisfies the stronger opportunity for its assigned findings; preserve history and reversal evidence in any resulting settlement tasks.
 
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md`, `$CODEINFO_ROOT/codeinfo_markdown/shared/completed-review-fix-task.md`, and `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md` before auditing the plan.

@@ -7,3 +7,6 @@ Do not inspect, read, summarize, cite, or report findings for changed repository
 Do not create a remote pull-request review, publish comments, export a session, or delegate to a remote coding agent. If no non-planning implementation changes remain, report that honestly instead of inventing findings.
 
 Report only concrete, evidence-backed review findings, with file and line evidence where available. Keep uncertainties explicit and do not claim complete coverage when tool or provider limitations prevented it.
+# Copilot review input
+
+Carry applicable testing restrictions and affected task scope from the assigned pinned plan inputs into Copilot's supported review input. These restrictions do not suppress review. Do not claim provider-side testing enforcement without evidence; report excluded or unavailable execution coverage honestly.

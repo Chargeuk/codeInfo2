@@ -65,8 +65,11 @@ Do not perform manual testing in this step.
 
 <proof_rules>
 
+- Before treating unchecked `Testing` items as mandatory, read the complete applicable task `Testing` section and approved story-level testing restrictions from the bounded plan extraction, and interpret them semantically. An explicit applicable exclusion governs only the named activity and scope, including authoring/repair or execution only when its wording covers that work. Do not run a covered test, static/syntax/contract check, build, typecheck, lint, format, manual/browser/E2E proof, or runtime setup; do not create or repair covered test proof. Partial exclusions leave all permitted proof mandatory. Missing/empty `Testing`, “no tests exist,” or ambiguous/unreadable restrictions are not permission to skip. Surface ambiguity or a plan contradiction honestly; never mark excluded or unrun proof passed.
+- A testing exclusion does not cancel this proof agent's permitted plan/source review, audit, or review-protocol work. Do not let a mixed-purpose audit or preflight be bypassed wholesale; omit only the expressly excluded product-testing activity. A legitimately excluded check or externally owned human acceptance is not an agent blocker.
+
 - Run the unchecked items in the candidate task's `Testing` section until all are complete or the task is honestly blocked.
-- Treat every unchecked `Testing` checklist item as mandatory blocking proof in this step.
+- Treat unchecked `Testing` items as mandatory only to the extent the applicable plan contract permits agent-run proof; apply the explicit scoped exclusion rule above before execution.
 - Follow the repository's wrapper-first guidance and the exact testing commands listed in the task.
 - Before treating an occupied port or pre-existing stack as a failed startup or external blocker, determine whether it is the repository-owned test stack required by the current testing item under `shared/test-stack-lifecycle.md`.
 - When that ownership and testing applicability are established, run the repository-supported shutdown wrapper, retry the required startup or proof item, and continue. The automated testing agent executes these commands and does not need to have started the earlier stack.

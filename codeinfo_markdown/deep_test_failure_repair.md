@@ -110,6 +110,8 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 
 <stop_conditions>
 
+- Before diagnosing or repairing a failed or missing proof item, read its complete task `Testing` section and applicable approved story restrictions via bounded plan extraction. An explicit exclusion controls test authoring/repair or execution only when it covers that activity. Do not create, repair, or rerun excluded proof, or stale/revalidate excluded checks. Continue permitted source review and causal repair. Explicitly excluded proof and external human acceptance are not agent blockers; failed or unavailable permitted required proof remains incomplete and follows the genuine blocker or repair route as appropriate. Never present excluded or unrun proof as a pass. Missing/empty Testing or “no tests exist” is not an exclusion, and partial exclusions do not remove other mandatory proof.
+
 - Stop with no edits when there is no live blocker or no applicable automated-proof blocker.
 - Stop with a resolved state when the formerly failing proof now passes and the task history has been updated honestly.
 - Stop with a preserved blocker only when the failure now clearly depends on missing prerequisite capability, task-shape contradiction, out-of-scope contract change, or an exhausted bounded repair path with no credible next in-scope fix.

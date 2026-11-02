@@ -4,6 +4,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 <critical_rules>
 
+- Before any manual/browser/E2E action or runtime setup, read the complete bound task Testing section and applicable approved story restrictions from the bounded plan extraction. An explicit exclusion controls only the covered manual activity/setup; do not run covered proof or promote nonexistent evidence. Continue permitted source/documentation review and unrelated task proof. Record excluded or external human acceptance as not performed, never passed, and do not make it an agent blocker. Missing/empty Testing or “no tests exist” is not permission to skip.
+
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before inspecting, reusing, starting, stopping, or classifying a Docker or Compose stack.
 - Use fresh disk reads and current git state, not conversational memory.

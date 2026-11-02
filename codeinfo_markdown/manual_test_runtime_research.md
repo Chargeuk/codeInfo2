@@ -31,6 +31,8 @@ Use that JSON output as the source of truth for whether story-level and task-lev
 
 <story_and_task_guidance_rules>
 
+- Read applicable Testing restrictions from the bound plan and record their scope in runtime research. If an explicit exclusion covers manual testing or runtime setup, do not start/reclaim a runtime for that covered work; do not imply it was proved. This restriction does not suppress safe source review or runtime-path research that does not perform the excluded activity.
+
 - If the guidance-status script reports story-level `Story Manual Testing Guidance`, read and summarize it before finishing this runtime-research pass.
 - If the guidance-status script reports a bound task `Manual Testing Guidance` section, read and summarize it before finishing this runtime-research pass.
 - Treat story-level guidance as optional story-scoped defaults for later manual proof, such as shared startup order, shared proof surfaces, shared access notes, or shared artifact expectations.

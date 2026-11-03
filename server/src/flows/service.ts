@@ -7164,12 +7164,6 @@ async function runFlowUnlocked(params: {
         onStopUnwindCheckpoint: params.onStopUnwindCheckpoint,
         cleanupInflightFn,
         onResult: (candidate) => {
-          if (
-            candidate.status === 'failed' &&
-            deriveStatusFromError(candidate.content) === 'stopped'
-          ) {
-            candidate.status = 'stopped';
-          }
           shouldRetry =
             candidate.status === 'failed' && attempt < maxStepAttempts;
           return {

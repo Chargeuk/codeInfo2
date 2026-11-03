@@ -80,36 +80,11 @@
                   "markdownFile": "load_manual_tester_current_task_context.md"
                 },
                 {
-                  "type": "if",
-                  "label": "Apply Current Task Testing Scope To Visual Preflight",
+                  "type": "llm",
+                  "label": "Preflight visual diagnosis for current task",
                   "agentType": "manual_testing_agent",
                   "identifier": "manual_tester",
-                  "condition": "Read fresh current-plan.json then current-task.json under codeInfoStatus/flow-state in the selected working repository. Run `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --task current --section Testing --section Overview --section Non-Goals --section \"Task Exit Criteria\" --section \"Manual Testing Guidance\" --story-section Description --story-section Overview --story-section \"Acceptance Criteria\" --story-section \"Out Of Scope\" --story-section Decisions --story-section \"Design Contract\" --story-section \"Story Manual Testing Guidance\"` now from that repository. Python retrieves context only; you must interpret it. Verify the returned plan path and task number/title against those handoffs; use the selected task even after its implementation is done, without substituting another active task. Read the FULL Testing markdown, including prose, not just checkbox counts. Use the returned available_story_sections to request any other relevant authoritative restriction with the existing --story-section option. Apply current explicit user authorization and approved story Acceptance Criteria/Out Of Scope before contradictory task defaults; read the relevant current user/immutable assignment input when available, never invent its contents. Decide only this activity: agent browser/runtime visual preflight for the selected task; source-only implementation guidance is retained separately. Interpret equivalent explicit exclusions semantically, including no testing/no tests and narrower automated, manual, runtime, browser, or activity-specific prohibitions. Apply each restriction only to its stated task/story/activity. No exclusion, an empty/missing Testing section, or no tests exist is NOT an exclusion: retain the normal required testing path when context is otherwise readable and unambiguous. Answer exactly {\"answer\":\"yes\"} when required permitted testing remains in this activity, and exactly {\"answer\":\"no\"} only when an explicit applicable restriction excludes the activity. For a partial exclusion answer yes only for the remaining permitted scope; carry the item-level boundary into the following same-agent prompt, which must not execute excluded actions even if a legacy default says to run every check. Testing exclusions never suppress source inspection, assigned documentation, implementation, audits, native reviewer calls, review protocol/artifact operations, review repairs, task generation, or closeout. Record the exact scope and authoritative reason in the existing task Implementation Notes when materially new; no new artifact/schema/state. Human-owned acceptance stays external and pending. Never add test checkboxes, fabricate passes/artifacts, close real outstanding allowed proof, or add a blocker/retry solely because testing is explicitly excluded. If identity, context, or permission is unreadable, ambiguous, or genuinely contradictory after applying authoritative restrictions, do not guess either binary answer. Record the precise limitation and affected unexecuted proof in existing Implementation Notes (only when the owner is safely known), preserve an honest incomplete state, and return a concise non-decision explanation through the existing failed-decision reporting. Neither conditional branch may run on that failure; it is not a valid exclusion or pass. Continue safe context, audit, and review steps; do not start tests to resolve permission uncertainty. No tests, runtime actions, or other proof in this decision.",
-                  "then": [
-                    {
-                      "type": "llm",
-                      "label": "Preflight visual diagnosis for current task",
-                      "agentType": "manual_testing_agent",
-                      "identifier": "manual_tester",
-                      "markdownFile": "preflight_visual_diagnosis_current_task.md"
-                    }
-                  ],
-                  "else": [
-                    {
-                      "type": "llm",
-                      "label": "Retain Source Guidance When Visual Preflight Is Excluded",
-                      "agentType": "manual_testing_agent",
-                      "identifier": "manual_tester",
-                      "messages": [
-                        {
-                          "role": "user",
-                          "content": [
-                            "Use fresh handoffs and the complete task Testing/story restrictions through `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --task current --section Testing --section Overview --section Non-Goals --section \"Task Exit Criteria\" --section \"Manual Testing Guidance\" --story-section Description --story-section Overview --story-section \"Acceptance Criteria\" --story-section \"Out Of Scope\" --story-section Decisions --story-section \"Design Contract\" --story-section \"Story Manual Testing Guidance\"`. Report only the explicitly excluded activity and its exact authority in existing Implementation Notes if materially new. No product tests, test repair, browser/runtime preflight, build, typecheck, lint, formatting, validation, or service actions for that excluded scope. Continue applicable non-testing source/documentation/review responsibilities; do not skip an entire mixed assignment or child flow. Do not mark excluded testing passed, create substitute test checkboxes or artifacts, or retry solely because of the exclusion. Preserve any independently required permitted proof and genuine failures; human acceptance remains external/pending, never agent-verified. Read `$CODEINFO_ROOT/codeinfo_markdown/preflight_visual_diagnosis_current_task.md` and retain its applicable source-only plan refinement responsibilities, without runtime/browser inspection or any excluded proof. Preserve task ownership and do not mark implementation or testing complete."
-                          ]
-                        }
-                      ]
-                    }
-                  ]
+                  "markdownFile": "preflight_visual_diagnosis_current_task.md"
                 },
                 {
                   "type": "startLoop",
@@ -252,36 +227,11 @@
                       "markdownFile": "load_automated_tester_current_task_context.md"
                     },
                     {
-                      "type": "if",
-                      "label": "Apply Current Task Testing Scope To Automated Proof",
+                      "type": "llm",
+                      "label": "Run automated proof and fix issues",
                       "agentType": "automated_testing_agent",
                       "identifier": "automated_tester",
-                      "condition": "Read fresh current-plan.json then current-task.json under codeInfoStatus/flow-state in the selected working repository. Run `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --task current --section Testing --section Overview --section Non-Goals --section \"Task Exit Criteria\" --section \"Manual Testing Guidance\" --story-section Description --story-section Overview --story-section \"Acceptance Criteria\" --story-section \"Out Of Scope\" --story-section Decisions --story-section \"Design Contract\" --story-section \"Story Manual Testing Guidance\"` now from that repository. Python retrieves context only; you must interpret it. Verify the returned plan path and task number/title against those handoffs; use the selected task even after its implementation is done, without substituting another active task. Read the FULL Testing markdown, including prose, not just checkbox counts. Use the returned available_story_sections to request any other relevant authoritative restriction with the existing --story-section option. Apply current explicit user authorization and approved story Acceptance Criteria/Out Of Scope before contradictory task defaults; read the relevant current user/immutable assignment input when available, never invent its contents. Decide only this activity: agent automated product proof, including its builds, checks, startup/shutdown, and validation commands; retain independently permitted items under a narrower exclusion. Interpret equivalent explicit exclusions semantically, including no testing/no tests and narrower automated, manual, runtime, browser, or activity-specific prohibitions. Apply each restriction only to its stated task/story/activity. No exclusion, an empty/missing Testing section, or no tests exist is NOT an exclusion: retain the normal required testing path when context is otherwise readable and unambiguous. Answer exactly {\"answer\":\"yes\"} when required permitted testing remains in this activity, and exactly {\"answer\":\"no\"} only when an explicit applicable restriction excludes the activity. For a partial exclusion answer yes only for the remaining permitted scope; carry the item-level boundary into the following same-agent prompt, which must not execute excluded actions even if a legacy default says to run every check. Testing exclusions never suppress source inspection, assigned documentation, implementation, audits, native reviewer calls, review protocol/artifact operations, review repairs, task generation, or closeout. Record the exact scope and authoritative reason in the existing task Implementation Notes when materially new; no new artifact/schema/state. Human-owned acceptance stays external and pending. Never add test checkboxes, fabricate passes/artifacts, close real outstanding allowed proof, or add a blocker/retry solely because testing is explicitly excluded. If identity, context, or permission is unreadable, ambiguous, or genuinely contradictory after applying authoritative restrictions, do not guess either binary answer. Record the precise limitation and affected unexecuted proof in existing Implementation Notes (only when the owner is safely known), preserve an honest incomplete state, and return a concise non-decision explanation through the existing failed-decision reporting. Neither conditional branch may run on that failure; it is not a valid exclusion or pass. Continue safe context, audit, and review steps; do not start tests to resolve permission uncertainty. No tests, runtime actions, or other proof in this decision.",
-                      "then": [
-                        {
-                          "type": "llm",
-                          "label": "Run automated proof and fix issues",
-                          "agentType": "automated_testing_agent",
-                          "identifier": "automated_tester",
-                          "markdownFile": "run_automated_proof_and_fix_issues.md"
-                        }
-                      ],
-                      "else": [
-                        {
-                          "type": "llm",
-                          "label": "Record Excluded Automated Proof Without Claiming A Pass",
-                          "agentType": "automated_testing_agent",
-                          "identifier": "automated_tester",
-                          "messages": [
-                            {
-                              "role": "user",
-                              "content": [
-                                "Use fresh handoffs and the complete task Testing/story restrictions through `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --task current --section Testing --section Overview --section Non-Goals --section \"Task Exit Criteria\" --section \"Manual Testing Guidance\" --story-section Description --story-section Overview --story-section \"Acceptance Criteria\" --story-section \"Out Of Scope\" --story-section Decisions --story-section \"Design Contract\" --story-section \"Story Manual Testing Guidance\"`. Report only the explicitly excluded activity and its exact authority in existing Implementation Notes if materially new. No product tests, test repair, browser/runtime preflight, build, typecheck, lint, formatting, validation, or service actions for that excluded scope. Continue applicable non-testing source/documentation/review responsibilities; do not skip an entire mixed assignment or child flow. Do not mark excluded testing passed, create substitute test checkboxes or artifacts, or retry solely because of the exclusion. Preserve any independently required permitted proof and genuine failures; human acceptance remains external/pending, never agent-verified."
-                              ]
-                            }
-                          ]
-                        }
-                      ]
+                      "markdownFile": "run_automated_proof_and_fix_issues.md"
                     },
                     {
                       "type": "llm",
@@ -295,7 +245,7 @@
                       "label": "Proceed to manual testing eligibility if automated proof is complete",
                       "agentType": "loop_control_agent",
                       "identifier": "loop_controller",
-                      "question": "Read fresh current-plan.json then current-task.json under codeInfoStatus/flow-state in the selected working repository. Run `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --task current --section Testing --section Overview --section Non-Goals --section \"Task Exit Criteria\" --section \"Manual Testing Guidance\" --story-section Description --story-section Overview --story-section \"Acceptance Criteria\" --story-section \"Out Of Scope\" --story-section Decisions --story-section \"Design Contract\" --story-section \"Story Manual Testing Guidance\"` now from that repository. Python retrieves context only; you must interpret it. Verify the returned plan path and task number/title against those handoffs; use the selected task even after its implementation is done, without substituting another active task. Read the FULL Testing markdown, including prose, not just checkbox counts. Use the returned available_story_sections to request any other relevant authoritative restriction with the existing --story-section option. Apply current explicit user authorization and approved story Acceptance Criteria/Out Of Scope before contradictory task defaults; read the relevant current user/immutable assignment input when available, never invent its contents. This is the existing proof-loop exit decision, not permission to run testing. Interpret the complete Testing and authoritative restrictions semantically for automated proof. If all remaining automated product proof is explicitly excluded, answer {\"answer\":\"yes\"} to leave this testing-only loop without claiming a pass, completing checkboxes, inventing artifacts, or demanding test repair. If testing permission or context is unresolved, record the exact limitation in existing Implementation Notes where the owner is known, keep the task/proof honestly incomplete, and answer {\"answer\":\"yes\"} only to leave the dependent testing loop so safe audits/reviews can continue. Do not classify uncertainty as an exclusion or success. A narrower exclusion leaves every independent permitted requirement in force. Otherwise preserve the original readiness decision exactly: Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_ready_for_manual_testing.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
+                      "question": "Run `python3 \"$CODEINFO_ROOT/scripts/flow_control/check_current_task_ready_for_manual_testing.py\"` now. Do not rely on any previous command output, prior run, cached result, or conversational memory, because repository files and workflow state may have changed since the last time this command was run. This command is authoritative. Return its current stdout exactly and nothing else. Do not read any other files. Do not recompute the answer.",
                       "breakOn": "yes"
                     },
                     {
@@ -312,36 +262,11 @@
                       "markdownFile": "load_coder_current_task_context.md"
                     },
                     {
-                      "type": "if",
-                      "label": "Apply Current Task Testing Scope To Automated Proof Repair",
+                      "type": "llm",
+                      "label": "Deep repair automated-proof test blocker",
                       "agentType": "coding_agent",
                       "identifier": "coder",
-                      "condition": "Read fresh current-plan.json then current-task.json under codeInfoStatus/flow-state in the selected working repository. Run `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --task current --section Testing --section Overview --section Non-Goals --section \"Task Exit Criteria\" --section \"Manual Testing Guidance\" --story-section Description --story-section Overview --story-section \"Acceptance Criteria\" --story-section \"Out Of Scope\" --story-section Decisions --story-section \"Design Contract\" --story-section \"Story Manual Testing Guidance\"` now from that repository. Python retrieves context only; you must interpret it. Verify the returned plan path and task number/title against those handoffs; use the selected task even after its implementation is done, without substituting another active task. Read the FULL Testing markdown, including prose, not just checkbox counts. Use the returned available_story_sections to request any other relevant authoritative restriction with the existing --story-section option. Apply current explicit user authorization and approved story Acceptance Criteria/Out Of Scope before contradictory task defaults; read the relevant current user/immutable assignment input when available, never invent its contents. Decide only this activity: test-failure repair and reruns for automated product checks; a blocker solely demanding excluded testing is not an executable test-repair obligation. Interpret equivalent explicit exclusions semantically, including no testing/no tests and narrower automated, manual, runtime, browser, or activity-specific prohibitions. Apply each restriction only to its stated task/story/activity. No exclusion, an empty/missing Testing section, or no tests exist is NOT an exclusion: retain the normal required testing path when context is otherwise readable and unambiguous. Answer exactly {\"answer\":\"yes\"} when required permitted testing remains in this activity, and exactly {\"answer\":\"no\"} only when an explicit applicable restriction excludes the activity. For a partial exclusion answer yes only for the remaining permitted scope; carry the item-level boundary into the following same-agent prompt, which must not execute excluded actions even if a legacy default says to run every check. Testing exclusions never suppress source inspection, assigned documentation, implementation, audits, native reviewer calls, review protocol/artifact operations, review repairs, task generation, or closeout. Record the exact scope and authoritative reason in the existing task Implementation Notes when materially new; no new artifact/schema/state. Human-owned acceptance stays external and pending. Never add test checkboxes, fabricate passes/artifacts, close real outstanding allowed proof, or add a blocker/retry solely because testing is explicitly excluded. If identity, context, or permission is unreadable, ambiguous, or genuinely contradictory after applying authoritative restrictions, do not guess either binary answer. Record the precise limitation and affected unexecuted proof in existing Implementation Notes (only when the owner is safely known), preserve an honest incomplete state, and return a concise non-decision explanation through the existing failed-decision reporting. Neither conditional branch may run on that failure; it is not a valid exclusion or pass. Continue safe context, audit, and review steps; do not start tests to resolve permission uncertainty. No tests, runtime actions, or other proof in this decision.",
-                      "then": [
-                        {
-                          "type": "llm",
-                          "label": "Deep repair automated-proof test blocker",
-                          "agentType": "coding_agent",
-                          "identifier": "coder",
-                          "markdownFile": "deep_test_failure_repair.md"
-                        }
-                      ],
-                      "else": [
-                        {
-                          "type": "llm",
-                          "label": "Preserve Non-Testing Work When Proof Repair Is Excluded",
-                          "agentType": "coding_agent",
-                          "identifier": "coder",
-                          "messages": [
-                            {
-                              "role": "user",
-                              "content": [
-                                "Use fresh handoffs and the complete task Testing/story restrictions through `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --task current --section Testing --section Overview --section Non-Goals --section \"Task Exit Criteria\" --section \"Manual Testing Guidance\" --story-section Description --story-section Overview --story-section \"Acceptance Criteria\" --story-section \"Out Of Scope\" --story-section Decisions --story-section \"Design Contract\" --story-section \"Story Manual Testing Guidance\"`. Report only the explicitly excluded activity and its exact authority in existing Implementation Notes if materially new. No product tests, test repair, browser/runtime preflight, build, typecheck, lint, formatting, validation, or service actions for that excluded scope. Continue applicable non-testing source/documentation/review responsibilities; do not skip an entire mixed assignment or child flow. Do not mark excluded testing passed, create substitute test checkboxes or artifacts, or retry solely because of the exclusion. Preserve any independently required permitted proof and genuine failures; human acceptance remains external/pending, never agent-verified. Preserve independent authorized implementation and review repairs; do not invent test work to replace an excluded activity."
-                              ]
-                            }
-                          ]
-                        }
-                      ]
+                      "markdownFile": "deep_test_failure_repair.md"
                     },
                     {
                       "type": "break",
@@ -378,21 +303,12 @@
                   "continueOn": "yes"
                 },
                 {
-                  "type": "if",
-                  "label": "Apply Current Task Testing Scope Before Automated Proof Retry",
+                  "type": "continue",
+                  "label": "Return to the top of current task rework if automated proof still has unchecked testing",
                   "agentType": "loop_control_agent",
                   "identifier": "loop_controller",
-                  "condition": "Read fresh current-plan.json then current-task.json under codeInfoStatus/flow-state in the selected working repository. Run `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --task current --section Testing --section Overview --section Non-Goals --section \"Task Exit Criteria\" --section \"Manual Testing Guidance\" --story-section Description --story-section Overview --story-section \"Acceptance Criteria\" --story-section \"Out Of Scope\" --story-section Decisions --story-section \"Design Contract\" --story-section \"Story Manual Testing Guidance\"` now from that repository. Python retrieves context only; you must interpret it. Verify the returned plan path and task number/title against those handoffs; use the selected task even after its implementation is done, without substituting another active task. Read the FULL Testing markdown, including prose, not just checkbox counts. Use the returned available_story_sections to request any other relevant authoritative restriction with the existing --story-section option. Apply current explicit user authorization and approved story Acceptance Criteria/Out Of Scope before contradictory task defaults; read the relevant current user/immutable assignment input when available, never invent its contents. Decide only this activity: continuing task rework solely to execute remaining automated testing; the separate implementation-subtask continuation stays active. Interpret equivalent explicit exclusions semantically, including no testing/no tests and narrower automated, manual, runtime, browser, or activity-specific prohibitions. Apply each restriction only to its stated task/story/activity. No exclusion, an empty/missing Testing section, or no tests exist is NOT an exclusion: retain the normal required testing path when context is otherwise readable and unambiguous. Answer exactly {\"answer\":\"yes\"} when required permitted testing remains in this activity, and exactly {\"answer\":\"no\"} only when an explicit applicable restriction excludes the activity. For a partial exclusion answer yes only for the remaining permitted scope; carry the item-level boundary into the following same-agent prompt, which must not execute excluded actions even if a legacy default says to run every check. Testing exclusions never suppress source inspection, assigned documentation, implementation, audits, native reviewer calls, review protocol/artifact operations, review repairs, task generation, or closeout. Record the exact scope and authoritative reason in the existing task Implementation Notes when materially new; no new artifact/schema/state. Human-owned acceptance stays external and pending. Never add test checkboxes, fabricate passes/artifacts, close real outstanding allowed proof, or add a blocker/retry solely because testing is explicitly excluded. If identity, context, or permission is unreadable, ambiguous, or genuinely contradictory after applying authoritative restrictions, do not guess either binary answer. Record the precise limitation and affected unexecuted proof in existing Implementation Notes (only when the owner is safely known), preserve an honest incomplete state, and return a concise non-decision explanation through the existing failed-decision reporting. Neither conditional branch may run on that failure; it is not a valid exclusion or pass. Continue safe context, audit, and review steps; do not start tests to resolve permission uncertainty. No tests, runtime actions, or other proof in this decision.",
-                  "then": [
-                    {
-                      "type": "continue",
-                      "label": "Return to the top of current task rework if automated proof still has unchecked testing",
-                      "agentType": "loop_control_agent",
-                      "identifier": "loop_controller",
-                      "question": "Use fresh persisted handoffs, plan_status.py, bounded Testing and the latest tester report. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when unchecked automated proof has a safe executable next action or a materially changed repair to verify. Answer no when the remaining automated checks depend on an unchanged blocker, allowing following independent manual proof and owned cleanup. Never mark those checks complete or rerun unchanged failures. No edits, tests or side effects.",
-                      "continueOn": "yes"
-                    }
-                  ]
+                  "question": "Use fresh persisted handoffs, plan_status.py, bounded Testing and the latest tester report. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when unchecked automated proof has a safe executable next action or a materially changed repair to verify. Answer no when the remaining automated checks depend on an unchanged blocker, allowing following independent manual proof and owned cleanup. Never mark those checks complete or rerun unchanged failures. No edits, tests or side effects.",
+                  "continueOn": "yes"
                 },
                 {
                   "type": "reingest",
@@ -414,43 +330,18 @@
                   ]
                 },
                 {
-                  "type": "if",
-                  "label": "Apply Current Task Testing Scope To Manual Runtime And Proof",
+                  "type": "llm",
+                  "label": "Refresh manual testing runtime research",
                   "agentType": "manual_testing_agent",
                   "identifier": "manual_tester",
-                  "condition": "Read fresh current-plan.json then current-task.json under codeInfoStatus/flow-state in the selected working repository. Run `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --task current --section Testing --section Overview --section Non-Goals --section \"Task Exit Criteria\" --section \"Manual Testing Guidance\" --story-section Description --story-section Overview --story-section \"Acceptance Criteria\" --story-section \"Out Of Scope\" --story-section Decisions --story-section \"Design Contract\" --story-section \"Story Manual Testing Guidance\"` now from that repository. Python retrieves context only; you must interpret it. Verify the returned plan path and task number/title against those handoffs; use the selected task even after its implementation is done, without substituting another active task. Read the FULL Testing markdown, including prose, not just checkbox counts. Use the returned available_story_sections to request any other relevant authoritative restriction with the existing --story-section option. Apply current explicit user authorization and approved story Acceptance Criteria/Out Of Scope before contradictory task defaults; read the relevant current user/immutable assignment input when available, never invent its contents. Decide only this activity: agent manual product proof and its runtime/startup/browser research; automated-only exclusions do not exclude independent manual proof. Interpret equivalent explicit exclusions semantically, including no testing/no tests and narrower automated, manual, runtime, browser, or activity-specific prohibitions. Apply each restriction only to its stated task/story/activity. No exclusion, an empty/missing Testing section, or no tests exist is NOT an exclusion: retain the normal required testing path when context is otherwise readable and unambiguous. Answer exactly {\"answer\":\"yes\"} when required permitted testing remains in this activity, and exactly {\"answer\":\"no\"} only when an explicit applicable restriction excludes the activity. For a partial exclusion answer yes only for the remaining permitted scope; carry the item-level boundary into the following same-agent prompt, which must not execute excluded actions even if a legacy default says to run every check. Testing exclusions never suppress source inspection, assigned documentation, implementation, audits, native reviewer calls, review protocol/artifact operations, review repairs, task generation, or closeout. Record the exact scope and authoritative reason in the existing task Implementation Notes when materially new; no new artifact/schema/state. Human-owned acceptance stays external and pending. Never add test checkboxes, fabricate passes/artifacts, close real outstanding allowed proof, or add a blocker/retry solely because testing is explicitly excluded. If identity, context, or permission is unreadable, ambiguous, or genuinely contradictory after applying authoritative restrictions, do not guess either binary answer. Record the precise limitation and affected unexecuted proof in existing Implementation Notes (only when the owner is safely known), preserve an honest incomplete state, and return a concise non-decision explanation through the existing failed-decision reporting. Neither conditional branch may run on that failure; it is not a valid exclusion or pass. Continue safe context, audit, and review steps; do not start tests to resolve permission uncertainty. No tests, runtime actions, or other proof in this decision.",
-                  "then": [
-                    {
-                      "type": "llm",
-                      "label": "Refresh manual testing runtime research",
-                      "agentType": "manual_testing_agent",
-                      "identifier": "manual_tester",
-                      "markdownFile": "manual_test_runtime_research.md"
-                    },
-                    {
-                      "type": "llm",
-                      "label": "Manual test latest completed task",
-                      "agentType": "manual_testing_agent",
-                      "identifier": "manual_tester",
-                      "markdownFile": "manual_test_latest_completed_task.md"
-                    }
-                  ],
-                  "else": [
-                    {
-                      "type": "llm",
-                      "label": "Record Excluded Manual Proof And External Acceptance",
-                      "agentType": "manual_testing_agent",
-                      "identifier": "manual_tester",
-                      "messages": [
-                        {
-                          "role": "user",
-                          "content": [
-                            "Use fresh handoffs and the complete task Testing/story restrictions through `python3 \"$CODEINFO_ROOT/scripts/plan_sections.py\" --task current --section Testing --section Overview --section Non-Goals --section \"Task Exit Criteria\" --section \"Manual Testing Guidance\" --story-section Description --story-section Overview --story-section \"Acceptance Criteria\" --story-section \"Out Of Scope\" --story-section Decisions --story-section \"Design Contract\" --story-section \"Story Manual Testing Guidance\"`. Report only the explicitly excluded activity and its exact authority in existing Implementation Notes if materially new. No product tests, test repair, browser/runtime preflight, build, typecheck, lint, formatting, validation, or service actions for that excluded scope. Continue applicable non-testing source/documentation/review responsibilities; do not skip an entire mixed assignment or child flow. Do not mark excluded testing passed, create substitute test checkboxes or artifacts, or retry solely because of the exclusion. Preserve any independently required permitted proof and genuine failures; human acceptance remains external/pending, never agent-verified."
-                          ]
-                        }
-                      ]
-                    }
-                  ]
+                  "markdownFile": "manual_test_runtime_research.md"
+                },
+                {
+                  "type": "llm",
+                  "label": "Manual test latest completed task",
+                  "agentType": "manual_testing_agent",
+                  "identifier": "manual_tester",
+                  "markdownFile": "manual_test_latest_completed_task.md"
                 },
                 {
                   "type": "break",

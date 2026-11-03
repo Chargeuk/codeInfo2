@@ -11,7 +11,7 @@ Kadshow Tasks 5 and 6 exclude CodeInfo2 implementation. They remain the separate
 ## Acceptance Criteria
 
 - A flow obtains the selected task's complete Testing section and applicable approved story testing restrictions through the existing `plan_sections.py` structured extraction path. Python extracts context; the agent interprets explicit no-testing language semantically and decides whether agent testing is excluded.
-- Only an explicit testing exclusion authorizes skipping agent-run product tests. Absence of an exclusion, including “no tests exist,” preserves normal testing. Ambiguous or unreadable context never authorizes forbidden testing or a false clean result; the limitation is recorded and safe reviews continue.
+- Only an explicit testing exclusion authorizes skipping agent-run product tests. Absence of an exclusion, including “no tests exist,” preserves normal testing. Missing/empty Testing or “no tests exist” is not an exclusion. If testing permission is ambiguous or unreadable, do not perform potentially excluded proof; leave it pending and report the precise limitation in the normal step outcome while safe independent source, audit, and review work continues.
 - Exclusion applies only to agent-run product testing for the stated task/story scope. It does not skip a child task, implementation or review audits, independent review calls, review repairs, review settlement, task generation, or closeout. Reviews happen after task completion; their assigned review plan/task overrides a stale current-task pointer.
 - Review protocol operations and artifact bookkeeping are not product testing. Required review calls, reviewer independence, original task IDs/history/mappings, and exact remote review triggers remain intact.
 - Explicit no-agent-testing guidance is plain prose in each applicable Testing section. No test checkbox or fabricated pass is added. Human acceptance remains external and pending.
@@ -41,7 +41,7 @@ None.
 
 #### Overview
 
-Update testing-only decisions in `implement_current_plan`, `pr_current_plan`, `implement_next_plan`, `implement_next_plan_github_review`, `task_and_implement_plan`, `improve_task_implement_plan`, and `improve_task_implement_current_plan`. Reuse structured Python extraction for the complete task Testing section and applicable approved story restrictions. The agent makes the semantic yes/no decision; do not encode keyword policy in Python. Preserve normal testing when an exclusion is absent.
+Update the existing activity guides used by `implement_current_plan`, `pr_current_plan`, `implement_next_plan`, `implement_next_plan_github_review`, `task_and_implement_plan`, `improve_task_implement_plan`, and `improve_task_implement_current_plan` so they retrieve complete task Testing sections and applicable approved story restrictions through existing `plan_sections.py` extraction. Do not add flow-level testing conditionals or inline repair branches. The agent makes the semantic decision; do not encode keyword policy in Python. An explicit exclusion omits only the covered activity, while missing/empty testing content preserves otherwise-required proof.
 
 #### Task Exit Criteria
 
@@ -51,7 +51,7 @@ Update testing-only decisions in `implement_current_plan`, `pr_current_plan`, `i
 #### Subtasks
 
 - [x] Trace testing eligibility and test execution decision points in the seven named flows and identify the minimal shared prompt changes.
-- [x] Pass complete task Testing and applicable approved story restriction context through existing `plan_sections.py` extraction.
+- [x] Update applicable activity guides to retrieve complete task Testing and applicable approved story restrictions through existing `plan_sections.py` extraction.
 - [x] Apply explicit-exclusion-only semantic interpretation, including ambiguous/unreadable limitations, without skipping safe review work.
 - [x] Keep every new subtask in this plan pending until implemented.
 
@@ -72,6 +72,7 @@ No agent testing, test authoring/repair, testing-infrastructure work, builds, ty
 
 - Initial plan setup status: implementation was pending at this point; subsequent source work is recorded below.
 - Task 1 source trace: all seven named execution flows dispatch visual preflight, automated proof, proof repair, automated retry, and manual runtime/proof directly. Audits, task selection, context loads, implementation repairs, and native review calls must remain active. The older GitHub flow also embeds focused testing in its mixed minor-review repair prompt; the assigned-plan qualification for that repair and its outcome bookkeeping is recorded under Task 4. No checks were run. The explicit-plan helper query could not resolve this plan's noncanonical task headings, so only the bounded story contract and Task 1 section were read as fallback; no handoffs or other plans were used.
+- 2026-11-03 final-scope correction: the seven flow JSON conditionals and inline repair branch added during earlier implementation were removed from the candidate by restoring those files to verified `main`; they are not part of this change. The activity guides now request complete task Testing and approved story-scope sections before potentially excluded proof, and leave ambiguous proof pending while safe review work continues. Earlier source notes remain historical evidence, not current flow changes.
 
 
 ### Task 2. Preserve scope and completion semantics in shared implementation and proof prompts
@@ -107,6 +108,8 @@ No agent testing, test authoring/repair, testing-infrastructure work, builds, ty
 - Updated `codeinfo_markdown/promote_story_manual_proof.md` to preserve external acceptance as pending and prevent promotion of nonexistent proof. No checks or runtime actions were run.
 - Corrected the blocker-repair prompts to keep explicitly excluded proof and external human acceptance non-blocking while treating failed or unavailable permitted required proof as incomplete and routed through genuine blocker/repair handling.
 - Updated `deep_implementation_blocker_repair.md` to require full assigned Testing/story context before proof or worker requests, scope shutdown/retry and verification to permitted activities, and keep causal source repair active. Updated `normalize_inconsistent_active_task.md` to preserve explicit exclusions as prose, reconcile only contradictory excluded checklists, and allow honest task completion after permitted work without synthetic proof tasks or passes.
+- 2026-11-03 guide clarification: added bounded task/story extraction and ordinary partial-outcome handling for ambiguous testing permission in the visual preflight, automated-proof, runtime-research, latest-completed-task manual-proof, and deep-repair guides. `fix_next_minor_review_finding.md` retains its existing explicit task Testing/story extraction and scoped `not_run` handling; JSON validation remains permitted-only, and no workspace checks or deferred reviewer suggestions were restored. The six-line `server/src/flows/service.ts` correction remains: failed status is no longer converted to stopped from response content, while genuine error/stop handling and bounded retry behavior remain. No checks or runtime actions were performed.
+
 
 ### Task 3. Preserve review repair, settlement, and task-generation behavior
 
@@ -122,7 +125,7 @@ Propagate scoped exclusions through review repair and settlement, retrospective 
 #### Task Exit Criteria
 
 - Required review calls, findings, source repairs, settlement, task generation, task history, and mappings remain active and attributable.
-- Final validation is created only when permitted required proof remains; excluded human acceptance is not represented as agent proof.
+- A final testing/revalidation task is created or required only when permitted required proof remains; excluded or external human acceptance is never represented as agent proof or a synthetic task.
 
 #### Subtasks
 
@@ -140,6 +143,8 @@ No agent testing, test authoring/repair, testing-infrastructure work, builds, ty
 - Updated `codeinfo_markdown/implement_review_batch_direct_fixes.md`, `implement_review_batch_remaining_fixes.md`, `research_and_fix_repeated_review_findings.md`, `fix_next_minor_review_finding.md`, `record_review_batch_outcome.md`, `shared/completed-review-fix-task.md`, `settle_agent_native_review_pass.md`, `apply_agent_native_review_settlement.md`, and `audit_agent_native_review_settlement.md`. Repair workers receive affected-task Testing scope; authoring, execution, lint, and formatting exclusions remain activity-specific. Permitted required proof remains mandatory; excluded proof is not a pass or blocker. Failed or unavailable permitted proof remains incomplete, and a partial commit cannot establish acceptance. The inline-review result schema and finding repair outcomes remain intact.
 - Updated retrospective guidance in `codeinfo_markdown/retrospective_story/tasking/03-final-validation.md`, `04-check.md`, and `05-repair.md`, plus `task_up/09-proof-and-testing.md` and `shared/final-task-creation.md`. Existing task identity/history requirements remain. Final validation is conditional on permitted required proof and is not synthesized for excluded proof. No checks were run.
 - Follow-up repair clarified that unavailable or failed permitted proof remains incomplete; only explicit exclusions remove that activity from its gate. Partial commits cannot establish finding acceptance.
+- 2026-11-03 settlement wording: final testing/revalidation tasks are required or ordered last only when permitted required proof remains for affected work. Mandatory review, audit, repair, and settlement remain required; excluded or external human acceptance does not create a synthetic agent-test task. No testing or validation was run.
+
 
 ### Task 4. Propagate reviewer inputs and closeout guidance
 
@@ -157,11 +162,12 @@ Preserve the exclusion and review distinction across native Codex, OpenCode, Cop
 - Applicable restrictions and affected task scopes are carried in supported reviewer inputs and PR requirements context.
 - Review calls and closeout remain active, while excluded execution and external human acceptance are reported honestly.
 - The installed `/app` catalog deployment/reload prerequisite is documented without claiming it occurred.
+- Final-push lint, formatting, and related repair are scoped to the latest approved story and each affected task, including completed tasks; ordinary in-scope Git inspection, commit, and push remain available.
 
 #### Subtasks
 
 - [x] Trace reviewer-input and closeout paths for all listed providers and review modes.
-- [x] Propagate scoped exclusion context while retaining independent required reviews and exact remote trigger behavior.
+- [x] Propagate scoped exclusion context in reviewer inputs, PR requirements, and final-push lint/format decisions while retaining independent required reviews and exact remote trigger behavior.
 - [x] Keep human acceptance external and pending; avoid fabricated test results and unverified provider-enforcement claims.
 - [x] Document the installed harness deployment/catalog reload prerequisite for human-controlled rollout.
 
@@ -185,3 +191,5 @@ No agent testing, test authoring/repair, testing-infrastructure work, builds, ty
 ## Human Acceptance
 
 External human acceptance is pending. Do not add agent-run product-test checkboxes to represent it or claim it passed.
+- 2026-11-03 finalization guidance: `final_push.md` now extracts approved story scope and each affected task Testing section by explicit plan/task identity, including completed tasks, before lint/format. It runs only permitted lint/format/related repair and defers only ambiguous or excluded activities while retaining independent Git finalization. No lint, format, or other validation was run.
+

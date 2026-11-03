@@ -24,7 +24,7 @@ Use the immutable review-batch ID as the task identity. The title is:
 
 For each fix-bearing batch, create or update exactly one matching task. Never duplicate a batch record when settlement or its audit reruns.
 
-Order completed-review-fix tasks by factual batch launch order. Place them before any open implementation tasks created for findings that remained after both repair opportunities, and place the one final revalidation task after all completed and open review-created work.
+Order completed-review-fix tasks by factual batch launch order. Place them before any open implementation tasks created for findings that remained after both repair opportunities, and, only when permitted required proof remains, place the one final revalidation task after all completed and open review-created work. Do not require a final task solely for excluded or external human proof.
 
 ## Required Task Shape
 

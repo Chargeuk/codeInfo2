@@ -25,13 +25,13 @@ When honest manual proof requires another repository, you may inspect and resear
 Resolve the same bound task that the loop is preparing to manual-test from `current-task.json` when possible.
 After resolving the bound task number when possible, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py" --task-number <that-number>`.
 If the bound task number cannot be resolved, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` without `--task-number`.
-Use that JSON output as the source of truth for whether story-level and task-level manual-testing guidance are present in the active plan.
+Use that JSON output as the source of truth for whether story-level and task-level manual-testing guidance are present in the active plan. When the bound task number is known, also run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --plan <stored-plan-path> --task-number <number> --section Testing --story-section 'Acceptance Criteria' --story-section 'Out Of Scope'` and read the complete task Testing section plus applicable approved story restrictions before proposing task-specific manual activity or runtime setup. If the task number is unresolved, retrieve the approved story sections using the stored plan path, continue safe runtime-path research, and do not start or reclaim a runtime for task-specific proof until the task is resolved.
 
 </input_scope>
 
 <story_and_task_guidance_rules>
 
-- Read applicable Testing restrictions from the bound plan and record their scope in runtime research. If an explicit exclusion covers manual testing or runtime setup, do not start/reclaim a runtime for that covered work; do not imply it was proved. This restriction does not suppress safe source review or runtime-path research that does not perform the excluded activity.
+- Read applicable Testing restrictions from the bound plan and record their scope in runtime research. If an explicit exclusion covers manual testing or runtime setup, do not start/reclaim a runtime for that covered work; do not imply it was proved. If permission is unclear or unreadable, do not perform potentially excluded proof; record the precise limitation in the normal runtime-research outcome and leave proof pending. Continue safe source review and runtime-path research that does not perform the excluded activity.
 
 - If the guidance-status script reports story-level `Story Manual Testing Guidance`, read and summarize it before finishing this runtime-research pass.
 - If the guidance-status script reports a bound task `Manual Testing Guidance` section, read and summarize it before finishing this runtime-research pass.

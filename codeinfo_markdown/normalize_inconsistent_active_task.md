@@ -45,12 +45,13 @@ If `current-task.json` says no current task could be selected because no open or
 
 <normalization_rules>
 
-- Treat a highest active task with all subtasks checked, all testing checked, and no live standalone `**BLOCKER**` as an invalid plan state that must not be left unchanged.
-- Treat any `__done__` task still reported by the parser under `inconsistent_done_tasks` as an invalid plan state that must not be left unchanged.
+- Treat a highest active task with all subtasks checked, all permitted required testing complete (or explicitly excluded testing retained as prose with no checkbox), and no live standalone `**BLOCKER**` as an invalid plan state that must not be left unchanged.
+- Treat any `__done__` task still reported by the parser under `inconsistent_done_tasks` as an invalid plan state that must not be left unchanged, except that an unchecked Testing item explicitly contradicted by an applicable exclusion must be reconciled to checkbox-free prose rather than treated as missing proof.
 - Treat any `current-task.json` state whose meaning is `needs_plan_repair` as an invalid plan state that must not be left unchanged.
 - Treat multiple open `__in_progress__` tasks reported either by the parser or by `current-task.json` as an invalid plan state that must not be left unchanged.
 - Treat a selector result that says no open or todo task could be found as an invalid plan state that must not be left unchanged unless the story is honestly complete.
 - Re-read the task's full section, including `Task Exit Criteria`, `Subtasks`, `Testing`, and `Implementation notes`, before deciding what to change.
+- Interpret the complete assigned task `Testing` section together with applicable approved story restrictions before turning proof prose into work. Apply explicit exclusions only to the activities and scope they actually cover; missing/empty Testing or “no tests exist” is not an exclusion. Preserve a legitimate exclusion as checkbox-free Testing prose, never create synthetic proof-authoring or execution work or a pass for excluded activities, and reconcile only contradictory active excluded checklists while preserving task IDs, mappings, and history. Failed or unavailable permitted required proof remains incomplete and follows the ordinary task repair/blocker rules.
 - If multiple open `__in_progress__` tasks exist, repair the plan so exactly one true active owner remains before the implementation loop continues.
 - If no open or todo task exists but story-complete conditions are not yet honestly satisfied, repair task statuses, checklist state, or missing executable ownership so the next selector pass will not return `no_open_or_todo_task_found`.
 - If needed, add or repair canonical `Task Status` lines so every executable task is visible to the selector as exactly one of `__to_do__`, `__in_progress__`, or `__done__`.
@@ -65,9 +66,10 @@ If `current-task.json` says no current task could be selected because no open or
 - Treat this section-shape repair as normal self-healing, not as a reason to split the task, add a prerequisite, or return the same task to automated proof unchanged.
 - Do not create subtasks that depend on future automated or manual proof output in order to become complete.
 - If the remaining prose describes manual validation, browser checks, screenshots, or runtime-visible follow-up, place that only in `Manual Testing Guidance` when useful rather than converting it into an unchecked subtask or testing checklist item.
-- If the remaining prose describes proof artifacts or observability expectations, convert that into:
+- If the remaining prose describes proof artifacts or observability expectations, first check whether the assigned task's complete `Testing` section and applicable approved story restrictions permit the relevant proof authoring and execution. Convert it into:
   - proof-authoring subtasks that prepare the relevant files, markers, fixtures, or harnesses; or
-  - automated-only `Testing` steps that run the supported wrapper or harness.
+  - automated-only `Testing` steps that run the supported wrapper or harness,
+  only for activities permitted by that contract. Preserve explicitly excluded proof expectations as checkbox-free Testing prose; do not create synthetic tests, harnesses, fixtures, commands, or passes for excluded activities.
 - Do not create subtasks that say or imply `run automated tests`, `after Testing step N`, or `capture proof from the later test run`.
 - Then do exactly one of the following:
   - mark the task `__done__` if current repository evidence shows the remaining prose-only note is already satisfied or is not an honest remaining gate; or
@@ -78,7 +80,7 @@ If `current-task.json` says no current task could be selected because no open or
       and leave the task `__in_progress__`.
 - You may also add optional `Manual Testing Guidance` when later manual-testing-agent validation would help for an externally observable surface, but that guidance is not by itself a reason to keep the task `__in_progress__`.
 - If the inconsistent task is currently `__done__` and the remaining unchecked checklist state is still honest unfinished work, reopen that task to `__in_progress__` before returning it to the loop.
-- A task must not remain `__done__` while the parser still reports unchecked subtasks, unchecked testing, or a live blocker for that task.
+- A task must not remain `__done__` while the parser reports unchecked subtasks, permitted required unchecked testing, or a live blocker for that task. Once permitted implementation and proof are complete and no genuine blocker remains, it may be `__done__` with zero Testing checkboxes and external human acceptance pending; retain exclusions as prose and do not claim excluded proof passed.
 - Do not leave prose-only “still incomplete” notes as the sole reason a task remains `__in_progress__`.
 - Keep the fix minimal and local to the inconsistent task unless a tiny cross-reference update is required for honesty.
 - Before appending a new implementation note, re-read the latest existing implementation or audit note and avoid duplicating the same outcome.

@@ -4,6 +4,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 <critical_rules>
 
+- Before any manual/browser/E2E action or runtime setup, read the complete bound task Testing section and applicable approved story restrictions from the bounded plan extraction. An explicit exclusion controls only the covered manual activity/setup; do not run covered proof or promote nonexistent evidence. Continue permitted source/documentation review and unrelated task proof. Record excluded or external human acceptance as not performed, never passed, and do not make it an agent blocker. Missing/empty Testing or “no tests exist” is not an exclusion. If permission is unclear or unreadable, do not perform potentially excluded manual proof or runtime setup; leave it pending and report the precise limitation in the normal outcome. Continue permitted source/documentation review and unrelated proof without treating the limitation as a failing turn.
+
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before inspecting, reusing, starting, stopping, or classifying a Docker or Compose stack.
 - Use fresh disk reads and current git state, not conversational memory.
@@ -11,7 +13,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - For manual proof only, you may inspect and run additional supporting repositories when they are reasonably needed to perform honest proof for the active story or bound task.
 - Do not treat a supporting repository outside `additional_repositories` as a blocker by itself.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
-- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile manual-proof --task current` before deciding what to test, because another agent may have just edited the bound task.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile manual-proof --task current --story-section 'Acceptance Criteria' --story-section 'Out Of Scope'` before deciding what to test, because another agent may have just edited the bound task. Then retrieve the complete Testing section with `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --task current --section Testing`.
 - If `current-task.json` does not clearly resolve a task for this loop pass, state that manual testing must wait for task resolution and do not invent a different candidate task.
 - After resolving the bound task number, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py" --task-number <that-number>` and use its JSON output as the source of truth for whether story-level and task-level manual-testing guidance are present in the active plan.
 - Read `codeInfoStatus/flow-state/manual-testing-runtime.json` if it exists and determine its meaning from the information it contains rather than depending on an exact JSON shape.

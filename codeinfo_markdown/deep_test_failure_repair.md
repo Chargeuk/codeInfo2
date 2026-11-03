@@ -21,7 +21,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Do not rediscover the story independently.
-- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile blocker-repair --task current` before starting.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile blocker-repair --task current --section Testing --story-section 'Acceptance Criteria' --story-section 'Out Of Scope'` before starting.
 - If `current-task.json` does not clearly resolve a task for this loop pass, stop and say the task handoff must be regenerated before deep automated-proof repair continues.
 - Use fresh disk reads and current git state, not conversational memory.
 - Do not run `git switch`, `git checkout`, `git branch`, or otherwise create or change branches in this step.
@@ -109,6 +109,8 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 </plan_update_rules>
 
 <stop_conditions>
+
+- Before diagnosing or repairing a failed or missing proof item, read its complete task `Testing` section and applicable approved story restrictions via bounded plan extraction. An explicit exclusion controls test authoring/repair or execution only when it covers that activity. Do not create, repair, or rerun excluded proof, or stale/revalidate excluded checks. Continue permitted source review and causal repair. Explicitly excluded proof and external human acceptance are not agent blockers; failed or unavailable permitted required proof remains incomplete and follows the genuine blocker or repair route as appropriate. Never present excluded or unrun proof as a pass. Missing/empty Testing or “no tests exist” is not an exclusion, and partial exclusions do not remove other mandatory proof. First recover and interpret unclear permission from current authoritative plan evidence. If authority remains genuinely conflicting or unreadable, do not run potentially excluded proof or a repair that depends on it; preserve the task's parser-visible permission `**BLOCKER**` and route it through existing planner/clarification handling without treating it as resolved. Continue safe independent source diagnosis, audit, and review work.
 
 - Stop with no edits when there is no live blocker or no applicable automated-proof blocker.
 - Stop with a resolved state when the formerly failing proof now passes and the task history has been updated honestly.

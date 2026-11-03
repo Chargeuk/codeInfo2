@@ -39,6 +39,8 @@ Do not treat this step as automated-proof completion.
 
 <audit_rules>
 
+- Read the complete applicable task `Testing` section and approved story-level testing restrictions through bounded plan extraction. Interpret explicit exclusions semantically for their stated scope, including authoring/repair and execution when covered; do not treat missing/empty testing or “no tests exist” as an exclusion. Keep permitted source, visual, implementation, and review audits active. Do not bypass this mixed-purpose audit because one proof activity is excluded, or treat excluded proof/external human acceptance as an agent blocker. Report unavailable/excluded execution evidence honestly; never imply a pass.
+
 - Audit the coding agent's implementation-only work on the current task honestly.
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
 - Audit for story-caused preserved-behavior regressions and other out-of-scope user-facing behavior drift, not just checklist completion.

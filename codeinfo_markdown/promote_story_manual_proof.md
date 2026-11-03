@@ -1,5 +1,7 @@
 # Goal
 
+Before treating manual/browser proof as due or blocked, read the applicable task Testing/Manual Testing Guidance and approved story restrictions from the assigned plan. An explicit exclusion controls manual testing and runtime setup only when its wording covers them; do not start covered proof or promote nonexistent evidence. Keep source/visual reviews and review cycles active, preserve remaining permitted task proof, and record excluded/external human acceptance as not performed rather than passed or as an agent blocker.
+
 Promote curated story-level manual-proof artifacts from ignored per-task scratch storage into a durable repository-owned proof bundle using only fresh disk reads and the active plan scope.
 
 <task>

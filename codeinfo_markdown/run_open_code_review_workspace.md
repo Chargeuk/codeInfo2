@@ -4,6 +4,8 @@ Read and follow `review_job_workspace_contract.md` first.
 
 Read the assigned shared input directory and verify its exact repository, base commit, HEAD commit, story context, and exclusions. Keep every OpenCode artifact inside this job's `work/` directory.
 
+Carry the full applicable testing restriction text and affected task scope from the pinned shared inputs into any native/provider instructions. Continue source review and all required review calls. Do not claim that OpenCode enforced an exclusion or that excluded/unavailable execution evidence passed unless supported evidence establishes it.
+
 Use the supported agent commands, adapting paths to this job:
 
 ```text

@@ -40,9 +40,11 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 
 <audit_rules>
 
+- Read the complete applicable task `Testing` section and approved story-level testing restrictions through bounded plan extraction before normalizing proof or task status. Apply explicit exclusions semantically and only to the named activity and scope; absence, empty Testing, or “no tests exist” does not authorize skipping. Preserve implementation/source/visual review and all review cycles. Excluded or externally owned human proof is not a blocker, but its evidence remains honestly unavailable/not performed; never fabricate a pass or mark excluded proof checked.
+
 - Audit the coding agent's implementation and automated-proof work on the current task honestly.
 - Follow `"$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md"`.
-- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. When auditing the dedicated final task, prefer keeping story-caused remaining work on that same task and preserve its full-suite closeout ownership.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. When auditing the dedicated final task, prefer keeping story-caused remaining work on that same task and preserve its closeout ownership for all proof permitted by the affected task contracts.
 - Audit for story-caused preserved-behavior regressions and other out-of-scope user-facing behavior drift even when automated proof is green.
 - If the implementation-plus-proof pass changed established user-facing behavior that is not explicitly approved by the story or explicitly approved later by the user, first decide whether that drift was introduced by the current story or merely discovered during this story.
 - Make that provenance decision from repository evidence. Treat the drift as story-caused when the current story changed the same surface, contract, or files and there is no honest evidence that the same behavior already existed before those story-owned edits. Treat it as merely discovered only when repository evidence shows the same behavior already existed before the story's edits or the affected surface is unrelated to the story-owned changes.
@@ -51,17 +53,20 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - If the current story introduced that drift, treat it as unfinished in-scope regression work against a preserved behavior: add at least one explicit unchecked subtask or testing item that restores the approved behavior, record the reason in the audit note, and keep the task aligned to the approved behavior target.
 - If the drift was merely discovered and fixing it would require a new product decision outside story scope, record it explicitly as out-of-scope behavior drift and do not add a blocker solely because a new product decision would be needed to legitimize that drift.
 - Normalize checklist state from evidence before deciding whether a blocker is needed.
+- If permission for required task Testing remains genuinely conflicting or unreadable after reviewing current authoritative task and story plan evidence, do not treat the item as excluded, passed, or harmless pending proof. Preserve it unchecked, keep the task `__in_progress__`, and retain a parser-visible `**BLOCKER**` naming the evidence/conflict and exact clarification needed for the existing planner/clarification route. Continue independent permitted audits and reviews. An explicit applicable exclusion remains non-blocking.
+- If an active unchecked `Testing` checkbox conflicts with an explicit applicable testing exclusion, do not check it or leave it as mandatory proof. Preserve its intended scope/history as checkbox-free prose in that task's `Testing` section and remove only that excluded checkbox; record the exclusion and that execution was not performed, without a pass claim. This reconciles the active plan to its authoritative contract and does not claim the excluded work was completed.
+- After that reconciliation, a task may be `__done__` with zero `Testing` checkboxes when all subtasks are honestly complete, no permitted required Testing checkbox remains unchecked, and no genuine standalone blocker remains. Keep external human acceptance pending as checkbox-free prose; it is not an agent blocker. Continue this step's required implementation, source/visual, and review audits.
 - Mark completed subtasks and completed `Testing` items complete when the repository evidence shows they were honestly completed but left unchecked.
 - A bookkeeping omission is not a blocker by itself.
-- A proven repository-owned test stack that can be reclaimed with its documented shutdown wrapper is recoverable proof state. Retire any blocker whose only claim is that the current proof agent did not start that stack, leave the applicable testing item unchecked, and allow the proof loop to retry it.
+- A proven repository-owned test stack that can be reclaimed with its documented shutdown wrapper is recoverable proof state when the affected check is permitted. Retire any blocker whose only claim is that the current proof agent did not start that stack, leave that permitted testing item unchecked, and allow the proof loop to retry it.
 - After normalizing completed checklist items, recompute which subtasks and `Testing` items are truly still open.
-- A task must not remain `__done__` if it still has unchecked subtasks, unchecked testing, or a live standalone `**BLOCKER**`; if you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
+- A task must not remain `__done__` if it still has unchecked subtasks, unchecked permitted required testing, or a live standalone `**BLOCKER**`; excluded Testing prose is not an unchecked item. If you discover that invalid state for the selected task, reopen it to `__in_progress__` or finish the checklist honestly before finalizing this audit.
 - Identify any blocker notes marked `**BLOCKER**`.
 - Capture what remains incomplete and whether any blocker appears local to the task or likely needs planner review later.
-- Treat real unchecked subtasks, real unchecked testing steps, a live standalone `**BLOCKER**` note, or newly added remaining work that restores a story-caused preserved behavior as the only valid reasons for the task to remain `__in_progress__` after normalization.
+- Treat real unchecked subtasks, real unchecked permitted required testing steps, a live standalone `**BLOCKER**` note, or newly added remaining work that restores a story-caused preserved behavior as the only valid reasons for the task to remain `__in_progress__` after normalization.
 - If the only remaining reason the task is not acceptable is a story-caused preserved-behavior regression, add explicit unchecked remaining work and preserve the task as `__in_progress__` without adding a blocker solely for that regression.
 - If the only remaining concern is merely discovered out-of-scope user-facing behavior drift, record that drift honestly without adding a blocker solely for that drift.
-- If real unchecked checklist items still remain after normalization and no live standalone `**BLOCKER**` exists, treat that as an invalid end state for the just-worked proof pass and add a blocker rather than preserving it as ordinary `__in_progress__`.
+- If real unchecked subtasks or permitted required Testing items still remain after normalization and no live standalone `**BLOCKER**` exists, treat that as an invalid end state for the just-worked proof pass and add a blocker rather than preserving it as ordinary `__in_progress__`. Do not add a blocker for excluded proof or pending external human acceptance.
 - For the dedicated final task, when real story-caused work remains, add a concrete bounded repair subtask to this same task when needed, uncheck every validation item made stale by the repair, and rerun from the earliest stale step, including affected build, startup, full-suite, shutdown, lint, and formatting items. Keep the task `__in_progress__`. Do not create or recommend another numbered task unless the shared final-task contract's ownership, sequencing, architecture, authority, or scope-expansion exception applies.
 - If prose notes, exit-criteria text, or other non-checklist text still claim remaining work after all subtasks and testing are checked and no live standalone `**BLOCKER**` remains, treat that as invalid task shape rather than as a reason to keep the task open.
 - In that invalid task-shape case, either:
@@ -87,13 +92,13 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 - A task must not be marked `__done__` when its apparent completion depends on an established user-facing behavior change that the story did not explicitly approve and the user did not explicitly approve later.
 - If the current story introduced an unapproved behavior change, keep the task `__in_progress__` by adding explicit unchecked remaining work that restores the approved behavior.
 - If the only remaining concern is merely discovered out-of-scope user-facing behavior drift that this story did not introduce, record that drift honestly without adding a blocker solely because the story would otherwise need a new product decision.
-- If its subtasks and testing are honestly complete and no blocker remains, ensure its `Task Status` is `__done__`.
+- If its subtasks and all permitted required testing are honestly complete and no genuine blocker remains, ensure its `Task Status` is `__done__`; explicitly excluded proof may remain documented as not performed without blocking completion.
 - This audit is the step that should flip the task to `__done__` when planner repair or earlier proof work has already made the task honestly complete.
 - Do not require a new automated-proof execution in this pass if the task's testing section is already honestly complete from earlier work.
-- Do not keep the task `__in_progress__` solely because prose notes or exit-criteria text still mention remaining work when no unchecked subtasks, unchecked testing steps, or live standalone `**BLOCKER**` note remain.
+- Do not keep the task `__in_progress__` solely because prose notes or exit-criteria text still mention remaining work when no unchecked subtasks, unchecked permitted testing steps, or live standalone `**BLOCKER**` note remain.
 - Interpret every remaining checklist item and blocker semantically before preserving it. If an existing item actually belongs to browser, screenshot, agent-driven, or other manual-testing-agent proof, preserve and merge its useful meaning into checkbox-free `Manual Testing Guidance`, remove only the misplaced checklist item, and retire any blocker whose sole reason was waiting for that later manual action. Do not claim the manual scenario ran; make the task structurally eligible for the normal manual handoff.
-- If real unchecked subtasks or real unchecked `Testing` items remain after normalization and a live blocker exists, ensure the task remains `__in_progress__`.
-- If real unchecked subtasks or real unchecked `Testing` items remain after normalization and no live blocker exists, add a blocker and leave the task `__in_progress__`.
+- If real unchecked subtasks or real unchecked permitted required `Testing` items remain after normalization and a live blocker exists, ensure the task remains `__in_progress__`.
+- If real unchecked subtasks or real unchecked permitted required `Testing` items remain after normalization and no live blocker exists, add a blocker and leave the task `__in_progress__`. Do not block on excluded proof or external human acceptance.
 - After your audit edits, the highest-numbered task in the plan whose `Task Status` is either `__done__` or `__in_progress__` must be the task that was just worked in this loop.
 
 </task_status_rules>
@@ -125,9 +130,9 @@ Before finishing:
 - confirm the task was not left `__done__` on the strength of tests alone when the implementation changed established user-facing behavior outside approved story scope;
 - confirm no pre-existing bug or product inconsistency was silently accepted as current-story work merely because automated proof passed after the change;
 - confirm you normalized task, subtask, and testing status from evidence before deciding whether a blocker was needed;
-- confirm the task was set to `__done__` only when both subtasks and testing were honestly complete and no blocker remained;
+- confirm the task was set to `__done__` only when subtasks and all permitted required testing were honestly complete and no genuine blocker remained; explicitly excluded proof was retained as not performed;
 - confirm you did not treat a bookkeeping omission by itself as a blocker;
-- confirm you did not leave real unchecked subtasks or real unchecked `Testing` items after normalization and no live `**BLOCKER**`;
+- confirm you did not leave real unchecked subtasks or real unchecked permitted `Testing` items after normalization and no live `**BLOCKER**`;
 - confirm any prose-only remaining-work note was either converted into an unchecked checklist item or blocker, or ignored for completion because it was not an honest remaining gate;
 - confirm any newly created subtasks stayed within implementation or proof-authoring work;
 - confirm any newly created `Testing` items remain automated-only;

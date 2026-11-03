@@ -46,6 +46,8 @@ Before any such launch, delegate `python3 "$CODEINFO_ROOT/scripts/check_review_p
 
 <execution_rules>
 
+- Before authoring or repairing any test/proof work or delegating any check needed by an implementation subtask, read that task's complete `Testing` section and applicable approved story restrictions through bounded plan extraction. Honor explicit exclusions for test authoring/repair and each named check category only when the restriction covers that activity. Missing/empty Testing or “no tests exist” is not permission to skip required work; partial exclusions preserve all permitted work. Do not create excluded proof or present it as passed. Continue permitted source and documentation review, and do not treat excluded checks or external human acceptance as an implementation blocker.
+
 - Work only on the selected task's `Subtasks` section until all unchecked subtasks are complete or the task is honestly blocked.
 - If the selected task has no unchecked subtasks, do not implement a later task in this step.
 - If the next honest action required to complete the current subtask is a build, typecheck, test, lint, format, or other check, assign the exact check to `automated_testing_agent` and wait for its terminal result instead of running it directly. Delegate substantive Markdown documentation work to that agent as well. The coding agent owns production/config/test authoring and all code repairs.

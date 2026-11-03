@@ -145,6 +145,7 @@ No agent testing, test authoring/repair, testing-infrastructure work, builds, ty
 - Updated retrospective guidance in `codeinfo_markdown/retrospective_story/tasking/03-final-validation.md`, `04-check.md`, and `05-repair.md`, plus `task_up/09-proof-and-testing.md` and `shared/final-task-creation.md`. Existing task identity/history requirements remain. Final validation is conditional on permitted required proof and is not synthesized for excluded proof. No checks were run.
 - Follow-up repair clarified that unavailable or failed permitted proof remains incomplete; only explicit exclusions remove that activity from its gate. Partial commits cannot establish finding acceptance.
 - 2026-11-03 settlement wording: final testing/revalidation tasks are required or ordered last only when permitted required proof remains for affected work. Mandatory review, audit, repair, and settlement remain required; excluded or external human acceptance does not create a synthetic agent-test task. No testing or validation was run.
+- Follow-up bookkeeping correction: restored the review workspace input paragraph and result-artifact verification wording to their original instructions, removing only the added permission-gated bookkeeping requirements. No tests or flow execution were performed; prior notes remain historical.
 
 
 ### Task 4. Propagate reviewer inputs and closeout guidance

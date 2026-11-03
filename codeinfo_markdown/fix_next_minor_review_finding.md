@@ -140,7 +140,6 @@ Create or update `codeInfoStatus/flow-state/minor-review-fix-result.json` with t
 - If you wrote tracked edits during the attempt and the terminal result is not `fixed`, revert those tracked edits before writing `minor-review-fix-result.json`.
 - If no tracked files changed after the attempted fix, write a `skipped` result explaining why no commit was made.
 - If `status` is `fixed`, record the exact full `commit_sha` from Git. If the exact `commit_sha` cannot be re-verified with Git as a commit object, stop and rewrite the result.
-- Validate the result artifact's JSON/schema only when permitted by the applicable contract; if explicitly excluded, do not run that check and do not claim validation. Ordinary Git identity and provenance bookkeeping remains required and is not a testing exclusion.
 
 </failure_modes>
 
@@ -174,7 +173,7 @@ Then write that exact `full_commit_sha` value into `minor-review-fix-result.json
 - Confirm a failed first approach, initial task-required disposition, or multi-file edit was not used by itself as the reason to stop.
 - Confirm no manual testing was performed.
 - Confirm no broad final validation was run.
-- Confirm `minor-review-fix-result.json` exists and retains the established fields/status schema. Run JSON/schema validation only when permitted by the applicable contract; if excluded, do not run it and do not claim validation.
+- Confirm `minor-review-fix-result.json` exists and is valid JSON.
 - Confirm any non-`fixed` terminal result left no tracked edits behind from this failed or abandoned inline attempt.
 - Confirm tracked changes were committed if `status` is `fixed`.
 - Confirm the stored `commit_sha` is the exact full 40-character value returned by git for the fix commit when `status` is `fixed`.

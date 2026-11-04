@@ -13,6 +13,10 @@ Keep the same behavior and standards described here even when the exact task cha
 4. If required context is missing and can be gathered from the repo or tools, gather it before asking the user.
 5. If required context cannot be retrieved, ask the user only for the missing piece.
 
+## Assumptions and Scope
+
+Before acting on an assumption that could affect correctness, user-visible behaviour, scope, complexity, or substantial effort, verify it against current source, callers, tests, or relevant documentation. Distinguish confirmed facts from inference and unresolved questions. Prefer existing patterns and helpers; an unsuccessful search does not prove a capability is missing. If a consequential uncertainty remains, investigate the specific question or ask the user before taking the dependent action, while continuing safe independent work. Do not invent requirements or expand the task to resolve speculative concerns. Stop when the requested outcome and required validation are complete.
+
 ## Session Start
 
 Re-read this file at the start of each session. Assume it may have changed since the last context window.
@@ -117,6 +121,12 @@ When working from a file in `./planning` that is NOT a pr-summary file, update t
 3. Work only within that branch until the story is complete and working.
 4. Each commit message must start with `DEV-[Number] -`.
 5. Each commit message body should contain 4 or 5 sentences explaining what changed and why.
+
+## Pull Request Reviews
+
+- In PR review flows such as `pr_current_plan`, Codex review can be requested for a verified pushed candidate with the exact top-level PR conversation comment `@codex review`. Reuse an existing request for that exact candidate instead of duplicating it.
+- CodeRabbit reviews are expected to start automatically when a PR is created and on each push to an existing open PR, subject to the repository's GitHub configuration. Observe that automatic review rather than sending a duplicate trigger. This guidance does not enable the integration or guarantee a review result.
+- Follow the PR flow's polling and shared review gates. Verify each reviewer's identity, status, and reviewed candidate; distinguish completion from refusal, quota, or unavailable coverage, and preserve useful findings from other reviewers without claiming every reviewer succeeded.
 
 ## Build Workflow
 

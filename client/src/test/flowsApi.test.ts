@@ -1,3 +1,4 @@
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 const mockFetch = getFetchMock();
 beforeAll(() => {
@@ -220,7 +221,7 @@ describe('Flows API helpers', () => {
     expect(new URL(url).pathname).toBe('/flows/daily/run');
     expect(init.method).toBe('POST');
     expect(init.headers).toEqual({ 'content-type': 'application/json' });
-    expect(JSON.parse(init.body as string)).toEqual({});
+    expect(decodeJsonBody(init)).toEqual({});
     expect(result).toEqual({
       status: 'started',
       flowName: 'daily',

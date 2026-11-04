@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -110,7 +111,7 @@ function setupExecutePromptFetch(params?: {
       if (runMatch) {
         runUrls.push(target);
         if (init?.body) {
-          runBodies.push(JSON.parse(init.body.toString()));
+          runBodies.push(decodeJsonBody(init));
         }
         if (params?.runResponse && params.runResponse.status !== 202) {
           return mockJsonResponse(params.runResponse?.payload ?? {}, {

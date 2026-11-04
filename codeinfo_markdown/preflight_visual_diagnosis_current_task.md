@@ -18,7 +18,7 @@ Before implementation starts on the current task, inspect the live supported UI 
 - If `check_current_task_handoff.py` reports an `active_selected_task`, you may mention it as freshness or diagnostic context, but do not let it override a clearly resolved persisted task from `current-task.json`.
 - Treat the stored `plan_path` and `additional_repositories` as the primary scope for this step.
 - Expand beyond that primary scope only when needed to inspect a supporting repository for honest visual diagnosis, and report any such scope expansion in the response.
-- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile manual-proof --task current` before deciding what to inspect or edit.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile manual-proof --task current --story-section 'Acceptance Criteria' --story-section 'Out Of Scope'` before deciding what to inspect or edit. Then retrieve the complete Testing section with `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --task current --section Testing`.
 - If a `validator-cleared bound task` was resolved, use the complete requested sections in the bounded manual-proof packet, including:
   - `Overview`
   - `Non-Goals`
@@ -26,6 +26,7 @@ Before implementation starts on the current task, inspect the live supported UI 
   - `Documentation Locations`
   - `Task Design Packet`
   - `Subtasks`
+  - `Testing`
   - `Manual Testing Guidance`
 - If a `validator-cleared bound task` was resolved, treat every listed subtask as in scope for this refinement pass.
 - Do not rewrite task ownership.
@@ -63,6 +64,8 @@ Before implementation starts on the current task, inspect the live supported UI 
 </early_exit_rules>
 
 <scope_and_runtime_rules>
+
+- Before starting or reclaiming a runtime for visual diagnosis, read the bound task's complete Testing section and applicable approved story restrictions through bounded plan extraction. An explicit exclusion prohibits only the covered runtime/testing activity; do not launch or reclaim excluded setups. If permission is unclear or unreadable, do not perform potentially excluded proof; leave it pending and report the precise limitation through the normal output contract. Continue safe source/visual review and permitted checks without turning the limitation into a failing turn or agent blocker.
 
 - Before using browser tools, read:
   - `AGENTS.md`

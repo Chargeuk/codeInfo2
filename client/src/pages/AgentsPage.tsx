@@ -254,6 +254,9 @@ export default function AgentsPage() {
   const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
 
   const [startPending, setStartPending] = useState(false);
+  const preparationsRef = useRef(
+    new Set<{ conversationId: string; cancelled: boolean; pending: boolean }>(),
+  );
   const [runError, setRunError] = useState<string | null>(null);
 
   const metadataLoggedRef = useRef(new Set<string>());
@@ -1053,6 +1056,13 @@ export default function AgentsPage() {
     if (!activeConversationId || isStopping) {
       return;
     }
+    for (const preparation of preparationsRef.current) {
+      if (preparation.conversationId === activeConversationId) {
+        preparation.cancelled = true;
+        preparationsRef.current.delete(preparation);
+        if (preparation.pending) setStartPending(false);
+      }
+    }
 
     const inflightId =
       serverVisibleInflightIdRef.current ?? getInflightId() ?? undefined;
@@ -1130,12 +1140,27 @@ export default function AgentsPage() {
       });
       subscribeConversation(nextConversationId);
 
+      for (const previous of preparationsRef.current) previous.pending = false;
+      const preparation = {
+        conversationId: nextConversationId,
+        cancelled: false,
+        pending: true,
+      };
+      preparationsRef.current.add(preparation);
       try {
         const result = await runAgentInstruction({
           agentName: selectedAgentName,
           instruction: params.instruction,
           working_folder: params.workingFolder,
           conversationId: nextConversationId,
+          beforeFetch: () => {
+            preparationsRef.current.delete(preparation);
+            if (preparation.cancelled)
+              throw new DOMException(
+                'Request preparation cancelled',
+                'AbortError',
+              );
+          },
         });
         bindOptimisticUserMessageToInflight(
           optimisticMessageId,
@@ -1148,6 +1173,7 @@ export default function AgentsPage() {
         void refreshConversations();
         return { status: 'started' as const };
       } catch (err) {
+        if (preparation.cancelled) return { status: 'cancelled' as const };
         if (
           err instanceof AgentApiError &&
           err.status === 409 &&
@@ -1184,7 +1210,8 @@ export default function AgentsPage() {
           code: err instanceof AgentApiError ? err.code : undefined,
         };
       } finally {
-        setStartPending(false);
+        preparationsRef.current.delete(preparation);
+        if (!preparation.cancelled) setStartPending(false);
       }
     },
     [
@@ -1703,6 +1730,13 @@ export default function AgentsPage() {
     stoppedVisibleConversationRef.current = null;
     setStartPending(true);
 
+    for (const previous of preparationsRef.current) previous.pending = false;
+    const preparation = {
+      conversationId: nextConversationId,
+      cancelled: false,
+      pending: true,
+    };
+    preparationsRef.current.add(preparation);
     try {
       if (isNewConversation) {
         setConversation(nextConversationId, { clearMessages: true });
@@ -1736,6 +1770,14 @@ export default function AgentsPage() {
         sourceId: selectedCommand.sourceId,
         working_folder: workingFolder.trim() || undefined,
         conversationId: nextConversationId,
+        beforeFetch: () => {
+          preparationsRef.current.delete(preparation);
+          if (preparation.cancelled)
+            throw new DOMException(
+              'Request preparation cancelled',
+              'AbortError',
+            );
+        },
       });
 
       if (result.modelId) {
@@ -1756,6 +1798,7 @@ export default function AgentsPage() {
         });
       }
     } catch (err) {
+      if (preparation.cancelled) return;
       if (
         err instanceof AgentApiError &&
         err.status === 409 &&
@@ -1795,7 +1838,8 @@ export default function AgentsPage() {
       );
       setRunError(message);
     } finally {
-      setStartPending(false);
+      preparationsRef.current.delete(preparation);
+      if (!preparation.cancelled) setStartPending(false);
     }
   }, [
     activeConversationId,

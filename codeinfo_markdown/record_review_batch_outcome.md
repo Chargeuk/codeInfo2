@@ -1,5 +1,7 @@
 # Record the current review batch outcome
 
+Review repair and completed-task records must carry the affected task's explicit testing exclusion into checkbox-free `Testing` prose when applicable. Do not create or check excluded test work or claim it passed; preserve permitted proof and honest execution limitations. This does not reduce review calls, findings, repairs, settlement, or batch evidence requirements.
+
 Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/repeated-review-repair.md` for repeated-finding routing, research contributions, unavailable coverage, and settlement. References below to repair agents, audits, repair opportunities, or fix-bearing batches include the repeated-research stage when applicable. Its invocation (or honestly unavailable attempt) satisfies the stronger opportunity for its assigned findings; preserve history and reversal evidence in any resulting settlement tasks.
 
 Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`; the batch outcome is always applicable, while deliberately skipped gate and repair artifacts remain optional for the reasons recorded by trustworthy earlier evidence.

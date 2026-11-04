@@ -19,6 +19,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
+import { fetchJson } from '../api/fetchJson';
 import UtilityPageShell from '../components/utility/UtilityPageShell';
 import useLogs from '../hooks/useLogs';
 import { createLogger } from '../logging';
@@ -107,7 +108,7 @@ export default function LogsPage() {
     logger('info', 'sample log', { feature: 'logs', ...context });
 
     try {
-      await fetch(new URL('/logs', apiBase).toString(), {
+      await fetchJson(new URL('/logs', apiBase).toString(), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

@@ -1,3 +1,4 @@
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 
 const mockFetch = getFetchMock();
@@ -33,7 +34,7 @@ describe('Agents API working_folder payload', () => {
     });
 
     const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const body = decodeJsonBody(init) as Record<string, unknown>;
     expect(body.working_folder).toBe('/abs/path');
   });
 
@@ -45,10 +46,7 @@ describe('Agents API working_folder payload', () => {
     });
 
     const [, initMissing] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const missingBody = JSON.parse(initMissing.body as string) as Record<
-      string,
-      unknown
-    >;
+    const missingBody = decodeJsonBody(initMissing) as Record<string, unknown>;
     expect(missingBody).not.toHaveProperty('working_folder');
 
     mockFetch.mockClear();
@@ -59,10 +57,7 @@ describe('Agents API working_folder payload', () => {
     });
 
     const [, initBlank] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const blankBody = JSON.parse(initBlank.body as string) as Record<
-      string,
-      unknown
-    >;
+    const blankBody = decodeJsonBody(initBlank) as Record<string, unknown>;
     expect(blankBody).not.toHaveProperty('working_folder');
   });
 });

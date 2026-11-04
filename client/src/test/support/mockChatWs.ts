@@ -1,4 +1,5 @@
 import { act } from '@testing-library/react';
+import { decodeJsonBody } from './decodeJsonBody';
 import {
   asFetchImplementation,
   getFetchMock,
@@ -152,8 +153,8 @@ export function setupChatWsHarness(params: {
 
       if (href.includes('/chat') && method === 'POST') {
         const body =
-          typeof opts?.body === 'string'
-            ? (JSON.parse(opts.body) as Record<string, unknown>)
+          opts?.body != null
+            ? (decodeJsonBody(opts) as Record<string, unknown>)
             : {};
         chatBodies.push(body);
         lastConversationId =

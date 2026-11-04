@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
@@ -378,8 +379,8 @@ describe('Chat provider selection (WS transport)', () => {
         }
         if (href.includes('/chat') && init?.method === 'POST') {
           const body =
-            typeof init.body === 'string'
-              ? (JSON.parse(init.body) as Record<string, unknown>)
+            init.body != null
+              ? (decodeJsonBody(init) as Record<string, unknown>)
               : {};
           sentBodies.push(body);
           return Promise.resolve({
@@ -1947,9 +1948,7 @@ describe('Chat provider selection (WS transport)', () => {
         }
         if (href.includes('/chat') && opts?.method === 'POST') {
           const body =
-            opts?.body && typeof opts.body === 'string'
-              ? JSON.parse(opts.body)
-              : {};
+            opts?.body && opts.body != null ? decodeJsonBody(opts) : {};
           bodies.push(body);
           return Promise.resolve({
             ok: true,

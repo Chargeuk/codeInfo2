@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -62,7 +63,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
         }
         if (target.includes('/agents/a1/commands/run')) {
           if (init?.body) {
-            runBodies.push(JSON.parse(init.body.toString()));
+            runBodies.push(decodeJsonBody(init));
           }
           return okJson({
             agentName: 'a1',
@@ -131,7 +132,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
         }
         if (target.includes('/agents/a1/commands/run')) {
           if (init?.body) {
-            runBodies.push(JSON.parse(init.body.toString()));
+            runBodies.push(decodeJsonBody(init));
           }
           return okJson({
             agentName: 'a1',
@@ -206,10 +207,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
         if (target.includes('/agents/a1/commands/run')) {
           expect(init?.method).toBe('POST');
           if (init?.body) {
-            const parsed = JSON.parse(init.body.toString()) as Record<
-              string,
-              unknown
-            >;
+            const parsed = decodeJsonBody(init) as Record<string, unknown>;
             lastConversationId =
               typeof parsed.conversationId === 'string'
                 ? parsed.conversationId
@@ -346,10 +344,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
         }
         if (target.includes('/agents/a1/commands/run')) {
           if (init?.body) {
-            const parsed = JSON.parse(init.body.toString()) as Record<
-              string,
-              unknown
-            >;
+            const parsed = decodeJsonBody(init) as Record<string, unknown>;
             expect(parsed.conversationId).toBeDefined();
           }
           return okJson({

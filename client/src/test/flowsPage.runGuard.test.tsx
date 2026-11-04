@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 const mockFetch = jest.fn<typeof fetch>();
 beforeAll(() => {
   global.fetch = mockFetch;
@@ -671,8 +672,8 @@ describe('Flows page run guards', () => {
         }
         if (target.includes('/flows/daily/run')) {
           const body =
-            typeof init?.body === 'string'
-              ? (JSON.parse(init.body) as Record<string, unknown>)
+            init?.body != null
+              ? (decodeJsonBody(init) as Record<string, unknown>)
               : {};
           requestBodies.push(body);
           runRequestCount += 1;
@@ -784,8 +785,8 @@ describe('Flows page run guards', () => {
         }
         if (target.includes('/flows/daily/run')) {
           const body =
-            typeof init?.body === 'string'
-              ? (JSON.parse(init.body) as Record<string, unknown>)
+            init?.body != null
+              ? (decodeJsonBody(init) as Record<string, unknown>)
               : {};
           requestBodies.push(body);
           return mockJsonResponse(
@@ -870,8 +871,8 @@ describe('Flows page run guards', () => {
           }
           if (target.includes('/flows/echo/run')) {
             const body =
-              typeof init?.body === 'string'
-                ? (JSON.parse(init.body) as Record<string, unknown>)
+              init?.body != null
+                ? (decodeJsonBody(init) as Record<string, unknown>)
                 : {};
             requestBodies.push(body);
             const runIndex = requestBodies.length;

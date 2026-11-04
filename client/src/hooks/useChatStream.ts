@@ -5,6 +5,7 @@ import type {
 } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
+import { fetchJson } from '../api/fetchJson';
 import { createLogger } from '../logging/logger';
 import type {
   ChatWsCancelAckEvent,
@@ -52,6 +53,11 @@ export type ChatSegment =
   | { id: string; kind: 'tool'; tool: ToolCall };
 
 export type ChatMessage = {
+  flowOrigin?: {
+    level: number;
+    flowName: string;
+    ancestry: { conversationId: string; flowName: string }[];
+  };
   id: string;
   storedTurnId?: string;
   role: 'user' | 'assistant' | 'system';
@@ -286,6 +292,9 @@ export function useChatStream(
   const confirmedInflightIdsRef = useRef<Set<string>>(new Set());
   const finalizedInflightIdsRef = useRef<Set<string>>(new Set());
   const stopRequestIdRef = useRef<string | null>(null);
+  const preparationsRef = useRef(
+    new Set<{ conversationId: string; cancelled: boolean }>(),
+  );
   const stopInflightIdRef = useRef<string | null>(null);
   const toolCallsRef = useRef<Map<string, ToolCall>>(new Map());
   const segmentsRef = useRef<ChatSegment[]>([]);
@@ -909,6 +918,14 @@ export function useChatStream(
 
   const stop = useCallback(
     (options?: { requestId?: string | null; showStatusBubble?: boolean }) => {
+      if (options?.showStatusBubble === true) {
+        for (const preparation of preparationsRef.current) {
+          if (preparation.conversationId === conversationIdRef.current) {
+            preparation.cancelled = true;
+            preparationsRef.current.delete(preparation);
+          }
+        }
+      }
       clearThinkingTimer();
       markAssistantThinking(false);
       syncAssistantMessage(
@@ -1040,6 +1057,7 @@ export function useChatStream(
       historyConversationId: string,
       history: ChatMessage[],
       mode: 'replace' | 'prepend' = 'replace',
+      options?: { matchFullHistory?: boolean },
     ) => {
       const sameConversation =
         conversationIdRef.current === historyConversationId;
@@ -1078,10 +1096,12 @@ export function useChatStream(
         let filteredHistory = history;
         let nextPrev = prev;
         if (hasInFlight && history.length > 0 && prev.length > 0) {
-          const candidates = prev.slice(-6);
+          const candidates = options?.matchFullHistory ? prev : prev.slice(-6);
           const replacements = new Map<string, ChatMessage>();
           filteredHistory = history.filter((entry) => {
             const match = candidates.find((existing) => {
+              if (options?.matchFullHistory && replacements.has(existing.id))
+                return false;
               if (existing.role !== entry.role) return false;
               const entryContent = entry.content ?? '';
               const existingContent = existing.content ?? '';
@@ -1381,6 +1401,11 @@ export function useChatStream(
       syncAssistantMessage({ streamStatus: 'processing' });
       scheduleThinkingTimer();
 
+      const preparation = {
+        conversationId: currentConversationId,
+        cancelled: false,
+      };
+      preparationsRef.current.add(preparation);
       try {
         const baseCodexPayload = threadIdRef.current
           ? { threadId: threadIdRef.current }
@@ -1399,27 +1424,38 @@ export function useChatStream(
           }),
         );
 
-        const res = await fetch(new URL('/chat', API_BASE).toString(), {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            provider: effectiveProvider,
-            model: effectiveModel,
-            ...(submissionEndpointId
-              ? { endpointId: submissionEndpointId }
-              : {}),
-            conversationId: currentConversationId,
-            inflightId: nextInflightId,
-            message: text,
-            ...(options?.workingFolder?.trim()
-              ? { working_folder: options.workingFolder.trim() }
-              : {}),
-            ...(Object.keys(normalizedAgentFlags).length > 0
-              ? { agentFlags: normalizedAgentFlags }
-              : {}),
-            ...codexPayload,
-          }),
-        });
+        const res = await fetchJson(
+          new URL('/chat', API_BASE).toString(),
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              provider: effectiveProvider,
+              model: effectiveModel,
+              ...(submissionEndpointId
+                ? { endpointId: submissionEndpointId }
+                : {}),
+              conversationId: currentConversationId,
+              inflightId: nextInflightId,
+              message: text,
+              ...(options?.workingFolder?.trim()
+                ? { working_folder: options.workingFolder.trim() }
+                : {}),
+              ...(Object.keys(normalizedAgentFlags).length > 0
+                ? { agentFlags: normalizedAgentFlags }
+                : {}),
+              ...codexPayload,
+            }),
+          },
+          () => {
+            preparationsRef.current.delete(preparation);
+            if (preparation.cancelled)
+              throw new DOMException(
+                'Request preparation cancelled',
+                'AbortError',
+              );
+          },
+        );
 
         const payload = (await res.json().catch(() => null)) as {
           status?: string;
@@ -1473,6 +1509,7 @@ export function useChatStream(
           inflightId: payload.inflightId,
         });
       } catch (err) {
+        if (preparation.cancelled) return;
         if ((err as Error).name === 'AbortError') return;
         handleErrorBubble((err as Error).message);
         setIsStreaming(false);
@@ -1483,6 +1520,8 @@ export function useChatStream(
           thinking: false,
           thinkStreaming: false,
         });
+      } finally {
+        preparationsRef.current.delete(preparation);
       }
     },
     [

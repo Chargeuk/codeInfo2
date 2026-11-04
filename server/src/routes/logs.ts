@@ -88,10 +88,12 @@ function buildFilters(query: Record<string, unknown>): Filters {
 function sendEvent(res: Response, entry: LogEntry) {
   res.write(`id: ${entry.sequence}\n`);
   res.write(`data: ${JSON.stringify(entry)}\n\n`);
+  res.flush?.();
 }
 
 function sendHeartbeat(res: Response) {
   res.write(':\n\n');
+  res.flush?.();
 }
 
 export function createLogsRouter() {

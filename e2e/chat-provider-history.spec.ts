@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { logPlaywrightCopilotScenarioRegistration } from './support/copilotFakeScenario';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { installMockChatWs } from './support/mockChatWs';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
@@ -413,7 +414,7 @@ test('fresh chat after selecting history ignores restored resume-only provider s
       return;
     }
     chatBodies.push(
-      (route.request().postDataJSON?.() ?? {}) as Record<string, unknown>,
+      (decodeJsonBody(route.request()) ?? {}) as Record<string, unknown>,
     );
     await route.fulfill({
       status: 202,
@@ -621,7 +622,7 @@ test('mobile endpoint-backed history selection through the conversations overlay
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;
@@ -830,7 +831,7 @@ test('mobile fresh conversation after endpoint-backed history restores the creat
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;

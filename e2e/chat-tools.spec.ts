@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { expect, test, type APIRequestContext } from '@playwright/test';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import {
   acquireE2eResourceLock,
   E2E_RESOURCE_LOCK_TIMEOUT_MS,
@@ -220,7 +221,7 @@ test.describe.serial('Chat tools citations', () => {
 
     await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
-      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
         string,
         unknown
       >;
@@ -387,7 +388,7 @@ test.describe.serial('Chat tools citations', () => {
 
     await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
-      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
         string,
         unknown
       >;

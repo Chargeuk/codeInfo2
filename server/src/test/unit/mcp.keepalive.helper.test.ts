@@ -90,6 +90,33 @@ test('close stops timer and prevents additional writes', (t) => {
   assert.equal(res.writes.length, writesBeforeClose);
 });
 
+test('flushes each initial and periodic whitespace write when compression supplies flush', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const res = new MockResponse();
+  const flushed: string[][] = [];
+  const compressedResponse = Object.assign(res, {
+    flush: () => flushed.push([...res.writes]),
+  });
+  const keepAlive = createKeepAliveController({
+    res: compressedResponse,
+    writeHeadersIfNeeded: () => {
+      res.writeHead();
+    },
+    surface: 'unit_test',
+  });
+  try {
+    keepAlive.start();
+    assert.deepEqual(flushed, [[' ']]);
+    t.mock.timers.tick(10_000);
+    assert.deepEqual(flushed, [[' '], [' ', '\n']]);
+    keepAlive.sendJson({ ok: true });
+    t.mock.timers.tick(10_000);
+    assert.equal(flushed.length, 2);
+  } finally {
+    keepAlive.stop();
+  }
+});
+
 test('response end before next tick does not write after end', (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
   const res = new MockResponse();

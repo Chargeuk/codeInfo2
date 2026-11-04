@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 import { resolveClientTestTimeoutMs } from './support/testTimeouts';
@@ -196,8 +197,8 @@ function mockApi() {
 
       if (href.includes('/chat') && opts?.method === 'POST') {
         const body =
-          opts?.body && typeof opts.body === 'string'
-            ? (JSON.parse(opts.body) as Record<string, unknown>)
+          opts?.body && opts.body != null
+            ? (decodeJsonBody(opts) as Record<string, unknown>)
             : {};
         chatBodies.push(body);
         return Promise.resolve({

@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -123,7 +124,7 @@ describe('Agents page - command execute disabled when persistence unavailable', 
 
         if (target.includes('/agents/a1/commands')) {
           if (target.includes('/run')) {
-            const body = init?.body ? JSON.parse(String(init.body)) : {};
+            const body = init?.body ? decodeJsonBody(init) : {};
             runBodies.push(body as Record<string, unknown>);
             return Promise.resolve({
               ok: true,

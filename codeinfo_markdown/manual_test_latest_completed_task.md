@@ -4,6 +4,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 <critical_rules>
 
+- Before any manual/browser/E2E action or runtime setup, read the complete bound task Testing section and applicable approved story restrictions from the bounded plan extraction. An explicit exclusion controls only the covered manual activity/setup; do not run covered proof or promote nonexistent evidence. Continue permitted source/documentation review and unrelated task proof. Record excluded or external human acceptance as not performed, never passed, and do not make it an agent blocker. Missing/empty Testing or “no tests exist” is not an exclusion. If permission is unclear or unreadable, do not perform potentially excluded manual proof or runtime setup; leave it pending and report the precise limitation in the normal outcome. Continue permitted source/documentation review and unrelated proof without treating the limitation as a failing turn.
+
 - Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before inspecting, reusing, starting, stopping, or classifying a Docker or Compose stack.
 - Use fresh disk reads and current git state, not conversational memory.
@@ -11,7 +13,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - For manual proof only, you may inspect and run additional supporting repositories when they are reasonably needed to perform honest proof for the active story or bound task.
 - Do not treat a supporting repository outside `additional_repositories` as a blocker by itself.
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
-- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile manual-proof --task current` before deciding what to test, because another agent may have just edited the bound task.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile manual-proof --task current --story-section 'Acceptance Criteria' --story-section 'Out Of Scope'` before deciding what to test, because another agent may have just edited the bound task. Then retrieve the complete Testing section with `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --task current --section Testing`.
 - If `current-task.json` does not clearly resolve a task for this loop pass, state that manual testing must wait for task resolution and do not invent a different candidate task.
 - After resolving the bound task number, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py" --task-number <that-number>` and use its JSON output as the source of truth for whether story-level and task-level manual-testing guidance are present in the active plan.
 - Read `codeInfoStatus/flow-state/manual-testing-runtime.json` if it exists and determine its meaning from the information it contains rather than depending on an exact JSON shape.
@@ -86,8 +88,9 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Use the task already resolved into `current-task.json` as the candidate task for this loop iteration.
 - Determine candidate eligibility from honest checklist and blocker state, not from `Task Status` alone.
 - Ignore inline references to `**BLOCKER**`, ignore `**BLOCKING ANSWER**`, and ignore historical notes titled `**RESOLVED ISSUE**` when deciding whether the task is still blocked.
-- If the parser-selected task still has unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`, do not perform manual testing.
-- Add a brief implementation note to that task stating that manual testing was skipped because the latest task is not honestly complete yet.
+- If the parser-selected task has unchecked subtasks, unchecked testing steps, or a live standalone `**BLOCKER**`, assess the required manual surfaces against the actual missing prerequisite. Perform only verified independent manual proof on usable current behavior; defer dependent or uncertain surfaces. This is partial proof, not task completion.
+- For partial independent proof, preserve existing unchecked implementation subtasks, unchecked mandatory `Testing` items, and live blockers; keep the candidate task's `Task Status` at `__in_progress__`, even when the independent surfaces pass or have a permitted skip/not-applicable outcome.
+- Add a brief implementation note naming the proof performed, evidence applicability, deferred surfaces and exact dependencies. Do not infer a skip for every manual surface from one unrelated automated failure.
 - If the parser-selected task has no unchecked subtasks, no unchecked testing steps, and no live standalone `**BLOCKER**`, it is eligible for manual testing whether its `Task Status` is `__in_progress__` or `__done__`.
 - Before adding a manual-testing implementation note for any outcome, re-read that task's existing implementation notes and avoid adding a duplicate note if the same manual-testing outcome is already recorded from the latest loop pass.
 
@@ -254,11 +257,16 @@ Manually assess the latest honestly completed task using the stored plan scope a
 
 <outcome_rules>
 
+- Before setting or keeping the candidate task's `Task Status` at `__done__` under any outcome below, apply this completion gate:
+  - re-read the current plan/task handoff using `shared/current-task-handoff.md`, then rerun `python3 "$CODEINFO_ROOT/scripts/plan_status.py" --task-number <that-number>` against fresh disk state;
+  - require the parser-selected task to match the bound task from `current-task.json`, with `selected_task.subtasks_unchecked` equal to zero (no unchecked implementation subtasks), `selected_task.testing_unchecked` equal to zero (no unchecked mandatory `Testing` items), and `selected_task.live_blockers` empty (no live blocker);
+  - separately confirm from recorded proof evidence that all required manual proof is complete or has a repository-permitted skip/not-applicable outcome; the checklist parser alone does not establish manual-proof completion;
+  - if any requirement fails or cannot be established, preserve existing unchecked work and live blockers and keep the task `__in_progress__`; successful independent proof alone cannot close the task.
 - When manual testing cannot proceed normally, classify the reason into exactly one of these buckets before deciding what to do:
   - `not_applicable`:
     - the candidate task has no relevant runnable, browser-visible, network-visible, or otherwise externally observable proof surface that its own exit criteria require;
     - in this case, record that manual testing was assessed as not applicable and continue without blocker;
-    - if the candidate task has no unchecked subtasks, no unchecked testing steps, and no live standalone `**BLOCKER**`, set its `Task Status` to `__done__` before finishing.
+    - set its `Task Status` to `__done__` before finishing only if the completion gate above passes.
   - `recoverable_runtime_trouble`:
     - the required proof surface should already exist, but the current runtime instance is stale, the documented startup path was not followed yet, readiness is not yet established, or a narrow in-scope startup or environment issue still looks credibly repairable in this step;
     - in this case, do one bounded recovery pass before considering a blocker.
@@ -295,7 +303,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
     - `Observed: <what happened>.`
     - `Why fuller proof was not possible: <plain-English reason>.`
   - do not add implementation work, do not add `**BLOCKER**`, and do not reopen the task for that reason alone.
-  - if no other incomplete work remains, keep the task `__done__` or set it to `__done__`.
+  - keep the task `__done__` or set it to `__done__` only if the completion gate above passes.
 
 - If you can honestly prove the candidate task's own changed behavior, but a later-task-owned surface prevents additional convenience, observability, cleanup, or exploratory checks, do not add `**BLOCKER**`.
 - Instead, add a concise implementation note stating:
@@ -370,7 +378,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
     - and what evidence is still missing.
 
 - If manual testing succeeds without finding further work:
-  - set the candidate task's `Task Status` to `__done__`;
+  - set the candidate task's `Task Status` to `__done__` only if the completion gate above passes; otherwise record partial proof and keep the task `__in_progress__`;
   - add an implementation note stating whether this pass was task-scoped or full-story proof, which visible acceptance-relevant outcomes were proved, whether screenshots were captured or honestly attempted, where the scratch proof artifacts were saved under `codeInfoTmp/manual-testing/<story-number>/<task-number>/`, whether final-task screenshots superseded earlier screenshots for any re-covered surfaces or earlier screenshots remained uniquely necessary, and that no additional subtasks were needed.
 
 - If the non-run reason is `recoverable_runtime_trouble`:
@@ -425,7 +433,8 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - Confirm any added `Manual Testing Guidance` is optional, non-blocking, and checkbox-free.
 - Confirm that any blocker or follow-up finding discovered during manual testing reopened the final honest automated proof path by either unchecking the last checked `Testing` item or adding one real repository-supported formatting-check item when no checked item existed.
 - Confirm a fully checked unblocked `__in_progress__` task was not incorrectly skipped.
-- Confirm the task was set to `__done__` when manual testing succeeded or was honestly not applicable and no further work remained.
+- Confirm partial independent proof preserved existing unchecked implementation subtasks, unchecked mandatory `Testing` items, and live blockers and kept the task `__in_progress__`.
+- Confirm every decision to set or keep the task `__done__` passed the fresh parser-backed completion gate: the parser-selected task matched the current handoff, there were no unchecked implementation subtasks, no unchecked mandatory `Testing` items, and no live blocker, and all required manual proof was complete or had a repository-permitted skip/not-applicable outcome.
 - Confirm the pass expanded to full-story proof when the candidate task was the final task in the story, unless no honest runnable proof surface existed.
 - Confirm manual-proof artifacts were routed to `codeInfoTmp/manual-testing/<story-number>/<task-number>/` for the bound task rather than split between separate non-final and final-task destinations.
 - Confirm Playwright MCP screenshots were not expected to save directly into the target repository; confirm they were transferred from the Playwright output directory or its harness-visible bind into the target repository destination.

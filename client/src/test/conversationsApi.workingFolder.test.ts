@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { updateConversationWorkingFolder } from '../api/conversations';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
 const originalFetch = global.fetch;
@@ -26,8 +27,8 @@ describe('conversations API working folder payload', () => {
     mockFetch.mockImplementation(
       asFetchImplementation((input: RequestInfo | URL, init?: RequestInit) => {
         requestBody =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as Record<string, unknown>)
+          init?.body != null
+            ? (decodeJsonBody(init) as Record<string, unknown>)
             : null;
         return mockJsonResponse({
           status: 'ok',
@@ -65,8 +66,8 @@ describe('conversations API working folder payload', () => {
     mockFetch.mockImplementation(
       asFetchImplementation((input: RequestInfo | URL, init?: RequestInit) => {
         requestBody =
-          typeof init?.body === 'string'
-            ? (JSON.parse(init.body) as Record<string, unknown>)
+          init?.body != null
+            ? (decodeJsonBody(init) as Record<string, unknown>)
             : null;
         return mockJsonResponse({
           status: 'ok',

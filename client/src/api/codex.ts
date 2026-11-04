@@ -8,6 +8,7 @@ import { ORDERED_PROVIDER_AUTH_STATES } from '@codeinfo2/common';
 
 import { createLogger } from '../logging/logger';
 import { getApiBaseUrl } from './baseUrl';
+import { fetchJson } from './fetchJson';
 
 export type CodexDeviceAuthResponse = CodexDeviceAuthSuccessResponse;
 export type ProviderDeviceAuthResponse<
@@ -192,7 +193,7 @@ export async function postProviderDeviceAuth<
 >(provider: TProvider): Promise<ProviderDeviceAuthResponse<TProvider>> {
   log('info', 'DEV-0000031:T5:provider_device_auth_api_request', { provider });
 
-  const res = await fetch(
+  const res = await fetchJson(
     new URL(`/${provider}/device-auth`, serverBase).toString(),
     {
       method: 'POST',

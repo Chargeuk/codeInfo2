@@ -6,6 +6,7 @@ import {
   type ConversationFlags,
   type ConversationApiSummary,
 } from '../api/conversations';
+import { fetchJson } from '../api/fetchJson';
 import { createLogger } from '../logging/logger';
 
 const serverBase = getApiBaseUrl();
@@ -408,7 +409,7 @@ export function useConversations(params?: {
 
   const postBulk = useCallback(
     async (action: ConversationBulkAction, conversationIds: string[]) => {
-      const res = await fetch(
+      const res = await fetchJson(
         new URL(`/conversations/bulk/${action}`, serverBase).toString(),
         {
           method: 'POST',

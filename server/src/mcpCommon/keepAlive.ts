@@ -10,6 +10,7 @@ type KeepAliveResponse = {
   destroyed?: boolean;
   writeHead: (statusCode: number, headers: Record<string, string>) => unknown;
   flushHeaders?: () => void;
+  flush?: () => void;
   write: (chunk: string) => unknown;
   end: (payload?: string) => unknown;
   on: (event: string, listener: (...args: unknown[]) => void) => unknown;
@@ -44,6 +45,7 @@ function safeWrite(res: KeepAliveResponse, chunk: string): boolean {
   if (res.writableEnded || res.destroyed) return false;
   try {
     res.write(chunk);
+    res.flush?.();
     return true;
   } catch {
     return false;

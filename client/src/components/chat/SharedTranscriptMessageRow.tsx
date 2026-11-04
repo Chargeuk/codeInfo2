@@ -58,6 +58,12 @@ function SharedTranscriptMessageRow({
     return (
       <UserTranscriptBubble
         message={message}
+        renderHeaderContent={
+          message.flowOrigin ? renderHeaderContent : undefined
+        }
+        renderMetadataContent={
+          message.flowOrigin ? renderMetadataContent : undefined
+        }
         userMarkdownTestId={userMarkdownTestId}
         log={log}
         markdownLogSource={markdownLogSource}

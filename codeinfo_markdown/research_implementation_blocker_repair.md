@@ -1,5 +1,7 @@
 # Resolve the remaining implementation blocker
 
+Before routing a failed or missing check into test authoring/repair or execution, read the affected task's complete Testing section and approved story restrictions through bounded plan extraction. Apply explicit exclusions only to the covered activity and task scope; do not request excluded proof repairs or reruns. Continue permitted causal source repair, review, and other task proof. Explicitly excluded proof and external human acceptance are not agent blockers; failed or unavailable permitted required proof remains incomplete and follows the genuine blocker or repair route as appropriate. Never present excluded or unrun proof as a pass. Missing/empty Testing and “no tests exist” do not authorize skipping; preserve all permitted mandatory checks.
+
 Investigate each live implementation blocker and coordinate its bounded repair so the bound task can progress honestly. Research owns evidence and repair planning; the coding agent owns every implementation repair, and the automated testing agent owns execution, substantive Markdown documentation, and testing-state updates.
 
 <critical_rules>

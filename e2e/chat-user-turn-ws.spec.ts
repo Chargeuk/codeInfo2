@@ -1,6 +1,7 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import { logPlaywrightCopilotScenarioRegistration } from './support/copilotFakeScenario';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { installMockChatWs } from './support/mockChatWs';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
@@ -102,7 +103,7 @@ test('user_turn streams to non-originating tabs and dedupes sender tab', async (
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;
@@ -306,7 +307,7 @@ test('copilot websocket streaming renders streamed output in the transcript', as
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;

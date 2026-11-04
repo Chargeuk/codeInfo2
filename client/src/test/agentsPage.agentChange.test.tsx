@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -302,10 +303,7 @@ describe('Agents page - agent change', () => {
 
         if (target.includes('/agents/a1/run')) {
           if (init?.body) {
-            const parsed = JSON.parse(init.body.toString()) as Record<
-              string,
-              unknown
-            >;
+            const parsed = decodeJsonBody(init) as Record<string, unknown>;
             a1ConversationId =
               typeof parsed.conversationId === 'string'
                 ? parsed.conversationId
@@ -326,7 +324,7 @@ describe('Agents page - agent change', () => {
 
         if (target.includes('/agents/a2/run')) {
           if (init?.body) {
-            runBodies.push(JSON.parse(init.body.toString()));
+            runBodies.push(decodeJsonBody(init));
           }
           return Promise.resolve({
             ok: true,

@@ -6,6 +6,7 @@ import {
   logE2ECopilotScenarioBoot,
   logPlaywrightCopilotScenarioRegistration,
 } from './support/copilotFakeScenario';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { installMockChatWs } from './support/mockChatWs';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
@@ -181,7 +182,7 @@ test('chat streams end-to-end', async ({ page }) => {
         return route.continue();
       }
 
-      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
         string,
         unknown
       >;
@@ -460,7 +461,7 @@ test('copilot happy-path send uses the Copilot provider contract end to end', as
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;
@@ -622,7 +623,7 @@ test('endpoint-backed send uses the selected provider/model flow on the normal c
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;
@@ -826,7 +827,7 @@ test('mobile endpoint-backed send uses the provider/model dialogs after restorin
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;
@@ -1083,7 +1084,7 @@ test('chat preserves raw outbound payload and blocks whitespace-only submit', as
     if (route.request().method() !== 'POST') {
       return route.continue();
     }
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;
@@ -1213,7 +1214,7 @@ test('chat renders user markdown list/code with same structure as assistant mark
     if (route.request().method() !== 'POST') {
       return route.continue();
     }
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;
@@ -1784,7 +1785,7 @@ test('chat conversation chrome keeps the compact header actions, provider-icon r
       return route.continue();
     }
 
-    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+    const payload = (decodeJsonBody(route.request()) ?? {}) as Record<
       string,
       unknown
     >;

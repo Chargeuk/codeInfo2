@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
@@ -167,8 +168,8 @@ describe('Chat page resumed execution identity', () => {
 
           if (href.includes('/chat') && opts?.method === 'POST') {
             chatBodies.push(
-              typeof opts.body === 'string'
-                ? (JSON.parse(opts.body) as Record<string, unknown>)
+              opts.body != null
+                ? (decodeJsonBody(opts) as Record<string, unknown>)
                 : {},
             );
             return Promise.resolve({
@@ -367,8 +368,8 @@ describe('Chat page resumed execution identity', () => {
 
           if (href.includes('/chat') && opts?.method === 'POST') {
             chatBodies.push(
-              typeof opts.body === 'string'
-                ? (JSON.parse(opts.body) as Record<string, unknown>)
+              opts.body != null
+                ? (decodeJsonBody(opts) as Record<string, unknown>)
                 : {},
             );
             return Promise.resolve({
@@ -572,8 +573,8 @@ describe('Chat page resumed execution identity', () => {
 
           if (href.includes('/chat') && opts?.method === 'POST') {
             chatBodies.push(
-              typeof opts.body === 'string'
-                ? (JSON.parse(opts.body) as Record<string, unknown>)
+              opts.body != null
+                ? (decodeJsonBody(opts) as Record<string, unknown>)
                 : {},
             );
             return Promise.resolve({
@@ -768,8 +769,8 @@ describe('Chat page resumed execution identity', () => {
 
           if (href.includes('/chat') && opts?.method === 'POST') {
             chatBodies.push(
-              typeof opts.body === 'string'
-                ? (JSON.parse(opts.body) as Record<string, unknown>)
+              opts.body != null
+                ? (decodeJsonBody(opts) as Record<string, unknown>)
                 : {},
             );
             return Promise.resolve({
@@ -966,8 +967,8 @@ describe('Chat page resumed execution identity', () => {
 
             if (href.includes('/chat') && opts?.method === 'POST') {
               const body =
-                typeof opts.body === 'string'
-                  ? (JSON.parse(opts.body) as Record<string, unknown>)
+                opts.body != null
+                  ? (decodeJsonBody(opts) as Record<string, unknown>)
                   : {};
               chatBodies.push(body);
               return mockJsonResponse({

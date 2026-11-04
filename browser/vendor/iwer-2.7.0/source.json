@@ -1,0 +1,9 @@
+{
+  "package": "iwer",
+  "version": "2.7.0",
+  "source": "https://registry.npmjs.org/iwer/-/iwer-2.7.0.tgz",
+  "integrity": "sha512-zC4VfcwFenuaIU/VJgGfBcR2tfALtNZLSn2vZR7PnNU93S6d9bIK07DRuSMGMgdfPPln41stU/wZa6goWA6bRg==",
+  "file": "package/build/iwer.min.js",
+  "sha256": "d2fc75277ac40b30b39a57eb950843b9243af0e6a6a882df17d7d07b167105e1",
+  "license": "MIT"
+}

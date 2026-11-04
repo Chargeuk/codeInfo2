@@ -24,7 +24,7 @@ Use the immutable review-batch ID as the task identity. The title is:
 
 For each fix-bearing batch, create or update exactly one matching task. Never duplicate a batch record when settlement or its audit reruns.
 
-Order completed-review-fix tasks by factual batch launch order. Place them before any open implementation tasks created for findings that remained after both repair opportunities, and place the one final revalidation task after all completed and open review-created work.
+Order completed-review-fix tasks by factual batch launch order. Place them before any open implementation tasks created for findings that remained after both repair opportunities, and, only when permitted required proof remains, place the one final revalidation task after all completed and open review-created work. Do not require a final task solely for excluded or external human proof.
 
 ## Required Task Shape
 
@@ -43,6 +43,8 @@ The task must be `Task Status: __done__` and contain:
 - and `Implementation Notes` recording the normal and stronger repair contributions, changed files when available, exact full commits per repository, proof results, limitations, and the batch evidence used.
 
 If no focused test ran for a repair, do not invent or check a test. Record that limitation as checkbox-free prose in `Testing` or `Implementation Notes`; final revalidation remains responsible for broad proof.
+
+When the affected plan/task explicitly excludes agent-run testing, preserve that restriction as checkbox-free prose in this task's `Testing` section and do not create, repair, execute, or mark excluded proof complete. Otherwise record only focused tests that actually ran. A scoped exclusion does not suppress source review, review repair, settlement, or proof required by other tasks; unavailable execution evidence remains explicit rather than a fabricated pass.
 
 Use one task for the whole batch even when fixes span repositories or both repair agents. `Affected Repositories`, not the administrative `Repository Name`, defines its evidence scope.
 

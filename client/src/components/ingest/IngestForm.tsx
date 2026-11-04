@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../../api/baseUrl';
+import { fetchJson } from '../../api/fetchJson';
 import type { OpenAiStatus } from '../../hooks/useIngestModels';
 import { createLogger } from '../../logging';
 import DirectoryPickerDialog from './DirectoryPickerDialog';
@@ -235,11 +236,14 @@ export default function IngestForm({
         embeddingModel: payload.embeddingModel,
         hasDimensionsInput: false,
       });
-      const res = await fetch(new URL('/ingest/start', serverBase).toString(), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetchJson(
+        new URL('/ingest/start', serverBase).toString(),
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         const message = payload?.message || `Start failed (${res.status})`;

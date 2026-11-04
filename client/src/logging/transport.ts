@@ -1,4 +1,5 @@
 import { LogEntry } from '@codeinfo2/common';
+import { fetchJson } from '../api/fetchJson';
 import {
   getApiBaseUrl,
   getLogForwardEnabled,
@@ -35,7 +36,7 @@ export async function flushQueue() {
   const batch = queue.splice(0, MAX_BATCH);
   inFlight = true;
   try {
-    const res = await fetch(new URL('/logs', getApiBaseUrl()).toString(), {
+    const res = await fetchJson(new URL('/logs', getApiBaseUrl()).toString(), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(batch),

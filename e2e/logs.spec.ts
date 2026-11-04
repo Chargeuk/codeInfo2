@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { resolveConfiguredE2eTimeoutMs } from './support/testTimeouts';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://host.docker.internal:6001';
@@ -28,7 +29,7 @@ test('Logs page shows a streamed sample log through the utility shell', async ({
       return false;
     }
 
-    const requestBody = response.request().postDataJSON() as
+    const requestBody = decodeJsonBody(response.request()) as
       | {
           message?: string;
           source?: string;
@@ -46,11 +47,18 @@ test('Logs page shows a streamed sample log through the utility shell', async ({
   await page.getByRole('button', { name: 'Send sample log' }).click();
   const postResponse = await postResponsePromise;
   const postBody = (await postResponse.json()) as { sequence?: number };
-  const postRequestBody = postResponse.request().postDataJSON() as {
+  const postRequestBody = decodeJsonBody(postResponse.request()) as {
     message?: string;
     source?: string;
     context?: { generatedAt?: string };
   };
+  expect(postResponse.request().headers()['content-encoding']).toBe('gzip');
+  expect(postResponse.request().headers()['content-type']).toBe(
+    'application/json',
+  );
+  expect(postResponse.request().postDataBuffer()!.byteLength).toBeLessThan(
+    Buffer.byteLength(JSON.stringify(postRequestBody)),
+  );
   expect(postBody.sequence).toEqual(expect.any(Number));
   const newLogSequence = postBody.sequence as number;
   expect(postRequestBody.message).toBe('sample log');

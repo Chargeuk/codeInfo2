@@ -1,0 +1,109 @@
+{
+  "description": "Use remote-agent PR feedback as ordinary review-batch input, retaining all existing finding gates and repairs, replying after disposition, and reviewing each fix-bearing HEAD before settlement.",
+  "steps": [
+    {
+      "type": "initializeReviewCycle",
+      "label": "Initialize Fresh PR Review Pass",
+      "mode": "final",
+      "outputKey": "review_cycle"
+    },
+    {
+      "type": "startLoop",
+      "label": "Review PR Candidates And Repair Valid Findings",
+      "steps": [
+        {
+          "type": "subflowWave",
+          "label": "Run PR Feedback Through Existing Review Batch Gates",
+          "failureMode": "best_effort",
+          "groups": [
+            {
+              "kind": "singleton",
+              "id": "pr_review_batch",
+              "flowName": "review_batch",
+              "bindings": {
+                "inputValues": {
+                  "copilot_reviews_enabled": false,
+                  "review_groups": [
+                    {
+                      "kind": "matrix",
+                      "id": "pr_target_reviews",
+                      "itemsFrom": "review_batch_targets.targets",
+                      "itemName": "target",
+                      "flowNames": ["pr_agent_review"],
+                      "bindings": {
+                        "workingFolderFrom": "target.repo_root",
+                        "input": {
+                          "target": "target",
+                          "review_wave": "review_batch_targets"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "reset",
+          "label": "Reset PR Finding Reply Owner",
+          "agentType": "planning_agent",
+          "identifier": "pr_reply_owner"
+        },
+        {
+          "type": "llm",
+          "label": "Reply To Findings After Disposition And Repair",
+          "agentType": "planning_agent",
+          "identifier": "pr_reply_owner",
+          "continueOnFailure": true,
+          "markdownFile": "reply_pr_review_findings.md"
+        },
+        {
+          "type": "break",
+          "label": "Repeat Only For Useful Review Of A Changed Candidate",
+          "agentType": "loop_control_agent",
+          "identifier": "pr_cycle_controller",
+          "question": "Read the current batch target snapshot, all applicable gates, disposition, repeated/normal/stronger repair evidence, outcome and PR reply assessment, then current Git HEAD for each target. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no when any verified new committed fix-bearing HEAD still needs its own pinned remote review and safe publication/observation is available, or the reply assessment positively identifies newly arrived actual findings not yet processed by the existing gates, requiring one fresh same-head batch while reusing the launch. Never reopen previously rejected, disposed or exhausted findings without material new evidence. Answer yes when no such useful action remains, including unchanged unavailable coverage or survivors exhausted after their existing repair opportunities; preserve those honestly for settlement, never interpret them as clean. Do not repeat an unchanged candidate's launch, quota/refusal/failure or exhausted repair. Missing launch or reply evidence alone must not create an endless retry; carry it as unavailable coverage for settlement. A changed candidate invalidates old clean coverage; independently useful changed targets must still be processed.",
+          "breakOn": "yes",
+          "breakOnFailure": true
+        }
+      ]
+    },
+    {
+      "type": "reset",
+      "label": "Reset Complete-Pass Settlement Tasker",
+      "agentType": "tasking_agent",
+      "identifier": "review_settler"
+    },
+    {
+      "type": "llm",
+      "label": "Settle Complete Agent-Native Review Pass",
+      "agentType": "tasking_agent",
+      "identifier": "review_settler",
+      "continueOnFailure": true,
+      "markdownFile": "settle_agent_native_review_pass.md"
+    },
+    {
+      "type": "llm",
+      "label": "Apply Review Settlement To Plan",
+      "agentType": "tasking_agent",
+      "identifier": "review_settler",
+      "continueOnFailure": true,
+      "markdownFile": "apply_agent_native_review_settlement.md"
+    },
+    {
+      "type": "reset",
+      "label": "Reset Complete-Pass Settlement Auditor",
+      "agentType": "review_agent_max",
+      "identifier": "settlement_auditor"
+    },
+    {
+      "type": "llm",
+      "label": "Audit Complete Review Settlement",
+      "agentType": "review_agent_max",
+      "identifier": "settlement_auditor",
+      "continueOnFailure": true,
+      "markdownFile": "audit_agent_native_review_settlement.md"
+    }
+  ]
+}

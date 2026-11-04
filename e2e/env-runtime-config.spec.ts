@@ -28,9 +28,19 @@ test('runtime config marker matches injected client config', async ({
       message.type() === 'info' &&
       message.text().includes('DEV_0000048_T8_VITE_CODEINFO_RUNTIME_CONFIG'),
   });
+  const assetPromise = page.waitForResponse(
+    (response) =>
+      response.request().resourceType() === 'script' &&
+      /\/assets\/.*\.js(?:\?|$)/.test(response.url()) &&
+      response.ok(),
+  );
 
   await page.goto(baseUrl);
 
+  const asset = await assetPromise;
+  expect(asset.headers()['content-encoding']).toBe('gzip');
+  expect(await asset.finished()).toBeNull();
+  expect((await asset.body()).byteLength).toBeGreaterThan(1024);
   const marker = await markerPromise;
   const markerArgs = await Promise.all(
     marker.args().map((arg) => arg.jsonValue()),

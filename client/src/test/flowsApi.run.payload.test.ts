@@ -1,3 +1,4 @@
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { getFetchMock, mockJsonResponse } from './support/fetchMock';
 const mockFetch = getFetchMock();
 beforeAll(() => {
@@ -29,7 +30,7 @@ describe('Flows API runFlow payload', () => {
       resumeStepPath: [1, 0],
     });
     const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const body = decodeJsonBody(init) as Record<string, unknown>;
     expect(body.working_folder).toBe('/abs/path');
     expect(body.resumeStepPath).toEqual([1, 0]);
   });
@@ -41,13 +42,13 @@ describe('Flows API runFlow payload', () => {
       isNewConversation: true,
     });
     const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const body = decodeJsonBody(init) as Record<string, unknown>;
     expect(body.retryOwnershipId).toBe('retry-1');
   });
   it('omits optional payload fields when not provided', async () => {
     await runFlow({ flowName: 'daily' });
     const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const body = decodeJsonBody(init) as Record<string, unknown>;
     expect(body).not.toHaveProperty('working_folder');
     expect(body).not.toHaveProperty('resumeStepPath');
     expect(body).not.toHaveProperty('retryOwnershipId');
@@ -60,7 +61,7 @@ describe('Flows API runFlow payload', () => {
       mode: 'run',
     });
     const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const body = decodeJsonBody(init) as Record<string, unknown>;
     expect(body.customTitle).toBe('Morning brief');
   });
   it('omits customTitle for resumes or existing conversations', async () => {
@@ -72,7 +73,7 @@ describe('Flows API runFlow payload', () => {
       resumeStepPath: [0],
     });
     const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const body = decodeJsonBody(init) as Record<string, unknown>;
     expect(body).not.toHaveProperty('customTitle');
     mockFetch.mockClear();
     await runFlow({
@@ -82,10 +83,7 @@ describe('Flows API runFlow payload', () => {
       mode: 'run',
     });
     const [, nextInit] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const nextBody = JSON.parse(nextInit.body as string) as Record<
-      string,
-      unknown
-    >;
+    const nextBody = decodeJsonBody(nextInit) as Record<string, unknown>;
     expect(nextBody).not.toHaveProperty('customTitle');
   });
   it('omits retryOwnershipId for resumes even when a fresh-run retry token is present', async () => {
@@ -97,7 +95,7 @@ describe('Flows API runFlow payload', () => {
       resumeStepPath: [0],
     });
     const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
-    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const body = decodeJsonBody(init) as Record<string, unknown>;
     expect(body).not.toHaveProperty('retryOwnershipId');
   });
   it('keeps providerId and warnings from the run-start payload instead of narrowing them away', async () => {

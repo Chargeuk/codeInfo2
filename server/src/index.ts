@@ -1,6 +1,7 @@
 import http from 'node:http';
 import path from 'path';
 import { getAppInfo } from '@codeinfo2/common';
+import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
@@ -132,6 +133,7 @@ const app = express();
 app.use(cors());
 app.use(createRequestLogger());
 app.use('/', createOpenAiCompatProxyRouter());
+app.use(compression());
 app.use(express.json());
 baseLogger.info({ codexDetection }, 'Codex detection summary');
 baseLogger.info(

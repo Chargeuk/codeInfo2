@@ -6,6 +6,7 @@ Perform a deep repair pass only for a live blocker caused by automated-proof fai
 
 Before doing anything else, read `$CODEINFO_ROOT/codeinfo_markdown/shared/current-task-handoff.md` and follow it.
 Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-stack-lifecycle.md` before inspecting, stopping, repairing, or classifying a Docker or Compose stack involved in automated proof.
+Read `$CODEINFO_ROOT/codeinfo_markdown/shared/test-reliability-patterns.md` for evidence-based test/harness repair guidance; it grants no scope beyond the approved story/user contract.
 Read the stored current-plan handoff and use only that scope for this step.
 Read `codeInfoStatus/flow-state/current-task.json` from disk after `current-plan.json`, for example with `cat codeInfoStatus/flow-state/current-task.json`, and determine the bound task from what it contains rather than depending on an exact JSON shape.
 Load a fresh bounded blocker-repair packet before doing anything else.
@@ -20,12 +21,13 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - Read `codeInfoStatus/flow-state/current-plan.json` first.
 - Use only the stored `plan_path` and `additional_repositories` as the active scope for this flow.
 - Do not rediscover the story independently.
-- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile blocker-repair --task current` before starting.
+- Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile blocker-repair --task current --section Testing --story-section 'Acceptance Criteria' --story-section 'Out Of Scope'` before starting.
 - If `current-task.json` does not clearly resolve a task for this loop pass, stop and say the task handoff must be regenerated before deep automated-proof repair continues.
 - Use fresh disk reads and current git state, not conversational memory.
 - Do not run `git switch`, `git checkout`, `git branch`, or otherwise create or change branches in this step.
 - Perform all work on the current repository branch that matches the story selected by `codeInfoStatus/flow-state/current-plan.json`.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/final-task-creation.md`. When the selected task is the dedicated current closeout owner, treat the whole approved story and every listed affected repository as available same-task repair scope.
+- When the approved story/user contract authorizes brittle-test repairs needed for required validation, existing tests unrelated to or predating the story are valid same-task proof-repair scope, including for the dedicated closeout owner. Do not decline solely because a test predates the story. Establish brittleness from concrete failure evidence; test-repair authority alone does not authorize an unrelated product bug fix or production behavior change.
 
 </scope_rules>
 
@@ -64,6 +66,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
   - for a failed proof step, the failing assertion, error, stack, wrapper summary, or saved log path;
   - for an incomplete-proof blocker, the exact next unchecked `Testing` step and the wrapper or command it names.
 - Perform a deeper analysis than the normal automated-proof step by tracing the failure to the owning code, test, config, harness, or contract before deciding what to change.
+- The coder owns test/harness repairs; the automated testing agent owns execution and proof reporting. Apply the shared reliability patterns only to an evidenced authorized failure, preserve intended coverage and correctness checks, and complete required full proof under the existing bounded recovery rules rather than skipping, weakening assertions, blanket-increasing timeouts or masking failures with retries.
 - Prefer fixing the underlying task-owned implementation or proof rather than papering over the failure with a weaker assertion or broader timeout unless the evidence shows that is the honest repair.
 - Delegate targeted wrapper reruns for diagnosis to the tester when repository guidance supports them, then have it rerun the original task-listed proof step honestly after each repair checkpoint.
 - When a formerly incomplete proof step passes, the tester marks that `Testing` item complete immediately and retires any generic close-out blocker that was only preventing the next proof step from running. Coordinate sequentially with the coder's implementation checkbox and notes.
@@ -86,7 +89,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 - Do not add manual-testing checklist items in `Subtasks` or `Testing`.
 - Do not add subtasks that depend on future screenshots, logs, later manual-testing-agent reruns, or later automated-proof outputs in order to become complete.
 - Do not add subtasks that tell the coding agent to perform browser validation, Playwright MCP validation, screenshot review, or other manual-testing-agent proof work.
-- Preserve the dedicated final task's initial supported-lint-and-formatting-only subtask types per repository, with unsupported commands omitted, unless a real story-caused failure has triggered the shared contract's bounded runtime repair-subtask exception.
+- Preserve the dedicated final task's initial supported-lint-and-formatting-only subtask types per repository, with unsupported commands omitted, unless a real story-caused failure has triggered the shared contract's bounded runtime repair-subtask exception, or an approved contract-authorized brittle-test failure requires a bounded same-task proof-repair subtask.
 
 </section_ownership_rules>
 
@@ -106,6 +109,8 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 </plan_update_rules>
 
 <stop_conditions>
+
+- Before diagnosing or repairing a failed or missing proof item, read its complete task `Testing` section and applicable approved story restrictions via bounded plan extraction. An explicit exclusion controls test authoring/repair or execution only when it covers that activity. Do not create, repair, or rerun excluded proof, or stale/revalidate excluded checks. Continue permitted source review and causal repair. Explicitly excluded proof and external human acceptance are not agent blockers; failed or unavailable permitted required proof remains incomplete and follows the genuine blocker or repair route as appropriate. Never present excluded or unrun proof as a pass. Missing/empty Testing or “no tests exist” is not an exclusion, and partial exclusions do not remove other mandatory proof. First recover and interpret unclear permission from current authoritative plan evidence. If authority remains genuinely conflicting or unreadable, do not run potentially excluded proof or a repair that depends on it; preserve the task's parser-visible permission `**BLOCKER**` and route it through existing planner/clarification handling without treating it as resolved. Continue safe independent source diagnosis, audit, and review work.
 
 - Stop with no edits when there is no live blocker or no applicable automated-proof blocker.
 - Stop with a resolved state when the formerly failing proof now passes and the task history has been updated honestly.

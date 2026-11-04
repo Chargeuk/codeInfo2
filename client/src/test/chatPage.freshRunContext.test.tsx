@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { decodeJsonBody } from './support/decodeJsonBody';
 import { resolveClientTestTimeoutMs } from './support/testTimeouts';
 
 const mockFetch = jest.fn<typeof fetch>();
@@ -169,8 +170,8 @@ describe('Chat page fresh-run context', () => {
 
           if (href.includes('/chat') && opts?.method === 'POST') {
             chatBodies.push(
-              typeof opts.body === 'string'
-                ? (JSON.parse(opts.body) as Record<string, unknown>)
+              opts.body != null
+                ? (decodeJsonBody(opts) as Record<string, unknown>)
                 : {},
             );
             return Promise.resolve({

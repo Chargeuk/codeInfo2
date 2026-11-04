@@ -82,7 +82,7 @@
   },
   "lint-staged": {
     "**/*.{ts,tsx,js,jsx}": [
-      "eslint --ext .ts,.tsx --max-warnings=0",
+      "eslint --ext .ts,.tsx --max-warnings=0 --no-warn-ignored",
       "prettier --check"
     ]
   },

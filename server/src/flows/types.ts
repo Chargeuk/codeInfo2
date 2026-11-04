@@ -48,6 +48,7 @@ export type FlowRunStartParams = {
   input?: FlowJsonObject;
   resumeStepPath?: number[];
   customTitle?: string;
+  parentConversationId?: string;
   parentWave?: {
     executionId: string;
     instanceId: string;

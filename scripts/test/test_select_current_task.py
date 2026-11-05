@@ -159,40 +159,136 @@ class SelectCurrentTaskTests(unittest.TestCase):
         self.assertEqual([task["number"] for task in payload["open_in_progress_tasks"]], [1, 2])
 
     def test_promotes_earliest_todo_task_when_no_active_task_exists(self) -> None:
-        plan_path, handoff_path, output_path = self.make_repo(
-            """
-            ### Task 1. First
+        for raw_status in (
+            "__to_do__", "__todo__", "__TO_DO__", "__TODO__", "__To_Do__", "__ToDo__"
+        ):
+            for quote in ("", "`"):
+                with self.subTest(status=raw_status, quote=quote):
+                    source_line = f"- Task Status:   {quote}{raw_status}{quote}  "
+                    plan_path, handoff_path, output_path = self.make_repo(
+                        f"""
+                        ### Task 1. First
 
-            - Task Status: `__done__`
+                        - Task Status: `__DoNe__`
 
-            #### Subtasks
+                        #### Subtasks
 
-            1. [x] Done
+                        1. [x] Done
 
-            #### Testing
+                        #### Testing
 
-            1. [x] Done
+                        1. [x] Done
 
-            ### Task 2. Second
+                        ### Task 9. Later todo listed first
 
-            - Task Status: `__to_do__`
+                        - Task Status: `__TO_DO__`
 
-            #### Subtasks
+                        ### Task 2. Second
 
-            1. [ ] Pending
+                        {source_line}
 
-            #### Testing
+                        #### Subtasks
 
-            1. [ ] Pending
-            """
-        )
+                        1. [ ] Pending
 
-        payload, _stdout_payload = self.invoke_selector(handoff_path, output_path)
+                        #### Testing
 
-        self.assertEqual(payload["selection_status"], "resolved")
-        self.assertEqual(payload["selection_reason"], "promoted_earliest_todo")
-        self.assertEqual(payload["selected_task"]["number"], 2)
-        self.assertIn("- Task Status: `__in_progress__`", plan_path.read_text())
+                        1. [ ] Pending
+                        """
+                    )
+                    original = plan_path.read_text()
+                    original_handoff = handoff_path.read_bytes()
+
+                    payload, _stdout_payload = self.invoke_selector(handoff_path, output_path)
+
+                    self.assertEqual(payload["selection_status"], "resolved")
+                    self.assertEqual(payload["selection_reason"], "promoted_earliest_todo")
+                    self.assertEqual(payload["selected_task"]["number"], 2)
+                    self.assertEqual(payload["selected_task"]["status"], "__in_progress__")
+                    self.assertEqual(payload["final_task_status"], "__to_do__")
+                    self.assertFalse(payload["story_complete"])
+                    self.assertEqual(
+                        payload["normalized_tasks"],
+                        [{
+                            "task_number": 2,
+                            "from_status": raw_status,
+                            "to_status": "__in_progress__",
+                        }],
+                    )
+                    self.assertEqual(
+                        plan_path.read_text(),
+                        original.replace(
+                            source_line,
+                            f"- Task Status:   {quote}__in_progress__{quote}  ",
+                            1,
+                        ),
+                    )
+                    self.assertEqual(handoff_path.read_bytes(), original_handoff)
+
+    def test_case_variant_in_progress_tasks_keep_existing_completion_rules(self) -> None:
+        for raw_status in ("__IN_PROGRESS__", "__In_Progress__"):
+            for checked in (False, True):
+                with self.subTest(status=raw_status, checked=checked):
+                    marker = "x" if checked else " "
+                    plan_path, handoff_path, output_path = self.make_repo(
+                        f"""
+                        ### Task 1. First
+
+                        - Task Status: `{raw_status}`
+
+                        #### Subtasks
+
+                        1. [{marker}] Work
+
+                        #### Testing
+
+                        1. [{marker}] Proof
+                        """
+                    )
+                    original = plan_path.read_text()
+
+                    payload, _stdout_payload = self.invoke_selector(handoff_path, output_path)
+
+                    if checked:
+                        self.assertEqual(payload["selection_status"], "story_complete")
+                        self.assertEqual(payload["selection_reason"], "all_tasks_done")
+                        self.assertIsNone(payload["selected_task"])
+                        self.assertEqual(payload["final_task_status"], "__done__")
+                        self.assertEqual(
+                            payload["normalized_tasks"],
+                            [{
+                                "task_number": 1,
+                                "from_status": raw_status,
+                                "to_status": "__done__",
+                            }],
+                        )
+                        self.assertEqual(
+                            plan_path.read_text(), original.replace(raw_status, "__done__")
+                        )
+                    else:
+                        self.assertEqual(payload["selection_status"], "resolved")
+                        self.assertEqual(payload["selection_reason"], "active_in_progress")
+                        self.assertEqual(payload["selected_task"]["number"], 1)
+                        self.assertEqual(payload["selected_task"]["status"], "__in_progress__")
+                        self.assertEqual(payload["normalized_tasks"], [])
+                        self.assertEqual(plan_path.read_text(), original)
+
+    def test_unknown_statuses_do_not_become_eligible_or_complete(self) -> None:
+        for raw_status in ("__blocked__", "__BLOCKED__", "__ToDo_Later__"):
+            with self.subTest(status=raw_status):
+                plan_path, handoff_path, output_path = self.make_repo(
+                    f"### Task 1. Unknown status\n\n- Task Status: `{raw_status}`\n"
+                )
+                original = plan_path.read_bytes()
+
+                payload, _stdout_payload = self.invoke_selector(handoff_path, output_path)
+
+                self.assertEqual(payload["selection_status"], "needs_plan_repair")
+                self.assertEqual(payload["selection_reason"], "no_open_or_todo_task_found")
+                self.assertIsNone(payload["selected_task"])
+                self.assertFalse(payload["story_complete"])
+                self.assertEqual(payload["normalized_tasks"], [])
+                self.assertEqual(plan_path.read_bytes(), original)
 
     def test_resolves_existing_active_in_progress_task_without_rewrite(self) -> None:
         plan_path, handoff_path, output_path = self.make_repo(

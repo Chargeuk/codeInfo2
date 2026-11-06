@@ -116,17 +116,6 @@ run_copilot_seed_import() {
   printf 'story.0000056.task04.copilot_seed_import %s\n' "$seed_result_json"
 }
 
-if [ -x "$CHROME_BIN" ]; then
-  CHROME_BIN="$CHROME_BIN" \
-    CHROME_REMOTE_DEBUG_PORT="$CHROME_REMOTE_DEBUG_PORT" \
-    CHROME_REMOTE_DEBUG_ADDRESS="$CHROME_REMOTE_DEBUG_ADDRESS" \
-    CHROME_USER_DATA_DIR="$CHROME_USER_DATA_DIR" \
-    CHROME_HEADLESS="$CHROME_HEADLESS" \
-    node /app/browser/start-chromium.mjs >/tmp/chrome-devtools.log 2>&1 &
-else
-  echo "Chrome binary not found at $CHROME_BIN" >&2
-fi
-
 corp_certs_mount_source="${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}"
 build_override_state_file="/app/server/.codeinfo-server-build-override-state.env"
 if [ -r "$build_override_state_file" ]; then
@@ -254,10 +243,29 @@ if [ "$refresh_requested" = "true" ]; then
     exit 1
   fi
 
+  if ! sh "$(dirname "$0")/import-browser-certificates.sh" \
+    "$corp_cert_dir" "$HOME" "$runtime_uid" "$runtime_gid"; then
+    echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=true result=failed crt_count=${crt_count} cert_dir=${corp_cert_dir}"
+    echo "CODEINFO refresh failed: Chromium certificate import failed" >&2
+    exit 1
+  fi
+
   refresh_result="success"
   echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=true result=${refresh_result} crt_count=${crt_count} cert_dir=${corp_cert_dir}"
 else
   echo "[CODEINFO][T06_CA_REFRESH_RESULT] refresh_enabled=false result=${refresh_result} crt_count=0 cert_dir=${corp_cert_dir}"
+fi
+
+# Chromium reads its trust database when it starts. Import mounted roots first.
+if [ -x "$CHROME_BIN" ]; then
+  CHROME_BIN="$CHROME_BIN" \
+    CHROME_REMOTE_DEBUG_PORT="$CHROME_REMOTE_DEBUG_PORT" \
+    CHROME_REMOTE_DEBUG_ADDRESS="$CHROME_REMOTE_DEBUG_ADDRESS" \
+    CHROME_USER_DATA_DIR="$CHROME_USER_DATA_DIR" \
+    CHROME_HEADLESS="$CHROME_HEADLESS" \
+    node /app/browser/start-chromium.mjs >/tmp/chrome-devtools.log 2>&1 &
+else
+  echo "Chrome binary not found at $CHROME_BIN" >&2
 fi
 
 echo "[CODEINFO][T08_DOCS_GUIDANCE_READY] section_heading=\"Corporate Registry and Certificate Overrides (Restricted Networks)\" canonical_vars=6 workflow_sources=2"

@@ -130,6 +130,7 @@ RUN set -eu; \
     apt-get update && apt-get install -y \
     curl \
     ca-certificates \
+    libnss3-tools \
     gnupg \
     lsb-release \
     && update-ca-certificates \
@@ -342,6 +343,7 @@ COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/src/ast/queries ./src/ast/queries
 COPY --from=build /app/server/package*.json ./
 COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
+COPY --from=build /app/server/import-browser-certificates.sh ./import-browser-certificates.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
 COPY AGENTS.md /app/AGENTS.md
 COPY planning /app/planning

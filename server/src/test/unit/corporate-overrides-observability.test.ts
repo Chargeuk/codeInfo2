@@ -83,17 +83,14 @@ test('server entrypoint stays POSIX-sh compatible around Copilot seed import loc
 test('server entrypoint degrades malformed Copilot seed helper stdout into a warning', async () => {
   const content = readRepoFile('server', 'entrypoint.sh');
   const functionMatch = content.match(
-    /run_copilot_seed_import\(\) \{[\s\S]*?\n\}\n\nif \[ -x "\$CHROME_BIN" \]; then/u,
+    /run_copilot_seed_import\(\) \{[\s\S]*?\n\}\n/u,
   );
   assert(
     functionMatch,
     'expected to locate run_copilot_seed_import in entrypoint',
   );
 
-  const functionSource = functionMatch[0].replace(
-    /\n\nif \[ -x "\$CHROME_BIN" \]; then$/u,
-    '\n',
-  );
+  const functionSource = functionMatch[0];
 
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'entrypoint-seed-'));
   const fakeBinDir = path.join(tempRoot, 'bin');

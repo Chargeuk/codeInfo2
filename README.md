@@ -200,6 +200,8 @@ Cargo must be installed and on your WSL PATH to use this configuration. Source r
 
 `CODEINFO_REFRESH_CA_CERTS_ON_START=false` is the default behavior. Only case-insensitive `true` enables refresh. If refresh is enabled and certs are missing/invalid, server startup fails fast with non-zero exit.
 
+When enabled, startup also imports the mounted `.crt` roots into Chromium's NSS trust database before launching the browser. The runtime image includes `libnss3-tools` for this import. Chromium 146+ uses `$HOME/.local/share/pki/nssdb`; an existing legacy `$HOME/.pki/nssdb` is reused. Stable fingerprint-based nicknames make repeated imports safe and unrelated browser certificates are preserved. No certificate backups are created. With refresh disabled, neither certificate import runs.
+
 | Variable                             | Default when unset                                                          | Where used                                                                                                             |
 | ------------------------------------ | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `CODEINFO_NPM_REGISTRY`              | npm default registry behavior                                               | Selects the registry for Docker build-time npm installs and the host helper; does not configure registry credentials   |
@@ -210,7 +212,7 @@ Cargo must be installed and on your WSL PATH to use this configuration. Source r
 | `CODEINFO_PIP_TRUSTED_HOST`          | pip default trusted-host behavior                                           | Server Docker build-time `pip install`                                                                                 |
 | `CODEINFO_NODE_EXTRA_CA_CERTS`       | `/etc/ssl/certs/ca-certificates.crt`                                        | Server build-time Node trust and runtime export before Node starts                                                     |
 | `CODEINFO_CORP_CERTS_DIR`            | `./certs/empty-corp-ca` compose fallback source                             | Server/client/helper/Bats build context and optional server runtime certificate mount                                  |
-| `CODEINFO_REFRESH_CA_CERTS_ON_START` | Disabled (`false` behavior unless value is `true`)                          | Server entrypoint CA refresh gate before `exec node dist/index.js`                                                     |
+| `CODEINFO_REFRESH_CA_CERTS_ON_START` | Disabled (`false` behavior unless value is `true`)                          | System and Chromium NSS CA import gate before browser/server startup                                                     |
 
 # CodeInfo2 Details
 

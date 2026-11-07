@@ -25,6 +25,7 @@ When honest manual proof requires another repository, you may inspect and resear
 Resolve the same bound task that the loop is preparing to manual-test from `current-task.json` when possible.
 After resolving the bound task number when possible, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py" --task-number <that-number>`.
 If the bound task number cannot be resolved, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` without `--task-number`.
+Before using `plan_sections.py` below, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`.
 Use that JSON output as the source of truth for whether story-level and task-level manual-testing guidance are present in the active plan. When the bound task number is known, also run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --plan <stored-plan-path> --task-number <number> --section Testing --story-section 'Acceptance Criteria' --story-section 'Out Of Scope'` and read the complete task Testing section plus applicable approved story restrictions before proposing task-specific manual activity or runtime setup. If the task number is unresolved, retrieve the approved story sections using the stored plan path, continue safe runtime-path research, and do not start or reclaim a runtime for task-specific proof until the task is resolved.
 
 </input_scope>

@@ -1440,7 +1440,19 @@ class ReviewPromptContractTests(unittest.TestCase):
                 repair_prompt,
             )
             self.assertIn(
-                "Once the direct issue is fixed and focused proof passes",
+                "Once the direct issue is fixed and all permitted focused proof passes",
+                repair_prompt,
+            )
+            self.assertIn(
+                "If an applicable exclusion covers proof, record that limitation without a pass claim",
+                repair_prompt,
+            )
+            self.assertIn(
+                "do not block an otherwise complete repair on the excluded proof",
+                repair_prompt,
+            )
+            self.assertIn(
+                "unavailable or failed permitted required proof remains incomplete",
                 repair_prompt,
             )
             self.assertIn("why every changed file was necessary", repair_prompt)
@@ -1472,7 +1484,7 @@ class ReviewPromptContractTests(unittest.TestCase):
             )
             self.assertIn("unrelated baseline failures", repair_prompt)
             self.assertIn(
-                "formatting and lint commands and results",
+                "formatting and lint commands/results",
                 repair_prompt,
             )
         self.assertIn("Do not introduce an unapproved policy", normal_fix)

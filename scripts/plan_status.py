@@ -12,7 +12,7 @@ from typing import Any
 
 
 TASK_HEADING_RE = re.compile(r"^### Task (\d+)\.\s*(.*)$")
-TASK_STATUS_RE = re.compile(r"^- Task Status:\s*`?(__[a-z_]+__)`?\s*$")
+TASK_STATUS_RE = re.compile(r"^- Task Status:\s*`?(__[a-z_]+__)`?\s*$", re.IGNORECASE)
 SECTION_HEADING_RE = re.compile(r"^####\s+(.*)$")
 CHECKBOX_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s+\[([ xX])\]\s+")
 LIVE_BLOCKER_RE = re.compile(r"^- \*\*BLOCKER\*\*(?:\s|$)")
@@ -141,7 +141,13 @@ def parse_plan(plan_path: Path) -> list[dict[str, Any]]:
 
         status_match = TASK_STATUS_RE.match(line)
         if status_match:
-            current["status"] = status_match.group(1)
+            raw_status = status_match.group(1)
+            current["status"] = {
+                "__to_do__": "__to_do__",
+                "__todo__": "__to_do__",
+                "__in_progress__": "__in_progress__",
+                "__done__": "__done__",
+            }.get(raw_status.lower(), raw_status)
             continue
 
         section_match = SECTION_HEADING_RE.match(line)

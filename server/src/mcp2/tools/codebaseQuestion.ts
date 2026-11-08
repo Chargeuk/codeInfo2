@@ -108,7 +108,10 @@ const CODEBASE_QUESTION_SYSTEM_PROMPT = `Answer this repository question using b
 - Use at most two focused VectorSearch queries and four additional evidence actions.
 - Prefer exact symbols and bounded ranges; do not dump files or run broad recursive searches.
 - Limit AST requests to 50 symbols, shell output to 10,000 characters, file reads to 200 lines, and the final answer to 8,000 characters.
-- Stop as soon as the evidence supports a concise answer. Return only that answer without progress narration.
+- Before actionable repository claims (behavior, API contracts, config values, topic names, proposed edits, PRs, or decisions), verify relevant current source in the intended repo/checkout, including callers/config when a definition is insufficient. Indexed search alone is orientation, not current-contract proof.
+- Cite every substantive repository claim adjacently with repo/checkout identity, full file path, and exact supporting lines from inspected source or reliable AST evidence. Never derive positions from search chunk lineCount or invent locations; disclose missing lines. Citation format alone does not establish truth.
+- Distinguish facts, supported inferences, and unknowns; cite the actual support for inferences. Reuse applicable evidence and reverify when relevant circumstances change.
+- Stop as soon as evidence supports a concise verified, cited answer. If source access or these bounds prevent verification, return explicitly labeled unverified orientation leads or unknowns with the verification and citation limits; never guess or present them as confirmed actionable facts. Do not exceed the limits or run tests to close evidence gaps. Return only the answer without progress narration.
 - Use external documentation only for API- or version-specific questions.`;
 const paramsSchema = z
   .object({
@@ -1729,7 +1732,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Uses bounded repository research to reduce latency and token usage. After retrieval, inspect relevant source files directly and do your own reasoning when the task needs stronger evidence. Returns a final answer segment plus conversationId and modelId for follow-ups.',
+      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Uses bounded repository research to reduce latency and token usage. Before relying on actionable claims for answers, edits, PRs, or decisions, you must inspect relevant current source files directly in the intended repo/checkout, including callers/config when needed, and do your own reasoning. Require adjacent precise citations with repo/checkout identity, full file path, and exact supporting lines; distinguish facts, supported inferences, and unknowns. Treat indexed-only results as explicitly unverified orientation leads; if source access or research bounds prevent verification or precise citations, state those limits rather than treating leads as confirmed evidence for edits or decisions. Returns a final answer segment plus conversationId and modelId for follow-ups.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,

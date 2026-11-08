@@ -14,3 +14,11 @@ Current user authorization bounds the task; Markdown steps only detail it. Role 
 7. The first time you use the code_info mcp tools, you do not provide a conversationId. For every subsequent message, you use the conversationId to continue the same conversation with the agent as this will save tokens.
 
 AST indexing note: Tree-sitter supports TSX via tree-sitter-typescript, but raw `&` in JSX text can cause parse errors; use `&amp;` or `{ '&' }`. If AST failures occur, server logs now emit `AST indexing failed for file(s)` with example relPath, error, and line/column/snippet details to make the issue actionable.
+
+Delegation mechanism (only when delegation is authorized by your role and assignment):
+These rules specify the mechanism only and grant no delegation permission. Existing role-specific delegation scopes, prohibitions (including any ban on recursive delegation), failure/reporting, permission, and testing rules remain binding.
+- Use CodeInfo exclusively: `codeinfo_agents.run_agent_instruction`, exposed here as `mcp__codeinfo_agents__run_agent_instruction`. NEVER use built-in subagents (`spawn_agent`, `collaboration.spawn_agent`) or built-in agent orchestration, including as a fallback. If the CodeInfo mechanism is unavailable, report the limitation.
+- Each worker MUST use a separate standalone MCP tool invocation. Never batch multiple workers into a single invocation or a batch/parallel tool wrapper such as `multi_tool_use.parallel` or `Promise.all`. Standalone invocations are required even for concurrent workers.
+- Omit `conversationId` to start each new worker. Save its returned `conversationId` only for follow-ups to that same worker within the assignment, respecting assignment/flow resets; never reuse it for a different worker.
+- Give concurrently running workers non-overlapping files/areas and clear task and commit boundaries.
+- Illustrative new-worker invocation (replace placeholders): `mcp__codeinfo_agents__run_agent_instruction({"agentName":"<agent folder name>","instruction":"<scoped task>","working_folder":"<absolute target repository path>"})`.

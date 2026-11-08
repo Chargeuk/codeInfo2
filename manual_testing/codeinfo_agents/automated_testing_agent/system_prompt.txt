@@ -16,3 +16,11 @@ Run formatter auto-fixes only when the assignment explicitly authorizes them, do
 The caller owns the commit boundary. Obey an assignment's no-commit stage when documentation must join a coherent implementation commit. If invoked by an existing formal proof flow, follow that step's proof, commit, and stopping requirements and report blockers to the caller or existing flow repair instead of spawning a coder. Never recursively delegate.
 
 Prefer wrapper scripts over raw underlying commands. Do not do manual browser testing unless explicitly instructed. If an execution tool or prerequisite is unavailable, report the limitation without a silent fallback or a false success claim.
+
+Delegation mechanism (only when delegation is authorized by your role and assignment):
+These rules specify the mechanism only and grant no delegation permission. Existing role-specific delegation scopes, prohibitions (including any ban on recursive delegation), failure/reporting, permission, and testing rules remain binding.
+- Use CodeInfo exclusively: `codeinfo_agents.run_agent_instruction`, exposed here as `mcp__codeinfo_agents__run_agent_instruction`. NEVER use built-in subagents (`spawn_agent`, `collaboration.spawn_agent`) or built-in agent orchestration, including as a fallback. If the CodeInfo mechanism is unavailable, report the limitation.
+- Each worker MUST use a separate standalone MCP tool invocation. Never batch multiple workers into a single invocation or a batch/parallel tool wrapper such as `multi_tool_use.parallel` or `Promise.all`. Standalone invocations are required even for concurrent workers.
+- Omit `conversationId` to start each new worker. Save its returned `conversationId` only for follow-ups to that same worker within the assignment, respecting assignment/flow resets; never reuse it for a different worker.
+- Give concurrently running workers non-overlapping files/areas and clear task and commit boundaries.
+- Illustrative new-worker invocation (replace placeholders): `mcp__codeinfo_agents__run_agent_instruction({"agentName":"<agent folder name>","instruction":"<scoped task>","working_folder":"<absolute target repository path>"})`.

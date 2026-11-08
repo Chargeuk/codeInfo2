@@ -201,31 +201,11 @@ function optionsFixture(
       >
     >
   > = [];
-  let nativeForks = 0;
   const deps: ForkOptionsDeps = {
     loadSource: async () => source,
     listTurns: async () => ({ items: rows.slice().reverse() }),
-    openNative: async () => ({
-      turns: [
-        {
-          id: 'native-turn',
-          completed: true,
-          user: 'Question',
-          assistant: 'Answer',
-        },
-      ],
-      fork: async () => {
-        nativeForks++;
-        return 'child';
-      },
-      close: async () => {},
-      inject: async () => {},
-      remove: async () => {},
-      hasInjected: async () => false,
-    }),
-    prepareOptions: async (folder) => {
-      assert.equal(folder, workingFolder);
-      const preparation = await createAgentForkOptionsPreparation(folder);
+    prepareOptions: async () => {
+      const preparation = await createAgentForkOptionsPreparation();
       return {
         ...preparation,
         prepareTarget: async (agentName: string, sourceProvider?: string) => {
@@ -239,53 +219,47 @@ function optionsFixture(
       };
     },
   };
-  return { source, deps, prepared, nativeForks: () => nativeForks };
+  return { source, rows, deps, prepared };
 }
 
-test('fork options share one readiness/model snapshot across a large same-provider catalog and preserve order/folder/config', async () => {
+test('Codex options list a large compatible catalog using config only, without provider/model readiness work', async () => {
   await withCatalog(async ({ addAgent, workingFolder, counts }) => {
     const names = Array.from(
       { length: 40 },
       (_, index) => `agent-${String(index).padStart(2, '0')}`,
     );
-    for (const name of names)
-      await addAgent(
-        name,
-        'codex',
-        '[mcp_servers.target_tool]\ncommand = "target-tool"',
-      );
+    for (const name of names) await addAgent(name, 'codex');
     await addAgent('other-provider', 'copilot');
     await addAgent('invalid-provider', 'invalid');
     const h = optionsFixture(workingFolder);
     const sourceBefore = structuredClone(h.source);
+    h.deps.listTurns = async (id, selected, metadataOnly) => {
+      assert.equal(id, h.source._id);
+      assert.equal(selected, 'answer');
+      assert.equal(metadataOnly, true);
+      return { items: [h.rows[1]] };
+    };
     const result = await getForkOptions(h.source._id, 'answer', h.deps);
     assert.deepEqual(
       result.agents,
       names.map((name) => ({ name, sameAgent: name === 'agent-00' })),
     );
     assert.deepEqual(counts, {
-      capabilities: 1,
-      mcp: 1,
-      copilot: 1,
-      lmstudio: 1,
+      capabilities: 0,
+      mcp: 0,
+      copilot: 0,
+      lmstudio: 0,
     });
+    assert.equal(result.sourceTurnId, 'answer');
+    assert.equal(result.estimated, false);
     assert.equal(h.prepared.length, names.length);
-    for (const target of h.prepared) {
-      assert.equal(target.workingDirectoryOverride, workingFolder);
-      const config = target.runtimeConfig as {
-        mcp_servers?: Record<string, { command?: string }>;
-      };
-      assert.equal(config.mcp_servers?.target_tool?.command, 'target-tool');
-    }
-    assert.equal(h.nativeForks(), 0);
     assert.deepEqual(h.source, sourceBefore);
   });
 });
 
-test('explicit incompatible providers are filtered before readiness work', async () => {
+test('explicit incompatible providers are filtered without live readiness', async () => {
   await withCatalog(async ({ addAgent, workingFolder, counts }) => {
-    for (let index = 0; index < 15; index++)
-      await addAgent(`copilot-${index}`, 'copilot');
+    await addAgent('other-provider', 'copilot');
     const h = optionsFixture(workingFolder);
     assert.deepEqual(
       (await getForkOptions(h.source._id, 'answer', h.deps)).agents,
@@ -300,74 +274,50 @@ test('explicit incompatible providers are filtered before readiness work', async
   });
 });
 
-test('legacy source provider resolution shares the options snapshot without backfilling source history', async () => {
+test('legacy options retain missing IDs as estimated and use stored execution provider without backfilling or native access', async () => {
   await withCatalog(async ({ addAgent, workingFolder, counts }) => {
     await addAgent('agent-00', 'codex');
-    await addAgent('agent-01', 'codex');
     const h = optionsFixture(workingFolder);
     delete (h.source as Partial<Conversation>).provider;
-    const sourceBefore = structuredClone(h.source);
-    assert.equal(
-      (await getForkOptions(h.source._id, 'answer', h.deps)).agents.length,
-      2,
-    );
+    delete h.rows[1].native;
+    const before = structuredClone(h.rows);
+    const result = await getForkOptions(h.source._id, undefined, h.deps);
+    assert.equal(result.estimated, true);
+    assert.equal(result.sourceTurnId, 'answer');
+    assert.equal(result.agents.length, 1);
+    assert.deepEqual(h.rows, before);
     assert.deepEqual(counts, {
-      capabilities: 1,
-      mcp: 1,
-      copilot: 1,
-      lmstudio: 1,
+      capabilities: 0,
+      mcp: 0,
+      copilot: 0,
+      lmstudio: 0,
     });
-    assert.deepEqual(h.source, sourceBefore);
   });
 });
 
-test('Copilot options retain compatible and unspecified-provider agents but never a Codex fallback', async () => {
-  await withCatalog(
-    async ({
-      addAgent,
-      agentsHome,
-      workingFolder,
-      setCodexAvailable,
-      counts,
-    }) => {
-      setCodexAvailable(false);
-      await addAgent('agent-00', 'copilot');
-      await addAgent('agent-01', 'copilot');
-      await fs.writeFile(
-        path.join(agentsHome, 'agent-01', 'config.toml'),
-        'model = "copilot-gpt-5"\n',
-      );
-      await addAgent('agent-02', 'codex');
-      const h = optionsFixture(workingFolder, undefined, 'copilot');
-      assert.deepEqual(
-        (await getForkOptions(h.source._id, 'answer', h.deps)).agents.map(
-          (agent) => agent.name,
-        ),
-        ['agent-00', 'agent-01'],
-      );
-      assert.deepEqual(counts, {
-        capabilities: 1,
-        mcp: 1,
-        copilot: 1,
-        lmstudio: 1,
-      });
-    },
-  );
-});
-
-test('unavailable native providers are excluded even when a fallback provider is available', async () => {
-  await withCatalog(
-    async ({ addAgent, workingFolder, setCodexAvailable, counts }) => {
-      await addAgent('agent-00', 'codex');
-      setCodexAvailable(false);
-      const h = optionsFixture(workingFolder);
-      assert.deepEqual(
-        (await getForkOptions(h.source._id, 'answer', h.deps)).agents,
-        [],
-      );
-      assert.equal(counts.copilot, 1);
-    },
-  );
+test('Copilot options retain compatible and unspecified-provider configs without falling back from explicit Codex', async () => {
+  await withCatalog(async ({ addAgent, agentsHome, workingFolder, counts }) => {
+    await addAgent('agent-00', 'copilot');
+    await addAgent('agent-01', 'copilot');
+    await fs.writeFile(
+      path.join(agentsHome, 'agent-01', 'config.toml'),
+      'model = "copilot-gpt-5"\n',
+    );
+    await addAgent('agent-02', 'codex');
+    const h = optionsFixture(workingFolder, undefined, 'copilot');
+    assert.deepEqual(
+      (await getForkOptions(h.source._id, 'answer', h.deps)).agents.map(
+        (agent) => agent.name,
+      ),
+      ['agent-00', 'agent-01'],
+    );
+    assert.deepEqual(counts, {
+      capabilities: 0,
+      mcp: 0,
+      copilot: 0,
+      lmstudio: 0,
+    });
+  });
 });
 
 async function assertCreationRevalidates(
@@ -390,32 +340,38 @@ async function assertCreationRevalidates(
       {
         loadSource: h.deps.loadSource,
         listTurns: h.deps.listTurns,
-        openNative: h.deps.openNative,
+        openNative: async () => {
+          throw new Error('Native fork must not be opened');
+        },
         prepareTarget: prepareAgentForkTarget,
       },
     ),
     (error: unknown) => (error as { code?: string }).code === code,
   );
-  assert.equal(h.nativeForks(), 0);
 }
 
-test('creation revalidates selected target readiness instead of retaining the options snapshot', async (t) => {
+test('POST checks the selected target once and rejects unready Codex without probing a fallback', async (t) => {
   await withCatalog(
     async ({ addAgent, workingFolder, setCodexAvailable, counts }) => {
       await addAgent('agent-00', 'codex');
       const h = optionsFixture(workingFolder);
+      setCodexAvailable(false);
       assert.equal(
         (await getForkOptions(h.source._id, 'answer', h.deps)).agents.length,
         1,
       );
-      setCodexAvailable(false);
       await assertCreationRevalidates(t, h, 'agent-00', 'PROVIDER_UNAVAILABLE');
-      assert.equal(counts.capabilities, 2);
+      assert.deepEqual(counts, {
+        capabilities: 1,
+        mcp: 0,
+        copilot: 0,
+        lmstudio: 0,
+      });
     },
   );
 });
 
-test('creation rereads the selected target provider after the options request', async (t) => {
+test('POST rereads selected target provider after options and refuses cross-provider execution', async (t) => {
   await withCatalog(async ({ addAgent, workingFolder, counts }) => {
     await addAgent('agent-00', 'codex');
     const h = optionsFixture(workingFolder);
@@ -425,35 +381,29 @@ test('creation rereads the selected target provider after the options request', 
     );
     await addAgent('agent-00', 'copilot');
     await assertCreationRevalidates(t, h, 'agent-00', 'FORK_UNSUPPORTED');
-    assert.equal(counts.capabilities, 2);
+    assert.deepEqual(counts, {
+      capabilities: 0,
+      mcp: 1,
+      copilot: 1,
+      lmstudio: 0,
+    });
   });
 });
 
-test('options share endpoint discovery by definition, filter native/different endpoints, and creation probes afresh', async (t) => {
-  const first = await startExternalOpenAiCompatServer({
+test('options compare configured endpoint identity without discovery; POST revalidates and refuses native fallback', async (t) => {
+  const first = await startExternalOpenAiCompatServer({ models: [] });
+  const other = await startExternalOpenAiCompatServer({
     models: ['gpt-6-luna'],
-    modelResponses: [{}, { body: { object: 'list', data: [] } }],
   });
-  let second:
-    | Awaited<ReturnType<typeof startExternalOpenAiCompatServer>>
-    | undefined;
   try {
-    const other = await startExternalOpenAiCompatServer({
-      models: ['gpt-6-luna'],
-    });
-    second = other;
     await withCatalog(async ({ addAgent, workingFolder, counts }) => {
       const endpoint = `${first.baseUrl}/v1`;
-      await addAgent(
-        'agent-00',
-        'codex',
-        `codeinfo_openai_endpoint = "${endpoint}|responses"`,
-      );
-      await addAgent(
-        'agent-01',
-        'codex',
-        `codeinfo_openai_endpoint = "${endpoint}|responses"`,
-      );
+      for (const name of ['agent-00', 'agent-01'])
+        await addAgent(
+          name,
+          'codex',
+          `codeinfo_openai_endpoint = "${endpoint}|responses"`,
+        );
       await addAgent(
         'agent-02',
         'codex',
@@ -467,43 +417,41 @@ test('options share endpoint discovery by definition, filter native/different en
         ),
         ['agent-00', 'agent-01'],
       );
+      assert.equal(first.requestCount(), 0);
+      assert.equal(other.requestCount(), 0);
+      assert.deepEqual(counts, {
+        capabilities: 0,
+        mcp: 0,
+        copilot: 0,
+        lmstudio: 0,
+      });
+      await assertCreationRevalidates(t, h, 'agent-00', 'PROVIDER_UNAVAILABLE');
       assert.equal(first.requestCount(), 1);
-      assert.equal(other.requestCount(), 1);
-      assert.equal(counts.copilot, 1);
-      await assertCreationRevalidates(t, h, 'agent-00', 'FORK_UNSUPPORTED');
-      assert.equal(first.requestCount(), 2);
-      assert.equal(h.source.flags.endpointId, endpoint);
+      assert.equal(other.requestCount(), 0);
     });
   } finally {
     await first.stop();
-    await second?.stop();
+    await other.stop();
   }
 });
 
-test('the same endpoint ID with different capabilities gets separate discovery snapshots', async () => {
-  const endpoint = await startExternalOpenAiCompatServer({
-    models: ['gpt-6-luna'],
-  });
+test('a target changed to an unavailable endpoint cannot silently execute against the native source endpoint', async (t) => {
+  const endpoint = await startExternalOpenAiCompatServer({ models: [] });
   try {
-    await withCatalog(async ({ addAgent, workingFolder, counts }) => {
-      for (const name of ['agent-00', 'agent-01'])
-        await addAgent(
-          name,
-          'codex',
-          `codeinfo_openai_endpoint = "${endpoint.baseUrl}/v1|responses"`,
-        );
-      await addAgent(
-        'agent-02',
-        'codex',
-        `codeinfo_openai_endpoint = "${endpoint.baseUrl}/v1|responses,completions"`,
-      );
-      const h = optionsFixture(workingFolder, `${endpoint.baseUrl}/v1`);
+    await withCatalog(async ({ addAgent, workingFolder }) => {
+      await addAgent('agent-00', 'codex');
+      const h = optionsFixture(workingFolder);
       assert.equal(
         (await getForkOptions(h.source._id, 'answer', h.deps)).agents.length,
-        3,
+        1,
       );
-      assert.equal(endpoint.requestCount(), 2);
-      assert.equal(counts.copilot, 1);
+      await addAgent(
+        'agent-00',
+        'codex',
+        `codeinfo_openai_endpoint = "${endpoint.baseUrl}/v1|responses"`,
+      );
+      await assertCreationRevalidates(t, h, 'agent-00', 'PROVIDER_UNAVAILABLE');
+      assert.equal(endpoint.requestCount(), 1);
     });
   } finally {
     await endpoint.stop();

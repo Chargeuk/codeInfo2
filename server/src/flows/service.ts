@@ -92,6 +92,7 @@ import type {
   TurnRuntimeMetadata,
   TurnStatus,
   TurnTimingMetadata,
+  TurnNativeMetadata,
   TurnUsageMetadata,
 } from '../mongo/turn.js';
 import {
@@ -3003,6 +3004,7 @@ type FlowInstructionResult = {
   failureKind?: 'execution' | 'invalid_response';
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+  native?: TurnNativeMetadata;
 };
 
 type FlowInstructionPostProcess = (result: FlowInstructionResult) => {
@@ -3033,6 +3035,7 @@ async function persistFlowTurn(params: {
   runtime?: TurnRuntimeMetadata;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+  native?: TurnNativeMetadata;
   createdAt: Date;
 }): Promise<{ turnId?: string }> {
   const existingTurnCount = memoryTurns.get(params.conversationId)?.length ?? 0;
@@ -3063,6 +3066,7 @@ async function persistFlowTurn(params: {
       runtime: params.runtime,
       usage: params.usage,
       timing: params.timing,
+      native: params.native,
       createdAt: params.createdAt,
     } as Turn);
     updateMemoryConversationMeta(params.conversationId, {
@@ -3113,6 +3117,7 @@ async function persistFlowTurn(params: {
     runtime: params.runtime,
     usage: params.usage,
     timing: params.timing,
+    native: params.native,
     createdAt: params.createdAt,
   });
 
@@ -3369,6 +3374,7 @@ const runFlowInstruction = async (params: {
   let sawComplete = false;
   let latestUsage: TurnUsageMetadata | undefined;
   let latestTiming: TurnTimingMetadata | undefined;
+  let latestNative: TurnNativeMetadata | undefined;
 
   const onToken = (event: ChatTokenEvent) => {
     tokenBuffer.push(event.content);
@@ -3388,6 +3394,7 @@ const runFlowInstruction = async (params: {
     sawComplete = true;
     if (event.usage) latestUsage = event.usage;
     if (event.timing) latestTiming = event.timing;
+    if (event.native) latestNative = event.native;
   };
   const onThread = (event: { threadId?: string }) => {
     if (event.threadId) params.onThreadId(event.threadId);
@@ -3547,6 +3554,7 @@ const runFlowInstruction = async (params: {
     toolCalls,
     usage: latestUsage,
     timing: latestTiming,
+    native: ['ok', 'warning'].includes(status) ? latestNative : undefined,
   };
 
   const postProcessed = params.postProcess?.(result);
@@ -3555,6 +3563,7 @@ const runFlowInstruction = async (params: {
   if (postProcessed?.failureKind) {
     result.failureKind = postProcessed.failureKind;
   }
+  if (!['ok', 'warning'].includes(result.status)) result.native = undefined;
 
   const resultDecision = params.onResult?.(result, {
     attempt: params.attempt ?? 1,
@@ -3590,6 +3599,7 @@ const runFlowInstruction = async (params: {
       runtime: params.runtime,
       usage: result.usage,
       timing: result.timing,
+      native: result.native,
       createdAt: assistantCreatedAt,
     });
     logFlowTurnStatusPersisted({
@@ -3639,6 +3649,7 @@ const runFlowInstruction = async (params: {
       runtime: params.runtime,
       usage: result.usage,
       timing: result.timing,
+      native: result.native,
       createdAt: assistantCreatedAt,
     });
     logFlowTurnStatusPersisted({

@@ -17,6 +17,8 @@ export class CodexAppServer {
   >();
   private closed = false;
   private writerExited = false;
+  private forcedShutdown = false;
+  private readonly ownsProcessGroup = process.platform !== 'win32';
   private readonly exited: Promise<{
     code: number | null;
     signal: NodeJS.Signals | null;
@@ -29,6 +31,9 @@ export class CodexAppServer {
     this.child = spawnProcess('codex', ['app-server', '--listen', 'stdio://'], {
       env: options?.env,
       stdio: ['pipe', 'pipe', 'ignore'],
+      // The npm launcher may spawn a native child with inherited pipes. Give
+      // only this helper its own process group; source exec workers are unrelated.
+      detached: this.ownsProcessGroup,
     });
     this.lines = createInterface({ input: this.child.stdout });
     this.lines.on('line', (line) => {
@@ -64,7 +69,7 @@ export class CodexAppServer {
     this.child.stdin.on('error', fail);
     this.exited = new Promise((resolve) =>
       this.child.once('close', (code, signal) => {
-        this.writerExited = true;
+        this.writerExited = !this.forcedShutdown;
         fail();
         resolve({ code, signal });
       }),
@@ -113,28 +118,52 @@ export class CodexAppServer {
       this.child.stdin.end();
     // EOF lets app-server flush its rollout writer. Killing immediately after
     // inject acknowledgement can lose the handover needed by SDK exec resume.
-    let forced = false;
-    const deadline = setTimeout(() => {
-      forced = true;
-      this.child.kill('SIGKILL');
-    }, 10_000);
+    let deadline: NodeJS.Timeout | undefined;
+    const timedOut = new Promise<never>((_resolve, reject) => {
+      deadline = setTimeout(() => {
+        this.forcedShutdown = true;
+        try {
+          if (this.ownsProcessGroup && this.child.pid)
+            process.kill(-this.child.pid, 'SIGKILL');
+          else this.child.kill('SIGKILL');
+        } catch {
+          // A racing exit or failed kill is not proof of durable delivery.
+        }
+        reject(
+          new Error(
+            'Codex native writer did not close gracefully; handover delivery remains unconfirmed.',
+          ),
+        );
+      }, 10_000);
+    });
     try {
-      const { code, signal } = await this.exited;
-      if (forced || signal || code !== 0 || this.connectionError)
+      // A launcher exiting does not imply its inherited pipes have closed.
+      // The deadline must settle the caller even if close is never emitted.
+      const { code, signal } = await Promise.race([this.exited, timedOut]);
+      if (this.forcedShutdown || signal || code !== 0 || this.connectionError)
         throw new Error(
           'Codex native writer did not close gracefully; handover delivery remains unconfirmed.',
         );
     } finally {
       clearTimeout(deadline);
+      this.closed = true;
+      for (const waiter of this.pending.values()) {
+        clearTimeout(waiter.timer);
+        waiter.reject(new Error('Codex native session connection closed'));
+      }
+      this.pending.clear();
       this.lines.close();
+      this.child.stdin.destroy();
+      this.child.stdout.destroy();
     }
   }
 }
 
 export async function withCodexAppServer<T>(
   work: (rpc: CodexAppServer) => Promise<T>,
+  createServer = () => new CodexAppServer(),
 ): Promise<T> {
-  const rpc = new CodexAppServer();
+  const rpc = createServer();
   try {
     await rpc.initialize();
     return await work(rpc);

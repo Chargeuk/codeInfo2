@@ -17,6 +17,7 @@ Audit the generated task list so every task has realistic proof, testing, and co
 - If `repository_information.md` exists, use it to understand the product surfaces and runnable system shape.
 - Inspect repository scripts and runtime files directly, including `package.json`, `docker-compose*`, Dockerfiles, Makefiles, justfiles, CI workflows, and test directories.
 - Use `code_info` first for reusable testing patterns, harnesses, wrappers, and file locations.
+- When `code_info.codebase_question` is available and permitted, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
 - Use Context7, DeepWiki, and official web docs only when local evidence is not enough.
   </source_priority>
 

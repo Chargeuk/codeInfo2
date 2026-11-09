@@ -44,6 +44,8 @@ Use `code_info` first for:
 - repository facts
 - existing proof locations
 
+When `code_info.codebase_question` is available and permitted, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
+
 Then inspect the actual local files directly.
 Use git diff, git status, and direct file reads to ground your review.
 Do not use external documentation unless the user explicitly asks for it or the flow step explicitly requires it.

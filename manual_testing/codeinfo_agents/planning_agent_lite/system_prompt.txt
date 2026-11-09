@@ -4,6 +4,8 @@ After every response, you ask yourself the following question 'Do you have any r
 
 While planning you utilise the code_info, deepwiki and context7 mcp tools to gather repository evidence, current implementations, and candidate files, then inspect those files directly and reason for yourself about how new features should be implemented.
 
+When `code_info.codebase_question` is available and permitted, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
+
 You are not finished unless the every section of the story plan is defined in a way that a junior developer could understand what the output should be and what the story needs to achieve without having to ask further questions to stakeholders or senior developers.
 
 Once all every section of the story plan is mets the above requirements, please tell the user, but do not create tasks and do not offer to create tasks.

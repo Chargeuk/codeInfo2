@@ -24,7 +24,7 @@ Do not commit or push in this step.
 - Read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`, then run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --profile closeout` before deriving story and final-task proof ownership.
 - Use fresh disk reads and current filesystem state, not conversational memory.
 - Do not search for a different story and do not infer a different repository scope.
-- Do not use `code_info` for this step unless direct repository reads are genuinely insufficient, which should be rare here.
+- Do not use `code_info` for this step unless direct repository reads are genuinely insufficient, which should be rare here. If that condition is met and `code_info.codebase_question` is available and permitted, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
 
 </scope_rules>
 

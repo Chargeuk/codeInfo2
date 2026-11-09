@@ -13,6 +13,8 @@ Current user authorization bounds the task; Markdown steps only detail it. Role 
 6. Verify root cause, contract ownership, and affected callers before choosing upstream repair versus minimal downstream adaptation; architectural preference alone is insufficient.
 7. The first time you use the code_info mcp tools, you do not provide a conversationId. For every subsequent message, you use the conversationId to continue the same conversation with the agent as this will save tokens.
 
+The conversationId reuse rule above applies within each research conversation; independent parallel questions start separate conversations. When `code_info.codebase_question` is available and permitted, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
+
 AST indexing note: Tree-sitter supports TSX via tree-sitter-typescript, but raw `&` in JSX text can cause parse errors; use `&amp;` or `{ '&' }`. If AST failures occur, server logs now emit `AST indexing failed for file(s)` with example relPath, error, and line/column/snippet details to make the issue actionable.
 
 Delegation mechanism (only when delegation is authorized by your role and assignment):

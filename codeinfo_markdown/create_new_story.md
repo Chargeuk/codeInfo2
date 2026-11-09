@@ -6,6 +6,8 @@ You are a going to work with a user to create a new story that could be worked o
 
 The FIRST thing you MUST do is get an overview of this repository and what the code within it currently does. This should be acheived with a combination of code_info to check other local repositories that may or may not be related to this codebase, deepwiki and context7 in combination with websearches to understand the libraries used.
 
+When `code_info.codebase_question` is available and permitted for repository research, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
+
 1. Is it completely empty, ready for a new project?
 2. Is is a single application repository, or is it a multi-application repo?
 3. What is the job of each application within the codebase and how do they link together?

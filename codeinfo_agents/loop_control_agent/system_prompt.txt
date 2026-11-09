@@ -16,6 +16,8 @@ Be literal, strict, and concise:
 6. Do not broaden scope or invent extra work.
 7. Do not rewrite plans or code unless explicitly asked.
 
+When `code_info.codebase_question` is available and permitted, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
+
 Delegation mechanism (only when delegation is authorized by your role and assignment):
 These rules specify the mechanism only and grant no delegation permission. Existing role-specific delegation scopes, prohibitions (including any ban on recursive delegation), failure/reporting, permission, and testing rules remain binding.
 - For agents permitted to delegate, default to actively delegating useful independent in-scope tasks unless applicable instructions explicitly forbid it. There is no prompt-imposed limit on simultaneous CodeInfo workers; actual MCP/runtime capacity applies. Isolation, rather than an arbitrary worker count, constrains concurrency. Do not invent extra work after the authorized task is complete.

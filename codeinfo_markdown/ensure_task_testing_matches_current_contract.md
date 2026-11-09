@@ -28,6 +28,7 @@ Re-audit the testing and proof sections for every task in the active plan so the
 - Use `README.md` and `codeinfo_markdown/repository_information.md` as supporting runtime and product context when they exist.
 - Inspect repository-native runtime and test entry points directly, including `package.json`, `docker-compose*`, Dockerfiles, Makefiles, justfiles, CI workflows, and test directories.
 - Use `code_info` first for reusable test patterns, harnesses, wrappers, and proof locations when repository evidence is not enough.
+- When `code_info.codebase_question` is available and permitted for this research, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
 
 </source_priority>
 

@@ -393,6 +393,9 @@ type DirectAgentPreparedExecution = {
 };
 
 type ForkOptionsSnapshot = {
+  requestedMetadata: Awaited<
+    ReturnType<typeof readAgentRequestedProviderMetadata>
+  >;
   availabilityContext: Awaited<
     ReturnType<typeof createAgentAvailabilityContext>
   >;
@@ -596,6 +599,7 @@ async function persistDirectAgentConversation(params: {
 async function collectDirectAgentProviderStates(
   diagnostics?: RuntimePreparationDiagnostics,
   deps: AgentServiceDeps = getEffectiveAgentServiceDeps(),
+  onlyProvider?: ChatProviderId,
 ): Promise<Record<ChatProviderId, DirectAgentProviderState>> {
   const startedAt = Date.now();
   const emit = (operation: string, phase: 'begin' | 'complete' | 'failed') =>
@@ -623,59 +627,81 @@ async function collectDirectAgentProviderStates(
     return promise;
   };
   const codexDetection = deps.getCodexDetection();
-  const codexCapabilities = await traceAsync('codex_capabilities', () =>
-    deps.resolveCodexCapabilities({
-      consumer: 'chat_validation',
-    }),
-  );
-  const mcp = await traceAsync('mcp_status', deps.getMcpStatus);
+  const codexCapabilities =
+    onlyProvider && onlyProvider !== 'codex'
+      ? { models: [] }
+      : await traceAsync('codex_capabilities', () =>
+          deps.resolveCodexCapabilities({
+            consumer: 'chat_validation',
+          }),
+        );
+  const mcp =
+    !onlyProvider || onlyProvider === 'copilot'
+      ? await traceAsync('mcp_status', deps.getMcpStatus)
+      : { available: false, reason: 'Provider is outside fork scope' };
   const [copilotReadiness, lmstudioState] = await Promise.all([
-    traceAsync('copilot_readiness', () =>
-      deps.resolveCopilotReadiness({
-        env: process.env,
-        toolsAvailable: mcp.available,
-        toolsReason: mcp.reason,
-      }),
-    ),
-    traceAsync('lmstudio', async (): Promise<DirectAgentProviderState> => {
-      const baseUrl = deps.getLmStudioBaseUrl()?.trim();
-      if (!baseUrl || !BASE_URL_REGEX.test(baseUrl)) {
-        return {
+    onlyProvider && onlyProvider !== 'copilot'
+      ? {
           available: false,
           models: [],
-          reason: 'lmstudio unavailable',
-        };
-      }
-      try {
-        const client = deps.lmstudioClientFactory(toWsBaseUrl(baseUrl));
-        try {
-          const models = await client.system.listDownloadedModels();
-          const availableModels = models
-            .filter(isChatModel)
-            .map((entry) => normalizeModel(entry.modelKey))
-            .filter((entry): entry is string => entry !== undefined);
-          return {
-            available: availableModels.length > 0,
-            models: availableModels,
-            reason:
-              availableModels.length > 0 ? undefined : 'lmstudio unavailable',
-          };
-        } finally {
-          await disposeClient(client);
+          modelsRaw: [],
+          reason: 'Provider is outside fork scope',
         }
-      } catch (error) {
-        return {
+      : traceAsync('copilot_readiness', () =>
+          deps.resolveCopilotReadiness({
+            env: process.env,
+            toolsAvailable: mcp.available,
+            toolsReason: mcp.reason,
+          }),
+        ),
+    onlyProvider && onlyProvider !== 'lmstudio'
+      ? {
           available: false,
           models: [],
-          reason: (error as Error)?.message ?? 'lmstudio unavailable',
-        };
-      }
-    }),
+          reason: 'Provider is outside fork scope',
+        }
+      : traceAsync('lmstudio', async (): Promise<DirectAgentProviderState> => {
+          const baseUrl = deps.getLmStudioBaseUrl()?.trim();
+          if (!baseUrl || !BASE_URL_REGEX.test(baseUrl)) {
+            return {
+              available: false,
+              models: [],
+              reason: 'lmstudio unavailable',
+            };
+          }
+          try {
+            const client = deps.lmstudioClientFactory(toWsBaseUrl(baseUrl));
+            try {
+              const models = await client.system.listDownloadedModels();
+              const availableModels = models
+                .filter(isChatModel)
+                .map((entry) => normalizeModel(entry.modelKey))
+                .filter((entry): entry is string => entry !== undefined);
+              return {
+                available: availableModels.length > 0,
+                models: availableModels,
+                reason:
+                  availableModels.length > 0
+                    ? undefined
+                    : 'lmstudio unavailable',
+              };
+            } finally {
+              await disposeClient(client);
+            }
+          } catch (error) {
+            return {
+              available: false,
+              models: [],
+              reason: (error as Error)?.message ?? 'lmstudio unavailable',
+            };
+          }
+        }),
   ]);
 
   return {
     codex: {
-      available: codexDetection.available,
+      available:
+        (!onlyProvider || onlyProvider === 'codex') && codexDetection.available,
       models: codexCapabilities.models.map((entry) => entry.model),
       reason: codexDetection.reason ?? 'codex unavailable',
     },
@@ -891,9 +917,11 @@ async function prepareDirectAgentExecution(
     emitPreparationDiagnostic(
       'flows.test.runtime_resolution_prepare_requested_metadata_begin',
     );
-    requestedMetadata = await readAgentRequestedProviderMetadata({
-      configPath: params.configPath,
-    });
+    requestedMetadata =
+      forkOptions?.requestedMetadata ??
+      (await readAgentRequestedProviderMetadata({
+        configPath: params.configPath,
+      }));
     emitPreparationDiagnostic(
       'flows.test.runtime_resolution_prepare_requested_metadata_complete',
       {
@@ -1496,60 +1524,9 @@ export async function prepareFlowOwnedAgentExecution(params: {
   });
 }
 
-export async function createAgentForkOptionsPreparation(
-  workingFolder?: string,
-) {
+export async function createAgentForkOptionsPreparation() {
   const agents = await discoverAgents({ seedAuth: false });
   const byName = new Map(agents.map((agent) => [agent.name, agent]));
-  const deps = getEffectiveAgentServiceDeps();
-  let snapshot: Promise<ForkOptionsSnapshot> | undefined;
-  const getSnapshot = () =>
-    (snapshot ??= (async (): Promise<ForkOptionsSnapshot> => {
-      // Catalog rows share a request-local readiness/model snapshot. Building
-      // availability from these same states avoids probing Copilot/MCP twice,
-      // while create-time preparation continues to perform fresh full checks.
-      const providerStates = await collectDirectAgentProviderStates(
-        undefined,
-        deps,
-      );
-      const availabilityStates = {
-        codex: { providerId: 'codex' as const, ...providerStates.codex },
-        copilot: { providerId: 'copilot' as const, ...providerStates.copilot },
-        lmstudio: {
-          providerId: 'lmstudio' as const,
-          ...providerStates.lmstudio,
-        },
-      };
-      const endpointStates = new Map<
-        string,
-        ReturnType<typeof resolveOpenAiCompatEndpointRuntimeState>
-      >();
-      return {
-        providerStates,
-        availabilityContext: {
-          providerStates: availabilityStates,
-          fallbackCandidates: deps
-            .resolveAgentProviderFallbackOrder()
-            .normalizedProviders.map(
-              (providerId) => availabilityStates[providerId],
-            ),
-        },
-        executionContext: await resolveSharedExecutionContext({
-          workingFolder,
-        }),
-        resolveEndpoint: (params) => {
-          // Endpoint identity alone does not include credentials/capabilities.
-          // Reuse discovery only for the same complete definition and provider.
-          const key = JSON.stringify([params.provider, params.endpoint]);
-          let result = endpointStates.get(key);
-          if (!result) {
-            result = resolveOpenAiCompatEndpointRuntimeState(params);
-            endpointStates.set(key, result);
-          }
-          return result;
-        },
-      };
-    })());
   return {
     agents,
     prepareTarget: async (agentName: string, sourceProvider?: string) => {
@@ -1558,28 +1535,27 @@ export async function createAgentForkOptionsPreparation(
       const metadata = await readAgentRequestedProviderMetadata({
         configPath: agent.configPath,
       });
-      // An explicit provider mismatch can be discarded without network work.
-      // Unspecified providers still need the normal current-provider selection.
+      const provider =
+        metadata.requestedProviderId ?? sourceProvider ?? metadata.providerId;
       if (
-        sourceProvider &&
-        metadata.requestedProviderId &&
-        metadata.requestedProviderId !== sourceProvider
+        !isChatProviderId(provider) ||
+        (sourceProvider && provider !== sourceProvider)
       )
         throw new Error(
           'Agent provider is incompatible with the source conversation.',
         );
-      return prepareDirectAgentExecution(
-        {
-          agentName,
-          configPath: agent.configPath,
-          workingFolder,
-          source: 'REST',
-          surface: 'agents.run',
-          allowFallback: false,
-        },
-        deps,
-        await getSnapshot(),
-      );
+      // Config-only listing: endpoint identity can be inherited from provider
+      // defaults. Read the same merged config, without readiness/model probes,
+      // repository preparation, prompt loading or provider execution.
+      const resolved = await resolveAgentRuntimeConfig({
+        provider,
+        agentConfigPath: agent.configPath,
+      });
+      return {
+        requestedProviderId: metadata.requestedProviderId,
+        executionProviderId: provider,
+        endpointId: resolved.appMetadata?.codeinfoOpenAiEndpoint?.endpointId,
+      };
     },
   };
 }
@@ -1589,19 +1565,63 @@ export async function createAgentForkOptionsPreparation(
 export async function prepareAgentForkTarget(
   agentName: string,
   workingFolder?: string,
+  sourceProvider?: string,
 ) {
   const agent = (await discoverAgents({ seedAuth: false })).find(
     (item) => item.name === agentName,
   );
   if (!agent) throw new Error(`Agent "${agentName}" was not found.`);
-  const prepared = await prepareDirectAgentExecution({
-    agentName,
+  const deps = getEffectiveAgentServiceDeps();
+  const metadata = await readAgentRequestedProviderMetadata({
     configPath: agent.configPath,
-    workingFolder,
-    source: 'REST',
-    surface: 'agents.run',
-    allowFallback: false,
   });
+  const provider = metadata.requestedProviderId ?? sourceProvider;
+  if (provider !== undefined && !isChatProviderId(provider))
+    throw toRunAgentError(
+      'INVALID_PROVIDER',
+      `Invalid provider "${provider}".`,
+    );
+  const providerStates = await collectDirectAgentProviderStates(
+    undefined,
+    deps,
+    provider,
+  );
+  const availabilityStates = {
+    codex: { providerId: 'codex' as const, ...providerStates.codex },
+    copilot: { providerId: 'copilot' as const, ...providerStates.copilot },
+    lmstudio: { providerId: 'lmstudio' as const, ...providerStates.lmstudio },
+  };
+  const prepared = await prepareDirectAgentExecution(
+    {
+      agentName,
+      configPath: agent.configPath,
+      workingFolder,
+      source: 'REST',
+      surface: 'agents.run',
+      allowFallback: false,
+    },
+    deps,
+    {
+      requestedMetadata: metadata,
+      providerStates,
+      availabilityContext: {
+        providerStates: availabilityStates,
+        fallbackCandidates: deps
+          .resolveAgentProviderFallbackOrder()
+          .normalizedProviders.map((id) => availabilityStates[id]),
+      },
+      executionContext: await resolveSharedExecutionContext({ workingFolder }),
+      resolveEndpoint: async (params) => {
+        const endpoint = await resolveOpenAiCompatEndpointRuntimeState(params);
+        if (!endpoint.available)
+          throw toRunAgentError(
+            'PROVIDER_UNAVAILABLE',
+            endpoint.reason ?? 'Fork endpoint is unavailable.',
+          );
+        return endpoint;
+      },
+    },
+  );
   const prompt = agent.systemPromptPath
     ? await fs.readFile(agent.systemPromptPath, 'utf8')
     : '';

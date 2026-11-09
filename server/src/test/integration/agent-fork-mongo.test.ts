@@ -12,7 +12,7 @@ import {
   ForkOperationModel,
   ForkSnapshotModel,
 } from '../../mongo/forkOperation.js';
-import { listAllTurns } from '../../mongo/repo.js';
+import { listForkTurns } from '../../mongo/repo.js';
 import { TurnModel } from '../../mongo/turn.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
@@ -43,6 +43,44 @@ test(
         ForkOperationModel.init(),
         ForkSnapshotModel.init(),
       ]);
+      // Exercise the actual Mongo comparison/sort semantics, including missing
+      // legacy tie breakers, before running the durable publication proof.
+      for (const chronology of ['source', 'copy', 'legacy-copy'] as const) {
+        const conversationId = crypto.randomUUID();
+        const ids = Array.from(
+          { length: 3 },
+          () => new mongoose.Types.ObjectId(),
+        ).sort((a, b) => String(a).localeCompare(String(b)));
+        const documents = await TurnModel.create(
+          ids.map((originalId, index) => ({
+            _id: chronology === 'source' ? originalId : ids[2 - index],
+            conversationId,
+            role: index === 1 ? 'assistant' : 'user',
+            content: `prefix-${index}`,
+            model: 'model',
+            provider: 'codex',
+            source: 'REST',
+            toolCalls: null,
+            status: 'ok',
+            createdAt: new Date(10),
+            ...(chronology === 'copy' ? { chronologicalOrder: index } : {}),
+            ...(chronology === 'legacy-copy'
+              ? { fork: { sourceTurnId: String(originalId) } }
+              : {}),
+          })),
+        );
+        const selectedId = String(documents[1]._id);
+        const prefix = await listForkTurns(conversationId, selectedId);
+        assert.deepEqual(
+          prefix.items.map((turn) => turn.content),
+          ['prefix-1', 'prefix-0'],
+        );
+        const metadata = await listForkTurns(conversationId, selectedId, true);
+        assert.equal(metadata.items.length, 1);
+        assert.equal(metadata.items[0].turnId, selectedId);
+        assert.equal(metadata.items[0].content, undefined);
+        assert.equal(metadata.items[0].toolCalls, null);
+      }
       const source: Conversation = {
         _id: crypto.randomUUID(),
         agentName: 'source_agent',
@@ -119,7 +157,7 @@ test(
       const deps: ForkServiceDeps = {
         loadSource: async () => source,
         prepareTarget: async () => target,
-        listTurns: listAllTurns,
+        listTurns: listForkTurns,
         openNative: async () => ({
           turns: [
             {

@@ -210,6 +210,14 @@ const CODE_INFO_MCP_SERVER_BLOCK = [
   'startup_timeout_sec = 60',
   '',
 ].join('\n');
+const CODEINFO_AGENTS_MCP_SERVER_BLOCK = [
+  '[mcp_servers.codeinfo_agents]',
+  'command = "npx"',
+  'args = ["-y", "mcp-remote", "http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp", "--allow-http"]',
+  'startup_timeout_sec = 60',
+  'tool_timeout_sec = 86400',
+  '',
+].join('\n');
 const runtimeTestDiagnosticsEnabled =
   process.env.CODEINFO_TEST_RUNTIME_DIAGNOSTICS === '1';
 
@@ -239,9 +247,11 @@ const RESERVED_PROVIDER_CHAT_MCP_BLOCKS: Record<
 > = {
   codex: {
     code_info: CODE_INFO_MCP_SERVER_BLOCK,
+    codeinfo_agents: CODEINFO_AGENTS_MCP_SERVER_BLOCK,
   },
   copilot: {
     code_info: CODE_INFO_MCP_SERVER_BLOCK,
+    codeinfo_agents: CODEINFO_AGENTS_MCP_SERVER_BLOCK,
   },
   lmstudio: {
     code_info: CODE_INFO_MCP_SERVER_BLOCK,
@@ -257,6 +267,7 @@ const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
     'web_search = "live"',
     '',
     CODE_INFO_MCP_SERVER_BLOCK.trimEnd(),
+    CODEINFO_AGENTS_MCP_SERVER_BLOCK.trimEnd(),
     '',
   ].join('\n'),
   copilot: [
@@ -266,6 +277,7 @@ const CHAT_CONFIG_TEMPLATES: Record<ChatProviderId, string> = {
     'web_search = "live"',
     '',
     CODE_INFO_MCP_SERVER_BLOCK.trimEnd(),
+    CODEINFO_AGENTS_MCP_SERVER_BLOCK.trimEnd(),
     '',
   ].join('\n'),
   lmstudio: [
@@ -1817,9 +1829,28 @@ export async function resolveMergedAndValidatedRuntimeConfig(params: {
         pathLabel: `${params.surface}.${CODEINFO_OPENAI_ENDPOINT_METADATA_KEY}`,
       });
     }
+    let effectiveConfig = stripped.config;
+    if (
+      params.surface === 'chat' &&
+      (effectiveProvider === 'codex' || effectiveProvider === 'copilot')
+    ) {
+      const servers = effectiveConfig.mcp_servers;
+      if (
+        servers === undefined ||
+        (isRecord(servers) && !hasOwn(servers, 'codeinfo_agents'))
+      ) {
+        effectiveConfig = mergeRuntimeConfigWithBaseConfig(
+          parseTomlOrThrow(
+            CODEINFO_AGENTS_MCP_SERVER_BLOCK,
+            `CHAT_CONFIG_TEMPLATES.${effectiveProvider}.codeinfo_agents`,
+          ),
+          effectiveConfig,
+        ).merged;
+      }
+    }
     const scopedEnv = getScopedProcessEnv(process.env);
     const placeholderResult = normalizeCodeinfoRuntimeConfigPlaceholders(
-      stripped.config,
+      effectiveConfig,
       scopedEnv,
     );
     const context7Result = normalizeContext7RuntimeConfig(placeholderResult);

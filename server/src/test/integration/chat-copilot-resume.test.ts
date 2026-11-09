@@ -6,11 +6,13 @@ import nodeTest from 'node:test';
 import request from 'supertest';
 import { memoryConversations } from '../../chat/memoryPersistence.js';
 import { buildOpenAiCompatProxyBaseUrl } from '../../chat/openaiCompatAdapter.js';
+import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import {
   beginScopedTestEnvIsolation,
   endScopedTestEnvIsolation,
 } from '../support/processEnvIsolation.js';
+import { getScopedProcessEnv } from '../support/testEnvOverrideScope.js';
 import {
   startCopilotChatServer,
   waitForAssistantTurn,
@@ -146,6 +148,21 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
       server.harness.getState().lastCreateSessionConfig?.availableTools,
       undefined,
     );
+    const { agentsMcpUrl } = resolveCodeinfoMcpEndpointContract(
+      getScopedProcessEnv(process.env),
+    );
+    const expectedAgentServer = {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', 'mcp-remote', agentsMcpUrl, '--allow-http'],
+      tools: ['*'],
+      timeout: 86400000,
+    };
+    assert.deepEqual(
+      server.harness.getState().lastCreateSessionConfig?.mcpServers
+        ?.codeinfo_agents,
+      expectedAgentServer,
+    );
     const createdCodeInfo =
       server.harness.getState().lastCreateSessionConfig?.mcpServers?.code_info;
     assert.ok(createdCodeInfo && 'url' in createdCodeInfo);
@@ -154,7 +171,14 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
       Object.keys(
         server.harness.getState().lastCreateSessionConfig?.mcpServers ?? {},
       ).sort(),
-      ['code_info', 'context7', 'deepwiki', 'mui', 'web_tools'],
+      [
+        'code_info',
+        'codeinfo_agents',
+        'context7',
+        'deepwiki',
+        'mui',
+        'web_tools',
+      ],
     );
     await request(server.httpServer)
       .post('/chat')
@@ -180,6 +204,11 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
       server.harness.getState().lastResumeSession?.config.availableTools,
       undefined,
     );
+    assert.deepEqual(
+      server.harness.getState().lastResumeSession?.config.mcpServers
+        ?.codeinfo_agents,
+      expectedAgentServer,
+    );
     const resumedCodeInfo =
       server.harness.getState().lastResumeSession?.config.mcpServers?.code_info;
     assert.ok(resumedCodeInfo && 'url' in resumedCodeInfo);
@@ -188,7 +217,14 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
       Object.keys(
         server.harness.getState().lastResumeSession?.config.mcpServers ?? {},
       ).sort(),
-      ['code_info', 'context7', 'deepwiki', 'mui', 'web_tools'],
+      [
+        'code_info',
+        'codeinfo_agents',
+        'context7',
+        'deepwiki',
+        'mui',
+        'web_tools',
+      ],
     );
     await request(server.httpServer)
       .post('/chat')
@@ -211,11 +247,17 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
       [],
     );
     assert.deepEqual(
+      server.harness.getState().lastCreateSessionConfig?.mcpServers
+        ?.codeinfo_agents,
+      { ...expectedAgentServer, tools: [] },
+    );
+    assert.deepEqual(
       getMcpServerTools(
         server.harness.getState().lastCreateSessionConfig?.mcpServers,
       ),
       {
         code_info: [],
+        codeinfo_agents: [],
         context7: [],
         deepwiki: [],
         mui: [],
@@ -247,11 +289,17 @@ test('copilot resume-session path uses MCP-configured servers instead of custom 
       [],
     );
     assert.deepEqual(
+      server.harness.getState().lastResumeSession?.config.mcpServers
+        ?.codeinfo_agents,
+      { ...expectedAgentServer, tools: [] },
+    );
+    assert.deepEqual(
       getMcpServerTools(
         server.harness.getState().lastResumeSession?.config.mcpServers,
       ),
       {
         code_info: [],
+        codeinfo_agents: [],
         context7: [],
         deepwiki: [],
         mui: [],

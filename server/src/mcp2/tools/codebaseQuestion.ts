@@ -105,11 +105,7 @@ const GENERIC_CODEX_EXEC_STARTUP_BANNER =
 const TASK8_LOG_MARKER = 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED';
 const REPLAY_ID_REGEX = /^[A-Za-z0-9._:-]{1,128}$/u;
 const CODEBASE_QUESTION_SYSTEM_PROMPT = `Answer this repository question using bounded research.
-- Use at most two focused VectorSearch queries and four additional evidence actions.
-- Prefer exact symbols and bounded ranges; do not dump files or run broad recursive searches.
-- Limit AST requests to 50 symbols, shell output to 10,000 characters, file reads to 200 lines, and the final answer to 8,000 characters.
-- Stop as soon as the evidence supports a concise answer. Return only that answer without progress narration.
-- Use external documentation only for API- or version-specific questions.`;
+Follow the shared parent-chat three-wave protocol, current-source verification, citation, uncertainty, evidence-reuse, and external-documentation rules. Return only the answer, without progress narration.`;
 const paramsSchema = z
   .object({
     question: z.string().min(1),
@@ -1729,7 +1725,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Uses bounded repository research to reduce latency and token usage. After retrieval, inspect relevant source files directly and do your own reasoning when the task needs stronger evidence. Returns a final answer segment plus conversationId and modelId for follow-ups.',
+      'Retrieve repository facts, likely file locations, summaries of existing implementations, current contracts, and similar evidence-gathering context from the indexed codebase. Uses bounded repository research to reduce latency and token usage. Before relying on actionable claims for answers, edits, PRs, or decisions, you must inspect relevant current source files directly in the intended repo/checkout, including callers/config when needed, and do your own reasoning. Require adjacent precise citations with repo/checkout identity, full file path, and exact supporting lines; distinguish facts, supported inferences, and unknowns. Treat indexed-only results as explicitly unverified orientation leads; if source access or research bounds prevent verification or precise citations, state those limits rather than treating leads as confirmed evidence for edits or decisions. Returns a final answer segment plus conversationId and modelId for follow-ups.\n\nWhen `code_info.codebase_question` is available and permitted, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host\'s supported parallel dispatch.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,

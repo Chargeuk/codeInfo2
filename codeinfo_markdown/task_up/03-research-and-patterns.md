@@ -13,6 +13,7 @@ Confirm the tasking against existing repository patterns and external contract e
 
 - Use `code_info` first for repository facts, established local patterns, reusable helpers, contract seams, likely file locations, and how our repositories already solve the same class of problem.
 - Inspect relevant local source files directly after `code_info`.
+- When `code_info.codebase_question` is available and permitted, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
 - If `repository_information.md` was found during preflight, use it as supporting product and repository context.
 - Use Context7 for library, SDK, and framework documentation when relevant.
 - Use DeepWiki for external GitHub repository architecture or usage guidance when relevant.

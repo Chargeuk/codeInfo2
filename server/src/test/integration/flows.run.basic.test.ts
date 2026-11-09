@@ -68,7 +68,10 @@ import {
   runWithTestEnvOverrides,
 } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
-import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+import {
+  resolveConfiguredTestTimeoutMs,
+  waitForTestCondition,
+} from '../support/testTimeouts.js';
 import {
   subscribeConversationAndWaitReady,
   closeWs,
@@ -4093,3 +4096,186 @@ test('flow continues to later steps after a successful llm.markdownFile step', a
     },
   );
 });
+
+for (const persistence of ['memory', 'mongo'] as const) {
+  for (const outcome of ['ok', 'failed', 'stopped'] as const) {
+    test(`flow-owned ${outcome} replies preserve completion identity only when completed (${persistence})`, async (t) => {
+      const tempRoot = await fs.mkdtemp(
+        path.join(os.tmpdir(), 'flow-native-metadata-'),
+      );
+      const agentsHome = path.join(tempRoot, 'agents');
+      const codexHome = path.join(tempRoot, 'codex');
+      const flowsRoot = path.join(tempRoot, 'flows');
+      const conversationId = `flow-native-${path.basename(tempRoot)}`;
+      let activeConversationId = conversationId;
+      const childIds = new Set<string>();
+      const native = {
+        sessionId: 'native-session',
+        turnId: 'native-completed-turn',
+      };
+      try {
+        await writeAgentScaffold({
+          agentsHome,
+          agentName: 'coding_agent',
+          codexHome,
+        });
+        await writeFlowFile({
+          flowsRoot,
+          flowName: 'native-metadata',
+          steps: [
+            {
+              type: 'llm',
+              agentType: 'coding_agent',
+              identifier: 'basic',
+              messages: [{ role: 'user', content: ['Reply once'] }],
+            },
+          ],
+        });
+        await runWithTestEnvOverrides(
+          {
+            CODEINFO_AGENT_HOME: agentsHome,
+            CODEINFO_CODEX_AGENT_HOME: agentsHome,
+            CODEINFO_CODEX_HOME: codexHome,
+            FLOWS_DIR: flowsRoot,
+            FLOW_AND_COMMAND_RETRIES: '1',
+          },
+          async () => {
+            const run = async (
+              getTurns: () => Array<
+                Pick<Turn, 'conversationId' | 'role' | 'status' | 'native'>
+              >,
+            ) => {
+              try {
+                const result = await startFlowRun({
+                  flowName: 'native-metadata',
+                  conversationId,
+                  source: 'REST',
+                  chatFactory: () =>
+                    new (class extends ChatInterface {
+                      async execute(
+                        _message: string,
+                        _flags: Record<string, unknown>,
+                        childConversationId: string,
+                      ) {
+                        childIds.add(childConversationId);
+                        this.emit('thread', {
+                          type: 'thread',
+                          threadId: native.sessionId,
+                        });
+                        this.emit('final', { type: 'final', content: 'Reply' });
+                        if (outcome !== 'ok')
+                          this.emit('error', {
+                            type: 'error',
+                            message:
+                              outcome === 'stopped'
+                                ? 'aborted'
+                                : 'Execution failed',
+                          });
+                        this.emit('complete', {
+                          type: 'complete',
+                          threadId: native.sessionId,
+                          native,
+                        });
+                      }
+                    })(),
+                  listIngestedRepositories: async () => ({
+                    repos: [],
+                    lockedModelId: null,
+                  }),
+                });
+                activeConversationId = result.conversationId;
+                await waitForTestCondition(
+                  () => {
+                    const turns = getTurns();
+                    return (
+                      turns.some(
+                        (turn) =>
+                          turn.conversationId === activeConversationId &&
+                          turn.role === 'assistant',
+                      ) &&
+                      [...childIds].every((id) =>
+                        turns.some(
+                          (turn) =>
+                            turn.conversationId === id &&
+                            turn.role === 'assistant',
+                        ),
+                      ) &&
+                      !getActiveRunOwnership(activeConversationId)
+                    );
+                  },
+                  {
+                    description:
+                      'flow and agent reply persistence and run cleanup',
+                    timeoutMs: 30_000,
+                  },
+                );
+                assert.equal(childIds.size, 1);
+                for (const id of [activeConversationId, ...childIds]) {
+                  const assistant = getTurns().find(
+                    (turn) =>
+                      turn.conversationId === id && turn.role === 'assistant',
+                  );
+                  assert.ok(assistant);
+                  assert.equal(assistant.status, outcome);
+                  assert.deepEqual(
+                    assistant.native,
+                    outcome === 'ok' ? native : undefined,
+                  );
+                }
+                assert.equal(
+                  getTurns()
+                    .filter((turn) => turn.role === 'user')
+                    .every((turn) => !turn.native),
+                  true,
+                );
+              } finally {
+                if (getActiveRunOwnership(activeConversationId)) {
+                  await stopFlowRun(activeConversationId);
+                  await waitForTestCondition(
+                    () => !getActiveRunOwnership(activeConversationId),
+                    {
+                      description: 'native metadata test flow cleanup',
+                      timeoutMs: 30_000,
+                    },
+                  );
+                }
+              }
+            };
+            if (persistence === 'memory') {
+              await run(() =>
+                [activeConversationId, ...childIds].flatMap(
+                  (id) => memoryTurns.get(id) ?? [],
+                ),
+              );
+            } else {
+              await withMockedMongoConversationPersistence({
+                seedConversations: [],
+                run: async ({ conversations, turns }) => {
+                  t.mock.method(
+                    ConversationModel.prototype,
+                    'save',
+                    async function (this: {
+                      _id: unknown;
+                      toObject: () => unknown;
+                    }) {
+                      const saved = {
+                        ...structuredClone(this.toObject() as Conversation),
+                        _id: String(this._id),
+                      };
+                      conversations.set(saved._id, saved);
+                      return saved;
+                    },
+                  );
+                  await run(() => turns as unknown as Turn[]);
+                },
+              });
+            }
+          },
+        );
+      } finally {
+        cleanupMemory(activeConversationId, conversationId, ...childIds);
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    });
+  }
+}

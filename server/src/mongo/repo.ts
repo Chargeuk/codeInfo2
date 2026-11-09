@@ -607,6 +607,27 @@ export async function listTurns(
   return { items };
 }
 
+const toForkTurnSummary = (doc: Turn & { _id?: unknown }): TurnSummary => ({
+  turnId: String(doc._id ?? ''),
+  conversationId: doc.conversationId,
+  role: doc.role,
+  content: doc.content,
+  model: doc.model,
+  provider: doc.provider,
+  source: (doc as Turn).source ?? 'REST',
+  toolCalls: doc.toolCalls ?? null,
+  status: doc.status,
+  command: doc.command,
+  usage: doc.usage,
+  timing: doc.timing,
+  runtime: doc.runtime,
+  native: doc.native,
+  displayOrder: doc.displayOrder,
+  chronologicalOrder: doc.chronologicalOrder,
+  fork: doc.fork,
+  createdAt: doc.createdAt,
+});
+
 export async function listAllTurns(
   conversationId: string,
 ): Promise<{ items: TurnSummary[] }> {
@@ -622,28 +643,134 @@ export async function listAllTurns(
     })
     .lean()) as Array<Turn & { _id?: unknown }>;
 
-  const items: TurnSummary[] = docs.map((doc) => ({
-    turnId: String(doc._id ?? ''),
-    conversationId: doc.conversationId,
-    role: doc.role,
-    content: doc.content,
-    model: doc.model,
-    provider: doc.provider,
-    source: (doc as Turn).source ?? 'REST',
-    toolCalls: doc.toolCalls ?? null,
-    status: doc.status,
-    command: doc.command,
-    usage: doc.usage,
-    timing: doc.timing,
-    runtime: doc.runtime,
-    native: doc.native,
-    displayOrder: doc.displayOrder,
-    chronologicalOrder: doc.chronologicalOrder,
-    fork: doc.fork,
-    createdAt: doc.createdAt,
-  }));
+  const items = docs.map(toForkTurnSummary);
 
   return { items };
+}
+
+// Fork chronology deliberately differs from transcript display order. Missing
+// legacy tie breakers sort before populated values, just as Mongo's sort does.
+const forkChronology = {
+  createdAt: -1,
+  chronologicalOrder: -1,
+  'fork.sourceTurnId': -1,
+  _id: -1,
+} as const;
+type ForkCutoff = Turn & { _id: mongoose.Types.ObjectId };
+function forkCutoffQuery(turn: ForkCutoff, after = false) {
+  const keys = Object.keys(forkChronology);
+  const values = [
+    turn.createdAt,
+    turn.chronologicalOrder,
+    turn.fork?.sourceTurnId,
+    turn._id,
+  ];
+  const alternatives: Record<string, unknown>[] = [];
+  const equal: Record<string, unknown> = {};
+  keys.forEach((key, index) => {
+    const value = values[index];
+    if (value !== undefined && value !== null) {
+      alternatives.push({
+        ...equal,
+        [key]: { [after ? '$gt' : '$lt']: value },
+      });
+      if (!after && index > 0 && index < keys.length - 1)
+        alternatives.push({ ...equal, [key]: null });
+    } else if (after) {
+      alternatives.push({ ...equal, [key]: { $ne: null } });
+    }
+    equal[key] = value ?? null;
+  });
+  if (!after) alternatives.push(equal);
+  return { $or: alternatives };
+}
+
+/** Read one fork boundary, or only its chronological display prefix for copying. */
+export async function listForkTurns(
+  conversationId: string,
+  sourceTurnId?: string,
+  metadataOnly = false,
+): Promise<{ items: TurnSummary[] }> {
+  if (sourceTurnId && !mongoose.isValidObjectId(sourceTurnId))
+    return { items: [] };
+  const projection =
+    '_id conversationId role status provider native createdAt chronologicalOrder fork';
+  const selected = await TurnModel.findOne({
+    conversationId,
+    ...(sourceTurnId
+      ? { _id: sourceTurnId }
+      : { role: 'assistant', status: { $in: ['ok', 'warning'] } }),
+  })
+    .select(projection)
+    .sort(forkChronology)
+    .lean()
+    .exec();
+  if (!selected) return { items: [] };
+  let cutoff = selected as ForkCutoff;
+  if (!sourceTurnId) {
+    // Preserve contiguous handovers following the latest completed response,
+    // without reading a later active prompt or the rest of the conversation.
+    const next = await TurnModel.findOne({
+      conversationId,
+      ...forkCutoffQuery(cutoff, true),
+      'fork.handover': { $ne: true },
+    })
+      .select('_id createdAt chronologicalOrder fork')
+      .sort({
+        createdAt: 1,
+        chronologicalOrder: 1,
+        'fork.sourceTurnId': 1,
+        _id: 1,
+      })
+      .lean()
+      .exec();
+    const tail = await TurnModel.findOne({
+      conversationId,
+      'fork.handover': true,
+      $and: [
+        forkCutoffQuery(cutoff, true),
+        ...(next ? [forkCutoffQuery(next as ForkCutoff)] : []),
+      ],
+    })
+      .select(projection)
+      .sort(forkChronology)
+      .lean()
+      .exec();
+    if (tail) cutoff = tail as ForkCutoff;
+  }
+  let response = selected;
+  if (selected.fork?.handover) {
+    const preceding = await TurnModel.findOne({
+      conversationId,
+      ...forkCutoffQuery(cutoff),
+      'fork.handover': { $ne: true },
+    })
+      .select(projection)
+      .sort(forkChronology)
+      .lean()
+      .exec();
+    if (!preceding) return { items: [] };
+    response = preceding;
+  }
+  if (
+    response.role !== 'assistant' ||
+    !['ok', 'warning'].includes(response.status)
+  )
+    return { items: [] };
+  if (metadataOnly) {
+    const items = [toForkTurnSummary(response)];
+    if (String(cutoff._id) !== String(response._id))
+      items.unshift(toForkTurnSummary(cutoff));
+    return { items };
+  }
+  const docs = await TurnModel.find({
+    conversationId,
+    ...forkCutoffQuery(cutoff),
+  })
+    .sort(forkChronology)
+    .lean()
+    .exec();
+  return { items: docs.map(toForkTurnSummary) };
 }
 
 type ConversationLite = { _id: string; archivedAt?: Date | null };

@@ -379,6 +379,19 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
       return { deletedCount: 1 };
     },
   );
+  t.mock.method(
+    TurnModel,
+    'updateOne',
+    async (
+      filter: { _id: string },
+      update: { $set: { native: TurnSummary['native'] } },
+    ) => {
+      const row = rows.find((turn) => turn.turnId === filter._id);
+      if (row && !row.native?.turnId && !row.native?.eventId)
+        row.native = update.$set.native;
+      return { acknowledged: true, modifiedCount: row ? 1 : 0 };
+    },
+  );
   const repositoryContext = {
     selectedRepositoryPath: '/shared/folder',
     defaultExecutionRoot: '/shared/folder',
@@ -1136,17 +1149,33 @@ test('latest-point DB cutoff is frozen before native read while a repeated respo
   );
 });
 
-test('stale native read cannot replace a recorded response ID with an identical earlier response', async (t) => {
+test('a provider-rejected exact boundary is never replaced with identical earlier text or reissued on retry', async (t) => {
   const h = harness(t);
   h.rows[1].native = {
     sessionId: 'native-source',
     turnId: 'not-yet-persisted',
   };
+  const open = h.deps.openNative;
+  let attempts = 0;
+  h.deps.openNative = async (...args) => {
+    assert.equal(args[2], false);
+    const session = await open(...args);
+    session.turns = [];
+    session.fork = async (boundary) => {
+      attempts++;
+      assert.equal(boundary.id, 'not-yet-persisted');
+      throw new Error('Provider boundary unavailable');
+    };
+    return session;
+  };
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /Provider boundary unavailable/,
+  );
   await assert.rejects(forkAgentConversation(h.input, h.deps), {
-    code: 'FORK_HISTORY_UNAVAILABLE',
+    code: 'FORK_NATIVE_OUTCOME_UNKNOWN',
   });
-  assert.equal(h.stats().nativeForks, 0);
-  assert.equal(h.operations.size, 0);
+  assert.equal(attempts, 1);
   assert.equal(h.conversations.size, 0);
 });
 
@@ -1637,4 +1666,128 @@ test('delayed ownership acknowledgement after expiry cannot authorize an old wor
   }
   assert.equal(h.stats().nativeForks, 0);
   assert.equal(h.conversations.size, 0);
+});
+
+test('selected earlier Codex reply forks directly while a newer source run retains its lock', async (t) => {
+  const h = harness(t);
+  assert.equal(tryAcquireConversationLock(h.source._id), true);
+  const ownership = getActiveRunOwnership(h.source._id)!;
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    assert.equal(args[2], false, 'stored IDs must skip history hydration');
+    const native = await open(...args);
+    native.turns = [];
+    return native;
+  };
+  try {
+    await forkAgentConversation(h.input, h.deps);
+    assert.equal(h.stats().forkBoundary, 'native-turn');
+    assert.deepEqual(getActiveRunOwnership(h.source._id), ownership);
+    assert.equal(
+      [...h.copied.values()].some(
+        (row) => row.content === 'Later active prompt',
+      ),
+      false,
+    );
+  } finally {
+    releaseConversationLock(h.source._id, ownership.runToken);
+  }
+});
+
+test('unique complete legacy exchange caches its estimated identity and subsequent forks skip history', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  const open = h.deps.openNative;
+  const reads: Array<boolean | undefined> = [];
+  h.deps.openNative = async (...args) => {
+    reads.push(args[2]);
+    const native = await open(...args);
+    if (args[2] === false) native.turns = [];
+    return native;
+  };
+  const first = await forkAgentConversation(h.input, h.deps);
+  assert.equal(first.estimated, true);
+  assert.deepEqual(h.rows[1].native, {
+    sessionId: 'native-source',
+    turnId: 'native-turn',
+    estimated: true,
+  });
+  const second = await forkAgentConversation(
+    { ...h.input, requestId: crypto.randomUUID() },
+    h.deps,
+  );
+  assert.equal(second.estimated, true);
+  assert.deepEqual(reads, [true, false]);
+});
+
+test('legacy identity cache failure still delivers and publishes the fork without recreating its native child on retry', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  const cacheWrite = t.mock.method(TurnModel, 'updateOne', async () => {
+    throw new Error('Optional legacy cache write failed');
+  });
+  const broadcasts: string[] = [];
+  const unsubscribe = onConversationUpsert((event) => {
+    broadcasts.push(event.conversationId);
+  });
+  try {
+    const first = await forkAgentConversation(h.input, h.deps);
+    const published = h.conversations.get(first.conversationId)!;
+    assert.equal(first.estimated, true);
+    assert.equal(cacheWrite.mock.callCount(), 1);
+    assert.equal(h.rows[1].native, undefined);
+    assert.equal(published.fork?.nativeSessionId, 'native-child');
+    assert.equal(published.fork?.handoverDelivered, true);
+    assert.equal(h.injected.has(published.fork!.handover), true);
+    assert.equal(h.copied.size, 3);
+    assert.equal([...h.operations.values()][0].phase, 'ready');
+    assert.deepEqual(broadcasts, [first.conversationId]);
+
+    const retry = await forkAgentConversation(h.input, h.deps);
+    assert.deepEqual(retry, first);
+    assert.equal(h.stats().nativeForks, 1);
+    assert.equal(h.stats().removed, 0);
+    assert.equal(h.conversations.size, 1);
+    assert.equal(h.injected.size, 1);
+    assert.equal(cacheWrite.mock.callCount(), 1);
+  } finally {
+    unsubscribe();
+  }
+});
+
+test('repeated legacy exchanges stay estimated and are not cached as an unsafe unique mapping', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    assert.equal(args[2], true);
+    const native = await open(...args);
+    native.turns.push({ ...native.turns[0], id: 'same-text-later' });
+    return native;
+  };
+  await forkAgentConversation(h.input, h.deps);
+  assert.equal(h.stats().forkBoundary, 'native-turn');
+  assert.equal(h.rows[1].native, undefined);
+});
+
+test('Codex copy retry reuses frozen legacy history without a second source read or native lookup', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  h.setFailCopy();
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /Partial Mongo copy/,
+  );
+  h.deps.listTurns = async () => {
+    throw new Error('Must use frozen snapshot');
+  };
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    assert.equal(args[2], false);
+    const native = await open(...args);
+    native.turns = [];
+    return native;
+  };
+  await forkAgentConversation(h.input, h.deps);
+  assert.equal(h.stats().nativeForks, 1);
 });

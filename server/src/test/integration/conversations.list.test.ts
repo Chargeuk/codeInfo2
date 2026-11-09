@@ -494,6 +494,218 @@ test('returns validation_error on bad cursor', async () => {
   assert.equal(res.body.error, 'validation_error');
 });
 
+test('conversationId is forwarded exactly with list defaults and existing scopes', async () => {
+  const calls: unknown[] = [];
+  const app = appWith({
+    listConversations: async (params) => {
+      calls.push(params);
+      return { items: [] };
+    },
+    listIngestedRepositories: async () => ({
+      repos: [],
+      lockedModelId: null,
+    }),
+  });
+  const conversationId = 'saved conversation /?+&%#';
+  const response = await request(app)
+    .get(
+      `/conversations?conversationId=${encodeURIComponent(conversationId)}&state=all`,
+    )
+    .expect(200);
+
+  assert.deepEqual(response.body, { items: [] });
+  assert.deepEqual(calls[0], {
+    conversationId,
+    limit: 20,
+    state: 'all',
+    cursor: undefined,
+    agentName: undefined,
+    flowName: undefined,
+    ancestorConversationId: undefined,
+  });
+
+  const scopedQuery = {
+    conversationId,
+    limit: 1,
+    state: 'archived',
+    cursor: '2026-01-02T00:00:00.000Z',
+    agentName: '__none__',
+    flowName: 'daily-flow',
+    ancestorConversationId: 'root',
+  };
+  await request(app).get('/conversations').query(scopedQuery).expect(200);
+  assert.deepEqual(calls[1], scopedQuery);
+});
+
+test('conversationId rejects empty and repeated values before listing', async () => {
+  let calls = 0;
+  const app = appWith({
+    listConversations: async () => {
+      calls += 1;
+      return { items: [] };
+    },
+  });
+  for (const query of [
+    'conversationId=',
+    'conversationId=first&conversationId=second',
+  ]) {
+    const response = await request(app)
+      .get(`/conversations?${query}`)
+      .expect(400);
+    assert.equal(response.body.error, 'validation_error');
+  }
+  assert.equal(calls, 0);
+});
+
+test('memory conversationId lookup matches active and archived IDs exactly and intersects existing scopes', async () => {
+  const prefix = crypto.randomUUID();
+  const activeId = `${prefix}-active /?+&%#`;
+  const archivedId = `${prefix}-archived`;
+  const rootId = `${prefix}-root`;
+  const timestamp = new Date('2026-01-01T00:00:00Z');
+  const base: Conversation = {
+    _id: activeId,
+    provider: 'codex',
+    model: 'gpt-5',
+    title: 'Saved conversation',
+    source: 'REST',
+    flags: {},
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    lastMessageAt: timestamp,
+    archivedAt: null,
+  };
+  const conversations: Conversation[] = [
+    {
+      ...base,
+      agentName: 'coding_agent',
+      flags: {
+        workingFolder: ` ${process.cwd()} `,
+        threadId: ' saved-thread ',
+        agentFlags: { sandboxMode: 'read-only', temperature: 0.7 },
+      },
+    },
+    {
+      ...base,
+      _id: archivedId,
+      flowName: 'daily-flow',
+      archivedAt: timestamp,
+      flags: {
+        flowChild: {
+          ancestors: [{ conversationId: rootId, flowName: 'root' }],
+        },
+      },
+    },
+    {
+      ...base,
+      _id: `${activeId}-suffix`,
+      flowName: 'daily-flow',
+      lastMessageAt: new Date('2026-01-02T00:00:00Z'),
+    },
+  ];
+  for (const conversation of conversations) {
+    memoryConversations.set(conversation._id, conversation);
+  }
+
+  try {
+    const app = appWith({
+      listIngestedRepositories: async () => ({
+        repos: [buildRepoEntry(process.cwd())],
+        lockedModelId: null,
+      }),
+    });
+    const cases = [
+      { query: { conversationId: activeId, state: 'all' }, ids: [activeId] },
+      {
+        query: { conversationId: archivedId, state: 'all' },
+        ids: [archivedId],
+      },
+      { query: { conversationId: `${prefix}-missing`, state: 'all' }, ids: [] },
+      { query: { conversationId: prefix, state: 'all' }, ids: [] },
+      {
+        query: { conversationId: activeId, state: 'all', limit: 1 },
+        ids: [activeId],
+      },
+      { query: { conversationId: activeId }, ids: [activeId] },
+      { query: { conversationId: archivedId }, ids: [] },
+      { query: { conversationId: activeId, state: 'archived' }, ids: [] },
+      {
+        query: { conversationId: archivedId, state: 'archived' },
+        ids: [archivedId],
+      },
+      {
+        query: { conversationId: activeId, agentName: 'coding_agent' },
+        ids: [activeId],
+      },
+      { query: { conversationId: activeId, agentName: '__none__' }, ids: [] },
+      {
+        query: { conversationId: activeId, flowName: '__none__' },
+        ids: [activeId],
+      },
+      { query: { conversationId: activeId, flowName: 'daily-flow' }, ids: [] },
+      {
+        query: {
+          conversationId: archivedId,
+          state: 'all',
+          agentName: '__none__',
+          flowName: 'daily-flow',
+          ancestorConversationId: rootId,
+        },
+        ids: [archivedId],
+      },
+      {
+        query: {
+          conversationId: archivedId,
+          state: 'all',
+          ancestorConversationId: `${prefix}-other-root`,
+        },
+        ids: [],
+      },
+      {
+        query: { conversationId: activeId, cursor: timestamp.toISOString() },
+        ids: [],
+      },
+      {
+        query: { conversationId: activeId, cursor: '2026-01-02T00:00:00.000Z' },
+        ids: [activeId],
+      },
+      {
+        query: { state: 'all', flowName: 'daily-flow' },
+        ids: [`${activeId}-suffix`, archivedId],
+      },
+    ];
+    for (const { query, ids } of cases) {
+      const response = await request(app)
+        .get('/conversations')
+        .query(query)
+        .expect(200);
+      assert.deepEqual(
+        response.body.items.map(
+          (item: { conversationId: string }) => item.conversationId,
+        ),
+        ids,
+        JSON.stringify(query),
+      );
+      if (query.conversationId === activeId && ids.length === 1) {
+        assert.equal(response.body.items[0].archived, false);
+        assert.deepEqual(response.body.items[0].flags, {
+          workingFolder: process.cwd(),
+          threadId: 'saved-thread',
+          agentFlags: { sandboxMode: 'read-only' },
+        });
+      }
+      if (query.conversationId === archivedId && ids.length === 1) {
+        assert.equal(response.body.items[0].archived, true);
+        assert.deepEqual(response.body.items[0].flags, conversations[1].flags);
+      }
+    }
+  } finally {
+    for (const conversation of conversations) {
+      memoryConversations.delete(conversation._id);
+    }
+  }
+});
+
 test('descendant history discovery paginates nested flow conversations, keeps archives and excludes legacy and agent rows', async () => {
   const prefix = crypto.randomUUID();
   const rootId = `${prefix}-root`;

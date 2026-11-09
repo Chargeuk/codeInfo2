@@ -165,6 +165,7 @@ export interface AppendTurnInput {
 }
 
 export interface ListConversationsParams {
+  conversationId?: string;
   ancestorConversationId?: string;
   limit: number;
   cursor?: string | Date;
@@ -446,6 +447,9 @@ export async function listConversations(
     (params.includeArchived ? ('all' as const) : ('active' as const));
 
   const query: Record<string, unknown> = {};
+  if (params.conversationId !== undefined) {
+    query._id = params.conversationId;
+  }
   if (state === 'active') {
     query.archivedAt = null;
   } else if (state === 'archived') {

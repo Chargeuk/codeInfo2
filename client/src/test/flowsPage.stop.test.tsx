@@ -309,7 +309,7 @@ describe('Flows page stop control', () => {
       });
       const user = userEvent.setup();
       try {
-        renderFlowsPage();
+        const router = renderFlowsPage();
         await user.click(
           await within(
             await screen.findByTestId('conversation-list'),
@@ -357,6 +357,10 @@ describe('Flows page stop control', () => {
               },
             ),
           );
+        expect(router.state.location.search).toBe(
+          `?conversationId=${stopTarget}`,
+        );
+        const selectedKey = router.state.location.key;
         await user.click(await screen.findByTestId('flow-stop'));
         const cancel = await findLatestCancelMessage();
         expect(cancel.conversationId).toBe(stopTarget);
@@ -393,6 +397,10 @@ describe('Flows page stop control', () => {
         }
         expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument();
         await waitForRunEnabled();
+        expect(router.state.location.search).toBe(
+          `?conversationId=${stopTarget}`,
+        );
+        expect(router.state.location.key).toBe(selectedKey);
       } finally {
         cleanup();
         await act(async () => {

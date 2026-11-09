@@ -1929,9 +1929,19 @@ describe('Flows page run/resume controls', () => {
   });
   it('keeps visible transcript text if a flow refresh temporarily omits the active conversation while streaming', async () => {
     const user = userEvent.setup();
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const now = new Date('2025-01-01T00:00:00.000Z').toISOString();
-    let conversationsRequestCount = 0;
+    const savedConversation = {
+      conversationId: 'flow-1',
+      title: 'Flow: daily',
+      provider: 'codex',
+      model: 'gpt-5',
+      source: 'REST',
+      lastMessageAt: now,
+      archived: false,
+      flowName: 'daily',
+      flags: { flow: { stepPath: [1] } },
+    };
+    let sidebarOmitted = false;
     let runRequested = false;
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
@@ -1960,25 +1970,17 @@ describe('Flows page run/resume controls', () => {
           });
         }
         if (target.includes('/conversations') && init?.method !== 'POST') {
-          conversationsRequestCount += 1;
-          if (!runRequested || conversationsRequestCount < 3) {
-            return mockJsonResponse({
-              items: [
-                {
-                  conversationId: 'flow-1',
-                  title: 'Flow: daily',
-                  provider: 'codex',
-                  model: 'gpt-5',
-                  source: 'REST',
-                  lastMessageAt: now,
-                  archived: false,
-                  flowName: 'daily',
-                  flags: { flow: { stepPath: [1] } },
-                },
-              ],
-            });
+          const query = new URL(target).searchParams;
+          if (query.has('ancestorConversationId')) {
+            return mockJsonResponse({ items: [] });
           }
-          return mockJsonResponse({ items: [] });
+          if (query.get('conversationId') === 'flow-1') {
+            return mockJsonResponse({ items: [savedConversation] });
+          }
+          sidebarOmitted = runRequested;
+          return mockJsonResponse({
+            items: runRequested ? [] : [savedConversation],
+          });
         }
         if (target.includes('/flows/daily/run')) {
           runRequested = true;
@@ -1994,57 +1996,58 @@ describe('Flows page run/resume controls', () => {
         return mockJsonResponse({});
       },
     );
-    try {
-      const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
-      render(<RouterProvider router={router} />);
-      expect(await screen.findByText('Earlier output')).toBeInTheDocument();
-      const resumeButton = await screen.findByTestId('flow-resume');
-      await waitFor(() => expect(resumeButton).toBeEnabled());
-      await user.click(resumeButton);
-      emitWsEvent({
-        protocolVersion: 'v1',
-        type: 'user_turn',
-        seq: 1,
-        conversationId: 'flow-1',
-        inflightId: 'flow-step-2',
-        content: 'Continue flow',
-        createdAt: now,
-      });
-      emitWsEvent({
-        protocolVersion: 'v1',
-        type: 'assistant_delta',
-        seq: 2,
-        conversationId: 'flow-1',
-        inflightId: 'flow-step-2',
-        delta: 'Latest live output',
-      });
-      emitWsEvent({
-        protocolVersion: 'v1',
-        type: 'assistant_delta',
-        seq: 3,
-        conversationId: 'flow-1',
-        inflightId: 'flow-step-2',
-        delta: ' still running',
-      });
-      expect(await screen.findByText('Earlier output')).toBeInTheDocument();
-      expect(
-        await screen.findByText('Latest live output still running'),
-      ).toBeInTheDocument();
-      expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(2);
-      const hiddenLogs = logSpy.mock.calls.filter(([entry]) => {
-        if (!entry || typeof entry !== 'object') return false;
-        return (
-          (
-            entry as {
-              message?: string;
-            }
-          ).message === 'flows.page.active_conversation_temporarily_hidden'
-        );
-      });
-      expect(hiddenLogs).toHaveLength(1);
-    } finally {
-      logSpy.mockRestore();
-    }
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+    expect(await screen.findByText('Earlier output')).toBeInTheDocument();
+    const resumeButton = await screen.findByTestId('flow-resume');
+    await waitFor(() => expect(resumeButton).toBeEnabled());
+    await user.click(resumeButton);
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'user_turn',
+      seq: 1,
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-2',
+      content: 'Continue flow',
+      createdAt: now,
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      seq: 2,
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-2',
+      delta: 'Latest live output',
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      seq: 3,
+      conversationId: 'flow-1',
+      inflightId: 'flow-step-2',
+      delta: ' still running',
+    });
+    expect(await screen.findByText('Earlier output')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Latest live output still running'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(2);
+    // Explicit URL selection bypasses the old hidden-row reset/log path.
+    // Prove that the row really disappeared while the URL and selected context survived.
+    await waitFor(() => expect(sidebarOmitted).toBe(true));
+    await waitFor(() =>
+      expect(screen.queryByTestId('conversation-row')).not.toBeInTheDocument(),
+    );
+    expect(router.state.location.search).toBe('?conversationId=flow-1');
+    expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent(
+      'Flow: daily',
+    );
+    expect(screen.getByText('Earlier output')).toBeInTheDocument();
+    expect(
+      screen.getByText('Latest live output still running'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(2);
+    expect(screen.getByTestId('flow-stop')).toBeEnabled();
   });
   it('drops stale invisible retention candidates so later visible step transitions can still be logged', async () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});

@@ -4,11 +4,13 @@ import {
   FormEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 import { flushSync } from 'react-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import {
   AgentDetails,
   AgentPromptEntry,
@@ -51,6 +53,7 @@ import useConversationTurns, {
 } from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
+import useSelectedConversation from '../hooks/useSelectedConversation';
 import { createLogger } from '../logging/logger';
 import buildStoredTurnHydrationKey from '../utils/buildStoredTurnHydrationKey';
 import {
@@ -118,9 +121,29 @@ export default function AgentsPage() {
   const [agentsLoading, setAgentsLoading] = useState(true);
 
   const [selectedAgentName, setSelectedAgentName] = useState<string>('');
-  const [activeConversationId, setActiveConversationId] = useState<
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const requestedConversationId =
+    searchParams.get('conversationId') || undefined;
+  const [draftConversationId, setDraftConversationId] = useState<
     string | undefined
   >(undefined);
+  const activeConversationId = requestedConversationId ?? draftConversationId;
+  const appliedSelectionRef = useRef<string | undefined>(undefined);
+  const selectionChanged = appliedSelectionRef.current !== activeConversationId;
+  const acceptedDraftIdRef = useRef<string | undefined>(undefined);
+  const lastHydratedRef = useRef<string | null>(null);
+  const lastInflightHydratedRef = useRef<string | null>(null);
+  const currentSelectionRef = useRef({
+    id: activeConversationId,
+    key: location.key,
+  });
+  useLayoutEffect(() => {
+    currentSelectionRef.current = {
+      id: activeConversationId,
+      key: location.key,
+    };
+  }, [activeConversationId, location.key]);
 
   const { refreshProviders } = useChatModel();
 
@@ -254,6 +277,7 @@ export default function AgentsPage() {
   const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
 
   const [startPending, setStartPending] = useState(false);
+  const startPendingVersionRef = useRef(0);
   const preparationsRef = useRef(
     new Set<{ conversationId: string; cancelled: boolean; pending: boolean }>(),
   );
@@ -538,9 +562,11 @@ export default function AgentsPage() {
         setAgentDetailsByName((prev) =>
           reconcileAgentDetailsCache(prev, nextAgents),
         );
-        setSelectedAgentName(
-          (prev) => prev || (nextAgents.length > 0 ? nextAgents[0].name : ''),
-        );
+        if (!currentSelectionRef.current.id) {
+          setSelectedAgentName(
+            (prev) => prev || (nextAgents.length > 0 ? nextAgents[0].name : ''),
+          );
+        }
       })
       .catch((err) => {
         if (cancelled) return;
@@ -841,13 +867,37 @@ export default function AgentsPage() {
     flowName: '__none__',
   });
 
-  const selectedConversation = useMemo(
-    () =>
-      conversations.find(
-        (conversation) => conversation.conversationId === activeConversationId,
-      ),
-    [activeConversationId, conversations],
-  );
+  const { summary: requestedConversation, error: selectionError } =
+    useSelectedConversation({
+      conversationId: requestedConversationId,
+      conversations,
+      enabled: !persistenceUnavailable,
+    });
+  const selectedConversation = requestedConversationId
+    ? requestedConversation
+    : conversations.find(
+        (item) => item.conversationId === activeConversationId,
+      );
+  const selectionUnresolved =
+    selectionChanged ||
+    Boolean(
+      requestedConversationId &&
+        ((!selectedConversation &&
+          acceptedDraftIdRef.current !== requestedConversationId) ||
+          (selectedConversation?.agentName &&
+            selectedConversation.agentName !== selectedAgentName)),
+    );
+
+  useEffect(() => {
+    if (!selectedConversation) return;
+    if (selectedConversation.agentName) {
+      setSelectedAgentName(selectedConversation.agentName);
+    }
+    if (selectedConversation.model) {
+      setAgentModelId(selectedConversation.model);
+    }
+  }, [selectedConversation]);
+
   const selectedConversationId = selectedConversation?.conversationId;
 
   useEffect(() => {
@@ -1114,6 +1164,8 @@ export default function AgentsPage() {
           ? activeConversationId
           : makeClientConversationId();
       const isNewConversation = nextConversationId !== activeConversationId;
+      const sendingSelectionKey = currentSelectionRef.current.key;
+      const startPendingVersion = ++startPendingVersionRef.current;
 
       currentRunKindRef.current = 'instruction';
       serverVisibleInflightIdRef.current = null;
@@ -1123,7 +1175,12 @@ export default function AgentsPage() {
 
       if (isNewConversation) {
         setConversation(nextConversationId, { clearMessages: true });
-        setActiveConversationId(nextConversationId);
+        appliedSelectionRef.current = nextConversationId;
+        setDraftConversationId(nextConversationId);
+        currentSelectionRef.current = {
+          id: nextConversationId,
+          key: sendingSelectionKey,
+        };
         setAgentModelId('unknown');
       }
 
@@ -1166,14 +1223,39 @@ export default function AgentsPage() {
           optimisticMessageId,
           result.inflightId,
         );
-        setActiveConversationId(result.conversationId);
-        if (result.modelId) {
-          setAgentModelId(result.modelId);
+        if (
+          currentSelectionRef.current.id === nextConversationId &&
+          currentSelectionRef.current.key === sendingSelectionKey
+        ) {
+          if (!requestedConversationId) {
+            acceptedDraftIdRef.current = result.conversationId;
+            setDraftConversationId(result.conversationId);
+            setSearchParams(
+              (current) => {
+                const next = new URLSearchParams(current);
+                next.set('conversationId', result.conversationId);
+                return next;
+              },
+              { replace: true },
+            );
+          }
+          if (result.modelId) {
+            setAgentModelId(result.modelId);
+          }
         }
         void refreshConversations();
         return { status: 'started' as const };
       } catch (err) {
         if (preparation.cancelled) return { status: 'cancelled' as const };
+        if (
+          currentSelectionRef.current.id !== nextConversationId ||
+          currentSelectionRef.current.key !== sendingSelectionKey
+        ) {
+          return {
+            status: 'error' as const,
+            code: err instanceof AgentApiError ? err.code : undefined,
+          };
+        }
         if (
           err instanceof AgentApiError &&
           err.status === 409 &&
@@ -1211,7 +1293,12 @@ export default function AgentsPage() {
         };
       } finally {
         preparationsRef.current.delete(preparation);
-        if (!preparation.cancelled) setStartPending(false);
+        if (
+          !preparation.cancelled &&
+          startPendingVersionRef.current === startPendingVersion
+        ) {
+          setStartPending(false);
+        }
       }
     },
     [
@@ -1223,14 +1310,18 @@ export default function AgentsPage() {
       getInflightId,
       log,
       refreshConversations,
+      requestedConversationId,
       selectedAgentName,
       setConversation,
+      setSearchParams,
       subscribeConversation,
       wsConnectionState,
     ],
   );
 
   const resetConversation = useCallback(() => {
+    startPendingVersionRef.current += 1;
+    setSelectedAgentName((prev) => prev || agents[0]?.name || '');
     setStartPending(false);
     setRunError(null);
     setSelectedActionMode('instruction');
@@ -1239,7 +1330,18 @@ export default function AgentsPage() {
       clearCommittedWorkingFolder: true,
     });
     resetTurns();
-    setActiveConversationId(undefined);
+    appliedSelectionRef.current = undefined;
+    lastHydratedRef.current = null;
+    lastInflightHydratedRef.current = null;
+    setDraftConversationId(undefined);
+    acceptedDraftIdRef.current = undefined;
+    if (requestedConversationId) {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        next.delete('conversationId');
+        return next;
+      });
+    }
     setConversation(makeClientConversationId(), { clearMessages: true });
     setAgentModelId('unknown');
     setWorkingFolder('');
@@ -1248,8 +1350,43 @@ export default function AgentsPage() {
     stoppedVisibleConversationRef.current = null;
     void refreshConversations();
   }, [
+    agents,
     invalidatePromptDiscoveryState,
     refreshConversations,
+    resetTurns,
+    requestedConversationId,
+    setConversation,
+    setSearchParams,
+  ]);
+
+  useLayoutEffect(() => {
+    if (requestedConversationId) setDraftConversationId(undefined);
+    if (appliedSelectionRef.current === activeConversationId) return;
+    appliedSelectionRef.current = activeConversationId;
+    lastHydratedRef.current = null;
+    lastInflightHydratedRef.current = null;
+    if (!activeConversationId) {
+      resetConversation();
+      return;
+    }
+    resetTurns();
+    setConversation(activeConversationId, { clearMessages: true });
+    serverVisibleInflightIdRef.current = null;
+    currentRunKindRef.current = 'instruction';
+    setLiveStoppedMarker(null);
+    stoppedVisibleConversationRef.current = null;
+    setAgentModelId('unknown');
+    setWorkingFolder('');
+    preserveEmptyWorkingFolderRestoreRef.current = false;
+    invalidatePromptDiscoveryState({
+      reason: 'selected_agent_reset',
+      clearCommittedWorkingFolder: true,
+    });
+  }, [
+    activeConversationId,
+    invalidatePromptDiscoveryState,
+    requestedConversationId,
+    resetConversation,
     resetTurns,
     setConversation,
   ]);
@@ -1442,10 +1579,8 @@ export default function AgentsPage() {
     [mapToolCalls],
   );
 
-  const lastHydratedRef = useRef<string | null>(null);
-  const lastInflightHydratedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!activeConversationId) return;
+    if (!activeConversationId || selectionChanged) return;
     const key = buildStoredTurnHydrationKey(activeConversationId, turns);
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
@@ -1460,12 +1595,13 @@ export default function AgentsPage() {
     hydrateHistory,
     mapTurnsToMessages,
     messages.length,
+    selectionChanged,
     turns,
     turnsLoading,
   ]);
 
   useEffect(() => {
-    if (!activeConversationId || !inflightSnapshot) return;
+    if (!activeConversationId || selectionChanged || !inflightSnapshot) return;
     const inflightKey = `${activeConversationId}-${inflightSnapshot.inflightId}-${inflightSnapshot.seq}`;
     if (lastInflightHydratedRef.current === inflightKey) return;
     lastInflightHydratedRef.current = inflightKey;
@@ -1474,7 +1610,12 @@ export default function AgentsPage() {
       ? 'command'
       : 'instruction';
     hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
-  }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
+  }, [
+    activeConversationId,
+    hydrateInflightSnapshot,
+    inflightSnapshot,
+    selectionChanged,
+  ]);
 
   useEffect(() => {
     if (!activeConversationId) {
@@ -1532,22 +1673,14 @@ export default function AgentsPage() {
         );
       }
     }
-    resetTurns();
-    setConversation(conversationId, { clearMessages: true });
-    serverVisibleInflightIdRef.current = null;
-    currentRunKindRef.current = 'instruction';
-    setLiveStoppedMarker(null);
-    stoppedVisibleConversationRef.current = null;
-    const summary = conversations.find(
-      (conversation) => conversation.conversationId === conversationId,
-    );
-    if (summary?.model) {
-      setAgentModelId(summary.model);
-    }
-    setActiveConversationId(conversationId);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('conversationId', conversationId);
+      return next;
+    });
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!selectedConversationId) {
       workingFolderRestoreKeyRef.current = null;
       return;
@@ -1609,7 +1742,7 @@ export default function AgentsPage() {
     }
 
     const hasNonWhitespaceContent = rawInstruction.trim().length > 0;
-    const blockedBySelection = !selectedAgentName;
+    const blockedBySelection = !selectedAgentName || selectionUnresolved;
     const blockedByPending = startPending;
     log('info', 'DEV-0000035:T11:agents_raw_send_evaluated', {
       source: 'agents_page',
@@ -1657,6 +1790,7 @@ export default function AgentsPage() {
     setRunError(null);
     if (
       !selectedAgentName ||
+      selectionUnresolved ||
       !selectedPromptEntry ||
       startPending ||
       persistenceUnavailable ||
@@ -1698,6 +1832,7 @@ export default function AgentsPage() {
     persistenceUnavailable,
     selectedAgentName,
     selectedPromptEntry,
+    selectionUnresolved,
     startPending,
     wsTranscriptReady,
   ]);
@@ -1706,6 +1841,7 @@ export default function AgentsPage() {
     setRunError(null);
     if (
       !selectedAgentName ||
+      selectionUnresolved ||
       !selectedCommand ||
       startPending ||
       persistenceUnavailable ||
@@ -1723,6 +1859,8 @@ export default function AgentsPage() {
         ? activeConversationId
         : makeClientConversationId();
     const isNewConversation = nextConversationId !== activeConversationId;
+    const sendingSelectionKey = currentSelectionRef.current.key;
+    const startPendingVersion = ++startPendingVersionRef.current;
 
     currentRunKindRef.current = 'command';
     serverVisibleInflightIdRef.current = null;
@@ -1740,7 +1878,12 @@ export default function AgentsPage() {
     try {
       if (isNewConversation) {
         setConversation(nextConversationId, { clearMessages: true });
-        setActiveConversationId(nextConversationId);
+        appliedSelectionRef.current = nextConversationId;
+        setDraftConversationId(nextConversationId);
+        currentSelectionRef.current = {
+          id: nextConversationId,
+          key: sendingSelectionKey,
+        };
         setAgentModelId('unknown');
       }
 
@@ -1780,12 +1923,27 @@ export default function AgentsPage() {
         },
       });
 
-      if (result.modelId) {
-        setAgentModelId(result.modelId);
+      if (
+        currentSelectionRef.current.id === nextConversationId &&
+        currentSelectionRef.current.key === sendingSelectionKey
+      ) {
+        if (!requestedConversationId) {
+          acceptedDraftIdRef.current = result.conversationId;
+          setDraftConversationId(result.conversationId);
+          setSearchParams(
+            (current) => {
+              const next = new URLSearchParams(current);
+              next.set('conversationId', result.conversationId);
+              return next;
+            },
+            { replace: true },
+          );
+        }
+        if (result.modelId) {
+          setAgentModelId(result.modelId);
+        }
+        lastHydratedRef.current = null;
       }
-
-      setActiveConversationId(result.conversationId);
-      lastHydratedRef.current = null;
       try {
         await refreshConversations();
       } catch (refreshError) {
@@ -1799,6 +1957,12 @@ export default function AgentsPage() {
       }
     } catch (err) {
       if (preparation.cancelled) return;
+      if (
+        currentSelectionRef.current.id !== nextConversationId ||
+        currentSelectionRef.current.key !== sendingSelectionKey
+      ) {
+        return;
+      }
       if (
         err instanceof AgentApiError &&
         err.status === 409 &&
@@ -1839,7 +2003,12 @@ export default function AgentsPage() {
       setRunError(message);
     } finally {
       preparationsRef.current.delete(preparation);
-      if (!preparation.cancelled) setStartPending(false);
+      if (
+        !preparation.cancelled &&
+        startPendingVersionRef.current === startPendingVersion
+      ) {
+        setStartPending(false);
+      }
     }
   }, [
     activeConversationId,
@@ -1851,10 +2020,13 @@ export default function AgentsPage() {
     messages,
     persistenceUnavailable,
     refreshConversations,
+    requestedConversationId,
     selectedAgentName,
     selectedCommand,
+    selectionUnresolved,
     startStep,
     setConversation,
+    setSearchParams,
     startPending,
     subscribeConversation,
     wsConnectionState,
@@ -1886,7 +2058,7 @@ export default function AgentsPage() {
     isStopping;
   const controlsDisabled =
     agentsLoading || !!agentsError || !selectedAgentName || persistenceLoading;
-  const submitDisabledForRun = isRunActive;
+  const submitDisabledForRun = isRunActive || selectionUnresolved;
   const agentWorkingFolderLocked =
     isRunActive ||
     Boolean(inflightSnapshot?.inflightId) ||
@@ -2248,7 +2420,7 @@ export default function AgentsPage() {
       hasPromptEntries={hasPromptEntries}
       shouldShowPromptsError={shouldShowPromptsError}
       shouldShowPromptsRow={shouldShowPromptsRow}
-      executePromptEnabled={executePromptEnabled}
+      executePromptEnabled={executePromptEnabled && !selectionUnresolved}
       workingFolder={workingFolder}
       actionSlotMinWidth={actionSlotMinWidth}
       onSubmit={handleSubmit}
@@ -2402,6 +2574,11 @@ export default function AgentsPage() {
           </Alert>
         )}
 
+        {selectionError && (
+          <Alert severity="error" data-testid="agents-selection-error">
+            {selectionError}
+          </Alert>
+        )}
         {runError && (
           <Alert severity="error" data-testid="agents-run-error">
             {runError}

@@ -270,6 +270,7 @@ export function useChatStream(
 
   const [conversationId, setConversationId] = useState<string>(() => makeId());
   const conversationIdRef = useRef(conversationId);
+  const selectionVersionRef = useRef(0);
 
   const [threadId, setThreadId] = useState<string | null>(null);
   const threadIdRef = useRef<string | null>(null);
@@ -952,6 +953,7 @@ export function useChatStream(
   }, [clearThinkingTimer, markAssistantThinking, syncAssistantMessage]);
 
   const reset = useCallback(() => {
+    selectionVersionRef.current += 1;
     updateMessages(() => []);
     resetInflightState();
     setThreadId(null);
@@ -970,6 +972,7 @@ export function useChatStream(
 
   const setConversation = useCallback(
     (nextConversationId: string, options?: { clearMessages?: boolean }) => {
+      selectionVersionRef.current += 1;
       clearLocalStreamingIndicators();
       resetInflightState();
       if (options?.clearMessages) {
@@ -1299,7 +1302,7 @@ export function useChatStream(
         providerOverride?: string;
         modelOverride?: string;
       },
-    ) => {
+    ): Promise<{ conversationId: string } | undefined> => {
       const effectiveProvider = options?.providerOverride ?? provider;
       const effectiveModel = options?.modelOverride ?? model;
       const hasNonWhitespaceContent = text.trim().length > 0;
@@ -1405,6 +1408,10 @@ export function useChatStream(
         conversationId: currentConversationId,
         cancelled: false,
       };
+      const selectionVersion = selectionVersionRef.current;
+      const isCurrentSend = () =>
+        conversationIdRef.current === currentConversationId &&
+        selectionVersionRef.current === selectionVersion;
       preparationsRef.current.add(preparation);
       try {
         const baseCodexPayload = threadIdRef.current
@@ -1467,6 +1474,10 @@ export function useChatStream(
           model?: string;
         } | null;
 
+        // Navigation leaves the server run alive. Its late HTTP response must
+        // not change the selected conversation or that conversation's run.
+        if (!isCurrentSend()) return;
+
         if (res.status === 409 && payload?.code === 'RUN_IN_PROGRESS') {
           handleErrorBubble(
             payload?.message ?? 'A run is already in progress for this thread.',
@@ -1508,7 +1519,11 @@ export function useChatStream(
           conversationId: payload.conversationId ?? currentConversationId,
           inflightId: payload.inflightId,
         });
+        return {
+          conversationId: payload.conversationId ?? currentConversationId,
+        };
       } catch (err) {
+        if (!isCurrentSend()) return;
         if (preparation.cancelled) return;
         if ((err as Error).name === 'AbortError') return;
         handleErrorBubble((err as Error).message);

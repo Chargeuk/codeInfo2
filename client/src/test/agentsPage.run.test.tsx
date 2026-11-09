@@ -554,13 +554,17 @@ describe('Agents page - run', () => {
         );
       }
 
-      if (target.includes('/conversations') && target.includes('agentName=')) {
+      if (
+        target.includes('/conversations') &&
+        target.includes('agentName=coding_agent')
+      ) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
               items: [
                 {
                   conversationId: 'c1',
+                  agentName: 'coding_agent',
                   title: 'Agent conversation 1',
                   provider: 'codex',
                   model: 'gpt-6-luna',
@@ -569,6 +573,7 @@ describe('Agents page - run', () => {
                 },
                 {
                   conversationId: 'c2',
+                  agentName: 'coding_agent',
                   title: 'Agent conversation 2',
                   provider: 'codex',
                   model: 'gpt-6-luna',

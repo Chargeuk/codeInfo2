@@ -1,7 +1,11 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import {
+  MemoryRouter,
+  RouterProvider,
+  createMemoryRouter,
+} from 'react-router-dom';
 import ChatPage from '../pages/ChatPage';
 import { decodeJsonBody } from './support/decodeJsonBody';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
@@ -120,7 +124,11 @@ test('chat send payload includes conversationId, message, provider, and model', 
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
 
   const input = await screen.findByTestId('chat-input');
   fireEvent.change(input, { target: { value: 'Hello world' } });
@@ -212,7 +220,11 @@ test('chat send payload includes working_folder when selected', async () => {
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
 
   const conversationRows = await screen.findAllByTestId('conversation-row');
   fireEvent.click(conversationRows[0]);
@@ -312,7 +324,11 @@ test('chat send payload includes endpointId when the selected model is endpoint-
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
 
   await waitFor(() =>
     expect(screen.getByTestId('provider-select')).toHaveTextContent(
@@ -420,7 +436,11 @@ test('chat send payload clears stale endpointId after switching to LM Studio', a
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
   const user = userEvent.setup();
 
   await waitFor(() =>
@@ -854,7 +874,11 @@ test('chat send payload keeps the Copilot request provider-neutral without legac
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
 
   const providerSelect = await screen.findByRole('combobox', {
     name: /provider/i,
@@ -1091,7 +1115,11 @@ test('chat send payload omits hidden incompatible Codex values after switching t
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
 
   const providerSelect = await screen.findByRole('combobox', {
     name: /provider/i,

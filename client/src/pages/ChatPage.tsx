@@ -51,6 +51,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import AgentFlagsPanel from '../components/chat/AgentFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
 import SharedTranscript from '../components/chat/SharedTranscript';
@@ -101,6 +102,7 @@ import useConversationTurns, {
 } from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
+import useSelectedConversation from '../hooks/useSelectedConversation';
 import { createLogger } from '../logging/logger';
 import buildStoredTurnHydrationKey from '../utils/buildStoredTurnHydrationKey';
 import { isDevEnv } from '../utils/isDevEnv';
@@ -287,6 +289,10 @@ type ComposerInfoSection = {
 };
 
 export default function ChatPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const requestedConversationId =
+    searchParams.get('conversationId') || undefined;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const drawerWidth = 320;
@@ -405,9 +411,22 @@ export default function ChatPage() {
     refresh: refreshPersistence,
   } = usePersistenceStatus();
 
-  const [activeConversationId, setActiveConversationId] = useState<
-    string | undefined
-  >(conversationId);
+  const [draftConversationId, setDraftConversationId] =
+    useState(conversationId);
+  const activeConversationId = requestedConversationId ?? draftConversationId;
+  const appliedSelectionRef = useRef(conversationId);
+  const selectionChanged = appliedSelectionRef.current !== activeConversationId;
+  const acceptedDraftIdRef = useRef<string | undefined>(undefined);
+  const currentSelectionRef = useRef({
+    id: activeConversationId,
+    key: location.key,
+  });
+  useLayoutEffect(() => {
+    currentSelectionRef.current = {
+      id: activeConversationId,
+      key: location.key,
+    };
+  }, [activeConversationId, location.key]);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const stopRef = useRef(stop);
   const lastSentRef = useRef('');
@@ -502,13 +521,23 @@ export default function ChatPage() {
   }, [isMobile, persistenceUnavailable]);
 
   const log = useMemo(() => createLogger('client'), []);
-  const selectedConversation = useMemo(
-    () =>
-      conversations.find(
-        (conversation) => conversation.conversationId === activeConversationId,
-      ),
-    [activeConversationId, conversations],
-  );
+  const { summary: requestedConversation, error: selectionError } =
+    useSelectedConversation({
+      conversationId: requestedConversationId,
+      conversations,
+      enabled: !persistenceUnavailable,
+    });
+  const selectedConversation = requestedConversationId
+    ? requestedConversation
+    : conversations.find(
+        (item) => item.conversationId === activeConversationId,
+      );
+  const selectionUnresolved =
+    Boolean(
+      requestedConversationId &&
+        !selectedConversation &&
+        acceptedDraftIdRef.current !== requestedConversationId,
+    ) || conversationId !== activeConversationId;
   const selectedConversationId = selectedConversation?.conversationId;
   const {
     citationsOpen,
@@ -526,9 +555,7 @@ export default function ChatPage() {
   const turnsConversationId = persistenceUnavailable
     ? undefined
     : activeConversationId;
-  const turnsAutoFetch = Boolean(
-    turnsConversationId && knownConversationIds.has(turnsConversationId),
-  );
+  const turnsAutoFetch = Boolean(turnsConversationId && selectedConversation);
 
   useEffect(() => {
     log('info', '0000023 drawer overflow guard applied', {
@@ -725,6 +752,7 @@ export default function ChatPage() {
     providerIsCodex && providerAvailable && !toolsAvailable;
   const activeToolsAvailable = Boolean(toolsAvailable && providerAvailable);
   const controlsDisabled =
+    selectionUnresolved ||
     isLoading ||
     isError ||
     isEmpty ||
@@ -744,7 +772,7 @@ export default function ChatPage() {
     Boolean(inflightSnapshot?.inflightId) ||
     Boolean(serverVisibleInflightId);
   const isWorkingFolderDisabled =
-    chatWorkingFolderLocked || persistenceUnavailable;
+    selectionUnresolved || chatWorkingFolderLocked || persistenceUnavailable;
   const combinedError =
     providerErrorMessage ?? errorMessage ?? 'Failed to load chat options.';
   const retryFetch = useCallback(() => {
@@ -830,11 +858,21 @@ export default function ChatPage() {
     }
   }, []);
 
-  useEffect(() => {
-    setActiveConversationId(conversationId);
+  useLayoutEffect(() => {
+    if (appliedSelectionRef.current === activeConversationId) return;
+    appliedSelectionRef.current = activeConversationId;
+    if (conversationId !== activeConversationId) {
+      resetTurns();
+      setConversation(activeConversationId, { clearMessages: true });
+    }
     syncServerVisibleInflightId(null);
-    console.info('[chat-history] conversationId changed', { conversationId });
-  }, [conversationId, syncServerVisibleInflightId]);
+  }, [
+    activeConversationId,
+    conversationId,
+    resetTurns,
+    setConversation,
+    syncServerVisibleInflightId,
+  ]);
 
   useEffect(() => {
     if (persistenceUnavailable) return;
@@ -1075,13 +1113,33 @@ export default function ChatPage() {
       rawLength: input.length,
       trimmedLength: input.trim().length,
     });
+    const sendingSelection = currentSelectionRef.current;
     void send(input, {
       workingFolder: workingFolder.trim() || undefined,
       providerOverride: resumedExecutionIdentityLocked
         ? resumedProvider
         : undefined,
       modelOverride: resumedExecutionIdentityLocked ? resumedModel : undefined,
-    }).then(() => refreshConversations());
+    }).then((accepted) => {
+      if (
+        accepted &&
+        !requestedConversationId &&
+        currentSelectionRef.current.id === sendingSelection.id &&
+        currentSelectionRef.current.key === sendingSelection.key
+      ) {
+        acceptedDraftIdRef.current = accepted.conversationId;
+        setDraftConversationId(accepted.conversationId);
+        setSearchParams(
+          (current) => {
+            const next = new URLSearchParams(current);
+            next.set('conversationId', accepted.conversationId);
+            return next;
+          },
+          { replace: true },
+        );
+      }
+      return refreshConversations();
+    });
     setInput('');
   };
 
@@ -1187,7 +1245,15 @@ export default function ChatPage() {
     resetTurns();
     const nextId = reset();
     setConversation(nextId, { clearMessages: true });
-    setActiveConversationId(nextId);
+    setDraftConversationId(nextId);
+    acceptedDraftIdRef.current = undefined;
+    if (requestedConversationId) {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        next.delete('conversationId');
+        return next;
+      });
+    }
     setInput('');
     setWorkingFolder('');
     lastSentRef.current = '';
@@ -1307,10 +1373,11 @@ export default function ChatPage() {
       nextConversationId: conversation,
       cancelSent: false,
     });
-    resetTurns();
-    setConversation(conversation, { clearMessages: true });
-    setActiveConversationId(conversation);
-    syncServerVisibleInflightId(null);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('conversationId', conversation);
+      return next;
+    });
     if (isMobile) {
       setMobileConversationsOpen(false);
     }
@@ -1850,7 +1917,7 @@ export default function ChatPage() {
   }, [activeConversationId]);
 
   useEffect(() => {
-    if (!activeConversationId) return;
+    if (!activeConversationId || selectionChanged) return;
     const key = buildStoredTurnHydrationKey(activeConversationId, turns);
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
@@ -1861,10 +1928,16 @@ export default function ChatPage() {
       last: turns[turns.length - 1]?.createdAt,
     });
     hydrateHistory(activeConversationId, mapTurnsToMessages(turns), 'replace');
-  }, [activeConversationId, hydrateHistory, mapTurnsToMessages, turns]);
+  }, [
+    activeConversationId,
+    hydrateHistory,
+    mapTurnsToMessages,
+    selectionChanged,
+    turns,
+  ]);
 
   useEffect(() => {
-    if (!activeConversationId || !inflightSnapshot) return;
+    if (!activeConversationId || selectionChanged || !inflightSnapshot) return;
     const inflightKey = `${activeConversationId}-${inflightSnapshot.inflightId}-${inflightSnapshot.seq}`;
     if (lastInflightHydratedRef.current === inflightKey) return;
     lastInflightHydratedRef.current = inflightKey;
@@ -1872,6 +1945,7 @@ export default function ChatPage() {
     hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
   }, [
     activeConversationId,
+    selectionChanged,
     hydrateInflightSnapshot,
     inflightSnapshot,
     syncServerVisibleInflightId,
@@ -3011,6 +3085,15 @@ export default function ChatPage() {
         >
           Conversation history unavailable — messages won’t be stored until
           Mongo reconnects.
+        </Alert>
+      )}
+      {selectionError && (
+        <Alert
+          severity="error"
+          data-testid="chat-selection-error"
+          sx={{ mb: 2 }}
+        >
+          {selectionError}
         </Alert>
       )}
       {isMobile ? mobileWorkspace : desktopWorkspace}

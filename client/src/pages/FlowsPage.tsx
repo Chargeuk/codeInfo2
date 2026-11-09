@@ -270,7 +270,8 @@ export default function FlowsPage() {
 
   const log = useMemo(() => createLogger('client-flows'), []);
   const assistantTranscriptVisibleRef = useRef(false);
-  const acceptedLaunchConversationIdRef = useRef<string | null>(null);
+  const [acceptedLaunchConversationId, setAcceptedLaunchConversationId] =
+    useState<string | null>(null);
   const serverVisibleInflightIdRef = useRef<string | null>(null);
   const stoppingVisibleLoggedRef = useRef<string | null>(null);
   const stoppedVisibleLoggedRef = useRef<Set<string>>(new Set());
@@ -380,7 +381,7 @@ export default function FlowsPage() {
     Boolean(requestedConversationId) &&
     (requestedConversationId !== activeConversationId ||
       (!selectedConversation &&
-        acceptedLaunchConversationIdRef.current !== requestedConversationId) ||
+        acceptedLaunchConversationId !== requestedConversationId) ||
       Boolean(restoredFlow && restoredFlow.key !== selectedFlowKey));
 
   useEffect(() => {
@@ -961,8 +962,8 @@ export default function FlowsPage() {
       (message) => message.streamStatus === 'processing',
     );
     const isAcceptedLaunchSelection =
-      Boolean(acceptedLaunchConversationIdRef.current) &&
-      acceptedLaunchConversationIdRef.current === activeConversationId;
+      Boolean(acceptedLaunchConversationId) &&
+      acceptedLaunchConversationId === activeConversationId;
     const shouldPreserveHiddenConversation =
       hasVisibleAssistantTranscript ||
       hasProcessingTranscript ||
@@ -1019,6 +1020,7 @@ export default function FlowsPage() {
     stoppingVisibleLoggedRef.current = null;
     setSuppressAutoSelect(false);
   }, [
+    acceptedLaunchConversationId,
     activeConversationId,
     requestedConversationId,
     flowConversations,
@@ -1163,7 +1165,7 @@ export default function FlowsPage() {
       setFlowModelId('unknown');
       setFlowProviderId('unknown');
       setCustomTitle('');
-      acceptedLaunchConversationIdRef.current = null;
+      setAcceptedLaunchConversationId(null);
       serverVisibleInflightIdRef.current = null;
       stoppingVisibleLoggedRef.current = null;
     },
@@ -1532,7 +1534,7 @@ export default function FlowsPage() {
 
       if (selectionStillCurrent) {
         setStartPending(true);
-        acceptedLaunchConversationIdRef.current = null;
+        setAcceptedLaunchConversationId(null);
         setFlowModelId('unknown');
         setFlowProviderId('unknown');
       }
@@ -1620,7 +1622,7 @@ export default function FlowsPage() {
         );
         setActiveConversationId(result.conversationId);
         setLaunchConversationId(result.conversationId);
-        acceptedLaunchConversationIdRef.current = result.conversationId;
+        setAcceptedLaunchConversationId(result.conversationId);
         if (shouldGuardFreshRun) {
           freshRunRetryOwnershipIdRef.current = null;
         }
@@ -1684,7 +1686,7 @@ export default function FlowsPage() {
           return;
         }
         const message = (err as Error).message || 'Failed to run flow.';
-        acceptedLaunchConversationIdRef.current = null;
+        setAcceptedLaunchConversationId(null);
 
         // Show the run error at the top-level run error banner. Avoid duplicating
         // the message in both the chat transcript and the banner to prevent

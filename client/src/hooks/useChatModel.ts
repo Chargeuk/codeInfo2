@@ -529,7 +529,6 @@ export function useChatModel(initialSelection?: {
 }) {
   const providerControllerRef = useRef<AbortController | null>(null);
   const modelsControllerRef = useRef<AbortController | null>(null);
-  const legacyBootstrapRef = useRef(false);
   const explicitSelectionRef = useRef(initialSelection);
   const providerRef = useRef(initialSelection?.provider);
   const selectedRef = useRef(initialSelection?.model);
@@ -543,6 +542,10 @@ export function useChatModel(initialSelection?: {
     undefined,
   );
 
+  const [legacyBootstrap, setLegacyBootstrap] = useState(false);
+  const [hydratedModelsProvider, setHydratedModelsProvider] = useState<
+    ChatProviderId | undefined
+  >(undefined);
   const [providers, setProviders] = useState<ChatProviderInfo[]>([]);
   const [serverSelectedProvider, setServerSelectedProvider] = useState<
     ChatProviderId | undefined
@@ -710,7 +713,7 @@ export function useChatModel(initialSelection?: {
 
       // Legacy compatibility: some callers still return the models array directly.
       if (data.kind === 'legacy') {
-        legacyBootstrapRef.current = true;
+        setLegacyBootstrap(true);
         setServerSelectedProvider(undefined);
         const legacyModels = data.models;
         const list = buildLegacyBootstrapProviders();
@@ -747,7 +750,7 @@ export function useChatModel(initialSelection?: {
         return;
       }
 
-      legacyBootstrapRef.current = false;
+      setLegacyBootstrap(false);
       const list = normalizeProviders(data.providers);
       console.info(
         '[useChatModel] normalized providers order:',
@@ -932,6 +935,7 @@ export function useChatModel(initialSelection?: {
         setToolsAvailable(Boolean(data.toolsAvailable));
         setProviderReason(data.reason);
         hydratedModelsProviderRef.current = effectiveProvider;
+        setHydratedModelsProvider(effectiveProvider);
         setProviderInfo(resolvedProviderInfo);
         setCodexDefaults(
           effectiveProvider === 'codex' ? resolvedCodexDefaults : undefined,
@@ -1004,6 +1008,7 @@ export function useChatModel(initialSelection?: {
         setToolsAvailable(false);
         setProviderReason(message);
         hydratedModelsProviderRef.current = undefined;
+        setHydratedModelsProvider(undefined);
         setProviderInfo(undefined);
         setCodexDefaults(undefined);
         setCodexWarnings(undefined);
@@ -1041,11 +1046,12 @@ export function useChatModel(initialSelection?: {
     if (
       providerState &&
       providerStatus === 'success' &&
-      !legacyBootstrapRef.current &&
+      !legacyBootstrap &&
       selectedProvider &&
       !selectedProvider.available
     ) {
       hydratedModelsProviderRef.current = undefined;
+      setHydratedModelsProvider(undefined);
       setAvailable(false);
       setToolsAvailable(Boolean(selectedProvider.toolsAvailable));
       setProviderReason(selectedProvider.reason);
@@ -1066,6 +1072,7 @@ export function useChatModel(initialSelection?: {
       hydratedModelsProviderRef.current !== providerState
     ) {
       hydratedModelsProviderRef.current = undefined;
+      setHydratedModelsProvider(undefined);
       setModels([]);
       if (!explicitSelectionRef.current?.model) {
         setSelected(undefined, { source: 'model-fallback', endpointId: null });
@@ -1080,13 +1087,20 @@ export function useChatModel(initialSelection?: {
 
     if (
       providerState &&
-      !legacyBootstrapRef.current &&
+      !legacyBootstrap &&
       providerStatus === 'success' &&
       selectedProvider?.available
     ) {
       void refreshModels(providerState);
     }
-  }, [providerState, providerStatus, providers, refreshModels, setSelected]);
+  }, [
+    legacyBootstrap,
+    providerState,
+    providerStatus,
+    providers,
+    refreshModels,
+    setSelected,
+  ]);
 
   const flags = useMemo(() => {
     // Provider changes render before the effect clears the previous catalog.
@@ -1095,8 +1109,8 @@ export function useChatModel(initialSelection?: {
       providerStatus === 'loading' ||
       status === 'loading' ||
       (available &&
-        !legacyBootstrapRef.current &&
-        hydratedModelsProviderRef.current !== providerState) ||
+        !legacyBootstrap &&
+        hydratedModelsProvider !== providerState) ||
       !providerState;
     const isError = providerStatus === 'error' || status === 'error';
     const isEmpty =
@@ -1105,7 +1119,15 @@ export function useChatModel(initialSelection?: {
       models.length === 0;
 
     return { isLoading, isError, isEmpty };
-  }, [available, models.length, providerState, providerStatus, status]);
+  }, [
+    available,
+    hydratedModelsProvider,
+    legacyBootstrap,
+    models.length,
+    providerState,
+    providerStatus,
+    status,
+  ]);
 
   const selectedModelCapabilities = useMemo<
     SelectedModelReasoningCapabilities | undefined

@@ -243,6 +243,49 @@ it('does not acknowledge an unrelated same-content receipt or a stale conversati
   ).toHaveLength(2);
 });
 
+it('reconciles a user_turn with previously hydrated history by inflight identity', () => {
+  const { result } = renderHook(() => useChatStream('m1', 'codex'));
+  act(() => result.current.setConversation('c1', { clearMessages: true }));
+  act(() =>
+    result.current.hydrateHistory('c1', [
+      {
+        id: 'turn-stored-user',
+        role: 'user',
+        inflightId: 'i1',
+        content: 'prompt',
+        createdAt: firstUpdateAt,
+      },
+    ]),
+  );
+  expect(result.current.messages).toHaveLength(1);
+  act(() =>
+    result.current.handleWsEvent({
+      ...envelope,
+      type: 'user_turn',
+      seq: 1,
+      inflightId: 'i1',
+      content: 'prompt',
+      createdAt: firstUpdateAt,
+      firstUpdateAt,
+      lastUpdateAt,
+    }),
+  );
+  const users = result.current.messages.filter(
+    (message) => message.role === 'user',
+  );
+  expect(users).toHaveLength(1);
+  expect(users[0]).toMatchObject({
+    id: 'turn-stored-user',
+    inflightId: 'i1',
+    content: 'prompt',
+    createdAt: firstUpdateAt,
+    firstUpdateAt,
+    lastUpdateAt,
+    deliveryStatus: 'acknowledged',
+    optimistic: false,
+  });
+});
+
 it('clears run correlations on New and ignores a late accepted response', async () => {
   const native = installNativeCompression();
   let enteredFetch!: () => void;

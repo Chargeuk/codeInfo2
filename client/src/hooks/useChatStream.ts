@@ -1775,12 +1775,19 @@ export function useChatStream(
         const assistantId = activeAssistantMessageIdRef.current;
         updateMessages((prev) => {
           const messageId = correlatedUserId ?? `user-${event.inflightId}`;
-          const existingIndex = prev.findIndex(
+          let existingIndex = prev.findIndex(
             (message) => message.id === messageId,
           );
+          if (existingIndex < 0) {
+            existingIndex = prev.findIndex(
+              (message) =>
+                message.role === 'user' &&
+                message.inflightId === event.inflightId,
+            );
+          }
           const userMessage: ChatMessage = {
             ...(existingIndex >= 0 ? prev[existingIndex] : {}),
-            id: messageId,
+            id: existingIndex >= 0 ? prev[existingIndex].id : messageId,
             role: 'user',
             inflightId: event.inflightId,
             content: event.content,

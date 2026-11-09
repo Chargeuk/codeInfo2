@@ -136,8 +136,9 @@ export default function AgentsPage() {
   >(undefined);
   const activeConversationId = requestedConversationId ?? draftConversationId;
   const appliedSelectionRef = useRef<string | undefined>(undefined);
-  const selectionChanged = appliedSelectionRef.current !== activeConversationId;
-  const acceptedDraftIdRef = useRef<string | undefined>(undefined);
+  const [acceptedDraftId, setAcceptedDraftId] = useState<string | undefined>(
+    undefined,
+  );
   const lastHydratedRef = useRef<string | null>(null);
   const lastInflightHydratedRef = useRef<string | null>(null);
   const currentSelectionRef = useRef({
@@ -180,6 +181,7 @@ export default function AgentsPage() {
     agentName: string;
   } | null>(null);
   const {
+    conversationId: streamConversationId,
     messages,
     status,
     isStreaming,
@@ -196,6 +198,9 @@ export default function AgentsPage() {
     getInflightId,
     getConversationId,
   } = useChatStream(agentModelId, 'codex');
+  const selectionChanged = Boolean(
+    activeConversationId && streamConversationId !== activeConversationId,
+  );
   const isStopping = status === 'stopping';
   const serverVisibleInflightIdRef = useRef<string | null>(null);
   const currentRunKindRef = useRef<'instruction' | 'command'>('instruction');
@@ -897,7 +902,7 @@ export default function AgentsPage() {
     Boolean(
       requestedConversationId &&
         ((!selectedConversation &&
-          acceptedDraftIdRef.current !== requestedConversationId) ||
+          acceptedDraftId !== requestedConversationId) ||
           (selectedConversation?.agentName &&
             selectedConversation.agentName !== selectedAgentName)),
     );
@@ -1320,7 +1325,7 @@ export default function AgentsPage() {
           acknowledgeUserMessage(optimisticMessageId);
           setSelectedActionMode('instruction');
           if (!requestedConversationId) {
-            acceptedDraftIdRef.current = result.conversationId;
+            setAcceptedDraftId(result.conversationId);
             setDraftConversationId(result.conversationId);
             setSearchParams(
               (current) => {
@@ -1430,7 +1435,7 @@ export default function AgentsPage() {
     lastHydratedRef.current = null;
     lastInflightHydratedRef.current = null;
     setDraftConversationId(undefined);
-    acceptedDraftIdRef.current = undefined;
+    setAcceptedDraftId(undefined);
     setConversation(makeClientConversationId(), { clearMessages: true });
     setAgentModelId('unknown');
     serverVisibleInflightIdRef.current = null;
@@ -1993,7 +1998,7 @@ export default function AgentsPage() {
       ) {
         setSelectedActionMode('instruction');
         if (!requestedConversationId) {
-          acceptedDraftIdRef.current = result.conversationId;
+          setAcceptedDraftId(result.conversationId);
           setDraftConversationId(result.conversationId);
           setSearchParams(
             (current) => {

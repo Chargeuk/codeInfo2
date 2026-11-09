@@ -434,8 +434,10 @@ export default function ChatPage() {
     useState(conversationId);
   const activeConversationId = requestedConversationId ?? draftConversationId;
   const appliedSelectionRef = useRef(conversationId);
-  const selectionChanged = appliedSelectionRef.current !== activeConversationId;
-  const acceptedDraftIdRef = useRef<string | undefined>(undefined);
+  const selectionChanged = conversationId !== activeConversationId;
+  const [acceptedDraftId, setAcceptedDraftId] = useState<string | undefined>(
+    undefined,
+  );
   const currentSelectionRef = useRef({
     id: activeConversationId,
     key: location.key,
@@ -560,7 +562,7 @@ export default function ChatPage() {
     Boolean(
       requestedConversationId &&
         !selectedConversation &&
-        acceptedDraftIdRef.current !== requestedConversationId,
+        acceptedDraftId !== requestedConversationId,
     ) || conversationId !== activeConversationId;
   const selectedConversationId = selectedConversation?.conversationId;
   const {
@@ -1072,7 +1074,7 @@ export default function ChatPage() {
       ) {
         resetTurns();
         setDraftConversationId(reset());
-        acceptedDraftIdRef.current = undefined;
+        setAcceptedDraftId(undefined);
         setInput('');
         lastSentRef.current = '';
         syncServerVisibleInflightId(null);
@@ -1237,7 +1239,7 @@ export default function ChatPage() {
         currentSelectionRef.current.id === sendingSelection.id &&
         currentSelectionRef.current.key === sendingSelection.key
       ) {
-        acceptedDraftIdRef.current = accepted.conversationId;
+        setAcceptedDraftId(accepted.conversationId);
         setDraftConversationId(accepted.conversationId);
         pendingUrlOriginKeyRef.current = location.key;
         setSearchParams(
@@ -1359,7 +1361,7 @@ export default function ChatPage() {
     const nextId = reset();
     setConversation(nextId, { clearMessages: true });
     setDraftConversationId(nextId);
-    acceptedDraftIdRef.current = undefined;
+    setAcceptedDraftId(undefined);
     const draftSelection = selectedConversation
       ? draftSelectionRef.current
       : null;
@@ -1857,8 +1859,7 @@ export default function ChatPage() {
       composerWorkingFolderName,
       provider,
       selectedEndpointLabel,
-      selectedModel?.endpointId,
-      selectedModel?.key,
+      selectedModel,
       selectedModelDisplayName,
     ],
   );

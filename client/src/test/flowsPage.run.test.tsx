@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { formatBubbleTimestamp } from '../components/chat/chatTranscriptFormatting';
 import { decodeJsonBody } from './support/decodeJsonBody';
 import { setupChatWsHarness } from './support/mockChatWs';
 import { MockWebSocket } from './support/mockWebSocket';
@@ -2321,7 +2322,7 @@ describe('Flows page run/resume controls', () => {
     expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent('daily');
     await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
   });
-  it('resets custom title and working folder on New Flow', async () => {
+  it('resets custom title and retains the working folder on New Flow', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
@@ -2364,7 +2365,7 @@ describe('Flows page run/resume controls', () => {
     const newFlowButton = await screen.findByTestId('flow-new');
     await user.click(newFlowButton);
     expect(screen.getByTestId('flow-custom-title')).toHaveValue('');
-    expect(screen.getByTestId('flow-working-folder')).toHaveValue('');
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue('/tmp/work');
   });
   it('writes the selected folder into the working folder input', async () => {
     const user = userEvent.setup();
@@ -2914,6 +2915,56 @@ describe('descendant flow transcripts', () => {
     await screen.findByText('Grandchild assistant');
     return view;
   }
+  it('forwards descendant persistence receipts without duplicating content or changing parent run controls', async () => {
+    installDescendantFixture();
+    await renderSelectedParent();
+    await screen.findByText('Child assistant');
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'child-1',
+      seq: 1,
+      inflight: {
+        inflightId: 'child-receipt-run',
+        assistantText: 'Receipt child answer',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2026-01-01T00:00:00.000Z',
+        seq: 1,
+      },
+    });
+    const content = await screen.findByText('Receipt child answer');
+    const bubble = content.closest(
+      '[data-testid="chat-bubble"]',
+    ) as HTMLElement;
+    await userEvent.click(within(bubble).getByTestId('bubble-info'));
+    const info = await screen.findByTestId('bubble-info-popover');
+    expect(
+      within(info).queryByTestId('bubble-info-first-update'),
+    ).not.toBeInTheDocument();
+    const firstUpdateAt = '2026-01-01T00:00:01.000Z';
+    const lastUpdateAt = '2026-01-01T00:00:03.000Z';
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'turn_persisted',
+      conversationId: 'child-1',
+      inflightId: 'child-receipt-run',
+      turnId: 'child-receipt-turn',
+      seq: 2,
+      firstUpdateAt,
+      lastUpdateAt,
+    });
+    expect(
+      await within(info).findByTestId('bubble-info-first-update'),
+    ).toHaveTextContent(formatBubbleTimestamp(firstUpdateAt)!);
+    expect(
+      within(info).getByTestId('bubble-info-last-update'),
+    ).toHaveTextContent(formatBubbleTimestamp(lastUpdateAt)!);
+    expect(screen.getAllByText('Receipt child answer')).toHaveLength(1);
+    expect(screen.getByTestId('flow-run')).toBeEnabled();
+    expect(screen.getByTestId('flow-working-folder')).toBeEnabled();
+    expect(screen.queryByTestId('flow-stop')).not.toBeInTheDocument();
+  });
   it('warns when completed descendant history fails and clears only after its successful reload', async () => {
     const histories = installDescendantFixture();
     const baseFetch = mockFetch.getMockImplementation()!;

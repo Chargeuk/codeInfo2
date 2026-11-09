@@ -60,9 +60,11 @@ export type ChatMessage = {
   };
   id: string;
   storedTurnId?: string;
+  inflightId?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   optimistic?: boolean;
+  deliveryStatus?: 'requested' | 'dispatched' | 'acknowledged';
   provider?: string;
   model?: string;
   warnings?: string[];
@@ -86,6 +88,8 @@ export type ChatMessage = {
   streamStatus?: 'processing' | 'complete' | 'warning' | 'failed' | 'stopped';
   thinking?: boolean;
   createdAt?: string;
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
 };
 
 type Status = 'idle' | 'sending' | 'stopping';
@@ -338,16 +342,7 @@ export function useChatStream(
   const removeOptimisticTrackingByMessageId = useCallback(
     (messageId: string) => {
       optimisticUserMessageIdsRef.current.delete(messageId);
-      for (const [
-        mappedInflightId,
-        mappedMessageId,
-      ] of optimisticUserMessageIdByInflightIdRef.current.entries()) {
-        if (mappedMessageId === messageId) {
-          optimisticUserMessageIdByInflightIdRef.current.delete(
-            mappedInflightId,
-          );
-        }
-      }
+      // Keep the inflight binding for receipts arriving after HTTP completion.
     },
     [],
   );
@@ -373,7 +368,7 @@ export function useChatStream(
         mappedInflightId,
         mappedMessageId,
       ] of optimisticUserMessageIdByInflightIdRef.current.entries()) {
-        if (!optimisticUserMessageIdsRef.current.has(mappedMessageId)) {
+        if (!presentMessageIds.has(mappedMessageId)) {
           optimisticUserMessageIdByInflightIdRef.current.delete(
             mappedInflightId,
           );
@@ -383,43 +378,16 @@ export function useChatStream(
     [],
   );
 
-  const collapseConfirmedUserEchoes = useCallback(
-    (nextMessages: ChatMessage[]) => {
-      const confirmedUserContents = new Set(
-        nextMessages
-          .filter(
-            (message) =>
-              message.role === 'user' &&
-              !message.optimistic &&
-              (message.content ?? '').length > 0,
-          )
-          .map((message) => message.content),
-      );
-      if (confirmedUserContents.size === 0) {
-        return nextMessages;
-      }
-      return nextMessages.filter(
-        (message) =>
-          !(
-            message.role === 'user' &&
-            message.optimistic &&
-            confirmedUserContents.has(message.content)
-          ),
-      );
-    },
-    [],
-  );
-
   const updateMessages = useCallback(
     (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
       setMessages((prev) => {
-        const next = collapseConfirmedUserEchoes(updater(prev));
+        const next = updater(prev);
         pruneOptimisticUserTracking(next);
         messagesRef.current = next;
         return next;
       });
     },
-    [collapseConfirmedUserEchoes, pruneOptimisticUserTracking],
+    [pruneOptimisticUserTracking],
   );
 
   const clearThinkingTimer = useCallback(() => {
@@ -1018,6 +986,7 @@ export function useChatStream(
           model,
           createdAt: new Date().toISOString(),
           optimistic: true,
+          deliveryStatus: 'requested',
         },
       ]);
       return messageId;
@@ -1039,6 +1008,35 @@ export function useChatStream(
       );
     },
     [],
+  );
+
+  const markUserMessageDispatched = useCallback(
+    (messageId: string) => {
+      updateMessages((prev) =>
+        prev.map((message) =>
+          message.id === messageId &&
+          message.role === 'user' &&
+          message.deliveryStatus === 'requested'
+            ? { ...message, deliveryStatus: 'dispatched' }
+            : message,
+        ),
+      );
+    },
+    [updateMessages],
+  );
+
+  const acknowledgeUserMessage = useCallback(
+    (messageId: string) => {
+      removeOptimisticTrackingByMessageId(messageId);
+      updateMessages((prev) =>
+        prev.map((message) =>
+          message.id === messageId && message.role === 'user'
+            ? { ...message, optimistic: false, deliveryStatus: 'acknowledged' }
+            : message,
+        ),
+      );
+    },
+    [removeOptimisticTrackingByMessageId, updateMessages],
   );
 
   const finalizeOptimisticUserMessage = useCallback(
@@ -1096,45 +1094,110 @@ export function useChatStream(
             (message) =>
               message.streamStatus === 'processing' || message.optimistic,
           );
-        let filteredHistory = history;
-        let nextPrev = prev;
+        const replacedStoredUserIds = new Set<string>();
+        let filteredHistory = history.map((entry) => {
+          const correlatedUserId =
+            sameConversation && entry.role === 'user' && entry.inflightId
+              ? optimisticUserMessageIdByInflightIdRef.current.get(
+                  entry.inflightId,
+                )
+              : undefined;
+          const correlatedUser = correlatedUserId
+            ? prev.find(
+                (message) =>
+                  message.role === 'user' && message.id === correlatedUserId,
+              )
+            : undefined;
+          const existing =
+            correlatedUser ??
+            prev.find(
+              (message) =>
+                message.role === entry.role &&
+                (message.id === entry.id ||
+                  (entry.storedTurnId &&
+                    message.storedTurnId === entry.storedTurnId)),
+            );
+          if (correlatedUser) {
+            removeOptimisticTrackingByMessageId(correlatedUser.id);
+            if (entry.id !== correlatedUser.id)
+              replacedStoredUserIds.add(entry.id);
+          }
+          return {
+            ...entry,
+            ...(existing ? { id: existing.id } : {}),
+            ...(entry.role === 'user'
+              ? { deliveryStatus: 'acknowledged' as const, optimistic: false }
+              : {}),
+          };
+        });
+        let nextPrev = prev.filter(
+          (message) => !replacedStoredUserIds.has(message.id),
+        );
         if (hasInFlight && history.length > 0 && prev.length > 0) {
-          const candidates = options?.matchFullHistory ? prev : prev.slice(-6);
+          const candidates = options?.matchFullHistory
+            ? nextPrev
+            : nextPrev.slice(-6);
           const replacements = new Map<string, ChatMessage>();
-          filteredHistory = history.filter((entry) => {
-            const match = candidates.find((existing) => {
-              if (options?.matchFullHistory && replacements.has(existing.id))
+          filteredHistory = filteredHistory.filter((entry) => {
+            const match =
+              nextPrev.find(
+                (existing) =>
+                  existing.role === entry.role && existing.id === entry.id,
+              ) ??
+              candidates.find((existing) => {
+                if (options?.matchFullHistory && replacements.has(existing.id))
+                  return false;
+                if (existing.role !== entry.role) return false;
+                if (
+                  existing.id === entry.id ||
+                  (entry.storedTurnId &&
+                    existing.storedTurnId === entry.storedTurnId)
+                )
+                  return true;
+                if (
+                  existing.role === 'user' &&
+                  (existing.optimistic ||
+                    (existing.deliveryStatus &&
+                      existing.deliveryStatus !== 'acknowledged'))
+                )
+                  return false;
+                if (
+                  existing.role === 'user' &&
+                  entry.inflightId &&
+                  existing.inflightId &&
+                  entry.inflightId !== existing.inflightId
+                )
+                  return false;
+                const entryContent = entry.content ?? '';
+                const existingContent = existing.content ?? '';
+                const existingHasContent = existingContent.length > 0;
+                if (!entryContent && !existingContent) return false;
+                if (existing.optimistic && entryContent === existingContent) {
+                  return true;
+                }
+                const entryTime = parseTimestamp(entry.createdAt);
+                const existingTime = parseTimestamp(existing.createdAt);
+                const withinWindow =
+                  entryTime !== null &&
+                  existingTime !== null &&
+                  Math.abs(entryTime - existingTime) <=
+                    HYDRATION_DEDUPE_WINDOW_MS;
+                if (entryContent === existingContent) {
+                  return (
+                    withinWindow ||
+                    (existing.streamStatus === 'processing' &&
+                      existingHasContent)
+                  );
+                }
+                if (
+                  existing.streamStatus === 'processing' &&
+                  existingHasContent &&
+                  entryContent.startsWith(existingContent)
+                ) {
+                  return true;
+                }
                 return false;
-              if (existing.role !== entry.role) return false;
-              const entryContent = entry.content ?? '';
-              const existingContent = existing.content ?? '';
-              const existingHasContent = existingContent.length > 0;
-              if (!entryContent && !existingContent) return false;
-              if (existing.optimistic && entryContent === existingContent) {
-                return true;
-              }
-              const entryTime = parseTimestamp(entry.createdAt);
-              const existingTime = parseTimestamp(existing.createdAt);
-              const withinWindow =
-                entryTime !== null &&
-                existingTime !== null &&
-                Math.abs(entryTime - existingTime) <=
-                  HYDRATION_DEDUPE_WINDOW_MS;
-              if (entryContent === existingContent) {
-                return (
-                  withinWindow ||
-                  (existing.streamStatus === 'processing' && existingHasContent)
-                );
-              }
-              if (
-                existing.streamStatus === 'processing' &&
-                existingHasContent &&
-                entryContent.startsWith(existingContent)
-              ) {
-                return true;
-              }
-              return false;
-            });
+              });
             if (!match) return true;
             if (match.streamStatus === 'processing') {
               if (match.optimistic) {
@@ -1165,7 +1228,7 @@ export function useChatStream(
             return false;
           });
           if (replacements.size > 0) {
-            nextPrev = prev.map((message) => {
+            nextPrev = nextPrev.map((message) => {
               const replacement = replacements.get(message.id);
               return replacement ?? message;
             });
@@ -1279,6 +1342,12 @@ export function useChatStream(
         {
           streamStatus: 'processing',
           ...(startedAt ? { createdAt: startedAt } : {}),
+          ...(inflight.firstUpdateAt !== undefined
+            ? { firstUpdateAt: inflight.firstUpdateAt }
+            : {}),
+          ...(inflight.lastUpdateAt !== undefined
+            ? { lastUpdateAt: inflight.lastUpdateAt }
+            : {}),
           command: normalizedCommand ?? undefined,
         },
         { assistantId },
@@ -1368,15 +1437,8 @@ export function useChatStream(
       setStatus('sending');
       setIsStreaming(true);
 
-      const userMessage: ChatMessage = {
-        id: makeId(),
-        role: 'user',
-        content: text,
-        model,
-        createdAt: new Date().toISOString(),
-      };
-
-      updateMessages((prev) => [...prev, userMessage]);
+      const userMessageId = appendOptimisticUserMessage(text);
+      bindOptimisticUserMessageToInflight(userMessageId, nextInflightId);
       logWithChannel('info', 'DEV-0000035:T9:chat_raw_send_result', {
         source: 'useChatStream',
         sent: true,
@@ -1461,6 +1523,7 @@ export function useChatStream(
                 'Request preparation cancelled',
                 'AbortError',
               );
+            if (isCurrentSend()) markUserMessageDispatched(userMessageId);
           },
         );
 
@@ -1485,6 +1548,7 @@ export function useChatStream(
           inflightIdRef.current = null;
           setInflightId(null);
           setIsStreaming(false);
+          statusRef.current = 'idle';
           setStatus('idle');
           syncAssistantMessage({
             streamStatus: 'failed',
@@ -1494,26 +1558,19 @@ export function useChatStream(
           return;
         }
 
-        if (res.status !== 202 || !payload || payload.status !== 'started') {
+        if (
+          res.status !== 202 ||
+          !payload ||
+          payload.status !== 'started' ||
+          payload.conversationId !== currentConversationId ||
+          payload.inflightId !== nextInflightId
+        ) {
           throw new Error(
             payload?.message || `Chat request failed (${res.status})`,
           );
         }
 
-        if (payload.inflightId) {
-          inflightIdRef.current = payload.inflightId;
-          setInflightId(payload.inflightId);
-        }
-
-        if (
-          payload.conversationId &&
-          payload.conversationId !== conversationId
-        ) {
-          assistantMessageIdByInflightIdRef.current.clear();
-          seenInflightIdsRef.current.clear();
-          setConversationId(payload.conversationId);
-          conversationIdRef.current = payload.conversationId;
-        }
+        acknowledgeUserMessage(userMessageId);
 
         logWithChannel('info', 'chat run started', {
           conversationId: payload.conversationId ?? currentConversationId,
@@ -1528,7 +1585,9 @@ export function useChatStream(
         if ((err as Error).name === 'AbortError') return;
         handleErrorBubble((err as Error).message);
         setIsStreaming(false);
+        statusRef.current = 'idle';
         setStatus('idle');
+        inflightIdRef.current = null;
         setInflightId(null);
         syncAssistantMessage({
           streamStatus: 'failed',
@@ -1540,6 +1599,10 @@ export function useChatStream(
       }
     },
     [
+      appendOptimisticUserMessage,
+      bindOptimisticUserMessageToInflight,
+      markUserMessageDispatched,
+      acknowledgeUserMessage,
       agentFlags,
       ensureAssistantMessage,
       handleErrorBubble,
@@ -1554,8 +1617,6 @@ export function useChatStream(
       isStreaming,
       clearLocalStreamingIndicators,
       syncAssistantMessage,
-      updateMessages,
-      conversationId,
     ],
   );
 
@@ -1612,6 +1673,38 @@ export function useChatStream(
           conversationId: event.conversationId,
           requestId: event.requestId,
         });
+        return;
+      }
+
+      const receiptInflightId =
+        event.type === 'inflight_snapshot'
+          ? event.inflight.inflightId
+          : event.inflightId;
+      const correlatedUserId =
+        optimisticUserMessageIdByInflightIdRef.current.get(receiptInflightId);
+      if (correlatedUserId) acknowledgeUserMessage(correlatedUserId);
+
+      if (event.type === 'turn_persisted') {
+        const assistantId = getExistingAssistantMessageIdForInflight(
+          event.inflightId,
+        );
+        if (!assistantId) return;
+        updateMessages((prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? {
+                  ...message,
+                  storedTurnId: event.turnId,
+                  ...(event.firstUpdateAt !== undefined
+                    ? { firstUpdateAt: event.firstUpdateAt }
+                    : {}),
+                  ...(event.lastUpdateAt !== undefined
+                    ? { lastUpdateAt: event.lastUpdateAt }
+                    : {}),
+                }
+              : message,
+          ),
+        );
         return;
       }
 
@@ -1679,152 +1772,57 @@ export function useChatStream(
           resetAssistantPointer: shouldResetAssistantPointer,
         });
 
-        const incomingContent = event.content ?? '';
-        const nowTimestamp = new Date().getTime();
-        const incomingTimestamp = parseTimestamp(event.createdAt);
         const assistantId = activeAssistantMessageIdRef.current;
-        const optimisticMessageId =
-          nextInflightId !== null
-            ? (optimisticUserMessageIdByInflightIdRef.current.get(
-                nextInflightId,
-              ) ?? null)
-            : null;
-
         updateMessages((prev) => {
-          if (!incomingContent) return prev;
-
-          if (optimisticMessageId) {
-            const optimisticIndex = prev.findIndex(
-              (message) => message.id === optimisticMessageId,
-            );
-            if (optimisticIndex >= 0) {
-              removeOptimisticTrackingByMessageId(optimisticMessageId);
-              const next = [...prev];
-              next[optimisticIndex] = {
-                ...next[optimisticIndex],
-                content: incomingContent,
-                createdAt: event.createdAt,
-                optimistic: false,
-              };
-              return next;
-            }
-          }
-
-          const latestOptimisticUserIndex = (() => {
-            for (
-              let i = prev.length - 1;
-              i >= 0 && i >= prev.length - 8;
-              i -= 1
-            ) {
-              const message = prev[i];
-              if (message?.role === 'user' && message.optimistic) {
-                return i;
-              }
-            }
-            return -1;
-          })();
-
-          if (latestOptimisticUserIndex >= 0) {
-            const latestOptimisticUser = prev[latestOptimisticUserIndex];
-            const latestOptimisticTimestamp = parseTimestamp(
-              latestOptimisticUser.createdAt,
-            );
-            const optimisticIsRecent =
-              latestOptimisticTimestamp !== null
-                ? nowTimestamp - latestOptimisticTimestamp <= 60_000
-                : false;
-
-            if (
-              optimisticIsRecent &&
-              (latestOptimisticUser.content ?? '') === incomingContent
-            ) {
-              removeOptimisticTrackingByMessageId(latestOptimisticUser.id);
-              const next = [...prev];
-              next[latestOptimisticUserIndex] = {
-                ...latestOptimisticUser,
-                content: incomingContent,
-                createdAt: event.createdAt,
-                optimistic: false,
-              };
-              return next;
-            }
-          }
-
-          for (
-            let i = prev.length - 1;
-            i >= 0 && i >= prev.length - 8;
-            i -= 1
-          ) {
-            const existing = prev[i];
-            if (existing?.role !== 'user') continue;
-            if ((existing.content ?? '') !== incomingContent) {
-              continue;
-            }
-            if (existing.optimistic) {
-              removeOptimisticTrackingByMessageId(existing.id);
-              const next = [...prev];
-              next[i] = {
-                ...existing,
-                content: incomingContent,
-                createdAt: event.createdAt,
-                optimistic: false,
-              };
-              return next;
-            }
-
-            const existingTimestamp = parseTimestamp(existing.createdAt);
-
-            const withinHydrationWindow =
-              existingTimestamp !== null && incomingTimestamp !== null
-                ? Math.abs(existingTimestamp - incomingTimestamp) <=
-                  HYDRATION_DEDUPE_WINDOW_MS
-                : false;
-
-            const existingIsRecent =
-              existingTimestamp !== null
-                ? nowTimestamp - existingTimestamp <= 60_000
-                : false;
-
-            if (!withinHydrationWindow && !existingIsRecent) continue;
-
-            if (existing.createdAt === event.createdAt) return prev;
-            if (existing.optimistic) {
-              removeOptimisticTrackingByMessageId(existing.id);
-            }
-            const next = [...prev];
-            next[i] = {
-              ...existing,
-              content: incomingContent,
-              createdAt: event.createdAt,
-              optimistic: false,
-            };
-            return next;
-          }
-
+          const messageId = correlatedUserId ?? `user-${event.inflightId}`;
+          const existingIndex = prev.findIndex(
+            (message) => message.id === messageId,
+          );
           const userMessage: ChatMessage = {
-            id: makeId(),
+            ...(existingIndex >= 0 ? prev[existingIndex] : {}),
+            id: messageId,
             role: 'user',
+            inflightId: event.inflightId,
             content: event.content,
             model,
             createdAt: event.createdAt,
+            ...(event.firstUpdateAt !== undefined
+              ? { firstUpdateAt: event.firstUpdateAt }
+              : {}),
+            ...(event.lastUpdateAt !== undefined
+              ? { lastUpdateAt: event.lastUpdateAt }
+              : {}),
+            optimistic: false,
+            deliveryStatus: 'acknowledged',
           };
-
+          if (existingIndex >= 0) {
+            return prev.map((message, index) =>
+              index === existingIndex ? userMessage : message,
+            );
+          }
           const last = prev[prev.length - 1];
           if (
             assistantId &&
             last?.id === assistantId &&
-            last.role === 'assistant' &&
             last.streamStatus === 'processing'
           ) {
             return [...prev.slice(0, -1), userMessage, last];
           }
-
           return [...prev, userMessage];
         });
 
         setIsStreaming(true);
         return;
       }
+
+      const eventTimes: Partial<ChatMessage> = {
+        ...(event.firstUpdateAt !== undefined
+          ? { firstUpdateAt: event.firstUpdateAt }
+          : {}),
+        ...(event.lastUpdateAt !== undefined
+          ? { lastUpdateAt: event.lastUpdateAt }
+          : {}),
+      };
 
       const currentInflightId = inflightIdRef.current;
       const logIgnoredNonFinalEvent = (
@@ -1896,6 +1894,13 @@ export function useChatStream(
             ? event.inflight.startedAt
             : undefined;
         const inflightUpdates: Partial<ChatMessage> = {
+          ...eventTimes,
+          ...(event.inflight.firstUpdateAt !== undefined
+            ? { firstUpdateAt: event.inflight.firstUpdateAt }
+            : {}),
+          ...(event.inflight.lastUpdateAt !== undefined
+            ? { lastUpdateAt: event.inflight.lastUpdateAt }
+            : {}),
           streamStatus: 'processing',
           ...(startedAt ? { createdAt: startedAt } : {}),
           command: normalizedCommand ?? undefined,
@@ -2005,7 +2010,7 @@ export function useChatStream(
         clearThinkingTimer();
         setIsStreaming(true);
         syncAssistantMessage(
-          { streamStatus: 'processing', thinking: false },
+          { ...eventTimes, streamStatus: 'processing', thinking: false },
           { assistantId },
         );
         return;
@@ -2042,7 +2047,10 @@ export function useChatStream(
           ];
         }
         setIsStreaming(true);
-        syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
+        syncAssistantMessage(
+          { ...eventTimes, streamStatus: 'processing' },
+          { assistantId },
+        );
         return;
       }
 
@@ -2069,7 +2077,10 @@ export function useChatStream(
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         assistantThinkRef.current += event.delta;
         setIsStreaming(true);
-        syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
+        syncAssistantMessage(
+          { ...eventTimes, streamStatus: 'processing' },
+          { assistantId },
+        );
         return;
       }
 
@@ -2098,7 +2109,7 @@ export function useChatStream(
         clearThinkingTimer();
         setIsStreaming(true);
         syncAssistantMessage(
-          { streamStatus: 'processing', thinking: false },
+          { ...eventTimes, streamStatus: 'processing', thinking: false },
           { assistantId },
         );
         return;
@@ -2132,6 +2143,7 @@ export function useChatStream(
         const usage = normalizeUsage(event.usage);
         const timing = normalizeTiming(event.timing);
         const metadataUpdates: Partial<ChatMessage> = {
+          ...eventTimes,
           ...(usage ? { usage } : {}),
           ...(timing ? { timing } : {}),
         };
@@ -2274,6 +2286,7 @@ export function useChatStream(
       }
     },
     [
+      acknowledgeUserMessage,
       applyToolEvent,
       clearPendingStop,
       clearThinkingTimer,
@@ -2285,7 +2298,6 @@ export function useChatStream(
       logHiddenRunEventIgnored,
       rememberConfirmedInflightId,
       rememberSeenInflightId,
-      removeOptimisticTrackingByMessageId,
       removePendingAssistantIfOptimistic,
       resetAssistantPointer,
       status,
@@ -2319,6 +2331,8 @@ export function useChatStream(
       appendOptimisticUserMessage,
       bindOptimisticUserMessageToInflight,
       finalizeOptimisticUserMessage,
+      markUserMessageDispatched,
+      acknowledgeUserMessage,
       send,
       stop,
       reset,
@@ -2340,6 +2354,8 @@ export function useChatStream(
       appendOptimisticUserMessage,
       bindOptimisticUserMessageToInflight,
       finalizeOptimisticUserMessage,
+      markUserMessageDispatched,
+      acknowledgeUserMessage,
       send,
       stop,
       reset,

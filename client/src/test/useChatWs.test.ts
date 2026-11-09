@@ -526,4 +526,47 @@ describe('useChatWs', () => {
       jest.useRealTimers();
     }
   });
+
+  it('forwards turn_persisted with canonical identity and times after finalization, including an older run', async () => {
+    const received: unknown[] = [];
+    const { result } = renderHook(() =>
+      useChatWs({ onEvent: (event) => received.push(event) }),
+    );
+    await waitFor(() => expect(result.current.connectionState).toBe('open'));
+    const envelope = {
+      protocolVersion: 'v1',
+      conversationId: 'c1',
+      inflightId: 'i1',
+    };
+    const persisted = {
+      ...envelope,
+      type: 'turn_persisted',
+      seq: 3,
+      turnId: 'stored-1',
+      firstUpdateAt: '2026-11-01T10:00:01.000Z',
+      lastUpdateAt: '2026-11-01T10:00:02.000Z',
+    };
+    act(() => {
+      lastSocket()._receive({
+        ...envelope,
+        type: 'turn_final',
+        seq: 1,
+        status: 'ok',
+      });
+      lastSocket()._receive({
+        ...envelope,
+        inflightId: 'i2',
+        type: 'assistant_delta',
+        seq: 1,
+        delta: 'newer',
+      });
+      lastSocket()._receive(persisted);
+      lastSocket()._receive(persisted);
+    });
+    expect(
+      received.filter(
+        (event) => (event as { type: string }).type === 'turn_persisted',
+      ),
+    ).toEqual([persisted]);
+  });
 });

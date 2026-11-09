@@ -162,6 +162,8 @@ export interface AppendTurnInput {
   runtime?: TurnRuntimeMetadata;
   native?: TurnNativeMetadata;
   createdAt?: Date;
+  firstUpdateAt?: Date;
+  lastUpdateAt?: Date;
 }
 
 export interface ListConversationsParams {
@@ -407,6 +409,8 @@ export async function appendTurn(input: AppendTurnInput): Promise<Turn> {
     command: input.command,
     usage: input.usage,
     timing: input.timing,
+    firstUpdateAt: input.firstUpdateAt,
+    lastUpdateAt: input.lastUpdateAt,
     runtime: input.runtime,
     native: input.native,
     createdAt,
@@ -569,6 +573,8 @@ export interface TurnSummary {
   chronologicalOrder?: number;
   fork?: Turn['fork'];
   createdAt: Date;
+  firstUpdateAt?: Date;
+  lastUpdateAt?: Date;
 }
 
 export async function listTurns(
@@ -600,6 +606,8 @@ export async function listTurns(
     command: doc.command,
     usage: doc.usage,
     timing: doc.timing,
+    firstUpdateAt: doc.firstUpdateAt,
+    lastUpdateAt: doc.lastUpdateAt,
     runtime: doc.runtime,
     native: doc.native,
     displayOrder: doc.displayOrder,
@@ -624,6 +632,8 @@ const toForkTurnSummary = (doc: Turn & { _id?: unknown }): TurnSummary => ({
   command: doc.command,
   usage: doc.usage,
   timing: doc.timing,
+  firstUpdateAt: doc.firstUpdateAt,
+  lastUpdateAt: doc.lastUpdateAt,
   runtime: doc.runtime,
   native: doc.native,
   displayOrder: doc.displayOrder,

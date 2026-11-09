@@ -155,6 +155,7 @@ test('chat send payload includes conversationId, message, provider, and model', 
 test('chat send payload includes working_folder when selected', async () => {
   type ChatBody = {
     conversationId?: string;
+    inflightId?: string;
     message?: string;
     provider?: string;
     model?: string;
@@ -191,15 +192,19 @@ test('chat send payload includes working_folder when selected', async () => {
           },
         });
       }
+      if (url.includes('/conversations/') && url.endsWith('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
       if (url.includes('/chat')) {
         chatBody =
           init?.body != null ? (decodeJsonBody(init) as ChatBody) : null;
-        return new Response(
-          streamFromFrames([
-            'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
-            'data: {"type":"complete"}\n\n',
-          ]),
-          { status: 200 },
+        return mockJsonResponse(
+          {
+            status: 'started',
+            conversationId: chatBody?.conversationId,
+            inflightId: chatBody?.inflightId,
+          },
+          { status: 202 },
         );
       }
       if (url.includes('/conversations')) {
@@ -220,30 +225,65 @@ test('chat send payload includes working_folder when selected', async () => {
     }),
   );
 
-  render(
-    <MemoryRouter initialEntries={['/chat']}>
-      <ChatPage />
-    </MemoryRouter>,
+  const router = createMemoryRouter(
+    [{ path: '/chat', element: <ChatPage /> }],
+    { initialEntries: ['/chat'] },
   );
+  const selectionHistory: (string | null)[] = [];
+  const unsubscribe = router.subscribe(({ location }) => {
+    selectionHistory.push(
+      new URLSearchParams(location.search).get('conversationId'),
+    );
+  });
+  const view = render(<RouterProvider router={router} />);
 
-  const conversationRows = await screen.findAllByTestId('conversation-row');
-  fireEvent.click(conversationRows[0]);
+  try {
+    const conversationRows = await screen.findAllByTestId('conversation-row');
+    const selectionHistoryStart = selectionHistory.length;
+    fireEvent.click(conversationRows[0]);
 
-  const workingFolder = await screen.findByTestId('chat-working-folder');
-  expect(workingFolder).toHaveValue('/repo/selected');
+    await waitFor(() =>
+      expect(selectionHistory.slice(selectionHistoryStart)).toContain(
+        'draft-conversation',
+      ),
+    );
+    expect({
+      conversationId: new URLSearchParams(router.state.location.search).get(
+        'conversationId',
+      ),
+      selectionHistory: selectionHistory.slice(selectionHistoryStart),
+    }).toMatchObject({ conversationId: 'draft-conversation' });
+    await waitFor(() =>
+      expect(screen.getByTestId('conversation-row')).toHaveClass(
+        'Mui-selected',
+      ),
+    );
+    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
+    expect(selectionHistory.slice(selectionHistoryStart)).not.toContain(null);
+    expect(
+      new URLSearchParams(router.state.location.search).get('conversationId'),
+    ).toBe('draft-conversation');
+    expect(screen.getByTestId('conversation-row')).toHaveClass('Mui-selected');
+    await waitFor(() =>
+      expect(screen.getByTestId('chat-working-folder')).toHaveValue(
+        '/repo/selected',
+      ),
+    );
 
-  const input = await screen.findByTestId('chat-input');
-  fireEvent.change(input, { target: { value: 'Hello with folder' } });
-  await waitFor(() =>
-    expect(screen.getByTestId('chat-send')).not.toBeDisabled(),
-  );
-  fireEvent.click(screen.getByTestId('chat-send'));
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello with folder' } });
+    fireEvent.click(screen.getByTestId('chat-send'));
 
-  await waitFor(() => expect(chatBody).not.toBeNull());
-  if (!chatBody) {
-    throw new Error('Expected chat request body to be captured');
+    await waitFor(() => expect(chatBody).not.toBeNull());
+    expect(chatBody).toMatchObject({
+      conversationId: 'draft-conversation',
+      working_folder: '/repo/selected',
+    });
+  } finally {
+    unsubscribe();
+    view.unmount();
+    router.dispose();
   }
-  expect((chatBody as ChatBody).working_folder).toBe('/repo/selected');
 });
 
 test('chat send payload includes endpointId when the selected model is endpoint-backed', async () => {

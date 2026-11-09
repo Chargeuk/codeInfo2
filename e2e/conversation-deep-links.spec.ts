@@ -292,7 +292,17 @@ async function expectSelection(
   surface: Surface,
   saved: SavedConversation,
 ) {
-  await expect(page).toHaveURL(conversationUrl(surface, saved.conversationId));
+  const expectedUrl = new URL(conversationUrl(surface, saved.conversationId));
+  if (surface === 'chat') {
+    expectedUrl.searchParams.set('provider', saved.provider);
+    expectedUrl.searchParams.set('model', saved.model);
+  }
+  expectedUrl.searchParams.sort();
+  await expect(page).toHaveURL((url) => {
+    const actualUrl = new URL(url);
+    actualUrl.searchParams.sort();
+    return actualUrl.toString() === expectedUrl.toString();
+  });
   await expect(transcript(page, surface)).toContainText(replyFor(saved));
   await expect(workingFolderTrigger(page, surface)).toContainText(
     saved.flags.workingFolder.split('/').at(-1)!,
@@ -329,7 +339,18 @@ for (const surface of ['chat', 'agents', 'flows'] as const) {
     page,
   }) => {
     const { a, b, ws } = await installConversationFixtures(page, surface);
-    await page.goto(conversationUrl(surface));
+    const initialUrl = new URL(conversationUrl(surface));
+    if (surface === 'chat') {
+      initialUrl.searchParams.set('provider', a.provider);
+      initialUrl.searchParams.set('model', a.model);
+    }
+    await page.goto(initialUrl.toString());
+    if (surface === 'chat') {
+      await expect(page.getByTestId('provider-select')).toContainText(
+        'OpenAI Codex',
+      );
+      await expect(page.getByTestId('model-select')).toContainText(a.model);
+    }
     const row = (saved: SavedConversation) =>
       page.getByTestId('conversation-row').filter({ hasText: saved.title });
 
@@ -351,11 +372,31 @@ for (const surface of ['chat', 'agents', 'flows'] as const) {
         .fill('Unsent draft');
     }
     await page.getByTestId('conversation-new').click();
-    await expect(page).toHaveURL(conversationUrl(surface));
+    const expectedDraftUrl = new URL(conversationUrl(surface));
+    if (surface === 'agents') {
+      expectedDraftUrl.searchParams.set('agentName', b.agentName!);
+    } else if (surface === 'flows') {
+      expectedDraftUrl.searchParams.set('flowName', b.flowName!);
+      if (b.flags.flow?.sourceId) {
+        expectedDraftUrl.searchParams.set('sourceId', b.flags.flow.sourceId);
+      }
+    } else {
+      // New restores the create-mode target; B still owns the visible folder.
+      // The seeded target is native Codex, so endpoint must remain absent.
+      expectedDraftUrl.searchParams.set('provider', a.provider);
+      expectedDraftUrl.searchParams.set('model', a.model);
+    }
+    expectedDraftUrl.searchParams.sort();
+    await expect(page).toHaveURL((url) => {
+      if (url.searchParams.has('conversationId')) return false;
+      const actualUrl = new URL(url);
+      actualUrl.searchParams.sort();
+      return actualUrl.toString() === expectedDraftUrl.toString();
+    });
     await expect(transcript(page, surface)).not.toContainText(replyFor(a));
     await expect(transcript(page, surface)).not.toContainText(replyFor(b));
     await expect(workingFolderTrigger(page, surface)).toContainText(
-      'Select folder',
+      b.flags.workingFolder.split('/').at(-1)!,
     );
     if (surface === 'flows') {
       await expect(page.getByTestId('flow-select-trigger')).toContainText(

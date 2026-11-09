@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 
-import type { ToolEvent } from '../../chat/inflightRegistry.js';
+import {
+  appendToolEvent,
+  cleanupInflight,
+  getCompletedInflight,
+  type ToolEvent,
+} from '../../chat/inflightRegistry.js';
 import type { ChatToolResultEvent } from '../../chat/interfaces/ChatInterface.js';
+import { memoryTurns } from '../../chat/memoryPersistence.js';
 import {
   __resetReingestStepLifecycleDepsForTests,
   __setReingestStepLifecycleDepsForTests,
@@ -14,6 +20,7 @@ import {
 } from '../../chat/reingestToolResult.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import type { TurnCommandMetadata, TurnSource } from '../../mongo/turn.js';
+import { runWithTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 
 type PersistedTurnCall = {
   conversationId: string;
@@ -75,7 +82,7 @@ const buildHarness = (params?: {
   command?: TurnCommandMetadata;
   modelId?: string;
   source?: TurnSource;
-    updateConversationMetaOutcome?:
+  updateConversationMetaOutcome?:
     | { outcome: 'applied'; conversation: Conversation }
     | { outcome: 'not_found' }
     | { outcome: 'retry_exhausted'; conversation: Conversation };
@@ -171,12 +178,10 @@ const buildHarness = (params?: {
         storage: 'mongo',
         ...(input as unknown as Record<string, unknown>),
       });
-      return (
-        params?.updateConversationMetaOutcome ?? {
-          outcome: 'applied',
-          conversation: buildConversation(),
-        }
-      ) as
+      return (params?.updateConversationMetaOutcome ?? {
+        outcome: 'applied',
+        conversation: buildConversation(),
+      }) as
         | { outcome: 'applied'; conversation: Conversation }
         | { outcome: 'not_found' }
         | { outcome: 'retry_exhausted'; conversation: Conversation };
@@ -232,6 +237,55 @@ const buildHarness = (params?: {
 
 afterEach(() => {
   __resetReingestStepLifecycleDepsForTests();
+});
+
+test('synthetic reingest turns retain tool and terminal receipt clocks without restamping at cleanup', async (t) => {
+  const conversationId = 'reingest-receipt-clock';
+  const inflightId = 'reingest-receipt-run';
+  const startedAt = Date.parse('2026-01-01T00:00:00.000Z');
+  t.mock.timers.enable({ apis: ['Date'], now: startedAt });
+  __setReingestStepLifecycleDepsForTests({
+    createInflightId: () => inflightId,
+    appendToolEvent: (input) => {
+      t.mock.timers.tick(100);
+      const result = appendToolEvent(input);
+      t.mock.timers.tick(100);
+      return result;
+    },
+  });
+  try {
+    await runWithTestEnvOverrides({ NODE_ENV: 'test' }, async () => {
+      await runReingestStepLifecycle({
+        conversationId,
+        modelId: 'model',
+        source: 'REST',
+        command: baseCommand,
+        toolResult: buildReingestToolResult({
+          callId: 'receipt-reingest-tool',
+          execution: {
+            kind: 'single',
+            targetMode: 'sourceId',
+            requestedSelector: '/repo/source-a',
+            resolvedSourceId: '/repo/source-a',
+            outcome: buildOutcome(),
+          },
+        }),
+      });
+    });
+    const [user, assistant] = memoryTurns.get(conversationId) ?? [];
+    const firstUpdateAt = new Date(startedAt + 100).toISOString();
+    const lastUpdateAt = new Date(startedAt + 200).toISOString();
+    assert.equal(user.firstUpdateAt, undefined);
+    assert.equal(assistant.firstUpdateAt?.toISOString(), firstUpdateAt);
+    assert.equal(assistant.lastUpdateAt?.toISOString(), lastUpdateAt);
+    const completed = getCompletedInflight({ conversationId, inflightId });
+    assert.equal(completed?.firstUpdateAt, firstUpdateAt);
+    assert.equal(completed?.lastUpdateAt, lastUpdateAt);
+    assert.equal(completed?.finalStatus, 'ok');
+  } finally {
+    cleanupInflight({ conversationId, inflightId });
+    memoryTurns.delete(conversationId);
+  }
 });
 
 test('creates inflight state before tool event publication and final persistence', async () => {

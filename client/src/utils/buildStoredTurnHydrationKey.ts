@@ -13,8 +13,11 @@ function buildTurnSignature(turn: StoredTurn): string {
   const command = turn.command;
   return [
     turn.turnId ?? '',
+    turn.runtime?.replay?.inflightId ?? '',
     turn.role,
     turn.createdAt,
+    turn.firstUpdateAt ?? '',
+    turn.lastUpdateAt ?? '',
     turn.provider,
     turn.model,
     turn.status,

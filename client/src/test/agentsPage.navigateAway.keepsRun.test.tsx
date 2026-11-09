@@ -91,6 +91,7 @@ describe('Agents page - navigate away keeps run', () => {
               ? [
                   {
                     conversationId: 'c1',
+                    agentName: 'a1',
                     title: 'T',
                     provider: 'codex',
                     model: 'gpt-6-luna',
@@ -220,7 +221,7 @@ describe('Agents page - navigate away keeps run', () => {
     await screen.findByText('Final answer');
   });
 
-  it('keeps command mode selected and leaves the instruction input disabled while an active run is in progress', async () => {
+  it('resets accepted commands to instruction mode and keeps Stop active with editable input', async () => {
     const user = userEvent.setup();
     const wsRegistry = (
       globalThis as unknown as {
@@ -284,6 +285,7 @@ describe('Agents page - navigate away keeps run', () => {
               ? [
                   {
                     conversationId: 'c1',
+                    agentName: 'a1',
                     title: 'T',
                     provider: 'codex',
                     model: 'gpt-6-luna',
@@ -360,8 +362,11 @@ describe('Agents page - navigate away keeps run', () => {
       });
     });
 
+    await waitFor(() =>
+      expect(commandSelect).toHaveTextContent('Write instruction'),
+    );
     const input = await screen.findByTestId('agent-input');
-    await waitFor(() => expect(input).toBeDisabled());
+    expect(input).toBeEnabled();
     expect(input).toHaveValue('');
 
     act(() => {

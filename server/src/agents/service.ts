@@ -25,7 +25,9 @@ import {
   cleanupPendingConversationCancel,
   consumePendingConversationCancel,
   getInflight,
+  inflightUpdateDates,
   markInflightPersisted,
+  recordInflightUpdate,
 } from '../chat/inflightRegistry.js';
 import { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import type {
@@ -124,7 +126,7 @@ import {
   restoreSavedWorkingFolder,
   validateRequestedWorkingFolder,
 } from '../workingFolders/state.js';
-import { publishUserTurn } from '../ws/server.js';
+import { publishTurnPersisted, publishUserTurn } from '../ws/server.js';
 
 import {
   createAgentAvailabilityContext,
@@ -2025,6 +2027,8 @@ async function persistSyntheticAgentTurn(params: {
   command: TurnCommandMetadata;
   runtime?: TurnRuntimeMetadata;
   createdAt: Date;
+  firstUpdateAt?: Date;
+  lastUpdateAt?: Date;
 }): Promise<{ turnId?: string }> {
   if (shouldUseMemoryPersistence()) {
     recordMemoryTurn({
@@ -2039,6 +2043,8 @@ async function persistSyntheticAgentTurn(params: {
       command: params.command,
       runtime: params.runtime,
       createdAt: params.createdAt,
+      firstUpdateAt: params.firstUpdateAt,
+      lastUpdateAt: params.lastUpdateAt,
     } as Turn);
     updateMemoryConversationMeta(params.conversationId, {
       lastMessageAt: params.createdAt,
@@ -2059,6 +2065,8 @@ async function persistSyntheticAgentTurn(params: {
     command: params.command,
     runtime: params.runtime,
     createdAt: params.createdAt,
+    firstUpdateAt: params.firstUpdateAt,
+    lastUpdateAt: params.lastUpdateAt,
   });
 
   const metaOutcome = await updateConversationMeta({
@@ -2133,10 +2141,19 @@ async function emitFailedAgentCommandStep(params: {
       createdAt: userCreatedAt,
     });
 
+    recordInflightUpdate({
+      conversationId: params.conversationId,
+      inflightId: params.inflightId,
+      terminal: true,
+    });
     const assistantCreatedAt = new Date();
     const assistantPersisted = await persistSyntheticAgentTurn({
       conversationId: params.conversationId,
       role: 'assistant',
+      ...inflightUpdateDates({
+        conversationId: params.conversationId,
+        inflightId: params.inflightId,
+      }),
       content: params.message,
       model: params.modelId,
       provider: params.providerId,
@@ -2159,6 +2176,13 @@ async function emitFailedAgentCommandStep(params: {
       role: 'assistant',
       turnId: assistantPersisted.turnId,
     });
+    if (assistantPersisted.turnId) {
+      publishTurnPersisted({
+        conversationId: params.conversationId,
+        inflightId: params.inflightId,
+        turnId: assistantPersisted.turnId,
+      });
+    }
 
     bridge.finalize({
       fallback: {
@@ -2331,6 +2355,13 @@ export async function startAgentInstruction(
           mustExist,
           startPathWasNewConversation,
           inflightId,
+          runtime: {
+            replay: {
+              replayId: inflightId,
+              inflightId,
+              completed: false,
+            },
+          },
           // Intentionally omit any request-bound signal; cancellation happens only
           // via explicit WS cancel_inflight.
           signal: undefined,

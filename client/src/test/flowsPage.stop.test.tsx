@@ -358,7 +358,7 @@ describe('Flows page stop control', () => {
             ),
           );
         expect(router.state.location.search).toBe(
-          `?conversationId=${stopTarget}`,
+          `?flowName=smoke&conversationId=${stopTarget}`,
         );
         const selectedKey = router.state.location.key;
         await user.click(await screen.findByTestId('flow-stop'));
@@ -398,7 +398,7 @@ describe('Flows page stop control', () => {
         expect(screen.queryByTestId('flows-run-error')).not.toBeInTheDocument();
         await waitForRunEnabled();
         expect(router.state.location.search).toBe(
-          `?conversationId=${stopTarget}`,
+          `?flowName=smoke&conversationId=${stopTarget}`,
         );
         expect(router.state.location.key).toBe(selectedKey);
       } finally {

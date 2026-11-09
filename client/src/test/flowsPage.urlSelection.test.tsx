@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import type { ConversationApiSummary } from '../api/conversations';
 import type { FlowSummary } from '../api/flows';
+import { formatBubbleTimestamp } from '../components/chat/chatTranscriptFormatting';
 import { decodeJsonBody } from './support/decodeJsonBody';
 import { mockJsonResponse } from './support/fetchMock';
 import { setupChatWsHarness } from './support/mockChatWs';
@@ -200,9 +201,10 @@ function setup(
     ],
     { initialEntries: options.initialEntries ?? ['/flows'] },
   );
-  render(<RouterProvider router={router} />);
+  const view = render(<RouterProvider router={router} />);
   return {
     ...harness,
+    unmount: view.unmount,
     router,
     sidebar,
     lookupIds,
@@ -233,6 +235,329 @@ function sentMessages() {
 }
 
 describe('Flows URL selection', () => {
+  it.each([undefined, '/repo with spaces'])(
+    'restores an explicit draft source %s after a delayed catalog and refresh without selecting saved history',
+    async (sourceId) => {
+      const catalog = deferred<Response>();
+      const query = new URLSearchParams({ flowName: 'daily', keep: 'yes' });
+      if (sourceId) query.set('sourceId', sourceId);
+      const url = `/flows?${query}`;
+      const flows = [
+        { name: 'other' },
+        { name: 'daily' },
+        { name: 'daily', sourceId: '/repo with spaces' },
+      ];
+      const first = setup({
+        initialEntries: [url],
+        flowsResponse: catalog.promise,
+      });
+      try {
+        expect(await screen.findByTestId('flow-run')).toBeDisabled();
+        await act(async () => {
+          catalog.resolve(mockJsonResponse({ flows }));
+        });
+        await screen.findAllByTestId('conversation-row');
+        await waitFor(() =>
+          expect(screen.getByTestId('flow-run')).toBeEnabled(),
+        );
+        expect(screen.getByTestId('flow-select')).toHaveValue(
+          `daily::${sourceId ?? 'local'}`,
+        );
+        expect(first.router.state.location.search).toBe(`?${query}`);
+        expect(first.turnsIds).toHaveLength(0);
+        first.unmount();
+        const refreshed = setup({ initialEntries: [url], flows });
+        await screen.findAllByTestId('conversation-row');
+        await waitFor(() =>
+          expect(screen.getByTestId('flow-run')).toBeEnabled(),
+        );
+        expect(screen.getByTestId('flow-select')).toHaveValue(
+          `daily::${sourceId ?? 'local'}`,
+        );
+        expect(refreshed.turnsIds).toHaveLength(0);
+        await run();
+        await refreshed.runAccepted.promise;
+        expect(refreshed.runBodies[0].sourceId).toBe(sourceId);
+        await waitFor(() =>
+          expect(
+            new URLSearchParams(refreshed.router.state.location.search).get(
+              'conversationId',
+            ),
+          ).toBe(refreshed.runBodies[0].conversationId),
+        );
+        expect(refreshed.router.state.historyAction).toBe('REPLACE');
+        const acceptedQuery = new URLSearchParams(
+          refreshed.router.state.location.search,
+        );
+        expect(acceptedQuery.get('keep')).toBe('yes');
+        expect(acceptedQuery.get('flowName')).toBe('daily');
+        expect(acceptedQuery.get('sourceId')).toBe(sourceId ?? null);
+      } finally {
+        await act(async () => {
+          catalog.resolve(mockJsonResponse({ flows }));
+        });
+      }
+    },
+  );
+
+  it('restores the default flow on Back to a bare draft and the chosen flow on Forward', async () => {
+    const { router, turnsIds } = setup({
+      initialEntries: ['/flows'],
+      items: [],
+      flows: [{ name: 'daily' }, { name: 'weekly' }],
+    });
+    await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
+    expect(screen.getByTestId('flow-select')).toHaveValue('daily::local');
+    expect(router.state.location.search).toBe('');
+    const defaultKey = router.state.location.key;
+    fireEvent.change(screen.getByTestId('flow-working-folder'), {
+      target: { value: '/visible-folder' },
+    });
+    fireEvent.change(screen.getByTestId('flow-select'), {
+      target: { value: 'weekly::local' },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select')).toHaveValue('weekly::local'),
+    );
+    expect(router.state.location.search).toBe('?flowName=weekly');
+    expect(router.state.historyAction).toBe('PUSH');
+    const chosenKey = router.state.location.key;
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select-trigger')).toHaveTextContent(
+        'daily',
+      ),
+    );
+    expect(screen.getByTestId('flow-select')).toHaveValue('daily::local');
+    expect(router.state.location.search).toBe('');
+    expect(router.state.location.key).toBe(defaultKey);
+    expect(screen.getByTestId('flow-run')).toBeEnabled();
+    await act(async () => {
+      await router.navigate(1);
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select')).toHaveValue('weekly::local'),
+    );
+    expect(router.state.location.search).toBe('?flowName=weekly');
+    expect(router.state.location.key).toBe(chosenKey);
+    await userEvent.click(screen.getByTestId('flow-new'));
+    expect(screen.getByTestId('flow-select')).toHaveValue('weekly::local');
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue(
+      '/visible-folder',
+    );
+    expect(router.state.location.key).toBe(chosenKey);
+    expect(turnsIds).toHaveLength(0);
+  });
+
+  it.each([
+    { target: 'weekly', label: 'weekly' },
+    { target: 'missing', label: 'Select flow' },
+  ])(
+    'preserves the explicit $target target after Back and Forward',
+    async ({ target, label }) => {
+      const { router, turnsIds } = setup({
+        initialEntries: ['/flows', `/flows?flowName=${target}`],
+        items: [],
+        flows: [{ name: 'daily' }, { name: 'weekly', disabled: true }],
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-select-trigger')).toBeEnabled(),
+      );
+      expect(screen.getByTestId('flow-select-trigger')).toHaveTextContent(
+        label,
+      );
+      expect(screen.getByTestId('flow-run')).toBeDisabled();
+      await act(async () => {
+        await router.navigate(-1);
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-select-trigger')).toHaveTextContent(
+          'daily',
+        ),
+      );
+      expect(screen.getByTestId('flow-run')).toBeEnabled();
+      await act(async () => {
+        await router.navigate(1);
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('flow-select-trigger')).toHaveTextContent(
+          label,
+        ),
+      );
+      expect(screen.getByTestId('flow-run')).toBeDisabled();
+      expect(router.state.location.search).toBe(`?flowName=${target}`);
+      expect(turnsIds).toHaveLength(0);
+    },
+  );
+
+  it('pushes source changes, preserves the visible folder, and restores draft identity through Back and Forward', async () => {
+    const { router, turnsIds } = setup({
+      initialEntries: ['/flows?flowName=daily&sourceId=%2Frepo-a&keep=yes'],
+      flows: [
+        { name: 'daily', sourceId: '/repo-a' },
+        { name: 'daily', sourceId: '/repo-b' },
+        { name: 'daily' },
+      ],
+    });
+    await screen.findAllByTestId('conversation-row');
+    await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
+    fireEvent.change(screen.getByTestId('flow-working-folder'), {
+      target: { value: '/visible-folder' },
+    });
+    fireEvent.change(screen.getByTestId('flow-custom-title'), {
+      target: { value: 'Draft title' },
+    });
+    const originalKey = router.state.location.key;
+    fireEvent.change(screen.getByTestId('flow-select'), {
+      target: { value: 'daily::/repo-a' },
+    });
+    expect(router.state.location.key).toBe(originalKey);
+    expect(screen.getByTestId('flow-custom-title')).toHaveValue('Draft title');
+    fireEvent.change(screen.getByTestId('flow-select'), {
+      target: { value: 'daily::/repo-b' },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select')).toHaveValue('daily::/repo-b'),
+    );
+    expect(router.state.historyAction).toBe('PUSH');
+    expect(router.state.location.search).toBe(
+      '?flowName=daily&sourceId=%2Frepo-b&keep=yes',
+    );
+    expect(screen.getByTestId('flow-custom-title')).toHaveValue('');
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue(
+      '/visible-folder',
+    );
+    const sourceBKey = router.state.location.key;
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select')).toHaveValue('daily::/repo-a'),
+    );
+    expect(router.state.location.key).toBe(originalKey);
+    await act(async () => {
+      await router.navigate(1);
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select')).toHaveValue('daily::/repo-b'),
+    );
+    expect(router.state.location.key).toBe(sourceBKey);
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue(
+      '/visible-folder',
+    );
+    expect(turnsIds).toHaveLength(0);
+    fireEvent.change(screen.getByTestId('flow-select'), {
+      target: { value: 'daily::local' },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
+    );
+    expect(router.state.location.search).toBe('?flowName=daily&keep=yes');
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue(
+      '/visible-folder',
+    );
+  });
+
+  it('keeps an unavailable explicit source unresolved instead of falling back to the local flow or saved history', async () => {
+    const { router, turnsIds, runBodies } = setup({
+      initialEntries: ['/flows?flowName=daily&sourceId=%2Fmissing&keep=yes'],
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select-trigger')).toBeEnabled(),
+    );
+    expect(screen.getByTestId('flow-select-trigger')).toHaveTextContent(
+      'Select flow',
+    );
+    expect(screen.getByTestId('flow-run')).toBeDisabled();
+    expect(turnsIds).toHaveLength(0);
+    expect(runBodies).toHaveLength(0);
+    expect(router.state.location.search).toBe(
+      '?flowName=daily&sourceId=%2Fmissing&keep=yes',
+    );
+  });
+
+  it('forwards a post-final persistence receipt without restarting the run or locking the folder', async () => {
+    setup({
+      initialEntries: ['/flows?conversationId=a'],
+      turns: () => mockJsonResponse({ items: [] }),
+    });
+    await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
+    await waitFor(() =>
+      expect(sentMessages()).toContainEqual(
+        expect.objectContaining({
+          type: 'subscribe_conversation',
+          conversationId: 'a',
+        }),
+      ),
+    );
+    const socket = globalThis.__wsMock!.last()!;
+    act(() => {
+      socket._receive({
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId: 'a',
+        seq: 1,
+        inflight: {
+          inflightId: 'receipt-run',
+          assistantText: 'Receipt response',
+          assistantThink: '',
+          toolEvents: [],
+          startedAt: '2026-01-01T00:00:00.000Z',
+          seq: 1,
+        },
+      });
+    });
+    await screen.findByText('Receipt response');
+    act(() => {
+      socket._receive({
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId: 'a',
+        inflightId: 'receipt-run',
+        seq: 2,
+        status: 'ok',
+      });
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-working-folder')).toBeEnabled(),
+    );
+    const firstUpdateAt = '2026-01-01T00:00:01.000Z';
+    const lastUpdateAt = '2026-01-01T00:00:03.000Z';
+    const receipt = {
+      protocolVersion: 'v1',
+      type: 'turn_persisted',
+      conversationId: 'a',
+      inflightId: 'receipt-run',
+      turnId: 'receipt-turn',
+      seq: 3,
+      firstUpdateAt,
+      lastUpdateAt,
+    };
+    await userEvent.click(screen.getByTestId('bubble-info'));
+    const info = await screen.findByTestId('bubble-info-popover');
+    act(() => {
+      socket._receive({ ...receipt, conversationId: 'b' });
+    });
+    expect(
+      within(info).queryByTestId('bubble-info-first-update'),
+    ).not.toBeInTheDocument();
+    act(() => {
+      socket._receive(receipt);
+    });
+    expect(
+      await within(info).findByTestId('bubble-info-first-update'),
+    ).toHaveTextContent(formatBubbleTimestamp(firstUpdateAt)!);
+    expect(
+      within(info).getByTestId('bubble-info-last-update'),
+    ).toHaveTextContent(formatBubbleTimestamp(lastUpdateAt)!);
+    expect(screen.getAllByText('Receipt response')).toHaveLength(1);
+    expect(screen.getByTestId('flow-run')).toBeEnabled();
+    expect(screen.getByTestId('flow-working-folder')).toBeEnabled();
+    expect(screen.queryByTestId('flow-stop')).not.toBeInTheDocument();
+  });
+
   it(
     'resolves an archived target outside the sidebar and restores saved source, title, folder and resume context without waiting for turns',
     async () => {
@@ -253,7 +578,9 @@ describe('Flows URL selection', () => {
         },
       };
       const { router, runBodies, runAccepted, turnsIds, lookupIds } = setup({
-        initialEntries: ['/flows?conversationId=old'],
+        initialEntries: [
+          '/flows?conversationId=old&flowName=other&sourceId=%2Fwrong&keep=yes',
+        ],
         items: [b],
         flows: [
           { name: 'daily' },
@@ -278,7 +605,9 @@ describe('Flows URL selection', () => {
           saved.title,
         );
         expect(screen.getByTestId('flow-working-folder')).toHaveValue('/repo');
-        expect(router.state.location.search).toBe('?conversationId=old');
+        expect(router.state.location.search).toBe(
+          '?conversationId=old&flowName=other&sourceId=%2Fwrong&keep=yes',
+        );
         expect(turnsIds).toContain('old');
         expect(lookupIds).toContain('old');
         await userEvent.click(screen.getByTestId('flow-info'));
@@ -460,16 +789,42 @@ describe('Flows URL selection', () => {
     await screen.findByText('Before Flows');
   });
 
-  it('New clears the query and transcript, suppresses auto-selection, and Back/Forward restore selected and draft views', async () => {
+  it('New retains flow identity and folder, clears run context, and restores saved and draft views through history', async () => {
+    const items = [
+      {
+        ...a,
+        flags: {
+          workingFolder: '/repo',
+          flow: { sourceId: '/repo', stepPath: [1] },
+        },
+      },
+      {
+        ...b,
+        flags: {
+          flow: { flowDefinitionRoot: '/configured/flows', stepPath: [2] },
+        },
+      },
+    ];
     const { router } = setup({
       initialEntries: ['/flows?conversationId=a&keep=yes'],
+      flows: [{ name: 'daily' }, { name: 'daily', sourceId: '/repo' }],
+      items,
     });
     await screen.findByText('Transcript a');
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select')).toHaveValue('daily::/repo'),
+    );
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue('/repo');
     await userEvent.click(screen.getByTestId('flow-new'));
-    expect(router.state.location.search).toBe('?keep=yes');
+    expect(router.state.location.search).toBe(
+      '?keep=yes&flowName=daily&sourceId=%2Frepo',
+    );
     expect(screen.queryByText('Transcript a')).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
-    expect(screen.getByTestId('flow-working-folder')).toHaveValue('');
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue('/repo');
+    expect(screen.getByTestId('flow-custom-title')).toHaveValue('');
+    expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent('daily');
+    expect(screen.getByTestId('flow-resume')).toBeDisabled();
     await act(async () => {
       await router.navigate(-1);
     });
@@ -478,8 +833,18 @@ describe('Flows URL selection', () => {
       await router.navigate(1);
     });
     await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
-    expect(router.state.location.search).toBe('?keep=yes');
+    expect(router.state.location.search).toBe(
+      '?keep=yes&flowName=daily&sourceId=%2Frepo',
+    );
     expect(screen.queryByText('Transcript a')).not.toBeInTheDocument();
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue('/repo');
+    await select(b.title);
+    await screen.findByText('Transcript b');
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-select')).toHaveValue('daily::local'),
+    );
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue('');
+    expect(screen.getByTestId('flow-title-trigger')).toHaveTextContent(b.title);
   });
 
   it.each(['missing', 'error'])(
@@ -509,7 +874,7 @@ describe('Flows URL selection', () => {
         screen.queryByTestId('flows-selection-error'),
       ).not.toBeInTheDocument();
       await userEvent.click(screen.getByTestId('flow-new'));
-      expect(router.state.location.search).toBe('');
+      expect(router.state.location.search).toBe('?flowName=daily');
       await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
     },
   );
@@ -607,7 +972,7 @@ describe('Flows URL selection', () => {
         });
         expect(router.state.location.key).toBe(currentKey);
         expect(router.state.location.search).toBe(
-          destination !== 'new' ? '?conversationId=b' : '',
+          destination !== 'new' ? '?conversationId=b' : '?flowName=daily',
         );
         if (destination !== 'new')
           expect(screen.getByText('Transcript b')).toBeInTheDocument();
@@ -968,7 +1333,9 @@ describe('Flows URL selection', () => {
       await act(async () => {
         acceptance.resolve(started(String(runBodies[0].conversationId)));
       });
-      expect(router.state.location.search).toBe('?conversationId=b');
+      expect(router.state.location.search).toBe(
+        '?flowName=daily&conversationId=b',
+      );
       expect(router.state.location.key).toBe(selectedKey);
       expect(screen.getByText('Transcript b')).toBeInTheDocument();
       expect(
@@ -981,7 +1348,7 @@ describe('Flows URL selection', () => {
     }
   });
 
-  it('clears the selected URL when the flow picker changes without restoring the previous flow', async () => {
+  it('pushes a flow draft URL when the picker changes and restores the saved flow with Back', async () => {
     const { router } = setup({
       initialEntries: ['/flows?conversationId=a'],
       flows: [{ name: 'daily' }, { name: 'weekly' }],
@@ -993,7 +1360,7 @@ describe('Flows URL selection', () => {
     await waitFor(() =>
       expect(screen.getByTestId('flow-select')).toHaveValue('weekly::local'),
     );
-    expect(router.state.location.search).toBe('');
+    expect(router.state.location.search).toBe('?flowName=weekly');
     expect(screen.queryByText('Transcript a')).not.toBeInTheDocument();
     await act(async () => {
       await router.navigate(-1);

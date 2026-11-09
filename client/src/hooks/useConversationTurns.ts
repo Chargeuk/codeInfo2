@@ -28,6 +28,7 @@ export type TurnCommandMetadata = {
 
 export type StoredTurn = {
   turnId?: string;
+  runtime?: { replay?: { inflightId?: string } };
   displayOrder?: number;
   native?: { estimated?: boolean };
   fork?: { handover?: boolean };
@@ -42,6 +43,8 @@ export type StoredTurn = {
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
   createdAt: string;
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
 };
 
 export type InflightToolEvent =
@@ -69,6 +72,8 @@ export type InflightSnapshot = {
   assistantThink: string;
   toolEvents: InflightToolEvent[];
   startedAt: string;
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
   seq: number;
   command?: TurnCommandMetadata;
 };

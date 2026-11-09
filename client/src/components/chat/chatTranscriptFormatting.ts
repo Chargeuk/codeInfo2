@@ -2,7 +2,7 @@ import type { ChatMessage } from '../../hooks/useChatStream';
 
 const bubbleTimestampFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
-  timeStyle: 'short',
+  timeStyle: 'medium',
 });
 
 const formatDecimal = (value: number) =>
@@ -12,10 +12,9 @@ const isNonNegativeFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
 export const formatBubbleTimestamp = (value?: string) => {
-  const candidate = value ? new Date(value) : new Date();
-  if (Number.isNaN(candidate.getTime())) {
-    return bubbleTimestampFormatter.format(new Date());
-  }
+  if (!value) return null;
+  const candidate = new Date(value);
+  if (Number.isNaN(candidate.getTime())) return null;
   return bubbleTimestampFormatter.format(candidate);
 };
 
@@ -104,7 +103,14 @@ export type BubbleMetadataSummaryLine = {
 export const buildBubbleMetadataSummary = (
   message: Pick<
     ChatMessage,
-    'createdAt' | 'provider' | 'usage' | 'timing' | 'command'
+    | 'createdAt'
+    | 'firstUpdateAt'
+    | 'lastUpdateAt'
+    | 'provider'
+    | 'model'
+    | 'usage'
+    | 'timing'
+    | 'command'
   >,
 ) => {
   const summary: BubbleMetadataSummaryLine[] = [];
@@ -112,6 +118,16 @@ export const buildBubbleMetadataSummary = (
   const timestamp = formatBubbleTimestamp(message.createdAt);
   if (timestamp) {
     summary.push({ label: 'Time', value: timestamp });
+  }
+
+  const firstUpdate = formatBubbleTimestamp(message.firstUpdateAt);
+  if (firstUpdate) {
+    summary.push({ label: 'First update', value: firstUpdate });
+  }
+
+  const lastUpdate = formatBubbleTimestamp(message.lastUpdateAt);
+  if (lastUpdate) {
+    summary.push({ label: 'Last update', value: lastUpdate });
   }
 
   const usageLine = buildUsageLine(message.usage);
@@ -131,6 +147,10 @@ export const buildBubbleMetadataSummary = (
 
   if (message.provider) {
     summary.push({ label: 'Provider', value: message.provider });
+  }
+
+  if (message.model) {
+    summary.push({ label: 'Model', value: message.model });
   }
 
   return summary;

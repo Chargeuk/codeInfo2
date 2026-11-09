@@ -11,6 +11,7 @@ type Deps = {
 type AgentRunBody = {
   instruction?: unknown;
   conversationId?: unknown;
+  inflightId?: unknown;
   working_folder?: unknown;
 };
 
@@ -41,6 +42,7 @@ const validateBody = (
 ): {
   instruction: string;
   conversationId?: string;
+  inflightId?: string;
   working_folder?: string;
 } => {
   const candidate = (body ?? {}) as AgentRunBody;
@@ -89,6 +91,14 @@ const validateBody = (
       ? rawConversationId
       : undefined;
 
+  const inflightId =
+    typeof candidate.inflightId === 'string' && candidate.inflightId.length > 0
+      ? candidate.inflightId
+      : undefined;
+  if (candidate.inflightId !== undefined && inflightId === undefined) {
+    throw new Error('inflightId must be a non-empty string');
+  }
+
   const rawWorkingFolder = candidate.working_folder;
   if (rawWorkingFolder !== undefined && rawWorkingFolder !== null) {
     if (typeof rawWorkingFolder !== 'string') {
@@ -100,7 +110,12 @@ const validateBody = (
       ? rawWorkingFolder.trim()
       : undefined;
 
-  return { instruction: rawInstruction, conversationId, working_folder };
+  return {
+    instruction: rawInstruction,
+    conversationId,
+    inflightId,
+    working_folder,
+  };
 };
 
 export function createAgentsRunRouter(
@@ -128,6 +143,7 @@ export function createAgentsRunRouter(
     let parsedBody: {
       instruction: string;
       conversationId?: string;
+      inflightId?: string;
       working_folder?: string;
     };
     try {
@@ -144,6 +160,7 @@ export function createAgentsRunRouter(
         instruction: parsedBody.instruction,
         working_folder: parsedBody.working_folder,
         conversationId: parsedBody.conversationId,
+        inflightId: parsedBody.inflightId,
         source: 'REST',
       });
 

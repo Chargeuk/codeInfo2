@@ -31,6 +31,7 @@ type ProviderSelectionSource =
   | 'provider-change'
   | 'conversation-select'
   | 'conversation-sync'
+  | 'url-select'
   | 'legacy-bootstrap';
 
 type ModelSelectionSource =
@@ -39,6 +40,7 @@ type ModelSelectionSource =
   | 'model-change'
   | 'conversation-select'
   | 'conversation-sync'
+  | 'url-select'
   | 'legacy-bootstrap';
 
 type SelectionLogContext = {
@@ -202,8 +204,7 @@ function resolveSelectedModelSelection(
   if (selectedEndpointId !== undefined) {
     const nativeMatch = models.find(
       (model) =>
-        model.key === selected &&
-        (model.endpointId ?? undefined) === undefined,
+        model.key === selected && (model.endpointId ?? undefined) === undefined,
     );
     if (nativeMatch) {
       return {
@@ -222,7 +223,7 @@ function resolveSelectedModelSelection(
     model: keyedMatch,
     endpointId:
       selectedEndpointId === undefined
-        ? keyedMatch.endpointId ?? undefined
+        ? (keyedMatch.endpointId ?? undefined)
         : undefined,
   };
 }
@@ -521,13 +522,18 @@ export type SelectedModelReasoningCapabilities = {
   defaultReasoningEffort: string;
 };
 
-export function useChatModel() {
+export function useChatModel(initialSelection?: {
+  provider?: ChatProviderId;
+  model?: string;
+  endpointId?: string;
+}) {
   const providerControllerRef = useRef<AbortController | null>(null);
   const modelsControllerRef = useRef<AbortController | null>(null);
   const legacyBootstrapRef = useRef(false);
-  const providerRef = useRef<ChatProviderId | undefined>(undefined);
-  const selectedRef = useRef<string | undefined>(undefined);
-  const selectedEndpointIdRef = useRef<string | undefined>(undefined);
+  const explicitSelectionRef = useRef(initialSelection);
+  const providerRef = useRef(initialSelection?.provider);
+  const selectedRef = useRef(initialSelection?.model);
+  const selectedEndpointIdRef = useRef(initialSelection?.endpointId);
   const bootstrapSelectedModelRef = useRef<{
     provider: ChatProviderId;
     model: string;
@@ -543,17 +549,19 @@ export function useChatModel() {
   >(undefined);
   const [providerState, setProviderState] = useState<
     ChatProviderId | undefined
-  >(undefined);
+  >(initialSelection?.provider);
   const [providerStatus, setProviderStatus] = useState<Status>('idle');
   const [providerErrorMessage, setProviderErrorMessage] = useState<
     string | undefined
   >();
 
   const [models, setModels] = useState<ChatModelInfo[]>([]);
-  const [selected, setSelectedState] = useState<string | undefined>();
+  const [selected, setSelectedState] = useState<string | undefined>(
+    initialSelection?.model,
+  );
   const [selectedEndpointId, setSelectedEndpointIdState] = useState<
     string | undefined
-  >();
+  >(initialSelection?.endpointId);
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [available, setAvailable] = useState<boolean>(true);
@@ -590,25 +598,34 @@ export function useChatModel() {
         source?: ProviderSelectionSource;
       },
     ) => {
-      setProviderState((current) => {
-        const resolved =
-          typeof nextValue === 'function' ? nextValue(current) : nextValue;
-        if (resolved === undefined) {
-          return undefined;
-        }
-        if (!isChatProviderId(resolved)) {
-          return current;
-        }
-        if (resolved !== current) {
-          logSelectionApplied({
-            selectionType: 'provider',
-            chosenProvider: resolved,
-            nextSendOnly: Boolean(options?.nextSendOnly),
-            source: options?.source ?? 'provider-bootstrap',
-          });
-        }
-        return resolved;
-      });
+      const current = providerRef.current;
+      const resolved =
+        typeof nextValue === 'function' ? nextValue(current) : nextValue;
+      if (resolved !== undefined && !isChatProviderId(resolved)) return;
+      if (
+        options?.source === 'url-select' ||
+        options?.source === 'conversation-select' ||
+        options?.source === 'conversation-sync' ||
+        options?.source === 'provider-change'
+      ) {
+        explicitSelectionRef.current = {
+          ...(explicitSelectionRef.current?.provider === resolved
+            ? explicitSelectionRef.current
+            : {}),
+          provider: resolved,
+        };
+      }
+      providerRef.current = resolved;
+      if (resolved !== undefined && resolved !== current) {
+        setStatus('loading');
+        logSelectionApplied({
+          selectionType: 'provider',
+          chosenProvider: resolved,
+          nextSendOnly: Boolean(options?.nextSendOnly),
+          source: options?.source ?? 'provider-bootstrap',
+        });
+      }
+      setProviderState(resolved);
     },
     [],
   );
@@ -627,15 +644,32 @@ export function useChatModel() {
     ) => {
       const currentSelected = selectedRef.current;
       const resolved =
-        typeof nextValue === 'function' ? nextValue(currentSelected) : nextValue;
+        typeof nextValue === 'function'
+          ? nextValue(currentSelected)
+          : nextValue;
       const nextEndpointId =
         resolved === undefined
           ? undefined
           : options?.endpointId !== undefined
-            ? options.endpointId ?? undefined
+            ? (options.endpointId ?? undefined)
             : resolved === currentSelected
               ? selectedEndpointIdRef.current
               : undefined;
+
+      if (
+        options?.source === 'url-select' ||
+        options?.source === 'conversation-select' ||
+        options?.source === 'conversation-sync' ||
+        options?.source === 'model-change'
+      ) {
+        explicitSelectionRef.current = {
+          provider: providerRef.current,
+          model: resolved,
+          endpointId: nextEndpointId,
+        };
+      }
+      selectedRef.current = resolved;
+      selectedEndpointIdRef.current = nextEndpointId;
 
       setSelectedState((current) => {
         if (resolved === undefined) {
@@ -681,13 +715,18 @@ export function useChatModel() {
         const legacyModels = data.models;
         const list = buildLegacyBootstrapProviders();
         setProviders(list);
-        setProvider('lmstudio', { source: 'legacy-bootstrap' });
+        setProvider(explicitSelectionRef.current?.provider ?? 'lmstudio', {
+          source: 'legacy-bootstrap',
+        });
         setProviderReason(undefined);
         setAvailable(true);
         setToolsAvailable(true);
         setModels(legacyModels);
         setSelected(
           (prev) => {
+            if (explicitSelectionRef.current?.model) {
+              return explicitSelectionRef.current.model;
+            }
             if (
               prev &&
               legacyModels.some((model) =>
@@ -698,7 +737,10 @@ export function useChatModel() {
             }
             return legacyModels[0]?.key;
           },
-          { source: 'legacy-bootstrap' },
+          {
+            source: 'legacy-bootstrap',
+            endpointId: explicitSelectionRef.current?.endpointId,
+          },
         );
         setStatus('success');
         setProviderStatus('success');
@@ -718,10 +760,12 @@ export function useChatModel() {
         list.some((provider) => provider.id === data.selectedProvider)
           ? data.selectedProvider
           : undefined;
-      const chosen = pickProvider(list, {
-        currentProvider: providerRef.current,
-        preferredProvider,
-      });
+      const chosen =
+        explicitSelectionRef.current?.provider ??
+        pickProvider(list, {
+          currentProvider: providerRef.current,
+          preferredProvider,
+        });
       const bootstrapEndpointId =
         preferredProvider &&
         chosen === preferredProvider &&
@@ -732,6 +776,7 @@ export function useChatModel() {
       bootstrapSelectedModelRef.current =
         preferredProvider &&
         chosen === preferredProvider &&
+        !explicitSelectionRef.current?.model &&
         data.selectedModel &&
         data.selectedModel.trim().length > 0
           ? {
@@ -743,7 +788,10 @@ export function useChatModel() {
       setProvider(chosen, { source: 'provider-bootstrap' });
       const match = list.find((p) => p.id === chosen);
       setProviderReason(match?.reason);
-      setSelectedEndpointIdState(bootstrapEndpointId);
+      if (!explicitSelectionRef.current?.model) {
+        selectedEndpointIdRef.current = bootstrapEndpointId;
+        setSelectedEndpointIdState(bootstrapEndpointId);
+      }
       setProviderStatus('success');
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
@@ -754,10 +802,12 @@ export function useChatModel() {
       setAvailable(false);
       setToolsAvailable(false);
       setModels([]);
-      setSelected(undefined, {
-        source: 'model-fallback',
-        endpointId: null,
-      });
+      if (!explicitSelectionRef.current?.model) {
+        setSelected(undefined, {
+          source: 'model-fallback',
+          endpointId: null,
+        });
+      }
       setStatus('error');
       setProviderStatus('error');
       setProviderErrorMessage(message);
@@ -890,10 +940,15 @@ export function useChatModel() {
           effectiveProvider === 'codex' ? resolvedCodexWarnings : undefined,
         );
         setModels(models);
+        const explicitSelection = explicitSelectionRef.current;
         const currentSelection = resolveSelectedModelSelection(
           models,
-          selectedRef.current,
-          selectedEndpointIdRef.current,
+          explicitSelection?.provider
+            ? explicitSelection.model
+            : selectedRef.current,
+          explicitSelection?.provider
+            ? explicitSelection.endpointId
+            : selectedEndpointIdRef.current,
         );
         const bootstrapSelection =
           bootstrapSelectedModelRef.current?.provider === effectiveProvider
@@ -917,18 +972,24 @@ export function useChatModel() {
                   data.selectedEndpointId,
                 )
               : undefined;
-        const nextSelection =
-          currentSelection.model
-            ? currentSelection
-            : bootstrapSelection?.model
-              ? bootstrapSelection
-              : resolvedDefaultSelection?.model
-                ? resolvedDefaultSelection
-                : models[0]
-                  ? { model: models[0], endpointId: models[0].endpointId }
-                  : undefined;
-        const nextSelectedEndpointId = nextSelection?.endpointId ?? undefined;
-        setSelected(nextSelection?.model?.key, {
+        const nextSelection = currentSelection.model
+          ? currentSelection
+          : bootstrapSelection?.model
+            ? bootstrapSelection
+            : resolvedDefaultSelection?.model
+              ? resolvedDefaultSelection
+              : models[0]
+                ? { model: models[0], endpointId: models[0].endpointId }
+                : undefined;
+        const explicitModel =
+          !explicitSelection?.provider ||
+          explicitSelection.provider === effectiveProvider
+            ? explicitSelection?.model
+            : undefined;
+        const nextSelectedEndpointId = explicitModel
+          ? explicitSelection?.endpointId
+          : nextSelection?.endpointId;
+        setSelected(explicitModel ?? nextSelection?.model?.key, {
           source: 'model-bootstrap',
           endpointId: nextSelectedEndpointId ?? null,
         });
@@ -947,10 +1008,12 @@ export function useChatModel() {
         setCodexDefaults(undefined);
         setCodexWarnings(undefined);
         setModels([]);
-        setSelected(undefined, {
-          source: 'model-fallback',
-          endpointId: null,
-        });
+        if (!explicitSelectionRef.current?.model) {
+          setSelected(undefined, {
+            source: 'model-fallback',
+            endpointId: null,
+          });
+        }
         setStatus('error');
         setErrorMessage(message);
       } finally {
@@ -990,8 +1053,10 @@ export function useChatModel() {
       setCodexDefaults(selectedProvider.compatibility?.codexDefaults);
       setCodexWarnings(selectedProvider.compatibility?.codexWarnings);
       setModels([]);
-      setSelected(undefined, { source: 'model-fallback', endpointId: null });
-      setSelectedEndpointIdState(undefined);
+      if (!explicitSelectionRef.current?.model) {
+        setSelected(undefined, { source: 'model-fallback', endpointId: null });
+      }
+      setStatus('success');
       return;
     }
 
@@ -1002,8 +1067,9 @@ export function useChatModel() {
     ) {
       hydratedModelsProviderRef.current = undefined;
       setModels([]);
-      setSelected(undefined, { source: 'model-fallback', endpointId: null });
-      setSelectedEndpointIdState(undefined);
+      if (!explicitSelectionRef.current?.model) {
+        setSelected(undefined, { source: 'model-fallback', endpointId: null });
+      }
       setProviderInfo(undefined);
       setCodexDefaults(undefined);
       setCodexWarnings(undefined);
@@ -1023,8 +1089,15 @@ export function useChatModel() {
   }, [providerState, providerStatus, providers, refreshModels, setSelected]);
 
   const flags = useMemo(() => {
+    // Provider changes render before the effect clears the previous catalog.
     const isLoading =
-      providerStatus === 'loading' || status === 'loading' || !providerState;
+      providerStatus === 'idle' ||
+      providerStatus === 'loading' ||
+      status === 'loading' ||
+      (available &&
+        !legacyBootstrapRef.current &&
+        hydratedModelsProviderRef.current !== providerState) ||
+      !providerState;
     const isError = providerStatus === 'error' || status === 'error';
     const isEmpty =
       status === 'success' &&
@@ -1032,7 +1105,7 @@ export function useChatModel() {
       models.length === 0;
 
     return { isLoading, isError, isEmpty };
-  }, [models.length, providerState, providerStatus, status]);
+  }, [available, models.length, providerState, providerStatus, status]);
 
   const selectedModelCapabilities = useMemo<
     SelectedModelReasoningCapabilities | undefined

@@ -721,26 +721,33 @@ export async function executeFork(
           matches.length === 1 &&
           matches[0].id === boundary.turn.id
         ) {
-          await TurnModel.updateOne(
-            {
-              _id: response.turnId,
-              conversationId: source._id,
-              role: 'assistant',
-              content: response.content,
-              status: { $in: ['ok', 'warning'] },
-              'native.turnId': { $exists: false },
-              'native.eventId': { $exists: false },
-            },
-            {
-              $set: {
-                native: {
-                  sessionId: nativeId,
-                  turnId: boundary.turn.id,
-                  estimated: true,
+          try {
+            await TurnModel.updateOne(
+              {
+                _id: response.turnId,
+                conversationId: source._id,
+                role: 'assistant',
+                content: response.content,
+                status: { $in: ['ok', 'warning'] },
+                'native.turnId': { $exists: false },
+                'native.eventId': { $exists: false },
+              },
+              {
+                $set: {
+                  native: {
+                    sessionId: nativeId,
+                    turnId: boundary.turn.id,
+                    estimated: true,
+                  },
                 },
               },
-            },
-          );
+            );
+          } catch {
+            baseLogger.warn(
+              { operationId },
+              'Fork legacy identity cache update failed',
+            );
+          }
         }
       }
     }

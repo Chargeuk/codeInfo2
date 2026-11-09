@@ -21,6 +21,7 @@ import {
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { resolveChatDefaults } from '../../../config/chatDefaults.js';
 import { applyCodexOpenAiCompatEndpointToRuntimeConfig } from '../../../config/codexConfig.js';
+import { resolveCodeinfoMcpEndpointContract } from '../../../config/mcpEndpoints.js';
 import { resetCollectionsForTests } from '../../../ingest/chromaClient.js';
 import type { RepoEntry } from '../../../lmstudio/toolService.js';
 import { query, resetStore } from '../../../logStore.js';
@@ -41,7 +42,10 @@ import {
   createSessionIdleEvent,
 } from '../../support/mockCopilotSdk.js';
 import { withIsolatedProviderHomeTestEnv } from '../../support/providerHomeHarness.js';
-import { bindCurrentTestEnvOverrides } from '../../support/testEnvOverrideScope.js';
+import {
+  bindCurrentTestEnvOverrides,
+  getScopedProcessEnv,
+} from '../../support/testEnvOverrideScope.js';
 import { waitForTestCondition } from '../../support/testTimeouts.js';
 const ENV_KEYS = [
   'CODEINFO_CHAT_DEFAULT_PROVIDER',
@@ -2129,9 +2133,19 @@ test('codebase_question normalizes implicit Copilot defaults and omits reasoning
       harness.getState().lastCreateSessionConfig?.availableTools,
       [],
     );
+    const { agentsMcpUrl } = resolveCodeinfoMcpEndpointContract(
+      getScopedProcessEnv(process.env),
+    );
     assert.deepEqual(
       toComparableJson(harness.getState().lastCreateSessionConfig?.mcpServers),
       {
+        codeinfo_agents: {
+          type: 'stdio',
+          command: 'npx',
+          args: ['-y', 'mcp-remote', agentsMcpUrl, '--allow-http'],
+          tools: [],
+          timeout: 86400000,
+        },
         code_info: {
           type: 'stdio',
           command: 'npx',
@@ -2817,7 +2831,16 @@ test('codebase_question keeps inherited base runtime settings in the resolved Co
     assert.deepEqual(runtimeConfig?.tools, {
       view_image: true,
     });
+    const { agentsMcpUrl } = resolveCodeinfoMcpEndpointContract(
+      getScopedProcessEnv(process.env),
+    );
     assert.deepEqual(runtimeConfig?.mcp_servers, {
+      codeinfo_agents: {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', agentsMcpUrl, '--allow-http'],
+        startup_timeout_sec: 60,
+        tool_timeout_sec: 86400,
+      },
       context7: {
         command: 'npx',
       },
@@ -3205,7 +3228,16 @@ test('codebase_question receives the same inherited overlaid Context7 definition
     const runtimeConfig = capturingChat.lastFlags?.runtimeConfig as
       | Record<string, unknown>
       | undefined;
+    const { agentsMcpUrl } = resolveCodeinfoMcpEndpointContract(
+      getScopedProcessEnv(process.env),
+    );
     assert.deepEqual(runtimeConfig?.mcp_servers, {
+      codeinfo_agents: {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', agentsMcpUrl, '--allow-http'],
+        startup_timeout_sec: 60,
+        tool_timeout_sec: 86400,
+      },
       context7: {
         command: 'npx',
         args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
@@ -3273,7 +3305,16 @@ test('codebase_question overlays CODEINFO_CONTEXT7_API_KEY onto inherited no-key
     const runtimeConfig = capturingChat.lastFlags?.runtimeConfig as
       | Record<string, unknown>
       | undefined;
+    const { agentsMcpUrl } = resolveCodeinfoMcpEndpointContract(
+      getScopedProcessEnv(process.env),
+    );
     assert.deepEqual(runtimeConfig?.mcp_servers, {
+      codeinfo_agents: {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', agentsMcpUrl, '--allow-http'],
+        startup_timeout_sec: 60,
+        tool_timeout_sec: 86400,
+      },
       context7: {
         command: 'npx',
         args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
@@ -3342,7 +3383,21 @@ test('codebase_question translates codeinfo_openai_endpoint into Codex provider 
       },
     );
     assert.ok(result.content[0].text);
-    assert.deepEqual(capturedOptions?.config, expectedConfig);
+    const { agentsMcpUrl } = resolveCodeinfoMcpEndpointContract(
+      getScopedProcessEnv(process.env),
+    );
+    assert.deepEqual(capturedOptions?.config, {
+      ...expectedConfig,
+      mcp_servers: {
+        ...(expectedConfig.mcp_servers as Record<string, unknown>),
+        codeinfo_agents: {
+          command: 'npx',
+          args: ['-y', 'mcp-remote', agentsMcpUrl, '--allow-http'],
+          startup_timeout_sec: 60,
+          tool_timeout_sec: 86400,
+        },
+      },
+    });
   } finally {
     resetToolDeps();
     setScopedTestEnvValue('MCP_FORCE_CODEX_AVAILABLE', original);
@@ -3416,7 +3471,21 @@ test('codebase_question resolves saved env-backed endpoint ids through the share
       },
     );
     assert.ok(result.content[0].text);
-    assert.deepEqual(capturedOptions?.config, expectedConfig);
+    const { agentsMcpUrl } = resolveCodeinfoMcpEndpointContract(
+      getScopedProcessEnv(process.env),
+    );
+    assert.deepEqual(capturedOptions?.config, {
+      ...expectedConfig,
+      mcp_servers: {
+        ...(expectedConfig.mcp_servers as Record<string, unknown>),
+        codeinfo_agents: {
+          command: 'npx',
+          args: ['-y', 'mcp-remote', agentsMcpUrl, '--allow-http'],
+          startup_timeout_sec: 60,
+          tool_timeout_sec: 86400,
+        },
+      },
+    });
     assert.equal(
       memoryConversations.get(conversationId)?.flags?.endpointId,
       `${externalServer.baseUrl}/v1`,

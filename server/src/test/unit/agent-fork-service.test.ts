@@ -1720,6 +1720,41 @@ test('unique complete legacy exchange caches its estimated identity and subseque
   assert.deepEqual(reads, [true, false]);
 });
 
+test('legacy identity cache failure still delivers and publishes the fork without recreating its native child on retry', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  const cacheWrite = t.mock.method(TurnModel, 'updateOne', async () => {
+    throw new Error('Optional legacy cache write failed');
+  });
+  const broadcasts: string[] = [];
+  const unsubscribe = onConversationUpsert((event) => {
+    broadcasts.push(event.conversationId);
+  });
+  try {
+    const first = await forkAgentConversation(h.input, h.deps);
+    const published = h.conversations.get(first.conversationId)!;
+    assert.equal(first.estimated, true);
+    assert.equal(cacheWrite.mock.callCount(), 1);
+    assert.equal(h.rows[1].native, undefined);
+    assert.equal(published.fork?.nativeSessionId, 'native-child');
+    assert.equal(published.fork?.handoverDelivered, true);
+    assert.equal(h.injected.has(published.fork!.handover), true);
+    assert.equal(h.copied.size, 3);
+    assert.equal([...h.operations.values()][0].phase, 'ready');
+    assert.deepEqual(broadcasts, [first.conversationId]);
+
+    const retry = await forkAgentConversation(h.input, h.deps);
+    assert.deepEqual(retry, first);
+    assert.equal(h.stats().nativeForks, 1);
+    assert.equal(h.stats().removed, 0);
+    assert.equal(h.conversations.size, 1);
+    assert.equal(h.injected.size, 1);
+    assert.equal(cacheWrite.mock.callCount(), 1);
+  } finally {
+    unsubscribe();
+  }
+});
+
 test('repeated legacy exchanges stay estimated and are not cached as an unsafe unique mapping', async (t) => {
   const h = harness(t);
   delete h.rows[1].native;

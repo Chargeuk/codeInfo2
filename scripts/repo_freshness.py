@@ -136,6 +136,8 @@ def scan(root: str, includes: list[str], excludes: list[str], errors: list[str])
                         info.st_mtime, timezone.utc
                     ).isoformat(timespec="microseconds").replace("+00:00", "Z"),
                 }
+        except FileNotFoundError:
+            continue
         except (OSError, ValueError, OverflowError) as exc:
             errors.append(f"Cannot inspect eligible candidate {path}: {exc}")
     result["complete"] = not errors

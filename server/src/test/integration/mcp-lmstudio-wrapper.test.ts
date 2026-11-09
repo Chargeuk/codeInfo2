@@ -3,10 +3,14 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import type { ChatMessage, LMStudioClient } from '@lmstudio/sdk';
+import { PARENT_CHAT_RESEARCH_PROTOCOL } from '@codeinfo2/common';
+import type { Chat, ChatMessage, LMStudioClient } from '@lmstudio/sdk';
 import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
 class MockModel {
+    systemContext?: string;
     async act(_chat: unknown, _tools: ReadonlyArray<unknown>, opts: Record<string, unknown>): Promise<void> {
+        this.systemContext = (_chat as Chat).getMessagesArray()
+            .find((message) => message.getRole() === 'system')?.getText();
         const onToolCallRequestStart = opts.onToolCallRequestStart as ((roundIndex: number, callId: number) => void) | undefined;
         const onToolCallRequestNameReceived = opts.onToolCallRequestNameReceived as ((roundIndex: number, callId: number, name: string) => void) | undefined;
         const onToolCallRequestEnd = opts.onToolCallRequestEnd as ((roundIndex: number, callId: number, info?: unknown) => void) | undefined;
@@ -55,7 +59,7 @@ class MockModel {
         } as unknown as ChatMessage);
     }
 }
-const makeMockClientFactory = () => (baseUrl: string) => {
+const makeMockClientFactory = (mockModel = new MockModel()) => (baseUrl: string) => {
     void baseUrl;
     return {
         system: {
@@ -70,7 +74,7 @@ const makeMockClientFactory = () => (baseUrl: string) => {
         llm: {
             model: (model: string) => {
                 void model;
-                return new MockModel();
+                return mockModel;
             },
         },
     } as unknown as LMStudioClient;
@@ -80,8 +84,9 @@ const fakeToolFactory = () => () => ({
     tools: [{ name: 'VectorSearch' }],
 });
 test('MCP LM Studio responder returns answer-only segments', async () => {
+    const model = new MockModel();
     const result = await runCodebaseQuestion({ question: 'What is up?', provider: 'lmstudio', model: 'mock-model' }, {
-        clientFactory: makeMockClientFactory(),
+        clientFactory: makeMockClientFactory(model),
         toolFactory: makeToolFactory(),
     });
     const payload = JSON.parse(result.content[0].text);
@@ -92,6 +97,8 @@ test('MCP LM Studio responder returns answer-only segments', async () => {
         type: string;
     }) => s.type), ['answer']);
     assert.equal(payload.segments[0].text, 'Here you go');
+    assert.ok(model.systemContext?.includes(PARENT_CHAT_RESEARCH_PROTOCOL));
+    assert.doesNotMatch(model.systemContext ?? '', /at least two VectorSearch|<=2 focused VectorSearch/u);
 });
 test('MCP LM Studio responder only returns the final answer segment', async () => {
     const result = await runCodebaseQuestion({ question: 'Second run', provider: 'lmstudio', model: 'mock-model' }, {

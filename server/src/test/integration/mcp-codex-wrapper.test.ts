@@ -7,6 +7,7 @@ import test, { afterEach, beforeEach } from 'node:test';
 import type { CodexOptions, ThreadEvent, ThreadOptions as CodexThreadOptions, TurnOptions as CodexTurnOptions, } from '@openai/codex-sdk';
 import { resolveCodexCapabilities } from '../../codex/capabilityResolver.js';
 import { applyCodexOpenAiCompatEndpointToRuntimeConfig, } from '../../config/codexConfig.js';
+import { resolveCodeinfoMcpEndpointContract } from '../../config/mcpEndpoints.js';
 import { RuntimeConfigResolutionError } from '../../config/runtimeConfig.js';
 import { handleRpc } from '../../mcp2/router.js';
 import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
@@ -14,6 +15,7 @@ import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 import { getCodexDetection, setCodexDetection, } from '../../providers/codexRegistry.js';
 import { startExternalOpenAiCompatServer } from '../support/externalOpenAiCompatServer.js';
 import { waitForHttpServerPort } from '../support/httpServer.js';
+import { getScopedProcessEnv } from '../support/testEnvOverrideScope.js';
 async function withTempCodexHome(chatToml: string): Promise<{
     codexHome: string;
     cleanup: () => Promise<void>;
@@ -292,6 +294,10 @@ test('MCP codebase_question uses bounded research with shared reasoning defaults
         assert.equal(mockCodex.lastStartOptions?.approvalPolicy, capabilities.defaults.approvalPolicy);
         assert.equal(mockCodex.lastStartOptions?.modelReasoningEffort, capabilities.defaults.modelReasoningEffort);
         assert.match(mockCodex.lastInput ?? '', /Answer this repository question using bounded research/u);
+        assert.match(mockCodex.lastInput ?? '', /Wave 1: up to 4/u);
+        assert.match(mockCodex.lastInput ?? '', /Wave 3, only if needed: NO more VectorSearch/u);
+        assert.match(mockCodex.lastInput ?? '', /mcp__codeinfo_agents__run_agent_instruction/u);
+        assert.doesNotMatch(mockCodex.lastInput ?? '', /<=2 focused VectorSearch|require two queries|4 additional evidence actions/u);
     }
     finally {
         setCodexDetection(prev);
@@ -495,7 +501,20 @@ test('MCP codebase_question preserves generated Codex OpenAI-compatible provider
             },
             clientFactory: makeLmStudioClientFactory(),
         });
-        assert.deepEqual(capturedOptions?.config, expectedConfig);
+        const { mcp_servers: servers, ...providerConfig } = capturedOptions?.config ?? {};
+        const { mcp_servers: expectedServers, ...expectedProviderConfig } = expectedConfig;
+        assert.deepEqual(providerConfig, expectedProviderConfig);
+        assert.ok((expectedServers as Record<string, unknown>).web_tools);
+        const { agentsMcpUrl } = resolveCodeinfoMcpEndpointContract(getScopedProcessEnv(process.env));
+        assert.deepEqual(servers, {
+            ...(expectedServers as Record<string, unknown>),
+            codeinfo_agents: {
+                command: 'npx',
+                args: ['-y', 'mcp-remote', agentsMcpUrl, '--allow-http'],
+                startup_timeout_sec: 60,
+                tool_timeout_sec: 86400,
+            },
+        });
     }
     finally {
         resetToolDeps();

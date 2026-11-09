@@ -59,6 +59,9 @@ test('ChatInterfaceCopilot create-session path maps streamed events into ChatInt
     const createSystemMessageContent = harness.getState().lastCreateSessionConfig?.systemMessage?.content;
     assert.ok(createSystemMessageContent);
     assert.ok(createSystemMessageContent.startsWith(SYSTEM_CONTEXT.trim()));
+    assert.match(createSystemMessageContent, /Wave 1: up to 4/u);
+    assert.match(createSystemMessageContent, /Wave 3, only if needed: NO more VectorSearch/u);
+    assert.match(createSystemMessageContent, /chat_search_agent/u);
     assert.ok(harness
         .getState()
         .lastSendAndWaitPrompt?.includes(`Hello from Copilot\n- ${VECTORSEARCH_PROTOCOL_REMINDER}`));

@@ -105,12 +105,7 @@ const GENERIC_CODEX_EXEC_STARTUP_BANNER =
 const TASK8_LOG_MARKER = 'DEV_0000040_T08_MCP_DEFAULTS_APPLIED';
 const REPLAY_ID_REGEX = /^[A-Za-z0-9._:-]{1,128}$/u;
 const CODEBASE_QUESTION_SYSTEM_PROMPT = `Answer this repository question using bounded research.
-- Caps override shared search minimums/extra-search defaults: <=2 focused VectorSearch queries, <=4 additional evidence actions, <=50 symbols/AST request, <=10,000 characters/shell output, <=200 lines/read, <=8,000 final characters. Prefer exact symbols/bounded ranges; no broad recursive searches, file dumps, or tests to close gaps.
-- New investigations (including purpose/architecture/structure/content overviews) require two queries, broad then refined, before AST/direct discovery/search/reads. Only exact-file reads, exact literal/path lookups, explicit user skip, or sufficient applicable established evidence permit fewer. Before non-vector actions, require an exception or completed searches. On skipping begin: "I am skipping VectorSearch because [reason]." Reuse evidence; reverify relevant changes.
-- Verify actionable code behavior, API contracts, config values, topic names, proposed edits, PRs, and decisions against intended repo/checkout current source, including callers/config as needed. Label indexed-only leads unverified orientation. Attempt verification before "possibly", "perhaps", or "maybe"; never guess.
-- Cite substantive repository claims adjacently: repo/checkout, full file path, exact supporting lines/ranges from inspected source or reliable AST. Never derive lines from chunk lineCount or invent locations; citation format is not proof. Distinguish facts/inferences/unknowns; cite inference support.
-- Verify external API/library/framework/SDK/database/tooling/platform behavior when answers/proposed changes depend on it, including familiar libraries; repo-local mentions alone do not require this. Use DeepWiki ask_question for project behavior/patterns, Context7 resolve-library-id/query-docs for API usage, and web documentation cross-checks for version-sensitive/changing behavior/guidance, releases, or deprecations.
-- Stop researching as soon as evidence supports a concise verified cited answer. If access, budget, or missing-line limits prevent proof, return explicitly unverified leads/unknowns and disclose those limits. Return only the answer, without progress narration.`;
+Follow the shared parent-chat three-wave protocol, current-source verification, citation, uncertainty, evidence-reuse, and external-documentation rules. Return only the answer, without progress narration.`;
 const paramsSchema = z
   .object({
     question: z.string().min(1),

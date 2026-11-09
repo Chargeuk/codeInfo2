@@ -46,6 +46,12 @@ command = "npx"
 args    = ["-y", "mcp-remote", "http://localhost:\${CODEINFO_SERVER_PORT}/mcp"]
 startup_timeout_sec = 60
 
+[mcp_servers.codeinfo_agents]
+command = "npx"
+args    = ["-y", "mcp-remote", "http://localhost:\${CODEINFO_AGENTS_MCP_PORT}/mcp", "--allow-http"]
+startup_timeout_sec = 60
+tool_timeout_sec = 86400
+
 [projects]
 [projects."/data"]
 trust_level = "trusted"
@@ -219,7 +225,11 @@ export function applyResolvedServerPortToCodexConfig(
     .replaceAll('${CODEINFO_SERVER_PORT}', port)
     .replaceAll('http://localhost:5010/mcp', classicMcpUrl)
     .replaceAll('http://server:5010/mcp', `http://server:${port}/mcp`)
-    .replaceAll('http://localhost:${CODEINFO_SERVER_PORT}/mcp', classicMcpUrl);
+    .replaceAll('http://localhost:${CODEINFO_SERVER_PORT}/mcp', classicMcpUrl)
+    .replaceAll(
+      '${CODEINFO_AGENTS_MCP_PORT}',
+      resolveRequiredCodeinfoPlaceholderValue('CODEINFO_AGENTS_MCP_PORT', env),
+    );
 }
 
 export function buildDefaultCodexConfig(

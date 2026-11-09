@@ -12,6 +12,7 @@ import {
   publishStreamWarning,
   publishToolEvent,
   publishTurnFinal,
+  publishTurnPersisted,
 } from '../ws/server.js';
 import {
   appendAnalysisDelta,
@@ -20,6 +21,7 @@ import {
   getInflight,
   isInflightFinalized,
   markInflightFinal,
+  recordInflightUpdate,
   setAssistantText,
   type ToolEvent,
 } from './inflightRegistry.js';
@@ -28,6 +30,7 @@ import type {
   ChatCompleteEvent,
   ChatErrorEvent,
   ChatFinalEvent,
+  ChatPersistedEvent,
   ChatInterface,
   ChatThreadEvent,
   ChatTokenEvent,
@@ -177,6 +180,10 @@ export function attachChatStreamBridge(params: {
       return;
     }
     finalPublished = true;
+
+    if (!getInflight(conversationId)?.terminalReceivedAt) {
+      recordInflightUpdate({ conversationId, inflightId, terminal: true });
+    }
 
     publishTurnFinal({
       conversationId,
@@ -368,6 +375,7 @@ export function attachChatStreamBridge(params: {
 
   const onComplete = (ev: ChatCompleteEvent) => {
     if (finalPublished) return;
+    recordInflightUpdate({ conversationId, inflightId, terminal: true });
 
     const inflightState = getInflight(conversationId);
     const cancelled = Boolean(inflightState?.abortController.signal.aborted);
@@ -405,6 +413,7 @@ export function attachChatStreamBridge(params: {
     if (finalPublished) return;
 
     const transient = isTransientReconnect(getErrorMessage(ev.message));
+    recordInflightUpdate({ conversationId, inflightId, terminal: !transient });
     if (transient) {
       publishStreamWarning({
         conversationId,
@@ -441,6 +450,11 @@ export function attachChatStreamBridge(params: {
     publishFinalOnce(payload);
   };
 
+  const onPersisted = (ev: ChatPersistedEvent) => {
+    publishTurnPersisted({ conversationId, inflightId, turnId: ev.turnId });
+  };
+
+  chat.on('persisted', onPersisted);
   chat.on('token', onToken);
   chat.on('analysis', onAnalysis);
   chat.on('tool-request', onToolRequest);
@@ -452,6 +466,7 @@ export function attachChatStreamBridge(params: {
 
   return {
     cleanup: () => {
+      chat.off('persisted', onPersisted);
       chat.off('token', onToken);
       chat.off('analysis', onAnalysis);
       chat.off('tool-request', onToolRequest);

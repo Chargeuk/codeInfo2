@@ -12,6 +12,8 @@ type WsProtocolVersion = typeof WS_PROTOCOL_VERSION;
 type WsServerEventBase = {
   protocolVersion: WsProtocolVersion;
   type: string;
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
 };
 
 type WsSidebarConversationSummary = {
@@ -124,6 +126,8 @@ type WsInflightSnapshotEvent = WsServerEventBase & {
     assistantThink: string;
     toolEvents: WsToolEvent[];
     startedAt: string;
+    firstUpdateAt?: string;
+    lastUpdateAt?: string;
     command?: TurnCommandMetadata;
   };
 };
@@ -194,6 +198,14 @@ type WsTurnFinalEvent = WsServerEventBase & {
   timing?: TurnTimingMetadata;
 };
 
+type WsTurnPersistedEvent = WsServerEventBase & {
+  type: 'turn_persisted';
+  conversationId: string;
+  seq: number;
+  inflightId: string;
+  turnId: string;
+};
+
 type WsCancelAckEvent = WsServerEventBase & {
   type: 'cancel_ack';
   requestId: string;
@@ -211,6 +223,7 @@ type WsServerEvent =
   | WsToolEventEvent
   | WsStreamWarningEvent
   | WsTurnFinalEvent
+  | WsTurnPersistedEvent
   | WsCancelAckEvent
   | WsIngestSnapshotEvent
   | WsIngestUpdateEvent;
@@ -226,7 +239,8 @@ export type ChatWsTranscriptEvent =
   | WsAnalysisDeltaEvent
   | WsToolEventEvent
   | WsStreamWarningEvent
-  | WsTurnFinalEvent;
+  | WsTurnFinalEvent
+  | WsTurnPersistedEvent;
 export type ChatWsCancelAckEvent = WsCancelAckEvent;
 export type ChatWsToolEvent = WsToolEvent;
 export type ChatWsIngestEvent = WsIngestSnapshotEvent | WsIngestUpdateEvent;

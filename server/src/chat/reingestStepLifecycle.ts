@@ -4,14 +4,20 @@ import type { ReingestPlanScopeWarning } from '../ingest/planScopeResolver.js';
 import { append } from '../logStore.js';
 import { appendTurn, updateConversationMeta } from '../mongo/repo.js';
 import type { Turn, TurnCommandMetadata, TurnSource } from '../mongo/turn.js';
-import { publishToolEvent, publishUserTurn } from '../ws/server.js';
+import {
+  publishToolEvent,
+  publishTurnPersisted,
+  publishUserTurn,
+} from '../ws/server.js';
 import { attachChatStreamBridge } from './chatStreamBridge.js';
 
 import {
   appendToolEvent,
   cleanupInflight,
   createInflight,
+  inflightUpdateDates,
   markInflightPersisted,
+  recordInflightUpdate,
   type ToolEvent,
 } from './inflightRegistry.js';
 import {
@@ -376,6 +382,8 @@ async function persistSyntheticTurn(params: {
   toolCalls: Record<string, unknown> | null;
   command: TurnCommandMetadata;
   createdAt: Date;
+  firstUpdateAt?: Date;
+  lastUpdateAt?: Date;
 }): Promise<PersistedTurnResult> {
   if (lifecycleDeps.shouldUseMemoryPersistence()) {
     lifecycleDeps.recordMemoryTurn({
@@ -389,6 +397,8 @@ async function persistSyntheticTurn(params: {
       status: params.status,
       command: params.command,
       createdAt: params.createdAt,
+      firstUpdateAt: params.firstUpdateAt,
+      lastUpdateAt: params.lastUpdateAt,
     } as Turn);
     lifecycleDeps.updateMemoryConversationMeta(params.conversationId, {
       lastMessageAt: params.createdAt,
@@ -408,6 +418,8 @@ async function persistSyntheticTurn(params: {
     status: params.status,
     command: params.command,
     createdAt: params.createdAt,
+    firstUpdateAt: params.firstUpdateAt,
+    lastUpdateAt: params.lastUpdateAt,
   });
 
   const metaOutcome = await lifecycleDeps.updateConversationMeta({
@@ -517,9 +529,18 @@ export async function runReingestStepLifecycle(params: {
       event: liveToolEvent,
     });
 
+    recordInflightUpdate({
+      conversationId: params.conversationId,
+      inflightId,
+      terminal: true,
+    });
     const assistantPersisted = await persistSyntheticTurn({
       conversationId: params.conversationId,
       role: 'assistant',
+      ...inflightUpdateDates({
+        conversationId: params.conversationId,
+        inflightId,
+      }),
       content: assistantContent,
       model: params.modelId,
       provider,
@@ -536,6 +557,13 @@ export async function runReingestStepLifecycle(params: {
       role: 'assistant',
       turnId: assistantPersisted.turnId,
     });
+    if (assistantPersisted.turnId) {
+      publishTurnPersisted({
+        conversationId: params.conversationId,
+        inflightId,
+        turnId: assistantPersisted.turnId,
+      });
+    }
 
     bridge.finalize({
       fallback: {
@@ -600,10 +628,10 @@ export async function runReingestStepLifecycle(params: {
           stage: params.toolResult.stage ?? null,
           targetMode: payload.targetMode,
           warningCount:
-          payload.kind === 'reingest_step_batch_result'
-            ? payload.warnings.length
-            : 0,
-      },
+            payload.kind === 'reingest_step_batch_result'
+              ? payload.warnings.length
+              : 0,
+        },
       });
     }
   } catch (error) {

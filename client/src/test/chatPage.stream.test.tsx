@@ -51,7 +51,7 @@ const routes = [
 const formatTimestamp = (value: string) =>
   new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
-    timeStyle: 'short',
+    timeStyle: 'medium',
   }).format(new Date(value));
 
 const findBubbleByRole = async (role: string, kind: string = 'normal') => {
@@ -1629,7 +1629,7 @@ describe('Chat WS streaming UI', () => {
     expect(within(assistantBubble).queryByTestId('bubble-timing')).toBeNull();
   });
 
-  it('falls back to current time for invalid timestamps', async () => {
+  it('keeps invalid stored timestamps unknown without fabricating update metadata', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-01-03T00:00:00.000Z'));
 
@@ -1676,7 +1676,16 @@ describe('Chat WS streaming UI', () => {
     const infoPopover = await openBubbleInfoPopover(assistantBubble, user);
     expect(
       within(infoPopover).getByTestId('bubble-info-time'),
-    ).toHaveTextContent(formatTimestamp('2026-01-03T00:00:00.000Z'));
+    ).toHaveTextContent('Time: —');
+    expect(
+      within(assistantBubble).getByTestId('bubble-completion-time'),
+    ).toHaveTextContent('—');
+    expect(
+      within(infoPopover).queryByTestId('bubble-info-first-update'),
+    ).toBeNull();
+    expect(
+      within(infoPopover).queryByTestId('bubble-info-last-update'),
+    ).toBeNull();
     expect(harness.chatBodies.length).toBe(0);
   });
 
@@ -1751,7 +1760,7 @@ describe('Chat WS streaming UI', () => {
     const errorInfoPopover = await openBubbleInfoPopover(errorBubble, user);
     expect(
       within(errorInfoPopover).getByTestId('bubble-info-time'),
-    ).toHaveTextContent('Time: Jan 1, 2025, 12:00 AM');
+    ).toHaveTextContent(`Time: ${formatTimestamp('2025-01-01T00:00:00.000Z')}`);
     expect(
       within(errorInfoPopover).queryByTestId('bubble-info-usage'),
     ).toBeNull();

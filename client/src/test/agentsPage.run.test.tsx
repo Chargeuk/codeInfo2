@@ -311,7 +311,7 @@ describe('Agents page - run', () => {
                 typeof runBodies.at(-1)?.conversationId === 'string'
                   ? runBodies.at(-1)?.conversationId
                   : 'c1',
-              inflightId: 'start-i1',
+              inflightId: runBodies.at(-1)?.inflightId,
               modelId: 'gpt-6-luna',
             }),
           } as Response);
@@ -354,6 +354,8 @@ describe('Agents page - run', () => {
     });
 
     const conversationId = String(runBodies[0]?.conversationId ?? 'c1');
+    const inflightId = runBodies[0].inflightId;
+    expect(inflightId).toEqual(expect.any(String));
     const wsRegistry = (
       globalThis as unknown as {
         __wsMock?: { last: () => { _receive: (data: unknown) => void } | null };
@@ -366,7 +368,7 @@ describe('Agents page - run', () => {
       type: 'user_turn',
       conversationId,
       seq: 1,
-      inflightId: 'start-i1',
+      inflightId,
       content: 'Question',
       createdAt: '2025-01-01T00:00:00.000Z',
     });
@@ -375,7 +377,7 @@ describe('Agents page - run', () => {
       type: 'assistant_delta',
       conversationId,
       seq: 2,
-      inflightId: 'start-i1',
+      inflightId,
       delta: 'Final answer',
     });
     ws._receive({
@@ -383,7 +385,7 @@ describe('Agents page - run', () => {
       type: 'turn_final',
       conversationId,
       seq: 3,
-      inflightId: 'start-i1',
+      inflightId,
       status: 'ok',
     });
 
@@ -554,13 +556,17 @@ describe('Agents page - run', () => {
         );
       }
 
-      if (target.includes('/conversations') && target.includes('agentName=')) {
+      if (
+        target.includes('/conversations') &&
+        target.includes('agentName=coding_agent')
+      ) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
               items: [
                 {
                   conversationId: 'c1',
+                  agentName: 'coding_agent',
                   title: 'Agent conversation 1',
                   provider: 'codex',
                   model: 'gpt-6-luna',
@@ -569,6 +575,7 @@ describe('Agents page - run', () => {
                 },
                 {
                   conversationId: 'c2',
+                  agentName: 'coding_agent',
                   title: 'Agent conversation 2',
                   provider: 'codex',
                   model: 'gpt-6-luna',
@@ -944,7 +951,7 @@ describe('Agents page - run', () => {
                   typeof runBodies.at(-1)?.conversationId === 'string'
                     ? runBodies.at(-1)?.conversationId
                     : 'c1',
-                inflightId: 'start-i1',
+                inflightId: runBodies.at(-1)?.inflightId,
                 modelId: 'gpt-6-luna',
               }),
             } as Response);
@@ -988,6 +995,8 @@ describe('Agents page - run', () => {
 
       await waitFor(() => expect(runBodies.length).toBe(1));
       const conversationId = String(runBodies[0]?.conversationId ?? 'c1');
+      const inflightId = runBodies[0].inflightId;
+      expect(inflightId).toEqual(expect.any(String));
       const wsRegistry = (
         globalThis as unknown as {
           __wsMock?: {
@@ -1003,7 +1012,7 @@ describe('Agents page - run', () => {
           type: 'user_turn',
           conversationId,
           seq: 1,
-          inflightId: 'i1',
+          inflightId,
           content: malformed,
           createdAt: '2025-01-01T00:00:00.000Z',
         });
@@ -1012,7 +1021,7 @@ describe('Agents page - run', () => {
           type: 'assistant_delta',
           conversationId,
           seq: 2,
-          inflightId: 'i1',
+          inflightId,
           delta: malformed,
         });
         ws._receive({
@@ -1020,7 +1029,7 @@ describe('Agents page - run', () => {
           type: 'turn_final',
           conversationId,
           seq: 3,
-          inflightId: 'i1',
+          inflightId,
           status: 'ok',
         });
       });

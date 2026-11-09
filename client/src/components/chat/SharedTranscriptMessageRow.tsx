@@ -61,9 +61,7 @@ function SharedTranscriptMessageRow({
         renderHeaderContent={
           message.flowOrigin ? renderHeaderContent : undefined
         }
-        renderMetadataContent={
-          message.flowOrigin ? renderMetadataContent : undefined
-        }
+        renderMetadataContent={renderMetadataContent}
         userMarkdownTestId={userMarkdownTestId}
         log={log}
         markdownLogSource={markdownLogSource}

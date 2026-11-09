@@ -1,9 +1,5 @@
 import type { ChatMessage } from '../../hooks/useChatStream';
-
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+import { formatBubbleTimestamp } from './chatTranscriptFormatting';
 
 const formatDecimal = (value: number) =>
   value.toFixed(2).replace(/\.?(0+)$/, '');
@@ -15,17 +11,15 @@ export const formatTranscriptTimestamp = (
   value?: string,
   options?: { compact?: boolean; nowMs?: number },
 ) => {
-  const compact = options?.compact ?? false;
   const nowMs = options?.nowMs ?? Date.now();
-  const candidate = value ? new Date(value) : new Date();
-  if (Number.isNaN(candidate.getTime())) {
-    return dateTimeFormatter.format(new Date());
-  }
+  if (!value) return '—';
+  const candidate = new Date(value);
+  if (Number.isNaN(candidate.getTime())) return '—';
 
   const diffMs = nowMs - candidate.getTime();
   const absDiffMs = Math.abs(diffMs);
-  if (absDiffMs >= 24 * 60 * 60 * 1000) {
-    return dateTimeFormatter.format(candidate);
+  if (absDiffMs >= 90 * 60 * 1000) {
+    return formatBubbleTimestamp(value) ?? '—';
   }
 
   const formatRelative = (amount: number, suffix: string) =>
@@ -36,18 +30,6 @@ export const formatTranscriptTimestamp = (
   }
   if (absDiffMs < 3_600_000) {
     return formatRelative(Math.max(1, Math.round(absDiffMs / 60_000)), 'm');
-  }
-  if (compact && absDiffMs < 24 * 60 * 60 * 1000 * 7) {
-    if (absDiffMs < 24 * 60 * 60 * 1000) {
-      return formatRelative(
-        Math.max(1, Math.round(absDiffMs / 3_600_000)),
-        'h',
-      );
-    }
-    return formatRelative(
-      Math.max(1, Math.round(absDiffMs / (24 * 60 * 60 * 1000))),
-      'd',
-    );
   }
   return formatRelative(Math.max(1, Math.round(absDiffMs / 3_600_000)), 'h');
 };

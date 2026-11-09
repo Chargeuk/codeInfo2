@@ -33,10 +33,12 @@ import {
   type MouseEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   FlowApiError,
   type FlowDetails,
@@ -71,6 +73,7 @@ import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
 import useConversationTurns from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
+import useSelectedConversation from '../hooks/useSelectedConversation';
 import { createLogger } from '../logging/logger';
 import buildStoredTurnHydrationKey from '../utils/buildStoredTurnHydrationKey';
 import { copyTextToClipboard } from '../utils/copyTextToClipboard';
@@ -168,6 +171,17 @@ const waitForNextPaint = () =>
   });
 
 export default function FlowsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedConversationId =
+    searchParams.get('conversationId') || undefined;
+  const requestedFlowName = searchParams.get('flowName') || undefined;
+  const requestedSourceId = searchParams.get('sourceId') || undefined;
+  const requestedFlowKey = requestedFlowName
+    ? buildFlowKey({ name: requestedFlowName, sourceId: requestedSourceId })
+    : '';
+  const appliedRequestedIdRef = useRef<string | undefined>(undefined);
+  const appliedRequestedFlowKeyRef = useRef(requestedFlowKey);
+  const selectionRevisionRef = useRef(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   // Some headless/browser test environments report media queries inconsistently.
@@ -206,7 +220,9 @@ export default function FlowsPage() {
   const [flowDetailsError, setFlowDetailsError] = useState<string | null>(null);
   const [flowsLoading, setFlowsLoading] = useState(true);
   const [flowsError, setFlowsError] = useState<string | null>(null);
-  const [selectedFlowKey, setSelectedFlowKey] = useState('');
+  const [selectedFlowKey, setSelectedFlowKey] = useState(
+    requestedConversationId ? '' : requestedFlowKey,
+  );
   const [customTitle, setCustomTitle] = useState('');
   const [suppressAutoSelect, setSuppressAutoSelect] = useState(false);
   const [optionsAnchorEl, setOptionsAnchorEl] = useState<HTMLElement | null>(
@@ -238,6 +254,9 @@ export default function FlowsPage() {
       freshRun: boolean;
     }>(),
   );
+  // Sent requests leave preparationsRef before acceptance, but still own the
+  // pending indicator until they finish or another launch takes ownership.
+  const pendingPreparationRef = useRef<{ pending: boolean } | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [runErrorCode, setRunErrorCode] = useState<string | null>(null);
   const [launchWarnings, setLaunchWarnings] = useState<string[]>([]);
@@ -251,7 +270,8 @@ export default function FlowsPage() {
 
   const log = useMemo(() => createLogger('client-flows'), []);
   const assistantTranscriptVisibleRef = useRef(false);
-  const acceptedLaunchConversationIdRef = useRef<string | null>(null);
+  const [acceptedLaunchConversationId, setAcceptedLaunchConversationId] =
+    useState<string | null>(null);
   const serverVisibleInflightIdRef = useRef<string | null>(null);
   const stoppingVisibleLoggedRef = useRef<string | null>(null);
   const stoppedVisibleLoggedRef = useRef<Set<string>>(new Set());
@@ -283,7 +303,6 @@ export default function FlowsPage() {
   const selectedFlowDetails = selectedFlowKey
     ? flowDetailsByKey[selectedFlowKey]
     : undefined;
-  const selectedFlowName = selectedFlow?.name ?? '';
 
   const {
     conversations,
@@ -305,7 +324,7 @@ export default function FlowsPage() {
     emitWorkingFolderPickerSync,
     applyWsUpsert,
     applyWsDelete,
-  } = useConversations({ flowName: selectedFlowName });
+  } = useConversations({ flowName: selectedFlow?.name ?? '' });
 
   const [activeConversationId, setActiveConversationId] = useState<
     string | undefined
@@ -313,6 +332,63 @@ export default function FlowsPage() {
 
   const { mongoConnected } = usePersistenceStatus();
   const persistenceUnavailable = mongoConnected === false;
+
+  const { summary: requestedConversation, error: selectionError } =
+    useSelectedConversation({
+      conversationId: requestedConversationId,
+      conversations,
+      enabled: !persistenceUnavailable,
+    });
+  const selectedConversation =
+    requestedConversationId === activeConversationId
+      ? requestedConversation
+      : conversations.find(
+          (item) => item.conversationId === activeConversationId,
+        );
+  const selectedFlowName =
+    selectedConversation?.flowName ?? selectedFlow?.name ?? '';
+  const flowConversations = useMemo(
+    () =>
+      selectedFlowName.trim()
+        ? conversations
+        : requestedConversationId
+          ? conversations.filter((item) => item.flowName && !item.agentName)
+          : [],
+    [conversations, requestedConversationId, selectedFlowName],
+  );
+  const restoredFlow = useMemo(() => {
+    if (!selectedConversation?.flowName) return undefined;
+    const savedFlow = selectedConversation.flags?.flow as
+      | { sourceId?: unknown; flowDefinitionRoot?: unknown }
+      | undefined;
+    const sourceId =
+      typeof savedFlow?.sourceId === 'string'
+        ? savedFlow.sourceId.trim()
+        : undefined;
+    // A saved root without a source is the configured local flows root. The
+    // server remains authoritative for validating both bindings on resume.
+    const hasRoot =
+      typeof savedFlow?.flowDefinitionRoot === 'string' &&
+      Boolean(savedFlow.flowDefinitionRoot.trim());
+    const matches = flowOptions.filter(
+      (flow) => flow.name === selectedConversation.flowName,
+    );
+    return sourceId || hasRoot
+      ? matches.find((flow) => (flow.sourceId ?? '') === (sourceId ?? ''))
+      : (matches.find((flow) => flow.key === selectedFlowKey) ?? matches[0]);
+  }, [flowOptions, selectedConversation, selectedFlowKey]);
+  const selectionUnresolved =
+    Boolean(requestedConversationId) &&
+    (requestedConversationId !== activeConversationId ||
+      (!selectedConversation &&
+        acceptedLaunchConversationId !== requestedConversationId) ||
+      Boolean(restoredFlow && restoredFlow.key !== selectedFlowKey));
+
+  useEffect(() => {
+    if (restoredFlow && restoredFlow.key !== selectedFlowKey) {
+      setSelectedFlowKey(restoredFlow.key);
+    }
+  }, [restoredFlow, selectedFlowKey]);
 
   const {
     messages,
@@ -413,18 +489,6 @@ export default function FlowsPage() {
     return result.flow;
   }, [flowDetailsByKey, selectedFlow]);
 
-  const flowConversations = useMemo(
-    () => (selectedFlowName.trim() ? conversations : []),
-    [conversations, selectedFlowName],
-  );
-
-  const selectedConversation = useMemo(
-    () =>
-      flowConversations.find(
-        (conversation) => conversation.conversationId === activeConversationId,
-      ),
-    [activeConversationId, flowConversations],
-  );
   const selectedConversationTitle =
     selectedConversation?.title?.trim() && selectedConversation.title.trim()
       ? selectedConversation.title.trim()
@@ -634,6 +698,10 @@ export default function FlowsPage() {
         case 'conversation_delete':
           applyWsDelete(event.conversationId);
           return;
+        case 'turn_persisted':
+          if (event.conversationId === getConversationId())
+            handleWsEvent(event);
+          return;
         case 'inflight_snapshot':
         case 'user_turn':
         case 'assistant_delta':
@@ -759,41 +827,43 @@ export default function FlowsPage() {
   const loadFlows = useCallback(async () => {
     setFlowsLoading(true);
     setFlowsError(null);
-    let nextSelectedKey: string | undefined;
     try {
       const result = await listFlows();
       setFlows(result.flows);
       setFlowDetailsByKey((prev) =>
         reconcileFlowDetailsCache(prev, result.flows),
       );
-      const flowKeys = result.flows.map((flow) => buildFlowKey(flow));
-      if (!selectedFlowKey || !flowKeys.includes(selectedFlowKey)) {
-        const firstAvailable = result.flows.find((flow) => !flow.disabled);
-        if (firstAvailable) {
-          nextSelectedKey = buildFlowKey(firstAvailable);
-        } else if (result.flows.length > 0) {
-          nextSelectedKey = buildFlowKey(result.flows[0]);
-        } else {
-          nextSelectedKey = '';
-        }
-      }
     } catch (err) {
       setFlowsError((err as Error).message ?? 'Failed to load flows.');
       setFlows([]);
     } finally {
       setFlowsLoading(false);
-      if (
-        typeof nextSelectedKey !== 'undefined' &&
-        nextSelectedKey !== selectedFlowKey
-      ) {
-        setSelectedFlowKey(nextSelectedKey);
-      }
     }
-  }, [selectedFlowKey]);
+  }, []);
 
   useEffect(() => {
     void loadFlows();
   }, [loadFlows]);
+
+  useEffect(() => {
+    if (requestedConversationId) return;
+    if (requestedFlowName) {
+      setSelectedFlowKey(requestedFlowKey);
+      return;
+    }
+    if (flowsLoading || flowsError) return;
+    if (flows.some((flow) => buildFlowKey(flow) === selectedFlowKey)) return;
+    const first = flows.find((flow) => !flow.disabled) ?? flows[0];
+    setSelectedFlowKey(first ? buildFlowKey(first) : '');
+  }, [
+    flows,
+    flowsError,
+    flowsLoading,
+    requestedConversationId,
+    requestedFlowKey,
+    requestedFlowName,
+    selectedFlowKey,
+  ]);
 
   useEffect(() => {
     if (!flowInfoOpen || !selectedFlow) return;
@@ -838,9 +908,24 @@ export default function FlowsPage() {
 
   useEffect(() => {
     if (!selectedFlowName.trim()) return;
-    if (suppressAutoSelect) return;
+    if (suppressAutoSelect || requestedConversationId || requestedFlowName) {
+      return;
+    }
     if (!activeConversationId && flowConversations.length > 0) {
-      const first = flowConversations[0];
+      const first = flowConversations.find(
+        (item) => item.flowName === selectedFlowName,
+      );
+      if (!first) return;
+      selectionRevisionRef.current += 1;
+      appliedRequestedIdRef.current = first.conversationId;
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.set('conversationId', first.conversationId);
+          return next;
+        },
+        { replace: true },
+      );
       setActiveConversationId(first.conversationId);
       setConversation(first.conversationId, { clearMessages: true });
     }
@@ -850,11 +935,21 @@ export default function FlowsPage() {
     selectedFlowName,
     setConversation,
     suppressAutoSelect,
+    requestedConversationId,
+    requestedFlowName,
+    setSearchParams,
   ]);
 
   useEffect(() => {
     if (!selectedFlowName.trim()) return;
     if (!activeConversationId) return;
+    // Auto-selection records its URL target before the router commits that
+    // transition. A sidebar scope change must not clear it in the meantime.
+    if (
+      requestedConversationId ||
+      appliedRequestedIdRef.current === activeConversationId
+    )
+      return;
     const stillVisible = flowConversations.some(
       (conversation) => conversation.conversationId === activeConversationId,
     );
@@ -867,8 +962,8 @@ export default function FlowsPage() {
       (message) => message.streamStatus === 'processing',
     );
     const isAcceptedLaunchSelection =
-      Boolean(acceptedLaunchConversationIdRef.current) &&
-      acceptedLaunchConversationIdRef.current === activeConversationId;
+      Boolean(acceptedLaunchConversationId) &&
+      acceptedLaunchConversationId === activeConversationId;
     const shouldPreserveHiddenConversation =
       hasVisibleAssistantTranscript ||
       hasProcessingTranscript ||
@@ -925,7 +1020,9 @@ export default function FlowsPage() {
     stoppingVisibleLoggedRef.current = null;
     setSuppressAutoSelect(false);
   }, [
+    acceptedLaunchConversationId,
     activeConversationId,
+    requestedConversationId,
     flowConversations,
     isStreaming,
     log,
@@ -1053,28 +1150,96 @@ export default function FlowsPage() {
     turnsLoading,
   ]);
 
-  const resetConversation = useCallback(() => {
-    setStartPending(false);
-    setRunError(null);
-    setRunErrorCode(null);
-    setLaunchWarnings([]);
-    setLaunchConversationId(null);
-    freshRunRetryOwnershipIdRef.current = null;
-    resetTurns();
-    setActiveConversationId(undefined);
-    setConversation(reset(), { clearMessages: true });
-    setFlowModelId('unknown');
-    setFlowProviderId('unknown');
-    setWorkingFolder('');
-    setCustomTitle('');
-    acceptedLaunchConversationIdRef.current = null;
-    serverVisibleInflightIdRef.current = null;
-    stoppingVisibleLoggedRef.current = null;
-  }, [reset, resetTurns, setConversation]);
+  const resetConversation = useCallback(
+    (clearPending = true) => {
+      selectionRevisionRef.current += 1;
+      if (clearPending) setStartPending(false);
+      setRunError(null);
+      setRunErrorCode(null);
+      setLaunchWarnings([]);
+      setLaunchConversationId(null);
+      freshRunRetryOwnershipIdRef.current = null;
+      resetTurns();
+      setActiveConversationId(undefined);
+      setConversation(reset(), { clearMessages: true });
+      setFlowModelId('unknown');
+      setFlowProviderId('unknown');
+      setCustomTitle('');
+      setAcceptedLaunchConversationId(null);
+      serverVisibleInflightIdRef.current = null;
+      stoppingVisibleLoggedRef.current = null;
+    },
+    [reset, resetTurns, setConversation],
+  );
+
+  useLayoutEffect(() => {
+    if (
+      appliedRequestedIdRef.current === requestedConversationId &&
+      (requestedConversationId ||
+        appliedRequestedFlowKeyRef.current === requestedFlowKey)
+    ) {
+      return;
+    }
+    appliedRequestedIdRef.current = requestedConversationId;
+    appliedRequestedFlowKeyRef.current = requestedFlowKey;
+    // Saved selection preserves pending preparation controls, as sidebar
+    // selection did before URL navigation. New/draft navigation clears them.
+    resetConversation(!requestedConversationId);
+    // Returning to a bare URL is a draft navigation, so it must not immediately
+    // auto-select the row that the user just left.
+    setSuppressAutoSelect(!requestedConversationId);
+    if (requestedConversationId) {
+      setSelectedFlowKey('');
+      setConversation(requestedConversationId, { clearMessages: true });
+      setActiveConversationId(requestedConversationId);
+      setLaunchConversationId(requestedConversationId);
+    } else if (!requestedFlowKey) {
+      setSelectedFlowKey('');
+    }
+  }, [
+    requestedConversationId,
+    requestedFlowKey,
+    resetConversation,
+    setConversation,
+  ]);
+
+  const clearConversationQuery = useCallback(
+    (replace = false, flow = selectedFlow) => {
+      if (
+        !requestedConversationId &&
+        requestedFlowName === flow?.name &&
+        requestedSourceId === flow?.sourceId
+      ) {
+        return;
+      }
+      appliedRequestedIdRef.current = undefined;
+      appliedRequestedFlowKeyRef.current = flow?.key ?? requestedFlowKey;
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.delete('conversationId');
+          if (flow) next.set('flowName', flow.name);
+          if (flow?.sourceId) next.set('sourceId', flow.sourceId);
+          else next.delete('sourceId');
+          return next;
+        },
+        { replace },
+      );
+    },
+    [
+      requestedConversationId,
+      requestedFlowKey,
+      requestedFlowName,
+      requestedSourceId,
+      selectedFlow,
+      setSearchParams,
+    ],
+  );
 
   const handleNewFlowReset = useCallback(() => {
     setSuppressAutoSelect(true);
     resetConversation();
+    clearConversationQuery();
     setFlowInfoAnchorEl(null);
     setSelectedFlowAnchorEl(null);
     setTitleAnchorEl(null);
@@ -1085,12 +1250,12 @@ export default function FlowsPage() {
         'messages',
         'resumeStepPath',
         'customTitle',
-        'workingFolder',
       ],
     });
   }, [
     log,
     resetConversation,
+    clearConversationQuery,
     selectedFlowName,
     setSuppressAutoSelect,
     setFlowInfoAnchorEl,
@@ -1104,14 +1269,16 @@ export default function FlowsPage() {
       const nextFlow = flowOptions.find((flow) => flow.key === next);
       if (nextFlow?.disabled) return;
       setSelectedFlowKey(next);
-      setSuppressAutoSelect(false);
+      setSuppressAutoSelect(true);
       resetConversation();
+      clearConversationQuery(false, nextFlow);
       setFlowInfoAnchorEl(null);
       setSelectedFlowAnchorEl(null);
       setTitleAnchorEl(null);
     },
     [
       flowOptions,
+      clearConversationQuery,
       resetConversation,
       selectedFlowKey,
       setSuppressAutoSelect,
@@ -1196,25 +1363,12 @@ export default function FlowsPage() {
 
   const handleSelectConversation = (conversationId: string) => {
     if (conversationId === activeConversationId) return;
-    resetTurns();
-    setSuppressAutoSelect(false);
-    setConversation(conversationId, { clearMessages: true });
-    freshRunRetryOwnershipIdRef.current = null;
-    acceptedLaunchConversationIdRef.current = null;
-    serverVisibleInflightIdRef.current = null;
-    stoppingVisibleLoggedRef.current = null;
-    const summary = flowConversations.find(
-      (conversation) => conversation.conversationId === conversationId,
-    );
-    setRunError(null);
-    setRunErrorCode(null);
-    setLaunchWarnings([]);
-    setLaunchConversationId(conversationId);
-    setFlowProviderId(summary?.provider ?? 'unknown');
-    if (summary?.model) {
-      setFlowModelId(summary.model);
-    }
-    setActiveConversationId(conversationId);
+    selectionRevisionRef.current += 1;
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('conversationId', conversationId);
+      return next;
+    });
     if (isMobile) {
       setMobileConversationsOpen(false);
     }
@@ -1277,7 +1431,8 @@ export default function FlowsPage() {
 
   const startFlowRun = useCallback(
     async (mode: 'run' | 'resume', launchClickDetail = 1) => {
-      if (!selectedFlowName) return;
+      if (!selectedFlowName || selectionUnresolved) return;
+      const originatingRevision = selectionRevisionRef.current;
       const shouldGuardFreshRun = mode === 'run';
       if (mode === 'resume') {
         freshRunRetryOwnershipIdRef.current = null;
@@ -1314,9 +1469,11 @@ export default function FlowsPage() {
             error instanceof FlowApiError &&
             error.code === 'DETAILS_UNAVAILABLE'
           ) {
-            setRunError(
-              (error as Error).message ?? 'Failed to load flow details.',
-            );
+            if (originatingRevision === selectionRevisionRef.current) {
+              setRunError(
+                (error as Error).message ?? 'Failed to load flow details.',
+              );
+            }
             releaseFreshRunReplayGuard();
             return;
           }
@@ -1327,15 +1484,20 @@ export default function FlowsPage() {
           if (!malformedDetailsPayload && selectedFlow?.disabled !== true) {
             details = undefined;
           } else {
-            setRunError(
-              (error as Error).message ?? 'Failed to load flow details.',
-            );
+            if (originatingRevision === selectionRevisionRef.current) {
+              setRunError(
+                (error as Error).message ?? 'Failed to load flow details.',
+              );
+            }
             releaseFreshRunReplayGuard();
             return;
           }
         }
       }
 
+      // Navigation changes which view owns UI updates, not the captured launch.
+      const selectionStillCurrent =
+        originatingRevision === selectionRevisionRef.current;
       const guardDisabled = Boolean(
         details?.disabled ?? selectedFlow?.disabled,
       );
@@ -1343,20 +1505,26 @@ export default function FlowsPage() {
         details?.disabledReason?.message ??
         (selectedFlow?.disabled ? selectedFlow.error : undefined);
       if (guardDisabled) {
-        setRunError(guardDisabledReason ?? 'This flow is currently disabled.');
+        if (selectionStillCurrent) {
+          setRunError(
+            guardDisabledReason ?? 'This flow is currently disabled.',
+          );
+        }
         releaseFreshRunReplayGuard();
         return;
       }
       if (persistenceUnavailable || !wsTranscriptReady) {
-        setRunError(
-          'Realtime connection unavailable — Flow runs require WebSocket streaming.',
-        );
+        if (selectionStillCurrent) {
+          setRunError(
+            'Realtime connection unavailable — Flow runs require WebSocket streaming.',
+          );
+        }
         releaseFreshRunReplayGuard();
         return;
       }
       if (mode === 'resume' && !resumeStepPath) return;
 
-      setSuppressAutoSelect(false);
+      if (selectionStillCurrent) setSuppressAutoSelect(false);
 
       log(
         'info',
@@ -1364,14 +1532,19 @@ export default function FlowsPage() {
         { flowName: selectedFlowName },
       );
 
-      setStartPending(true);
-      acceptedLaunchConversationIdRef.current = null;
-      setFlowModelId('unknown');
-      setFlowProviderId('unknown');
+      if (selectionStillCurrent) {
+        setStartPending(true);
+        setAcceptedLaunchConversationId(null);
+        setFlowModelId('unknown');
+        setFlowProviderId('unknown');
+      }
       const retryOwnershipId =
         mode === 'run'
-          ? (freshRunRetryOwnershipIdRef.current ??
-            (freshRunRetryOwnershipIdRef.current = makeClientConversationId()))
+          ? selectionStillCurrent
+            ? (freshRunRetryOwnershipIdRef.current ??
+              (freshRunRetryOwnershipIdRef.current =
+                makeClientConversationId()))
+            : makeClientConversationId()
           : undefined;
 
       const nextConversationId =
@@ -1389,22 +1562,27 @@ export default function FlowsPage() {
         !customTitleDisabledForSelection &&
         trimmedCustomTitle.length > 0;
 
-      if (isNewConversation) {
+      if (isNewConversation && selectionStillCurrent) {
+        if (requestedConversationId) clearConversationQuery(true);
         setLaunchConversationId(nextConversationId);
         resetTurns();
         setConversation(nextConversationId, { clearMessages: true });
         setActiveConversationId(nextConversationId);
       }
 
-      subscribeConversation(nextConversationId);
-
-      for (const previous of preparationsRef.current) previous.pending = false;
       const preparation = {
         conversationId: nextConversationId,
         cancelled: false,
-        pending: true,
+        pending: selectionStillCurrent,
         freshRun: shouldGuardFreshRun,
       };
+      if (selectionStillCurrent) {
+        subscribeConversation(nextConversationId);
+        if (pendingPreparationRef.current) {
+          pendingPreparationRef.current.pending = false;
+        }
+        pendingPreparationRef.current = preparation;
+      }
       preparationsRef.current.add(preparation);
       try {
         log('info', 'DEV-0000034:T6:flows.run_payload', {
@@ -1432,9 +1610,19 @@ export default function FlowsPage() {
               );
           },
         });
+        if (originatingRevision !== selectionRevisionRef.current) return;
+        appliedRequestedIdRef.current = result.conversationId;
+        setSearchParams(
+          (current) => {
+            const next = new URLSearchParams(current);
+            next.set('conversationId', result.conversationId);
+            return next;
+          },
+          { replace: true },
+        );
         setActiveConversationId(result.conversationId);
         setLaunchConversationId(result.conversationId);
-        acceptedLaunchConversationIdRef.current = result.conversationId;
+        setAcceptedLaunchConversationId(result.conversationId);
         if (shouldGuardFreshRun) {
           freshRunRetryOwnershipIdRef.current = null;
         }
@@ -1469,7 +1657,11 @@ export default function FlowsPage() {
           });
         }
       } catch (err) {
-        if (preparation.cancelled) return;
+        if (
+          preparation.cancelled ||
+          originatingRevision !== selectionRevisionRef.current
+        )
+          return;
         if (
           err instanceof FlowApiError &&
           err.status === 409 &&
@@ -1494,7 +1686,7 @@ export default function FlowsPage() {
           return;
         }
         const message = (err as Error).message || 'Failed to run flow.';
-        acceptedLaunchConversationIdRef.current = null;
+        setAcceptedLaunchConversationId(null);
 
         // Show the run error at the top-level run error banner. Avoid duplicating
         // the message in both the chat transcript and the banner to prevent
@@ -1508,14 +1700,25 @@ export default function FlowsPage() {
         }
       } finally {
         preparationsRef.current.delete(preparation);
+        if (pendingPreparationRef.current === preparation) {
+          pendingPreparationRef.current = null;
+        }
         if (!preparation.cancelled) {
           releaseFreshRunReplayGuard();
-          setStartPending(false);
+          // Pending ownership follows the preparation, even if selection has
+          // changed. A superseded preparation must not clear a newer one.
+          if (preparation.pending) {
+            setStartPending(false);
+          }
         }
       }
     },
     [
       activeConversationId,
+      clearConversationQuery,
+      requestedConversationId,
+      selectionUnresolved,
+      setSearchParams,
       customTitle,
       hydrateHistory,
       log,
@@ -1562,6 +1765,7 @@ export default function FlowsPage() {
   );
   const showStop = isSending || isStopping;
   const mainRunDisabled =
+    selectionUnresolved ||
     !selectedFlowName ||
     flowsLoading ||
     !!flowsError ||
@@ -2103,7 +2307,9 @@ export default function FlowsPage() {
               ariaLabel="Reset flow draft"
               onClick={handleNewFlowReset}
               data-testid="flow-new-conversation-trigger"
-              disabled={!selectedFlowName || flowsLoading}
+              disabled={
+                (!selectedFlowName && !requestedConversationId) || flowsLoading
+              }
             />
           </span>
         </Tooltip>
@@ -2216,7 +2422,9 @@ export default function FlowsPage() {
           <Button
             type="button"
             onClick={handleNewFlowReset}
-            disabled={!selectedFlowName || flowsLoading}
+            disabled={
+              (!selectedFlowName && !requestedConversationId) || flowsLoading
+            }
             data-testid="flow-new"
           >
             New Flow
@@ -2225,6 +2433,7 @@ export default function FlowsPage() {
             type="button"
             onClick={() => void startFlowRun('resume')}
             disabled={
+              selectionUnresolved ||
               !selectedFlowName ||
               flowsLoading ||
               selectedFlowDisabled ||
@@ -2471,6 +2680,11 @@ export default function FlowsPage() {
           <Alert severity="warning" data-testid="flows-ws-banner">
             Realtime connection unavailable — Flows require an open WebSocket
             connection.
+          </Alert>
+        )}
+        {selectionError && (
+          <Alert severity="error" data-testid="flows-selection-error">
+            {selectionError}
           </Alert>
         )}
         {runError && (

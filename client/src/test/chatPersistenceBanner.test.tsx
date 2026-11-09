@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import ChatPage from '../pages/ChatPage';
 import { asFetchImplementation, mockJsonResponse } from './support/fetchMock';
 
@@ -63,7 +64,11 @@ test('shows persistence banner and disables archive controls when mongo is down'
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
 
   const banner = await screen.findByTestId('persistence-banner');
   expect(banner).toBeInTheDocument();

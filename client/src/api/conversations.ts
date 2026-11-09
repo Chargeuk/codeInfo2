@@ -182,6 +182,26 @@ function parseConversationSummary(data: unknown): ConversationApiSummary {
 
 export { parseConversationSummary };
 
+export async function getConversationSummary(
+  conversationId: string,
+): Promise<ConversationApiSummary | undefined> {
+  const search = new URLSearchParams({ conversationId, state: 'all' });
+  const res = await fetch(
+    new URL(`/conversations?${search.toString()}`, serverBase).toString(),
+  );
+  if (!res.ok) {
+    await throwConversationsApiError(
+      res,
+      `Failed to load conversation (${res.status})`,
+    );
+  }
+  const payload = (await res.json()) as { items?: unknown[] };
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  return items
+    .map(parseConversationSummary)
+    .find((item) => item.conversationId === conversationId);
+}
+
 export async function updateConversationWorkingFolder(params: {
   conversationId: string;
   workingFolder: string | null;

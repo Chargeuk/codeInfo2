@@ -828,75 +828,81 @@ describe('Chat shared shell layout alignment', () => {
 
   it('uses the shared pinned-bottom and scroll-away rules on Chat', async () => {
     const measurementHarness = installTranscriptMeasurementHarness();
-    setupChatWsHarness({
-      mockFetch,
-      conversations: {
-        items: [
-          {
+    try {
+      setupChatWsHarness({
+        mockFetch,
+        conversations: {
+          items: [
+            {
+              conversationId: 'c-scroll',
+              title: 'Scroll conversation',
+              provider: 'lmstudio',
+              model: 'm1',
+              lastMessageAt: '2026-03-19T00:00:00.000Z',
+              archived: false,
+            },
+          ],
+          nextCursor: null,
+        },
+        turns: {
+          items: Array.from({ length: 6 }, (_, index) => ({
+            turnId: `turn-${index + 1}`,
             conversationId: 'c-scroll',
-            title: 'Scroll conversation',
+            role: index % 2 === 0 ? 'assistant' : 'user',
+            content: `Message ${index + 1}`,
             provider: 'lmstudio',
             model: 'm1',
-            lastMessageAt: '2026-03-19T00:00:00.000Z',
-            archived: false,
-          },
-        ],
-        nextCursor: null,
-      },
-      turns: {
-        items: Array.from({ length: 6 }, (_, index) => ({
-          turnId: `turn-${index + 1}`,
-          conversationId: 'c-scroll',
-          role: index % 2 === 0 ? 'assistant' : 'user',
-          content: `Message ${index + 1}`,
-          provider: 'lmstudio',
-          model: 'm1',
-          status: 'ok',
-          createdAt: `2026-03-19T00:0${index}:00.000Z`,
-        })),
-      },
-    });
+            status: 'ok',
+            createdAt: `2026-03-19T00:0${index}:00.000Z`,
+          })),
+        },
+      });
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const conversationRow = await screen.findByTestId('conversation-row');
-    fireEvent.click(conversationRow);
-    const transcript = await screen.findByTestId('chat-transcript');
-    await waitFor(() =>
-      expect(screen.getAllByTestId('chat-bubble')).toHaveLength(6),
-    );
+      await waitFor(() =>
+        expect(screen.getByTestId('chat-send')).toBeEnabled(),
+      );
+      const conversationRow = await screen.findByTestId('conversation-row');
+      fireEvent.click(conversationRow);
+      const transcript = await screen.findByTestId('chat-transcript');
 
-    measurementHarness.setContainerMetrics(transcript, {
-      width: 640,
-      height: 320,
-      clientHeight: 320,
-      scrollHeight: 1200,
-      scrollTop: 880,
-    });
+      measurementHarness.setContainerMetrics(transcript, {
+        width: 640,
+        height: 320,
+        clientHeight: 320,
+        scrollHeight: 1200,
+        scrollTop: 880,
+      });
+      measurementHarness.triggerResize(transcript);
+      await waitFor(() =>
+        expect(screen.getAllByTestId('chat-bubble')).toHaveLength(6),
+      );
 
-    transcript.scrollTop = 420;
-    fireEvent.wheel(transcript, { deltaY: -320 });
-    fireEvent.scroll(transcript);
-    await waitFor(() => expect(transcript.scrollTop).toBe(420));
+      transcript.scrollTop = 420;
+      fireEvent.wheel(transcript, { deltaY: -320 });
+      fireEvent.scroll(transcript);
+      await waitFor(() => expect(transcript.scrollTop).toBe(420));
 
-    measurementHarness.setScrollMetrics(transcript, {
-      scrollHeight: 1320,
-      scrollTop: 420,
-    });
-    measurementHarness.triggerResize(transcript);
-    expect(transcript.scrollTop).toBe(420);
+      measurementHarness.setScrollMetrics(transcript, {
+        scrollHeight: 1320,
+        scrollTop: 420,
+      });
+      measurementHarness.triggerResize(transcript);
+      expect(transcript.scrollTop).toBe(420);
 
-    transcript.scrollTop = 960;
-    fireEvent.scroll(transcript);
+      transcript.scrollTop = 960;
+      fireEvent.scroll(transcript);
 
-    measurementHarness.setScrollMetrics(transcript, {
-      scrollHeight: 1400,
-      scrollTop: 960,
-    });
-    measurementHarness.triggerResize(transcript);
-    expect(transcript.scrollTop).toBe(1080);
-
-    measurementHarness.restore();
+      measurementHarness.setScrollMetrics(transcript, {
+        scrollHeight: 1400,
+        scrollTop: 960,
+      });
+      measurementHarness.triggerResize(transcript);
+      expect(transcript.scrollTop).toBe(1080);
+    } finally {
+      measurementHarness.restore();
+    }
   });
 });

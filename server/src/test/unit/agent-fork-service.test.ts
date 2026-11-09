@@ -1520,7 +1520,14 @@ test('an expired owner cannot advance to native creation and a safe retry create
           'native_creating'
       ) {
         expire = false;
-        [...h.operations.values()][0].leaseUntil = new Date(Date.now() - 1);
+        const cutoff = (
+          args[0] as unknown as { leaseUntil?: { $gt?: unknown } }
+        ).leaseUntil?.$gt;
+        assert.ok(cutoff instanceof Date);
+        // Expire before the captured CAS cutoff regardless of interceptor delay.
+        [...h.operations.values()][0].leaseUntil = new Date(
+          cutoff.getTime() - 1,
+        );
       }
       return update(...args);
     },

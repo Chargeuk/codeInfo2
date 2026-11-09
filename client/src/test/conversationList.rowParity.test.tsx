@@ -93,7 +93,10 @@ describe('Conversation row parity', () => {
       'MCP',
     );
     expect(firstRow.getByTestId('conversation-updated')).toHaveTextContent(
-      '2 hours ago',
+      new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date('2026-03-23T10:15:00.000Z')),
     );
     expect(window.getComputedStyle(rows[0]).backgroundColor).toBe(
       'rgb(231, 237, 245)',
@@ -293,10 +296,10 @@ describe('Conversation row parity', () => {
   });
 
   it('formats recent timestamps relatively and older timestamps with exact local date and time', () => {
-    const recent = formatConversationRowTimestamp('2026-03-23T10:15:00.000Z');
+    const recent = formatConversationRowTimestamp('2026-03-23T10:45:00.000Z');
     const older = formatConversationRowTimestamp('2026-03-21T08:00:00.000Z');
 
-    expect(recent).toBe('2 hours ago');
+    expect(recent).toBe('1 hour ago');
     expect(older).toBe(
       new Intl.DateTimeFormat(undefined, {
         dateStyle: 'medium',
@@ -305,45 +308,62 @@ describe('Conversation row parity', () => {
     );
   });
 
-  it('refreshes visible relative timestamps on the shared interval', async () => {
-    render(
-      <ConversationList
-        conversations={[
-          {
-            conversationId: 'row-refresh',
-            title: 'Fresh timestamp',
-            provider: 'codex',
-            model: 'gpt-4.1',
-            source: 'REST',
-            lastMessageAt: '2026-03-23T11:59:01.000Z',
-            archived: false,
-          },
-        ]}
-        selectedId="row-refresh"
-        isLoading={false}
-        isError={false}
-        hasMore={false}
-        filterState={{ active: true, archived: false }}
-        onSelect={() => {}}
-        onFilterChange={() => {}}
-        onArchive={() => {}}
-        onRestore={() => {}}
-        onLoadMore={() => {}}
-        onRefresh={() => {}}
-        onRetry={() => {}}
-      />,
-    );
+  it.each([
+    {
+      lastMessageAt: '2026-03-23T11:59:01.000Z',
+      beforeTick: 'just now',
+      afterTick: '1 minute ago',
+    },
+    {
+      lastMessageAt: '2026-03-23T10:30:01.000Z',
+      beforeTick: '1 hour ago',
+      afterTick: new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date('2026-03-23T10:30:01.000Z')),
+    },
+  ])(
+    'refreshes $beforeTick on the shared interval',
+    async ({ lastMessageAt, beforeTick, afterTick }) => {
+      render(
+        <ConversationList
+          conversations={[
+            {
+              conversationId: 'row-refresh',
+              title: 'Fresh timestamp',
+              provider: 'codex',
+              model: 'gpt-4.1',
+              source: 'REST',
+              lastMessageAt,
+              archived: false,
+            },
+          ]}
+          selectedId="row-refresh"
+          isLoading={false}
+          isError={false}
+          hasMore={false}
+          filterState={{ active: true, archived: false }}
+          onSelect={() => {}}
+          onFilterChange={() => {}}
+          onArchive={() => {}}
+          onRestore={() => {}}
+          onLoadMore={() => {}}
+          onRefresh={() => {}}
+          onRetry={() => {}}
+        />,
+      );
 
-    expect(screen.getByTestId('conversation-updated')).toHaveTextContent(
-      'just now',
-    );
+      expect(screen.getByTestId('conversation-updated')).toHaveTextContent(
+        beforeTick,
+      );
 
-    await act(async () => {
-      jest.advanceTimersByTime(30_000);
-    });
+      await act(async () => {
+        jest.advanceTimersByTime(30_000);
+      });
 
-    expect(screen.getByTestId('conversation-updated')).toHaveTextContent(
-      '1 minute ago',
-    );
-  });
+      expect(screen.getByTestId('conversation-updated')).toHaveTextContent(
+        afterTick,
+      );
+    },
+  );
 });

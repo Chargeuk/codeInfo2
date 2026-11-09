@@ -115,8 +115,8 @@ function makeFlowConversation(overrides?: {
     source: 'REST',
     lastMessageAt: '2026-05-21T13:29:00.000Z',
     archived: false,
+    flowName: overrides?.flowName ?? 'daily',
     flags: {
-      flowName: overrides?.flowName ?? 'daily',
       flow: overrides?.stepPath ? { stepPath: overrides.stepPath } : {},
     },
   };
@@ -251,6 +251,9 @@ describe('Flows page composer parity', () => {
     const titleButton = await screen.findByTestId('flow-title-trigger');
     await waitFor(() =>
       expect(titleButton).toHaveTextContent('Resume nightly sync'),
+    );
+    expect(router.state.location.search).toBe(
+      '?conversationId=flow-conversation-1',
     );
     expect(titleButton).toBeEnabled();
     expect(titleButton).toHaveAccessibleName('Copy flow title');

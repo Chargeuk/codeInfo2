@@ -34,7 +34,7 @@ const routes = [
 const formatTimestamp = (value: string) =>
   new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
-    timeStyle: 'short',
+    timeStyle: 'medium',
   }).format(new Date(value));
 
 const findBubbleByRole = async (role: string, kind: string = 'normal') => {

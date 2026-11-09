@@ -275,6 +275,8 @@ async function getPersistedCompletedReplayResult(params: {
         model: string;
         status: 'ok' | 'warning' | 'stopped' | 'failed';
         createdAt: Date;
+        firstUpdateAt?: Date;
+        lastUpdateAt?: Date;
       }
     | undefined;
   for (const turn of turns) {
@@ -292,6 +294,8 @@ async function getPersistedCompletedReplayResult(params: {
         model: turn.model,
         status: turn.status,
         createdAt: turn.createdAt,
+        firstUpdateAt: turn.firstUpdateAt,
+        lastUpdateAt: turn.lastUpdateAt,
       };
     }
   }
@@ -310,6 +314,8 @@ async function getPersistedCompletedReplayResult(params: {
         startedAt: matchedAssistant.createdAt.toISOString(),
         finalStatus: matchedAssistant.status,
         completedAt: matchedAssistant.createdAt.toISOString(),
+        firstUpdateAt: matchedAssistant.firstUpdateAt?.toISOString(),
+        lastUpdateAt: matchedAssistant.lastUpdateAt?.toISOString(),
       },
     });
   }

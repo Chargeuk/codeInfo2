@@ -194,6 +194,7 @@ describe('Agents page - agent change', () => {
   it('resets to new conversation state on agent change (without aborting server runs)', async () => {
     const runBodies: Record<string, unknown>[] = [];
     let a1ConversationId: string | null = null;
+    let a1InflightId: string | null = null;
 
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
@@ -308,6 +309,8 @@ describe('Agents page - agent change', () => {
               typeof parsed.conversationId === 'string'
                 ? parsed.conversationId
                 : 'c1';
+            a1InflightId =
+              typeof parsed.inflightId === 'string' ? parsed.inflightId : null;
           }
           return Promise.resolve({
             ok: true,
@@ -316,7 +319,7 @@ describe('Agents page - agent change', () => {
               status: 'started',
               agentName: 'a1',
               conversationId: a1ConversationId ?? 'c1',
-              inflightId: 'i1',
+              inflightId: a1InflightId,
               modelId: 'gpt-6-luna',
             }),
           } as Response);
@@ -374,12 +377,20 @@ describe('Agents page - agent change', () => {
     });
 
     await waitFor(() => expect(a1ConversationId).toBeTruthy());
+    const sentRuns = mockFetch.mock.calls.filter(
+      ([url, init]) =>
+        String(url).includes('/agents/a1/run') && init?.method === 'POST',
+    );
+    expect(sentRuns).toHaveLength(1);
+    const sentRun = decodeJsonBody(sentRuns[0][1]);
+    expect(sentRun.inflightId).toEqual(expect.any(String));
+    expect(sentRun.inflightId).toBe(a1InflightId);
     emitWsEvent({
       protocolVersion: 'v1',
       type: 'user_turn',
-      conversationId: a1ConversationId,
+      conversationId: sentRun.conversationId,
       seq: 1,
-      inflightId: 'i1',
+      inflightId: sentRun.inflightId,
       content: 'Do work',
       createdAt: '2025-01-01T00:00:00.000Z',
     });
@@ -387,7 +398,11 @@ describe('Agents page - agent change', () => {
     const stop = await screen.findByTestId('agent-stop');
     await waitFor(() => expect(stop).toBeEnabled());
     expect(stop).toHaveAttribute('aria-label', 'Stop');
-    expect(screen.getByText('Do work')).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('chat-transcript')).getByTestId(
+        'agents-user-markdown',
+      ),
+    ).toHaveTextContent('Do work');
 
     const agentSelect = await screen.findByTestId('agent-select-trigger');
     await userEvent.click(agentSelect);
@@ -397,9 +412,17 @@ describe('Agents page - agent change', () => {
       await userEvent.click(option);
     });
 
-    await waitFor(() => expect(screen.queryByText('Do work')).toBeNull());
     await waitFor(() =>
-      expect(screen.getByTestId('agent-working-folder')).toHaveValue(''),
+      expect(
+        within(screen.getByTestId('chat-transcript')).queryByTestId(
+          'agents-user-markdown',
+        ),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('agent-working-folder')).toHaveValue(
+        '/abs/path',
+      ),
     );
 
     const inputAfter = await screen.findByTestId('agent-input');

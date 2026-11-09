@@ -857,6 +857,7 @@ describe('Chat page resumed execution identity', () => {
                     title: 'Historic Codex conversation',
                     provider: 'codex',
                     model: 'gpt-6-luna',
+                    flags: { endpointId: 'https://alpha.example/base/v1' },
                     lastMessageAt: '2025-01-01T00:00:03.000Z',
                     archived: false,
                   },
@@ -971,11 +972,14 @@ describe('Chat page resumed execution identity', () => {
                   ? (decodeJsonBody(opts) as Record<string, unknown>)
                   : {};
               chatBodies.push(body);
-              return mockJsonResponse({
-                status: 'started',
-                conversationId: 'c1',
-                inflightId: 'i1',
-              });
+              return mockJsonResponse(
+                {
+                  status: 'started',
+                  conversationId: body.conversationId,
+                  inflightId: body.inflightId,
+                },
+                { status: 202 },
+              );
             }
 
             return mockJsonResponse({});
@@ -990,6 +994,14 @@ describe('Chat page resumed execution identity', () => {
         expect(screen.getByTestId('provider-select')).toHaveTextContent(
           /OpenAI Codex/i,
         ),
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId('model-select')).toHaveTextContent(
+          /gpt-6\.1-sol \(alpha\.example \/ alt\)/i,
+        ),
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId('chat-send')).toBeEnabled(),
       );
 
       await act(async () => {
@@ -1020,7 +1032,7 @@ describe('Chat page resumed execution identity', () => {
       );
       await waitFor(() =>
         expect(screen.getByTestId('model-select')).toHaveTextContent(
-          /gpt-6-luna \(alpha\.example \/ alt\)/i,
+          /gpt-6-luna \(alpha\.example \/ base\)/i,
         ),
       );
       expect(
@@ -1070,6 +1082,7 @@ describe('Chat page resumed execution identity', () => {
       expect(chatBodies[0]).toMatchObject({
         provider: 'codex',
         model: 'gpt-6.1-sol',
+        endpointId: 'https://alpha.example/alt/v1',
       });
       expect(chatBodies[0]).not.toMatchObject({
         conversationId: 'c1',

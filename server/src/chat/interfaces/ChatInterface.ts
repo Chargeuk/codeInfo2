@@ -19,7 +19,13 @@ import type {
   TurnNativeMetadata,
 } from '../../mongo/turn.js';
 import { ForkInstructionOutcomeUnknownError } from '../forkHandover.js';
-import { cleanupInflight, markInflightPersisted } from '../inflightRegistry.js';
+import {
+  cleanupInflight,
+  getInflight,
+  inflightUpdateDates,
+  markInflightPersisted,
+  recordInflightUpdate,
+} from '../inflightRegistry.js';
 import {
   recordMemoryTurn,
   shouldUseMemoryPersistence,
@@ -220,6 +226,11 @@ export interface ChatCompleteEvent {
   native?: TurnNativeMetadata;
 }
 
+export interface ChatPersistedEvent {
+  type: 'persisted';
+  turnId: string;
+}
+
 export interface ChatErrorEvent {
   type: 'error';
   message: string;
@@ -241,6 +252,7 @@ export type ChatEvent =
   | ChatToolResultEvent
   | ChatFinalEvent
   | ChatCompleteEvent
+  | ChatPersistedEvent
   | ChatErrorEvent
   | ChatAnalysisEvent
   | ChatThreadEvent;
@@ -333,6 +345,14 @@ export abstract class ChatInterface extends EventEmitter {
     const externalSignal = (flags as { signal?: AbortSignal })?.signal;
     let executionError: unknown;
     let lastErrorMessage: string | undefined;
+    let firstUpdateAt: Date | undefined;
+    let lastUpdateAt: Date | undefined;
+    let terminalReceived = false;
+    const receiveUpdate = () => {
+      const receivedAt = new Date();
+      firstUpdateAt ??= receivedAt;
+      lastUpdateAt = receivedAt;
+    };
 
     const deriveStatusFromError = (msg: string | undefined) => {
       if (status !== 'ok') return;
@@ -346,18 +366,25 @@ export abstract class ChatInterface extends EventEmitter {
     };
 
     const onToken: Listener<'token'> = (event) => {
+      if (event.content) receiveUpdate();
       tokenBuffer.push(event.content);
     };
 
     const onFinal: Listener<'final'> = (event) => {
+      if (event.content !== (finalContent || tokenBuffer.join(''))) {
+        receiveUpdate();
+      }
       finalContent = event.content;
     };
 
     const onToolResult: Listener<'tool-result'> = (event) => {
+      receiveUpdate();
       toolResults.set(event.callId, event);
     };
 
     const onError: Listener<'error'> = (event) => {
+      receiveUpdate();
+      if (!isTransientReconnect(event.message)) terminalReceived = true;
       if (isTransientReconnect(event.message)) {
         return;
       }
@@ -366,6 +393,8 @@ export abstract class ChatInterface extends EventEmitter {
     };
 
     const onComplete: Listener<'complete'> = (event) => {
+      receiveUpdate();
+      terminalReceived = true;
       sawComplete = true;
       latestNative = event.native;
       if (event.usage) {
@@ -384,6 +413,10 @@ export abstract class ChatInterface extends EventEmitter {
 
     const disposers = [
       add('token', onToken),
+      add('analysis', (event) => {
+        if (event.content) receiveUpdate();
+      }),
+      add('tool-request', () => receiveUpdate()),
       add('final', onFinal),
       add('tool-result', onToolResult),
       add('error', onError),
@@ -493,6 +526,23 @@ export abstract class ChatInterface extends EventEmitter {
         });
       }
 
+      if (!terminalReceived) receiveUpdate();
+      const activeInflight = inflightId
+        ? getInflight(conversationId)
+        : undefined;
+      const matchesInflight =
+        activeInflight?.inflightId === inflightId && !!inflightId;
+      if (matchesInflight && !activeInflight?.terminalReceivedAt) {
+        recordInflightUpdate({
+          conversationId,
+          inflightId: inflightId!,
+          terminal: true,
+        });
+      }
+      const updateDates = matchesInflight
+        ? inflightUpdateDates({ conversationId, inflightId: inflightId! })
+        : { firstUpdateAt, lastUpdateAt };
+
       let persistedAssistantTurnId: string | undefined;
       try {
         persistedAssistantTurnId = await this.persistAssistantTurn({
@@ -509,6 +559,7 @@ export abstract class ChatInterface extends EventEmitter {
           status,
           toolCalls,
           skipPersistence,
+          ...updateDates,
         });
       } catch (persistenceError) {
         if (!(executionError instanceof ForkInstructionOutcomeUnknownError))
@@ -543,6 +594,12 @@ export abstract class ChatInterface extends EventEmitter {
           role: 'assistant',
           turnId: persistedAssistantTurnId,
         });
+        if (persistedAssistantTurnId && !skipPersistence) {
+          this.emitEvent({
+            type: 'persisted',
+            turnId: persistedAssistantTurnId,
+          });
+        }
       }
 
       if (
@@ -617,6 +674,8 @@ export abstract class ChatInterface extends EventEmitter {
     status: TurnStatus;
     toolCalls: ChatToolResultEvent[];
     skipPersistence: boolean;
+    firstUpdateAt?: Date;
+    lastUpdateAt?: Date;
   }): Promise<string | undefined> {
     const {
       conversationId,
@@ -651,6 +710,8 @@ export abstract class ChatInterface extends EventEmitter {
       toolCalls: toolCalls.length > 0 ? { calls: toolCalls } : null,
       status,
       createdAt: new Date(),
+      firstUpdateAt: params.firstUpdateAt,
+      lastUpdateAt: params.lastUpdateAt,
     };
 
     if (shouldUseMemoryPersistence()) {

@@ -4,6 +4,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import {
+  resolveForkBoundary,
+  selectForkSnapshot,
+} from '../../agents/forkHistory.js';
+import {
   getActiveRunOwnership,
   releaseConversationLock,
 } from '../../agents/runLock.js';
@@ -156,6 +160,35 @@ for (const outcome of [
           },
         };
         memoryConversations.set(conversationId, conversation);
+        if (['complete', 'error', 'cancel'].includes(outcome)) {
+          memoryTurns.set(conversationId, [
+            {
+              conversationId,
+              role: 'user',
+              content: 'Copied source prompt',
+              model: conversation.model,
+              provider: 'codex',
+              source: 'REST',
+              status: 'ok',
+              toolCalls: null,
+              fork: { sourceTurnId: 'source-user' },
+              createdAt: new Date(now.getTime() - 2),
+            },
+            {
+              conversationId,
+              role: 'assistant',
+              content: 'Copied source response',
+              model: conversation.model,
+              provider: 'codex',
+              source: 'REST',
+              status: 'ok',
+              toolCalls: null,
+              fork: { sourceTurnId: 'source-assistant' },
+              native: { sessionId: 'native-child', turnId: 'source-turn' },
+              createdAt: new Date(now.getTime() - 1),
+            },
+          ]);
+        }
         await runWithTestOverrides(
           {
             codexDetection: {
@@ -238,7 +271,9 @@ for (const outcome of [
               inflightId: `fork-${conversationId}`,
               instruction: handover,
               source: 'REST',
-              ...(outcome === 'default-create' ? {} : { mustExist: true }),
+              ...(outcome === 'default-create'
+                ? {}
+                : { mustExist: true, userTurnFork: { handover: true } }),
               chatFactory: () => new GatedChat(),
               releaseConversationLockFn: (...args) => {
                 const result = releaseConversationLock(...args);
@@ -309,6 +344,11 @@ for (const outcome of [
                 memoryTurns.get(conversationId)?.map((turn) => turn.status),
                 ['ok', 'ok'],
               );
+              assert.ok(
+                memoryTurns
+                  .get(conversationId)
+                  ?.every((turn) => turn.fork === undefined),
+              );
               assert.equal(getActiveRunOwnership(conversationId), null);
               assert.equal(getInflight(conversationId), undefined);
               return;
@@ -323,6 +363,7 @@ for (const outcome of [
             assert.deepEqual(
               memoryTurns
                 .get(conversationId)
+                ?.slice(2)
                 ?.map((turn) => [turn.role, turn.content]),
               [['user', handover]],
             );
@@ -364,20 +405,48 @@ for (const outcome of [
               'native-child',
             );
             const turns = memoryTurns.get(conversationId)!;
-            assert.equal(turns.length, 2);
+            assert.equal(turns.length, 4);
+            assert.deepEqual(turns[2].fork, { handover: true });
+            assert.equal(turns[3].fork, undefined);
             assert.equal(
-              turns[1].status,
+              turns[3].status,
               outcome === 'complete'
                 ? 'ok'
                 : outcome === 'cancel'
                   ? 'stopped'
                   : 'failed',
             );
+            const history = turns.map((turn, index) => ({
+              ...turn,
+              turnId: `stored-${index}`,
+            }));
+            const latest = selectForkSnapshot(history);
+            assert.equal(
+              latest.filter((turn) => turn.fork?.handover).length,
+              1,
+            );
+            assert.equal(
+              latest.find((turn) => turn.fork?.handover)?.content,
+              handover,
+            );
+            assert.equal(latest.length, outcome === 'complete' ? 4 : 3);
+            assert.deepEqual(
+              selectForkSnapshot(history, 'stored-1').map(
+                (turn) => turn.content,
+              ),
+              ['Copied source prompt', 'Copied source response'],
+            );
             if (outcome === 'complete')
-              assert.deepEqual(turns[1].native, {
+              assert.deepEqual(turns[3].native, {
                 sessionId: 'native-child',
                 turnId: 'handover-turn',
               });
+            const boundary = resolveForkBoundary(latest, [], 'native-child');
+            assert.equal(
+              boundary.turn.id,
+              outcome === 'complete' ? 'handover-turn' : 'source-turn',
+            );
+            assert.equal(boundary.estimated, false);
             await runAgentInstruction({
               agentName: 'target',
               conversationId,
@@ -401,6 +470,19 @@ for (const outcome of [
                 .get(conversationId)
                 ?.filter((turn) => turn.content === handover).length,
               1,
+            );
+            const continued = memoryTurns.get(conversationId)!;
+            assert.equal(continued.length, 6);
+            assert.equal(continued[4].fork, undefined);
+            assert.equal(continued[5].fork, undefined);
+            assert.equal(
+              continued.filter((turn) => turn.fork?.handover).length,
+              1,
+            );
+            assert.ok(
+              continued
+                .filter((turn) => turn.role === 'assistant')
+                .every((turn) => turn.fork?.handover === undefined),
             );
           },
         );

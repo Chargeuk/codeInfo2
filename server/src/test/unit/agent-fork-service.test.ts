@@ -453,6 +453,7 @@ function harness(
         status: 'ok',
         source: 'REST',
         toolCalls: null,
+        fork: params.userTurnFork,
       });
       return {
         conversationId: params.conversationId!,
@@ -1142,9 +1143,13 @@ test('latest fork-of-fork keeps previous handover context and adds exactly one n
     h.instructions[0].instruction,
     /Inherited handover context:\nPrevious target prompt/u,
   );
+  const handovers = [...h.copied.values()].filter(
+    (row) => (row.fork as { handover?: boolean })?.handover,
+  );
+  assert.equal(handovers.length, 2);
   assert.equal(
-    [...h.copied.values()].filter(
-      (row) => (row.fork as { handover?: boolean })?.handover,
+    handovers.filter(
+      (row) => !(row.fork as { sourceTurnId?: string })?.sourceTurnId,
     ).length,
     1,
   );
@@ -1860,6 +1865,7 @@ test('new Codex fork automatically starts exactly one normal child handover afte
   assert.equal(sent.working_folder, '/shared/folder');
   assert.equal(sent.source, 'REST');
   assert.equal(sent.mustExist, true);
+  assert.deepEqual(sent.userTurnFork, { handover: true });
   assert.equal('signal' in sent, false);
   assert.match(sent.instruction, /Complete target prompt/u);
   assert.match(

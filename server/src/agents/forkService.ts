@@ -206,6 +206,7 @@ async function finishPublishedFork(
         agentName: conversation.agentName!,
         conversationId: conversation._id,
         mustExist: true,
+        userTurnFork: { handover: true },
         inflightId: `fork-${operation._id}`,
         instruction: conversation.fork!.handover,
         working_folder: conversation.flags.workingFolder,

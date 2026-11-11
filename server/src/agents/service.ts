@@ -2205,6 +2205,7 @@ async function emitFailedAgentCommandStep(params: {
 export async function startAgentInstruction(
   params: Omit<RunAgentInstructionParams, 'signal'> & {
     mustExist?: boolean;
+    userTurnFork?: Turn['fork'];
     cleanupInflightFn?: InstructionRuntimeCleanupFn;
     releaseConversationLockFn?: InstructionReleaseLockFn;
   },
@@ -3153,6 +3154,7 @@ export type RunAgentInstructionUnlockedParams = {
   working_folder?: string;
   conversationId: string;
   mustExist?: boolean;
+  userTurnFork?: Turn['fork'];
   startPathWasNewConversation?: boolean;
   command?: TurnCommandMetadata;
   runtime?: TurnRuntimeMetadata;
@@ -3485,6 +3487,7 @@ async function runAgentInstructionUnlockedWithDeps(
           envOverrides,
           disableSystemContext: true,
           systemPrompt,
+          userTurnFork: params.userTurnFork,
           ...(managesInstructionLifecycle
             ? { deferInflightCleanup: true }
             : {}),

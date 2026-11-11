@@ -581,6 +581,78 @@ test('DEV-0000042 web first message delivers the agent system prompt to the Code
   });
 });
 
+test('REST Agent run persists the client inflightId on user and completed assistant turns', async () => {
+  await withAgentPromptFixture(false, async (fixture) => {
+    const inflightId = randomUUID();
+    let markFinished!: () => void;
+    const finished = new Promise<void>((resolve) => {
+      markFinished = resolve;
+    });
+    let backgroundStarted = false;
+    const app = express();
+    app.use(
+      createAgentsRunRouter({
+        startAgentInstruction: bindCurrentTestOverrides(async (params) => {
+          const result = await startAgentInstruction({
+            ...params,
+            chatFactory: () => new MinimalChat(),
+            releaseConversationLockFn: (conversationId, runToken) => {
+              const released = releaseConversationLock(
+                conversationId,
+                runToken,
+              );
+              markFinished();
+              return released;
+            },
+          });
+          backgroundStarted = true;
+          return result;
+        }),
+      }),
+    );
+    try {
+      const response = await supertest(app)
+        .post(`/agents/${fixture.agentName}/run`)
+        .send({
+          instruction: 'Correlate this accepted instruction',
+          conversationId: fixture.conversationId,
+          inflightId,
+        });
+      assert.equal(response.status, 202);
+      assert.equal(response.body.inflightId, inflightId);
+      await finished;
+
+      const turns = memoryTurns.get(fixture.conversationId) ?? [];
+      assert.deepEqual(
+        turns.map((turn) => turn.role),
+        ['user', 'assistant'],
+      );
+      assert.equal(turns[0].content, 'Correlate this accepted instruction');
+      assert.deepEqual(turns[0].runtime?.replay, {
+        replayId: inflightId,
+        inflightId,
+        completed: false,
+      });
+      assert.equal(turns[1].status, 'ok');
+      assert.deepEqual(turns[1].runtime?.replay, {
+        replayId: inflightId,
+        inflightId,
+        completed: true,
+      });
+      assert.equal(
+        typeof turns[0].runtime?.lookupSummary?.selectedRepositoryPath,
+        'string',
+      );
+      assert.deepEqual(
+        turns[1].runtime?.lookupSummary,
+        turns[0].runtime?.lookupSummary,
+      );
+    } finally {
+      if (backgroundStarted) await finished;
+    }
+  });
+});
+
 for (const surface of ['direct', 'MCP'] as const) {
   test(`DEV-0000042 fresh ${surface} message receives the agent system prompt`, async () => {
     await withAgentPromptFixture(true, async (fixture) => {

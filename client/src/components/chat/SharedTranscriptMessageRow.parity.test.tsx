@@ -60,6 +60,8 @@ describe('SharedTranscriptMessageRow parity', () => {
   });
 
   it('delegates user rows to the user bubble component', () => {
+    const renderMetadataContent = () => <span>Actual user metadata</span>;
+    const renderHeaderContent = () => <span>Existing assistant control</span>;
     render(
       <SharedTranscriptMessageRow
         message={{
@@ -78,12 +80,20 @@ describe('SharedTranscriptMessageRow parity', () => {
         onToggleThink={() => {}}
         onToggleTool={() => {}}
         onToggleToolError={() => {}}
+        renderMetadataContent={renderMetadataContent}
+        renderHeaderContent={renderHeaderContent}
         log={() => undefined}
       />,
     );
 
     expect(screen.getByTestId('user-stub')).toHaveTextContent('user-1');
     expect(userMock).toHaveBeenCalledTimes(1);
+    expect(userMock.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        renderMetadataContent,
+        renderHeaderContent: undefined,
+      }),
+    );
     expect(assistantMock).not.toHaveBeenCalled();
   });
 });

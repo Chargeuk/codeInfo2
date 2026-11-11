@@ -71,6 +71,7 @@ Re-read this file at the start of each session. Assume it may have changed since
 ## Research And Documentation Order
 
 - For questions about this local repository, use the `code_info` MCP tool first.
+- When `code_info.codebase_question` is available and permitted, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
 - After `code_info`, inspect the local code directly with repository search and file reads as needed.
 - For Material UI questions, use the MUI MCP tool first.
 - For non-MUI libraries, SDKs, or API documentation, use the Context7 MCP tool first.

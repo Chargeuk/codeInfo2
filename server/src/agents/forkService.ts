@@ -8,7 +8,7 @@ import {
   ForkSnapshotModel,
   type ForkOperation,
 } from '../mongo/forkOperation.js';
-import { listAllTurns, type TurnSummary } from '../mongo/repo.js';
+import { listForkTurns, type TurnSummary } from '../mongo/repo.js';
 import { TurnModel, type Turn } from '../mongo/turn.js';
 import {
   ForkError,
@@ -83,8 +83,7 @@ const loadSource = async (id: string): Promise<Conversation> => {
 
 export type ForkOptionsDeps = {
   loadSource: typeof loadSource;
-  listTurns: typeof listAllTurns;
-  openNative: typeof openForkNative;
+  listTurns: typeof listForkTurns;
   prepareOptions: typeof createAgentForkOptionsPreparation;
 };
 
@@ -93,20 +92,19 @@ export async function getForkOptions(
   sourceTurnId?: string,
   deps: ForkOptionsDeps = {
     loadSource,
-    listTurns: listAllTurns,
-    openNative: openForkNative,
+    listTurns: listForkTurns,
     prepareOptions: createAgentForkOptionsPreparation,
   },
 ) {
   const source = await deps.loadSource(sourceId);
   const snapshot = selectForkSnapshot(
-    (await deps.listTurns(sourceId)).items.reverse(),
+    (await deps.listTurns(sourceId, sourceTurnId, true)).items.reverse(),
     sourceTurnId,
   );
-  const preparation = await deps.prepareOptions(source.flags.workingFolder);
+  const preparation = await deps.prepareOptions();
   const sourceProvider =
     source.provider ??
-    (await preparation.prepareTarget(source.agentName!)).executionProviderId;
+    last(snapshot, (turn) => turn.role === 'assistant')!.provider;
   if (!['codex', 'copilot'].includes(sourceProvider))
     throw new ForkError(
       'FORK_UNSUPPORTED',
@@ -120,16 +118,14 @@ export async function getForkOptions(
       'FORK_NATIVE_UNAVAILABLE',
       'The source has no native provider session.',
     );
-  const native = await deps.openNative(
-    sourceProvider as 'codex' | 'copilot',
-    sessionId,
-  );
-  let estimated: boolean;
-  try {
-    estimated = resolveForkBoundary(snapshot, native.turns).estimated;
-  } finally {
-    await native.close();
-  }
+  // Native availability is checked by POST. Options only describe the stored
+  // completed bubble; legacy matching remains estimated until creation.
+  const selected = last(snapshot, (turn) => turn.role === 'assistant')!;
+  const estimated =
+    selected.native?.estimated === true ||
+    !(sourceProvider === 'codex'
+      ? selected.native?.turnId && selected.native.sessionId === sessionId
+      : selected.native?.eventId || selected.native?.turnId);
   const compatible = [];
   for (const agent of preparation.agents) {
     try {
@@ -310,14 +306,14 @@ export type ForkServiceDeps = {
   loadSource: typeof loadSource;
   prepareTarget: typeof prepareAgentForkTarget;
   openNative: typeof openForkNative;
-  listTurns: typeof listAllTurns;
+  listTurns: typeof listForkTurns;
   removeOwnedNative?: typeof removeOwnedNativeFork;
 };
 const defaultDeps: ForkServiceDeps = {
   loadSource,
   prepareTarget: prepareAgentForkTarget,
   openNative: openForkNative,
-  listTurns: listAllTurns,
+  listTurns: listForkTurns,
 };
 const activeRequests = new Map<
   string,
@@ -436,13 +432,25 @@ export async function executeFork(
     }
     throw error;
   }
+  let snapshot =
+    operation && operation.phase !== 'snapshotting'
+      ? await readForkSnapshot(operation)
+      : selectForkSnapshot(
+          (
+            await deps.listTurns(
+              source._id,
+              operation?.snapshotLastTurnId ?? input.sourceTurnId,
+            )
+          ).items.reverse(),
+          operation?.snapshotLastTurnId ?? input.sourceTurnId,
+        );
   const sourceProvider =
     source.provider ??
-    (await deps.prepareTarget(source.agentName!, source.flags.workingFolder))
-      .executionProviderId;
+    last(snapshot, (turn) => turn.role === 'assistant')!.provider;
   const target = await deps.prepareTarget(
     input.targetAgentName,
     operation?.conversation.flags.workingFolder ?? source.flags.workingFolder,
+    sourceProvider,
   );
   assertForkCompatible({ ...source, provider: sourceProvider }, target);
   const nativeId =
@@ -461,20 +469,24 @@ export async function executeFork(
   let claimed = false;
   let lease: ReturnType<typeof maintainForkLease> | undefined;
   try {
-    // Freeze the visible DB point first. Native history may advance while it is
-    // read, but it must never be older than the selected recorded response.
-    let snapshot =
-      operation && operation.phase !== 'snapshotting'
-        ? await readForkSnapshot(operation)
-        : selectForkSnapshot(
-            (await deps.listTurns(source._id)).items.reverse(),
-            operation?.snapshotLastTurnId ?? input.sourceTurnId,
-          );
+    const selected = last(snapshot, (turn) => turn.role === 'assistant')!;
+    const exactCodex =
+      sourceProvider === 'codex' &&
+      selected.native?.sessionId === nativeId &&
+      !!selected.native.turnId;
     native = await deps.openNative(
       sourceProvider as 'codex' | 'copilot',
       nativeId,
+      !exactCodex &&
+        !(sourceProvider === 'codex' && operation?.nativeSessionId),
     );
-    let boundary = resolveForkBoundary(snapshot, native.turns);
+    let boundary = operation?.nativeSessionId
+      ? undefined
+      : resolveForkBoundary(
+          snapshot,
+          native.turns,
+          sourceProvider === 'codex' ? nativeId : undefined,
+        );
 
     if (!operation) {
       const conversationId = crypto.randomUUID();
@@ -504,7 +516,7 @@ export async function executeFork(
           sourceAgentName: source.agentName!,
           targetAgentName: input.targetAgentName,
           nativeSessionId: '',
-          estimated: boundary.estimated,
+          estimated: boundary!.estimated,
           handover,
           handoverDelivered: false,
           pendingHandovers: [
@@ -592,7 +604,9 @@ export async function executeFork(
     if (operation.phase === 'snapshotting') {
       if (snapshot.at(-1)?.turnId !== operation.snapshotLastTurnId)
         snapshot = selectForkSnapshot(
-          (await deps.listTurns(source._id)).items.reverse(),
+          (
+            await deps.listTurns(source._id, operation.snapshotLastTurnId)
+          ).items.reverse(),
           operation.snapshotLastTurnId,
         );
       if (snapshot.length !== operation.snapshotCount)
@@ -638,11 +652,13 @@ export async function executeFork(
       snapshot = await readForkSnapshot(operation);
       await ownedLease.update({ phase: 'prepared' });
       operation.phase = 'prepared';
-    } else {
-      snapshot = await readForkSnapshot(operation);
     }
-    boundary = resolveForkBoundary(snapshot, native.turns);
     if (!operation.nativeSessionId) {
+      boundary = resolveForkBoundary(
+        snapshot,
+        native.turns,
+        sourceProvider === 'codex' ? nativeId : undefined,
+      );
       if (sourceProvider === 'copilot' && !boundary.turn.nextEventId) {
         // Only a whole-session native fork needs an idle source. The history
         // copy and retries never own or stop a source's later run.
@@ -679,6 +695,61 @@ export async function executeFork(
         nativeSessionId: child,
         phase: 'native_ready',
       });
+      // Cache only an unambiguous, complete legacy exchange after the provider
+      // accepted its boundary. Prompt-only/compaction estimates remain uncached.
+      if (sourceProvider === 'codex') {
+        const responseIndex = lastIndex(
+          snapshot,
+          (turn) => turn.role === 'assistant',
+        );
+        const response = snapshot[responseIndex];
+        const prompt = last(
+          snapshot.slice(0, responseIndex),
+          (turn) => turn.role === 'user' && !turn.fork?.handover,
+        );
+        const matches = native.turns.filter(
+          (turn) =>
+            turn.completed &&
+            turn.assistant.trim() === response.content.trim() &&
+            turn.user.trim() === prompt?.content.trim(),
+        );
+        if (
+          !response.native?.turnId &&
+          !response.native?.eventId &&
+          response.content.trim() &&
+          prompt?.content.trim() &&
+          matches.length === 1 &&
+          matches[0].id === boundary.turn.id
+        ) {
+          try {
+            await TurnModel.updateOne(
+              {
+                _id: response.turnId,
+                conversationId: source._id,
+                role: 'assistant',
+                content: response.content,
+                status: { $in: ['ok', 'warning'] },
+                'native.turnId': { $exists: false },
+                'native.eventId': { $exists: false },
+              },
+              {
+                $set: {
+                  native: {
+                    sessionId: nativeId,
+                    turnId: boundary.turn.id,
+                    estimated: true,
+                  },
+                },
+              },
+            );
+          } catch {
+            baseLogger.warn(
+              { operationId },
+              'Fork legacy identity cache update failed',
+            );
+          }
+        }
+      }
     }
     const childId = operation.nativeSessionId;
     const conversation = operation.conversation;
@@ -767,56 +838,58 @@ export async function executeFork(
         index,
       ]),
     );
-    const rows: Array<Turn & { _id: mongoose.Types.ObjectId }> = snapshot.map(
-      (turn, index) => ({
+    const rowAt = (index: number): Turn & { _id: mongoose.Types.ObjectId } => {
+      const turn = snapshot[index];
+      if (turn)
+        return {
+          _id: new mongoose.Types.ObjectId(
+            crypto
+              .createHash('sha256')
+              .update(`${operationId}:${index}`)
+              .digest('hex')
+              .slice(0, 24),
+          ),
+          ...copyForkTurn(
+            turn,
+            conversation._id,
+            childId,
+            displayOrders.get(turn.turnId)!,
+            index,
+          ),
+        };
+      return {
         _id: new mongoose.Types.ObjectId(
           crypto
             .createHash('sha256')
-            .update(`${operationId}:${index}`)
+            .update(`${operationId}:handover`)
             .digest('hex')
             .slice(0, 24),
         ),
-        ...copyForkTurn(
-          turn,
-          conversation._id,
-          childId,
-          displayOrders.get(turn.turnId)!,
-          index,
-        ),
-      }),
-    );
-    rows.push({
-      _id: new mongoose.Types.ObjectId(
-        crypto
-          .createHash('sha256')
-          .update(`${operationId}:handover`)
-          .digest('hex')
-          .slice(0, 24),
-      ),
-      conversationId: conversation._id,
-      role: 'user',
-      content: conversation.fork!.handover,
-      provider: sourceProvider,
-      model: conversation.model,
-      source: 'REST',
-      status: 'ok',
-      toolCalls: null,
-      createdAt: operation.handoverAt,
-      displayOrder: rows.length,
-      chronologicalOrder: rows.length,
-      runtime: undefined,
-      native: undefined,
-      fork: { handover: true },
-    });
-    for (
-      let offset = 0;
-      offset < rows.length;
-      offset += FORK_WRITE_BATCH_SIZE
-    ) {
+        conversationId: conversation._id,
+        role: 'user',
+        content: conversation.fork!.handover,
+        provider: sourceProvider,
+        model: conversation.model,
+        source: 'REST',
+        status: 'ok',
+        toolCalls: null,
+        createdAt: operation!.handoverAt,
+        displayOrder: snapshot.length,
+        chronologicalOrder: snapshot.length,
+        runtime: undefined,
+        native: undefined,
+        fork: { handover: true },
+      };
+    };
+    const rowCount = snapshot.length + 1;
+    for (let offset = 0; offset < rowCount; offset += FORK_WRITE_BATCH_SIZE) {
       await mongoose.connection.transaction(async (session) => {
         await ownedLease.update({}, session);
         await TurnModel.bulkWrite(
-          rows.slice(offset, offset + FORK_WRITE_BATCH_SIZE).map((row) => ({
+          Array.from(
+            { length: Math.min(FORK_WRITE_BATCH_SIZE, rowCount - offset) },
+            (_, position) => rowAt(offset + position),
+          ).map((row) => ({
             updateOne: {
               filter: { _id: row._id },
               update: { $setOnInsert: row },

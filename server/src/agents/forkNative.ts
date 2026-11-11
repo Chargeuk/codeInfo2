@@ -87,27 +87,26 @@ export function hasCodexRolloutInjected(raw: string, text: string): boolean {
   return false;
 }
 
-export function completedCodexTurnId(
-  turns: NativeCodexThread['turns'],
-): string | undefined {
-  const newest = turns.at(-1);
-  return newest?.status === 'completed' ? newest.id : undefined;
-}
-
 export async function openForkNative(
   provider: 'codex' | 'copilot',
   sessionId: string,
+  readHistory = true,
+  createServer = () => new CodexAppServer(),
 ): Promise<ForkNativeSession> {
   if (provider === 'codex') {
     // Keep this connection alive until the child is persisted and its handover
     // injected. Fork/inject never call turn/start or rewrite instructions.
-    const rpc = new CodexAppServer();
+    const rpc = createServer();
     try {
       await rpc.initialize();
-      const { thread } = await rpc.request<{ thread: NativeCodexThread }>(
-        'thread/read',
-        { threadId: sessionId, includeTurns: true },
-      );
+      const thread: NativeCodexThread = readHistory
+        ? (
+            await rpc.request<{ thread: NativeCodexThread }>('thread/read', {
+              threadId: sessionId,
+              includeTurns: true,
+            })
+          ).thread
+        : { id: sessionId, turns: [] };
       const rolloutPaths = new Map<string, string>();
       if (thread.path) rolloutPaths.set(sessionId, thread.path);
       return {
@@ -131,6 +130,7 @@ export async function openForkNative(
             {
               threadId: sessionId,
               lastTurnId: boundary.id,
+              excludeTurns: true,
               model,
               cwd,
               config,
@@ -240,15 +240,24 @@ export async function openForkNative(
 
 // SDK exec JSONL does not expose native turn IDs. Read after a completed run,
 // while the caller still owns its run lock; failure keeps old-history support.
-export async function readCompletedCodexTurn(sessionId: string) {
+export async function readCompletedCodexTurn(
+  sessionId: string,
+  createServer = () => new CodexAppServer(),
+) {
   return withCodexAppServer(async (rpc) => {
-    const { thread } = await rpc.request<{ thread: NativeCodexThread }>(
-      'thread/read',
-      { threadId: sessionId, includeTurns: true },
-    );
-    const turnId = completedCodexTurnId(thread.turns);
+    const { data } = await rpc.request<{
+      data: Array<{ id: string; status: string }>;
+    }>('thread/turns/list', {
+      threadId: sessionId,
+      limit: 1,
+      sortDirection: 'desc',
+      itemsView: 'notLoaded',
+    });
+    // The run lock still belongs to this completed exec. Never walk back to an
+    // older success if the newest turn is failed, interrupted or in progress.
+    const turnId = data[0]?.status === 'completed' ? data[0].id : undefined;
     return turnId ? { sessionId, turnId } : undefined;
-  });
+  }, createServer);
 }
 
 /** The caller must establish ownership from a persisted incomplete operation. */

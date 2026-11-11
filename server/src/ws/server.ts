@@ -15,6 +15,7 @@ import {
   getCompletedInflight,
   getPendingConversationCancel,
   bumpSeq,
+  getInflight,
   registerPendingConversationCancel,
   snapshotInflight,
 } from '../chat/inflightRegistry.js';
@@ -47,6 +48,7 @@ import {
   type WsStreamWarningEvent,
   type WsToolEventEvent,
   type WsTurnFinalEvent,
+  type WsTurnPersistedEvent,
   type WsUserTurnEvent,
 } from './types.js';
 
@@ -141,6 +143,8 @@ export function publishInflightSnapshot(conversationId: string) {
       assistantThink: snapshot.assistantThink,
       toolEvents: snapshot.toolEvents,
       startedAt: snapshot.startedAt,
+      firstUpdateAt: snapshot.firstUpdateAt,
+      lastUpdateAt: snapshot.lastUpdateAt,
       ...(snapshot.command ? { command: snapshot.command } : {}),
     },
   };
@@ -183,12 +187,42 @@ export function publishUserTurn(params: {
   broadcastConversation(params.conversationId, event);
 }
 
+function updateTimestamps(params: {
+  conversationId: string;
+  inflightId: string;
+}) {
+  const state = getInflight(params.conversationId);
+  if (state?.inflightId !== params.inflightId) return {};
+  return {
+    firstUpdateAt: state.firstUpdateAt,
+    lastUpdateAt: state.lastUpdateAt,
+  };
+}
+
+export function publishTurnPersisted(params: {
+  conversationId: string;
+  inflightId: string;
+  turnId: string;
+}) {
+  const state = getInflight(params.conversationId);
+  if (state?.inflightId !== params.inflightId) return;
+  const event: WsTurnPersistedEvent = {
+    protocolVersion: WS_PROTOCOL_VERSION,
+    type: 'turn_persisted',
+    ...params,
+    seq: bumpSeq(params.conversationId),
+    ...updateTimestamps(params),
+  };
+  broadcastConversation(params.conversationId, event);
+}
+
 export function publishAssistantDelta(params: {
   conversationId: string;
   inflightId: string;
   delta: string;
 }) {
   const event: WsAssistantDeltaEvent = {
+    ...updateTimestamps(params),
     protocolVersion: WS_PROTOCOL_VERSION,
     type: 'assistant_delta',
     conversationId: params.conversationId,
@@ -213,6 +247,7 @@ export function publishAnalysisDelta(params: {
   delta: string;
 }) {
   const event: WsAnalysisDeltaEvent = {
+    ...updateTimestamps(params),
     protocolVersion: WS_PROTOCOL_VERSION,
     type: 'analysis_delta',
     conversationId: params.conversationId,
@@ -229,6 +264,7 @@ export function publishToolEvent(params: {
   event: WsToolEventEvent['event'];
 }) {
   const outbound: WsToolEventEvent = {
+    ...updateTimestamps(params),
     protocolVersion: WS_PROTOCOL_VERSION,
     type: 'tool_event',
     conversationId: params.conversationId,
@@ -245,6 +281,7 @@ export function publishStreamWarning(params: {
   message: string;
 }) {
   const event: WsStreamWarningEvent = {
+    ...updateTimestamps(params),
     protocolVersion: WS_PROTOCOL_VERSION,
     type: 'stream_warning',
     conversationId: params.conversationId,
@@ -268,6 +305,7 @@ export function publishTurnFinal(params: {
   const seq = params.seq ?? (bumpSeq(params.conversationId) || 1);
 
   const event: WsTurnFinalEvent = {
+    ...updateTimestamps(params),
     protocolVersion: WS_PROTOCOL_VERSION,
     type: 'turn_final',
     conversationId: params.conversationId,
@@ -496,6 +534,8 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
               assistantThink: snapshot.assistantThink,
               toolEvents: snapshot.toolEvents,
               startedAt: snapshot.startedAt,
+              firstUpdateAt: snapshot.firstUpdateAt,
+              lastUpdateAt: snapshot.lastUpdateAt,
               ...(snapshot.command ? { command: snapshot.command } : {}),
             },
           };

@@ -61,3 +61,61 @@ describe('Agents API working_folder payload', () => {
     expect(blankBody).not.toHaveProperty('working_folder');
   });
 });
+
+describe('Agents API client inflight correlation', () => {
+  it('forwards a client inflightId and invokes beforeFetch before dispatch', async () => {
+    const order: string[] = [];
+    mockFetch.mockImplementation(async (_url, init) => {
+      order.push('fetch');
+      expect(decodeJsonBody(init)).toMatchObject({ inflightId: 'client-run' });
+      return mockJsonResponse(
+        {
+          status: 'started',
+          agentName: 'coding_agent',
+          conversationId: 'c1',
+          inflightId: 'client-run',
+          modelId: 'm1',
+        },
+        { status: 202 },
+      );
+    });
+    const accepted = await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'hello',
+      inflightId: 'client-run',
+      beforeFetch: () => {
+        order.push('beforeFetch');
+      },
+    });
+    expect(order).toEqual(['beforeFetch', 'fetch']);
+    expect(accepted.inflightId).toBe('client-run');
+  });
+
+  it('omits inflightId for legacy callers', async () => {
+    await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'hello',
+    });
+    expect(decodeJsonBody(mockFetch.mock.calls[0][1])).not.toHaveProperty(
+      'inflightId',
+    );
+  });
+
+  it('rejects a started-shaped response without HTTP acceptance', async () => {
+    mockFetch.mockResolvedValue(
+      mockJsonResponse(
+        {
+          status: 'started',
+          agentName: 'coding_agent',
+          conversationId: 'c1',
+          inflightId: 'i1',
+          modelId: 'm1',
+        },
+        { status: 200 },
+      ),
+    );
+    await expect(
+      runAgentInstruction({ agentName: 'coding_agent', instruction: 'hello' }),
+    ).rejects.toThrow('Invalid agent run response');
+  });
+});

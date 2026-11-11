@@ -63,5 +63,7 @@ export const mapFlowTurnsToMessages = (items: StoredTurn[]) =>
         usage: turn.usage,
         timing: turn.timing,
         createdAt: turn.createdAt,
+        firstUpdateAt: turn.firstUpdateAt,
+        lastUpdateAt: turn.lastUpdateAt,
       }) satisfies ChatMessage,
   );

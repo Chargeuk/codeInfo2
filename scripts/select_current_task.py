@@ -16,7 +16,9 @@ import plan_status
 
 
 TASK_HEADING_RE = re.compile(r"^### Task (\d+)\.\s*(.*)$")
-TASK_STATUS_RE = re.compile(r"^(- Task Status:\s*`?)(__[a-z_]+__)(`?\s*)$")
+TASK_STATUS_RE = re.compile(
+    r"^(- Task Status:\s*`?)(__[a-z_]+__)(`?\s*)$", re.IGNORECASE
+)
 
 
 def parse_args() -> argparse.Namespace:

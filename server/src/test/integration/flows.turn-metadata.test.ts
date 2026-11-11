@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import supertest from 'supertest';
 
+import { getActiveRunOwnership } from '../../agents/runLock.js';
 import { getInflight } from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
@@ -18,7 +19,7 @@ import {
   __resetMarkdownFileResolverDepsForTests,
   __setMarkdownFileResolverDepsForTests,
 } from '../../flows/markdownFileResolver.js';
-import { startFlowRun } from '../../flows/service.js';
+import { startFlowRun, stopFlowRun } from '../../flows/service.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
 import type { TurnSummary } from '../../mongo/repo.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
@@ -31,7 +32,10 @@ import {
 import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js';
 import { enterTestEnvOverrides } from '../support/testEnvOverrideScope.js';
 import { bindCurrentTestOverrides } from '../support/testOverrideScope.js';
-import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+import {
+  resolveConfiguredTestTimeoutMs,
+  waitForTestCondition,
+} from '../support/testTimeouts.js';
 import {
   subscribeConversationAndWaitReady,
   closeWs,
@@ -160,6 +164,117 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../../',
 );
+
+test('flow and backing Agent assistant copies retain the same receipt timestamps through deferred finalization', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flow-receipts-'),
+  );
+  let releaseExecution!: () => void;
+  const executionGate = new Promise<void>((resolve) => {
+    releaseExecution = resolve;
+  });
+  let terminalReceived = false;
+  let conversationId: string | undefined;
+  const backingIds = new Set<string>();
+  class ReceiptChat extends ChatInterface {
+    async execute(): Promise<void> {
+      this.emitEvent({ type: 'analysis', content: 'thinking' });
+      this.emitEvent({ type: 'token', content: 'answer' });
+      this.emitEvent({ type: 'complete' });
+      terminalReceived = true;
+      await executionGate;
+    }
+  }
+  try {
+    await fs.writeFile(
+      path.join(tmpDir, 'receipt-copy.json'),
+      JSON.stringify({
+        description: 'Receipt copy proof',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'receipt',
+            messages: [{ role: 'user', content: ['question'] }],
+          },
+        ],
+      }),
+    );
+    enterTestEnvOverrides({
+      CODEINFO_CODEX_AGENT_HOME: path.join(repoRoot, 'codex_agents'),
+      FLOWS_DIR: tmpDir,
+    });
+    const started = await startFlowRun({
+      flowName: 'receipt-copy',
+      source: 'REST',
+      chatFactory: () => new ReceiptChat(),
+    });
+    conversationId = started.conversationId;
+    await waitForTestCondition(() => terminalReceived, {
+      timeoutMs: 20000,
+      description: 'flow provider terminal event at the execution gate',
+    });
+    const inflight = getInflight(conversationId);
+    assert.ok(inflight?.firstUpdateAt);
+    assert.ok(inflight.lastUpdateAt);
+    const { firstUpdateAt, lastUpdateAt } = inflight;
+    assert.equal((memoryTurns.get(conversationId) ?? []).length, 0);
+    releaseExecution();
+    await waitForTestCondition(
+      () => !getActiveRunOwnership(started.conversationId),
+      {
+        timeoutMs: 20000,
+        description: 'flow persistence, finalization, and run cleanup',
+      },
+    );
+
+    const flags = memoryConversations.get(conversationId)?.flags as {
+      flow?: { agentConversations?: Record<string, string> };
+    };
+    Object.values(flags.flow?.agentConversations ?? {}).forEach((id) =>
+      backingIds.add(id),
+    );
+    assert.equal(backingIds.size, 1);
+    for (const id of [conversationId, ...backingIds]) {
+      const turns = memoryTurns.get(id) ?? [];
+      const assistant = turns.find((turn) => turn.role === 'assistant');
+      const user = turns.find((turn) => turn.role === 'user');
+      assert.ok(assistant);
+      assert.ok(user);
+      assert.equal(assistant.status, 'ok');
+      assert.equal(assistant.firstUpdateAt?.toISOString(), firstUpdateAt);
+      assert.equal(assistant.lastUpdateAt?.toISOString(), lastUpdateAt);
+      assert.equal(user.firstUpdateAt, undefined);
+      assert.equal(user.lastUpdateAt, undefined);
+    }
+  } finally {
+    releaseExecution();
+    if (conversationId) {
+      if (getActiveRunOwnership(conversationId))
+        await stopFlowRun(conversationId);
+      await waitForTestCondition(
+        () => !getActiveRunOwnership(conversationId!),
+        {
+          timeoutMs: 20000,
+          description: 'receipt flow owned-resource cleanup',
+        },
+      );
+      const flags = memoryConversations.get(conversationId)?.flags as
+        | {
+            flow?: { agentConversations?: Record<string, string> };
+          }
+        | undefined;
+      Object.values(flags?.flow?.agentConversations ?? {}).forEach((id) =>
+        backingIds.add(id),
+      );
+      for (const id of [conversationId, ...backingIds]) {
+        memoryConversations.delete(id);
+        memoryTurns.delete(id);
+      }
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
 
 test('flow turns include command metadata in snapshots and history', async () => {
   const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flows-meta-'));

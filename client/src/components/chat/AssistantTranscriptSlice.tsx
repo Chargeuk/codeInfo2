@@ -45,6 +45,7 @@ import {
   buildTimingLine,
   buildStepLine,
   buildUsageLine,
+  formatBubbleTimestamp,
 } from './chatTranscriptFormatting';
 import {
   getConversationModelPresentation,
@@ -160,10 +161,10 @@ function AssistantTranscriptSlice({
   const relativeTimeNowMs = useRelativeTimeTick();
   const completionLabel = useMemo(
     () =>
-      formatTranscriptTimestamp(message.createdAt, {
+      formatTranscriptTimestamp(message.lastUpdateAt ?? message.createdAt, {
         nowMs: relativeTimeNowMs,
       }),
-    [message.createdAt, relativeTimeNowMs],
+    [message.createdAt, message.lastUpdateAt, relativeTimeNowMs],
   );
   const status = visibleStreamStatus ?? message.streamStatus;
   const statusLabel = getTranscriptStatusLabel(status);
@@ -231,12 +232,35 @@ function AssistantTranscriptSlice({
     {
       key: 'time',
       label: 'Time',
-      value: completionLabel,
+      value: formatBubbleTimestamp(message.createdAt) ?? '—',
       icon: <AccessTimeRoundedIcon fontSize="small" />,
       testId: 'bubble-info-time',
-      text: `Time: ${completionLabel}`,
+      text: `Time: ${formatBubbleTimestamp(message.createdAt) ?? '—'}`,
       avatarVariant: 'accent' as const,
     },
+    ...[
+      {
+        key: 'first-update',
+        label: 'First update',
+        value: message.firstUpdateAt,
+      },
+      { key: 'last-update', label: 'Last update', value: message.lastUpdateAt },
+    ].flatMap((row) => {
+      const timestamp = formatBubbleTimestamp(row.value);
+      return timestamp
+        ? [
+            {
+              key: row.key,
+              label: row.label,
+              value: timestamp,
+              icon: <AccessTimeRoundedIcon fontSize="small" />,
+              testId: `bubble-info-${row.key}`,
+              text: `${row.label}: ${timestamp}`,
+              avatarVariant: 'accent' as const,
+            },
+          ]
+        : [];
+    }),
     {
       key: 'provider',
       label: 'Provider',
@@ -691,11 +715,10 @@ function AssistantTranscriptSlice({
                 <Button
                   size="small"
                   variant="text"
-                  onClick={(event) =>
-                    setInfoAnchorEl((current) =>
-                      current ? null : event.currentTarget,
-                    )
-                  }
+                  onClick={(event) => {
+                    const anchorEl = event.currentTarget;
+                    setInfoAnchorEl((current) => (current ? null : anchorEl));
+                  }}
                   data-testid="bubble-info"
                   aria-haspopup="dialog"
                   aria-expanded={metadataPopoverOpen}

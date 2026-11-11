@@ -150,7 +150,7 @@ function runAgentInstructionDefinition() {
   return {
     name: RUN_AGENT_INSTRUCTION_TOOL_NAME,
     description:
-      'Run an instruction against a named Codex agent and return a final answer segment plus conversationId and modelId for continuation.',
+      "Run an instruction against a named Codex agent and return a final answer segment plus conversationId and modelId for continuation.\n\nWhen delegation is permitted, launch useful independent agent assignments in parallel through one separate standalone tool request per agent; do not batch assignments. With functions.exec, use one awaited MCP call per cell with the explicit pragma // @exec: {\"yield_time_ms\": 1000}. Launch all ready calls back-to-back before waiting; save yielded cell IDs, then await every call to completion before finishing. The yield setting belongs to functions.exec, not this tool's arguments. Omit conversationId for each new agent conversation; reuse its returned ID with the same agentName only for that agent's related follow-ups after its previous call completes. Keep dependent or interfering work sequential. Without functions.exec, use the host's supported separate parallel requests.",
     inputSchema: {
       type: 'object',
       additionalProperties: false,

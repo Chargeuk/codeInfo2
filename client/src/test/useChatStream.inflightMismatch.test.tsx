@@ -5,6 +5,8 @@ import type {
   ChatWsCancelAckEvent,
   ChatWsTranscriptEvent,
 } from '../hooks/useChatWs';
+import { decodeJsonBody } from './support/decodeJsonBody';
+import { mockJsonResponse } from './support/fetchMock';
 
 describe('useChatStream inflight mismatch handling', () => {
   const getAssistantMessages = (result: {
@@ -2095,7 +2097,11 @@ describe('useChatStream inflight mismatch handling', () => {
       ).toMatchObject({ storedTurnId: saved[index].storedTurnId });
     });
     savedOnlyRepeat.forEach((message) => {
-      expect(result.current.messages).toContainEqual(message);
+      expect(result.current.messages).toContainEqual(
+        message.role === 'user'
+          ? { ...message, deliveryStatus: 'acknowledged', optimistic: false }
+          : message,
+      );
     });
     expect(
       result.current.messages.find(
@@ -2215,21 +2221,24 @@ describe('useChatStream inflight mismatch handling', () => {
 
   it('does not enter stopping when send starts a new run', async () => {
     const conversationId = 'send-does-not-stop';
-    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          status: 'started',
-          conversationId,
-          inflightId: 'i1',
-          provider: 'codex',
-          model: 'm1',
-        }),
-        {
-          status: 202,
-          headers: { 'content-type': 'application/json' },
-        },
-      ),
-    );
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (url, init) => {
+        if (String(url).endsWith('/chat')) {
+          const body = decodeJsonBody(init) as { inflightId: string };
+          return mockJsonResponse(
+            {
+              status: 'started',
+              conversationId,
+              inflightId: body.inflightId,
+              provider: 'codex',
+              model: 'm1',
+            },
+            { status: 202 },
+          );
+        }
+        return mockJsonResponse({});
+      });
     const consoleInfoSpy = jest
       .spyOn(console, 'info')
       .mockImplementation(() => {});

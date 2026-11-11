@@ -29,6 +29,9 @@ export type ToolFactoryOptions = {
   deps?: Partial<ToolDeps>;
   log?: (payload: Record<string, unknown>) => void;
   repositoryContext?: RepositoryExecutionContextMetadata;
+  workingDirectoryOverride?: string;
+  signal?: AbortSignal;
+  runAgentInstruction?: typeof import('../agents/service.js').runAgentInstruction;
   listIngestedRepositoriesFn?: (
     deps?: Partial<ToolDeps>,
   ) => Promise<ListReposResult>;
@@ -234,6 +237,63 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
     },
   });
 
+  const runAgentInstructionTool = tool({
+    name: 'run_agent_instruction',
+    description:
+      'CodeInfo codeinfo_agents.run_agent_instruction adapter. Run a standalone named agent assignment and return its final answer, conversationId, and modelId. Omit conversationId for a new worker; use its returned id only for follow-ups to that same assignment. Parent research uses chat_search_agent.',
+    parameters: {
+      agentName: z.string().min(1),
+      instruction: z.string().min(1),
+      conversationId: z.string().min(1).optional(),
+      working_folder: z.string().min(1).optional(),
+    },
+    implementation: async (
+      params: {
+        agentName: string;
+        instruction: string;
+        conversationId?: string;
+        working_folder?: string;
+      },
+      ctx: ToolCallContext,
+    ) => {
+      const callId = ctx.callId;
+      try {
+        const signal = options.signal
+          ? AbortSignal.any([options.signal, ctx.signal])
+          : ctx.signal;
+        signal.throwIfAborted();
+        // agents/service imports the chat providers; defer this edge until execution.
+        const { callTool } = await import('../mcpAgents/tools.js');
+        signal.throwIfAborted();
+        const result = await callTool(
+          'run_agent_instruction',
+          {
+            ...params,
+            working_folder:
+              params.working_folder ??
+              options.workingDirectoryOverride ??
+              repositoryContext?.workingDirectoryOverride,
+          },
+          {
+            signal,
+            ...(options.runAgentInstruction
+              ? { runAgentInstruction: options.runAgentInstruction }
+              : {}),
+          },
+        );
+        onToolResult?.(callId, result, undefined, ctx, {
+          name: 'run_agent_instruction',
+        });
+        return result;
+      } catch (error) {
+        onToolResult?.(callId, undefined, error, ctx, {
+          name: 'run_agent_instruction',
+        });
+        throw error;
+      }
+    },
+  });
+
   // Log the parameter schema shape at startup to spot any mismatch in production builds.
   // Best-effort schema logging (parametersSchema is not on the public Tool type).
   const paramsSchema = (
@@ -270,6 +330,11 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
   return {
     listIngestedRepositoriesTool,
     vectorSearchTool,
-    tools: [listIngestedRepositoriesTool, vectorSearchTool],
+    runAgentInstructionTool,
+    tools: [
+      listIngestedRepositoriesTool,
+      vectorSearchTool,
+      runAgentInstructionTool,
+    ],
   } as const;
 }

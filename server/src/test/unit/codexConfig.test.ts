@@ -40,6 +40,24 @@ describe('codexConfig', () => {
     });
     assert.match(config, /http:\/\/localhost:5510\/mcp/);
   });
+  it('buildDefaultCodexConfig resolves the parent agent endpoint and long-running tool timeout', () => {
+    const config = buildDefaultCodexConfig({
+      CODEINFO_AGENTS_MCP_PORT: '7612',
+    });
+    assert.match(config, /\[mcp_servers\.codeinfo_agents\]/u);
+    assert.match(config, /http:\/\/localhost:7612\/mcp/u);
+    assert.match(config, /tool_timeout_sec = 86400/u);
+    assert.doesNotMatch(config, /\$\{CODEINFO_AGENTS_MCP_PORT\}/u);
+    const overlappingPort = buildDefaultCodexConfig({
+      CODEINFO_AGENTS_MCP_PORT: '5010',
+      CODEINFO_SERVER_PORT: '5510',
+    });
+    assert.match(
+      overlappingPort,
+      /\[mcp_servers\.codeinfo_agents\][\s\S]*?http:\/\/localhost:5010\/mcp/u,
+    );
+    assert.match(overlappingPort, /http:\/\/localhost:5510\/mcp/u);
+  });
   it('buildDefaultCodexConfig falls back to PORT when CODEINFO_SERVER_PORT is missing', () => {
     const config = buildDefaultCodexConfig({
       PORT: '5600',

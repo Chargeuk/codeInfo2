@@ -293,11 +293,15 @@ export type WsInflightSnapshotEvent = {
     assistantThink: string;
     toolEvents: ToolEvent[];
     startedAt: string;
+    firstUpdateAt?: string;
+    lastUpdateAt?: string;
     command?: TurnCommandMetadata;
   };
 };
 
 export type WsAssistantDeltaEvent = {
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
   protocolVersion: WsProtocolVersion;
   type: 'assistant_delta';
   conversationId: string;
@@ -307,6 +311,8 @@ export type WsAssistantDeltaEvent = {
 };
 
 export type WsAnalysisDeltaEvent = {
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
   protocolVersion: WsProtocolVersion;
   type: 'analysis_delta';
   conversationId: string;
@@ -316,6 +322,8 @@ export type WsAnalysisDeltaEvent = {
 };
 
 export type WsToolEventEvent = {
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
   protocolVersion: WsProtocolVersion;
   type: 'tool_event';
   conversationId: string;
@@ -325,6 +333,8 @@ export type WsToolEventEvent = {
 };
 
 export type WsStreamWarningEvent = {
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
   protocolVersion: WsProtocolVersion;
   type: 'stream_warning';
   conversationId: string;
@@ -334,6 +344,8 @@ export type WsStreamWarningEvent = {
 };
 
 export type WsTurnFinalEvent = {
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
   protocolVersion: WsProtocolVersion;
   type: 'turn_final';
   conversationId: string;
@@ -344,6 +356,17 @@ export type WsTurnFinalEvent = {
   error?: { code?: string; message?: string } | null;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+};
+
+export type WsTurnPersistedEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'turn_persisted';
+  conversationId: string;
+  seq: number;
+  inflightId: string;
+  turnId: string;
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
 };
 
 export type WsCancelAckEvent = {
@@ -365,5 +388,6 @@ export type WsServerEvent =
   | WsAnalysisDeltaEvent
   | WsToolEventEvent
   | WsStreamWarningEvent
+  | WsTurnPersistedEvent
   | WsTurnFinalEvent
   | WsCancelAckEvent;

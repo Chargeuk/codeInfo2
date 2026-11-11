@@ -345,6 +345,7 @@ be recorded separately from full-suite or behavioral proof.
   - LM Studio: provider-native generation/tool options such as temperature, max tokens, context overflow policy, and tool access
 - MCP `codebase_question` now shares the same provider-selection and defaults contract as the normal chat path, including Copilot parity on provider selection and model/default resolution. `provider` and `model` remain optional explicit overrides rather than fields callers should populate routinely, and Agent Flags stay out of the MCP request shape itself.
 - `codebase_question` reduces routine provider work with bounded repository-research instructions and smaller tool payloads without changing its caller interface or configured reasoning effort.
+- When `code_info.codebase_question` is available and permitted for repository research, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
 
 ## Story 47 Verification Markers
 

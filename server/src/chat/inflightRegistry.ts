@@ -30,6 +30,9 @@ export type InflightState = {
   command?: TurnCommandMetadata;
   userTurn?: { content: string; createdAt: string };
   assistantCreatedAt?: string;
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
+  terminalReceivedAt?: string;
   finalStatus?: 'ok' | 'warning' | 'stopped' | 'failed';
   persisted?: { user: boolean; assistant: boolean };
   persistedTurnIds?: { user?: string; assistant?: string };
@@ -64,6 +67,8 @@ export type CompletedInflightState = {
   toolEvents: ToolEvent[];
   startedAt: string;
   completedAt?: string;
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
 };
 
 const inflightByConversationId = new Map<string, InflightState>();
@@ -126,6 +131,8 @@ function rememberCompletedInflight(params: {
     toolEvents: [...params.state.toolEvents],
     startedAt: params.state.startedAt,
     completedAt: params.completedAt,
+    firstUpdateAt: params.state.firstUpdateAt,
+    lastUpdateAt: params.state.lastUpdateAt,
   };
 
   if (!completedInflightByKey.has(key)) {
@@ -392,6 +399,37 @@ export function bumpSeq(conversationId: string): number {
   return state.seq;
 }
 
+// Receipt clocks describe accepted server updates, independently of transcript order.
+export function recordInflightUpdate(params: {
+  conversationId: string;
+  inflightId: string;
+  terminal?: boolean;
+}): { ok: true } | { ok: false } {
+  const state = inflightByConversationId.get(params.conversationId);
+  if (!state || state.inflightId !== params.inflightId) return { ok: false };
+  const receivedAt = new Date().toISOString();
+  state.firstUpdateAt ??= receivedAt;
+  state.lastUpdateAt = receivedAt;
+  if (params.terminal) state.terminalReceivedAt = receivedAt;
+  return { ok: true };
+}
+
+export function inflightUpdateDates(params: {
+  conversationId: string;
+  inflightId: string;
+}): { firstUpdateAt?: Date; lastUpdateAt?: Date } {
+  const state = inflightByConversationId.get(params.conversationId);
+  if (!state || state.inflightId !== params.inflightId) return {};
+  return {
+    ...(state.firstUpdateAt
+      ? { firstUpdateAt: new Date(state.firstUpdateAt) }
+      : {}),
+    ...(state.lastUpdateAt
+      ? { lastUpdateAt: new Date(state.lastUpdateAt) }
+      : {}),
+  };
+}
+
 export function appendAssistantDelta(params: {
   conversationId: string;
   inflightId: string;
@@ -399,6 +437,7 @@ export function appendAssistantDelta(params: {
 }): { ok: true; assistantText: string } | { ok: false } {
   const state = inflightByConversationId.get(params.conversationId);
   if (!state || state.inflightId !== params.inflightId) return { ok: false };
+  if (params.delta) recordInflightUpdate(params);
   state.assistantText += params.delta;
   return { ok: true, assistantText: state.assistantText };
 }
@@ -416,6 +455,7 @@ export function setAssistantText(params: {
   const next = params.text;
   const replaced = !next.startsWith(current);
   const delta = replaced ? '' : next.slice(current.length);
+  if (next !== current) recordInflightUpdate(params);
   state.assistantText = next;
   return { ok: true, delta, replaced, assistantText: next };
 }
@@ -427,6 +467,7 @@ export function appendAnalysisDelta(params: {
 }): { ok: true; assistantThink: string } | { ok: false } {
   const state = inflightByConversationId.get(params.conversationId);
   if (!state || state.inflightId !== params.inflightId) return { ok: false };
+  if (params.delta) recordInflightUpdate(params);
   state.assistantThink += params.delta;
   return { ok: true, assistantThink: state.assistantThink };
 }
@@ -438,6 +479,7 @@ export function appendToolEvent(params: {
 }): { ok: true; toolEventCount: number } | { ok: false } {
   const state = inflightByConversationId.get(params.conversationId);
   if (!state || state.inflightId !== params.inflightId) return { ok: false };
+  recordInflightUpdate(params);
   state.toolEvents.push(params.event);
   return { ok: true, toolEventCount: state.toolEvents.length };
 }
@@ -569,6 +611,9 @@ export function markInflightFinal(params: {
   if (state.finalStatus) {
     return { ok: true, alreadyFinalized: true };
   }
+  if (!state.terminalReceivedAt) {
+    recordInflightUpdate({ ...params, terminal: true });
+  }
   state.finalStatus = params.status;
   state.assistantCreatedAt = params.finalizedAt ?? new Date().toISOString();
   rememberCompletedInflight({
@@ -624,6 +669,8 @@ export type InflightMergedTurn = {
   toolCalls: Record<string, unknown> | null;
   status: 'ok' | 'warning' | 'stopped' | 'failed';
   createdAt: Date;
+  firstUpdateAt?: Date;
+  lastUpdateAt?: Date;
 };
 
 export function snapshotInflightTurns(
@@ -674,6 +721,7 @@ export function snapshotInflightTurns(
       toolCalls: null,
       status: assistantStatus,
       createdAt: new Date(assistantCreatedAt),
+      ...inflightUpdateDates({ conversationId, inflightId: state.inflightId }),
     });
   }
 
@@ -722,6 +770,8 @@ export function snapshotInflight(conversationId: string): {
   startedAt: string;
   seq: number;
   command?: TurnCommandMetadata;
+  firstUpdateAt?: string;
+  lastUpdateAt?: string;
 } | null {
   const state = inflightByConversationId.get(conversationId);
   if (!state) return null;
@@ -751,5 +801,7 @@ export function snapshotInflight(conversationId: string): {
     startedAt: state.startedAt,
     seq: state.seq,
     command: state.command,
+    firstUpdateAt: state.firstUpdateAt,
+    lastUpdateAt: state.lastUpdateAt,
   };
 }

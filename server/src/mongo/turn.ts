@@ -78,6 +78,8 @@ export interface Turn {
   chronologicalOrder?: number;
   fork?: { sourceTurnId?: string; handover?: boolean };
   createdAt: Date;
+  firstUpdateAt?: Date;
+  lastUpdateAt?: Date;
 }
 
 export type TurnDocument = HydratedDocument<Turn>;
@@ -167,6 +169,8 @@ const turnSchema = new Schema<Turn>(
     displayOrder: { type: Number, required: false },
     chronologicalOrder: { type: Number, required: false },
     fork: { type: Schema.Types.Mixed, required: false },
+    firstUpdateAt: { type: Date, required: false },
+    lastUpdateAt: { type: Date, required: false },
     createdAt: { type: Date, required: true, default: () => new Date() },
   },
   { timestamps: false },

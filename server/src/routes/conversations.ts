@@ -59,6 +59,7 @@ import {
 const listConversationsQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(100).default(20),
+    conversationId: z.string().min(1).optional(),
     cursor: z.string().datetime().optional(),
     state: z.string().optional(),
     archived: z.union([z.literal('true'), z.literal('false')]).optional(),
@@ -325,6 +326,7 @@ type Deps = {
 };
 
 const listMemoryConversations = async (params: {
+  conversationId?: string;
   ancestorConversationId?: string;
   limit: number;
   cursor?: string;
@@ -335,6 +337,11 @@ const listMemoryConversations = async (params: {
   const state = params.state ?? 'active';
   const items = [...memoryConversations.values()]
     .filter((conversation) => {
+      if (
+        params.conversationId !== undefined &&
+        conversation._id !== params.conversationId
+      )
+        return false;
       const archived = conversation.archivedAt != null;
       if (state === 'active' && archived) return false;
       if (state === 'archived' && !archived) return false;
@@ -525,6 +532,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
 
     const {
       limit,
+      conversationId,
       cursor,
       archived,
       agentName,
@@ -601,6 +609,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     try {
       const { items } = await resolveListConversations()({
         limit,
+        conversationId,
         cursor,
         state,
         agentName,

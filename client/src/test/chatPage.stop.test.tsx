@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { mockJsonResponse } from './support/fetchMock';
 import { setupChatWsHarness } from './support/mockChatWs';
 import { installNativeCompression } from './support/nativeCompression';
 
@@ -237,22 +238,27 @@ describe('Chat page stop control', () => {
       });
       const user = userEvent.setup();
       try {
-        renderChatPage();
+        const router = renderChatPage();
         await startChatTurn(user, 'already sent');
         await waitFor(() => expect(harness.chatBodies).toHaveLength(1));
-        await user.click(screen.getByTestId('chat-stop'));
-        expect((await findLatestCancel()).type).toBe('cancel_inflight');
+        await user.click(await screen.findByTestId('chat-stop'));
+        const cancel = await findLatestCancel();
+        expect(cancel).toMatchObject({
+          type: 'cancel_inflight',
+          conversationId: harness.chatBodies[0].conversationId,
+        });
+        expect(cancel).not.toHaveProperty('inflightId');
         expect(requestInit?.signal).toBeUndefined();
         await act(async () => {
           if (outcome === 'error') reject(new Error('sent chat failure'));
           else
             resolve(
-              new Response(
-                JSON.stringify({
+              mockJsonResponse(
+                {
                   status: 'started',
-                  conversationId: 'accepted-chat',
-                  inflightId: 'accepted-inflight',
-                }),
+                  conversationId: harness.chatBodies[0].conversationId,
+                  inflightId: harness.chatBodies[0].inflightId,
+                },
                 { status: 202 },
               ),
             );
@@ -261,21 +267,41 @@ describe('Chat page stop control', () => {
           expect(
             await screen.findByText('sent chat failure'),
           ).toBeInTheDocument();
-        else
+        else {
+          await waitFor(() =>
+            expect(
+              new URLSearchParams(router.state.location.search).get(
+                'conversationId',
+              ),
+            ).toBe(harness.chatBodies[0].conversationId),
+          );
           await waitFor(() =>
             expect(parseSocketMessages()).toEqual(
               expect.arrayContaining([
                 expect.objectContaining({
                   type: 'subscribe_conversation',
-                  conversationId: 'accepted-chat',
+                  conversationId: harness.chatBodies[0].conversationId,
                 }),
               ]),
             ),
           );
+          expect(
+            screen.queryByText(/Chat request failed/),
+          ).not.toBeInTheDocument();
+        }
       } finally {
-        resolve(
-          new Response(JSON.stringify({ status: 'started' }), { status: 202 }),
-        );
+        await act(async () => {
+          resolve(
+            mockJsonResponse(
+              {
+                status: 'started',
+                conversationId: harness.chatBodies[0]?.conversationId,
+                inflightId: harness.chatBodies[0]?.inflightId,
+              },
+              { status: 202 },
+            ),
+          );
+        });
         cleanup();
         await act(async () => {
           await native.restore();

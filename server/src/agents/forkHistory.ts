@@ -101,6 +101,7 @@ const similar = (native: string, stored: string) => {
 export function resolveForkBoundary(
   snapshot: TurnSummary[],
   native: NativeForkTurn[],
+  exactCodexSessionId?: string,
 ): {
   turn: NativeForkTurn;
   estimated: boolean;
@@ -115,6 +116,23 @@ export function resolveForkBoundary(
       'FORK_BOUNDARY_UNAVAILABLE',
       'No completed response is available.',
     );
+  // Stored Codex IDs already identify the selected completed reply. The fork
+  // RPC validates that persisted boundary, including when a later run is active.
+  if (
+    exactCodexSessionId &&
+    selected.native?.sessionId === exactCodexSessionId &&
+    selected.native.turnId
+  ) {
+    return {
+      turn: {
+        id: selected.native.turnId,
+        completed: true,
+        user: '',
+        assistant: '',
+      },
+      estimated: selected.native.estimated === true,
+    };
+  }
   const exact = selected.native?.eventId
     ? native.find((turn) => turn.eventId === selected.native!.eventId)
     : selected.native?.turnId

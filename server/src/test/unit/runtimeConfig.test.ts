@@ -7,6 +7,7 @@ import path from 'node:path';
 import { afterEach, describe, it, mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'dotenv';
+import { buildCopilotMcpServers } from '../../chat/copilotMcpConfig.js';
 import {
   ensureCodexConfigSeeded,
   getCodexChatConfigPathForHome,
@@ -493,6 +494,215 @@ describe('runtimeConfig bootstrap', () => {
       assert.match(chatContents, /model = "gpt-6.1-sol"/u);
     } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+  for (const provider of ['codex', 'copilot'] as const) {
+    it(`${provider} seeds and upgrades generated chat agent access with resolved endpoint and timeout`, async () => {
+      const providerHome = await fs.mkdtemp(
+        path.join(os.tmpdir(), 'chat-agents-config-'),
+      );
+      const params = {
+        provider,
+        codexHome: providerHome,
+        copilotHome: providerHome,
+      };
+      setScopedTestEnvValue('CODEINFO_AGENTS_MCP_PORT', '7512');
+      try {
+        const seeded = await ensureProviderChatConfigBootstrapped(params);
+        assert.equal(seeded.branch, 'generated_template');
+        const original = await fs.readFile(seeded.chatConfigPath, 'utf8');
+        assert.match(original, /\[mcp_servers\.codeinfo_agents\]/u);
+        const legacy = original.replace(
+          /\n\[mcp_servers\.codeinfo_agents\][\s\S]*?(?=\n\[|$)/u,
+          '',
+        );
+        await fs.writeFile(seeded.chatConfigPath, legacy, 'utf8');
+        const upgraded = await ensureProviderChatConfigBootstrapped(params);
+        assert.equal(upgraded.branch, 'existing_augmented');
+        const resolved = await resolveChatRuntimeConfig(params);
+        const servers = resolved.config.mcp_servers as Record<
+          string,
+          Record<string, unknown>
+        >;
+        assert.deepEqual(servers.codeinfo_agents.args, [
+          '-y',
+          'mcp-remote',
+          'http://localhost:7512/mcp',
+          '--allow-http',
+        ]);
+        assert.equal(servers.codeinfo_agents.tool_timeout_sec, 86400);
+        if (provider === 'copilot') {
+          const copilot = buildCopilotMcpServers(resolved.config);
+          assert.deepEqual(copilot?.codeinfo_agents, {
+            type: 'stdio',
+            command: 'npx',
+            args: [
+              '-y',
+              'mcp-remote',
+              'http://localhost:7512/mcp',
+              '--allow-http',
+            ],
+            tools: ['*'],
+            timeout: 86400000,
+          });
+        }
+        const unchanged = await ensureProviderChatConfigBootstrapped(params);
+        assert.equal(unchanged.branch, 'existing_noop');
+        const raw = await fs.readFile(seeded.chatConfigPath, 'utf8');
+        assert.equal(
+          raw.match(/\[mcp_servers\.codeinfo_agents\]/gu)?.length,
+          1,
+        );
+      } finally {
+        await fs.rm(providerHome, { recursive: true, force: true });
+      }
+    });
+    it(`${provider} preserves explicit launcher settings and supplies missing runtime defaults without rewriting customized files`, async () => {
+      const providerHome = await fs.mkdtemp(
+        path.join(os.tmpdir(), 'chat-agents-explicit-'),
+      );
+      const params = {
+        provider,
+        codexHome: providerHome,
+        copilotHome: providerHome,
+      };
+      setScopedTestEnvValue('CODEINFO_AGENTS_MCP_PORT', '7812');
+      try {
+        const seeded = await ensureProviderChatConfigBootstrapped(params);
+        const original = await fs.readFile(seeded.chatConfigPath, 'utf8');
+        const explicit = original
+          .replace(
+            'http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp',
+            'https://agents.example.test/mcp',
+          )
+          .replace(
+            'tool_timeout_sec = 86400',
+            `tool_timeout_sec = 123\n${provider === 'codex' ? 'enabled = false' : 'tools = []'}`,
+          );
+        await fs.writeFile(seeded.chatConfigPath, explicit, 'utf8');
+        await ensureProviderChatConfigBootstrapped(params);
+        const explicitResolved = await resolveChatRuntimeConfig(params);
+        const explicitServers = explicitResolved.config.mcp_servers as Record<
+          string,
+          Record<string, unknown>
+        >;
+        assert.deepEqual(explicitServers.codeinfo_agents.args, [
+          '-y',
+          'mcp-remote',
+          'https://agents.example.test/mcp',
+          '--allow-http',
+        ]);
+        assert.equal(explicitServers.codeinfo_agents.tool_timeout_sec, 123);
+        if (provider === 'codex') {
+          assert.equal(explicitServers.codeinfo_agents.enabled, false);
+        } else {
+          const converted = buildCopilotMcpServers(explicitResolved.config);
+          assert.deepEqual(converted?.codeinfo_agents.tools, []);
+          assert.equal(converted?.codeinfo_agents.timeout, 123000);
+        }
+        assert.equal(
+          await fs.readFile(seeded.chatConfigPath, 'utf8'),
+          explicit,
+        );
+        for (const custom of [
+          'model = "custom-user-model"\n',
+          'model = "custom-user-model"\n[mcp_servers.user_docs]\nurl = "https://docs.example.test/mcp"\n',
+        ]) {
+          await fs.writeFile(seeded.chatConfigPath, custom, 'utf8');
+          await ensureProviderChatConfigBootstrapped(params);
+          const resolved = await resolveChatRuntimeConfig(params);
+          const servers = resolved.config.mcp_servers as Record<
+            string,
+            Record<string, unknown>
+          >;
+          assert.equal(resolved.config.model, 'custom-user-model');
+          assert.deepEqual(servers.codeinfo_agents, {
+            command: 'npx',
+            args: [
+              '-y',
+              'mcp-remote',
+              'http://localhost:7812/mcp',
+              '--allow-http',
+            ],
+            startup_timeout_sec: 60,
+            tool_timeout_sec: 86400,
+          });
+          if (custom.includes('user_docs')) {
+            assert.deepEqual(servers.user_docs, {
+              url: 'https://docs.example.test/mcp',
+            });
+          }
+          assert.equal(
+            await fs.readFile(seeded.chatConfigPath, 'utf8'),
+            custom,
+          );
+        }
+      } finally {
+        await fs.rm(providerHome, { recursive: true, force: true });
+      }
+    });
+  }
+  it('scopes missing launcher defaults to parent chat and its selected provider', async () => {
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'chat-launcher-scope-'),
+    );
+    try {
+      for (const { surface, provider, override, expectLauncher } of [
+        {
+          surface: 'chat',
+          provider: 'lmstudio',
+          override: 'codex',
+          expectLauncher: false,
+        },
+        {
+          surface: 'chat',
+          provider: 'codex',
+          override: 'lmstudio',
+          expectLauncher: true,
+        },
+        {
+          surface: 'agent',
+          provider: 'lmstudio',
+          override: 'copilot',
+          expectLauncher: false,
+        },
+        {
+          surface: 'agent',
+          provider: 'codex',
+          override: 'copilot',
+          expectLauncher: false,
+        },
+      ] as const) {
+        const providerHome = path.join(tempRoot, `${surface}-${provider}`);
+        const runtimeConfigPath = path.join(providerHome, 'config.toml');
+        await fs.mkdir(providerHome, { recursive: true });
+        await fs.writeFile(
+          runtimeConfigPath,
+          `model = "custom-model"\ncodeinfo_provider = "${override}"\n`,
+          'utf8',
+        );
+        const resolved = await resolveMergedAndValidatedRuntimeConfig({
+          surface,
+          provider,
+          runtimeConfigPath,
+          codexHome: providerHome,
+          copilotHome: providerHome,
+          lmstudioHome: providerHome,
+        });
+        const servers = resolved.config.mcp_servers as
+          | Record<string, unknown>
+          | undefined;
+        assert.equal(
+          Object.hasOwn(servers ?? {}, 'codeinfo_agents'),
+          expectLauncher,
+        );
+        assert.equal(
+          resolved.appMetadata?.codeinfoProvider,
+          surface === 'agent' ? override : undefined,
+        );
+      }
+    } finally {
+      await fs.rm(tempRoot, { recursive: true, force: true });
     }
   });
   it('treats reserved MCP augmentation write failures as a best-effort no-op', async () => {
@@ -2021,7 +2231,10 @@ describe('runtimeConfig Context7 overlay', () => {
       );
       await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
       const resolved = await resolveChatRuntimeConfig({ codexHome });
-      assert.deepEqual(resolved.config.mcp_servers, {
+      const { codeinfo_agents: launcher, ...inheritedServers } = resolved.config
+        .mcp_servers as Record<string, unknown>;
+      assert.ok(launcher);
+      assert.deepEqual(inheritedServers, {
         context7: {
           command: 'npx',
           args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
@@ -2050,7 +2263,10 @@ describe('runtimeConfig Context7 overlay', () => {
       );
       await fs.writeFile(chatConfigPath, 'model = "chat-model"\n', 'utf8');
       const resolved = await resolveChatRuntimeConfig({ codexHome });
-      assert.deepEqual(resolved.config.mcp_servers, {
+      const { codeinfo_agents: launcher, ...inheritedServers } = resolved.config
+        .mcp_servers as Record<string, unknown>;
+      assert.ok(launcher);
+      assert.deepEqual(inheritedServers, {
         context7: {
           command: 'npx',
           args: ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-real'],
@@ -2887,7 +3103,10 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
       assert.deepEqual(resolved.config.tools, {
         view_image: true,
       });
-      assert.deepEqual(resolved.config.mcp_servers, {
+      const { codeinfo_agents: launcher, ...inheritedServers } = resolved.config
+        .mcp_servers as Record<string, unknown>;
+      assert.ok(launcher);
+      assert.deepEqual(inheritedServers, {
         context7: {
           command: 'npx',
           args: ['-y', '@upstash/context7-mcp'],
@@ -2928,7 +3147,10 @@ describe('runtimeConfig merged happy paths and T04 logs', () => {
           base_url: 'http://localhost:4000/v1',
         },
       });
-      assert.deepEqual(resolved.config.mcp_servers, {
+      const { codeinfo_agents: launcher, ...inheritedServers } = resolved.config
+        .mcp_servers as Record<string, unknown>;
+      assert.ok(launcher);
+      assert.deepEqual(inheritedServers, {
         context7: {
           command: 'npx',
           args: ['-y', '@upstash/context7-mcp'],

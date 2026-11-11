@@ -1,4 +1,5 @@
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
+import DoneIcon from '@mui/icons-material/Done';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Box, Button, Stack, Tooltip, Typography } from '@mui/material';
@@ -16,6 +17,7 @@ import type { ChatMessage, ChatSegment } from '../../hooks/useChatStream';
 import { copyTextToClipboard } from '../../utils/copyTextToClipboard';
 import Markdown from '../Markdown';
 import ComposerDesktopPopover from '../workspace/composer/ComposerDesktopPopover';
+import { buildBubbleMetadataSummary } from './chatTranscriptFormatting';
 import { buildSharedTranscriptCopyText } from './sharedTranscriptCopyText';
 import { formatTranscriptTimestamp } from './transcriptSurfaceFormatting';
 import { transcriptSurfaceTokens } from './transcriptSurfaceTokens';
@@ -48,6 +50,8 @@ function UserTranscriptBubble({
 }: UserTranscriptBubbleProps) {
   const [infoAnchorEl, setInfoAnchorEl] = useState<HTMLElement | null>(null);
   const metadataContent = renderMetadataContent?.(message);
+  const metadataRows = buildBubbleMetadataSummary(message);
+  const hasMetadata = metadataRows.length > 0 || Boolean(metadataContent);
   const copyFeedbackTimerRef = useRef<number | null>(null);
   const bubbleSurfaceRef = useRef<HTMLDivElement | null>(null);
   const textContentRef = useRef<HTMLDivElement | null>(null);
@@ -89,7 +93,11 @@ function UserTranscriptBubble({
       }),
     [footerLayoutMode, message.createdAt, relativeTimeNowMs],
   );
-  const acknowledged = message.optimistic !== true;
+  const deliveryStatus =
+    message.deliveryStatus ??
+    (message.optimistic === true ? 'dispatched' : 'acknowledged');
+  const DeliveryIcon = deliveryStatus === 'requested' ? DoneIcon : DoneAllIcon;
+  const acknowledged = deliveryStatus === 'acknowledged';
   const layoutContentKey = useMemo(
     () =>
       JSON.stringify({
@@ -291,14 +299,23 @@ function UserTranscriptBubble({
       }}
       data-testid="user-transcript-footer"
     >
-      <Stack direction="row" spacing={0.75} alignItems="center">
-        <DoneAllIcon
+      <Stack
+        direction="row"
+        spacing={0.75}
+        alignItems="center"
+        data-testid="user-ack-tick"
+        data-delivery-status={deliveryStatus}
+        role="img"
+        aria-label={`Message ${deliveryStatus}`}
+        sx={{
+          color: acknowledged
+            ? transcriptSurfaceTokens.user.confirmedTick
+            : transcriptSurfaceTokens.user.secondaryText,
+        }}
+      >
+        <DeliveryIcon
           fontSize="small"
-          data-testid="user-ack-tick"
           sx={{
-            color: acknowledged
-              ? transcriptSurfaceTokens.user.confirmedTick
-              : transcriptSurfaceTokens.user.secondaryText,
             fontSize: { xs: 14, sm: 16 },
           }}
         />
@@ -315,12 +332,14 @@ function UserTranscriptBubble({
       >
         {completionLabel}
       </Typography>
-      {metadataContent && (
+      {hasMetadata && (
         <Button
           size="small"
           color="inherit"
           startIcon={<InfoOutlinedIcon fontSize="small" />}
           data-testid="bubble-info"
+          aria-label="Show message details"
+          aria-expanded={Boolean(infoAnchorEl)}
           onClick={(event) => setInfoAnchorEl(event.currentTarget)}
         >
           Info
@@ -418,14 +437,25 @@ function UserTranscriptBubble({
           </Typography>
         )}
       </Box>
-      {metadataContent && (
+      {hasMetadata && (
         <ComposerDesktopPopover
           open={Boolean(infoAnchorEl)}
           anchorEl={infoAnchorEl}
           onClose={() => setInfoAnchorEl(null)}
           data-testid="bubble-info-popover"
         >
-          {metadataContent}
+          <Stack spacing={1}>
+            {metadataRows.map((row) => (
+              <Typography
+                key={row.label}
+                variant="body2"
+                data-testid={`bubble-info-${row.label.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                {row.label}: {row.value}
+              </Typography>
+            ))}
+            {metadataContent}
+          </Stack>
         </ComposerDesktopPopover>
       )}
     </Stack>

@@ -1,5 +1,13 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+import type { ChatMessage } from '../../hooks/useChatStream';
 import { installTranscriptMeasurementHarness } from '../../test/support/transcriptMeasurementHarness';
 import UserTranscriptBubble from './UserTranscriptBubble';
 
@@ -41,7 +49,7 @@ describe('UserTranscriptBubble', () => {
     expect(window.getComputedStyle(surface).color).toBe('rgb(255, 255, 255)');
     expect(surface).toHaveStyle({ width: 'fit-content' });
 
-    expect(within(bubble).queryByTestId('bubble-info')).toBeNull();
+    expect(within(bubble).getByTestId('bubble-info')).toHaveTextContent('Info');
     expect(window.getComputedStyle(footer).flexWrap).toBe('nowrap');
     expect(within(footer).getAllByRole('img').length).toBeGreaterThan(0);
     expect(completionTime).toHaveTextContent(
@@ -76,6 +84,167 @@ describe('UserTranscriptBubble', () => {
       '1m ago',
     );
   });
+
+  it('crosses the 90-minute boundary on the existing shared tick', () => {
+    const createdAt = '2026-05-23T08:52:01.000Z';
+    render(
+      <UserTranscriptBubble
+        message={{ id: 'boundary', role: 'user', content: 'Hello', createdAt }}
+        log={log}
+      />,
+    );
+    expect(screen.getByTestId('bubble-completion-time')).toHaveTextContent(
+      '1h ago',
+    );
+
+    act(() => jest.advanceTimersByTime(30_000));
+
+    expect(screen.getByTestId('bubble-completion-time')).toHaveTextContent(
+      new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'medium',
+      }).format(new Date(createdAt)),
+    );
+  });
+
+  it('opens exact Info for an ordinary user and preserves additional metadata', async () => {
+    const createdAt = '2026-05-23T10:21:37.000Z';
+    render(
+      <UserTranscriptBubble
+        message={{ id: 'ordinary', role: 'user', content: 'Hello', createdAt }}
+        log={log}
+        renderMetadataContent={() => <span>Existing flow ancestry</span>}
+      />,
+    );
+    expect(screen.getByTestId('bubble-completion-time')).toHaveTextContent(
+      '23s ago',
+    );
+
+    const infoButton = screen.getByRole('button', {
+      name: 'Show message details',
+    });
+    expect(infoButton).toHaveAttribute('aria-expanded', 'false');
+    await act(async () => {
+      fireEvent.click(infoButton);
+    });
+
+    const popover = await screen.findByTestId('bubble-info-popover');
+    expect(infoButton).toHaveAttribute('aria-expanded', 'true');
+    expect(within(popover).getByTestId('bubble-info-time')).toHaveTextContent(
+      `Time: ${new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'medium',
+      }).format(new Date(createdAt))}`,
+    );
+    expect(within(popover).getByText('Existing flow ancestry')).toBeVisible();
+    expect(
+      within(popover).queryByTestId('bubble-info-first-update'),
+    ).toBeNull();
+    expect(within(popover).queryByTestId('bubble-info-last-update')).toBeNull();
+    expect(screen.getByTestId('bubble-copy')).toBeEnabled();
+  });
+
+  it.each([undefined, 'invalid-date'])(
+    'does not invent user metadata for an unavailable legacy date: %s',
+    (createdAt) => {
+      render(
+        <UserTranscriptBubble
+          message={{ id: 'legacy', role: 'user', content: 'Hello', createdAt }}
+          log={log}
+        />,
+      );
+      expect(screen.queryByTestId('bubble-info')).toBeNull();
+      expect(screen.getByTestId('bubble-completion-time')).toHaveTextContent(
+        '—',
+      );
+    },
+  );
+
+  it('keeps actual user metadata available even when the creation date is missing', async () => {
+    render(
+      <UserTranscriptBubble
+        message={{
+          id: 'legacy-with-metadata',
+          role: 'user',
+          content: 'Hello',
+          model: 'gpt-5',
+        }}
+        log={log}
+      />,
+    );
+
+    const infoButton = screen.getByRole('button', {
+      name: 'Show message details',
+    });
+    await act(async () => {
+      fireEvent.click(infoButton);
+    });
+
+    const popover = await screen.findByTestId('bubble-info-popover');
+    expect(infoButton).toHaveAttribute('aria-expanded', 'true');
+    expect(within(popover).getByTestId('bubble-info-model')).toHaveTextContent(
+      'Model: gpt-5',
+    );
+    expect(within(popover).queryByTestId('bubble-info-time')).toBeNull();
+  });
+
+  it.each<{
+    deliveryStatus: ChatMessage['deliveryStatus'];
+    optimistic?: boolean;
+    expectedStatus: string;
+    color: string;
+  }>([
+    {
+      deliveryStatus: 'requested',
+      optimistic: false,
+      expectedStatus: 'requested',
+      color: 'rgb(215, 222, 231)',
+    },
+    {
+      deliveryStatus: 'dispatched',
+      optimistic: false,
+      expectedStatus: 'dispatched',
+      color: 'rgb(215, 222, 231)',
+    },
+    {
+      deliveryStatus: 'acknowledged',
+      optimistic: true,
+      expectedStatus: 'acknowledged',
+      color: 'rgb(47, 128, 237)',
+    },
+    {
+      deliveryStatus: undefined,
+      expectedStatus: 'acknowledged',
+      color: 'rgb(47, 128, 237)',
+    },
+    {
+      deliveryStatus: undefined,
+      optimistic: true,
+      expectedStatus: 'dispatched',
+      color: 'rgb(215, 222, 231)',
+    },
+  ])(
+    'renders delivery $expectedStatus for explicit=$deliveryStatus optimistic=$optimistic',
+    ({ deliveryStatus, optimistic, expectedStatus, color }) => {
+      render(
+        <UserTranscriptBubble
+          message={{
+            id: 'delivery',
+            role: 'user',
+            content: 'Hello',
+            deliveryStatus,
+            optimistic,
+          }}
+          log={log}
+        />,
+      );
+      const tick = screen.getByRole('img', {
+        name: `Message ${expectedStatus}`,
+      });
+      expect(tick).toHaveAttribute('data-delivery-status', expectedStatus);
+      expect(window.getComputedStyle(tick).color).toBe(color);
+    },
+  );
 
   it('switches to an inline footer when the rendered user message fits on one line', async () => {
     const harness = installTranscriptMeasurementHarness();

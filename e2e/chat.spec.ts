@@ -357,7 +357,16 @@ test('chat streams end-to-end', async ({ page }) => {
     );
     await expect(firstUserSurface).toBeVisible();
     await expect(firstUserBubble.getByTestId('bubble-copy')).toBeVisible();
-    await expect(firstUserBubble.getByTestId('bubble-info')).toHaveCount(0);
+    const userInfo = firstUserBubble.getByTestId('bubble-info');
+    await expect(userInfo).toBeVisible();
+    await userInfo.click();
+    const userInfoPopover = page.getByTestId('bubble-info-popover');
+    await expect(userInfoPopover).toBeVisible();
+    await expect(userInfoPopover.getByTestId('bubble-info-time')).toHaveText(
+      /^Time:\s+\S/,
+    );
+    await page.keyboard.press('Escape');
+    await expect(userInfoPopover).toBeHidden();
 
     await expect
       .poll(() =>

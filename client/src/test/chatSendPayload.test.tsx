@@ -1,7 +1,11 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import {
+  MemoryRouter,
+  RouterProvider,
+  createMemoryRouter,
+} from 'react-router-dom';
 import ChatPage from '../pages/ChatPage';
 import { decodeJsonBody } from './support/decodeJsonBody';
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
@@ -120,7 +124,11 @@ test('chat send payload includes conversationId, message, provider, and model', 
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
 
   const input = await screen.findByTestId('chat-input');
   fireEvent.change(input, { target: { value: 'Hello world' } });
@@ -147,6 +155,7 @@ test('chat send payload includes conversationId, message, provider, and model', 
 test('chat send payload includes working_folder when selected', async () => {
   type ChatBody = {
     conversationId?: string;
+    inflightId?: string;
     message?: string;
     provider?: string;
     model?: string;
@@ -183,15 +192,19 @@ test('chat send payload includes working_folder when selected', async () => {
           },
         });
       }
+      if (url.includes('/conversations/') && url.endsWith('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
       if (url.includes('/chat')) {
         chatBody =
           init?.body != null ? (decodeJsonBody(init) as ChatBody) : null;
-        return new Response(
-          streamFromFrames([
-            'data: {"type":"final","message":{"role":"assistant","content":"hi"}}\n\n',
-            'data: {"type":"complete"}\n\n',
-          ]),
-          { status: 200 },
+        return mockJsonResponse(
+          {
+            status: 'started',
+            conversationId: chatBody?.conversationId,
+            inflightId: chatBody?.inflightId,
+          },
+          { status: 202 },
         );
       }
       if (url.includes('/conversations')) {
@@ -212,26 +225,65 @@ test('chat send payload includes working_folder when selected', async () => {
     }),
   );
 
-  render(<ChatPage />);
-
-  const conversationRows = await screen.findAllByTestId('conversation-row');
-  fireEvent.click(conversationRows[0]);
-
-  const workingFolder = await screen.findByTestId('chat-working-folder');
-  expect(workingFolder).toHaveValue('/repo/selected');
-
-  const input = await screen.findByTestId('chat-input');
-  fireEvent.change(input, { target: { value: 'Hello with folder' } });
-  await waitFor(() =>
-    expect(screen.getByTestId('chat-send')).not.toBeDisabled(),
+  const router = createMemoryRouter(
+    [{ path: '/chat', element: <ChatPage /> }],
+    { initialEntries: ['/chat'] },
   );
-  fireEvent.click(screen.getByTestId('chat-send'));
+  const selectionHistory: (string | null)[] = [];
+  const unsubscribe = router.subscribe(({ location }) => {
+    selectionHistory.push(
+      new URLSearchParams(location.search).get('conversationId'),
+    );
+  });
+  const view = render(<RouterProvider router={router} />);
 
-  await waitFor(() => expect(chatBody).not.toBeNull());
-  if (!chatBody) {
-    throw new Error('Expected chat request body to be captured');
+  try {
+    const conversationRows = await screen.findAllByTestId('conversation-row');
+    const selectionHistoryStart = selectionHistory.length;
+    fireEvent.click(conversationRows[0]);
+
+    await waitFor(() =>
+      expect(selectionHistory.slice(selectionHistoryStart)).toContain(
+        'draft-conversation',
+      ),
+    );
+    expect({
+      conversationId: new URLSearchParams(router.state.location.search).get(
+        'conversationId',
+      ),
+      selectionHistory: selectionHistory.slice(selectionHistoryStart),
+    }).toMatchObject({ conversationId: 'draft-conversation' });
+    await waitFor(() =>
+      expect(screen.getByTestId('conversation-row')).toHaveClass(
+        'Mui-selected',
+      ),
+    );
+    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
+    expect(selectionHistory.slice(selectionHistoryStart)).not.toContain(null);
+    expect(
+      new URLSearchParams(router.state.location.search).get('conversationId'),
+    ).toBe('draft-conversation');
+    expect(screen.getByTestId('conversation-row')).toHaveClass('Mui-selected');
+    await waitFor(() =>
+      expect(screen.getByTestId('chat-working-folder')).toHaveValue(
+        '/repo/selected',
+      ),
+    );
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello with folder' } });
+    fireEvent.click(screen.getByTestId('chat-send'));
+
+    await waitFor(() => expect(chatBody).not.toBeNull());
+    expect(chatBody).toMatchObject({
+      conversationId: 'draft-conversation',
+      working_folder: '/repo/selected',
+    });
+  } finally {
+    unsubscribe();
+    view.unmount();
+    router.dispose();
   }
-  expect((chatBody as ChatBody).working_folder).toBe('/repo/selected');
 });
 
 test('chat send payload includes endpointId when the selected model is endpoint-backed', async () => {
@@ -312,7 +364,11 @@ test('chat send payload includes endpointId when the selected model is endpoint-
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
 
   await waitFor(() =>
     expect(screen.getByTestId('provider-select')).toHaveTextContent(
@@ -420,7 +476,11 @@ test('chat send payload clears stale endpointId after switching to LM Studio', a
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
   const user = userEvent.setup();
 
   await waitFor(() =>
@@ -854,7 +914,11 @@ test('chat send payload keeps the Copilot request provider-neutral without legac
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
 
   const providerSelect = await screen.findByRole('combobox', {
     name: /provider/i,
@@ -1091,7 +1155,11 @@ test('chat send payload omits hidden incompatible Codex values after switching t
     }),
   );
 
-  render(<ChatPage />);
+  render(
+    <MemoryRouter initialEntries={['/chat']}>
+      <ChatPage />
+    </MemoryRouter>,
+  );
 
   const providerSelect = await screen.findByRole('combobox', {
     name: /provider/i,

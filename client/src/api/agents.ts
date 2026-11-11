@@ -358,6 +358,7 @@ export async function runAgentInstruction(params: {
   instruction: string;
   working_folder?: string;
   conversationId?: string;
+  inflightId?: string;
   signal?: AbortSignal;
   beforeFetch?: () => void;
 }): Promise<{
@@ -386,6 +387,7 @@ export async function runAgentInstruction(params: {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         instruction: params.instruction,
+        ...(params.inflightId ? { inflightId: params.inflightId } : {}),
         ...(params.working_folder?.trim()
           ? { working_folder: params.working_folder }
           : {}),
@@ -411,6 +413,7 @@ export async function runAgentInstruction(params: {
   const inflightId = typeof data.inflightId === 'string' ? data.inflightId : '';
   const modelId = typeof data.modelId === 'string' ? data.modelId : '';
   if (
+    res.status !== 202 ||
     status !== 'started' ||
     !agentName ||
     !conversationId ||

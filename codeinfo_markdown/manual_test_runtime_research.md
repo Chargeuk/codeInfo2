@@ -25,6 +25,7 @@ When honest manual proof requires another repository, you may inspect and resear
 Resolve the same bound task that the loop is preparing to manual-test from `current-task.json` when possible.
 After resolving the bound task number when possible, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py" --task-number <that-number>`.
 If the bound task number cannot be resolved, run `python3 "$CODEINFO_ROOT/scripts/manual_testing_guidance_status.py"` without `--task-number`.
+Before using `plan_sections.py` below, read `$CODEINFO_ROOT/codeinfo_markdown/shared/bounded-plan-read.md`.
 Use that JSON output as the source of truth for whether story-level and task-level manual-testing guidance are present in the active plan. When the bound task number is known, also run `python3 "$CODEINFO_ROOT/scripts/plan_sections.py" --plan <stored-plan-path> --task-number <number> --section Testing --story-section 'Acceptance Criteria' --story-section 'Out Of Scope'` and read the complete task Testing section plus applicable approved story restrictions before proposing task-specific manual activity or runtime setup. If the task number is unresolved, retrieve the approved story sections using the stored plan path, continue safe runtime-path research, and do not start or reclaim a runtime for task-specific proof until the task is resolved.
 
 </input_scope>
@@ -77,7 +78,7 @@ For each repository in scope, including any supporting repositories discovered d
 
 Use repository evidence first.
 Do not guess from memory.
-Do not use `code_info` for this step unless repository evidence is still genuinely ambiguous after direct inspection.
+Do not use `code_info` for this step unless repository evidence is still genuinely ambiguous after direct inspection. If that condition is met and `code_info.codebase_question` is available and permitted, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
 If `AGENTS.md` does not define wrapper guidance for a repository, prefer the highest-level safe command discoverable from repository evidence rather than low-level direct commands.
 Assume the full normal system should be used for manual proof unless `AGENTS.md`, `README.md`, or `codeinfo_markdown/repository_information.md` explicitly indicates that a specific supported variant, seeded mode, login-helper mode, alternate startup path, or test-support runtime should be preferred instead.
 

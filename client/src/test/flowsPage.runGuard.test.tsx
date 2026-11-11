@@ -228,8 +228,10 @@ describe('Flows page run guards', () => {
     render(<RouterProvider router={router} />);
     const runButton = await screen.findByTestId('flow-run');
     await waitFor(() => expect(runButton).toBeDisabled());
+    const infoButton = screen.getByTestId('flow-info');
+    await waitFor(() => expect(infoButton).toBeEnabled());
     await act(async () => {
-      await user.click(screen.getByTestId('flow-info'));
+      await user.click(infoButton);
     });
     await waitFor(() =>
       expect(

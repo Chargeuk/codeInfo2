@@ -179,7 +179,8 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
       : undefined;
-    const safeBase = baseUrl ?? getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '';
+    const safeBase =
+      baseUrl ?? getScopedEnvValue('CODEINFO_LMSTUDIO_BASE_URL') ?? '';
     const wsBase = toWebSocketUrl(safeBase);
 
     const storedTurns =
@@ -194,13 +195,10 @@ export class ChatInterfaceLMStudio extends ChatInterface {
         : await this.loadHistory(conversationId)
       )?.reverse();
 
-    const controller = new AbortController();
-    if (signal) {
-      signal.addEventListener('abort', () => controller.abort());
-    }
+    const runSignal = signal ?? new AbortController().signal;
 
     const emitIfNotCancelled = (event: ChatEvent) => {
-      if (controller.signal.aborted) return;
+      if (runSignal.aborted) return;
       this.emitEvent(event);
     };
 
@@ -248,6 +246,8 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     };
 
     const { tools: lmStudioTools } = this.toolFactory({
+      signal: runSignal,
+      workingDirectoryOverride: (flags ?? {}).workingDirectoryOverride,
       log: (payload: Record<string, unknown>) => logToolUsage(payload),
       repositoryContext: (flags ?? {})?.repositoryContext as
         | RepositoryExecutionContextMetadata
@@ -538,11 +538,11 @@ export class ChatInterfaceLMStudio extends ChatInterface {
           string,
           unknown
         > = {
-        allowParallelToolExecution: false,
+        allowParallelToolExecution: true,
         temperature: runtimeFlags.temperature,
         maxTokens: runtimeFlags.maxTokens,
         contextOverflowPolicy: runtimeFlags.contextOverflowPolicy,
-        signal: controller.signal,
+        signal: runSignal,
         onPredictionCompleted: (predictionResult) => {
           const mapped = mapLmStudioStats(
             (predictionResult as { stats?: unknown } | undefined)?.stats,

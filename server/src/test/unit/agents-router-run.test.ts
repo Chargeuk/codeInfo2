@@ -201,6 +201,58 @@ test('POST /agents/:agentName/run returns 202 + a stable started payload shape',
   assert.equal(res.body.modelId.length > 0, true);
 });
 
+test('POST /agents/:agentName/run forwards the client inflightId without changing acceptance', async () => {
+  let received: unknown;
+  const res = await request(
+    buildApp({
+      startAgentInstruction: async (params) => {
+        received = params;
+        return {
+          conversationId: 'client-agent-conversation',
+          inflightId: 'client-agent-inflight',
+          providerId: 'codex',
+          modelId: 'agent-model',
+        };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({
+      instruction: '  hello  ',
+      conversationId: 'client-agent-conversation',
+      inflightId: 'client-agent-inflight',
+    });
+
+  assert.equal(res.status, 202);
+  assert.deepEqual(received, {
+    agentName: 'coding_agent',
+    instruction: '  hello  ',
+    conversationId: 'client-agent-conversation',
+    inflightId: 'client-agent-inflight',
+    working_folder: undefined,
+    source: 'REST',
+  });
+  assert.equal(res.body.inflightId, 'client-agent-inflight');
+});
+
+test('POST /agents/:agentName/run rejects invalid optional inflightId before starting work', async () => {
+  let starts = 0;
+  const app = buildApp({
+    startAgentInstruction: async () => {
+      starts += 1;
+      throw new Error('must not start');
+    },
+  });
+  for (const inflightId of ['', null, 123, false]) {
+    const res = await request(app)
+      .post('/agents/coding_agent/run')
+      .send({ instruction: 'hello', inflightId });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.message, 'inflightId must be a non-empty string');
+  }
+  assert.equal(starts, 0);
+});
+
 test('POST /agents/:agentName/run keeps warning-bearing started responses intact', async () => {
   const res = await request(
     buildApp({

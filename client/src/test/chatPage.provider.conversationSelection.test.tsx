@@ -207,7 +207,7 @@ function mockApi() {
           json: async () => ({
             status: 'started',
             conversationId: body.conversationId,
-            inflightId: 'i1',
+            inflightId: body.inflightId,
             provider: body.provider,
             model: body.model,
           }),
@@ -765,6 +765,7 @@ describe('Chat shared shell conversation selection', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
+    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
     const conversationRow = await screen.findByTestId('conversation-row');
     await act(async () => {
       await user.click(conversationRow);
@@ -846,6 +847,7 @@ describe('Chat shared shell conversation selection', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
+    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
     const codexRowTitle = await screen.findByText('Codex conversation');
     const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
     if (!codexRow) {

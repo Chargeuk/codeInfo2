@@ -168,7 +168,10 @@ function setupAgentsFetch(params?: {
 }) {
   const instructionBodies: FetchBody[] = [];
   const commandBodies: FetchBody[] = [];
-  const conversations = params?.conversations ?? [];
+  const conversations = (params?.conversations ?? []).map((conversation) => ({
+    ...conversation,
+    agentName: 'a1',
+  }));
   const turnsByConversation = params?.turnsByConversation ?? {};
 
   mockFetch.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
@@ -230,7 +233,7 @@ function setupAgentsFetch(params?: {
             typeof body.conversationId === 'string'
               ? body.conversationId
               : 'c1',
-          inflightId: 'i1',
+          inflightId: body.inflightId,
           modelId: 'm1',
         },
         { status: 202 },
@@ -366,8 +369,17 @@ describe('Agents page stop control', () => {
         expect(
           bodies.instructionBodies.length + bodies.commandBodies.length,
         ).toBe(0);
-        if (stopTarget === 'A')
-          expect(screen.getByTestId('agent-stop')).toBeEnabled();
+        await waitFor(() =>
+          expect(screen.queryByTestId('agent-stop')).not.toBeInTheDocument(),
+        );
+        const retainedTarget = stopTarget === 'A' ? 'B' : 'A';
+        await user.click(screen.getByText(`Agent ${retainedTarget}`));
+        expect(await screen.findByTestId('agent-stop')).toBeEnabled();
+        if (mode === 'command') {
+          expect(screen.getByTestId('agent-command-trigger')).toHaveTextContent(
+            /improve plan/i,
+          );
+        }
         await act(async () => {
           retained.release();
           await retained.finished;
@@ -380,6 +392,16 @@ describe('Agents page stop control', () => {
         expect(submitted[0].conversationId).toBe(
           stopTarget === 'A' ? 'B' : 'A',
         );
+        await waitFor(() =>
+          expect(screen.queryByTestId('agent-stop')).not.toBeInTheDocument(),
+        );
+        expect(screen.getByTestId('agent-command-trigger')).toHaveTextContent(
+          'Write instruction',
+        );
+        expect(screen.getByTestId('agent-input')).toBeEnabled();
+        fireEvent.change(screen.getByTestId('agent-input'), {
+          target: { value: 'Next instruction' },
+        });
         await waitFor(() =>
           expect(screen.getByTestId('agent-send')).toBeEnabled(),
         );
@@ -414,7 +436,7 @@ describe('Agents page stop control', () => {
       const pending = (body: FetchBody, init?: RequestInit) => {
         sentBody = body;
         requestInit = init;
-        return response;
+        return response.then((result) => result.clone());
       };
       const bodies = setupAgentsFetch({
         instructionRunFetch: pending,
@@ -453,7 +475,7 @@ describe('Agents page stop control', () => {
                   agentName: 'a1',
                   commandName: 'improve_plan',
                   conversationId: sentBody.conversationId,
-                  inflightId: 'accepted-agent',
+                  inflightId: sentBody.inflightId ?? 'accepted-agent',
                   modelId: 'accepted-agent-model',
                 }),
                 { status: 202 },
@@ -474,6 +496,9 @@ describe('Agents page stop control', () => {
             screen.queryByTestId('agents-run-error'),
           ).not.toBeInTheDocument();
         }
+        expect(
+          bodies.instructionBodies.length + bodies.commandBodies.length,
+        ).toBe(1);
       } finally {
         resolve(new Response('{}', { status: 202 }));
         cleanup();
@@ -691,7 +716,15 @@ describe('Agents page stop control', () => {
     await waitFor(() =>
       expect(screen.queryByTestId('agent-stop')).not.toBeInTheDocument(),
     );
-    expect(await screen.findByTestId('agent-send')).toBeEnabled();
+    expect(screen.getByTestId('agent-command-trigger')).toHaveTextContent(
+      'Write instruction',
+    );
+    expect(screen.getByTestId('agent-input')).toBeEnabled();
+    expect(screen.getByTestId('agent-send')).toBeDisabled();
+    fireEvent.change(screen.getByTestId('agent-input'), {
+      target: { value: 'Ready after cancellation' },
+    });
+    expect(screen.getByTestId('agent-send')).toBeEnabled();
     expect(screen.queryByText(/^Stopped$/i)).not.toBeInTheDocument();
     expect(
       infoSpy.mock.calls.some(
@@ -828,6 +861,7 @@ describe('Agents page stop control', () => {
       expect(screen.queryByTestId('agent-stop')).not.toBeInTheDocument(),
     );
 
+    await openCommandPicker(user);
     await clickExecuteCommand(user);
     await waitFor(() => expect(commandBodies).toHaveLength(2));
     expect(commandBodies[0]).toMatchObject({ conversationId });

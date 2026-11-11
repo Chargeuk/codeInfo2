@@ -90,9 +90,7 @@ export const formatConversationRowTimestamp = (
   const diffMs = nowMs - date.getTime();
   const absDiffMs = Math.abs(diffMs);
   const hourMs = 60 * 60 * 1000;
-  const dayMs = 24 * hourMs;
-
-  if (absDiffMs >= dayMs) {
+  if (absDiffMs >= 90 * 60 * 1000) {
     return conversationExactTimeFormatter.format(date);
   }
 

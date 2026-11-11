@@ -34,7 +34,9 @@ import {
   createInflight,
   getInflight,
   getPendingConversationCancel,
+  inflightUpdateDates,
   markInflightPersisted,
+  recordInflightUpdate,
   registerPendingConversationCancel,
   setAssistantText,
 } from '../chat/inflightRegistry.js';
@@ -92,6 +94,7 @@ import type {
   TurnRuntimeMetadata,
   TurnStatus,
   TurnTimingMetadata,
+  TurnNativeMetadata,
   TurnUsageMetadata,
 } from '../mongo/turn.js';
 import {
@@ -109,7 +112,11 @@ import {
   restoreSavedWorkingFolder,
   validateRequestedWorkingFolder,
 } from '../workingFolders/state.js';
-import { publishInflightSnapshot, publishUserTurn } from '../ws/server.js';
+import {
+  publishInflightSnapshot,
+  publishTurnPersisted,
+  publishUserTurn,
+} from '../ws/server.js';
 
 const flowRuntimeDiagnosticsEnabled =
   process.env.CODEINFO_TEST_RUNTIME_DIAGNOSTICS === '1';
@@ -3003,6 +3010,7 @@ type FlowInstructionResult = {
   failureKind?: 'execution' | 'invalid_response';
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+  native?: TurnNativeMetadata;
 };
 
 type FlowInstructionPostProcess = (result: FlowInstructionResult) => {
@@ -3033,7 +3041,10 @@ async function persistFlowTurn(params: {
   runtime?: TurnRuntimeMetadata;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
+  native?: TurnNativeMetadata;
   createdAt: Date;
+  firstUpdateAt?: Date;
+  lastUpdateAt?: Date;
 }): Promise<{ turnId?: string }> {
   const existingTurnCount = memoryTurns.get(params.conversationId)?.length ?? 0;
   if (
@@ -3063,7 +3074,10 @@ async function persistFlowTurn(params: {
       runtime: params.runtime,
       usage: params.usage,
       timing: params.timing,
+      native: params.native,
       createdAt: params.createdAt,
+      firstUpdateAt: params.firstUpdateAt,
+      lastUpdateAt: params.lastUpdateAt,
     } as Turn);
     updateMemoryConversationMeta(params.conversationId, {
       lastMessageAt: params.createdAt,
@@ -3113,7 +3127,10 @@ async function persistFlowTurn(params: {
     runtime: params.runtime,
     usage: params.usage,
     timing: params.timing,
+    native: params.native,
     createdAt: params.createdAt,
+    firstUpdateAt: params.firstUpdateAt,
+    lastUpdateAt: params.lastUpdateAt,
   });
 
   const turnId =
@@ -3369,6 +3386,7 @@ const runFlowInstruction = async (params: {
   let sawComplete = false;
   let latestUsage: TurnUsageMetadata | undefined;
   let latestTiming: TurnTimingMetadata | undefined;
+  let latestNative: TurnNativeMetadata | undefined;
 
   const onToken = (event: ChatTokenEvent) => {
     tokenBuffer.push(event.content);
@@ -3388,6 +3406,7 @@ const runFlowInstruction = async (params: {
     sawComplete = true;
     if (event.usage) latestUsage = event.usage;
     if (event.timing) latestTiming = event.timing;
+    if (event.native) latestNative = event.native;
   };
   const onThread = (event: { threadId?: string }) => {
     if (event.threadId) params.onThreadId(event.threadId);
@@ -3547,6 +3566,7 @@ const runFlowInstruction = async (params: {
     toolCalls,
     usage: latestUsage,
     timing: latestTiming,
+    native: ['ok', 'warning'].includes(status) ? latestNative : undefined,
   };
 
   const postProcessed = params.postProcess?.(result);
@@ -3555,10 +3575,23 @@ const runFlowInstruction = async (params: {
   if (postProcessed?.failureKind) {
     result.failureKind = postProcessed.failureKind;
   }
+  if (!['ok', 'warning'].includes(result.status)) result.native = undefined;
 
   const resultDecision = params.onResult?.(result, {
     attempt: params.attempt ?? 1,
   }) ?? { persist: true, finalize: true };
+
+  if (!getInflight(params.flowConversationId)?.terminalReceivedAt) {
+    recordInflightUpdate({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      terminal: true,
+    });
+  }
+  const updateDates = inflightUpdateDates({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+  });
 
   if (resultDecision.persist) {
     const userCreatedAt = new Date(createdAtIso);
@@ -3580,6 +3613,7 @@ const runFlowInstruction = async (params: {
     const assistantPersisted = await persistFlowTurn({
       conversationId: params.flowConversationId,
       role: 'assistant',
+      ...updateDates,
       content: result.content,
       model: params.modelId,
       provider: params.providerId,
@@ -3590,6 +3624,7 @@ const runFlowInstruction = async (params: {
       runtime: params.runtime,
       usage: result.usage,
       timing: result.timing,
+      native: result.native,
       createdAt: assistantCreatedAt,
     });
     logFlowTurnStatusPersisted({
@@ -3629,6 +3664,7 @@ const runFlowInstruction = async (params: {
     const agentAssistantPersisted = await persistFlowTurn({
       conversationId: params.agentConversationId,
       role: 'assistant',
+      ...updateDates,
       content: result.content,
       model: params.modelId,
       provider: params.providerId,
@@ -3639,6 +3675,7 @@ const runFlowInstruction = async (params: {
       runtime: params.runtime,
       usage: result.usage,
       timing: result.timing,
+      native: result.native,
       createdAt: assistantCreatedAt,
     });
     logFlowTurnStatusPersisted({
@@ -3673,6 +3710,13 @@ const runFlowInstruction = async (params: {
       role: 'assistant',
       turnId: assistantPersisted.turnId,
     });
+    if (assistantPersisted.turnId) {
+      publishTurnPersisted({
+        conversationId: params.flowConversationId,
+        inflightId: params.inflightId,
+        turnId: assistantPersisted.turnId,
+      });
+    }
   }
 
   if (params.deferFinal && resultDecision.finalize) {
@@ -3869,9 +3913,12 @@ const persistUnexpectedFlowFailureIfNeeded = async (params: {
   }
 
   await clearPersistedWaitStateIfPresent(params.conversationId);
+  const receivedAt = new Date();
   await persistFlowTurn({
     conversationId: params.conversationId,
     role: 'assistant',
+    firstUpdateAt: receivedAt,
+    lastUpdateAt: receivedAt,
     content: params.message,
     model: params.modelId,
     provider: params.providerId ?? 'codex',
@@ -3936,10 +3983,19 @@ const emitFailedFlowStep = async (params: {
     createdAt: userCreatedAt,
   });
 
+  recordInflightUpdate({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    terminal: true,
+  });
   const assistantCreatedAt = new Date();
   const assistantPersisted = await persistFlowTurn({
     conversationId: params.flowConversationId,
     role: 'assistant',
+    ...inflightUpdateDates({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+    }),
     content: params.message,
     model: params.modelId,
     provider: providerId,
@@ -3962,6 +4018,13 @@ const emitFailedFlowStep = async (params: {
     role: 'assistant',
     turnId: assistantPersisted.turnId,
   });
+  if (assistantPersisted.turnId) {
+    publishTurnPersisted({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      turnId: assistantPersisted.turnId,
+    });
+  }
 
   bridge.finalize({
     fallback: {
@@ -4032,10 +4095,19 @@ const emitStoppedFlowStep = async (params: {
     createdAt: userCreatedAt,
   });
 
+  recordInflightUpdate({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    terminal: true,
+  });
   const assistantCreatedAt = new Date();
   const assistantPersisted = await persistFlowTurn({
     conversationId: params.flowConversationId,
     role: 'assistant',
+    ...inflightUpdateDates({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+    }),
     content: 'Stopped',
     model: params.modelId,
     provider: providerId,
@@ -4058,6 +4130,13 @@ const emitStoppedFlowStep = async (params: {
     role: 'assistant',
     turnId: assistantPersisted.turnId,
   });
+  if (assistantPersisted.turnId) {
+    publishTurnPersisted({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      turnId: assistantPersisted.turnId,
+    });
+  }
 
   bridge.finalize({
     fallback: {
@@ -4146,10 +4225,19 @@ const emitTerminalFlowStep = async (params: FlowTerminalStepParams) => {
     createdAt: userCreatedAt,
   });
 
+  recordInflightUpdate({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    terminal: true,
+  });
   const assistantCreatedAt = new Date();
   const assistantPersisted = await persistFlowTurn({
     conversationId: params.flowConversationId,
     role: 'assistant',
+    ...inflightUpdateDates({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+    }),
     content: params.response,
     model: params.modelId,
     provider: providerId,
@@ -4172,6 +4260,13 @@ const emitTerminalFlowStep = async (params: FlowTerminalStepParams) => {
     role: 'assistant',
     turnId: assistantPersisted.turnId,
   });
+  if (assistantPersisted.turnId) {
+    publishTurnPersisted({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      turnId: assistantPersisted.turnId,
+    });
+  }
 
   bridge.finalize({
     fallback: {
@@ -10197,9 +10292,18 @@ async function runFlowUnlocked(params: {
         command,
         createdAt: parentTurnCreatedAt,
       });
+      recordInflightUpdate({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        terminal: true,
+      });
       const assistantPersisted = await persistFlowTurn({
         conversationId: params.conversationId,
         role: 'assistant',
+        ...inflightUpdateDates({
+          conversationId: params.conversationId,
+          inflightId: stepInflightId,
+        }),
         content: finalMessage,
         model: params.modelId,
         provider: params.providerId,
@@ -10222,6 +10326,13 @@ async function runFlowUnlocked(params: {
         role: 'assistant',
         turnId: assistantPersisted.turnId,
       });
+      if (assistantPersisted.turnId) {
+        publishTurnPersisted({
+          conversationId: params.conversationId,
+          inflightId: stepInflightId,
+          turnId: assistantPersisted.turnId,
+        });
+      }
 
       bridge.finalize({
         fallback: {
@@ -10319,9 +10430,18 @@ async function runFlowUnlocked(params: {
         command,
         createdAt: parentTurnCreatedAt,
       });
+      recordInflightUpdate({
+        conversationId: params.conversationId,
+        inflightId: stepInflightId,
+        terminal: true,
+      });
       const assistantPersisted = await persistFlowTurn({
         conversationId: params.conversationId,
         role: 'assistant',
+        ...inflightUpdateDates({
+          conversationId: params.conversationId,
+          inflightId: stepInflightId,
+        }),
         content: message,
         model: params.modelId,
         provider: params.providerId,
@@ -10343,6 +10463,13 @@ async function runFlowUnlocked(params: {
         role: 'assistant',
         turnId: assistantPersisted.turnId,
       });
+      if (assistantPersisted.turnId) {
+        publishTurnPersisted({
+          conversationId: params.conversationId,
+          inflightId: stepInflightId,
+          turnId: assistantPersisted.turnId,
+        });
+      }
       bridge.finalize({
         fallback: {
           status: 'failed',

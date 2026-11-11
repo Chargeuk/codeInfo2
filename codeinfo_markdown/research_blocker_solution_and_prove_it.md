@@ -45,6 +45,7 @@ If the implementation notes contain a blocker, your research must cover all of t
 1. Pattern research
 
 - use the `code_info` tool to see how other ingested repositories solve the same class of problem
+- When `code_info.codebase_question` is available and permitted for this research, run useful independent questions in parallel. With `functions.exec`, use one separate invocation per request with the explicit pragma `// @exec: {"yield_time_ms": 1000}`, awaiting the MCP call inside its cell. Launch all ready requests back-to-back before waiting; save yielded cell IDs, then await every request to completion before finishing. The yield setting belongs to `functions.exec`, not the MCP arguments. Omit `conversationId` for each new independent question; reuse its returned ID only for related follow-ups after its previous request completes. Keep dependent requests sequential. Without `functions.exec`, use the host's supported parallel dispatch.
 - use repository evidence first
 - prefer existing repository and official library solutions over invented approaches
 

@@ -274,6 +274,39 @@ test('native RPC fixture assertion failures preserve their cause and close the o
   }
 });
 
+test('repeated nonempty native history cursor rejects and closes the owned RPC', async () => {
+  let historyRequests = 0;
+  const h = nativeRpcHarness((method, params) => {
+    assert.equal(method, 'thread/turns/list');
+    assert.ok(++historyRequests <= 2, 'Native history requested a third page');
+    assert.equal(params.itemsView, 'full');
+    assert.equal(params.sortDirection, 'asc');
+    assert.ok(params.cursor === undefined || params.cursor === 'same-page');
+    return { data: [], nextCursor: 'same-page' };
+  });
+  let rpc: CodexAppServer | undefined;
+  try {
+    await assert.rejects(
+      openForkNative('codex', 'source', true, () => {
+        rpc = h.createServer();
+        return rpc;
+      }),
+      {
+        code: 'FORK_NATIVE_UNAVAILABLE',
+        message:
+          'Codex native history is unavailable: Codex native history cursor did not advance',
+      },
+    );
+    assert.equal(rpc?.isWriterTerminated(), true);
+    assert.deepEqual(
+      h.requests.map((request) => request.method),
+      ['initialize', 'thread/turns/list', 'thread/turns/list'],
+    );
+  } finally {
+    h.dispose();
+  }
+});
+
 test('legacy native boundary lookup preserves full content and order across every ascending page', async () => {
   const h = nativeRpcHarness((method, params) => {
     if (method === 'thread/fork') {

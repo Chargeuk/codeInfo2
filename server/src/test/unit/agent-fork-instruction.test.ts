@@ -30,9 +30,20 @@ const deferred = () => {
   return { promise, resolve };
 };
 
-for (const outcome of ['complete', 'error', 'cancel'] as const) {
+for (const outcome of [
+  'complete',
+  'error',
+  'cancel',
+  'deleted-before-preflight',
+  'deleted-after-preflight',
+  'default-create',
+] as const) {
   test(
-    `normal Codex child handover returns before reply, persists ${outcome}, and resumes the same native child`,
+    outcome === 'default-create'
+      ? 'ordinary startup without mustExist still creates a new conversation'
+      : outcome.startsWith('deleted-')
+        ? `mustExist child ${outcome} is never recreated or sent to the provider`
+        : `normal Codex child handover returns before reply, persists ${outcome}, and resumes the same native child`,
     {
       timeout: resolveConfiguredTestTimeoutMs(30_000),
     },
@@ -44,7 +55,12 @@ for (const outcome of ['complete', 'error', 'cancel'] as const) {
       const entered = deferred();
       const release = deferred();
       const finished = deferred();
-      let started = false;
+      const preflightPrepared = deferred();
+      const releasePreflight = deferred();
+      let preflightGated = false;
+      let startupSettled:
+        | Promise<Awaited<ReturnType<typeof startAgentInstruction>> | undefined>
+        | undefined;
       let executions = 0;
       const captured: Array<{
         message: string;
@@ -164,24 +180,38 @@ for (const outcome of ['complete', 'error', 'cancel'] as const) {
                 authPresent: true,
                 configPresent: true,
               }),
-              resolveCodexCapabilities: async () => ({
-                defaults: {
-                  sandboxMode: 'danger-full-access',
-                  approvalPolicy: 'never',
-                  modelReasoningEffort: 'high',
-                  networkAccessEnabled: true,
-                  webSearchEnabled: false,
-                  webSearchMode: 'disabled',
-                },
-                models: ['gpt-6.1-sol', 'gpt-6.1-terra'].map((model) => ({
-                  model,
-                  supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
-                  defaultReasoningEffort: 'high',
-                })),
-                byModel: new Map(),
-                warnings: [],
-                fallbackUsed: false,
-              }),
+              resolveCodexCapabilities: async () => {
+                // Preparation happens after the first conversation lookup and
+                // before the unlocked background lookup. Hold that boundary.
+                if (outcome === 'deleted-after-preflight' && !preflightGated) {
+                  preflightGated = true;
+                  preflightPrepared.resolve();
+                  await releasePreflight.promise;
+                }
+                return {
+                  defaults: {
+                    sandboxMode: 'danger-full-access',
+                    approvalPolicy: 'never',
+                    modelReasoningEffort: 'high',
+                    networkAccessEnabled: true,
+                    webSearchEnabled: false,
+                    webSearchMode: 'disabled',
+                  },
+                  models: ['gpt-6.1-sol', 'gpt-6.1-terra'].map((model) => ({
+                    model,
+                    supportedReasoningEfforts: [
+                      'low',
+                      'medium',
+                      'high',
+                      'xhigh',
+                    ],
+                    defaultReasoningEffort: 'high',
+                  })),
+                  byModel: new Map(),
+                  warnings: [],
+                  fallbackUsed: false,
+                };
+              },
               getMcpStatus: async () => ({ available: true }),
               resolveCopilotReadiness: async () => ({
                 available: false,
@@ -202,20 +232,61 @@ for (const outcome of ['complete', 'error', 'cancel'] as const) {
             },
           },
           async () => {
-            const accepted = await startAgentInstruction({
+            const startParams: Parameters<typeof startAgentInstruction>[0] = {
               agentName: 'target',
               conversationId,
               inflightId: `fork-${conversationId}`,
               instruction: handover,
               source: 'REST',
+              ...(outcome === 'default-create' ? {} : { mustExist: true }),
               chatFactory: () => new GatedChat(),
               releaseConversationLockFn: (...args) => {
                 const result = releaseConversationLock(...args);
                 finished.resolve();
                 return result;
               },
-            });
-            started = true;
+            };
+            if (outcome === 'deleted-before-preflight') {
+              memoryConversations.delete(conversationId);
+              const startup = startAgentInstruction(startParams);
+              startupSettled = startup.catch(() => undefined);
+              await assert.rejects(startup, {
+                code: 'AGENT_NOT_FOUND',
+              });
+              assert.equal(executions, 0);
+              assert.equal(memoryConversations.has(conversationId), false);
+              assert.equal(memoryTurns.has(conversationId), false);
+              assert.equal(getActiveRunOwnership(conversationId), null);
+              assert.equal(getInflight(conversationId), undefined);
+              return;
+            }
+            if (outcome === 'default-create')
+              memoryConversations.delete(conversationId);
+            const startup = startAgentInstruction(startParams);
+            // Observe rejection before waiting at any gate; finally also owns
+            // accepted startup/background cleanup if an assertion fails.
+            startupSettled = startup.catch(() => undefined);
+            if (outcome === 'deleted-after-preflight') {
+              await Promise.race([
+                preflightPrepared.promise,
+                startupSettled.then(() => {
+                  throw new Error('Startup finished before its preflight gate');
+                }),
+              ]);
+              assert.equal(memoryConversations.has(conversationId), true);
+              memoryConversations.delete(conversationId);
+              releasePreflight.resolve();
+              const accepted = await startup;
+              assert.equal(accepted.conversationId, conversationId);
+              await finished.promise;
+              assert.equal(executions, 0);
+              assert.equal(memoryConversations.has(conversationId), false);
+              assert.equal(memoryTurns.has(conversationId), false);
+              assert.equal(getActiveRunOwnership(conversationId), null);
+              assert.equal(getInflight(conversationId), undefined);
+              return;
+            }
+            const accepted = await startup;
             // The provider is still held at its gate after startup has returned.
             await Promise.race([
               entered.promise,
@@ -223,6 +294,25 @@ for (const outcome of ['complete', 'error', 'cancel'] as const) {
                 throw new Error('Run ended before provider entry');
               }),
             ]);
+            if (outcome === 'default-create') {
+              assert.equal(accepted.conversationId, conversationId);
+              assert.equal(accepted.providerId, 'codex');
+              assert.equal(accepted.modelId, 'gpt-6.1-sol');
+              assert.equal(
+                memoryConversations.get(conversationId)?.model,
+                'gpt-6.1-sol',
+              );
+              release.resolve();
+              await finished.promise;
+              assert.equal(executions, 1);
+              assert.deepEqual(
+                memoryTurns.get(conversationId)?.map((turn) => turn.status),
+                ['ok', 'ok'],
+              );
+              assert.equal(getActiveRunOwnership(conversationId), null);
+              assert.equal(getInflight(conversationId), undefined);
+              return;
+            }
             assert.equal(accepted.providerId, 'codex');
             assert.equal(accepted.modelId, 'gpt-6.1-terra');
             assert.ok(getActiveRunOwnership(conversationId));
@@ -315,8 +405,9 @@ for (const outcome of ['complete', 'error', 'cancel'] as const) {
           },
         );
       } finally {
+        releasePreflight.resolve();
         release.resolve();
-        if (started) await finished.promise;
+        if (startupSettled && (await startupSettled)) await finished.promise;
         memoryTurns.delete(conversationId);
         memoryConversations.delete(conversationId);
         await homes.cleanup();

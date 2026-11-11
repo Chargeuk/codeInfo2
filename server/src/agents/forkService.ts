@@ -205,6 +205,7 @@ async function finishPublishedFork(
       await (deps.startInstruction ?? startAgentInstruction)({
         agentName: conversation.agentName!,
         conversationId: conversation._id,
+        mustExist: true,
         inflightId: `fork-${operation._id}`,
         instruction: conversation.fork!.handover,
         working_folder: conversation.flags.workingFolder,
@@ -219,23 +220,18 @@ async function finishPublishedFork(
           : typeof (error as { reason?: unknown })?.reason === 'string'
             ? (error as { reason: string }).reason
             : 'Unable to start the child handover.';
-      await ForkOperationModel.updateOne(
-        { _id: operation._id },
-        { $set: { error: handoverError } },
-      );
+      try {
+        await ForkOperationModel.updateOne(
+          { _id: operation._id },
+          { $set: { error: handoverError } },
+        );
+      } catch (err) {
+        baseLogger.warn(
+          { operationId: operation._id, conversationId: conversation._id, err },
+          'Fork handover startup error persistence failed',
+        );
+      }
       return { ...resultFor(conversation), handoverError };
-    }
-    try {
-      await ConversationModel.updateOne(
-        { _id: conversation._id },
-        { $set: { 'fork.handoverDelivered': true } },
-      );
-    } catch (err) {
-      // Run acceptance and its once-only claim survive this metadata failure.
-      baseLogger.warn(
-        { operationId: operation._id, conversationId: conversation._id, err },
-        'Fork handover delivery marker update failed after run acceptance',
-      );
     }
   }
   return {

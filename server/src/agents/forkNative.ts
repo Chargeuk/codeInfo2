@@ -112,6 +112,8 @@ export async function openForkNative(
             sortDirection: 'asc',
             itemsView: 'full',
           });
+          if (page.nextCursor && page.nextCursor === cursor)
+            throw new Error('Codex native history cursor did not advance');
           thread.turns.push(...page.data);
           cursor = page.nextCursor ?? undefined;
         } while (cursor);

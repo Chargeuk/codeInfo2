@@ -2204,6 +2204,7 @@ async function emitFailedAgentCommandStep(params: {
 
 export async function startAgentInstruction(
   params: Omit<RunAgentInstructionParams, 'signal'> & {
+    mustExist?: boolean;
     cleanupInflightFn?: InstructionRuntimeCleanupFn;
     releaseConversationLockFn?: InstructionReleaseLockFn;
   },
@@ -2231,7 +2232,7 @@ export async function startAgentInstruction(
   }
   const { runToken } = ownership;
 
-  const mustExist = false;
+  const mustExist = params.mustExist ?? false;
 
   append({
     level: 'info',

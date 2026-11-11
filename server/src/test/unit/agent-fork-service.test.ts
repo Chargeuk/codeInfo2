@@ -325,15 +325,6 @@ function harness(
   );
   t.mock.method(
     ConversationModel,
-    'updateOne',
-    async (filter: { _id: string }) => {
-      const conversation = conversations.get(filter._id);
-      if (conversation?.fork) conversation.fork.handoverDelivered = true;
-      return { matchedCount: conversation ? 1 : 0 };
-    },
-  );
-  t.mock.method(
-    ConversationModel,
     'exists',
     async (filter: { _id: string; agentName: string; createdAt: Date }) => {
       const document =
@@ -1794,7 +1785,6 @@ test('legacy identity cache failure still delivers and publishes the fork withou
     assert.equal(cacheWrite.mock.callCount(), 1);
     assert.equal(h.rows[1].native, undefined);
     assert.equal(published.fork?.nativeSessionId, 'native-child');
-    assert.equal(published.fork?.handoverDelivered, true);
     assert.equal(h.instructions[0].instruction, published.fork!.handover);
     assert.equal(h.copied.size, 3);
     assert.equal([...h.operations.values()][0].phase, 'ready');
@@ -1869,6 +1859,7 @@ test('new Codex fork automatically starts exactly one normal child handover afte
   assert.equal(sent.agentName, 'target_agent');
   assert.equal(sent.working_folder, '/shared/folder');
   assert.equal(sent.source, 'REST');
+  assert.equal(sent.mustExist, true);
   assert.equal('signal' in sent, false);
   assert.match(sent.instruction, /Complete target prompt/u);
   assert.match(
@@ -1895,48 +1886,65 @@ test('new Codex fork automatically starts exactly one normal child handover afte
   assert.equal(h.stats().nativeForks, 1);
 });
 
-test('accepted handover remains successful after its delivery marker write fails and is not dispatched again', async (t) => {
+test('handover startup error returns the published child even when recording the error fails, without replay', async (t) => {
   const h = harness(t);
   const warnings: unknown[][] = [];
   t.mock.method(baseLogger, 'warn', (...args: unknown[]) => {
     warnings.push(args);
   });
-  const markerError = new Error('Delivery marker write failed');
-  const markerWrite = t.mock.method(
-    ConversationModel,
+  let attempts = 0;
+  h.deps.startInstruction = async () => {
+    attempts++;
+    throw new Error('Original startup failure');
+  };
+  const writeError = new Error('Startup error write failed');
+  const updateOne = ForkOperationModel.updateOne;
+  let errorWrites = 0;
+  t.mock.method(
+    ForkOperationModel,
     'updateOne',
-    async () => {
-      assert.equal(h.instructions.length, 1, 'The run was already accepted');
-      throw markerError;
+    async (
+      filter: Record<string, unknown>,
+      update: {
+        $set?: Partial<ForkOperation>;
+        $unset?: Record<string, unknown>;
+      },
+      options?: { session?: mongoose.ClientSession },
+    ) => {
+      if (update.$set?.error) {
+        errorWrites++;
+        throw writeError;
+      }
+      return updateOne(filter, update, options);
     },
   );
   const child = await forkAgentConversation(h.input, h.deps);
-  assert.equal(child.handoverError, undefined);
+  assert.equal(child.handoverError, 'Original startup failure');
   assert.equal(h.conversations.has(child.conversationId), true);
   assert.equal(h.stats().removed, 0);
-  assert.equal(h.instructions.length, 1);
   const operation = [...h.operations.values()][0];
   assert.equal(operation.handoverStarted, true);
   assert.equal(operation.phase, 'ready');
   assert.equal(operation.error, undefined);
-  assert.equal(
-    h.conversations.get(child.conversationId)?.fork?.handoverDelivered,
-    false,
-  );
   assert.deepEqual(warnings, [
     [
       {
         operationId: operation._id,
         conversationId: child.conversationId,
-        err: markerError,
+        err: writeError,
       },
-      'Fork handover delivery marker update failed after run acceptance',
+      'Fork handover startup error persistence failed',
     ],
   ]);
-  assert.deepEqual(await forkAgentConversation(h.input, h.deps), child);
-  assert.deepEqual(await h.runWorker(), child);
-  assert.equal(h.instructions.length, 1);
-  assert.equal(markerWrite.mock.callCount(), 1);
+  // No persisted error is available on reopen, but the original claim still
+  // prevents replay, even when the error-recording storage was unavailable.
+  assert.equal(
+    (await forkAgentConversation(h.input, h.deps)).conversationId,
+    child.conversationId,
+  );
+  assert.equal((await h.runWorker()).conversationId, child.conversationId);
+  assert.equal(attempts, 1);
+  assert.equal(errorWrites, 1);
   assert.equal(h.stats().nativeForks, 1);
   assert.equal(h.stats().removed, 0);
 });

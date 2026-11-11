@@ -2,8 +2,13 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import test, { type TestContext } from 'node:test';
 import mongoose from 'mongoose';
-import { ForkError } from '../../agents/forkHistory.js';
+import {
+  ForkError,
+  resolveForkBoundary,
+  resolveVerifiedCodexBoundary,
+} from '../../agents/forkHistory.js';
 import { FORK_LEASE_MS, FORK_LEASE_RENEW_MS } from '../../agents/forkLease.js';
+import type { ForkNativeSession } from '../../agents/forkNative.js';
 import {
   executeFork,
   forkAgentConversation,
@@ -478,6 +483,12 @@ function harness(
           nextEventId: 'later-native-event',
         },
       ],
+      async recoverBoundary(
+        this: ForkNativeSession,
+        snapshot: Parameters<typeof resolveVerifiedCodexBoundary>[0],
+      ) {
+        return resolveForkBoundary(snapshot, this.turns);
+      },
       fork: async (boundary, config, model, cwd) => {
         forkBoundary = boundary.id;
         nativeForks++;
@@ -1113,6 +1124,10 @@ test('latest fork-of-fork keeps previous handover context and adds exactly one n
     handover: 'Previous target prompt',
     handoverDelivered: true,
   };
+  h.rows[1].native = {
+    ...h.rows[1].native,
+    sessionId: 'previous-native-child',
+  };
   const read = h.deps.listTurns;
   h.deps.listTurns = async (...args) => {
     const previous = await read(...args);
@@ -1747,7 +1762,7 @@ test('selected earlier Codex reply forks directly while a newer source run retai
   }
 });
 
-test('unique complete legacy exchange caches its estimated identity and subsequent forks skip history', async (t) => {
+test('unique verified canonical exchange caches its identity after fork and subsequent forks skip history', async (t) => {
   const h = harness(t);
   delete h.rows[1].native;
   const open = h.deps.openNative;
@@ -1755,21 +1770,31 @@ test('unique complete legacy exchange caches its estimated identity and subseque
   h.deps.openNative = async (...args) => {
     reads.push(args[2]);
     const native = await open(...args);
+    if (args[2]) {
+      const canonical = native.turns.map((turn) => ({
+        ...turn,
+        userMessages: [turn.user],
+        finalAssistant: turn.assistant,
+        startOffset: 0,
+      }));
+      native.turns = [];
+      native.recoverBoundary = async (snapshot) =>
+        resolveVerifiedCodexBoundary(snapshot, canonical);
+    }
     if (args[2] === false) native.turns = [];
     return native;
   };
   const first = await forkAgentConversation(h.input, h.deps);
-  assert.equal(first.estimated, true);
+  assert.equal(first.estimated, false);
   assert.deepEqual(h.rows[1].native, {
     sessionId: 'native-source',
     turnId: 'native-turn',
-    estimated: true,
   });
   const second = await forkAgentConversation(
     { ...h.input, requestId: crypto.randomUUID() },
     h.deps,
   );
-  assert.equal(second.estimated, true);
+  assert.equal(second.estimated, false);
   assert.deepEqual(reads, [true, false]);
 });
 
@@ -1808,19 +1833,116 @@ test('legacy identity cache failure still delivers and publishes the fork withou
   }
 });
 
-test('repeated legacy exchanges stay estimated and are not cached as an unsafe unique mapping', async (t) => {
+test('repeated legacy indexed exchanges remain estimated and are not cached as a unique mapping', async (t) => {
   const h = harness(t);
   delete h.rows[1].native;
   const open = h.deps.openNative;
   h.deps.openNative = async (...args) => {
     assert.equal(args[2], true);
     const native = await open(...args);
+    native.turns[0].user = 'System:\nSynthetic context\n\nUser:\nPrompt';
     native.turns.push({ ...native.turns[0], id: 'same-text-later' });
     return native;
   };
-  await forkAgentConversation(h.input, h.deps);
+  const child = await forkAgentConversation(h.input, h.deps);
+  assert.equal(child.estimated, true);
   assert.equal(h.stats().forkBoundary, 'native-turn');
   assert.equal(h.rows[1].native, undefined);
+});
+
+test('ambiguous canonical fallback rejects before native fork or identity caching', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    const native = await open(...args);
+    const canonical = native.turns.map((turn) => ({
+      ...turn,
+      userMessages: [turn.user],
+      finalAssistant: turn.assistant,
+      startOffset: 0,
+    }));
+    canonical.push({ ...canonical[0], id: 'duplicate' });
+    native.turns = [];
+    native.recoverBoundary = async (snapshot) =>
+      resolveVerifiedCodexBoundary(snapshot, canonical);
+    return native;
+  };
+  await assert.rejects(forkAgentConversation(h.input, h.deps), /ambiguous/u);
+  assert.equal(h.stats().nativeForks, 0);
+  assert.equal(h.rows[1].native, undefined);
+});
+
+test('a unique wrapped indexed pair caches its estimated identity after fork and reuses it', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  const open = h.deps.openNative;
+  const reads: Array<boolean | undefined> = [];
+  h.deps.openNative = async (...args) => {
+    reads.push(args[2]);
+    const native = await open(...args);
+    if (args[2]) {
+      native.turns[0].user = 'System:\nSynthetic context\n\nUser:\nPrompt';
+      const fork = native.fork;
+      native.fork = async (...params) => {
+        assert.equal(h.rows[1].native, undefined);
+        return fork(...params);
+      };
+    } else {
+      native.turns = [];
+    }
+    return native;
+  };
+  const child = await forkAgentConversation(h.input, h.deps);
+  assert.equal(child.estimated, true);
+  assert.deepEqual(h.rows[1].native, {
+    sessionId: 'native-source',
+    turnId: 'native-turn',
+    estimated: true,
+  });
+  const second = await forkAgentConversation(
+    { ...h.input, requestId: crypto.randomUUID() },
+    h.deps,
+  );
+  assert.equal(second.estimated, true);
+  assert.equal(h.stats().forkBoundary, 'native-turn');
+  assert.deepEqual(reads, [true, false]);
+});
+
+test('failed native fork never caches a canonically recovered identity', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    const native = await open(...args);
+    const canonical = native.turns.map((turn) => ({
+      ...turn,
+      userMessages: [turn.user],
+      finalAssistant: turn.assistant,
+      startOffset: 0,
+    }));
+    native.turns = [];
+    native.recoverBoundary = async (snapshot) =>
+      resolveVerifiedCodexBoundary(snapshot, canonical);
+    return native;
+  };
+  h.setFailFork();
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /Provider acknowledgement lost/u,
+  );
+  assert.equal(h.rows[1].native, undefined);
+});
+
+test('a mismatched stored native session cannot fall back to canonical text recovery', async (t) => {
+  const h = harness(t);
+  h.rows[1].native = { sessionId: 'different-session', turnId: 'native-turn' };
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /does not match the source session/u,
+  );
+  assert.equal(h.stats().nativeForks, 0);
+  assert.equal(h.rows[1].native.sessionId, 'different-session');
 });
 
 test('Codex copy retry reuses frozen legacy history without a second source read or native lookup', async (t) => {

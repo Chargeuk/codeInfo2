@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  SYSTEM_CONTEXT,
+  VECTORSEARCH_PROTOCOL_REMINDER,
+} from '@codeinfo2/common';
+import {
   forkHandoverAt,
   resolveForkBoundary,
+  resolveVerifiedCodexBoundary,
   selectForkSnapshot,
   type NativeForkTurn,
 } from '../../agents/forkHistory.js';
@@ -34,6 +39,85 @@ const native = (id: string): NativeForkTurn => ({
   completed: true,
   user: 'Repeated prompt',
   assistant: 'Repeated answer',
+});
+
+test('canonical recovery verifies wrappers and composed/final replies while rejecting ambiguity, substring and unfinished matches', () => {
+  const snapshot = [
+    turn('user', 'user', 'Question'),
+    turn('reply', 'assistant', 'Final'),
+  ];
+  const canonical = {
+    id: 'actual',
+    completed: true,
+    user: `Synthetic preamble\nContext:\n${SYSTEM_CONTEXT}\n\nUser:\nQuestion\n- ${VECTORSEARCH_PROTOCOL_REMINDER}`,
+    userMessages: [
+      'Synthetic preamble',
+      `Context:\n${SYSTEM_CONTEXT}\n\nUser:\nQuestion\n- ${VECTORSEARCH_PROTOCOL_REMINDER}`,
+    ],
+    assistant: 'Progress.Final',
+    finalAssistant: 'Final',
+    startOffset: 0,
+  };
+  assert.equal(
+    resolveVerifiedCodexBoundary(snapshot, [canonical]).turn.id,
+    'actual',
+  );
+  assert.equal(
+    resolveVerifiedCodexBoundary(snapshot, [
+      {
+        ...canonical,
+        userMessages: [...canonical.userMessages, canonical.userMessages[1]],
+      },
+    ]).turn.id,
+    'actual',
+  );
+  assert.equal(
+    resolveVerifiedCodexBoundary(
+      [snapshot[0], { ...snapshot[1], content: 'Progress.Final' }],
+      [canonical],
+    ).estimated,
+    false,
+  );
+  assert.throws(
+    () =>
+      resolveVerifiedCodexBoundary(snapshot, [
+        canonical,
+        { ...canonical, id: 'duplicate' },
+      ]),
+    /ambiguous/u,
+  );
+  assert.throws(
+    () =>
+      resolveVerifiedCodexBoundary(snapshot, [
+        { ...canonical, completed: false },
+      ]),
+    /no verified/u,
+  );
+  assert.throws(
+    () =>
+      resolveVerifiedCodexBoundary(snapshot, [
+        {
+          ...canonical,
+          assistant: 'Final plus more',
+          finalAssistant: 'Final plus more',
+        },
+      ]),
+    /no verified/u,
+  );
+  assert.throws(
+    () =>
+      resolveVerifiedCodexBoundary(snapshot, [
+        { ...canonical, userMessages: ['Unrelated Question embedded here'] },
+      ]),
+    /no verified/u,
+  );
+  assert.equal(
+    resolveVerifiedCodexBoundary(snapshot, [
+      { ...canonical, id: 'other', userMessages: ['Different'] },
+      canonical,
+    ]).turn.id,
+    'actual',
+  );
 });
 
 test('exact native IDs take priority over repeated text', () => {

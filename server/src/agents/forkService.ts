@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import mongoose from 'mongoose';
+import { matchesCodexStoredPrompt } from '../codex/rolloutHistory.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel, type Conversation } from '../mongo/conversation.js';
 import { emitConversationUpsert } from '../mongo/events.js';
@@ -529,19 +530,40 @@ export async function executeFork(
       sourceProvider === 'codex' &&
       selected.native?.sessionId === nativeId &&
       !!selected.native.turnId;
+    if (
+      sourceProvider === 'codex' &&
+      (selected.native?.turnId || selected.native?.eventId) &&
+      !exactCodex
+    )
+      throw new ForkError(
+        'FORK_HISTORY_UNAVAILABLE',
+        'The recorded native identity does not match the source session.',
+      );
     native = await deps.openNative(
       sourceProvider as 'codex' | 'copilot',
       nativeId,
       !exactCodex &&
         !(sourceProvider === 'codex' && operation?.nativeSessionId),
     );
+    if (
+      sourceProvider === 'codex' &&
+      !exactCodex &&
+      !operation?.nativeSessionId &&
+      !native.recoverBoundary
+    )
+      throw new ForkError(
+        'FORK_HISTORY_UNAVAILABLE',
+        'Verified canonical history recovery is unavailable.',
+      );
     let boundary = operation?.nativeSessionId
       ? undefined
-      : resolveForkBoundary(
-          snapshot,
-          native.turns,
-          sourceProvider === 'codex' ? nativeId : undefined,
-        );
+      : sourceProvider === 'codex' && !exactCodex
+        ? await native.recoverBoundary!(snapshot)
+        : resolveForkBoundary(
+            snapshot,
+            native.turns,
+            sourceProvider === 'codex' ? nativeId : undefined,
+          );
 
     if (!operation) {
       const conversationId = crypto.randomUUID();
@@ -717,11 +739,20 @@ export async function executeFork(
       operation.phase = 'prepared';
     }
     if (!operation.nativeSessionId) {
-      boundary = resolveForkBoundary(
-        snapshot,
-        native.turns,
-        sourceProvider === 'codex' ? nativeId : undefined,
-      );
+      if (sourceProvider === 'codex' && !exactCodex) {
+        if (!native.recoverBoundary)
+          throw new ForkError(
+            'FORK_HISTORY_UNAVAILABLE',
+            'Verified canonical history recovery is unavailable.',
+          );
+        boundary = await native.recoverBoundary(snapshot);
+      } else {
+        boundary = resolveForkBoundary(
+          snapshot,
+          native.turns,
+          sourceProvider === 'codex' ? nativeId : undefined,
+        );
+      }
       if (sourceProvider === 'copilot' && !boundary.turn.nextEventId) {
         // Only a whole-session native fork needs an idle source. The history
         // copy and retries never own or stop a source's later run.
@@ -758,8 +789,8 @@ export async function executeFork(
         nativeSessionId: child,
         phase: 'native_ready',
       });
-      // Cache only an unambiguous, complete legacy exchange after the provider
-      // accepted its boundary. Prompt-only/compaction estimates remain uncached.
+      // Cache canonical verification or a unique indexed legacy pair only
+      // after the provider has accepted the native fork boundary.
       if (sourceProvider === 'codex') {
         const responseIndex = lastIndex(
           snapshot,
@@ -774,15 +805,17 @@ export async function executeFork(
           (turn) =>
             turn.completed &&
             turn.assistant.trim() === response.content.trim() &&
-            turn.user.trim() === prompt?.content.trim(),
+            !!prompt &&
+            matchesCodexStoredPrompt(turn.user, prompt.content),
         );
         if (
           !response.native?.turnId &&
           !response.native?.eventId &&
-          response.content.trim() &&
-          prompt?.content.trim() &&
-          matches.length === 1 &&
-          matches[0].id === boundary.turn.id
+          (boundary.estimated === false ||
+            (response.content.trim() &&
+              prompt?.content.trim() &&
+              matches.length === 1 &&
+              matches[0].id === boundary.turn.id))
         ) {
           try {
             await TurnModel.updateOne(
@@ -800,7 +833,7 @@ export async function executeFork(
                   native: {
                     sessionId: nativeId,
                     turnId: boundary.turn.id,
-                    estimated: true,
+                    ...(boundary.estimated ? { estimated: true } : {}),
                   },
                 },
               },

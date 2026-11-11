@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import test from 'node:test';
 import mongoose from 'mongoose';
 import { executeFork, type ForkServiceDeps } from '../../agents/forkService.js';
+import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
 import { disconnectMongo } from '../../mongo/connection.js';
 import {
   ConversationModel,
@@ -14,6 +15,7 @@ import {
 } from '../../mongo/forkOperation.js';
 import { listForkTurns } from '../../mongo/repo.js';
 import { TurnModel } from '../../mongo/turn.js';
+import { runWithTestOverrides } from '../support/testOverrideScope.js';
 import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 // Reuse a supplied replica set and the app's actual models/connection. Every
@@ -43,6 +45,83 @@ test(
         ForkOperationModel.init(),
         ForkSnapshotModel.init(),
       ]);
+      // Verify the existing completion/native pipeline survives a real Mongo
+      // reload for both callers. Provider transport and canonical verification
+      // are deterministic doubles; this gated test makes no provider calls.
+      for (const agent of [false, true]) {
+        const conversationId = crypto.randomUUID();
+        const sessionId = crypto.randomUUID();
+        await ConversationModel.create({
+          _id: conversationId,
+          provider: 'codex',
+          model: 'gpt-6.1-terra',
+          title: 'Native metadata reload',
+          source: 'REST',
+          flags: {},
+        });
+        const events = async function* () {
+          yield { type: 'thread.started', thread_id: sessionId };
+          yield {
+            type: 'item.completed',
+            item: { type: 'agent_message', id: 'reply', text: 'Acknowledged.' },
+          };
+          yield { type: 'turn.completed' };
+        };
+        const thread = {
+          id: sessionId,
+          runStreamed: async () => ({ events: events() }),
+        };
+        const chat = new ChatInterfaceCodex(
+          () => ({ startThread: () => thread, resumeThread: () => thread }),
+          {
+            checkpoint: async () => {
+              throw new Error('Fresh fixture');
+            },
+            complete: async () => ({
+              sessionId,
+              turnId: 'verified-native-turn',
+            }),
+          },
+        );
+        await runWithTestOverrides(
+          {
+            codexDetection: {
+              available: true,
+              authPresent: true,
+              configPresent: true,
+            },
+            envOverrides: { NODE_ENV: 'development' },
+          },
+          async () => {
+            await chat.run(
+              'Acknowledge only',
+              {
+                provider: 'codex',
+                source: 'REST',
+                disableSystemContext: agent,
+              },
+              conversationId,
+              'gpt-6.1-terra',
+            );
+          },
+        );
+        const reloaded = await TurnModel.findOne({
+          conversationId,
+          role: 'assistant',
+        })
+          .lean()
+          .exec();
+        assert.equal(reloaded?.content, 'Acknowledged.');
+        assert.deepEqual(reloaded?.native, {
+          sessionId,
+          turnId: 'verified-native-turn',
+        });
+        assert.equal(
+          (await ConversationModel.findById(conversationId).lean().exec())
+            ?.flags.threadId,
+          sessionId,
+        );
+      }
       // Exercise the actual Mongo comparison/sort semantics, including missing
       // legacy tie breakers, before running the durable publication proof.
       for (const chronology of ['source', 'copy', 'legacy-copy'] as const) {

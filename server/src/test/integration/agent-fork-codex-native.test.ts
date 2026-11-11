@@ -49,18 +49,29 @@ test(
           workingDirectory: homes.tempRoot,
           skipGitRepoCheck: true,
         });
-        await source.run('Reply exactly Ready. Do not use tools.');
+        const prompt = 'Reply exactly Ready. Do not use tools.';
+        const response = await source.run(prompt);
         assert.ok(source.id);
-        const completed = await readCompletedCodexTurn(source.id);
+        const completed = await readCompletedCodexTurn(
+          source.id,
+          {
+            fresh: true,
+            prompt,
+            assistant: response.finalResponse,
+          },
+          homes.codexHome,
+        );
         assert.ok(completed?.turnId);
-        const native = await openForkNative('codex', source.id);
+        const native = await openForkNative('codex', source.id, false);
         let childId: string;
         const marker = `HANDOVER_PROOF=${crypto.randomUUID()}`;
         try {
-          const boundary = native.turns.find(
-            (turn) => turn.id === completed.turnId,
-          );
-          assert.ok(boundary);
+          const boundary = {
+            id: completed.turnId,
+            completed: true,
+            user: prompt,
+            assistant: response.finalResponse,
+          };
           childId = await native.fork(boundary, config, model, homes.tempRoot);
           assert.notEqual(childId, source.id);
         } finally {

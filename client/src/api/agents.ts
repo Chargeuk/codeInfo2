@@ -574,6 +574,7 @@ export type AgentForkResult = {
   model: string;
   workingFolder?: string;
   estimated: boolean;
+  handoverError?: string;
 };
 
 export async function getAgentForkOptions(

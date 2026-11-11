@@ -154,7 +154,28 @@ test(
       };
       let nativeForks = 0;
       const injected = new Set<string>();
+      let handovers = 0;
       const deps: ForkServiceDeps = {
+        startInstruction: async (params) => {
+          handovers++;
+          assert.ok(await ConversationModel.findById(params.conversationId));
+          await TurnModel.create({
+            conversationId: params.conversationId,
+            role: 'user',
+            content: params.instruction,
+            provider: 'codex',
+            model: target.modelId,
+            source: 'REST',
+            status: 'ok',
+            toolCalls: null,
+          });
+          return {
+            conversationId: params.conversationId!,
+            inflightId: params.inflightId!,
+            providerId: 'codex',
+            modelId: target.modelId,
+          };
+        },
         loadSource: async () => source,
         prepareTarget: async () => target,
         listTurns: listForkTurns,
@@ -234,7 +255,7 @@ test(
         .exec();
       assert.equal(ready?.phase, 'ready');
       assert.equal(child?.createdAt.getTime(), ready!.handoverAt.getTime());
-      assert.equal(child?.updatedAt.getTime(), ready!.handoverAt.getTime());
+      assert.ok(child!.updatedAt.getTime() >= ready!.handoverAt.getTime());
       assert.equal(child?.lastMessageAt.getTime(), ready!.handoverAt.getTime());
       assert.equal(
         await TurnModel.countDocuments({
@@ -243,7 +264,8 @@ test(
         3,
       );
       assert.equal(nativeForks, 1);
-      assert.equal(injected.size, 1);
+      assert.equal(injected.size, 0);
+      assert.equal(handovers, 1);
       await ConversationModel.deleteOne({ _id: result.conversationId });
       await TurnModel.deleteMany({ conversationId: result.conversationId });
       await assert.rejects(executeFork(input, operationId, deps), {

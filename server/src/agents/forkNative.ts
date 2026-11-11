@@ -94,19 +94,28 @@ export async function openForkNative(
   createServer = () => new CodexAppServer(),
 ): Promise<ForkNativeSession> {
   if (provider === 'codex') {
-    // Keep this connection alive until the child is persisted and its handover
-    // injected. Fork/inject never call turn/start or rewrite instructions.
+    // Native fork creation does not run inference. Legacy operation recovery
+    // can still inspect/inject history; new handovers use normal agent runs.
     const rpc = createServer();
     try {
       await rpc.initialize();
-      const thread: NativeCodexThread = readHistory
-        ? (
-            await rpc.request<{ thread: NativeCodexThread }>('thread/read', {
-              threadId: sessionId,
-              includeTurns: true,
-            })
-          ).thread
-        : { id: sessionId, turns: [] };
+      const thread: NativeCodexThread = { id: sessionId, turns: [] };
+      if (readHistory) {
+        let cursor: string | undefined;
+        do {
+          const page = await rpc.request<{
+            data: NativeCodexThread['turns'];
+            nextCursor: string | null;
+          }>('thread/turns/list', {
+            threadId: sessionId,
+            cursor,
+            sortDirection: 'asc',
+            itemsView: 'full',
+          });
+          thread.turns.push(...page.data);
+          cursor = page.nextCursor ?? undefined;
+        } while (cursor);
+      }
       const rolloutPaths = new Map<string, string>();
       if (thread.path) rolloutPaths.set(sessionId, thread.path);
       return {

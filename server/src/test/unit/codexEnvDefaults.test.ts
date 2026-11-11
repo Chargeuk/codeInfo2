@@ -133,7 +133,12 @@ test('empty Codex_model_list still falls back to the parser-owned model defaults
   const { models, warnings, fallbackUsed } = getCodexModelList();
 
   assert.equal(fallbackUsed, true);
-  assert.deepEqual(models, ['gpt-6.1-sol', 'gpt-6-luna', 'gpt-6-astra']);
+  assert.deepEqual(models, [
+    'gpt-6.1-sol',
+    'gpt-6.1-terra',
+    'gpt-6-luna',
+    'gpt-6-astra',
+  ]);
   assert.ok(
     warnings.some((warning) => warning.includes('Codex_model_list is empty')),
   );

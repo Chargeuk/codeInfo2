@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
 import type { SessionEvent } from '@github/copilot-sdk';
+import { resolveForkBoundary } from '../../agents/forkHistory.js';
 import {
   hasCodexRolloutInjected,
   mapCopilotForkTurns,
@@ -11,6 +12,7 @@ import {
   readCompletedCodexTurn,
 } from '../../agents/forkNative.js';
 import { CodexAppServer } from '../../codex/appServer.js';
+import type { TurnSummary } from '../../mongo/repo.js';
 
 const event = (
   id: string,
@@ -107,15 +109,24 @@ function nativeRpcHarness(
     };
     if (message.id === undefined) return;
     requests.push(message);
-    child.stdout.write(
-      JSON.stringify({
-        id: message.id,
+    let response: { result?: unknown; error?: { message: string } };
+    try {
+      response = {
         result:
           message.method === 'initialize'
             ? {}
             : result(message.method, message.params),
-      }) + '\n',
-    );
+      };
+    } catch (error) {
+      // A fixture assertion must fail the RPC, not strand the writable stream
+      // before finish and hide that assertion behind a writer-close timeout.
+      response = {
+        error: {
+          message: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+    child.stdout.write(JSON.stringify({ id: message.id, ...response }) + '\n');
   });
   child.stdin.once('finish', () => child.emit('close', 0, null));
   return {
@@ -200,22 +211,24 @@ test('exact Codex fork sends selected lastTurnId and excludes turns without read
 
 test('legacy Codex fork loads native items only when boundary lookup is required', async () => {
   const h = nativeRpcHarness((method, params) => {
-    assert.equal(method, 'thread/read');
-    assert.deepEqual(params, { threadId: 'source', includeTurns: true });
+    assert.equal(method, 'thread/turns/list');
+    assert.deepEqual(params, {
+      threadId: 'source',
+      sortDirection: 'asc',
+      itemsView: 'full',
+    });
     return {
-      thread: {
-        id: 'source',
-        turns: [
-          {
-            id: 'legacy-turn',
-            status: 'completed',
-            items: [
-              { type: 'userMessage', content: [{ text: 'Prompt' }] },
-              { type: 'agentMessage', text: 'Answer' },
-            ],
-          },
-        ],
-      },
+      data: [
+        {
+          id: 'legacy-turn',
+          status: 'completed',
+          items: [
+            { type: 'userMessage', content: [{ text: 'Prompt' }] },
+            { type: 'agentMessage', text: 'Answer' },
+          ],
+        },
+      ],
+      nextCursor: null,
     };
   });
   const native = await openForkNative('codex', 'source', true, h.createServer);
@@ -228,6 +241,140 @@ test('legacy Codex fork loads native items only when boundary lookup is required
         assistant: 'Answer',
       },
     ]);
+  } finally {
+    await native.close();
+    h.dispose();
+  }
+});
+
+test('native RPC fixture assertion failures preserve their cause and close the owned writer gracefully', async () => {
+  const h = nativeRpcHarness(() => {
+    assert.fail('Native history fixture rejected');
+  });
+  let rpc: CodexAppServer | undefined;
+  try {
+    await assert.rejects(
+      openForkNative('codex', 'source', true, () => {
+        rpc = h.createServer();
+        return rpc;
+      }),
+      {
+        code: 'FORK_NATIVE_UNAVAILABLE',
+        message:
+          'Codex native history is unavailable: Native history fixture rejected',
+      },
+    );
+    assert.equal(rpc?.isWriterTerminated(), true);
+    assert.deepEqual(
+      h.requests.map((request) => request.method),
+      ['initialize', 'thread/turns/list'],
+    );
+  } finally {
+    h.dispose();
+  }
+});
+
+test('legacy native boundary lookup preserves full content and order across every ascending page', async () => {
+  const h = nativeRpcHarness((method, params) => {
+    if (method === 'thread/fork') {
+      assert.equal(params.lastTurnId, 'selected');
+      assert.equal(params.excludeTurns, true);
+      return { thread: { id: 'child' } };
+    }
+    assert.equal(method, 'thread/turns/list');
+    assert.equal(params.itemsView, 'full');
+    assert.equal(params.sortDirection, 'asc');
+    if (!params.cursor)
+      return {
+        data: [
+          {
+            id: 'first',
+            status: 'completed',
+            items: [
+              {
+                type: 'userMessage',
+                content: [{ type: 'text', text: 'First prompt' }],
+              },
+              { type: 'agentMessage', text: 'First answer' },
+            ],
+          },
+        ],
+        nextCursor: 'page-two',
+      };
+    assert.equal(params.cursor, 'page-two');
+    return {
+      data: [
+        {
+          id: 'selected',
+          status: 'completed',
+          items: [
+            {
+              type: 'userMessage',
+              content: [
+                { type: 'text', text: 'Selected prompt' },
+                { type: 'text', text: 'Full context' },
+              ],
+            },
+            { type: 'agentMessage', text: 'Intermediate text' },
+            { type: 'agentMessage', text: 'Selected complete answer' },
+          ],
+        },
+        {
+          id: 'running',
+          status: 'inProgress',
+          items: [
+            {
+              type: 'userMessage',
+              content: [{ type: 'text', text: 'Later prompt' }],
+            },
+          ],
+        },
+      ],
+      nextCursor: null,
+    };
+  });
+  const native = await openForkNative('codex', 'source', true, h.createServer);
+  try {
+    assert.deepEqual(native.turns, [
+      {
+        id: 'first',
+        completed: true,
+        user: 'First prompt',
+        assistant: 'First answer',
+      },
+      {
+        id: 'selected',
+        completed: true,
+        user: 'Selected prompt\nFull context',
+        assistant: 'Selected complete answer',
+      },
+      { id: 'running', completed: false, user: 'Later prompt', assistant: '' },
+    ]);
+    const snapshot: TurnSummary[] = ['user', 'assistant'].map(
+      (role, index) => ({
+        turnId: `stored-${index}`,
+        conversationId: 'source',
+        role: role as 'user' | 'assistant',
+        content:
+          index === 0
+            ? 'Selected prompt\nFull context'
+            : 'Selected complete answer',
+        provider: 'codex',
+        model: 'old-model',
+        source: 'REST',
+        status: 'ok',
+        toolCalls: null,
+        createdAt: new Date(index),
+      }),
+    );
+    const boundary = resolveForkBoundary(snapshot, native.turns);
+    assert.equal(boundary.turn.id, 'selected');
+    assert.equal(boundary.estimated, true);
+    await native.fork(boundary.turn, {}, 'gpt-6.1-terra');
+    assert.deepEqual(
+      h.requests.map((request) => request.method),
+      ['initialize', 'thread/turns/list', 'thread/turns/list', 'thread/fork'],
+    );
   } finally {
     await native.close();
     h.dispose();

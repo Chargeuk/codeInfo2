@@ -637,7 +637,8 @@ describe('Agent config defaults', () => {
           required: true,
         });
         const servers = config?.mcp_servers as
-          Record<string, unknown> | undefined;
+          | Record<string, unknown>
+          | undefined;
         assert.ok(servers, `${catalog}/${role} must configure MCP servers`);
         assert.equal(servers.agents, undefined, `${catalog}/${role}`);
         if (role === 'automated_testing_agent') {
@@ -663,6 +664,112 @@ describe('Agent config defaults', () => {
             `${catalog}/${role}`,
           );
         }
+      }
+    }
+  });
+
+  it('keeps Terra/high roles and complete research variants in both catalogs', async () => {
+    const repoRoot = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../../../',
+    );
+    for (const catalog of [
+      'codeinfo_agents',
+      'manual_testing/codeinfo_agents',
+    ]) {
+      for (const role of [
+        'coding_agent',
+        'manual_testing_agent',
+        'planning_agent',
+        'review_agent',
+        'tasking_agent',
+        'research_agent_med',
+      ]) {
+        const config = await readAndNormalizeRuntimeTomlConfig(
+          path.join(repoRoot, catalog, role, 'config.toml'),
+          { required: true },
+        );
+        assert.equal(config?.model, 'gpt-6.1-terra', `${catalog}/${role}`);
+        assert.equal(
+          config?.model_reasoning_effort,
+          'high',
+          `${catalog}/${role}`,
+        );
+        assert.equal(config?.approval_policy, 'never', `${catalog}/${role}`);
+        assert.equal(
+          config?.sandbox_mode,
+          'danger-full-access',
+          `${catalog}/${role}`,
+        );
+      }
+      const research = await readAndNormalizeRuntimeTomlConfig(
+        path.join(repoRoot, catalog, 'research_agent/config.toml'),
+        { required: true },
+      );
+      const med = await readAndNormalizeRuntimeTomlConfig(
+        path.join(repoRoot, catalog, 'research_agent_med/config.toml'),
+        { required: true },
+      );
+      assert.deepEqual(med, {
+        ...research,
+        model: 'gpt-6.1-terra',
+        model_reasoning_effort: 'high',
+      });
+      const lite = await readAndNormalizeRuntimeTomlConfig(
+        path.join(repoRoot, catalog, 'research_agent_lite/config.toml'),
+        { required: true },
+      );
+      assert.equal(lite?.model, 'gpt-6-luna');
+      assert.equal(lite?.approval_policy, 'never');
+      assert.deepEqual(lite?.mcp_servers, research?.mcp_servers);
+      for (const role of [
+        'research_agent',
+        'research_agent_med',
+        'research_agent_lite',
+      ]) {
+        const prompt = await fs.readFile(
+          path.join(repoRoot, catalog, role, 'system_prompt.txt'),
+          'utf8',
+        );
+        assert.match(
+          prompt,
+          /research_agent_lite → research_agent_med → research_agent/u,
+        );
+        assert.match(
+          prompt,
+          /research_agent_max ONLY as a last resort when completely stuck, with evidence/u,
+        );
+        assert.match(
+          prompt,
+          /Human instructions, governing-flow restrictions, leaf assignments, and no-recursion constraints override/u,
+        );
+        assert.doesNotMatch(
+          prompt,
+          /proactively request research_agent(?:_max)?(?: help)? for/u,
+        );
+        if (role !== 'research_agent_lite') {
+          assert.match(
+            prompt,
+            /choose research_agent_lite for bounded straightforward questions and research_agent_med for complex questions/u,
+          );
+          assert.match(
+            prompt,
+            /Never route ordinary targeted children to research_agent or research_agent_max/u,
+          );
+        } else {
+          assert.match(prompt, /escalate to research_agent_med with evidence/u);
+          assert.match(prompt, /Do not bypass med/u);
+        }
+        if (role === 'research_agent_med')
+          assert.match(prompt, /escalate to research_agent with evidence/u);
+        assert.ok(
+          (
+            await fs.readFile(
+              path.join(repoRoot, catalog, role, 'description.md'),
+              'utf8',
+            )
+          ).trim(),
+        );
       }
     }
   });

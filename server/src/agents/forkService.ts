@@ -33,6 +33,7 @@ import {
 import {
   createAgentForkOptionsPreparation,
   prepareAgentForkTarget,
+  startAgentInstruction,
 } from './service.js';
 
 export type ForkInput = {
@@ -47,6 +48,7 @@ export type ForkResult = {
   model: string;
   workingFolder?: string;
   estimated: boolean;
+  handoverError?: string;
 };
 
 export function assertForkCompatible(
@@ -187,6 +189,61 @@ const resultFor = (conversation: Conversation): ForkResult => ({
   estimated: conversation.fork!.estimated,
 });
 
+async function finishPublishedFork(
+  operation: ForkOperation,
+  conversation: Conversation,
+  deps: ForkServiceDeps,
+): Promise<ForkResult> {
+  if (operation.handoverMode !== 'instruction') return resultFor(conversation);
+  const claimed = await ForkOperationModel.updateOne(
+    { _id: operation._id, phase: 'ready', handoverStarted: { $ne: true } },
+    { $set: { handoverStarted: true } },
+  );
+  let handoverError = operation.error;
+  if (claimed.matchedCount) {
+    try {
+      await (deps.startInstruction ?? startAgentInstruction)({
+        agentName: conversation.agentName!,
+        conversationId: conversation._id,
+        inflightId: `fork-${operation._id}`,
+        instruction: conversation.fork!.handover,
+        working_folder: conversation.flags.workingFolder,
+        source: conversation.source,
+      });
+    } catch (error) {
+      // The child is already published. Report startup failure without deleting
+      // it or replaying a potentially accepted run on a repeated fork request.
+      handoverError =
+        error instanceof Error
+          ? error.message
+          : typeof (error as { reason?: unknown })?.reason === 'string'
+            ? (error as { reason: string }).reason
+            : 'Unable to start the child handover.';
+      await ForkOperationModel.updateOne(
+        { _id: operation._id },
+        { $set: { error: handoverError } },
+      );
+      return { ...resultFor(conversation), handoverError };
+    }
+    try {
+      await ConversationModel.updateOne(
+        { _id: conversation._id },
+        { $set: { 'fork.handoverDelivered': true } },
+      );
+    } catch (err) {
+      // Run acceptance and its once-only claim survive this metadata failure.
+      baseLogger.warn(
+        { operationId: operation._id, conversationId: conversation._id, err },
+        'Fork handover delivery marker update failed after run acceptance',
+      );
+    }
+  }
+  return {
+    ...resultFor(conversation),
+    ...(handoverError ? { handoverError } : {}),
+  };
+}
+
 async function readForkSnapshot(
   operation: ForkOperation,
 ): Promise<TurnSummary[]> {
@@ -206,7 +263,7 @@ async function readForkSnapshot(
   return records.map((record) => record.turn);
 }
 
-async function readFinishedFork(operationId: string) {
+async function readFinishedFork(operationId: string, deps: ForkServiceDeps) {
   const operation = await ForkOperationModel.findById(operationId)
     .lean()
     .exec();
@@ -216,7 +273,7 @@ async function readFinishedFork(operationId: string) {
   )
     .lean()
     .exec();
-  if (conversation) return resultFor(conversation);
+  if (conversation) return finishPublishedFork(operation, conversation, deps);
   if (operation.phase === 'ready')
     throw new ForkError(
       'FORK_DELETED',
@@ -269,7 +326,7 @@ async function cleanupIncompleteFork(
     await lease.update({ phase: 'cleaning' }, session);
     return null;
   });
-  if (published) return resultFor(published);
+  if (published) return finishPublishedFork(operation, published, deps);
   if (operation.nativeSessionId === operation.sourceNativeSessionId)
     throw new ForkError(
       'FORK_CLEANUP_UNAVAILABLE',
@@ -308,6 +365,7 @@ export type ForkServiceDeps = {
   openNative: typeof openForkNative;
   listTurns: typeof listForkTurns;
   removeOwnedNative?: typeof removeOwnedNativeFork;
+  startInstruction?: typeof startAgentInstruction;
 };
 const defaultDeps: ForkServiceDeps = {
   loadSource,
@@ -371,7 +429,7 @@ export async function executeFork(
     const ready = await ConversationModel.findById(operation.conversationId)
       .lean()
       .exec();
-    if (ready) return resultFor(ready);
+    if (ready) return finishPublishedFork(operation, ready, deps);
     if (operation.phase === 'ready')
       throw new ForkError(
         'FORK_DELETED',
@@ -426,7 +484,7 @@ export async function executeFork(
           );
         }
       } else {
-        const ready = await readFinishedFork(operationId);
+        const ready = await readFinishedFork(operationId, deps);
         if (ready) return ready;
       }
     }
@@ -491,7 +549,12 @@ export async function executeFork(
     if (!operation) {
       const conversationId = crypto.randomUUID();
       const now = forkHandoverAt(snapshot);
-      const handover = `Conversation handover\nFork request: ${input.requestId}\nSource agent: ${source.agentName}\nSource conversation: ${source.title} (${source._id})\nTarget agent: ${input.targetAgentName}\nProvider: ${sourceProvider}\n\nContinue as the target agent using its current tools and model. The working folder is shared; this fork does not isolate files.\n\nComplete target agent prompt captured at fork time:\n${target.prompt}`;
+      const inheritedHandovers = snapshot
+        .slice(lastIndex(snapshot, (turn) => turn.role === 'assistant') + 1)
+        .filter((turn) => turn.fork?.handover)
+        .map((turn) => turn.content);
+      const handover = `Conversation handover\nFork request: ${input.requestId}\nSource agent: ${source.agentName}\nSource conversation: ${source.title} (${source._id})\nTarget agent: ${input.targetAgentName}\nProvider: ${sourceProvider}\n\nContinue as the target agent using its current tools and model. The working folder is shared; this fork does not isolate files.\n\nComplete target agent prompt captured at fork time:\n${target.prompt}${sourceProvider === 'codex' && inheritedHandovers.length ? `\n\nInherited handover context:\n${inheritedHandovers.join('\n\n')}` : ''}${sourceProvider === 'codex' ? '\n\nFor this handover message, ACKNOWLEDGE ONLY and await the next user instruction. Do not call tools, perform work, or continue any prior task.' : ''}`;
+
       const conversation: Conversation = {
         _id: conversationId,
         agentName: input.targetAgentName,
@@ -539,6 +602,9 @@ export async function executeFork(
           targetAgentName: input.targetAgentName,
           conversationId,
           phase: 'snapshotting',
+          ...(sourceProvider === 'codex'
+            ? { handoverMode: 'instruction' }
+            : {}),
           snapshotCount: snapshot.length,
           snapshotLastTurnId: snapshot.at(-1)!.turnId,
           conversation,
@@ -574,7 +640,7 @@ export async function executeFork(
       .lean()
       .exec();
     if (!claimedOperation) {
-      const ready = await readFinishedFork(operationId);
+      const ready = await readFinishedFork(operationId, deps);
       if (ready) return ready;
       throw new ForkError(
         'FORK_CREATING',
@@ -760,6 +826,7 @@ export async function executeFork(
     ];
     if (
       sourceProvider === 'codex' &&
+      operation.handoverMode !== 'instruction' &&
       (operation.phase === 'injection_uncertain' ||
         (claimedOperation.phase === 'injecting' &&
           claimedOperation.injectionWriterClosed !== true))
@@ -781,7 +848,8 @@ export async function executeFork(
       ['injecting', 'injection_uncertain', 'native_ready'].includes(
         operation.phase,
       ) &&
-      sourceProvider === 'codex'
+      sourceProvider === 'codex' &&
+      operation.handoverMode !== 'instruction'
     ) {
       const durableRecovery = operation.phase === 'injection_uncertain';
       if (!durableRecovery) {
@@ -832,6 +900,13 @@ export async function executeFork(
       native = undefined;
       await helper.close();
     }
+    if (
+      operation.handoverMode === 'instruction' &&
+      operation.phase === 'native_ready'
+    ) {
+      await ownedLease.update({ phase: 'copied', conversation });
+      operation.phase = 'copied';
+    }
     const displayOrders = new Map(
       orderForkDisplayHistory(snapshot).map((turn, index) => [
         turn.turnId,
@@ -881,7 +956,10 @@ export async function executeFork(
         fork: { handover: true },
       };
     };
-    const rowCount = snapshot.length + 1;
+    // The normal run owns the new user/assistant turns, including failures and
+    // cancellation. Only legacy/Copilot handovers need a synthetic display row.
+    const rowCount =
+      snapshot.length + (operation.handoverMode === 'instruction' ? 0 : 1);
     for (let offset = 0; offset < rowCount; offset += FORK_WRITE_BATCH_SIZE) {
       await mongoose.connection.transaction(async (session) => {
         await ownedLease.update({}, session);
@@ -963,6 +1041,7 @@ export async function executeFork(
       // a cleanup limitation, not a reason to report creation as failed.
       baseLogger.warn({ operationId }, 'Fork snapshot cleanup is pending');
     });
+    const result = await finishPublishedFork(operation, ready, deps);
     emitConversationUpsert({
       conversationId: ready._id,
       provider: ready.provider,
@@ -974,7 +1053,7 @@ export async function executeFork(
       archived: false,
       flags: ready.flags,
     });
-    return resultFor(ready);
+    return result;
   } finally {
     if (sourceLock) releaseConversationLock(source._id, sourceLock);
     try {

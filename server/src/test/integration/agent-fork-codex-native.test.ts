@@ -18,7 +18,7 @@ import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 // Opt-in authenticated proof: run after installing the pinned SDK/CLI. Never
 // logs credentials, reauthenticates, or writes to the live provider home.
 test(
-  'Codex fork injection persists and is consumed by a subsequent SDK exec resume',
+  'Codex native fork accepts a normal child handover that subsequent SDK resumes retain',
   {
     skip: process.env.CODEINFO_NATIVE_FORK_PROOF !== '1',
     timeout: resolveConfiguredTestTimeoutMs(180_000),
@@ -63,21 +63,25 @@ test(
           assert.ok(boundary);
           childId = await native.fork(boundary, config, model, homes.tempRoot);
           assert.notEqual(childId, source.id);
-          await native.inject(childId, marker);
-          assert.equal(await native.hasInjected(childId, marker), true);
-          assert.equal(await native.hasInjected(source.id, marker), false);
         } finally {
           await native.close();
         }
-        assert.equal(await native.hasInjected(childId!, marker), true);
-        // Close app-server before resuming to prove persisted history reaches SDK
-        // exec, rather than merely proving app-server's in-memory injection.
+        // The handover is a normal user turn. No inject RPC or rollout-file
+        // confirmation participates in the new handover flow.
         const child = codex.resumeThread(childId!, {
           model,
           workingDirectory: homes.tempRoot,
           skipGitRepoCheck: true,
         });
-        const answer = await child.run(
+        await child.run(
+          `${marker}\nAcknowledge ONLY. Await the next user instruction. No tools or work.`,
+        );
+        const reopened = codex.resumeThread(childId!, {
+          model,
+          workingDirectory: homes.tempRoot,
+          skipGitRepoCheck: true,
+        });
+        const answer = await reopened.run(
           'Return the exact HANDOVER_PROOF value from your previous user history. No tools.',
         );
         assert.ok(answer.finalResponse.includes(marker.split('=')[1]));

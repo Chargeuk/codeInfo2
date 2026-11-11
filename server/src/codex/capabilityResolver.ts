@@ -36,23 +36,29 @@ export type ResolveCodexCapabilitiesOptions = {
 
 const TASK7_LOG_MARKER = 'DEV_0000040_T07_REST_DEFAULTS_APPLIED';
 const GPT_6_1_SOL_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh'];
+// 0.167.1 Terra levels that the existing chat effort contract can submit.
+const GPT_6_1_TERRA_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh'];
 
 const modelCapability = (
   model: string,
   supportedReasoningEfforts: string[],
   defaultReasoningEffort: string,
 ): CodexModelCapability => {
-  if (model !== 'gpt-6.1-sol') {
+  const efforts =
+    model === 'gpt-6.1-terra'
+      ? GPT_6_1_TERRA_REASONING_EFFORTS
+      : model === 'gpt-6.1-sol'
+        ? GPT_6_1_SOL_REASONING_EFFORTS
+        : undefined;
+  if (!efforts) {
     return { model, supportedReasoningEfforts, defaultReasoningEffort };
   }
 
-  // Offer only these GPT-6.1 Sol efforts, regardless of shared CLI metadata.
+  // Keep model-specific efforts within the existing chat submission contract.
   return {
     model,
-    supportedReasoningEfforts: GPT_6_1_SOL_REASONING_EFFORTS,
-    defaultReasoningEffort: GPT_6_1_SOL_REASONING_EFFORTS.includes(
-      defaultReasoningEffort,
-    )
+    supportedReasoningEfforts: efforts,
+    defaultReasoningEffort: efforts.includes(defaultReasoningEffort)
       ? defaultReasoningEffort
       : 'medium',
   };
@@ -242,7 +248,7 @@ export const getCodexCapabilityForModel = (
   const selected = resolution.byModel.get(model);
   if (selected) return selected;
 
-  if (model === 'gpt-6.1-sol') {
+  if (model === 'gpt-6.1-sol' || model === 'gpt-6.1-terra') {
     return modelCapability(
       model,
       [...CODEX_MODEL_REASONING_EFFORTS],

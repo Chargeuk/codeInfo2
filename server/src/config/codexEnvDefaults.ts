@@ -37,7 +37,12 @@ const DEFAULT_CODEX_DEFAULTS: CodexDefaults = {
   webSearchEnabled: true,
 };
 
-const DEFAULT_CODEX_MODEL_LIST = ['gpt-6.1-sol', 'gpt-6-luna', 'gpt-6-astra'];
+const DEFAULT_CODEX_MODEL_LIST = [
+  'gpt-6.1-sol',
+  'gpt-6.1-terra',
+  'gpt-6-luna',
+  'gpt-6-astra',
+];
 
 const parseEnumEnv = <T extends string>(
   envName: string,

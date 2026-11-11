@@ -521,7 +521,7 @@ describe('Chat page resumed execution identity', () => {
                   },
                 ],
                 selectedProvider: 'codex',
-                selectedModel: 'gpt-6.1-sol',
+                selectedModel: 'gpt-6.1-terra',
                 selectedEndpointId: 'https://alpha.example/alt/v1',
               }),
             }) as unknown as Response;
@@ -552,8 +552,8 @@ describe('Chat page resumed execution identity', () => {
                     endpointId: 'https://alpha.example/alt/v1',
                   },
                   {
-                    key: 'gpt-6.1-sol',
-                    displayName: 'gpt-6.1-sol',
+                    key: 'gpt-6.1-terra',
+                    displayName: 'gpt-6.1-terra',
                     type: 'codex',
                     endpointId: 'https://alpha.example/alt/v1',
                   },

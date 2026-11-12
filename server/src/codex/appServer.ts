@@ -26,8 +26,8 @@ export class CodexAppServer {
   private closing?: Promise<void>;
   private connectionError?: Error;
 
-  constructor(spawnProcess: typeof spawn = spawn) {
-    const options = buildCodexOptions();
+  constructor(spawnProcess: typeof spawn = spawn, codexHome?: string) {
+    const options = buildCodexOptions({ codexHome });
     this.child = spawnProcess('codex', ['app-server', '--listen', 'stdio://'], {
       env: options?.env,
       stdio: ['pipe', 'pipe', 'ignore'],

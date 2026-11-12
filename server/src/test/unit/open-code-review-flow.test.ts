@@ -173,7 +173,7 @@ test('source heavy and maximum review agents share the review boundary while ret
   assert.match(heavySystemPrompt, /continue with the usable evidence/u);
 });
 
-test('active Sol agents use GPT-6.1 Sol with preserved efforts', () => {
+test('active agents preserve their configured model and effort tiers', () => {
   const catalogs = [
     {
       root: 'codeinfo_agents',
@@ -182,7 +182,8 @@ test('active Sol agents use GPT-6.1 Sol with preserved efforts', () => {
         ['manual_testing_agent', 'high'],
         ['planning_agent', 'high'],
         ['research_agent', 'high'],
-        ['review_agent', 'medium'],
+        ['research_agent_med', 'high'],
+        ['review_agent', 'high'],
         ['review_agent_heavy', 'high'],
         ['review_agent_max', 'xhigh'],
         ['tasking_agent', 'high'],
@@ -191,11 +192,12 @@ test('active Sol agents use GPT-6.1 Sol with preserved efforts', () => {
     {
       root: 'manual_testing/codeinfo_agents',
       agents: [
-        ['coding_agent', 'medium'],
+        ['coding_agent', 'high'],
         ['manual_testing_agent', 'high'],
         ['planning_agent', 'high'],
         ['research_agent', 'high'],
-        ['review_agent', 'medium'],
+        ['research_agent_med', 'high'],
+        ['review_agent', 'high'],
         ['review_agent_heavy', 'high'],
         ['review_agent_max', 'xhigh'],
       ],
@@ -205,7 +207,18 @@ test('active Sol agents use GPT-6.1 Sol with preserved efforts', () => {
   for (const { root, agents } of catalogs) {
     for (const [agent, effort] of agents) {
       const config = readRepoFile(`${root}/${agent}/config.toml`);
-      assert.match(config, /^model = "gpt-6\.1-sol"$/mu);
+      const terra = [
+        'coding_agent',
+        'manual_testing_agent',
+        'planning_agent',
+        'review_agent',
+        'tasking_agent',
+        'research_agent_med',
+      ].includes(agent);
+      assert.match(
+        config,
+        terra ? /^model = "gpt-6\.1-terra"$/mu : /^model = "gpt-6\.1-sol"$/mu,
+      );
       assert.match(
         config,
         new RegExp(`^model_reasoning_effort = "${effort}"$`, 'mu'),

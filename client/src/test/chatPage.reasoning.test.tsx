@@ -13,6 +13,7 @@ import useSharedTranscriptState from '../components/chat/useSharedTranscriptStat
 import { ensureAgentFlagsPanelExpanded } from './support/ensureAgentFlagsPanelExpanded';
 import { setupChatWsHarness } from './support/mockChatWs';
 import { installTranscriptMeasurementHarness } from './support/transcriptMeasurementHarness';
+import { waitForInteractiveCombobox } from './support/waitForInteractiveCombobox';
 
 const mockFetch = jest.fn<typeof fetch>();
 
@@ -295,6 +296,84 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
     expect(secondToggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByTestId('think-content')).toBeNull();
     expect(await screen.findByText('Answer Two')).toBeInTheDocument();
+  });
+
+  it('selects Terra and submits its supported thinking effort', async () => {
+    const harness = setupChatWsHarness({
+      mockFetch,
+      providers: {
+        providers: [
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+      },
+      models: {
+        provider: 'codex',
+        available: true,
+        toolsAvailable: true,
+        codexDefaults: {
+          sandboxMode: 'workspace-write',
+          approvalPolicy: 'never',
+          modelReasoningEffort: 'high',
+          networkAccessEnabled: true,
+          webSearchEnabled: true,
+        },
+        codexWarnings: [],
+        models: [
+          {
+            key: 'gpt-6.1-sol',
+            displayName: 'gpt-6.1-sol',
+            type: 'codex',
+            supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+            defaultReasoningEffort: 'high',
+          },
+          {
+            key: 'gpt-6.1-terra',
+            displayName: 'gpt-6.1-terra',
+            type: 'codex',
+            supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'],
+            defaultReasoningEffort: 'high',
+          },
+        ],
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <RouterProvider
+        router={createMemoryRouter(routes, { initialEntries: ['/chat'] })}
+      />,
+    );
+    const modelSelect = await screen.findByRole('combobox', {
+      name: /^model$/i,
+    });
+    await waitForInteractiveCombobox(modelSelect);
+    await user.click(modelSelect);
+    await user.click(
+      await screen.findByRole('option', { name: /gpt-6.1-terra/i }),
+    );
+    await ensureAgentFlagsPanelExpanded();
+    const reasoning = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await user.click(reasoning);
+    await user.click(await screen.findByRole('option', { name: /^high$/i }));
+    fireEvent.change(await screen.findByTestId('chat-input'), {
+      target: { value: 'Think with Terra' },
+    });
+    const send = screen.getByTestId('chat-send');
+    await waitFor(() => expect(send).toBeEnabled());
+    await user.click(send);
+    await waitFor(() => expect(harness.chatBodies).toHaveLength(1));
+    expect(harness.chatBodies[0]?.model).toBe('gpt-6.1-terra');
+    expect(harness.chatBodies[0]?.provider).toBe('codex');
+    expect(
+      (harness.chatBodies[0]?.agentFlags as Record<string, unknown>)
+        ?.modelReasoningEffort,
+    ).toBe('high');
   });
 
   it('accepts runtime-provided reasoning effort when model capabilities include it', async () => {

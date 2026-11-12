@@ -6,11 +6,29 @@ import {
   withCodexAppServer,
   type NativeCodexThread,
 } from '../codex/appServer.js';
+import {
+  checkpointCodexRollout,
+  matchesCodexStoredPrompt,
+  readCodexRollout,
+  type CodexRolloutCheckpoint,
+  type CodexRolloutTurn,
+} from '../codex/rolloutHistory.js';
 import { buildCopilotClientOptions } from '../config/copilotConfig.js';
-import { ForkError, type NativeForkTurn } from './forkHistory.js';
+import type { TurnSummary } from '../mongo/repo.js';
+import {
+  ForkError,
+  last,
+  lastIndex,
+  resolveForkBoundary,
+  resolveVerifiedCodexBoundary,
+  type NativeForkTurn,
+} from './forkHistory.js';
 
 export type ForkNativeSession = {
   turns: NativeForkTurn[];
+  recoverBoundary?: (
+    snapshot: TurnSummary[],
+  ) => Promise<{ turn: NativeForkTurn; estimated: boolean }>;
   fork: (
     boundary: NativeForkTurn,
     config: Record<string, unknown>,
@@ -94,36 +112,121 @@ export async function openForkNative(
   createServer = () => new CodexAppServer(),
 ): Promise<ForkNativeSession> {
   if (provider === 'codex') {
-    // Keep this connection alive until the child is persisted and its handover
-    // injected. Fork/inject never call turn/start or rewrite instructions.
+    // Native fork creation does not run inference. Legacy operation recovery
+    // can still inspect/inject history; new handovers use normal agent runs.
     const rpc = createServer();
     try {
       await rpc.initialize();
-      const thread: NativeCodexThread = readHistory
-        ? (
-            await rpc.request<{ thread: NativeCodexThread }>('thread/read', {
+      const thread: NativeCodexThread = { id: sessionId, turns: [] };
+      let canonical: CodexRolloutTurn[] | undefined;
+      const canonicalTurns = async () =>
+        (canonical ??= (
+          await readCodexRollout(
+            await readCodexRolloutPath(rpc, sessionId),
+            sessionId,
+          )
+        ).turns);
+      if (readHistory) {
+        try {
+          let cursor: string | undefined;
+          do {
+            const page = await rpc.request<{
+              data: NativeCodexThread['turns'];
+              nextCursor: string | null;
+            }>('thread/turns/list', {
               threadId: sessionId,
-              includeTurns: true,
-            })
-          ).thread
-        : { id: sessionId, turns: [] };
+              cursor,
+              sortDirection: 'asc',
+              itemsView: 'full',
+            });
+            if (page.nextCursor && page.nextCursor === cursor)
+              throw new ForkError(
+                'FORK_NATIVE_UNAVAILABLE',
+                'Codex native history cursor did not advance',
+              );
+            thread.turns.push(...page.data);
+            cursor = page.nextCursor ?? undefined;
+          } while (cursor);
+        } catch (error) {
+          if (error instanceof ForkError) throw error;
+          await canonicalTurns();
+        }
+      }
       const rolloutPaths = new Map<string, string>();
       if (thread.path) rolloutPaths.set(sessionId, thread.path);
-      return {
-        turns: thread.turns.map((turn) => ({
-          id: turn.id,
-          completed: turn.status === 'completed',
-          user: turn.items
-            .filter((item) => item.type === 'userMessage')
-            .flatMap((item) => item.content ?? [])
-            .map((item) => item.text ?? '')
-            .join('\n'),
-          assistant:
-            turn.items
-              .filter((item) => item.type === 'agentMessage')
+      const indexedTurns = canonical
+        ? []
+        : thread.turns.map((turn) => ({
+            id: turn.id,
+            completed: turn.status === 'completed',
+            user: turn.items
+              .filter((item) => item.type === 'userMessage')
+              .flatMap((item) => item.content ?? [])
               .map((item) => item.text ?? '')
-              .at(-1) ?? '',
-        })),
+              .join('\n'),
+            assistant:
+              turn.items
+                .filter((item) => item.type === 'agentMessage')
+                .map((item) => item.text ?? '')
+                .at(-1) ?? '',
+          }));
+      return {
+        turns: canonical ?? indexedTurns,
+        recoverBoundary: async (snapshot) => {
+          try {
+            const responseIndex = lastIndex(
+              snapshot,
+              (turn) =>
+                turn.role === 'assistant' &&
+                ['ok', 'warning'].includes(turn.status),
+            );
+            const response = snapshot[responseIndex];
+            const prompt = last(
+              snapshot.slice(0, responseIndex),
+              (turn) => turn.role === 'user' && !turn.fork?.handover,
+            );
+            // The indexed child view includes inherited turns which need not
+            // exist in its local history_base rollout. Preserve that resolver's
+            // estimated ordering, excluding local child tasks for inherited rows.
+            if (indexedTurns.length) {
+              let indexed: ReturnType<typeof resolveForkBoundary> | undefined;
+              try {
+                indexed = resolveForkBoundary(snapshot, indexedTurns);
+              } catch {
+                // Unusable index evidence must be verified canonically.
+              }
+              if (indexed?.turn.completed && response?.fork?.sourceTurnId) {
+                const local = await canonicalTurns();
+                if (!local.some((turn) => turn.id === indexed?.turn.id))
+                  return indexed;
+              }
+              if (
+                !response?.fork?.sourceTurnId &&
+                indexed?.turn.completed &&
+                response?.content.trim() &&
+                prompt?.content.trim() &&
+                indexed.turn.assistant.trim() === response.content.trim() &&
+                matchesCodexStoredPrompt(indexed.turn.user, prompt.content)
+              )
+                return indexed;
+            }
+            if (response?.fork?.sourceTurnId)
+              throw new ForkError(
+                'FORK_HISTORY_UNAVAILABLE',
+                'The inherited native boundary is unavailable in indexed history.',
+              );
+            return resolveVerifiedCodexBoundary(
+              snapshot,
+              await canonicalTurns(),
+            );
+          } catch (error) {
+            if (error instanceof ForkError) throw error;
+            throw new ForkError(
+              'FORK_HISTORY_UNAVAILABLE',
+              `Codex canonical history is unavailable: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        },
         fork: async (boundary, config, model, cwd) => {
           const result = await rpc.request<{ thread: NativeCodexThread }>(
             'thread/fork',
@@ -238,25 +341,67 @@ export async function openForkNative(
   }
 }
 
-// SDK exec JSONL does not expose native turn IDs. Read after a completed run,
-// while the caller still owns its run lock; failure keeps old-history support.
+async function readCodexRolloutPath(rpc: CodexAppServer, sessionId: string) {
+  const { thread } = await rpc.request<{ thread: NativeCodexThread }>(
+    'thread/read',
+    { threadId: sessionId, includeTurns: false },
+  );
+  if (thread.id !== sessionId || !thread.path)
+    throw new Error('Codex canonical session identity or path is unavailable');
+  return thread.path;
+}
+
+export async function readCodexRunCheckpoint(
+  sessionId: string,
+  codexHome?: string,
+  createServer = () => new CodexAppServer(undefined, codexHome),
+) {
+  return withCodexAppServer(
+    async (rpc) =>
+      checkpointCodexRollout(await readCodexRolloutPath(rpc, sessionId)),
+    createServer,
+  );
+}
+
+// Capture only this SDK invocation after its iterator/child has flushed. A
+// resumed session needs its pre-run file boundary; fresh sessions have one task.
 export async function readCompletedCodexTurn(
   sessionId: string,
-  createServer = () => new CodexAppServer(),
+  proof: {
+    prompt: string;
+    assistant: string;
+    fresh: boolean;
+    checkpoint?: CodexRolloutCheckpoint;
+  },
+  codexHome?: string,
+  createServer = () => new CodexAppServer(undefined, codexHome),
 ) {
+  if (!proof.fresh && !proof.checkpoint) return undefined;
   return withCodexAppServer(async (rpc) => {
-    const { data } = await rpc.request<{
-      data: Array<{ id: string; status: string }>;
-    }>('thread/turns/list', {
-      threadId: sessionId,
-      limit: 1,
-      sortDirection: 'desc',
-      itemsView: 'notLoaded',
-    });
-    // The run lock still belongs to this completed exec. Never walk back to an
-    // older success if the newest turn is failed, interrupted or in progress.
-    const turnId = data[0]?.status === 'completed' ? data[0].id : undefined;
-    return turnId ? { sessionId, turnId } : undefined;
+    const history = await readCodexRollout(
+      await readCodexRolloutPath(rpc, sessionId),
+      sessionId,
+    );
+    const before = proof.checkpoint;
+    if (
+      before &&
+      (history.path !== before.path ||
+        history.dev !== before.dev ||
+        history.ino !== before.ino ||
+        history.bytes < before.bytes)
+    )
+      return undefined;
+    const turns = history.turns.filter(
+      (turn) => turn.startOffset >= (before?.bytes ?? 0),
+    );
+    const turn = turns[0];
+    return turns.length === 1 &&
+      turn.completed &&
+      turn.userMessages.includes(proof.prompt) &&
+      turn.assistant === proof.assistant &&
+      history.turns.at(-1)?.id === turn.id
+      ? { sessionId, turnId: turn.id }
+      : undefined;
   }, createServer);
 }
 

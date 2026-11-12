@@ -95,6 +95,25 @@ describe('codexConfig', () => {
       },
     });
   });
+  it('rejects completions-only Codex endpoints instead of generating an invalid wire API', () => {
+    const endpoint = {
+      endpointId: 'https://example.test/v1',
+      baseUrl: 'https://example.test/v1',
+      capabilities: ['completions' as const],
+    };
+    assert.throws(
+      () => buildCodexOpenAiCompatRuntimeConfig(endpoint),
+      /Codex requires responses support/u,
+    );
+    assert.throws(
+      () =>
+        applyCodexOpenAiCompatEndpointToRuntimeConfig(
+          { model: 'saved-model' },
+          endpoint,
+        ),
+      /Codex requires responses support/u,
+    );
+  });
   it('buildCodexOpenAiCompatRuntimeConfig no longer requires a static model catalog for OpenRouter runs', async () => {
     const config = buildCodexOpenAiCompatRuntimeConfig(
       {

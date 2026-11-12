@@ -630,7 +630,12 @@ test('codex model list empty CSV falls back with warning', async () => {
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
-    assert.deepEqual(modelKeys, ['gpt-6.1-sol', 'gpt-6-luna', 'gpt-6-astra']);
+    assert.deepEqual(modelKeys, [
+      'gpt-6.1-sol',
+      'gpt-6.1-terra',
+      'gpt-6-luna',
+      'gpt-6-astra',
+    ]);
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('Codex_model_list is empty'),
@@ -657,7 +662,12 @@ test('codex model list whitespace-only CSV falls back with warning', async () =>
     const modelKeys = res.body.models.map(
       (model: { key: string }) => model.key,
     );
-    assert.deepEqual(modelKeys, ['gpt-6.1-sol', 'gpt-6-luna', 'gpt-6-astra']);
+    assert.deepEqual(modelKeys, [
+      'gpt-6.1-sol',
+      'gpt-6.1-terra',
+      'gpt-6-luna',
+      'gpt-6-astra',
+    ]);
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
         warning.includes('Codex_model_list is empty'),
@@ -667,9 +677,9 @@ test('codex model list whitespace-only CSV falls back with warning', async () =>
     await stopServer(server);
   }
 });
-test('gpt-6.1-sol exposes supported reasoning efforts', async () => {
+test('gpt-6.1-sol and Terra expose supported reasoning efforts', async () => {
   await setCodexHome();
-  env.set('Codex_model_list', 'gpt-6-sol,gpt-6.1-sol');
+  env.set('Codex_model_list', 'gpt-6-sol,gpt-6.1-sol,gpt-6.1-terra');
   env.set('Codex_reasoning_effort', 'minimal');
   env.set(
     'Codex_reasoning_efforts_metadata',
@@ -700,6 +710,14 @@ test('gpt-6.1-sol exposes supported reasoning efforts', async () => {
       'xhigh',
     ]);
     assert.equal(currentSol?.defaultReasoningEffort, 'medium');
+    const terra = models.find((model) => model.key === 'gpt-6.1-terra');
+    assert.deepEqual(terra?.supportedReasoningEfforts, [
+      'low',
+      'medium',
+      'high',
+      'xhigh',
+    ]);
+    assert.equal(terra?.defaultReasoningEffort, 'medium');
     // Deliberate compatibility: an explicit old model keeps its existing metadata.
     assert.ok(previousSol?.supportedReasoningEfforts.includes('minimal'));
   } finally {

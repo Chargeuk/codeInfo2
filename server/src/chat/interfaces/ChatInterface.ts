@@ -306,6 +306,8 @@ export abstract class ChatInterface extends EventEmitter {
     const runtime = parseRuntimeMetadata(
       (flags as { runtime?: unknown })?.runtime,
     );
+    const userTurnFork = (flags as { userTurnFork?: Turn['fork'] })
+      ?.userTurnFork;
     const userRuntime =
       runtime?.replay !== undefined
         ? {
@@ -434,6 +436,7 @@ export abstract class ChatInterface extends EventEmitter {
           source,
           command,
           runtime: userRuntime,
+          fork: userTurnFork,
           toolCalls: null,
           status: userStatus,
           createdAt,
@@ -452,6 +455,7 @@ export abstract class ChatInterface extends EventEmitter {
           source,
           command,
           runtime: userRuntime,
+          fork: userTurnFork,
           toolCalls: null,
           status: userStatus,
           createdAt,

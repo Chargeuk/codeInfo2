@@ -9,6 +9,10 @@ setup() {
   sed -e "s|/usr/local/share/ca-certificates/codeinfo-corp|$fixture/certs|g" \
       -e "s|/tmp/chrome-devtools.log|$fixture/browser.log|g" \
       "$repo_root/server/entrypoint.sh" > "$fixture/server/entrypoint.sh"
+  sed -e "s|/usr/local/share/ca-certificates/codeinfo-corp|$fixture/certs|g" \
+      -e "s|/app/browser/import-browser-certificates.sh|$fixture/server/import-browser-certificates.sh|g" \
+      "$repo_root/browser/entrypoint.sh" > "$fixture/playwright-entrypoint.sh"
+  export PRIV_LOG="$fixture/privileges.log"
   export CALL_LOG="$fixture/calls.log"
   export BROWSER_READY="$fixture/browser-ready"
   : > "$CALL_LOG"
@@ -27,7 +31,7 @@ esac
 SH
   cat > "$fixture/bin/id" <<'SH'
 #!/bin/sh
-printf '0\n'
+printf '%s\n' "${FAKE_UID:-0}"
 SH
   cat > "$fixture/bin/chown" <<'SH'
 #!/bin/sh
@@ -43,6 +47,7 @@ exit 0
 SH
   cat > "$fixture/bin/setpriv" <<'SH'
 #!/bin/sh
+printf '%s\n' "$*" >> "$PRIV_LOG"
 while [ "$#" -gt 0 ] && [ "$1" != node ]; do shift; done
 exec "$@"
 SH
@@ -54,6 +59,10 @@ SH
   cat > "$fixture/bin/node" <<'SH'
 #!/bin/sh
 case "$1" in
+  /app/cli.js)
+    printf 'mcp-arg:%s\n' "$@" >> "$CALL_LOG"
+    printf 'node-ca:%s\n' "$NODE_EXTRA_CA_CERTS"
+    ;;
   /app/browser/start-chromium.mjs)
     printf 'browser\n' >> "$CALL_LOG"
     printf 'ready\n' > "$BROWSER_READY"
@@ -73,7 +82,7 @@ SH
   export CODEINFO_RUNTIME_UID=1000
   export CODEINFO_RUNTIME_GID=1000
   export CHROME_BIN=/bin/true
-  unset CODEINFO_SERVER_BUILD_OVERRIDE_STATE FAIL_NSS_IMPORT
+  unset CODEINFO_SERVER_BUILD_OVERRIDE_STATE FAIL_NSS_IMPORT FAKE_UID
 }
 
 @test "disabled refresh leaves NSS untouched and starts the browser" {
@@ -119,4 +128,45 @@ SH
   [ "$status" -ne 0 ]
   [[ "$output" == *"Chromium certificate import failed"* ]]
   ! grep -q '^browser$\|^server$' "$CALL_LOG"
+}
+
+
+@test "Playwright imports trust before MCP and drops to the configured runtime user" {
+  run env HOME="$fixture/home" CODEINFO_REFRESH_CA_CERTS_ON_START=true CODEINFO_RUNTIME_UID=1234 CODEINFO_RUNTIME_GID=2345 sh "$fixture/playwright-entrypoint.sh" --port 8931 --allowed-hosts 'example.test other.test'
+  [ "$status" -eq 0 ]
+  [ "$(sed -n '1p' "$CALL_LOG")" = system-ca ]
+  [ "$(sed -n '2p' "$CALL_LOG")" = "nss-init:$fixture/home/.local/share/pki/nssdb" ]
+  [ "$(sed -n '3p' "$CALL_LOG")" = "nss-import:$fixture/home/.local/share/pki/nssdb" ]
+  [ "$(sed -n '4p' "$CALL_LOG")" = mcp-arg:/app/cli.js ]
+  grep -q 'mcp-arg:example.test other.test' "$CALL_LOG"
+  grep -q -- '--reuid 1234 --regid 2345 --clear-groups node /app/cli.js' "$PRIV_LOG"
+  [[ "$output" == *node-ca:/etc/ssl/certs/ca-certificates.crt* ]]
+}
+
+@test "Playwright skips imports when disabled and retains the Node CA override" {
+  run env HOME="$fixture/home" CODEINFO_REFRESH_CA_CERTS_ON_START=false CODEINFO_NODE_EXTRA_CA_CERTS=/custom/bundle.pem sh "$fixture/playwright-entrypoint.sh" --port 8931
+  [ "$status" -eq 0 ]
+  [ ! -d "$fixture/home/.local/share/pki/nssdb" ]
+  ! grep -q '^system-ca$\|^nss-' "$CALL_LOG"
+  [[ "$output" == *node-ca:/custom/bundle.pem* ]]
+}
+
+@test "Playwright rejects enabled system refresh without startup root privileges" {
+  run env HOME="$fixture/home" CODEINFO_REFRESH_CA_CERTS_ON_START=true FAKE_UID=1000 sh "$fixture/playwright-entrypoint.sh"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"requires root at startup"* ]]
+  [ ! -s "$CALL_LOG" ]
+}
+
+@test "Playwright does not launch MCP when the browser trust import fails" {
+  run env HOME="$fixture/home" CODEINFO_REFRESH_CA_CERTS_ON_START=true FAIL_NSS_IMPORT=true sh "$fixture/playwright-entrypoint.sh"
+  [ "$status" -ne 0 ]
+  ! grep -q '^mcp-arg:' "$CALL_LOG"
+}
+
+@test "Playwright rejects malformed runtime identities before starting MCP" {
+  run env HOME="$fixture/home" CODEINFO_REFRESH_CA_CERTS_ON_START=false CODEINFO_RUNTIME_UID=10:00 sh "$fixture/playwright-entrypoint.sh"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"UID/GID must be numeric"* ]]
+  [ ! -s "$CALL_LOG" ]
 }

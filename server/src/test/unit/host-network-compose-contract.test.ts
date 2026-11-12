@@ -214,7 +214,10 @@ test('compose stacks expose harness instructions while local uses live workflow 
   assert.match(mainPlaywright, /network_mode: host/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(mainPlaywright, /\n\s+networks:/u);
-  assert.match(mainPlaywright, /entrypoint: \['node', '\/app\/cli\.js'\]/u);
+  assert.match(
+    mainPlaywright,
+    /entrypoint: \['sh', '\/app\/browser\/entrypoint\.sh'\]/u,
+  );
   assert.doesNotMatch(mainPlaywright, /\n\s+profiles:\n\s+- local/u);
   assert.match(mainPlaywright, /'8932'/u);
   assert.match(
@@ -301,7 +304,10 @@ test('compose stacks expose harness instructions while local uses live workflow 
   assert.match(localPlaywright, /network_mode: host/u);
   assert.doesNotMatch(localPlaywright, /\n\s+ports:/u);
   assert.doesNotMatch(localPlaywright, /\n\s+networks:/u);
-  assert.match(localPlaywright, /entrypoint: \['node', '\/app\/cli\.js'\]/u);
+  assert.match(
+    localPlaywright,
+    /entrypoint: \['sh', '\/app\/browser\/entrypoint\.sh'\]/u,
+  );
   assert.match(
     localPlaywright,
     /'--output-dir',\s*\n\s*'\/tmp\/playwright-output'/u,

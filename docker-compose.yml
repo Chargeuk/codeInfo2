@@ -192,12 +192,18 @@ services:
     build:
       context: .
       dockerfile: browser/Dockerfile
+      additional_contexts:
+        corp_certs: ${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}
       args:
         CODEINFO_PLAYWRIGHT_MCP_BASE_IMAGE: ${CODEINFO_PLAYWRIGHT_MCP_BASE_IMAGE:-mcr.microsoft.com/playwright/mcp:v0.0.83@sha256:690763cbb437ee7233f538a953bb5390bf03791eb5c965b471e59d17a6132fcb}
     image: ${CODEINFO_PLAYWRIGHT_MCP_IMAGE:-codeinfo2-playwright-mcp}
-    user: '${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}'
+    environment:
+      - CODEINFO_RUNTIME_UID=${CODEINFO_DOCKER_UID:-1000}
+      - CODEINFO_RUNTIME_GID=${CODEINFO_DOCKER_GID:-1000}
+      - CODEINFO_REFRESH_CA_CERTS_ON_START=${CODEINFO_REFRESH_CA_CERTS_ON_START:-}
+      - CODEINFO_NODE_EXTRA_CA_CERTS=${CODEINFO_NODE_EXTRA_CA_CERTS:-}
     network_mode: host
-    entrypoint: ['node', '/app/cli.js']
+    entrypoint: ['sh', '/app/browser/entrypoint.sh']
     command:
       [
         '--host',
@@ -205,7 +211,6 @@ services:
         '--headless',
         '--browser',
         'chromium',
-        '--ignore-https-errors',
         '--no-sandbox',
         '--isolated',
         '--init-script',
@@ -216,6 +221,7 @@ services:
         '*',
       ]
     volumes:
+      - '${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}:/usr/local/share/ca-certificates/codeinfo-corp:ro'
       - playwright-output-main:/tmp/playwright-output
     extra_hosts:
       - 'host.docker.internal:host-gateway'

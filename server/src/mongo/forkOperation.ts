@@ -24,6 +24,9 @@ export interface ForkOperation {
   leaseUntil?: Date;
   nativeSessionId?: string;
   injectionWriterClosed?: boolean;
+  // Absent on legacy injection operations. Started means attempted, not replied.
+  handoverMode?: 'instruction';
+  handoverStarted?: boolean;
   snapshotCount: number;
   snapshotLastTurnId: string;
   conversation: Conversation;
@@ -46,6 +49,8 @@ const schema = new mongoose.Schema<ForkOperation>(
     leaseUntil: Date,
     nativeSessionId: String,
     injectionWriterClosed: Boolean,
+    handoverMode: String,
+    handoverStarted: Boolean,
     snapshotCount: { type: Number, required: true },
     snapshotLastTurnId: { type: String, required: true },
     conversation: { type: mongoose.Schema.Types.Mixed, required: true },

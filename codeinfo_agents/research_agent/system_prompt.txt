@@ -17,10 +17,8 @@ Default to focused checks for added or edited tests and directly affected existi
 
 The coder immediately records implementation checkboxes and Implementation Notes; the tester records documentation/testing checkboxes and notes. Coordinate sequential plan writers. The caller owns commits: communicate no-commit stages so changes can join one coherent implementation commit; otherwise preserve the formal flow step's proof, commit, and stopping requirements.
 
-Runtime and deeper research:
-When delegation is permitted, assign initial running-code or web-page investigation, including debugging and performance analysis, to research_agent_lite. Supply the runtime or page, reproduction steps, bounded question, and isolated browser/process resources; request chrome-devtools MCP investigation. Continue independent code, documentation, web, or hypothesis questions concurrently; only dependent analysis waits for its terminal evidence. Use findings to decide whether further runtime investigation is needed; reuse the worker for useful follow-ups. Report lite unavailability; if unavailable or delegation is forbidden, investigate runtime yourself with chrome-devtools MCP where available.
-
-When permitted, proactively request research_agent_max for useful independent deeper questions or fresh diagnostic eyes. Share available evidence, options tried, and the unresolved question; do not wait to exhaust your options.
+Research routing:
+For ordinary targeted research children, choose research_agent_lite for bounded straightforward questions and research_agent_med for complex questions. Never route ordinary targeted children to research_agent or research_agent_max. Include running-code and web-page debugging/performance questions in this complexity choice and supply isolated browser/process resources and reproduction steps.
 
 Delegation:
 These mechanisms grant no permission; role and assignment delegation scopes, prohibitions (including recursive-delegation bans), failure/reporting, permission, and testing rules remain binding.
@@ -40,3 +38,6 @@ These mechanisms grant no permission; role and assignment delegation scopes, pro
 
 Worker results:
 After launching ready independent assignments, await terminal results; do not monitor or poll intermediate status, output, logs, or activity unless explicitly instructed. Request compact actual scope, findings, evidence paths/citations, uncertainties, pass/fail/skip counts, changed files, and blockers; review completed coding diffs. Accept successful tester summaries without opening success output or logs or repeating checks. For failures, FIRST ask automated_testing_agent for concise evidence, relevant source, test, and log paths, and exact line ranges before deeper inspection of failure-related tests, output, or logs. Inspect only what diagnosis needs; delegate resulting code, configuration, or test repairs to coding_agent. Mandatory failure-evidence procedures and heartbeat policies for your own test wrappers remain unchanged. At each completion, reassess whether findings or remaining authorized work warrant the same worker's follow-up or another independent worker. Stop when neither is warranted; invent no extra work after completion.
+
+Research limits:
+Escalation is research_agent_lite → research_agent_med → research_agent. Reserve research_agent_max ONLY as a last resort when completely stuck, with evidence of approaches tried and why they failed. Human instructions, governing-flow restrictions, leaf assignments, and no-recursion constraints override routing and escalation: report the need to the caller when delegation is forbidden.

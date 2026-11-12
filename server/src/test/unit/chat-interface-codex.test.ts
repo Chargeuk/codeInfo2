@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { describe, it } from 'node:test';
 import type {
   CodexOptions,
@@ -19,6 +20,9 @@ import { ConversationModel } from '../../mongo/conversation.js';
 import { updateConversationThreadId } from '../../mongo/repo.js';
 import type { TurnSummary } from '../../mongo/repo.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
+import { createIsolatedProviderHomeEnv } from '../support/providerHomeHarness.js';
+import { runWithTestOverrides } from '../support/testOverrideScope.js';
+import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
 
 type MockThread = {
   id: string | null;
@@ -31,8 +35,16 @@ type MockCodexFactory = (options?: CodexOptions) => {
 };
 
 class TestChatInterfaceCodex extends ChatInterfaceCodex {
-  constructor(codexFactory: MockCodexFactory) {
-    super(codexFactory);
+  constructor(
+    codexFactory: MockCodexFactory,
+    nativeCapture: ConstructorParameters<typeof ChatInterfaceCodex>[1] = {
+      checkpoint: async () => {
+        throw new Error('No native writer in this SDK fixture');
+      },
+      complete: async () => undefined,
+    },
+  ) {
+    super(codexFactory, nativeCapture);
   }
 
   protected override async loadHistory(): Promise<TurnSummary[]> {
@@ -777,3 +789,333 @@ describe('ChatInterfaceCodex', () => {
     assert.equal(called, false);
   });
 });
+
+for (const agent of [false, true]) {
+  it(
+    `captures ${agent ? 'agent' : 'ordinary'} native IDs only after SDK flush and persists composed output`,
+    { timeout: resolveConfiguredTestTimeoutMs(30_000) },
+    async () => {
+      const homes = await createIsolatedProviderHomeEnv('codex-flush-');
+      const id = crypto.randomUUID();
+      let release!: () => void, entered!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const provisional = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      let flushed = false,
+        sdkPrompt = '',
+        checkpointRead = false,
+        completed = 0;
+      const checkpoint = {
+        path: 'owned-canonical',
+        bytes: 100,
+        dev: 1,
+        ino: 2,
+      };
+      try {
+        await runWithTestOverrides(
+          {
+            codexDetection: {
+              available: true,
+              authPresent: true,
+              configPresent: true,
+            },
+            envOverrides: { ...homes.envOverrides, NODE_ENV: 'test' },
+          },
+          async () => {
+            const events = async function* () {
+              yield {
+                type: 'item.completed',
+                item: { type: 'agent_message', id: 'one', text: 'One.' },
+              };
+              yield {
+                type: 'item.completed',
+                item: { type: 'agent_message', id: 'two', text: 'Two.' },
+              };
+              yield { type: 'turn.completed' };
+              entered();
+              await gate;
+              flushed = true;
+            };
+            const thread = {
+              id: 'actual-session',
+              runStreamed: async (prompt?: string) => {
+                assert.equal(checkpointRead, true);
+                sdkPrompt = prompt ?? '';
+                return { events: events() };
+              },
+            };
+            const chat = new TestChatInterfaceCodex(
+              (options) => {
+                assert.equal(options?.env?.CODEX_HOME, homes.codexHome);
+                return {
+                  startThread: () => thread,
+                  resumeThread: () => thread,
+                };
+              },
+              {
+                checkpoint: async (_session, home) => {
+                  assert.equal(home, homes.codexHome);
+                  checkpointRead = true;
+                  return checkpoint;
+                },
+                complete: async (session, proof, home) => {
+                  assert.equal(flushed, true);
+                  assert.equal(home, homes.codexHome);
+                  assert.equal(proof.prompt, sdkPrompt);
+                  assert.equal(proof.assistant, 'One.Two.');
+                  assert.deepEqual(proof.checkpoint, checkpoint);
+                  assert.equal(proof.fresh, false);
+                  return { sessionId: session, turnId: 'actual-native-turn' };
+                },
+              },
+            );
+            chat.on('complete', () => {
+              completed++;
+            });
+            const running = chat.run(
+              'Question',
+              {
+                provider: 'codex',
+                threadId: 'actual-session',
+                disableSystemContext: agent,
+              },
+              id,
+              'gpt-6.1-terra',
+            );
+            const observed = running.then(
+              () => undefined,
+              () => undefined,
+            );
+            try {
+              await Promise.race([
+                provisional,
+                observed.then(() => {
+                  throw new Error('Run ended before SDK flush gate');
+                }),
+              ]);
+              assert.equal(completed, 0);
+              assert.equal(
+                getMemoryTurns(id).filter((turn) => turn.role === 'assistant')
+                  .length,
+                0,
+              );
+              release();
+              await running;
+              assert.equal(completed, 1);
+              const assistant = getMemoryTurns(id).find(
+                (turn) => turn.role === 'assistant',
+              );
+              assert.equal(assistant?.content, 'One.Two.');
+              assert.deepEqual(assistant?.native, {
+                sessionId: 'actual-session',
+                turnId: 'actual-native-turn',
+              });
+            } finally {
+              release();
+              await observed;
+            }
+          },
+        );
+      } finally {
+        release();
+        memoryTurns.delete(id);
+        memoryConversations.delete(id);
+        await homes.cleanup();
+      }
+    },
+  );
+}
+
+it(
+  'stopping while native metadata capture is pending preserves stopped text without emitting a verified ID',
+  { timeout: resolveConfiguredTestTimeoutMs(30_000) },
+  async () => {
+    const homes = await createIsolatedProviderHomeEnv('codex-capture-abort-');
+    const id = crypto.randomUUID();
+    const controller = new AbortController();
+    let entered!: () => void;
+    let release!: () => void;
+    const capturing = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    try {
+      await runWithTestOverrides(
+        {
+          codexDetection: {
+            available: true,
+            authPresent: true,
+            configPresent: true,
+          },
+          envOverrides: { ...homes.envOverrides, NODE_ENV: 'test' },
+        },
+        async () => {
+          const events = async function* () {
+            yield { type: 'thread.started', thread_id: 'actual-session' };
+            yield {
+              type: 'item.completed',
+              item: { type: 'agent_message', id: 'reply', text: 'Answer' },
+            };
+            yield { type: 'turn.completed' };
+          };
+          const thread = {
+            id: 'actual-session',
+            runStreamed: async () => ({ events: events() }),
+          };
+          const chat = new TestChatInterfaceCodex(
+            () => ({ startThread: () => thread, resumeThread: () => thread }),
+            {
+              checkpoint: async () => {
+                throw new Error('Fresh session');
+              },
+              complete: async () => {
+                entered();
+                await gate;
+                return {
+                  sessionId: 'actual-session',
+                  turnId: 'verified-but-aborted',
+                };
+              },
+            },
+          );
+          let completeEvents = 0;
+          chat.on('complete', () => {
+            completeEvents++;
+          });
+          const running = chat.run(
+            'Question',
+            { provider: 'codex', signal: controller.signal },
+            id,
+            'gpt-6.1-terra',
+          );
+          const observed = running.then(
+            () => undefined,
+            () => undefined,
+          );
+          try {
+            await Promise.race([
+              capturing,
+              observed.then(() => {
+                throw new Error('Run ended before metadata capture gate');
+              }),
+            ]);
+            assert.equal(completeEvents, 0);
+            assert.equal(
+              getMemoryTurns(id).some((turn) => turn.role === 'assistant'),
+              false,
+            );
+            controller.abort();
+            release();
+            await running;
+            const assistant = getMemoryTurns(id).find(
+              (turn) => turn.role === 'assistant',
+            );
+            assert.equal(assistant?.content, 'Answer');
+            assert.equal(assistant?.status, 'stopped');
+            assert.equal(assistant?.native, undefined);
+            assert.equal(completeEvents, 0);
+          } finally {
+            release();
+            await observed;
+          }
+        },
+      );
+    } finally {
+      release();
+      memoryTurns.delete(id);
+      memoryConversations.delete(id);
+      await homes.cleanup();
+    }
+  },
+);
+
+for (const outcome of [
+  'turn.failed',
+  'error',
+  'abort',
+  'iterator-error',
+  'metadata-error',
+]) {
+  it(`does not attach a native ID after provisional completion followed by ${outcome}`, async () => {
+    const homes = await createIsolatedProviderHomeEnv('codex-terminal-');
+    const id = crypto.randomUUID(),
+      controller = new AbortController();
+    let captures = 0;
+    try {
+      await runWithTestOverrides(
+        {
+          codexDetection: {
+            available: true,
+            authPresent: true,
+            configPresent: true,
+          },
+          envOverrides: { ...homes.envOverrides, NODE_ENV: 'test' },
+        },
+        async () => {
+          const events = async function* () {
+            yield { type: 'thread.started', thread_id: 'actual-session' };
+            yield {
+              type: 'item.completed',
+              item: { type: 'agent_message', id: 'reply', text: 'Answer' },
+            };
+            yield { type: 'turn.completed' };
+            if (outcome === 'abort') controller.abort();
+            else if (outcome === 'iterator-error')
+              throw new Error('SDK child exited with failure');
+            else if (outcome !== 'metadata-error')
+              yield {
+                type: outcome,
+                message: 'Late error',
+                error: { message: 'Late failure' },
+              };
+          };
+          const thread = {
+            id: 'actual-session',
+            runStreamed: async () => ({ events: events() }),
+          };
+          const chat = new TestChatInterfaceCodex(
+            () => ({ startThread: () => thread, resumeThread: () => thread }),
+            {
+              checkpoint: async () => {
+                throw new Error('Fresh session');
+              },
+              complete: async () => {
+                captures++;
+                throw new Error('Canonical metadata unavailable');
+              },
+            },
+          );
+          await chat.run(
+            'Question',
+            { provider: 'codex', signal: controller.signal },
+            id,
+            'gpt-6.1-terra',
+          );
+          const assistant = getMemoryTurns(id).find(
+            (turn) => turn.role === 'assistant',
+          );
+          assert.equal(assistant?.content, 'Answer');
+          assert.equal(assistant?.native, undefined);
+          assert.equal(
+            assistant?.status,
+            outcome === 'metadata-error'
+              ? 'ok'
+              : outcome === 'abort'
+                ? 'stopped'
+                : 'failed',
+          );
+          assert.equal(captures, outcome === 'metadata-error' ? 1 : 0);
+        },
+      );
+    } finally {
+      memoryTurns.delete(id);
+      memoryConversations.delete(id);
+      await homes.cleanup();
+    }
+  });
+}

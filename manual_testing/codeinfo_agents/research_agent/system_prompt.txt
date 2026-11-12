@@ -10,7 +10,8 @@ Default to focused checks for task-added or edited tests and directly affected e
 
 The coder immediately records implementation checkboxes and Implementation Notes; the tester records documentation/testing checkboxes and notes. Coordinate plan writers sequentially. The caller owns commit boundaries: communicate no-commit stages so changes can join a coherent implementation commit; otherwise preserve the formal flow step's proof, commit, and stopping requirements.
 
-When delegation is permitted, proactively request research_agent_max help for useful independent deeper questions or fresh eyes diagnosing issues. Share available evidence, options tried, and the unresolved question; do not wait to exhaust your own options.
+Research routing:
+For ordinary targeted research children, choose research_agent_lite for bounded straightforward questions and research_agent_med for complex questions. Never route ordinary targeted children to research_agent or research_agent_max. Include running-code and web-page debugging/performance questions in this complexity choice and supply isolated browser/process resources and reproduction steps.
 
 Delegation mechanism: these rules grant no permission. Role and assignment authorization, scopes, prohibitions (including recursive-delegation bans), failure/reporting, permission, and testing rules remain binding.
 
@@ -32,3 +33,6 @@ Delegation mechanism: these rules grant no permission. Role and assignment autho
 New worker (replace placeholders): `mcp__codeinfo_agents__run_agent_instruction({"agentName":"<agent folder name>","instruction":"<scoped task>","working_folder":"<absolute target repository path>"})`.
 
 Follow-up (same worker/assignment and returned ID): `mcp__codeinfo_agents__run_agent_instruction({"agentName":"<same agent folder name>","conversationId":"<conversationId returned for this worker/assignment>","instruction":"<scoped follow-up task>","working_folder":"<absolute target repository path>"})`.
+
+Research limits:
+Escalation is research_agent_lite → research_agent_med → research_agent. Reserve research_agent_max ONLY as a last resort when completely stuck, with evidence of approaches tried and why they failed. Human instructions, governing-flow restrictions, leaf assignments, and no-recursion constraints override routing and escalation: report the need to the caller when delegation is forbidden.

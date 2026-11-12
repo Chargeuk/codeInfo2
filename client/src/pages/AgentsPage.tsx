@@ -176,9 +176,11 @@ export default function AgentsPage() {
     sourceTurnId?: string;
     title?: string;
   } | null>(null);
-  const [forkEstimated, setForkEstimated] = useState<{
+  const [forkNotice, setForkNotice] = useState<{
     conversationId: string;
     agentName: string;
+    estimated: boolean;
+    handoverError?: string;
   } | null>(null);
   const {
     conversationId: streamConversationId,
@@ -2639,7 +2641,9 @@ export default function AgentsPage() {
             handleSelectConversation(result.conversationId);
             setAgentModelId(result.model);
             setWorkingFolder(result.workingFolder ?? '');
-            setForkEstimated(result.estimated ? result : null);
+            setForkNotice(
+              result.estimated || result.handoverError ? result : null,
+            );
             setForkSource(null);
             setMobileConversationsOpen(false);
             if (result.agentName === selectedAgentName)
@@ -2648,11 +2652,16 @@ export default function AgentsPage() {
         />
       )}
       <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
-        {forkEstimated &&
-          forkEstimated.conversationId === activeConversationId &&
-          forkEstimated.agentName === selectedAgentName && (
-            <Alert severity="info" onClose={() => setForkEstimated(null)}>
-              This fork used an estimated match to older provider history.
+        {forkNotice &&
+          forkNotice.conversationId === activeConversationId &&
+          forkNotice.agentName === selectedAgentName && (
+            <Alert
+              severity={forkNotice.handoverError ? 'error' : 'info'}
+              onClose={() => setForkNotice(null)}
+            >
+              {forkNotice.handoverError
+                ? `The child was created, but its handover could not start: ${forkNotice.handoverError}`
+                : 'This fork used an estimated match to older provider history.'}
             </Alert>
           )}
         {agentsError && (

@@ -1,0 +1,56 @@
+codeinfo_provider = "codex"
+model = "gpt-6.1-terra"
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode    = "danger-full-access"
+web_search_mode = "live"
+personality = "friendly"
+
+[features]
+view_image_tool = true
+
+[mcp_servers]
+[mcp_servers.context7]
+args = ['-y', '@upstash/context7-mcp', '--api-key', 'REPLACE_WITH_CONTEXT7_API_KEY']
+command = 'npx'
+startup_timeout_sec = 20.0
+
+[mcp_servers.mui]
+args = ['-y', '@mui/mcp@latest']
+command = 'npx'
+
+[mcp_servers.deepwiki]
+url = "https://mcp.deepwiki.com/mcp"
+startup_timeout_sec = 20.0
+
+[mcp_servers.code_info]
+command = "npx"
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_CHAT_MCP_PORT}/mcp", "--allow-http"]
+startup_timeout_sec = 60
+tool_timeout_sec = 1800
+
+[mcp_servers.codeinfo_agents]
+command = "npx"
+args    = ["-y", "mcp-remote", "http://localhost:${CODEINFO_AGENTS_MCP_PORT}/mcp", "--allow-http"]
+startup_timeout_sec = 60
+tool_timeout_sec = 86400
+
+[mcp_servers.playwright]
+url = "CODEINFO_PLAYWRIGHT_MCP_URL"
+startup_timeout_sec = 60
+tool_timeout_sec = 180
+
+[mcp_servers."chrome-devtools"]
+command = "chrome-devtools-mcp"
+env = { CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS = "1" }
+args = [
+"--browser-url=http://localhost:9222"
+]
+startup_timeout_sec = 20
+
+[projects]
+[projects."/data"]
+trust_level = "trusted"
+
+[projects."/app/server"]
+trust_level = "trusted"

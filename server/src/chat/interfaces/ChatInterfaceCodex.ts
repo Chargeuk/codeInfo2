@@ -8,7 +8,10 @@ import type {
   ThreadOptions as CodexThreadOptions,
   TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
-import { readCompletedCodexTurn } from '../../agents/forkNative.js';
+import {
+  readCodexRunCheckpoint,
+  readCompletedCodexTurn,
+} from '../../agents/forkNative.js';
 import { buildCodexOptions } from '../../config/codexConfig.js';
 import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
@@ -277,6 +280,10 @@ export class ChatInterfaceCodex extends ChatInterface {
     private readonly codexFactory: (options?: CodexOptions) => CodexLike = (
       options?: CodexOptions,
     ) => new Codex(options ?? buildCodexOptions()) as unknown as CodexLike,
+    private readonly nativeCapture = {
+      checkpoint: readCodexRunCheckpoint,
+      complete: readCompletedCodexTurn,
+    },
   ) {
     super();
   }
@@ -400,6 +407,12 @@ export class ChatInterfaceCodex extends ChatInterface {
       !threadId && promptSections.length
         ? `${promptSections.join('\n\n')}\n\nUser:\n${message}`
         : message;
+    const nativeHome = codexOptions?.env?.CODEX_HOME;
+    const checkpoint = threadId
+      ? await this.nativeCapture
+          .checkpoint(threadId, nativeHome)
+          .catch(() => undefined)
+      : undefined;
 
     const thread =
       typeof threadId === 'string' && threadId.length > 0
@@ -575,7 +588,9 @@ export class ChatInterfaceCodex extends ChatInterface {
     const reasoningByItemKey = new Map<string, string>();
     let hasEmittedReasoning = false;
     let finalEmitted = false;
+    let completedAssistantText = '';
     let pendingAgentComplete: ChatCompleteEvent | undefined;
+    let streamFailed = false;
 
     const getAssistantItemKey = (item: CodexAssistantMessageItem): string =>
       typeof item.id === 'string' && item.id.length > 0
@@ -815,6 +830,7 @@ export class ChatInterfaceCodex extends ChatInterface {
             break;
           }
           case 'turn.failed': {
+            streamFailed = true;
             const message = (event as { error?: { message?: string } })?.error
               ?.message;
             this.emitEvent({
@@ -824,6 +840,7 @@ export class ChatInterfaceCodex extends ChatInterface {
             break;
           }
           case 'error': {
+            streamFailed = true;
             this.emitEvent({
               type: 'error',
               message:
@@ -836,6 +853,7 @@ export class ChatInterfaceCodex extends ChatInterface {
               const authoritativeFinal = buildAssistantText();
               if (authoritativeFinal.length > 0) {
                 this.emitEvent({ type: 'final', content: authoritativeFinal });
+                completedAssistantText = authoritativeFinal;
                 finalEmitted = true;
                 emittedAssistantText = authoritativeFinal;
               }
@@ -865,19 +883,31 @@ export class ChatInterfaceCodex extends ChatInterface {
               threadId: activeThreadId,
               ...(usage ? { usage } : {}),
             };
-            if (disableSystemContext) pendingAgentComplete = complete;
-            else this.emitEvent(complete);
+            pendingAgentComplete = complete;
             break;
           default:
             break;
         }
       }
-      if (pendingAgentComplete) {
+      if (pendingAgentComplete && !signal?.aborted) {
         // SDK exec must finish flushing its rollout before app-server reads the
         // completed turn ID. Reading on the JSONL event can select the prior turn.
-        const native = activeThreadId
-          ? await readCompletedCodexTurn(activeThreadId).catch(() => undefined)
-          : undefined;
+        const native =
+          activeThreadId && !streamFailed
+            ? await this.nativeCapture
+                .complete(
+                  activeThreadId,
+                  {
+                    prompt,
+                    assistant: completedAssistantText,
+                    fresh: !threadId,
+                    checkpoint,
+                  },
+                  nativeHome,
+                )
+                .catch(() => undefined)
+            : undefined;
+        if (signal?.aborted) return;
         this.emitEvent({
           ...pendingAgentComplete,
           ...(native ? { native } : {}),

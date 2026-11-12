@@ -5,7 +5,7 @@ import rootLock from '../../../../package-lock.json' with { type: 'json' };
 import rootPackage from '../../../../package.json' with { type: 'json' };
 import serverPackage from '../../../package.json' with { type: 'json' };
 
-const CODEX_VERSION = '0.162.1';
+const CODEX_VERSION = '0.167.1';
 const OPENAI_VERSION = '7.25.0';
 const COPILOT_CLI_VERSION = '1.0.89';
 const COPILOT_SDK_VERSION = '1.0.15';
@@ -65,6 +65,8 @@ test('provider SDK, CLI, and container pins remain aligned with the lockfile', (
 
   assertWorkspaceLockVersion('@openai/codex', CODEX_VERSION);
   assertWorkspaceLockVersion('@openai/codex-sdk', CODEX_VERSION);
+  for (const { entry } of workspaceLockEntries('@openai/codex-sdk'))
+    assert.equal(entry.dependencies?.['@openai/codex'], CODEX_VERSION);
   assertWorkspaceLockVersion('openai', OPENAI_VERSION);
   assertWorkspaceLockVersion('@github/copilot-sdk', COPILOT_SDK_VERSION);
   assert.equal(rootPackage.engines.node, REPOSITORY_NODE_ENGINE);

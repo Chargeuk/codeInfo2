@@ -69,7 +69,7 @@ test(`accepts exact required pinned stable version ${DEV_0000037_T01_REQUIRED_VE
 });
 
 test('rejects higher stable version than required', () => {
-  const result = validateAndLogCodexSdkUpgrade('0.163.0');
+  const result = validateAndLogCodexSdkUpgrade('0.168.0');
   assert.equal(result, false);
 });
 

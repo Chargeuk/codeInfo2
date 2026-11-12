@@ -11,6 +11,7 @@ import { resolveAgentHomeEnv } from '../../../agents/roots.js';
 import { getChatInterface } from '../../../chat/factory.js';
 import { __resetCompletedInflightForTests } from '../../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../../chat/interfaces/ChatInterface.js';
+import { ChatInterfaceCodex } from '../../../chat/interfaces/ChatInterfaceCodex.js';
 import { ChatInterfaceCopilot } from '../../../chat/interfaces/ChatInterfaceCopilot.js';
 import {
   getMemoryTurns,
@@ -1903,6 +1904,15 @@ test('codebase_question keeps caller conversationId stable across Codex replay w
   setToolDeps({
     codexFactory: () => divergentCodex,
     clientFactory: makeLmStudioClientFactory(),
+    chatFactory: (provider, deps) =>
+      provider === 'codex'
+        ? new ChatInterfaceCodex(deps?.codexFactory, {
+            checkpoint: async () => {
+              throw new Error('No native writer in this SDK fixture');
+            },
+            complete: async () => undefined,
+          })
+        : getChatInterface(provider, deps),
   });
   const tempHome = await withTempCodexHome({
     chatToml: [

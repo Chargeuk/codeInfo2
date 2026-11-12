@@ -1,3 +1,7 @@
+import {
+  matchesCodexStoredPrompt,
+  type CodexRolloutTurn,
+} from '../codex/rolloutHistory.js';
 import type { TurnSummary } from '../mongo/repo.js';
 
 export class ForkError extends Error {
@@ -213,6 +217,43 @@ export function resolveForkBoundary(
       'The native session history is unavailable.',
     );
   return { turn: match, estimated: true };
+}
+
+export function resolveVerifiedCodexBoundary(
+  snapshot: TurnSummary[],
+  turns: CodexRolloutTurn[],
+): { turn: NativeForkTurn; estimated: boolean } {
+  const index = lastIndex(
+    snapshot,
+    (turn) =>
+      turn.role === 'assistant' && ['ok', 'warning'].includes(turn.status),
+  );
+  const response = snapshot[index];
+  const prompt = last(
+    snapshot.slice(0, index),
+    (turn) => turn.role === 'user' && !turn.fork?.handover,
+  );
+  const matches =
+    response?.content.trim() && prompt?.content.trim()
+      ? turns.filter(
+          (turn) =>
+            turn.completed &&
+            turn.userMessages.some((message) =>
+              matchesCodexStoredPrompt(message, prompt.content),
+            ) &&
+            [turn.assistant.trim(), turn.finalAssistant.trim()].includes(
+              response.content.trim(),
+            ),
+        )
+      : [];
+  if (matches.length !== 1)
+    throw new ForkError(
+      'FORK_HISTORY_UNAVAILABLE',
+      matches.length
+        ? 'The completed native history match is ambiguous.'
+        : 'The canonical session has no verified completed match for this history point.',
+    );
+  return { turn: matches[0], estimated: false };
 }
 
 export function forkHandoverAt(snapshot: TurnSummary[], now = Date.now()) {

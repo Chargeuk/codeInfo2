@@ -8,7 +8,10 @@ import {
   resolveCodeinfoMcpEndpointContract,
   resolveRequiredCodeinfoPlaceholderValue,
 } from './mcpEndpoints.js';
-import type { OpenAiCompatEndpointConfig } from './openaiCompatEndpoints.js';
+import {
+  validateOpenAiCompatEndpointConfigForProvider,
+  type OpenAiCompatEndpointConfig,
+} from './openaiCompatEndpoints.js';
 import {
   applyManagedWebToolsToRuntimeConfigForMode,
   resolveConfiguredWebSearchMode,
@@ -116,11 +119,6 @@ const authStoreRegex = new RegExp(
 
 const CODEINFO_OPENAI_ENDPOINT_PROVIDER_NAME = 'codeinfo_openai_endpoint';
 
-const resolveOpenAiCompatWireApi = (
-  endpoint: OpenAiCompatEndpointConfig,
-): 'responses' | 'completions' =>
-  endpoint.capabilities.includes('responses') ? 'responses' : 'completions';
-
 const hasExplicitWebSearchSetting = (
   config: Record<string, unknown>,
 ): boolean => {
@@ -148,6 +146,10 @@ export function buildCodexOpenAiCompatRuntimeConfig(
     env?: NodeJS.ProcessEnv;
   },
 ): CodexOptions['config'] {
+  validateOpenAiCompatEndpointConfigForProvider({
+    endpoint,
+    provider: 'codex',
+  });
   const providerName = CODEINFO_OPENAI_ENDPOINT_PROVIDER_NAME;
   return {
     model_provider: providerName,
@@ -159,7 +161,7 @@ export function buildCodexOpenAiCompatRuntimeConfig(
           consumer: 'codex',
           env: params?.env,
         }),
-        wire_api: resolveOpenAiCompatWireApi(endpoint),
+        wire_api: 'responses',
       },
     },
   } satisfies CodexOptions['config'];

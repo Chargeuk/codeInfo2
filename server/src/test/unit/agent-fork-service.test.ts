@@ -2,8 +2,13 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import test, { type TestContext } from 'node:test';
 import mongoose from 'mongoose';
-import { ForkError } from '../../agents/forkHistory.js';
+import {
+  ForkError,
+  resolveForkBoundary,
+  resolveVerifiedCodexBoundary,
+} from '../../agents/forkHistory.js';
 import { FORK_LEASE_MS, FORK_LEASE_RENEW_MS } from '../../agents/forkLease.js';
+import type { ForkNativeSession } from '../../agents/forkNative.js';
 import {
   executeFork,
   forkAgentConversation,
@@ -14,6 +19,7 @@ import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../../agents/runLock.js';
+import { baseLogger } from '../../logger.js';
 import {
   ConversationModel,
   type Conversation,
@@ -43,7 +49,11 @@ const awaitGate = (gate: Promise<void>, operation: Promise<unknown>) =>
       throw new Error('Fork finished before reaching the expected test gate');
     }),
   ]);
-function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
+function harness(
+  t: TestContext,
+  provider: 'codex' | 'copilot' = 'codex',
+  legacyInjection = false,
+) {
   const sourceId = crypto.randomUUID();
   const source: Conversation = {
     _id: sourceId,
@@ -106,6 +116,9 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
   const conversations = new Map<string, Conversation>();
   const copied = new Map<string, Record<string, unknown>>();
   const injected = new Set<string>();
+  const instructions: Array<
+    Parameters<NonNullable<ForkServiceDeps['startInstruction']>>[0]
+  > = [];
   let nativeForks = 0;
   let removed = 0;
   let deletedSource = false;
@@ -140,6 +153,7 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
       ) {
         const rule = expected as Record<string, unknown>;
         if ('$exists' in rule) return (actual !== undefined) === rule.$exists;
+        if ('$ne' in rule) return actual !== rule.$ne;
         if ('$in' in rule) return (rule.$in as unknown[]).includes(actual);
         if ('$gt' in rule)
           return (
@@ -208,6 +222,7 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
     query(operations.has(id) ? structuredClone(operations.get(id)) : null),
   );
   t.mock.method(ForkOperationModel, 'create', async (value: ForkOperation) => {
+    if (legacyInjection) delete value.handoverMode;
     if (operations.has(value._id))
       throw Object.assign(new Error('Duplicate operation'), { code: 11000 });
     operations.set(value._id, structuredClone(value));
@@ -428,6 +443,30 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
     },
   };
   const deps: ForkServiceDeps = {
+    startInstruction: async (params) => {
+      // Stand in for normal run acceptance/persistence, not native injection.
+      assert.ok(conversations.has(params.conversationId!));
+      assert.equal([...operations.values()][0].phase, 'ready');
+      instructions.push(params);
+      copied.set(`${params.conversationId}:normal-handover`, {
+        conversationId: params.conversationId,
+        role: 'user',
+        content: params.instruction,
+        provider,
+        model: target.modelId,
+        createdAt: new Date(),
+        status: 'ok',
+        source: 'REST',
+        toolCalls: null,
+        fork: params.userTurnFork,
+      });
+      return {
+        conversationId: params.conversationId!,
+        inflightId: params.inflightId!,
+        providerId: provider,
+        modelId: target.modelId,
+      };
+    },
     removeOwnedNative: async () => {
       removed++;
     },
@@ -444,6 +483,12 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
           nextEventId: 'later-native-event',
         },
       ],
+      async recoverBoundary(
+        this: ForkNativeSession,
+        snapshot: Parameters<typeof resolveVerifiedCodexBoundary>[0],
+      ) {
+        return resolveForkBoundary(snapshot, this.turns);
+      },
       fork: async (boundary, config, model, cwd) => {
         forkBoundary = boundary.id;
         nativeForks++;
@@ -478,6 +523,7 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
     conversations,
     copied,
     injected,
+    instructions,
     setFailCopy: () => {
       failCopy = true;
     },
@@ -515,8 +561,8 @@ function harness(t: TestContext, provider: 'codex' | 'copilot' = 'codex') {
   };
 }
 
-test('Codex flush is a publication gate: no conversation, broadcast, or delivered acknowledgement before close', async (t) => {
-  const h = harness(t);
+test('legacy Codex flush is a publication gate: no conversation, broadcast, or delivered acknowledgement before close', async (t) => {
+  const h = harness(t, 'codex', true);
   let released!: () => void;
   let closing!: () => void;
   const closed = new Promise<void>((resolve) => {
@@ -573,8 +619,8 @@ test('Codex flush is a publication gate: no conversation, broadcast, or delivere
 });
 
 for (const persisted of [false, true]) {
-  test(`Codex close failure with confirmed writer termination keeps injecting retryable when acknowledged handover ${persisted ? 'was persisted' : 'was lost'}`, async (t) => {
-    const h = harness(t);
+  test(`legacy Codex close failure with confirmed writer termination keeps injecting retryable when acknowledged handover ${persisted ? 'was persisted' : 'was lost'}`, async (t) => {
+    const h = harness(t, 'codex', true);
     const open = h.deps.openNative;
     let failClose = true;
     let injections = 0;
@@ -614,7 +660,7 @@ for (const persisted of [false, true]) {
 }
 
 test('a graceful close with missing persisted injection leaves the handover recoverable and unpublished', async (t) => {
-  const h = harness(t);
+  const h = harness(t, 'codex', true);
   const open = h.deps.openNative;
   let loseOnClose = true;
   h.deps.openNative = async (...args) => {
@@ -642,7 +688,7 @@ test('a graceful close with missing persisted injection leaves the handover reco
 });
 
 test('expired injecting takeover quarantines a buffered live writer across retries and recovers only durable handovers', async (t) => {
-  const h = harness(t);
+  const h = harness(t, 'codex', true);
   const closing = deferred();
   const flush = deferred();
   const persisted: string[] = [];
@@ -714,7 +760,7 @@ test('expired injecting takeover quarantines a buffered live writer across retri
 });
 
 test('failed close without termination proof remains quarantined after owner release', async (t) => {
-  const h = harness(t);
+  const h = harness(t, 'codex', true);
   const open = h.deps.openNative;
   let helpers = 0;
   let injections = 0;
@@ -830,7 +876,8 @@ test('retry reuses one native session and copied history; target configuration a
     assert.equal(h.stats().nativeForks, 1);
     assert.equal(h.conversations.size, 1);
     assert.equal(h.copied.size, 3);
-    assert.equal(h.injected.size, 1);
+    assert.equal(h.instructions.length, 1);
+    assert.equal(h.injected.size, 0);
     const copied = [...h.copied.values()];
     assert.equal(
       copied.some((row) => row.content === 'Later active prompt'),
@@ -870,7 +917,8 @@ test('partial Mongo writes are invisible and retry without duplicate turns, sess
   const result = await forkAgentConversation(h.input, h.deps);
   assert.ok(result.conversationId);
   assert.equal(h.stats().nativeForks, 1);
-  assert.equal(h.injected.size, 1);
+  assert.equal(h.instructions.length, 1);
+  assert.equal(h.injected.size, 0);
   assert.equal(h.copied.size, 3);
 });
 
@@ -957,7 +1005,7 @@ test('same-agent latest idle fork uses a completed response and includes only on
   assert.equal(child.fork?.sourceTurnId, 'assistant-id');
   assert.equal(
     [...h.copied.values()].filter(
-      (row) => (row.fork as { handover?: boolean })?.handover,
+      (row) => row.content === h.instructions[0].instruction,
     ).length,
     1,
   );
@@ -1076,6 +1124,10 @@ test('latest fork-of-fork keeps previous handover context and adds exactly one n
     handover: 'Previous target prompt',
     handoverDelivered: true,
   };
+  h.rows[1].native = {
+    ...h.rows[1].native,
+    sessionId: 'previous-native-child',
+  };
   const read = h.deps.listTurns;
   h.deps.listTurns = async (...args) => {
     const previous = await read(...args);
@@ -1100,13 +1152,21 @@ test('latest fork-of-fork keeps previous handover context and adds exactly one n
   };
   await forkAgentConversation({ ...h.input, sourceTurnId: undefined }, h.deps);
   assert.equal(h.copied.size, 4);
-  assert.equal(h.injected.size, 2);
-  assert.ok(h.injected.has('Previous target prompt'));
+  assert.equal(h.injected.size, 0);
+  assert.equal(h.instructions.length, 1);
+  assert.match(
+    h.instructions[0].instruction,
+    /Inherited handover context:\nPrevious target prompt/u,
+  );
+  const handovers = [...h.copied.values()].filter(
+    (row) => (row.fork as { handover?: boolean })?.handover,
+  );
+  assert.equal(handovers.length, 2);
   assert.equal(
-    [...h.copied.values()].filter(
-      (row) => (row.fork as { handover?: boolean })?.handover,
+    handovers.filter(
+      (row) => !(row.fork as { sourceTurnId?: string })?.sourceTurnId,
     ).length,
-    2,
+    1,
   );
 });
 
@@ -1632,9 +1692,10 @@ test('bounded snapshot transactions retain committed batches and retry with stab
   assert.equal(h.copied.size, 128);
   assert.deepEqual(
     [...h.copied.values()]
+      .filter((row) => row.chronologicalOrder !== undefined)
       .map((row) => row.chronologicalOrder)
       .sort((a, b) => Number(a) - Number(b)),
-    Array.from({ length: 128 }, (_, index) => index),
+    Array.from({ length: 127 }, (_, index) => index),
   );
 });
 
@@ -1701,7 +1762,7 @@ test('selected earlier Codex reply forks directly while a newer source run retai
   }
 });
 
-test('unique complete legacy exchange caches its estimated identity and subsequent forks skip history', async (t) => {
+test('unique verified canonical exchange caches its identity after fork and subsequent forks skip history', async (t) => {
   const h = harness(t);
   delete h.rows[1].native;
   const open = h.deps.openNative;
@@ -1709,21 +1770,31 @@ test('unique complete legacy exchange caches its estimated identity and subseque
   h.deps.openNative = async (...args) => {
     reads.push(args[2]);
     const native = await open(...args);
+    if (args[2]) {
+      const canonical = native.turns.map((turn) => ({
+        ...turn,
+        userMessages: [turn.user],
+        finalAssistant: turn.assistant,
+        startOffset: 0,
+      }));
+      native.turns = [];
+      native.recoverBoundary = async (snapshot) =>
+        resolveVerifiedCodexBoundary(snapshot, canonical);
+    }
     if (args[2] === false) native.turns = [];
     return native;
   };
   const first = await forkAgentConversation(h.input, h.deps);
-  assert.equal(first.estimated, true);
+  assert.equal(first.estimated, false);
   assert.deepEqual(h.rows[1].native, {
     sessionId: 'native-source',
     turnId: 'native-turn',
-    estimated: true,
   });
   const second = await forkAgentConversation(
     { ...h.input, requestId: crypto.randomUUID() },
     h.deps,
   );
-  assert.equal(second.estimated, true);
+  assert.equal(second.estimated, false);
   assert.deepEqual(reads, [true, false]);
 });
 
@@ -1744,8 +1815,7 @@ test('legacy identity cache failure still delivers and publishes the fork withou
     assert.equal(cacheWrite.mock.callCount(), 1);
     assert.equal(h.rows[1].native, undefined);
     assert.equal(published.fork?.nativeSessionId, 'native-child');
-    assert.equal(published.fork?.handoverDelivered, true);
-    assert.equal(h.injected.has(published.fork!.handover), true);
+    assert.equal(h.instructions[0].instruction, published.fork!.handover);
     assert.equal(h.copied.size, 3);
     assert.equal([...h.operations.values()][0].phase, 'ready');
     assert.deepEqual(broadcasts, [first.conversationId]);
@@ -1755,26 +1825,124 @@ test('legacy identity cache failure still delivers and publishes the fork withou
     assert.equal(h.stats().nativeForks, 1);
     assert.equal(h.stats().removed, 0);
     assert.equal(h.conversations.size, 1);
-    assert.equal(h.injected.size, 1);
+    assert.equal(h.instructions.length, 1);
+    assert.equal(h.injected.size, 0);
     assert.equal(cacheWrite.mock.callCount(), 1);
   } finally {
     unsubscribe();
   }
 });
 
-test('repeated legacy exchanges stay estimated and are not cached as an unsafe unique mapping', async (t) => {
+test('repeated legacy indexed exchanges remain estimated and are not cached as a unique mapping', async (t) => {
   const h = harness(t);
   delete h.rows[1].native;
   const open = h.deps.openNative;
   h.deps.openNative = async (...args) => {
     assert.equal(args[2], true);
     const native = await open(...args);
+    native.turns[0].user = 'System:\nSynthetic context\n\nUser:\nPrompt';
     native.turns.push({ ...native.turns[0], id: 'same-text-later' });
     return native;
   };
-  await forkAgentConversation(h.input, h.deps);
+  const child = await forkAgentConversation(h.input, h.deps);
+  assert.equal(child.estimated, true);
   assert.equal(h.stats().forkBoundary, 'native-turn');
   assert.equal(h.rows[1].native, undefined);
+});
+
+test('ambiguous canonical fallback rejects before native fork or identity caching', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    const native = await open(...args);
+    const canonical = native.turns.map((turn) => ({
+      ...turn,
+      userMessages: [turn.user],
+      finalAssistant: turn.assistant,
+      startOffset: 0,
+    }));
+    canonical.push({ ...canonical[0], id: 'duplicate' });
+    native.turns = [];
+    native.recoverBoundary = async (snapshot) =>
+      resolveVerifiedCodexBoundary(snapshot, canonical);
+    return native;
+  };
+  await assert.rejects(forkAgentConversation(h.input, h.deps), /ambiguous/u);
+  assert.equal(h.stats().nativeForks, 0);
+  assert.equal(h.rows[1].native, undefined);
+});
+
+test('a unique wrapped indexed pair caches its estimated identity after fork and reuses it', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  const open = h.deps.openNative;
+  const reads: Array<boolean | undefined> = [];
+  h.deps.openNative = async (...args) => {
+    reads.push(args[2]);
+    const native = await open(...args);
+    if (args[2]) {
+      native.turns[0].user = 'System:\nSynthetic context\n\nUser:\nPrompt';
+      const fork = native.fork;
+      native.fork = async (...params) => {
+        assert.equal(h.rows[1].native, undefined);
+        return fork(...params);
+      };
+    } else {
+      native.turns = [];
+    }
+    return native;
+  };
+  const child = await forkAgentConversation(h.input, h.deps);
+  assert.equal(child.estimated, true);
+  assert.deepEqual(h.rows[1].native, {
+    sessionId: 'native-source',
+    turnId: 'native-turn',
+    estimated: true,
+  });
+  const second = await forkAgentConversation(
+    { ...h.input, requestId: crypto.randomUUID() },
+    h.deps,
+  );
+  assert.equal(second.estimated, true);
+  assert.equal(h.stats().forkBoundary, 'native-turn');
+  assert.deepEqual(reads, [true, false]);
+});
+
+test('failed native fork never caches a canonically recovered identity', async (t) => {
+  const h = harness(t);
+  delete h.rows[1].native;
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...args) => {
+    const native = await open(...args);
+    const canonical = native.turns.map((turn) => ({
+      ...turn,
+      userMessages: [turn.user],
+      finalAssistant: turn.assistant,
+      startOffset: 0,
+    }));
+    native.turns = [];
+    native.recoverBoundary = async (snapshot) =>
+      resolveVerifiedCodexBoundary(snapshot, canonical);
+    return native;
+  };
+  h.setFailFork();
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /Provider acknowledgement lost/u,
+  );
+  assert.equal(h.rows[1].native, undefined);
+});
+
+test('a mismatched stored native session cannot fall back to canonical text recovery', async (t) => {
+  const h = harness(t);
+  h.rows[1].native = { sessionId: 'different-session', turnId: 'native-turn' };
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /does not match the source session/u,
+  );
+  assert.equal(h.stats().nativeForks, 0);
+  assert.equal(h.rows[1].native.sessionId, 'different-session');
 });
 
 test('Codex copy retry reuses frozen legacy history without a second source read or native lookup', async (t) => {
@@ -1797,4 +1965,203 @@ test('Codex copy retry reuses frozen legacy history without a second source read
   };
   await forkAgentConversation(h.input, h.deps);
   assert.equal(h.stats().nativeForks, 1);
+});
+
+test('new Codex fork automatically starts exactly one normal child handover after publication and never probes rollout injection', async (t) => {
+  const h = harness(t);
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...params) => ({
+    ...(await open(...params)),
+    inject: async () => {
+      assert.fail('New handovers must use the normal instruction path');
+    },
+    hasInjected: async () => {
+      assert.fail('No rollout confirmation for new handovers');
+    },
+  });
+  const child = await forkAgentConversation(h.input, h.deps);
+  assert.equal(h.instructions.length, 1);
+  const sent = h.instructions[0];
+  assert.equal(sent.conversationId, child.conversationId);
+  assert.equal(sent.agentName, 'target_agent');
+  assert.equal(sent.working_folder, '/shared/folder');
+  assert.equal(sent.source, 'REST');
+  assert.equal(sent.mustExist, true);
+  assert.deepEqual(sent.userTurnFork, { handover: true });
+  assert.equal('signal' in sent, false);
+  assert.match(sent.instruction, /Complete target prompt/u);
+  assert.match(
+    sent.instruction,
+    /ACKNOWLEDGE ONLY and await the next user instruction/u,
+  );
+  assert.match(
+    sent.instruction,
+    /Do not call tools, perform work, or continue any prior task/u,
+  );
+  assert.equal(h.copied.size, 3);
+  assert.equal(
+    [...h.copied.values()].filter((row) => row.content === sent.instruction)
+      .length,
+    1,
+  );
+  assert.equal(
+    h.conversations.get(child.conversationId)?.flags.threadId,
+    'native-child',
+  );
+  await forkAgentConversation(h.input, h.deps);
+  await h.runWorker();
+  assert.equal(h.instructions.length, 1);
+  assert.equal(h.stats().nativeForks, 1);
+});
+
+test('handover startup error returns the published child even when recording the error fails, without replay', async (t) => {
+  const h = harness(t);
+  const warnings: unknown[][] = [];
+  t.mock.method(baseLogger, 'warn', (...args: unknown[]) => {
+    warnings.push(args);
+  });
+  let attempts = 0;
+  h.deps.startInstruction = async () => {
+    attempts++;
+    throw new Error('Original startup failure');
+  };
+  const writeError = new Error('Startup error write failed');
+  const updateOne = ForkOperationModel.updateOne;
+  let errorWrites = 0;
+  t.mock.method(
+    ForkOperationModel,
+    'updateOne',
+    async (
+      filter: Record<string, unknown>,
+      update: {
+        $set?: Partial<ForkOperation>;
+        $unset?: Record<string, unknown>;
+      },
+      options?: { session?: mongoose.ClientSession },
+    ) => {
+      if (update.$set?.error) {
+        errorWrites++;
+        throw writeError;
+      }
+      return updateOne(filter, update, options);
+    },
+  );
+  const child = await forkAgentConversation(h.input, h.deps);
+  assert.equal(child.handoverError, 'Original startup failure');
+  assert.equal(h.conversations.has(child.conversationId), true);
+  assert.equal(h.stats().removed, 0);
+  const operation = [...h.operations.values()][0];
+  assert.equal(operation.handoverStarted, true);
+  assert.equal(operation.phase, 'ready');
+  assert.equal(operation.error, undefined);
+  assert.deepEqual(warnings, [
+    [
+      {
+        operationId: operation._id,
+        conversationId: child.conversationId,
+        err: writeError,
+      },
+      'Fork handover startup error persistence failed',
+    ],
+  ]);
+  // No persisted error is available on reopen, but the original claim still
+  // prevents replay, even when the error-recording storage was unavailable.
+  assert.equal(
+    (await forkAgentConversation(h.input, h.deps)).conversationId,
+    child.conversationId,
+  );
+  assert.equal((await h.runWorker()).conversationId, child.conversationId);
+  assert.equal(attempts, 1);
+  assert.equal(errorWrites, 1);
+  assert.equal(h.stats().nativeForks, 1);
+  assert.equal(h.stats().removed, 0);
+});
+
+test('handover startup failure preserves/open returns the child and is not replayed on reopen', async (t) => {
+  const h = harness(t);
+  let attempts = 0;
+  h.deps.startInstruction = async () => {
+    attempts++;
+    throw new Error('Provider unavailable during startup');
+  };
+  const child = await forkAgentConversation(h.input, h.deps);
+  assert.equal(h.conversations.has(child.conversationId), true);
+  assert.equal(child.handoverError, 'Provider unavailable during startup');
+  assert.equal(h.stats().removed, 0);
+  assert.equal([...h.operations.values()][0].handoverStarted, true);
+  const reopened = await forkAgentConversation(h.input, h.deps);
+  assert.deepEqual(reopened, child);
+  assert.equal(attempts, 1);
+  assert.equal(h.stats().nativeForks, 1);
+});
+
+test('lost publication acknowledgement recovers one pending normal handover without another native fork', async (t) => {
+  const h = harness(t);
+  h.setFailPublicationAck();
+  await assert.rejects(
+    forkAgentConversation(h.input, h.deps),
+    /Publication acknowledgement lost/u,
+  );
+  assert.equal(h.instructions.length, 0);
+  const [first, second] = await Promise.all([h.runWorker(), h.runWorker()]);
+  assert.equal(first.conversationId, second.conversationId);
+  assert.equal(h.instructions.length, 1);
+  assert.equal(h.stats().nativeForks, 1);
+});
+
+test('forking a completed normal handover uses its own exact native turn, without resending the previous handover', async (t) => {
+  const h = harness(t);
+  h.source.fork = {
+    requestId: 'previous-request',
+    sourceConversationId: 'original',
+    sourceTurnId: 'original-turn',
+    sourceAgentName: 'original_agent',
+    targetAgentName: 'source_agent',
+    nativeSessionId: 'previous-native-child',
+    estimated: false,
+    handover: 'Previous handover',
+    handoverDelivered: true,
+  };
+  h.rows.splice(
+    2,
+    1,
+    {
+      ...h.rows[0],
+      turnId: 'previous-handover-user',
+      content: 'Previous handover',
+      createdAt: new Date(3),
+    },
+    {
+      ...h.rows[1],
+      turnId: 'previous-ack',
+      content: 'Acknowledged',
+      createdAt: new Date(4),
+      native: {
+        sessionId: 'previous-native-child',
+        turnId: 'previous-handover-turn',
+      },
+    },
+  );
+  const open = h.deps.openNative;
+  h.deps.openNative = async (...params) => {
+    assert.equal(params[1], 'previous-native-child');
+    assert.equal(params[2], false);
+    return open(...params);
+  };
+  await forkAgentConversation(
+    { ...h.input, sourceTurnId: 'previous-ack' },
+    h.deps,
+  );
+  assert.equal(h.stats().forkBoundary, 'previous-handover-turn');
+  assert.equal(h.instructions.length, 1);
+  assert.equal(
+    [...h.copied.values()].filter((row) => row.content === 'Previous handover')
+      .length,
+    1,
+  );
+  assert.equal(h.injected.size, 0);
+  assert.doesNotMatch(
+    h.instructions[0].instruction,
+    /Inherited handover context/u,
+  );
 });

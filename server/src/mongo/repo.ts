@@ -161,6 +161,7 @@ export interface AppendTurnInput {
   timing?: TurnTimingMetadata;
   runtime?: TurnRuntimeMetadata;
   native?: TurnNativeMetadata;
+  fork?: Turn['fork'];
   createdAt?: Date;
   firstUpdateAt?: Date;
   lastUpdateAt?: Date;
@@ -413,6 +414,7 @@ export async function appendTurn(input: AppendTurnInput): Promise<Turn> {
     lastUpdateAt: input.lastUpdateAt,
     runtime: input.runtime,
     native: input.native,
+    fork: input.fork,
     createdAt,
   });
 

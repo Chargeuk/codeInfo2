@@ -15,9 +15,12 @@ import express from 'express';
 import request from 'supertest';
 import pkg from '../../../package.json' with { type: 'json' };
 import {
+  getActiveRunOwnership,
   releaseConversationLock,
   tryAcquireConversationLock,
 } from '../../agents/runLock.js';
+import { getChatInterface } from '../../chat/factory.js';
+import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
 import {
   getMemoryTurns,
   memoryConversations,
@@ -34,7 +37,7 @@ import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
-import { createChatRouter } from '../../routes/chat.js';
+import { createChatRouter as createProductionChatRouter } from '../../routes/chat.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import { setWorkingFolderStatForTests } from '../../workingFolders/state.js';
 import { attachWs } from '../../ws/server.js';
@@ -45,7 +48,10 @@ import {
   endScopedTestEnvIsolation,
 } from '../support/processEnvIsolation.js';
 import { enterTestOverrideScope } from '../support/testOverrideScope.js';
-import { resolveConfiguredTestTimeoutMs } from '../support/testTimeouts.js';
+import {
+  resolveConfiguredTestTimeoutMs,
+  waitForTestCondition,
+} from '../support/testTimeouts.js';
 import {
   subscribeConversationAndWaitReady,
   closeWs,
@@ -102,6 +108,21 @@ const dummyClientFactory = () =>
   ({
     llm: { model: async () => ({ act: async () => undefined }) },
   }) as unknown as LMStudioClient;
+const createChatRouter = (
+  options: Parameters<typeof createProductionChatRouter>[0],
+) =>
+  createProductionChatRouter({
+    ...options,
+    chatFactory: (provider, deps) =>
+      provider === 'codex' && deps?.codexFactory
+        ? new ChatInterfaceCodex(deps.codexFactory, {
+            checkpoint: async () => {
+              throw new Error('No native writer in this SDK fixture');
+            },
+            complete: async () => undefined,
+          })
+        : getChatInterface(provider, deps),
+  });
 const lmstudioAvailableClientFactory = () =>
   ({
     system: {
@@ -130,6 +151,7 @@ const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 const ORIGINAL_CODEX_HOME = process.env.CODEX_HOME;
 const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
 let tempCodexHomeForTest: string | undefined;
+const testConversationIds = new Set<string>();
 function createUnavailableCopilotLifecycle() {
   return createMockCopilotSdkHarness({
     name: 'integration-copilot-auth-required',
@@ -183,50 +205,66 @@ const test = (name: string, fn: () => Promise<void> | void) =>
     try {
       await fn();
     } finally {
-      mock.restoreAll();
-      if (ORIGINAL_CODEX_WORKDIR === undefined) {
-        clearScopedTestEnvValue('CODEX_WORKDIR');
-      } else {
-        setScopedTestEnvValue('CODEX_WORKDIR', ORIGINAL_CODEX_WORKDIR);
-      }
-      if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
-        clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
-      } else {
-        setScopedTestEnvValue(
-          'CODEINFO_CODEX_WORKDIR',
-          ORIGINAL_CODEINFO_CODEX_WORKDIR,
+      try {
+        await waitForTestCondition(
+          () =>
+            [...testConversationIds].every(
+              (conversationId) => !getActiveRunOwnership(conversationId),
+            ),
+          { description: 'test chat runs to release their conversation locks' },
         );
+      } finally {
+        testConversationIds.clear();
+        mock.restoreAll();
+        if (ORIGINAL_CODEX_WORKDIR === undefined) {
+          clearScopedTestEnvValue('CODEX_WORKDIR');
+        } else {
+          setScopedTestEnvValue('CODEX_WORKDIR', ORIGINAL_CODEX_WORKDIR);
+        }
+        if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
+          clearScopedTestEnvValue('CODEINFO_CODEX_WORKDIR');
+        } else {
+          setScopedTestEnvValue(
+            'CODEINFO_CODEX_WORKDIR',
+            ORIGINAL_CODEINFO_CODEX_WORKDIR,
+          );
+        }
+        if (ORIGINAL_CODEX_HOME === undefined) {
+          clearScopedTestEnvValue('CODEX_HOME');
+        } else {
+          setScopedTestEnvValue('CODEX_HOME', ORIGINAL_CODEX_HOME);
+        }
+        if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
+          clearScopedTestEnvValue('CODEINFO_CODEX_HOME');
+        } else {
+          setScopedTestEnvValue(
+            'CODEINFO_CODEX_HOME',
+            ORIGINAL_CODEINFO_CODEX_HOME,
+          );
+        }
+        if (tempCodexHomeForTest) {
+          await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
+          tempCodexHomeForTest = undefined;
+        }
+        setWorkingFolderStatForTests(undefined);
+        __resetProviderBootstrapStatusForTests();
+        endScopedTestEnvIsolation();
       }
-      if (ORIGINAL_CODEX_HOME === undefined) {
-        clearScopedTestEnvValue('CODEX_HOME');
-      } else {
-        setScopedTestEnvValue('CODEX_HOME', ORIGINAL_CODEX_HOME);
-      }
-      if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
-        clearScopedTestEnvValue('CODEINFO_CODEX_HOME');
-      } else {
-        setScopedTestEnvValue(
-          'CODEINFO_CODEX_HOME',
-          ORIGINAL_CODEINFO_CODEX_HOME,
-        );
-      }
-      if (tempCodexHomeForTest) {
-        await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
-        tempCodexHomeForTest = undefined;
-      }
-      setWorkingFolderStatForTests(undefined);
-      __resetProviderBootstrapStatusForTests();
-      endScopedTestEnvIsolation();
     }
   });
 let conversationSeq = 0;
-const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
-  provider: 'codex',
-  model: 'gpt-6-luna',
-  conversationId: `conv-codex-basic-${++conversationSeq}`,
-  message: 'Hi',
-  ...overrides,
-});
+const buildCodexBody = (overrides: Record<string, unknown> = {}) => {
+  const body = {
+    provider: 'codex',
+    model: 'gpt-6-luna',
+    conversationId: `conv-codex-basic-${++conversationSeq}`,
+    message: 'Hi',
+    ...overrides,
+  };
+  if (typeof body.conversationId === 'string')
+    testConversationIds.add(body.conversationId);
+  return body;
+};
 const buildRepositoryBackedRuntimeHome = (
   codexHome: string,
   conversationId: string,
@@ -1209,6 +1247,9 @@ test('codex chat resumes existing thread when threadId supplied', async () => {
     .post('/chat')
     .send(buildCodexBody({ threadId: 'thread-resume' }))
     .expect(202);
+  await waitForTestCondition(() => !!mockCodex.lastResumeOptions, {
+    description: 'mock Codex resumed thread options',
+  });
   assert.equal(mockCodex.lastResumeOptions?.model, 'gpt-6-luna');
 });
 test('codex chat preserves persisted thread when resuming the same conversation without request threadId', async () => {
@@ -1978,6 +2019,9 @@ test('resumed native Codex chat keeps the saved thread instead of drifting onto 
       .expect(202);
     assert.equal(response.body.provider, 'codex');
     assert.equal(response.body.model, 'gpt-6-luna');
+    await waitForTestCondition(() => !!mockCodex.lastResumeThreadId, {
+      description: 'mock Codex resumed saved endpoint thread',
+    });
     assert.equal(mockCodex.lastResumeThreadId, 'thread-saved-endpoint');
     assert.equal(mockCodex.lastStartOptions, undefined);
     assert.equal(
@@ -1989,16 +2033,22 @@ test('resumed native Codex chat keeps the saved thread instead of drifting onto 
       'thread-saved-endpoint',
     );
   } finally {
-    await endpointServer.stop();
-    memoryConversations.delete(conversationId);
-    memoryTurns.delete(conversationId);
-    if (originalCompatEndpoints === undefined) {
-      clearScopedTestEnvValue('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS');
-    } else {
-      setScopedTestEnvValue(
-        'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
-        originalCompatEndpoints,
-      );
+    try {
+      await waitForTestCondition(() => !getActiveRunOwnership(conversationId), {
+        description: 'saved endpoint chat run to release its conversation lock',
+      });
+    } finally {
+      await endpointServer.stop();
+      memoryConversations.delete(conversationId);
+      memoryTurns.delete(conversationId);
+      if (originalCompatEndpoints === undefined) {
+        clearScopedTestEnvValue('CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS');
+      } else {
+        setScopedTestEnvValue(
+          'CODEINFO_EXTERNAL_OPENAI_COMPAT_ENDPOINTS',
+          originalCompatEndpoints,
+        );
+      }
     }
   }
 });

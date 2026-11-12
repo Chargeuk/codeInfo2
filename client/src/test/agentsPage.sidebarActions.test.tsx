@@ -232,10 +232,16 @@ describe('AgentsPage sidebar actions', () => {
   });
 });
 
-describe('estimated fork history notice', () => {
-  it.each(['conversation', 'agent', 'new chat'])(
-    'does not follow navigation to another %s',
-    async (navigation) => {
+describe('fork notices', () => {
+  it.each(
+    ['conversation', 'agent', 'new chat'].flatMap((navigation) =>
+      [undefined, 'Provider unavailable during startup'].map(
+        (handoverError) => ({ navigation, handoverError }),
+      ),
+    ),
+  )(
+    'opens the child and keeps its notice scoped on $navigation navigation (startup error: $handoverError)',
+    async ({ navigation, handoverError }) => {
       const user = userEvent.setup();
       mockAgentsFetch();
       const ordinaryFetch = mockFetch.getMockImplementation()!;
@@ -256,7 +262,8 @@ describe('estimated fork history notice', () => {
             conversationId: 'estimated-fork',
             agentName: 'a1',
             model: 'gpt-6.1-sol',
-            estimated: true,
+            estimated: !handoverError,
+            ...(handoverError ? { handoverError } : {}),
           });
         }
         if (/\/agents$/.test(target))
@@ -331,8 +338,9 @@ describe('estimated fork history notice', () => {
         ).toBeEnabled(),
       );
       await user.click(screen.getByRole('button', { name: 'Create fork' }));
-      const notice =
-        'This fork used an estimated match to older provider history.';
+      const notice = handoverError
+        ? `The child was created, but its handover could not start: ${handoverError}`
+        : 'This fork used an estimated match to older provider history.';
       // Wait for modal teardown before navigating the restored page controls.
       await waitFor(() => {
         expect(dialog).not.toBeInTheDocument();

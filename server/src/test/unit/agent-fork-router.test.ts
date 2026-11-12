@@ -163,3 +163,23 @@ test('fork options expose compatible agents and estimated-history notice', async
   assert.deepEqual(response.body.agents, [{ name: 'same', sameAgent: true }]);
   assert.equal(response.body.estimated, true);
 });
+
+test('fork route returns the published child identity with a handover startup failure', async () => {
+  const response = await request(
+    app(async () => ({
+      conversationId: 'retained-child',
+      agentName: 'target',
+      model: 'gpt-6.1-terra',
+      estimated: false,
+      handoverError: 'Provider unavailable during startup',
+    })),
+  )
+    .post('/agents/conversations/source/fork')
+    .send({ requestId: 'stable-request', targetAgentName: 'target' });
+  assert.equal(response.status, 200);
+  assert.equal(response.body.conversationId, 'retained-child');
+  assert.equal(
+    response.body.handoverError,
+    'Provider unavailable during startup',
+  );
+});

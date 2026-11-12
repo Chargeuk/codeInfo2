@@ -1,0 +1,7 @@
+# Critically review the current proposal or implementation
+
+Read `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md` and apply it.
+
+Identify the invocation context. For a proposal self-assessment, critically check the proposed delta against the full contract, actual plan layout, completed work, current source, and evidence before it is saved; challenge duplication, speculative work, missed requirements, and unsupported design. For a post-implementation/current-iteration review, inspect branch-owned changes and the full contract against current source; check regressions, unmet acceptance criteria, unsafe changes, and applicable local proof. In either case distinguish verified defects from advisory concerns, preserve accepted scope and stable identities, and add only genuinely necessary in-scope work. Do not create tracker records unless an actual documented integration authorizes and supports them. External review unavailability does not substitute for this local review.
+
+For proposal self-assessment, report what should be retained, changed, or rejected before saving; do not edit or independently save the plan. For implementation review, report concrete findings with file/line evidence, acceptance coverage, checks actually passed/failed/skipped/pending, unfinished items, and integration limitations; route accepted repairs through the authorized recovery loop. No fabricated findings, proof, external comments, or completion claims.

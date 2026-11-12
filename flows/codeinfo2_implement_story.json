@@ -1,0 +1,612 @@
+{
+  "description": "Implement the selected repository story using verified local evidence, reviewed planning, implementation recovery, native retrospective, local review and PR repair. Preserve the selected contract, scope, testing restrictions, ownership and safe writer boundaries. External publication and tracking are best effort; unavailable services never alone halt or cause recovery, and are reported honestly. Retain native child responsibilities and evidence limitations.",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "1. Integrate the discovered base into the selected story branch",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/merge_base.md. Discover the applicable base and integration method from current repository evidence. Freshly verify story, branch, HEAD and scope. Preserve current plan, handoffs, task/review identities and full progress, including absent paths and dirty, staged and untracked content, across even clean incoming replacements. Capture a fresh lossless baseline for this invocation in memory; retain index/worktree provenance without creating state files. Compare the proposed full merge tree and working state with it, coordinate repairs with owned writers, preserve unrelated changes, and verify before an authorized full merge commit. Never include unrelated or ephemeral work, reset progress, touch another owner’s merge, or push. If preservation or safe ownership cannot be verified, do not perform target-specific mutations; report the limitation and continue safe independent work. A missing or unreachable remote is an unavailable integration, not a halt."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "2. Commit valid merge/story changes and try push",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "markdownFile": "codeinfo2_implement_story/publish.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "3. Best-effort reingest of the working repository",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "markdownFile": "codeinfo2_implement_story/reingest.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "4. Validate the selected story and report its overview",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "markdownFile": "codeinfo2_implement_story/overview.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "4a. Reconcile selected requirements and scope exclusions",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/reconcile_test_reliability.md. Reconcile only applicable requirements and exclusions from the selected contract and verified target instructions; preserve explicit overrides and equivalent existing wording. Make only evidenced missing or incomplete documentation changes through the authorized owner. Tracking updates are best effort. Do not invent defaults, tests, requirements, or an approval gate."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "5. Research verified implementation and reuse",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/research.md. Research only. Establish a source-backed inventory of accepted completed, active and pending work and verified reuse. Inspect predecessor history only when explicitly linked or supported by verified provenance; retain identities and evidence, distinguish missing inventory from missing implementation, and report uncertainty. Do not edit, implement or write tracking."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "6. Assess and present the reconciled remaining plan without saving",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/propose_plan.md. Propose only remaining accepted implementation, repair and proof work without saving or executing. Retain complete accepted work inventory and explicit scoped testing restrictions as non-checkbox prose when appropriate; never infer an exclusion from missing tests or empty sections. Preserve history, mappings and evidence."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "6a. Critically assess and revise the unsaved proposal without side effects",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/self_review.md. Critically assess the unsaved proposal against the contract, source and research; revise justified gaps without writes, implementation or publication. Preserve original inventory and explicit restrictions."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "7. Reconcile the selected plan and tracking mappings",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/document_plan.md. Save the complete selected plan using the target’s existing format and authorized owner, preserving accepted work, IDs, mappings, history and testing restrictions. Reconcile tracking only where supported and authorized; unavailable tracking does not block the local plan."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "8. Review and adjudicate the plan and reconcile tracking",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/review_plan.md. Obtain a fresh independent read-only review of the saved revision, adjudicate evidence and save justified corrections through the authorized owner. Reconcile tracking best effort. Never implement an unreviewed plan revision; unavailable tracking alone does not make review incomplete."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "9. Commit the reviewed plan and try push",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "markdownFile": "codeinfo2_implement_story/publish.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "10. Best-effort reingest after plan review",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "markdownFile": "codeinfo2_implement_story/reingest.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "startLoop",
+      "label": "11. Implementation-first recovery loop",
+      "steps": [
+        {
+          "type": "llm",
+          "label": "11. Orchestrate implementation and local proof",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/implement.md. Orchestrate accepted implementation, required documentation and authorized local proof using existing owners and scoped workers. Preserve testing restrictions, target identity and writer safety. Reconcile tracking best effort. Do not implement an unreviewed revision; human-reserved testing remains external and pending."
+              ]
+            }
+          ],
+          "continueOnFailure": true
+        },
+        {
+          "type": "break",
+          "label": "16. Exit only this loop on positive fresh implementation completion",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "question": "READ ONLY. Return exactly {\"answer\":\"yes\"} only when fresh evidence positively establishes all accepted implementation, required documentation and authorized local proof due at this boundary complete, and independent plan review and adjudicated corrections for the current saved revision are established. Use current source, accepted inventory and matching terminal results; retain simple or structured plan formats. Active or unknown writers and uncertain local completion require {\"answer\":\"no\"}. Human-reserved testing and later formal proof, local and PR review are not early prerequisites. Missing or failed remote, tracking, PR, credentials or publication alone must not make local completion false or cause another iteration. Never claim external success. No writes, checks, delegation or side effects. Return only the JSON answer.",
+          "breakOn": "yes",
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true,
+          "breakOnFailure": false
+        },
+        {
+          "type": "llm",
+          "label": "15. Assess the incomplete attempt and record recovery evidence",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/loop_exit.md. Assess the incomplete local attempt from fresh evidence and record accurate recovery evidence in the selected plan when safely authorized. Distinguish actual missing local work from external service limitations; do not fabricate completion or create work solely for an unavailable external service."
+              ]
+            }
+          ],
+          "continueOnFailure": true
+        },
+        {
+          "type": "llm",
+          "label": "15a. Record the incomplete attempt in tracking when available",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/tracking.md. Attempt an authorized tracking comment for the incomplete attempt only when a verified target and method are available. Report confirmed, failed, unavailable or uncertain; absence or failure is nonfatal and never requires a retry or prevents local recovery."
+              ]
+            }
+          ],
+          "continueOnFailure": true
+        },
+        {
+          "type": "break",
+          "label": "18. Halt the flow only for a proven required external-only action",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "question": "READ ONLY. Return exactly {\"answer\":\"yes\"} only when fresh evidence establishes an essential action for accepted local implementation or local proof is wholly outside available tools and authority, safe authorized alternatives have been assessed, and all independent permitted work has been attempted or settled. Missing or failed remote, tracking, PR, credentials or publication alone is never such a reason: report unavailable and return {\"answer\":\"no\"}. Human-reserved testing, uncertainty, elapsed time and worker failure alone are not a halt. Preserve active or unknown writer safeguards. Return only the JSON answer; no writes or side effects.",
+          "breakOn": "yes",
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true,
+          "breakOnFailure": false,
+          "haltFlow": true
+        },
+        {
+          "type": "llm",
+          "label": "17. Research recovery using the original research rules",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/research.md. Research remaining genuine local implementation or proof gaps with the original research rules. External service unavailability alone is not a reason to replan. Preserve original inventory and evidence."
+              ]
+            }
+          ],
+          "continueOnFailure": true
+        },
+        {
+          "type": "llm",
+          "label": "17a. Propose recovery using the original proposal rules",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/propose_plan.md. Propose only justified remaining local work with the original proposal rules, preserving restrictions and prior evidence. Do not save or execute."
+              ]
+            }
+          ],
+          "continueOnFailure": true
+        },
+        {
+          "type": "llm",
+          "label": "17b. Critically assess recovery using the original proposal self-assessment instructions",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/self_review.md. Critically assess the recovery proposal against fresh evidence and revise justified gaps without side effects."
+              ]
+            }
+          ],
+          "continueOnFailure": true
+        },
+        {
+          "type": "llm",
+          "label": "17c. Save the recovery plan and reconcile tracking before review",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/document_plan.md. Save the full justified recovery plan, retaining accepted inventory, identities and evidence. Reconcile tracking only when available and authorized; its failure does not block local review."
+              ]
+            }
+          ],
+          "continueOnFailure": true
+        },
+        {
+          "type": "llm",
+          "label": "17d. Independently review recovery, adjudicate and save justified corrections",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/review_plan.md. Obtain fresh independent review of the saved recovery revision, adjudicate and save justified corrections before implementation resumes. Tracking is best effort; never treat unavailable tracking as a failed plan review."
+              ]
+            }
+          ],
+          "continueOnFailure": true
+        },
+        {
+          "type": "llm",
+          "label": "13/14. Publish valid recovery work and best-effort reingest",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/publish.md. Commit only valid owned local recovery work when authorized, independently of remote availability. Attempt publication and reingestion only where authorized and available; reconcile prior attempts and report outcomes without duplicate empty commits or force."
+              ]
+            }
+          ],
+          "continueOnFailure": true
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "11a. Reconcile the implemented plan with the required format",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/document_plan.md. After positive implementation completion, convert a simple plan to the required structured task format where needed; retain an already usable structured plan. Preserve all accepted requirements, IDs, mappings, history, scoped task testing exclusions, completed work and actual proof. Do not invent proof, change exclusions, archive, renumber or change branch unless documented and authorized."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "13. Publish valid completed implementation after the post-implementation plan conversion",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/publish.md. Commit authorized owned implementation and plan work independently of remote availability. Attempt authorized publication only if a verified method exists; reconcile prior attempts, preserve unrelated work and report unavailable honestly."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "14. Best-effort reingest of completed implementation",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "markdownFile": "codeinfo2_implement_story/reingest.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "18a. Report positively completed implementation and remaining downstream work",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/loop_exit.md. Report the actual local implementation and proof evidence and downstream work, distinguishing later reviews, human-reserved testing and unavailable external services. Do not claim unverified completion."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "18c. Integrate the discovered base before the task-format decision",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/merge_base.md. Discover the applicable base and integration method from current repository evidence. Freshly verify story, branch, HEAD and scope. Preserve current plan, handoffs, task/review identities and full progress, including absent paths and dirty, staged and untracked content, across even clean incoming replacements. Capture a fresh lossless baseline for this invocation in memory; retain index/worktree provenance without creating state files. Compare the proposed full merge tree and working state with it, coordinate repairs with owned writers, preserve unrelated changes, and verify before an authorized full merge commit. Never include unrelated or ephemeral work, reset progress, touch another owner’s merge, or push. If preservation or safe ownership cannot be verified, do not perform target-specific mutations; report the limitation and continue safe independent work. A missing or unreachable remote is an unavailable integration, not a halt."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "if",
+      "label": "19. Check selected plan task format before the native retrospective",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "condition": "The task-format decision concerns task representation only; it does not waive required retrospective, implementation, local/PR review or repair work. First read the freshly selected accepted contract/AC and explicit user restrictions. Use existing bounded plan_status.py metadata and plan_sections.py --task-number <original-number> --section Testing retrieval (or existing task_sections source capability), without changing handoffs, to inspect each applicable task Testing section and its exact task/story/activity scope. Missing/empty sections or wording such as no tests exist is NOT an explicit testing exclusion. Where an accepted restriction applies, legitimate clear NON-CHECKBOX Testing prose explicitly expressing the complete relevant restriction is valid without testing_total > 0 or synthetic checkboxes; do not demand excluded tests. In the explicit-restriction route, use permitted read-only source/document bookkeeping to establish the ordinary structure: nonempty uniquely numbered positive tasks, titles, supported exact statuses and nonempty implementation subtasks, with each task having either its normal required testing checklist where permitted or explicit scoped accepted exclusion prose. Reconcile contradictory active testing defaults through the existing documentation owner without fake passes or erasing actual historical proof. Only in that explicit-restriction route, if the source-backed structure is usable return EXACTLY {\"answer\":\"no\"}; if normalization is required return EXACTLY {\"answer\":\"yes\"}. Do not infer exclusion or completeness from counts alone. If the selected restriction forbids format/static/contract/syntax or other validation commands, do NOT execute the command below or delegate checks; use only those permitted source/helper reads and describe the result as source-based bookkeeping, never a format-test pass. If there is no applicable explicit testing exclusion and the contract permits the normal executable format procedure, retain its unchanged predicate: run exactly the command below from the verified root and return its stdout only. On command failure/empty output return exactly {\"answer\":\"yes\"}, never an invented pass. Retain existing target/scope/ownership, active-child and no-competing-writer safeguards for actual operations; this format decision adds no dispatch gate. No tests, child/runtime execution, writes or new parser/helper/schema here.\n\n```bash\npython3 -B - <<'PY'\nimport os, sys\nusable = False\ntry:\n    sys.path.insert(0, os.path.join(os.environ[\"CODEINFO_ROOT\"], \"scripts\"))\n    from plan_status import parse_plan, resolve_plan_path\n    plan_path, _ = resolve_plan_path(None, \"codeInfoStatus/flow-state/current-plan.json\")\n    tasks = parse_plan(plan_path)\n    numbers = [task[\"number\"] for task in tasks]\n    usable = bool(tasks) and len(numbers) == len(set(numbers)) and all(\n        task[\"number\"] > 0\n        and task[\"title\"].strip()\n        and task[\"status\"] in {\"__to_do__\", \"__in_progress__\", \"__done__\"}\n        and task[\"subtasks_total\"] > 0\n        and task[\"testing_total\"] > 0\n        for task in tasks\n    )\nexcept (Exception, SystemExit) as exc:\n    print(f\"stage19 plan-format check failed: {type(exc).__name__}: {exc}\", file=sys.stderr)\nprint('{\"answer\":\"no\"}' if usable else '{\"answer\":\"yes\"}')\nPY\n```",
+      "then": [
+        {
+          "type": "subflowWave",
+          "label": "19a. Native missing retrospective on the verified target",
+          "failureMode": "best_effort",
+          "groups": [
+            {
+              "kind": "singleton",
+              "id": "codeinfo2_document_completed_branch_story",
+              "flowName": "document_completed_branch_story"
+            }
+          ]
+        }
+      ],
+      "else": [
+        {
+          "type": "llm",
+          "label": "19b. Report retained usable task format",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "continueOnFailure": true,
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+                "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md. Report the actual source or permitted predicate establishing usable task format. Explicit accepted scoped testing exclusion prose is valid without checkboxes; missing or empty testing is not an exclusion. Do not claim a prohibited check ran. Retained format does not skip implementation, reviews or repairs; no edits or side effects."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "20. Assess and reconcile the canonical retrospective against the original contract",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/audit_retrospective.md. Reconcile the retrospective against the original selected contract and verified work, preserving completed work, identities, evidence, explicit restrictions and outstanding proof. Correct only evidenced omissions through authorized owners; human-reserved testing remains pending."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "20a. Integrate the discovered base after the retrospective audit",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/merge_base.md. Discover the applicable base and integration method from current repository evidence. Freshly verify story, branch, HEAD and scope. Preserve current plan, handoffs, task/review identities and full progress, including absent paths and dirty, staged and untracked content, across even clean incoming replacements. Capture a fresh lossless baseline for this invocation in memory; retain index/worktree provenance without creating state files. Compare the proposed full merge tree and working state with it, coordinate repairs with owned writers, preserve unrelated changes, and verify before an authorized full merge commit. Never include unrelated or ephemeral work, reset progress, touch another owner’s merge, or push. If preservation or safe ownership cannot be verified, do not perform target-specific mutations; report the limitation and continue safe independent work. A missing or unreachable remote is an unavailable integration, not a halt."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "21. Commit valid retrospective/fix/merge work and try push",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "markdownFile": "codeinfo2_implement_story/publish.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "22. Best-effort reingest of the current working repository",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "markdownFile": "codeinfo2_implement_story/reingest.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "22a. Read-only final prerequisite handoff",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "continueOnFailure": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/reconcile_final_work.md for context only. READ ONLY: refresh the target, selected contract, handoffs, writer ownership and remaining implementation, local proof and review obligations. Read-only Git inspection is permitted; no edits, checks, mutating Git operations, tracker writes, runtime execution or delegation here. This is not a completion or launch gate. Report limitations without treating unavailable remote or tracking as a local blocker."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "23-pre. Reconcile tracking for imminent final work",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "continueOnFailure": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/tracking.md. Reconcile supported authorized tracking lifecycle updates using verified identities and current evidence. Missing or failed tracking is an honest nonfatal unavailable outcome; continue independent local work."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "subflowWave",
+      "label": "23a. Native remaining implementation/proof on the verified target",
+      "failureMode": "best_effort",
+      "groups": [
+        {
+          "kind": "singleton",
+          "id": "codeinfo2_implement_current_plan",
+          "flowName": "implement_current_plan"
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "23b. Reconcile final child and finish safe remaining work",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/reconcile_final_work.md. Re-read actual launched child results and current source and handoffs. Reconcile remaining accepted local work and authorized proof through existing owners; preserve findings, writer safety and explicit restrictions. Child failure or missing evidence is not success. An external-service outage alone creates no local retry or blocker."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "if",
+      "label": "23b-pr. Determine applicability of native PR review",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "condition": "READ ONLY. Use bounded target instructions, supported skills, and evidence of the existing pr_current_plan child capability to determine whether an authorized PR review method is compatible with that child on the verified host/provider. Verify the exact repository, current head and intended base, and whether remote access, credentials, permissions and readback make the supported method safely attemptable. A branch or PR need not already be published if safe creation of the exact owned candidate is authorized and supported by the child. Bounded read-only Git/ref and API readback is permitted. Return exactly {\"answer\":\"yes\"} only when the compatible authorized method is safely attemptable. Catch missing, failed or uncertain method, capability, credentials, access, readback, remote, base or permission as an unavailable limitation in this continuing main conversation and return exactly {\"answer\":\"no\"}; never fail the turn or repeat unchanged probes. No writes, push, PR creation, product checks or delegation in this predicate. A human-only testing restriction alone does not exclude the child. Return only the JSON answer.",
+      "then": [
+        {
+          "type": "subflowWave",
+          "label": "23b-pr. Native PR review, repair and proof on the verified target",
+          "failureMode": "best_effort",
+          "groups": [
+            {
+              "kind": "singleton",
+              "id": "codeinfo2_pr_current_plan",
+              "flowName": "pr_current_plan"
+            }
+          ]
+        }
+      ],
+      "else": [
+        {
+          "type": "llm",
+          "label": "23b-pr. Use a documented remote review method when available",
+          "agentType": "research_agent",
+          "identifier": "codeinfo2_research_agent",
+          "markdownFile": "codeinfo2_implement_story/remote_review.md",
+          "continueOnFailure": true
+        }
+      ]
+    },
+    {
+      "type": "llm",
+      "label": "23c. Publish valid child and recovery work before final reporting",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/publish.md. Commit valid owned child and recovery work when authorized independently of remote availability. Attempt only authorized safe publication and report actual outcome; no force, unrelated changes or duplicate empty commits. Reconcile actual applicable launched native child IDs and terminal outcomes or actual generic remote review method outcomes. Record a deliberate unavailable skip, not a missing-child local blocker. Settle genuine active or unknown local writers before any unsafe commit."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "24. Report final local, external and native proof outcomes",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and the named stage prompt. Use the verified target repository and its instructions and skills; preserve the selected contract, explicit testing restrictions, identities, progress, evidence and existing writer ownership. Harness prompts and helpers are under $CODEINFO_ROOT; target files are in the verified target. Report external unavailable, skipped or uncertain outcomes honestly; missing or failed remote, tracking, PR, credentials or publication alone must not halt, make local completion false, trigger replanning or retry, or prevent independent local work. Never invent success. Publication requires user and repository authority; preserve unrelated work and never force.",
+            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/finish.md. Report actual selected-contract implementation, local proof, native review and repair evidence, outstanding obligations, and external outcomes including unavailable or skipped services. Distinguish human-reserved testing, missing evidence and child failure from success. Reconcile actual applicable launched native child IDs and terminal outcomes or actual generic remote review method outcomes; record deliberate unavailable skips without treating an unlaunched PR child as a local blocker. Preserve genuine unsettled local writer limitations."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    }
+  ]
+}

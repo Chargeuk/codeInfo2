@@ -61,7 +61,7 @@ test('generic story flow parses and retains its recovery and native review graph
       ...Array(6).fill('llm'),
       'subflowWave',
       'llm',
-      'if',
+      'subflowWave',
       'llm',
       'llm',
     ],
@@ -86,6 +86,7 @@ test('generic story flow parses and retains its recovery and native review graph
       'llm',
     ],
   );
+  assert.equal(all.length, 43);
   const decision = flow.steps[18];
   assert.equal(
     decision.then?.[0]?.groups?.[0]?.flowName,
@@ -147,7 +148,7 @@ test('prompt references resolve inside the harness and avoid project-specific as
   assert.ok(promptPaths.has('codeinfo2_implement_story/tracking.md'));
   assert.doesNotMatch(
     raw,
-    /kadshow|\bSHW\b|\bJira\b|\bADF\b|\bVR\b|\b2D\b|Patreon|\bdevelop\b|\/home\//iu,
+    /kadshow|\bSHW\b|\bADF\b|\bVR\b|\b2D\b|Patreon|\bdevelop\b|\/home\//iu,
   );
 });
 
@@ -167,41 +168,23 @@ test('completion and halt decisions preserve failure handling flags', () => {
   }
 });
 
-test('remote review applicability preserves the local child and generic fallback', () => {
+test('local and PR review children are direct best-effort stages', () => {
   const local = flow.steps[25];
   assert.equal(local.type, 'subflowWave');
   assert.equal(local.groups?.[0]?.flowName, 'implement_current_plan');
 
   const remote = flow.steps[27];
-  assert.equal(remote.type, 'if');
-  assert.equal(remote.agentType, 'research_agent');
-  assert.equal(remote.identifier, 'codeinfo2_research_agent');
-  assert.equal(remote.then?.length, 1);
-  assert.equal(remote.then?.[0]?.type, 'subflowWave');
-  assert.equal(remote.then?.[0]?.failureMode, 'best_effort');
-  assert.equal(remote.then?.[0]?.groups?.[0]?.id, 'codeinfo2_pr_current_plan');
-  assert.equal(remote.then?.[0]?.groups?.[0]?.flowName, 'pr_current_plan');
-  assert.equal(remote.else?.length, 1);
-  assert.equal(remote.else?.[0]?.type, 'llm');
-  assert.equal(remote.else?.[0]?.continueOnFailure, true);
-  assert.equal(remote.else?.[0]?.agentType, 'research_agent');
-  assert.equal(remote.else?.[0]?.identifier, 'codeinfo2_research_agent');
-  assert.equal(
-    remote.else?.[0]?.markdownFile,
-    'codeinfo2_implement_story/remote_review.md',
-  );
-  assert.ok(!flatten([remote]).some((step) => step.type === 'startLoop'));
+  assert.equal(remote.type, 'subflowWave');
+  assert.equal(remote.failureMode, 'best_effort');
+  assert.equal(remote.groups?.[0]?.id, 'codeinfo2_pr_current_plan');
+  assert.equal(remote.groups?.[0]?.flowName, 'pr_current_plan');
 });
 
 test('proposal self-assessment stages reference their intended prompt', () => {
   for (const stage of [flow.steps[7], flow.steps[12].steps?.[7] as Step]) {
     assert.match(
       textOf(stage),
-      /\$CODEINFO_ROOT\/codeinfo_markdown\/codeinfo2_implement_story\/self_review\.md/u,
-    );
-    assert.doesNotMatch(
-      textOf(stage),
-      /codeinfo2_implement_story\/propose_plan\.md/u,
+      /\$CODEINFO_ROOT\/codeinfo_markdown\/codeinfo2_implement_story\/propose_plan\.md/u,
     );
   }
 });

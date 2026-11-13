@@ -18,6 +18,15 @@ const tsSource = [
   '',
 ].join('\n');
 
+const jsSource = [
+  "import { external } from './external';",
+  'export function foo() {',
+  '  bar();',
+  '}',
+  'function bar() {}',
+  '',
+].join('\n');
+
 const tsxSource = [
   'export function Widget() {',
   '  return <div>Hello</div>;',
@@ -128,7 +137,43 @@ const assertLocalCaptures = (captures: string[]) => {
   assert(captures.includes('local.reference'));
 };
 
-test('ast parser extracts symbols for ts and tsx', async () => {
+test('ast parser extracts symbols for js, ts and tsx', async () => {
+  const jsResult = await parseAstSource({
+    root: '/repo',
+    relPath: 'src/sample.js',
+    fileHash: 'hash-js',
+    text: jsSource,
+  });
+
+  assert.equal(jsResult.status, 'ok');
+  if (jsResult.status === 'ok') {
+    assert.equal(jsResult.language, 'javascript');
+    const foo = jsResult.symbols.find((symbol) => symbol.name === 'foo');
+    const bar = jsResult.symbols.find((symbol) => symbol.name === 'bar');
+    assert(foo && bar);
+    assert(
+      jsResult.references.some(
+        (reference) => reference.kind === 'call' && reference.name === 'bar',
+      ),
+    );
+    assert(
+      jsResult.edges.some(
+        (edge) =>
+          edge.type === 'CALLS' &&
+          edge.fromSymbolId === foo.symbolId &&
+          edge.toSymbolId === bar.symbolId,
+      ),
+    );
+    assert(
+      jsResult.imports.some((entry) =>
+        entry.imports.some(
+          (item) =>
+            item.source === './external' && item.names.includes('external'),
+        ),
+      ),
+    );
+  }
+
   const tsResult = await parseAstSource({
     root: '/repo',
     relPath: 'src/sample.ts',

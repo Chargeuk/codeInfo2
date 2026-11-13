@@ -67,6 +67,9 @@ test('generic story flow parses and retains its recovery and native review graph
     ],
   );
   const loop = flow.steps[12];
+  const loopExitPrompt = 'codeinfo2_implement_story/loop_exit.md';
+  assert.ok(!textOf(loop.steps?.[2] as Step).includes(loopExitPrompt));
+  assert.ok(textOf(flow.steps[16]).includes(loopExitPrompt));
   assert.deepEqual(
     loop.steps?.map((step) => step.type),
     [

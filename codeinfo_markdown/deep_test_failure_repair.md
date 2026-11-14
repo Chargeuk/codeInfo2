@@ -121,7 +121,7 @@ If there is such a blocker, perform a deeper diagnose-fix-rerun pass until the n
 
 <git_rules>
 
-- If you make tracked changes, commit them before finishing unless the caller explicitly assigns a no-commit or caller-owned coherent-commit stage; in that case, leave the combined commit to the caller.
+- If you make tracked changes, commit them before finishing unless the caller explicitly assigns a no-commit or caller-owned coherent-commit stage; in that case, leave the combined commit to the caller. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`.
 - Do not push in this step.
 
 </git_rules>

@@ -12,9 +12,9 @@ Start the multi-step review sequence for the current story by gathering evidence
 - Never infer, normalize, repair, or substitute story/session/pass/HEAD/base identity.
 - Before publishing the stable current-review handoff, re-read the prepared base and require the complete identity tuple to remain unchanged. Write the handoff atomically. If the active session changed, stop without overwriting the newer pointer.
 - If the handoff does not explicitly identify any additional repositories, treat that as none.
-- The current repository is the canonical plan host and is implicitly in scope. If it also appears inside `additional_repositories`, treat that as redundant and ignore it.
+- The current repository is implicitly in review scope regardless of where the selected plan is stored. If it also appears inside `additional_repositories`, treat that as redundant and ignore it.
 - Use ONLY the current repository plus the repository paths extracted from `additional_repositories`. Do not invent additional repositories or plan files.
-- If any handoff validation rule fails, stop and say the current-plan handoff is stale and must be regenerated.
+- If a handoff identity or repository-scope validation rule fails, stop and say the current-plan handoff is stale and must be regenerated. If the selected plan file is unavailable, report that limitation and continue useful review/context work where possible without claiming complete evidence or a pass.
 - For multi-repository stories, you MUST gather cross-repository integration evidence rather than treating each repository in isolation.
 - Treat `flows/**` as approved workflow configuration. Changes there must not be classified as suspicious or out of scope solely because they are absent from the active plan, but they should still be reviewed normally for workflow behavior, instruction safety, and other engineering concerns.
 - Treat any `AGENTS.md` file, `codeInfoStatus/**`, `codex_agents/**`, `codeinfo_markdown/**`, `codeinfo_simple_stories/**`, and planning files anywhere in the repository as allowed support-file changes.
@@ -40,7 +40,7 @@ Start the multi-step review sequence for the current story by gathering evidence
 <scope_rules>
 
 - The handoff only needs to communicate a canonical plan path plus any additional repositories in scope.
-- The canonical plan always lives in the current repository at `plan_path`.
+- Resolve the selected `plan_path` from the working repository root; allow relative paths that leave the repository, absolute paths, and symlinks to external files. Preserve the selected `plan_path` exactly in handoffs and reports. Plan storage location does not change repository review scope.
 - Review scope is always the current repository plus the repository paths extracted from `additional_repositories`.
 - The story number comes from the canonical plan filename.
 - The story branch name comes from the current repository branch and must match the canonical plan story number.
@@ -51,7 +51,7 @@ Start the multi-step review sequence for the current story by gathering evidence
 
 Before doing review work, validate all of the following:
 
-- the canonical `plan_path` exists in the current repository;
+- the selected `plan_path` resolves from the working repository root to an existing readable plan file, including when it resolves outside the repository;
 - the story number in the current repository branch name matches the canonical plan filename;
 - every additional repository path exists and is readable;
 - every additional repository is checked out to a branch whose story number matches the canonical plan filename; otherwise the review stops because the scope is stale;
@@ -186,7 +186,7 @@ This handoff file is the ONLY review file the next step may use. Do not rely on 
 <verification_loop>
 
 - Confirm the current-plan handoff was normalized correctly.
-- Confirm the canonical plan exists in the current repository.
+- Confirm the selected `plan_path` resolves from the working repository root to a readable plan file; it may resolve outside the current repository.
 - Confirm every repository in scope is on the correct story branch.
 - Confirm every repository was reviewed as local `HEAD` against its resolved comparison base.
 - Confirm every repository attempted remote-first base resolution for the comparison base and used a local fallback only when the remote path was unavailable.

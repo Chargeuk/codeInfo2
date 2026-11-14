@@ -164,6 +164,7 @@ const unitFiles =
 
 const testArgs = [
   '--test',
+  '--test-reporter=tap',
   '--experimental-test-isolation=process',
   `--test-concurrency=${serverUnitParallelism.workerCount}`,
 ];

@@ -1,10 +1,79 @@
 # Container pins and proof
 
+## Current Node 24 and Tree-sitter upgrade proof (2026-11-14)
+
+The validated source candidate is commit `bfbd2de393e070e1d65debe38c20e532002f57c6`
+with tracked diff fingerprint
+`395e1948c4a3922cbff7acf9faf5cd55a9b7ef5ab5d440fe31d7c1e99d925175` before
+this closeout documentation. Server
+and client images target
+`node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54`;
+the official registry digest was verified for Linux AMD64 and ARM64. Runtime,
+image, and full-suite proof ran on Linux AMD64 only. ARM64 runtime was not tested.
+Node 24.22.3 provides npm 11.19.1.
+
+The parser uses `tree-sitter@0.25.1`, retaining the existing grammar versions
+and query files: JavaScript 0.23.1, TypeScript 0.23.2, Python 0.23.3, C#
+0.23.1, Rust 0.23.1, and C++ 0.23.1. Six version-scoped root overrides align
+those grammars' declared core peer with 0.25.1. This is a tested local
+compatibility extension, not a claim of upstream peer-range support; the
+grammar ABI 14 and unchanged query API were verified against the core ABI
+range. The Node 22.21.1/npm 10.9.4 host run is historical baseline evidence,
+including its npm 10 peer diagnostic, and is not the current install baseline.
+
+Under Node 24, a clean `npm ci --strict-peer-deps` with an empty user npm config
+passed using the tracked root `allowScripts` approvals for 16 exact project
+dependency versions; no lifecycle scripts were skipped, and
+`npm ls tree-sitter --all --json` was clean. Global npm installs do not consume
+that project policy, so the Docker global install separately allows only
+`puppeteer` scripts. The nine pinned global packages matched their image
+versions: `@openai/codex@0.167.1`, `@github/copilot@1.0.89`,
+`mcp-remote@0.14.3`, `@upstash/context7-mcp@4.1.1`, `@mui/mcp@0.1.6`,
+`@playwright/mcp@0.0.83`, `chrome-devtools-mcp@1.10.1`,
+`git-credential-forwarder@1.5.0`, and `@mermaid-js/mermaid-cli@11.15.0`. The
+Linux AMD64 probe found the global Puppeteer 24.43.1 hook
+(`postinstall: node install.mjs`).
+
+Host and focused validation passed: the initial four AST/ingest/tool files
+passed 47/47 on both Node 22 and Node 24; the final Node 24 focused run passed
+64/64, and the later six-file failure diagnosis passed 170/170. The final
+`npm run test:summary:all:parallel` passed with 4,640 tests passed, 0 failed,
+and 3 skipped: client 1,169; server unit 3,237; Cucumber 138; and E2E 96. The
+three skips are existing suite skips, not newly disabled tests. Server and
+client builds passed, as did all 3 main Compose and 2 E2E image build items.
+The client build retains its existing 1,778.02 kB chunk warning against the
+1,700 kB warning threshold.
+
+The runtime probes identified the tested client image
+`sha256:38997849508505a4cabb529dd4ca3e8b6cb37a6f1ef3a51fae6b75c9e90159d9`
+and server image
+`sha256:4a6fbc45bd9fd6585028d220d5537a17f19be584c6f6e029fbb37d9a9112ab29`.
+Both reported Node 24.22.3/npm 11.19.1. The server parser loaded JavaScript,
+TypeScript, TSX, Python, C#, Rust, and C++ grammars; all nine pinned global
+package versions matched. Puppeteer's downloaded browser existed in the image's
+root cache and launched as root, but its default executable was absent under
+the runtime home `/app/codex`. An explicit Puppeteer launch with system Chromium
+passed; default Puppeteer launch under the runtime user remains unverified.
+The changed local-restarter Dockerfile was also built separately as a temporary
+Linux AMD64 image (`sha256:8318b83bfbaa2be0c314a950bf25e60e1e15772d09a48faa81fbcd9aa29d4a11`)
+and an entrypoint-free Node/npm probe passed with the same versions; its
+temporary tag was removed. No service, restarter entrypoint, or Docker socket
+was started by that probe.
+
+The full suite used a daemon-visible disposable source snapshot, tracked
+defaults, empty `.env.local` files, and an in-code canonical Codex base/chat
+fixture with no auth file or copied provider home. The snapshot leaf was named
+`codeInfo2` for repository-root label expectations; server build output supplied
+the referenced `common/dist` declarations. No `codeinfo2-local` service was
+restarted or changed.
+
+## Historical PR262 toolchain story proof (2026-10-06)
+
 This story changes image construction and focused proof support only. Parent
 accepted the final PR262 ARM64 image/cache/runtime/package proof and compact
 validation reports on 2026-10-06 without opening successful logs. Required proof
-execution is complete; the full suite is **not green** because two unchanged
-capability-baseline failures remain. AMD64 runtime execution was not attempted.
+execution is complete; the full suite was **not green** because two unchanged
+capability-baseline failures remained. AMD64 runtime execution was not attempted.
 
 ## Historical baseline (2026-10-05)
 

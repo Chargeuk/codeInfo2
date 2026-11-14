@@ -89,7 +89,7 @@ test('retrospective content, tasking, and audit independently carry forward expl
   ]);
 });
 
-test('retrospective review base is fresh remote develop even on reused branches while original HEAD remains provenance', () => {
+test('retrospective review base is the fresh configured remote default while original source and HEAD remain provenance', () => {
   requires('01-create-layout.md', [
     [
       'source branch and original SHA retained',
@@ -97,7 +97,7 @@ test('retrospective review base is fresh remote develop even on reused branches 
     ],
     [
       'fresh remote base',
-      /Fetch `origin` and resolve freshly fetched `origin\/develop` explicitly/u,
+      /Identify the configured remote and verify its default branch using fresh remote HEAD\/ref evidence; fetch that remote once and resolve the default branch explicitly/u,
     ],
     [
       'base SHA or honest null',
@@ -105,11 +105,11 @@ test('retrospective review base is fresh remote develop even on reused branches 
     ],
     [
       'no false local substitute',
-      /Never use a local fallback or claim remote success/u,
+      /If the remote or lookup is unavailable, record the limitation and continue safe local work without claiming remote success/u,
     ],
     [
-      'develop marker applies to branch reuse',
-      /`branched_from` to literal `develop` for both branch reuse and creation/u,
+      'source provenance reflects branch reuse or replacement',
+      /`branched_from` as one existing-schema string: for a verified same-story reused branch, preserve its proven original source; for a newly created replacement branch, record the captured source branch\/ref, using the immutable source commit only when that source was detached\. Omit it when provenance is unknown/u,
     ],
     [
       'replacement retains current implementation',
@@ -118,8 +118,14 @@ test('retrospective review base is fresh remote develop even on reused branches 
   ]);
   for (const name of ['10-audit.md', '11-commit-and-push.md']) {
     requires(name, [
-      ['refresh once at closeout', /Fetch origin once/u],
-      ['latest remote develop', /latest `origin\/develop`/u],
+      [
+        'refresh configured remote once',
+        /Identify the configured remote, fetch it once/u,
+      ],
+      [
+        'fresh verified default branch',
+        /resolve its freshly verified default branch/u,
+      ],
       [
         'original HEAD survives refresh',
         /preserving original (?:`initial_head_commit`|initial HEAD)/u,
@@ -132,35 +138,35 @@ test('retrospective story delta uses the retained initial HEAD merge-base and re
   requires('shared.md', [
     [
       'exact merge-base inputs',
-      /git merge-base <verified-origin-develop-sha> <initial-head>/u,
+      /git merge-base <verified-default-branch-sha> <initial-head>/u,
     ],
     [
       'delta ends at original implementation snapshot',
       /git diff <merge-base> <initial-head>/u,
     ],
     [
-      'divergent develop tip is not the story delta',
-      /Never use `git diff <develop-tip> <initial-head>`/u,
+      'divergent default tip is not the story delta',
+      /Never compare the default-branch tip directly to initial HEAD as the story delta/u,
     ],
     [
       'unavailable delta remains honest',
       /If merge-base is unavailable[^.]+null\/unavailable delta range/u,
     ],
     [
-      'default develop selection',
-      /fresh `origin\/HEAD` is `develop`[^;]+selects `origin\/develop`/u,
+      'original parent remains distinct from comparison default',
+      /The actual original feature parent is historical provenance and remains distinct from the comparison default/u,
     ],
     [
-      'nondefault parent rule',
-      /nondefault `develop`[^.]+unmerged parent and HEAD descends from it/u,
+      'resolver may select original parent',
+      /The existing resolver may select that parent under its current rules/u,
     ],
     [
-      'default fallback accounted for',
-      /otherwise the resolver falls back to its selected default branch/u,
+      'resolver selection checked against fresh refs',
+      /diagnose and report its actual selection against fresh refs without asserting that it always uses the default branch or changing the engine/u,
     ],
     [
       'only actual inability is a limitation',
-      /Report an actual limitation only when those rules cannot select develop/u,
+      /report a target-specific limitation if it cannot select the requested verified default branch/u,
     ],
     [
       'review engine remains untouched',
@@ -174,14 +180,17 @@ test('retrospective story delta uses the retained initial HEAD merge-base and re
     ],
     [
       'layout excludes two-dot attribution',
-      /never two-dot diff the develop tip against HEAD/u,
+      /never compare the default-branch tip directly to HEAD as the story delta/u,
     ],
   ]);
   requires('10-audit.md', [
-    ['audit uses merge-base', /merge-base-to-HEAD, not develop-tip-to-HEAD/u],
+    [
+      'audit uses merge-base',
+      /merge-base-to-HEAD, not default-branch tip-to-HEAD/u,
+    ],
     [
       'audit checks actual selection',
-      /report only an actual inability to select develop/u,
+      /report only an actual inability to select the configured default branch/u,
     ],
   ]);
 });
@@ -203,8 +212,8 @@ test('retrospective identity changes preserve the receipt and clear only verifie
   ]);
   requires('shared.md', [
     [
-      'all fields survive rewrite',
-      /Preserve retrospective fields, archive receipts, and additional-repository evidence in every handoff rewrite/u,
+      'applicable fields and receipts survive rewrite',
+      /Preserve applicable retrospective fields and archive receipts in every handoff rewrite/u,
     ],
     [
       'selector forbidden during documentation',
@@ -282,7 +291,7 @@ test('retrospective identity changes preserve the receipt and clear only verifie
     ],
     [
       'preserve metadata and receipt',
-      /Preserve all retrospective fields and receipts/u,
+      /Preserve all retrospective fields, receipts, approved additional-repository scope, and per-repository provenance/u,
     ],
   ]);
   requires('11-commit-and-push.md', [
@@ -374,7 +383,7 @@ test('early and final retrospective publication bound both collision checks to t
       ['post-push live check', /after push/u],
       [
         'exact full remote ref',
-        /git ls-remote --heads origin refs\/heads\/<branch>/u,
+        /git ls-remote --heads <configured-remote> refs\/heads\/<branch>/u,
       ],
       [
         'remote SHA must match local HEAD',
@@ -410,7 +419,7 @@ test('early and final retrospective publication bound both collision checks to t
       'competitor branches remain',
       /Do not overwrite or delete competing branches/u,
     ],
-    ['safe normal push', /git push -u origin HEAD/u],
+    ['safe normal push', /git push -u <configured-remote> HEAD/u],
     [
       'bounded post-push race recovery',
       /After push, recheck live same-namespace numbers[^.]+reconcile within the three-attempt limit/u,
@@ -466,7 +475,7 @@ test('final retrospective collision repair stages verified tracked plan deletion
     ],
     [
       'actual remote branch checked',
-      /git ls-remote --heads origin refs\/heads\/<branch>/u,
+      /git ls-remote --heads <configured-remote> refs\/heads\/<branch>/u,
     ],
     [
       'remote SHA equals local HEAD',

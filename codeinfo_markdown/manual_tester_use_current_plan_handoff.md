@@ -21,8 +21,8 @@ Use the stored current-plan handoff as the only source of plan scope for this st
 - If `additional_repositories` is missing or empty, treat that as none.
 - Treat the current repository as always in scope.
 - If the current repository also appears inside `additional_repositories`, ignore that duplicate entry.
-- Re-open the exact relative `plan_path` from disk before continuing.
-- Verify that the selected plan file exists in the current repository.
+- Resolve and re-open the selected `plan_path` from the working repository root, preserving its exact stored value; allow relative paths outside the repository, absolute paths, and symlinks to external files.
+- Verify that the selected `plan_path` resolves to a readable plan file; its storage location does not change repository scope.
 - Verify that the story number in the current repository branch name matches the story number in the selected plan filename.
 - Verify that every additional repository path is readable.
 - Verify that every additional repository is either already on a branch whose story number matches the selected plan filename or can safely create or reuse such a branch without overwriting local changes.
@@ -32,12 +32,12 @@ Use the stored current-plan handoff as the only source of plan scope for this st
 
 <failure_contract>
 
-If validation fails, do not guess or continue with a normal summary. Instead, clearly report exactly one of these outcomes:
+If handoff identity or repository-scope validation fails, do not guess or continue with a normal summary. Instead, clearly report exactly one of these outcomes:
 
 - `current-plan handoff is stale and must be regenerated`
 - `repository branch setup is blocked by local changes`
 
-Do not use either outcome solely because manual proof may require a supporting repository outside `additional_repositories`.
+If the selected plan file is unavailable, report that limitation and continue with useful independently available story context; do not claim a complete summary or proof result. Do not use either validation outcome solely because the plan is stored outside the working repository or manual proof may require a supporting repository outside `additional_repositories`.
 
 </failure_contract>
 

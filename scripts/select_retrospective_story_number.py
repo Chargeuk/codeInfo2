@@ -30,7 +30,7 @@ def branch_number(branch: str, namespace: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def select_number(owned_plan: Path | None = None) -> dict[str, object]:
+def select_number(owned_plan: Path | None = None, remote: str = "origin") -> dict[str, object]:
     branch = git("branch", "--show-current").stdout.strip()
     if not branch:
         raise ValueError("A checked-out branch is required")
@@ -53,24 +53,27 @@ def select_number(owned_plan: Path | None = None) -> dict[str, object]:
         if (match := PLAN_NAME.match(path.name))
     }
     local = git("for-each-ref", "--format=%(refname:short)", "refs/heads").stdout.splitlines()
-    remote = git("ls-remote", "--heads", "origin", check=False)
+    try:
+        remote_result = git("ls-remote", "--heads", remote, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        remote_result = None
     warnings: list[str] = []
-    remote_verified = remote.returncode == 0
+    remote_verified = remote_result is not None and remote_result.returncode == 0
     if remote_verified:
         remote_branches = [
             line.split("\t", 1)[1].removeprefix("refs/heads/")
-            for line in remote.stdout.splitlines()
+            for line in remote_result.stdout.splitlines()
             if "\trefs/heads/" in line
         ]
     else:
         warnings.append(
-            "Live origin heads unavailable; using cached origin refs. "
+            f"Live {remote} heads unavailable; using cached {remote} refs. "
             "The selected number may collide with a remote branch."
         )
         remote_branches = [
-            name.removeprefix("origin/")
+            name.removeprefix(f"{remote}/")
             for name in git(
-                "for-each-ref", "--format=%(refname:short)", "refs/remotes/origin"
+                "for-each-ref", "--format=%(refname:short)", f"refs/remotes/{remote}"
             ).stdout.splitlines()
         ]
 
@@ -111,9 +114,10 @@ def main() -> None:
     parser.add_argument(
         "--owned-plan", type=Path, help="Existing plan created by this flow; exclude it"
     )
+    parser.add_argument("--remote", default="origin", help="Remote to check (default: origin)")
     args = parser.parse_args()
     try:
-        print(json.dumps(select_number(args.owned_plan), separators=(",", ":")))
+        print(json.dumps(select_number(args.owned_plan, args.remote), separators=(",", ":")))
     except (ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         parser.exit(1, f"Story number selection failed: {error}\n")
 

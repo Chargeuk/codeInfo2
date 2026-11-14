@@ -105,7 +105,7 @@ Decide whether the task is now honestly `__done__` or still `__in_progress__`.
 
 <git_rules>
 
-- If you make tracked changes, you MUST commit them before finishing this step.
+- If you make tracked changes, you MUST commit them before finishing this step. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`.
 - Do not push in this step.
 
 </git_rules>

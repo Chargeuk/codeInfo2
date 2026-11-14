@@ -183,7 +183,7 @@ If this step rewrites, narrows, or re-owns a task in a way that makes all of tha
 
 <git_rules>
 
-- If you make tracked changes, you MUST commit them before finishing this step.
+- If you make tracked changes, you MUST commit them before finishing this step. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`.
 - Do not push in this step.
 
 </git_rules>

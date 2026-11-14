@@ -7,7 +7,7 @@ Persist the changes that already exist in every repository in the active story s
 1. Read `codeInfoStatus/flow-state/current-plan.json` and use only its stored `plan_path` and `additional_repositories`.
 2. Treat the current repository as in scope even when it is absent from `additional_repositories`.
 3. Ignore duplicate repository entries and continue best-effort when one repository cannot be read or persisted.
-4. Follow each in-scope repository's commit-message and branch rules.
+4. Follow each in-scope repository's commit-message and branch rules. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`.
 
 ## Non-Negotiable Checkpoint Boundary
 

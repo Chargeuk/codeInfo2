@@ -69,7 +69,7 @@ If `current-task.json` says no current task could be selected because no open or
 - If the remaining prose describes proof artifacts or observability expectations, first check whether the assigned task's complete `Testing` section and applicable approved story restrictions permit the relevant proof authoring and execution. Convert it into:
   - proof-authoring subtasks that prepare the relevant files, markers, fixtures, or harnesses; or
   - automated-only `Testing` steps that run the supported wrapper or harness,
-  only for activities permitted by that contract. Preserve explicitly excluded proof expectations as checkbox-free Testing prose; do not create synthetic tests, harnesses, fixtures, commands, or passes for excluded activities.
+    only for activities permitted by that contract. Preserve explicitly excluded proof expectations as checkbox-free Testing prose; do not create synthetic tests, harnesses, fixtures, commands, or passes for excluded activities.
 - Do not create subtasks that say or imply `run automated tests`, `after Testing step N`, or `capture proof from the later test run`.
 - Then do exactly one of the following:
   - mark the task `__done__` if current repository evidence shows the remaining prose-only note is already satisfied or is not an honest remaining gate; or

@@ -15,7 +15,7 @@ Keep AC/Out of scope authoritative. Exclude advisory/rejected suggestions, unrel
 
 ## Owners and restrictions
 
-Before EVERY assignment, state the story identity and complete meaning/scope of its latest explicit execution restriction. Human-reserved testing forbids agents authoring/repairing tests or test infrastructure, automated/static/syntax/manual/browser/E2E/scenario proof, build/typecheck/lint/format validation, validation-only work and retries. Record it as external/pending, never passed or missing agent proof. Permitted implementation, source audit and native review/repair remain available.
+Before EVERY assignment, state the story identity and complete meaning/scope of its latest explicit execution restriction. A restriction forbids only the testing activities it explicitly excludes or reserves. This may include test authoring or repair, test infrastructure, automated/static/syntax/manual/browser/E2E/scenario proof, build/typecheck/lint/format validation, validation-only work, or retries, but each is forbidden only when that activity is explicitly excluded or reserved. Preserve and perform all other authorized testing activities. Record only excluded or reserved activities as external/pending, never passed or missing agent proof. Permitted implementation, source audit, native review/repair, and authorized testing remain available.
 
 Use existing workers through `run_agent_instruction`, retaining actual conversation IDs, verified source/scope, evidence and NO COMMIT/NO PUSH boundaries:
 

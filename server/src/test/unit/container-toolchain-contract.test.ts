@@ -13,7 +13,7 @@ const client = read('client/Dockerfile');
 
 test('both applications pin the verified multiarch Node image and cache manifest-only workspace installs', () => {
   const image =
-    'node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c';
+    'node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54';
   for (const dockerfile of [server, client]) {
     const nodeImages = dockerfile.match(/^FROM node:.*$/gm) ?? [];
     assert.ok(nodeImages.length >= 2);

@@ -22,10 +22,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -ldflags "-s -w -X main.Version=codex-${OPEN_CODE_REVIEW_COMMIT} -X main.GitCommit=${OPEN_CODE_REVIEW_COMMIT}" \
       -o /out/ocr ./cmd/opencodereview
 
-# `node:22-slim` floated to 22.22.1 and started breaking the pinned
-# `tree-sitter@0.21.1` native rebuild during `npm ci`. Pin the image to the
-# repo's validated 22.21.1 patch level until the tree-sitter stack is upgraded.
-FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS deps
+# Pin the validated Node patch and Debian variant for reproducible native builds.
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS deps
 WORKDIR /app
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
@@ -50,7 +48,7 @@ RUN --mount=type=cache,target=/root/.npm \
       echo "[CODEINFO][T03_BUILD][deps] npm registry override disabled"; \
       npm ci --workspaces --include-workspace-root --no-audit --no-fund; \
     fi
-FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS build
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS build
 WORKDIR /app
 ENV HUSKY=0
 COPY --from=deps /app/node_modules /app/node_modules
@@ -66,7 +64,7 @@ COPY common ./common
 COPY server ./server
 RUN npm run build --workspace common && npm run build --workspace server
 
-FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS runtime
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime
 ARG GH_VERSION=2.94.0
 ARG CODEINFO_NPM_REGISTRY
 ARG CODEINFO_PIP_INDEX_URL
@@ -193,16 +191,16 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       python3 -m pip install --break-system-packages -c /tmp/requirements-constraints.txt -r /tmp/requirements.txt; \
     fi
 
-# Install global CLI tooling in a cacheable layer.
+# Global installs do not use the project's allowScripts policy.
 COPY server/npm-global.txt /tmp/npm-global.txt
 RUN --mount=type=cache,target=/root/.npm \
     set -eu; \
     if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then \
       echo "[CODEINFO][T03_BUILD][runtime] npm registry override enabled"; \
-      NPM_CONFIG_REGISTRY="${CODEINFO_NPM_REGISTRY}" xargs -r npm install -g --force < /tmp/npm-global.txt; \
+      NPM_CONFIG_REGISTRY="${CODEINFO_NPM_REGISTRY}" xargs -r npm install -g --force --allow-scripts=puppeteer < /tmp/npm-global.txt; \
     else \
       echo "[CODEINFO][T03_BUILD][runtime] npm registry override disabled"; \
-      xargs -r npm install -g --force < /tmp/npm-global.txt; \
+      xargs -r npm install -g --force --allow-scripts=puppeteer < /tmp/npm-global.txt; \
     fi
 
 COPY --from=open-code-review-build /out/ocr /usr/local/bin/ocr

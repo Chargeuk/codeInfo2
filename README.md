@@ -4,7 +4,7 @@ Monorepo for client (React 19 + MUI), server (Express), and shared common packag
 
 ## Prerequisites
 
-- Node.js 22.12.0 or later and npm 10+
+- Node.js 24 or later (validated with Node 24.22.3 and bundled npm 11.19.1)
 - Docker 27+ and Docker Compose v2
 - Git, Git-lfs, curl
 - Openai Codex
@@ -141,17 +141,20 @@ Corporate certificate directory requirements:
 
 ### Pinned container tooling and cache proof
 
-Server and client images use the verified multiarch Node 22.21.1 digest. Workspace
-dependency installs cache `/root/.npm` downloads before source copies. The server
-runtime keeps pinned Python/global npm tools, image-persisted Playwright 1.56.1
+Server and client images target the verified multiarch Node 24.22.3 Bookworm-slim
+digest. Workspace dependency installs cache `/root/.npm` downloads before source
+copies. The server runtime keeps pinned Python/global npm tools, image-persisted
+Playwright 1.56.1
 Chromium and the Rust 1.99.0/WASM toolchain ahead of volatile application copies.
 Rust homes live under `/opt` and remain usable with mounted provider homes and
 configured runtime UID overrides.
 
 See [container toolchain pins and proof](docs/container-toolchain-proof.md) for
 version provenance, architecture checksums, exact parent-tester commands and
-disposable-context cache/runtime validation. Image builds and smoke results must
-be recorded separately from full-suite or behavioral proof.
+disposable-context cache/runtime validation. The Node 24.22.3 upgrade passed
+image builds and the Linux AMD64 full suite (4,640 passed, 0 failed, 3 existing
+skips). The official ARM64 manifest was verified, but ARM64 runtime was not
+tested; the proof page records the Puppeteer runtime-home caveat.
 
 ## MongoDB (conversation history)
 

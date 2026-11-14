@@ -4,7 +4,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ## Tooling baseline
 
-- Node.js 22.x across all workspaces.
+- Node.js 24 or later across all workspaces (`engines.node >=24.0.0`), validated with Node 24.22.3 and bundled npm 11.19.1.
 - Shared configs: `tsconfig.base.json`, `eslint.config.js`, `.prettierrc`, `.editorconfig`.
 - Linting: `npm run lint --workspaces` (ESLint flat config, TypeScript rules).
 - Formatting: `npm run format:check --workspaces` / `npm run format --workspaces` (Prettier).
@@ -3308,7 +3308,7 @@ sequenceDiagram
 ## Server testing & Docker
 
 - Cucumber test under `server/src/test` validates `/health` (run with server running on 5010): `npm run test --workspace server`.
-- Dockerfile (multi-stage, Node 22 slim) builds server from workspace; `.dockerignore` excludes tests and dev artifacts while keeping `.env` defaults. Build with `docker build -f server/Dockerfile -t codeinfo2-server .`, run with `docker run --rm -p 5010:5010 codeinfo2-server`.
+- Dockerfile (multi-stage, Node 24.22.3 Bookworm-slim) builds server from workspace; `.dockerignore` excludes tests and dev artifacts while keeping `.env` defaults. Build with `docker build -f server/Dockerfile -t codeinfo2-server .`, run with `docker run --rm -p 5010:5010 codeinfo2-server`.
 
 ## Conversation persistence (MongoDB)
 
@@ -4271,7 +4271,7 @@ sequenceDiagram
 ## Client testing & Docker
 
 - Jest + Testing Library under `client/src/test`; `npm run test --workspace client` (uses jsdom, ts-jest ESM preset).
-- Client Dockerfile (Node 22 slim) builds Vite bundle and serves via `npm run preview -- --host --port 5001`; `.dockerignore` excludes tests/coverage and keeps `.env` defaults.
+- Client Dockerfile (Node 24.22.3 Bookworm-slim) builds Vite bundle and serves via `npm run preview -- --host --port 5001`; `.dockerignore` excludes tests/coverage and keeps `.env` defaults.
 
 ## Docker Compose wiring
 
@@ -4711,6 +4711,12 @@ sequenceDiagram
 
 - Tree-sitter AST indexing persists symbol/edge/reference/import records alongside coverage counts per ingest root.
 - Tree-sitter native bindings require a build toolchain (Python 3, make, and a C++ compiler) during `npm ci` for Docker builds.
+- Six version-scoped peer overrides allow the existing Tree-sitter grammar
+  packages and retained queries to run with core `0.25.1`, based on the reviewed
+  ABI compatibility range. This extends compatibility for these exact versions;
+  it does not claim upstream peer-range support.
+- Container pin and proof status are recorded in [container toolchain
+  proof](docs/container-toolchain-proof.md).
 - Collections:
   - `ast_symbols` stores module/class/function symbols with 1-based ranges and deterministic `symbolId` per root.
   - `ast_edges` stores call/define/import edges keyed by `root + relPath + fileHash`.

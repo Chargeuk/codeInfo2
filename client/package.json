@@ -15,7 +15,7 @@
     "test": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js --config jest.config.cjs"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24.0.0"
   },
   "dependencies": {
     "@codeinfo2/common": "^0.0.1",

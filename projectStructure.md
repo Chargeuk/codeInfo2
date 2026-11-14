@@ -2796,7 +2796,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
 â”‚  â”œâ”€ Dockerfile â€” server image build with stage-local corporate override args and conditional npm/pip install wiring (defaults preserved when unset)
 â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API), resolves `NODE_EXTRA_CA_CERTS` default/override export, enforces refresh-gated cert discovery from `/usr/local/share/ca-certificates/codeinfo-corp` (including fail-fast missing/no-crt/unreadable/update failures), and emits CODEINFO wiring/build/runtime observability tokens
-â”‚  â”œâ”€ npm-global.txt â€” source list consumed by `xargs -r npm install -g --force < /tmp/npm-global.txt` during runtime image global tool install
+â”‚  â”œâ”€ npm-global.txt â€” source list consumed by `xargs -r npm install -g --force --allow-scripts=puppeteer < /tmp/npm-global.txt` during runtime image global tool install
 â”‚  â”œâ”€ requirements.txt â€” Python package list for the server image
 â”‚  â”œâ”€ cucumber.js â€” Cucumber config
 â”‚  â”œâ”€ package.json â€” server workspace manifest

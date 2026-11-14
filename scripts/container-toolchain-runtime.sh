@@ -30,7 +30,7 @@ node - <<'JS'
 const fs = require('fs');
 const assert = require('node:assert/strict');
 const {execFileSync} = require('node:child_process');
-assert.equal(process.version, 'v22.21.1');
+assert.equal(process.version, 'v24.22.3');
 const globals = {};
 for (const line of fs.readFileSync('/tmp/npm-global.txt', 'utf8').trim().split('\n')) {
   const index = line.lastIndexOf('@');

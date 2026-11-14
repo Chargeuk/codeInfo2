@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS build
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS build
 WORKDIR /app
 ENV HUSKY=0
 ARG CODEINFO_NPM_REGISTRY
@@ -53,7 +53,7 @@ ENV VITE_CODEINFO_LOG_FORWARD_ENABLED=${VITE_CODEINFO_LOG_FORWARD_ENABLED}
 ENV VITE_CODEINFO_LOG_MAX_BYTES=${VITE_CODEINFO_LOG_MAX_BYTES}
 RUN npm run build --workspace client
 
-FROM node:22.21.1-slim@sha256:25b3eb23a00590b7499f2a2ce939322727fcce1b15fdd69754fcd09536a3ae2c AS runtime
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime
 WORKDIR /app/client
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/node_modules /app/node_modules

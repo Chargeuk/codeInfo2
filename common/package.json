@@ -12,6 +12,6 @@
     "format": "prettier . --write"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24.0.0"
   }
 }

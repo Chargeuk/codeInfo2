@@ -1,0 +1,10 @@
+{
+  "Description": "Discuss or list optional repository-supported Jira Bugs and Stories, and create or develop a local planning file from Jira or user input. Jira changes are comments only; do not set current-story state, create a branch, or implement the story.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "markdownFile": "codeinfo2_plan_story.md"
+    }
+  ]
+}

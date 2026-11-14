@@ -164,15 +164,21 @@ test('retrospective prompts preserve an open full-validation task and best-effor
   );
   for (const publication of [earlyPublish, publish]) {
     assert.ok(
-      publication.includes('git ls-remote --heads origin refs/heads/<branch>'),
+      publication.includes(
+        'git ls-remote --heads <configured-remote> refs/heads/<branch>',
+      ),
     );
     assert.match(publication, /exact full ref SHA (?:equals|to equal) local/u);
   }
   assert.match(publish, /Commit\/push failure remains nonfatal/u);
   assert.ok(layout.includes('select_retrospective_story_number.py'));
   assert.ok(earlyPublish.includes('--owned-plan'));
-  assert.ok(earlyPublish.includes('git push -u origin HEAD'));
-  assert.ok(earlyPublish.includes('A failed push is nonfatal'));
+  assert.ok(earlyPublish.includes('git push -u <configured-remote> HEAD'));
+  assert.ok(
+    earlyPublish.includes(
+      'report the exact limitation and continue with safe local work',
+    ),
+  );
 });
 
 test('tasking uses separate inventory, creation, final task, check, and repair passes', () => {

@@ -397,7 +397,7 @@ Manually assess the latest honestly completed task using the stored plan scope a
 - If manual testing does not run for any reason, add one concise implementation note stating whether it was skipped or assessed as not applicable, and why, unless that exact latest-loop outcome is already recorded and would be duplicated.
 - When the outcome is a repository-defined skip or the general structural/environmental skip, use the required simple note shape from the skip-condition rule above.
 - Keep the implementation notes concise.
-- If you make tracked changes in this step, you MUST commit them, but do not push.
+- If you make tracked changes in this step, you MUST commit them, but do not push. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`.
 
 </outcome_rules>
 

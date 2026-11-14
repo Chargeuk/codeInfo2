@@ -182,7 +182,7 @@ Do not remove or rename a live blocker until fresh evidence proves that its bloc
 
 - Follow every affected repository's Git instructions.
 - Preserve unrelated changes; research makes no Git mutations.
-- Create separate commits in each changed repository for coder-owned repairs, following that repository's required commit prefix and body format. Do not combine unrelated repairs in one commit.
+- Create separate commits in each changed repository for coder-owned repairs, following that repository's required commit prefix and body format. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`. Do not combine unrelated repairs in one commit.
 - Honor an explicit caller-owned coherent-commit or no-commit stage; it overrides the normal per-repository commit step.
 - Do not push in this repair step.
 

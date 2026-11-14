@@ -152,7 +152,7 @@ Do not perform manual testing in this step.
 
 <git_rules>
 
-- Follow the current caller's commit boundary. Honor explicit no-commit or caller-owned coherent-commit stages; otherwise preserve this formal-proof flow's normal repository commit requirements for tester-owned changes. Do not commit coder-owned implementation changes.
+- Follow the current caller's commit boundary. Honor explicit no-commit or caller-owned coherent-commit stages; otherwise preserve this formal-proof flow's normal repository commit requirements for tester-owned changes. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`. Do not commit coder-owned implementation changes.
 - Do not push in this step.
 
 </git_rules>

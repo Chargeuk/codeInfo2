@@ -48,7 +48,7 @@ Create or update the simple-story companion document so business readers have a 
 <commit_policy>
 
 - If this command changed files, create one commit after the simple-story verification pass.
-- Follow the repository's commit-message and branch conventions from `AGENTS.md` or other repository-specific instructions when they exist.
+- Follow the repository's commit-message and branch conventions from `AGENTS.md` or other repository-specific instructions when they exist. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`.
 - If no repository-specific commit convention exists, use a concise commit subject and a short explanatory body.
 - If nothing changed, do not create an empty commit.
 

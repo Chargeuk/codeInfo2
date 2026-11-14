@@ -58,7 +58,7 @@ Build the refreshed canonical handoff payload using:
 - If the refreshed handoff meaning is unchanged and there are no new `branched_from` values to add, leave `codeInfoStatus/flow-state/current-plan.json` untouched.
 - Otherwise, update `codeInfoStatus/flow-state/current-plan.json` in place to the refreshed canonical payload.
 - Do NOT delete the handoff file first unless an in-place update is genuinely impossible.
-- Commit `codeInfoStatus/flow-state/current-plan.json` only if it changed in this step.
+- Commit `codeInfoStatus/flow-state/current-plan.json` only if it changed in this step. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`.
 - Do NOT push in this step.
 
 </handoff_write_rules>

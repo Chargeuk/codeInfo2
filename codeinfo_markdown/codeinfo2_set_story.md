@@ -32,6 +32,8 @@ If the plan, branch, or handoff cannot safely be changed, preserve existing file
 
 ## Optional Jira comment
 
+For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`.
+
 When the user selected a verified Jira issue and a repository-supported safe comment method is available, a concise comment may record the actual local plan and branch setup outcome. Jira is optional: never wait for it before continuing local setup. Read the issue and its visible description, acceptance criteria, and relevant fields as needed, without changing or resending them. The only Jira write permitted here is a concise comment on the selected issue; do not create issues or subtasks, update fields, or change lifecycle state. Keep private configuration and credentials out of output and files.
 
 The comment is independent of remote Git publication and must describe the truth, including local-only or partial setup. If the issue identity or comment method is unavailable, skip the comment and report why. Before retrying an uncertain comment, read back recent comments and check for the same result; never blindly duplicate it. A Jira read or comment failure does not block local work.

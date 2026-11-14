@@ -13,7 +13,7 @@ Resolve the single current task for this implementation-loop pass, or record tha
 - Read `codeInfoStatus/flow-state/current-task.json` from disk after the script finishes, for example with `cat codeInfoStatus/flow-state/current-task.json`, and use that reread as the persistence check for the just-written handoff.
 - If selector stdout and the reread `current-task.json` disagree, stop and say the current task handoff must be regenerated.
 - Treat `codeInfoStatus/flow-state/current-task.json` as a per-iteration flow-state artifact rather than as a durable tracked handoff like `current-plan.json`.
-- If the selector changed any tracked plan file content, commit those tracked changes before finishing this step.
+- If the selector changed any tracked plan file content, commit those tracked changes before finishing this step. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`.
 - Do not commit `codeInfoStatus/flow-state/current-task.json`.
 
 </critical_rules>

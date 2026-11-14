@@ -17,10 +17,9 @@ Use the stored current-plan handoff as the only source of plan scope for this st
 - If `additional_repositories` is missing or empty, treat that as none.
 - Treat the current repository as always in scope.
 - If the current repository also appears inside `additional_repositories`, ignore that duplicate entry.
-- Re-open the exact relative `plan_path` from disk before continuing.
-- Verify that the selected plan file exists in the current repository.
+- Resolve the exact stored `plan_path` against the current working repository root (absolute paths remain absolute; relative paths may contain `../`) and re-open that exact file before continuing. Actual read failures limit the affected plan read; location outside the current repository is not a failure.
 - Verify that the story number in the current repository branch name matches the story number in the selected plan filename.
-- Verify that every additional repository path is readable.
+- Verify that every explicitly listed additional repository path is readable. The plan-storage directory does not imply additional repository scope.
 - Verify that every additional repository is either already on a branch whose story number matches the selected plan filename or can safely create or reuse such a branch without overwriting local changes.
 
 </scope_validation_rules>

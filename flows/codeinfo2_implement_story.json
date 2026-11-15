@@ -47,6 +47,27 @@
     },
     {
       "type": "llm",
+      "label": "4-label. Best-effort label the selected Jira ticket with the AI name",
+      "agentType": "research_agent",
+      "identifier": "codeinfo2_research_agent",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Continue in the existing research main conversation. Read `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md` and `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/tracking.md`.",
+            "Best-effort add the configured AI name as a label on the selected plan’s verified Jira ticket.",
+            "Reuse the existing `CODEINFO2_AI_NAME` lookup: read it as dotenv data from the verified target repository’s root `.env.local`, ignore ambient overrides, and trim whitespace. Never source the file or expose other variables. If missing, unreadable or blank, report skipped and continue.",
+            "Resolve and freshly verify the exact ticket from the selected plan, handoff, branch and source provenance. Use only the target’s documented, available Jira method. If identity, access, edit permission or safe label-update support cannot be established, report skipped and continue.",
+            "Read the ticket’s labels. If the exact trimmed name is already attached, report already present without writing. Otherwise, add that name as one label, preserving every existing label and all other ticket fields. Do not add brackets or silently transform an invalid value.",
+            "Confirm the result through read-back. If a write has an ambiguous outcome, reconcile it before considering another write. Report added, already present, skipped, failed or uncertain honestly. Jira limitations must not stop the flow.",
+            "Do not delegate, edit local files, create helpers or state, execute tests, commit or push. Stop after the concise outcome report."
+          ]
+        }
+      ],
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
       "label": "4a. Reconcile canonical story requirements and scope exclusions",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",

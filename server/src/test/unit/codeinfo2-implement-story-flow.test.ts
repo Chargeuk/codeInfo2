@@ -217,3 +217,89 @@ test('proposal self-assessment stages reference their intended prompt', () => {
     );
   }
 });
+
+// These assertions cover instruction text, not future agent execution.
+test('all base integrations preserve wanted human edits alongside existing boundaries', () => {
+  const merges = all.filter((step) =>
+    /^(?:1|18c|20a)\. Merge/u.test(step.label),
+  );
+  assert.equal(merges.length, 3);
+  for (const merge of merges) {
+    const instructions = textOf(merge);
+    assert.match(
+      instructions,
+      /unexplained edits presumed intentional human changes/u,
+      merge.label,
+    );
+    assert.match(
+      instructions,
+      /do not exclude preexisting story edits solely because of provenance/u,
+      merge.label,
+    );
+    assert.match(
+      instructions,
+      /preserving newer desired edits rather than overwriting them from the baseline/u,
+      merge.label,
+    );
+    assert.match(
+      instructions,
+      /Do not stage ephemeral\/ignored state or unrelated staged work/u,
+      merge.label,
+    );
+    assert.match(
+      instructions,
+      /active\/unknown-writer and no-race safeguards/u,
+      merge.label,
+    );
+    assert.match(instructions, /FULL integration merge commit/u, merge.label);
+  }
+});
+
+test('human edit policy applies to readers and publication without authorship-only blocking', () => {
+  const read = (name: string) =>
+    fs.readFileSync(path.join(repoRoot, 'codeinfo_markdown', name), 'utf8');
+  const shared = read('codeinfo2_implement_story/shared.md');
+  assert.match(shared, /## Human edits and provenance/u);
+  assert.match(
+    shared,
+    /Unexplained existing or newly observed in-scope file edits are presumed intentional wanted human changes/u,
+  );
+  assert.match(shared, /preserve and incorporate their latest contents/u);
+  assert.match(
+    shared,
+    /do not pause, block, revert, or refuse their commit solely because authorship is unknown/u,
+  );
+  assert.match(
+    shared,
+    /genuine active or unresolved ownership of an actually dispatched worker/u,
+  );
+  assert.match(
+    shared,
+    /Forward this policy concisely with delegated assignments/u,
+  );
+  for (const name of [
+    'shared/current-task-handoff.md',
+    'shared/story_behavior_lock.md',
+    'final_push.md',
+  ]) {
+    assert.match(
+      read(name),
+      /Human edits and provenance[^\n]+codeinfo2_implement_story\/shared\.md/u,
+      name,
+    );
+  }
+  assert.match(
+    read('shared/story_behavior_lock.md'),
+    /Before assessing drift or provenance[^\n]+Human edits and provenance/u,
+  );
+  const publish = read('codeinfo2_implement_story/publish.md');
+  assert.match(
+    publish,
+    /Unknown file authorship alone does not make otherwise eligible in-scope work pending or unowned/u,
+  );
+  assert.match(
+    publish,
+    /include presumed wanted human edits in the verified repository scope/u,
+  );
+  assert.match(publish, /genuinely active or unresolved dispatched workers/u);
+});

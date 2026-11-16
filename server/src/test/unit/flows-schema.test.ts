@@ -832,6 +832,27 @@ describe('flow schema (v1)', () => {
     );
   });
 
+  test('PR review polling exits on controller failure while preserving continuation and uncapped polling', async () => {
+    const raw = await fs.readFile(
+      path.join(repoRoot, 'flows/pr_agent_review.json'),
+      'utf8',
+    );
+    const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
+    const loop = parsed.steps?.find((step) => step.type === 'startLoop');
+    const controller = loop?.steps?.find(
+      (step) =>
+        step.label ===
+        'Stop Polling Only For Accounted Terminal Or Unavailable Coverage',
+    );
+    assert.equal(loop?.maxIterations, undefined);
+    assert.equal(controller?.type, 'break');
+    assert.equal(controller?.breakOn, 'yes');
+    assert.equal(controller?.breakOnFailure, true);
+    assert.equal(controller?.continueOnFailure, true);
+    assert.equal(controller?.continueOnInvalidResponse, true);
+    assert.equal(loop?.steps?.at(-1)?.type, 'wait');
+  });
+
   test('review policy uses generic repeated and one-shot batches without leaking scheduling classes', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/two_phase_review_cycle.json'),
@@ -2121,6 +2142,26 @@ describe('flow schema (v1)', () => {
       'utf8',
     );
 
+    assert.match(
+      checkpointPrompt,
+      /refresh the inventory and stage\/commit the latest eligible in-scope changes in the existing single commit attempt/u,
+    );
+    assert.match(
+      checkpointPrompt,
+      /wrong story branch[^\n]+skip its commit and push/u,
+    );
+    assert.match(
+      checkpointPrompt,
+      /`MERGE_HEAD` exists or the index has unmerged entries, skip both commit and push/u,
+    );
+    assert.match(
+      checkpointPrompt,
+      /Preserve edits that arrive afterward for the next normal publication; do not create a follow-up commit or retry procedure/u,
+    );
+    assert.doesNotMatch(
+      checkpointPrompt,
+      /only permitted state-changing operations are staging changes that already existed when this step began/u,
+    );
     assert.match(checkpointPrompt, /This is a checkpoint only\./u);
     assert.match(
       checkpointPrompt,

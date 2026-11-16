@@ -8,6 +8,7 @@ Finalize the current story across every repository that is in scope for this flo
 2. Treat the current repository as in scope even if it is not listed in `additional_repositories`.
 3. Do not touch any repository outside this scope.
 4. Use fresh disk reads and current git state, not conversational memory.
+   Apply the **Human edits and provenance** policy in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`: unexplained in-scope edits are presumed wanted human changes regardless of unknown authorship; preserve latest contents within the verified scope.
 5. Follow each repository's `AGENTS.md` and prefer that repository's documented linting and formatting commands.
 6. Do not create empty commits. For optional attribution of already-authorized messages, follow the AI message attribution subsection in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`.
 7. Continue with other repositories in the list if one or some fail - always try your best to complete what you can.

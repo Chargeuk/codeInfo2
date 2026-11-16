@@ -1,5 +1,7 @@
 # Goal
 
+For unexplained in-scope edits, apply the **Human edits and provenance** policy in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`; unknown authorship alone does not invalidate the handoff or block work.
+
 Reload the current-task handoff from disk and load only the bound task's requested sections before a task-oriented flow step continues.
 
 <critical_rules>

@@ -484,3 +484,16 @@ test('final retrospective collision repair stages verified tracked plan deletion
     ['no approval pause', /Do not request confirmation/u],
   ]);
 });
+
+test('retrospective shared policy delivers the human edit rule to its readers', () => {
+  requires('shared.md', [
+    [
+      'canonical human edit policy',
+      /Human edits and provenance[^\n]+codeinfo2_implement_story\/shared\.md/u,
+    ],
+    [
+      'unknown authorship does not block edits',
+      /unknown authorship alone is not a reason to exclude or block them/u,
+    ],
+  ]);
+});

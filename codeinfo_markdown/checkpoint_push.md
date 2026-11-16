@@ -17,7 +17,7 @@ Persist the changes that already exist in every repository in the active story s
 - Do not run tests, builds, linting, formatting, auto-fix commands, generators, installers, or any other command that may change repository content.
 - Do not perform final validation or story closeout.
 - Do not create an empty commit.
-- The only permitted state-changing operations are staging changes that already existed when this step began, committing those exact changes, and pushing the current story branch.
+- The only permitted state-changing operations are staging eligible in-scope changes present in the refreshed inventory immediately before staging, committing those changes in the existing single commit attempt, and pushing the current story branch.
 
 If work appears unfinished, incorrect, untested, or newly tasked, preserve it exactly as found. The later implementation loop owns that work.
 
@@ -26,12 +26,11 @@ If work appears unfinished, incorrect, untested, or newly tasked, preserve it ex
 For each in-scope repository, one at a time:
 
 1. Resolve the repository path and confirm it is a readable Git repository.
-2. Record the current branch, `HEAD`, and the complete working-tree inventory before any state-changing command.
-3. If the repository is on the wrong story branch, report the mismatch and skip its commit and push.
-4. If changes existed when this step began, stage and commit only those pre-existing changes. If no changes existed, skip the commit.
-5. Re-read the working-tree inventory immediately after the commit attempt.
-6. If any new or altered working-tree content appeared during this checkpoint, do not stage or commit it in a follow-up commit. Report it clearly and continue best-effort.
-7. Push the current story branch when the repository is on the expected branch and the commit state is safe to push. If commit or push fails, report the failure and continue with the remaining repositories.
+2. Record the current branch, `HEAD`, and working-tree inventory before any state-changing command.
+3. If the repository is on the wrong story branch, report the mismatch and skip its commit and push. If `MERGE_HEAD` exists or the index has unmerged entries, skip both commit and push for that repository, report the pending merge or unmerged index state, and continue with independent repositories.
+4. Immediately before staging, refresh the inventory and stage/commit the latest eligible in-scope changes in the existing single commit attempt, applying the **Human edits and provenance** policy in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`. If no eligible changes exist, skip the commit. Do not stage unresolved conflicts, secrets, or out-of-scope content.
+5. Re-read and report the working-tree inventory immediately after the commit attempt. Preserve edits that arrive afterward for the next normal publication; do not create a follow-up commit or retry procedure in this checkpoint.
+6. Push the current story branch when the repository is on the expected branch and the commit state is safe to push. If commit or push fails, report the failure and continue with the remaining repositories.
 
 Never amend, rewrite, reset, clean, discard, or otherwise hide repository content to make the checkpoint appear successful.
 

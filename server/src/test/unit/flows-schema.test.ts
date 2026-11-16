@@ -2732,8 +2732,32 @@ describe('flow schema (v1)', () => {
       assert.ok(early && late, name);
       assert.equal(early.exitFlow, undefined, name);
       assert.equal(late.exitFlow, true, name);
-      assert.equal(late.question, early.question, name);
-      assert.equal(late.decisionScript, early.decisionScript, name);
+      if (name === 'implement_next_plan_github_review') {
+        assert.ok(
+          early.question?.includes('check_current_task_has_blocker.py'),
+        );
+        assert.equal(
+          early.decisionScript,
+          'scripts/flow_control/check_current_task_has_blocker.py',
+          name,
+        );
+        assert.equal(
+          late.decisionScript,
+          'scripts/flow_control/check_story_has_durable_blocker.py',
+          name,
+        );
+        assert.equal(
+          late.question,
+          early.question?.replace(
+            'check_current_task_has_blocker.py',
+            'check_story_has_durable_blocker.py',
+          ),
+          name,
+        );
+      } else {
+        assert.equal(late.question, early.question, name);
+        assert.equal(late.decisionScript, early.decisionScript, name);
+      }
       assert.equal(late.breakOn, early.breakOn, name);
       assert.equal(
         story.steps[lateIndex + 1]?.label,

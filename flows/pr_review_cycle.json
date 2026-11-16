@@ -10,7 +10,7 @@
     {
       "type": "llm",
       "label": "Integrate Each Verified PR Target",
-      "agentType": "planning_agent",
+      "agentType": "research_agent",
       "identifier": "pr_target_integrator",
       "continueOnFailure": true,
       "markdownFile": "integrate_pr_target.md"
@@ -38,7 +38,6 @@
               "flowName": "review_batch",
               "bindings": {
                 "inputValues": {
-                  "pr_preparation_required": true,
                   "copilot_reviews_enabled": false,
                   "review_groups": [
                     {

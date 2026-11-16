@@ -18,22 +18,6 @@ export type ReviewInvocationAttemptStatus =
   | 'stopped'
   | 'not_applicable';
 
-export type PrPreparation = {
-  review_cycle_id: string;
-  plan_path: string;
-  targets: Array<{
-    repo_root: string;
-    branch: string;
-    status: 'ready' | 'unavailable';
-    base_branch?: string;
-    base_commit?: string;
-    base_source?: 'pr' | 'intended_target';
-    integration?: 'behind' | 'up_to_date';
-    evidence?: string[];
-    reason?: string;
-  }>;
-};
-
 export type ActiveReviewCycle = {
   schema_version: typeof ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION;
   review_cycle_id: string;
@@ -44,7 +28,6 @@ export type ActiveReviewCycle = {
   created_at: string;
   completed_at?: string;
   incomplete_reason?: string;
-  pr_preparation?: PrPreparation;
 };
 
 export type ReviewPlanReadiness = {

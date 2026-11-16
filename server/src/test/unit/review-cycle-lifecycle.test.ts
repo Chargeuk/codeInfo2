@@ -163,7 +163,6 @@ test('a stale execution-owned cycle never blocks a fresh final review', async ()
       story_id: '0000064',
       plan_path: 'planning/0000064-review-cycle.md',
       parent_execution_id: 'orphaned-execution',
-      pr_preparation: { review_cycle_id: oldCycle, targets: [] },
       created_at: '2026-07-15T00:00:00.000Z',
     }),
   );
@@ -183,7 +182,6 @@ test('a stale execution-owned cycle never blocks a fresh final review', async ()
   assert.equal(active.review_cycle_id, initialized.cycle?.review_cycle_id);
   assert.equal(active.status, 'in_progress');
   assert.equal('parent_execution_id' in active, false);
-  assert.equal('pr_preparation' in active, false);
 });
 
 test('cycle completion is durable and independent from a flow execution', async () => {

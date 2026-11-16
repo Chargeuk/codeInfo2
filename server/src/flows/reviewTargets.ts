@@ -15,10 +15,6 @@ import {
   resolveReviewRepositoryRoot,
 } from './reviewBase.js';
 import { atomicWriteJson, deriveCanonicalStoryId } from './reviewIdentity.js';
-import {
-  ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION,
-  type PrPreparation,
-} from './reviewCycleLifecycle.js';
 
 const execFile = promisify(execFileCb);
 const BRANCH_STORY_PATTERN = /^(\d{7})(?:-|$)/u;
@@ -36,7 +32,6 @@ export type ReviewTarget = {
   comparison_base_commit?: string;
   story_id: string;
   is_primary: boolean;
-  pr_preparation?: PrPreparation['targets'][number];
 };
 
 export type ReviewTargetSnapshot = {
@@ -158,7 +153,6 @@ export async function prepareReviewTargets(
   params: {
     workingRepositoryPath: string;
     reviewMode?: 'final' | 'diagnostic';
-    requirePrPreparation?: boolean;
     signal?: AbortSignal;
   },
   deps: Partial<ReviewTargetDeps> = {},
@@ -301,148 +295,13 @@ export async function prepareReviewTargets(
       resolvedDeps,
       params.signal,
     );
-    let comparisonBaseCommit: string | undefined;
-    let prPreparation: ReviewTarget['pr_preparation'];
-    if (
-      params.requirePrPreparation ||
-      (activeCycle &&
-        Object.prototype.hasOwnProperty.call(activeCycle, 'pr_preparation'))
-    ) {
-      const raw = activeCycle?.pr_preparation;
-      const prep =
-        raw && typeof raw === 'object' && !Array.isArray(raw)
-          ? (raw as Record<string, unknown>)
-          : null;
-      const scoped =
-        activeCycleMatches &&
-        activeCycle?.schema_version === ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION &&
-        prep !== null &&
-        prep.review_cycle_id === reviewCycleId &&
-        prep.plan_path === planPath &&
-        Array.isArray(prep.targets);
-      const matches = scoped
-        ? (prep?.targets as unknown[]).filter(
-            (entry) =>
-              entry &&
-              typeof entry === 'object' &&
-              !Array.isArray(entry) &&
-              (entry as Record<string, unknown>).repo_root === realRoot,
-          )
-        : [];
-      const entry =
-        matches.length === 1 ? (matches[0] as Record<string, unknown>) : null;
-      const evidence =
-        Array.isArray(entry?.evidence) &&
-        entry.evidence.length > 0 &&
-        entry.evidence.every((item) => typeof item === 'string' && item.trim())
-          ? (entry.evidence as string[])
-          : undefined;
-      const identityValid =
-        entry?.branch === branch &&
-        (entry.status === 'ready' || entry.status === 'unavailable') &&
-        (entry.evidence === undefined || evidence !== undefined);
-      if (
-        identityValid &&
-        entry &&
-        entry.status === 'ready' &&
-        typeof entry.base_branch === 'string' &&
-        entry.base_branch.trim() === entry.base_branch &&
-        entry.base_branch.length > 0 &&
-        typeof entry.base_commit === 'string' &&
-        /^[a-f0-9]{40}$/u.test(entry.base_commit) &&
-        (entry.base_source === 'pr' ||
-          entry.base_source === 'intended_target') &&
-        evidence &&
-        (entry.integration === 'behind' || entry.integration === 'up_to_date')
-      ) {
-        try {
-          const resolved = await gitStdout(
-            realRoot,
-            ['rev-parse', '--verify', `${entry.base_commit}^{commit}`],
-            resolvedDeps,
-            params.signal,
-          );
-          if (resolved === entry.base_commit) {
-            comparisonBaseCommit = resolved;
-            prPreparation = {
-              repo_root: realRoot,
-              branch,
-              status: 'ready',
-              base_branch: entry.base_branch,
-              base_commit: resolved,
-              base_source: entry.base_source,
-              integration: entry.integration,
-              evidence,
-            };
-          }
-        } catch (error) {
-          params.signal?.throwIfAborted();
-          const failure = error as {
-            name?: unknown;
-            code?: unknown;
-            stderr?: unknown;
-          };
-          if (failure?.name === 'AbortError' || failure?.code === 'ABORT_ERR')
-            throw error;
-          const code =
-            typeof failure?.code === 'number' && Number.isInteger(failure.code)
-              ? `exit ${failure.code}`
-              : typeof failure?.code === 'string' &&
-                  [
-                    'ENOENT',
-                    'EACCES',
-                    'EPERM',
-                    'ETIMEDOUT',
-                    'EIO',
-                    'ENOMEM',
-                    'ENOTDIR',
-                  ].includes(failure.code)
-                ? failure.code
-                : 'unknown error';
-          const stderr =
-            typeof failure?.stderr === 'string' ? failure.stderr.trim() : '';
-          const detail =
-            stderr === 'fatal: Needed a single revision' ? `: ${stderr}` : '';
-          prPreparation = {
-            repo_root: realRoot,
-            branch,
-            status: 'unavailable',
-            reason: `Local git rev-parse --verify failed (${code})${detail}`,
-            ...(evidence ? { evidence } : {}),
-          };
-        }
-      } else if (
-        identityValid &&
-        entry &&
-        entry.status === 'unavailable' &&
-        typeof entry.reason === 'string' &&
-        entry.reason.trim()
-      ) {
-        prPreparation = {
-          repo_root: realRoot,
-          branch,
-          status: 'unavailable',
-          reason: entry.reason.trim(),
-          ...(evidence ? { evidence } : {}),
-        };
-      }
-      prPreparation ??= {
-        repo_root: realRoot,
-        branch,
-        status: 'unavailable',
-        reason:
-          'PR preparation is missing, invalid, out of scope, or its base commit is unavailable locally.',
-      };
-    } else {
-      const base = await resolveBaseComparison({
-        repoRoot: realRoot,
-        currentBranch: branch,
-        branchedFrom: requestedTarget.branchedFrom,
-        deps: { execFile: resolvedDeps.execFile },
-        signal: params.signal,
-      });
-      comparisonBaseCommit = base.comparisonBaseCommit;
-    }
+    const base = await resolveBaseComparison({
+      repoRoot: realRoot,
+      currentBranch: branch,
+      branchedFrom: requestedTarget.branchedFrom,
+      deps: { execFile: resolvedDeps.execFile },
+      signal: params.signal,
+    });
     const baseAlias =
       index === 0
         ? 'current_repository'
@@ -467,10 +326,7 @@ export async function prepareReviewTargets(
       repository_id: repository.id,
       branch,
       head_commit: headCommit,
-      ...(comparisonBaseCommit
-        ? { comparison_base_commit: comparisonBaseCommit }
-        : {}),
-      ...(prPreparation ? { pr_preparation: prPreparation } : {}),
+      comparison_base_commit: base.comparisonBaseCommit,
       story_id: storyId,
       is_primary: index === 0,
     });

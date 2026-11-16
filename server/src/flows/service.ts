@@ -11191,9 +11191,6 @@ async function runFlowUnlocked(params: {
         {
           workingRepositoryPath: reviewRepositoryPath,
           reviewMode: step.reviewMode,
-          requirePrPreparation:
-            (flowValues.pr_preparation_required ??
-              params.input?.pr_preparation_required) === true,
           signal: inflightSignal,
         },
         {

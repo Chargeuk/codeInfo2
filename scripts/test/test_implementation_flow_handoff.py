@@ -13,6 +13,11 @@ import unittest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import test_story_workflow_status as workflow_fixtures
+
+
 FLOW_NAMES = (
     "implement_current_plan",
     "pr_current_plan",
@@ -39,7 +44,7 @@ class ImplementationFlowHandoffTests(unittest.TestCase):
                 gates = []
                 for steps in step_lists(flow["steps"]):
                     for index, step in enumerate(steps):
-                        if step.get("label") == "Exit story flow successfully while durable blocker remains":
+                        if step.get("label") == "Leave task execution for review while durable blocker remains":
                             gates.append(step)
                             prior = steps[:index]
                             impact = next(
@@ -86,8 +91,36 @@ class ImplementationFlowHandoffTests(unittest.TestCase):
                                 ):
                                     self.assertIn(clause, question)
                             self.assertEqual(step["breakOn"], "yes")
-                            self.assertIs(step["exitFlow"], True)
+                            self.assertNotIn("exitFlow", step)
                 self.assertEqual(len(gates), 1)
+                story = next(step for step in flow["steps"] if step.get("label") == "Story Execution And Review Loop")
+                outer = story["steps"]
+                labels = [step.get("label") for step in outer]
+                exit_index = labels.index("Exit story flow successfully while durable blocker remains")
+                self.assertEqual(labels[exit_index + 1], "Exit Story Loop When Plan And Review Are Complete")
+                review_label = "Run PR Review Cycle" if name == "pr_current_plan" else "Run Two-Phase Review Cycle"
+                self.assertLess(labels.index(review_label), labels.index("Refresh Plan Handoff After Review Settlement"))
+                self.assertLess(labels.index("Repair Story State After Review Settlement"), labels.index("Checkpoint Push Before Story Completion Check"))
+                self.assertLess(labels.index("Checkpoint Push Before Story Completion Check"), exit_index)
+                late = outer[exit_index]
+                self.assertIs(late["exitFlow"], True)
+                if name == "implement_next_plan_github_review":
+                    sandbox = json.loads((REPO_ROOT / "flows-sandbox" / f"{name}.json").read_text())
+                    self.assertEqual(flow, sandbox)
+                    self.assertIn("check_current_task_has_blocker.py", gates[0]["question"])
+                    self.assertEqual(late["decisionScript"], "scripts/flow_control/check_story_has_durable_blocker.py")
+                    self.assertEqual(late["question"], gates[0]["question"].replace(
+                        "check_current_task_has_blocker.py", "check_story_has_durable_blocker.py"
+                    ))
+                    self.assertEqual(
+                        {k: v for k, v in late.items() if k not in ("label", "exitFlow", "question", "decisionScript")},
+                        {k: v for k, v in gates[0].items() if k not in ("label", "question", "decisionScript")},
+                    )
+                else:
+                    self.assertEqual({k: v for k, v in late.items() if k not in ("label", "exitFlow")},
+                                     {k: v for k, v in gates[0].items() if k != "label"})
+                if name == "implement_next_plan_github_review":
+                    self.assertLess(labels.index("Run GitHub Review Only After Internal Story Completion"), exit_index)
 
     def make_repaired_repo(self, *, prerequisite_blocked=False, handoff="stale"):
         tmp = tempfile.TemporaryDirectory()
@@ -165,6 +198,68 @@ class ImplementationFlowHandoffTests(unittest.TestCase):
         self.assertEqual(result["selected_task"]["number"], 4)
         validity = self.run_script(repo, "check_current_task_handoff.py")
         self.assertIs(validity["has_valid_current_task_handoff"], True)
+
+    def test_legacy_final_gate_continues_after_review_adds_independent_work(self):
+        blocked = textwrap.dedent("""\
+            ### Task 1. Blocked work
+
+            - Task Status: `__in_progress__`
+
+            #### Subtasks
+
+            1. [ ] Implement blocked work
+
+            #### Testing
+
+            1. [ ] Prove blocked work
+
+            #### Implementation Notes
+
+            - **BLOCKER** External authority is unavailable.
+            """)
+        repo, _ = workflow_fixtures.StoryWorkflowStatusTests.make_repo(
+            self, plan_content=blocked
+        )
+        state = repo / "codeInfoStatus/flow-state/current-task.json"
+        state.write_text(json.dumps({
+            "selection_status": "resolved",
+            "selected_task": {"number": 1, "status": "__in_progress__"},
+        }))
+        flow = json.loads((REPO_ROOT / "flows/implement_next_plan_github_review.json").read_text())
+        story = next(step for step in flow["steps"] if step.get("label") == "Story Execution And Review Loop")
+        gate = next(step for step in story["steps"] if step.get("label") == "Exit story flow successfully while durable blocker remains")
+        script = gate["decisionScript"].removeprefix("scripts/")
+        self.assertEqual(self.run_script(repo, script), {"answer": "yes"})
+        plan = repo / "planning/0000123-sample-story.md"
+        independent = textwrap.dedent("""\
+
+            ### Task 2. Independent review work
+
+            - Task Status: `__to_do__`
+
+            #### Subtasks
+
+            1. [ ] Implement review fix
+
+            #### Testing
+
+            1. [ ] Prove review fix
+
+            #### Implementation Notes
+            """)
+        plan.write_text(blocked + independent)
+        self.assertEqual(self.run_script(repo, "flow_control/check_current_task_has_blocker.py"), {"answer": "yes"})
+        self.assertEqual(self.run_script(repo, script), {"answer": "no"})
+
+        # Model the existing settlement's status update without changing proof or blockers.
+        settled = (blocked.replace("__in_progress__", "__to_do__")
+                   + independent.replace("__to_do__", "__in_progress__"))
+        plan.write_text(settled)
+        selection = self.run_script(repo, "select_current_task.py")
+        self.assertEqual(selection["selection_status"], "resolved")
+        self.assertEqual(selection["selected_task"]["number"], 2)
+        self.assertEqual(json.loads(state.read_text()), selection)
+        self.assertEqual(plan.read_text(), settled)
 
     def test_reselection_releases_reopened_prerequisite_without_erasing_downstream_blocker(self):
         repo = self.make_repaired_repo()

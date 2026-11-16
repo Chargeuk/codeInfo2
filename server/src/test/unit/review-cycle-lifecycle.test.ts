@@ -7,7 +7,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
-import { memoryConversations, memoryTurns } from '../../chat/memoryPersistence.js';
+import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import {
   finalizeActiveReviewCycle,
   finalizeActiveReviewCycleIfPending,
@@ -145,7 +148,6 @@ test('fresh final review archives stale disposition and records an in-progress c
     ),
   ) as { review_phase: string };
   assert.equal(archived.review_phase, 'slow');
-
 });
 
 test('a stale execution-owned cycle never blocks a fresh final review', async () => {
@@ -192,7 +194,11 @@ test('cycle completion is durable and independent from a flow execution', async 
     },
   );
   const completed = await finalizeActiveReviewCycle(
-    { workingRepositoryPath: repo, status: 'incomplete', reason: 'review failed' },
+    {
+      workingRepositoryPath: repo,
+      status: 'incomplete',
+      reason: 'review failed',
+    },
     { now: () => new Date('2026-07-18T12:05:00.000Z') },
   );
   assert.equal(completed?.status, 'incomplete');
@@ -238,8 +244,7 @@ test('flow status ignores an active review cycle owned by a different conversati
       randomHex: () => '22222222',
     },
   );
-  const conversationId =
-    `review-cycle-status-first-conversation-${randomUUID()}`;
+  const conversationId = `review-cycle-status-first-conversation-${randomUUID()}`;
   const now = new Date();
   memoryConversations.set(conversationId, {
     _id: conversationId,
@@ -271,7 +276,10 @@ test('flow status ignores an active review cycle owned by a different conversati
     updatedAt: now,
   });
   try {
-    assert.equal((await getFlowRunStatus(conversationId))?.reviewCycleStatus, null);
+    assert.equal(
+      (await getFlowRunStatus(conversationId))?.reviewCycleStatus,
+      null,
+    );
     const conversation = memoryConversations.get(conversationId);
     assert.ok(conversation);
     memoryConversations.set(conversationId, {
@@ -284,7 +292,10 @@ test('flow status ignores an active review cycle owned by a different conversati
         },
       },
     });
-    assert.equal((await getFlowRunStatus(conversationId))?.reviewCycleStatus, null);
+    assert.equal(
+      (await getFlowRunStatus(conversationId))?.reviewCycleStatus,
+      null,
+    );
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);

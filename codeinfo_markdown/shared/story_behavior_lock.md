@@ -2,6 +2,8 @@
 
 ## Rule
 
+- Before assessing drift or provenance, apply the **Human edits and provenance** policy in `$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md`: unexplained in-scope edits are presumed wanted human changes even when authorship is unknown. This narrow exception takes priority over default attribution assumptions in audit prompts; it preserves the locked story/repository scope and does not authorize arbitrary agent changes or expansion.
+
 - For any repository and any story, only user-facing behavior changes that are explicitly requested at the story level, or later approved explicitly by the user as a scope expansion, may be implemented.
 - Once planning has translated the user request into a story plan, the allowed user-facing behavior changes for that story are locked.
 - Tasking, implementation, testing, and review must not add new user-facing behavior changes beyond that locked story scope.

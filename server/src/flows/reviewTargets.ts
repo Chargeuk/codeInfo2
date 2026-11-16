@@ -204,7 +204,8 @@ export async function prepareReviewTargets(
     activeCycle?.story_id === storyId &&
     activeCycle.plan_path === planPath &&
     typeof activeCycle.review_cycle_id === 'string' &&
-    (activeCycle.status === 'in_progress' || activeCycle.status === undefined) &&
+    (activeCycle.status === 'in_progress' ||
+      activeCycle.status === undefined) &&
     (activeCycle.review_mode === 'final' ||
       activeCycle.review_mode === 'diagnostic') &&
     (params.reviewMode === undefined ||

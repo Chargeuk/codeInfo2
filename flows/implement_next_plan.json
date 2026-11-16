@@ -476,12 +476,11 @@
             },
             {
               "type": "break",
-              "label": "Exit story flow successfully while durable blocker remains",
+              "label": "Leave task execution for review while durable blocker remains",
               "agentType": "loop_control_agent",
               "identifier": "loop_controller",
               "question": "Use fresh persisted handoffs, plan_status.py, the bounded blocker-repair packet and latest actual coder/tester/manual outcomes. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes to exit INCOMPLETE only when a live blocker remains after the existing bounded repair/research route and every safe independent required implementation, automated proof, manual proof and owned cleanup action has been attempted or has a verified dependency preventing it. A blocker alone, an old failed check or unchanged helper count is insufficient. Answer no while an authorized repair or untried safe independent action can make meaningful progress; retain valid evidence, do not ask an unavailable human or retry unchanged failures indefinitely. Never claim story completion; report exact remaining obligations and external authority limits through the preceding worker handoff. No edits, tests or side effects in this decision.",
-              "breakOn": "yes",
-              "exitFlow": true
+              "breakOn": "yes"
             },
             {
               "type": "llm",
@@ -539,6 +538,15 @@
           "agentType": "planning_agent_lite",
           "identifier": "planner_lite",
           "markdownFile": "checkpoint_push.md"
+        },
+        {
+          "type": "break",
+          "label": "Exit story flow successfully while durable blocker remains",
+          "agentType": "loop_control_agent",
+          "identifier": "loop_controller",
+          "question": "Use fresh persisted handoffs, plan_status.py, the bounded blocker-repair packet and latest actual coder/tester/manual outcomes. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes to exit INCOMPLETE only when a live blocker remains after the existing bounded repair/research route and every safe independent required implementation, automated proof, manual proof and owned cleanup action has been attempted or has a verified dependency preventing it. A blocker alone, an old failed check or unchanged helper count is insufficient. Answer no while an authorized repair or untried safe independent action can make meaningful progress; retain valid evidence, do not ask an unavailable human or retry unchanged failures indefinitely. Never claim story completion; report exact remaining obligations and external authority limits through the preceding worker handoff. No edits, tests or side effects in this decision.",
+          "breakOn": "yes",
+          "exitFlow": true
         },
         {
           "type": "break",

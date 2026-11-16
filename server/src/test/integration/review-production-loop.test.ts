@@ -584,11 +584,7 @@ class ProductionReviewChat extends ChatInterface {
     }
 
     // Ownership wording can change; the proof phase must still update fixture state.
-    if (
-      message.includes(
-        "# Goal\n\nRun the selected task's automated proof",
-      )
-    ) {
+    if (message.includes("# Goal\n\nRun the selected task's automated proof")) {
       const planPath = path.join(
         this.probe.repo,
         'planning',

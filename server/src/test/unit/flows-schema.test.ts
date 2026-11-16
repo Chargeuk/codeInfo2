@@ -69,8 +69,10 @@ describe('flow schema (v1)', () => {
   const normalizeDurableExitDecision = (steps: FlowStep[]): FlowStep[] =>
     steps.map((step) => ({
       ...step,
-      ...(step.label ===
-      'Exit story flow successfully while durable blocker remains'
+      ...([
+        'Exit story flow successfully while durable blocker remains',
+        'Leave task execution for review while durable blocker remains',
+      ].includes(step.label ?? '')
         ? { question: 'durable exit decision', decisionScript: undefined }
         : {}),
       ...(step.steps
@@ -1707,6 +1709,11 @@ describe('flow schema (v1)', () => {
       assertOrdered(
         labels,
         'Checkpoint Push Before Story Completion Check',
+        'Exit story flow successfully while durable blocker remains',
+      );
+      assertOrdered(
+        labels,
+        'Exit story flow successfully while durable blocker remains',
         'Exit Story Loop When Plan And Review Are Complete',
       );
 
@@ -2690,28 +2697,49 @@ describe('flow schema (v1)', () => {
     assert.equal(parsed.ok, false);
   });
 
-  test('story implementation flows exit successfully instead of halting on durable blockers', async () => {
-    for (const relativePath of [
-      'flows/implement_current_plan.json',
-      'flows/implement_next_plan.json',
-      'flows/task_and_implement_plan.json',
-      'flows/improve_task_implement_plan.json',
+  test('story implementation flows separate task-loop and whole-flow blocker exits', async () => {
+    for (const name of [
+      'implement_current_plan',
+      'pr_current_plan',
+      'implement_next_plan',
+      'task_and_implement_plan',
+      'improve_task_implement_plan',
+      'improve_task_implement_current_plan',
+      'implement_next_plan_github_review',
     ]) {
-      const raw = await fs.readFile(path.join(repoRoot, relativePath), 'utf8');
-      const parsed = JSON.parse(raw) as { steps?: FlowStep[] };
-      const blockerExit = flattenSteps(parsed.steps ?? []).find(
-        (step) =>
-          step.type === 'break' &&
-          step.label ===
-            'Exit story flow successfully while durable blocker remains',
+      const parsed = JSON.parse(
+        await fs.readFile(path.join(repoRoot, `flows/${name}.json`), 'utf8'),
+      ) as { steps: FlowStep[] };
+      const story = parsed.steps.find(
+        (step) => step.label === 'Story Execution And Review Loop',
       );
-
-      assert.ok(blockerExit, `${relativePath} should define a blocker exit`);
-      assert.equal(blockerExit.type, 'break');
-      if (blockerExit.type === 'break') {
-        assert.equal(blockerExit.exitFlow, true);
-        assert.equal(blockerExit.haltFlow, undefined);
-      }
+      assert.ok(story && story.type === 'startLoop' && story.steps, name);
+      const task = story.steps.find(
+        (step) => step.label === 'Task Execution And Blocker Repair Loop',
+      );
+      assert.ok(task && task.type === 'startLoop' && task.steps, name);
+      const early = task.steps.find(
+        (step) =>
+          step.label ===
+          'Leave task execution for review while durable blocker remains',
+      );
+      const lateIndex = story.steps.findIndex(
+        (step) =>
+          step.label ===
+          'Exit story flow successfully while durable blocker remains',
+      );
+      const late = story.steps[lateIndex];
+      assert.ok(early && late, name);
+      assert.equal(early.exitFlow, undefined, name);
+      assert.equal(late.exitFlow, true, name);
+      assert.equal(late.question, early.question, name);
+      assert.equal(late.decisionScript, early.decisionScript, name);
+      assert.equal(late.breakOn, early.breakOn, name);
+      assert.equal(
+        story.steps[lateIndex + 1]?.label,
+        'Exit Story Loop When Plan And Review Are Complete',
+        name,
+      );
     }
   });
 

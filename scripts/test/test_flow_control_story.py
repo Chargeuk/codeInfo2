@@ -237,29 +237,33 @@ class PRReviewPollingContractTests(unittest.TestCase):
         )
         self.assertEqual(poll_loop["steps"][-1]["seconds"], 300)
 
-    def test_ambiguous_delivery_requires_three_successful_attributable_readbacks(self):
+    def test_polling_accounts_for_unavailable_routes_and_active_siblings(self):
+        _, contracts = self.read_contracts()
+        for name, contract in contracts.items():
+            with self.subTest(contract=name):
+                self.assertRegex(contract, r"(?s)(?:one|single|a failed).{0,100}(?:route|query|access).{0,120}unavailable|unavailable.{0,120}(?:one|single|failed)")
+                self.assertRegex(contract, r"(?:pending|running).{0,100}(?:observ|active)|(?:observ|active).{0,100}(?:pending|running)")
+                self.assertRegex(contract, r"(?:unknown|missing).{0,120}(?:indefinite|active|wait)")
+                self.assertRegex(contract, r"(?:never|do not).{0,50}(?:retry|duplicate).{0,50}(?:request|launch)")
+                self.assertRegex(contract, r"unavailable.{0,120}(?:clean|success|terminal)")
+
+    def test_controller_accounts_for_mixed_reviewer_outcomes(self):
+        _, contracts = self.read_contracts()
+        question = contracts["question"]
+        for outcome in ("success", "refusal", "quota", "failure"):
+            self.assertIn(outcome, question)
+        self.assertRegex(question, r"(?:success|refusal).{0,100}quota.{0,100}failure")
+        self.assertRegex(question, r"preceding observation.{0,100}pending")
+
+    def test_ambiguous_delivery_is_bounded_only_for_observable_routes(self):
         _, contracts = self.read_contracts()
         for name, contract in contracts.items():
             with self.subTest(contract=name):
                 self.assertIn("ambiguous-delivery", contract)
-                self.assertIn("three completed successful reconciliation/readback observations", contract)
-                self.assertIn("300-second", contract)
-                self.assertIn("request/trigger/comment/check/review", contract)
-                self.assertIn("exact candidate/reviewer", contract)
-                self.assertIn("failed api queries and empty reviewrequests alone do not count", contract)
-                self.assertIn("existing assigned work evidence", contract)
-
-    def test_confirmed_delivery_and_observable_siblings_remain_protected(self):
-        _, contracts = self.read_contracts()
-        for name, contract in contracts.items():
-            with self.subTest(contract=name):
-                self.assertIn("once delivery/acceptance or provider acknowledgement or pending/running is confirmed", contract)
-                self.assertIn("this exception never applies", contract)
-                self.assertIn("even if status later becomes unknown", contract)
-                self.assertIn("while any sibling remains pending, running or unknown", contract)
-                self.assertIn("answer no", contract)
-                self.assertIn("never retry the review request", contract)
-                self.assertIn("not a terminal review or a clean result", contract)
+                self.assertRegex(contract, r"(?:one|single).{0,100}(?:reconciliation|readback)")
+                self.assertRegex(contract, r"(?:delivery|acceptance).{0,120}acknowledg")
+                self.assertRegex(contract, r"(?:exact|pinned).{0,60}candidate")
+                self.assertRegex(contract, r"(?:never|do not).{0,50}(?:retry|duplicate).{0,50}request")
 
 
 if __name__ == "__main__":

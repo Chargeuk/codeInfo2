@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCb } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { writeFileSync } from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -5842,6 +5843,7 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
     'independent',
     'blocked-dependency',
     'blocked-dependency-and-independent',
+    'review-adds-independent',
   ]) {
     test(`${flowName} durable story decisionScript routes persisted ${scenario} state`, async () => {
       const definition = JSON.parse(
@@ -5873,15 +5875,50 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
       };
       const gate = findGate(definition.steps);
       assert.ok(gate);
+      const story = definition.steps.find(
+        (step: Record<string, unknown>) =>
+          step.label === 'Story Execution And Review Loop',
+      );
+      const taskLoop = story.steps.find(
+        (step: Record<string, unknown>) =>
+          step.label === 'Task Execution And Blocker Repair Loop',
+      );
+      const early = taskLoop.steps.find(
+        (step: Record<string, unknown>) =>
+          step.label ===
+          'Leave task execution for review while durable blocker remains',
+      );
+      const prReviewBoundary =
+        flowName === 'pr_current_plan'
+          ? story.steps.find(
+              (step: Record<string, unknown>) =>
+                step.label === 'Run PR Review Cycle',
+            )
+          : undefined;
+      if (flowName === 'pr_current_plan') {
+        assert.equal(prReviewBoundary?.type, 'subflow');
+        assert.deepEqual(prReviewBoundary?.flowNames, ['pr_review_cycle']);
+      }
+      assert.ok(early);
+      assert.equal(early.exitFlow, undefined);
       assert.equal(
         gate.decisionScript,
         'scripts/flow_control/check_story_has_durable_blocker.py',
       );
       const seen: string[] = [];
+      let reviewPlanPath = '';
+      let reviewPlan = '';
       await withFlowServer(
         (message) => {
           seen.push(message);
-          // No model decision is stubbed: both decisions below execute Python.
+          if (
+            scenario === 'review-adds-independent' &&
+            (message.includes('REVIEW_SENTINEL') ||
+              message.includes('PR_COMMENT_REPLY_SENTINEL'))
+          ) {
+            writeFileSync(reviewPlanPath, reviewPlan);
+          }
+          // No blocker decision is stubbed: both gates execute Python.
           return 'Sentinel reached.';
         },
         async ({ baseUrl, wsUrl, tmpDir }) => {
@@ -5932,13 +5969,15 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
                 (scenario === 'blocked-dependency-and-independent'
                   ? task(3, '__to_do__', false)
                   : '')
-              : scenario === 'blocked'
+              : scenario === 'blocked' || scenario === 'review-adds-independent'
                 ? task(1, '__done__', false) + task(2, '__in_progress__', true)
                 : task(1, '__in_progress__', false) +
                   task(2, '__to_do__', true);
           await fs.mkdir(path.join(tmpDir, 'planning'), { recursive: true });
           await fs.mkdir(flowState, { recursive: true });
           await fs.writeFile(path.join(tmpDir, planPath), plan);
+          reviewPlanPath = path.join(tmpDir, planPath);
+          reviewPlan = plan + task(3, '__to_do__', false);
           await fs.writeFile(
             path.join(flowState, 'current-plan.json'),
             JSON.stringify({
@@ -5952,7 +5991,13 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
               path.join(flowState, 'current-task.json'),
               JSON.stringify({
                 plan_path: planPath,
-                selected_task: { number: scenario === 'blocked' ? 2 : 1 },
+                selected_task: {
+                  number: ['blocked', 'review-adds-independent'].includes(
+                    scenario,
+                  )
+                    ? 2
+                    : 1,
+                },
               }),
             );
           }
@@ -5985,19 +6030,52 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
             identifier: 'loop_controller',
             messages: [{ role: 'user', content: [content] }],
           });
+          if (prReviewBoundary) {
+            const prReview = JSON.parse(
+              await fs.readFile(
+                path.join(repoRoot, 'flows/pr_review_cycle.json'),
+                'utf8',
+              ),
+            );
+            const reviewLoop = prReview.steps.find(
+              (step: Record<string, unknown>) =>
+                step.label === 'Review PR Candidates And Repair Valid Findings',
+            );
+            const reply = reviewLoop.steps.find(
+              (step: Record<string, unknown>) =>
+                step.label === 'Reply To Findings After Disposition And Repair',
+            );
+            assert.equal(reply?.markdownFile, 'reply_pr_review_findings.md');
+            // Mock the reply worker at the actual PR subflow boundary; no GitHub calls.
+            await fs.writeFile(
+              path.join(tmpDir, 'pr_review_cycle.json'),
+              JSON.stringify({
+                steps: [
+                  {
+                    ...reply,
+                    markdownFile: undefined,
+                    messages: [
+                      { role: 'user', content: ['PR_COMMENT_REPLY_SENTINEL'] },
+                    ],
+                  },
+                ],
+              }),
+            );
+          }
           await fs.writeFile(
             path.join(tmpDir, 'durable-blocker.json'),
             JSON.stringify({
               steps: [
-                gate,
                 {
-                  type: 'if',
-                  condition: 'Route completed implementation to review.',
-                  decisionScript:
-                    'scripts/flow_control/check_story_complete.py',
-                  then: [sentinel('REVIEW_SENTINEL')],
-                  else: [sentinel('CONTINUATION_SENTINEL')],
+                  type: 'startLoop',
+                  maxIterations: 1,
+                  steps: [early, sentinel('TASK_CONTINUATION_SENTINEL')],
                 },
+                prReviewBoundary ?? sentinel('REVIEW_SENTINEL'),
+                sentinel('RECONCILIATION_SENTINEL'),
+                sentinel('CHECKPOINT_SENTINEL'),
+                gate,
+                sentinel('CONTINUATION_SENTINEL'),
               ],
             }),
           );
@@ -6022,13 +6100,35 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
                 description: `${flowName} durable blocker ${scenario} to become terminal`,
               },
             );
+            const reviewMarker = prReviewBoundary
+              ? 'PR_COMMENT_REPLY_SENTINEL'
+              : 'REVIEW_SENTINEL';
+            for (const marker of [
+              reviewMarker,
+              'RECONCILIATION_SENTINEL',
+              'CHECKPOINT_SENTINEL',
+            ]) {
+              assert.equal(
+                seen.some((message) => message.includes(marker)),
+                true,
+                marker,
+              );
+            }
+            assert.ok(
+              seen.findIndex((message) => message.includes(reviewMarker)) <
+                seen.findIndex((message) =>
+                  message.includes('RECONCILIATION_SENTINEL'),
+                ),
+            );
             assert.equal(
-              seen.some((message) => message.includes('REVIEW_SENTINEL')),
-              complete,
+              seen.some((message) =>
+                message.includes('TASK_CONTINUATION_SENTINEL'),
+              ),
+              !shouldExit && scenario !== 'review-adds-independent',
             );
             assert.equal(
               seen.some((message) => message.includes('CONTINUATION_SENTINEL')),
-              !complete && !shouldExit,
+              !shouldExit,
             );
             assert.equal(
               seen.some((message) =>
@@ -6046,8 +6146,12 @@ for (const flowName of ['implement_current_plan', 'pr_current_plan']) {
             );
             assert.equal(
               await fs.readFile(path.join(tmpDir, planPath), 'utf8'),
-              plan,
+              scenario === 'review-adds-independent' ? reviewPlan : plan,
             );
+            if (shouldExit) {
+              assert.match(plan, /\[ \] Required proof/u);
+              assert.match(plan, /__in_progress__/u);
+            }
           } finally {
             await cleanupConversationRuntime(
               conversationId,

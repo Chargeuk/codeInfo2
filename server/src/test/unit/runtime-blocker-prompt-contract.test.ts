@@ -204,6 +204,15 @@ test('both current-plan durable exits use the story script and preserve independ
       'scripts/flow_control/check_story_has_durable_blocker.py',
     );
     assert.equal(exit.exitFlow, true);
+    const early = steps.find(
+      (step) =>
+        step.label ===
+        'Leave task execution for review while durable blocker remains',
+    );
+    assert.ok(early);
+    assert.equal(early.exitFlow, undefined);
+    assert.equal(early.question, exit.question);
+    assert.equal(early.decisionScript, exit.decisionScript);
     assert.match(
       String(exit.question),
       /Return its current stdout exactly and nothing else/u,
@@ -220,4 +229,30 @@ test('both current-plan durable exits use the story script and preserve independ
       assert.match(String(gate.question), /independent manual/u);
     }
   }
+});
+
+// These assertions describe the prompt contract, not an agent's execution.
+test('proof repair uses applicable evidence and preserves superseded restrictions', () => {
+  const proof = readRepoFile('codeinfo_markdown/deep_test_failure_repair.md');
+  assert.match(proof, /latest applicable (?:terminal )?evidence/iu);
+  assert.match(proof, /(?:testing agent|tester)[^\n]*evidence/iu);
+  assert.match(proof, /rerun[^\n]*(?:reproduction|uncertainty)/iu);
+  assert.match(
+    proof,
+    /(?:rerun[^\n]*(?:not needed|unnecessary)|(?:not needed|unnecessary)[^\n]*rerun)/iu,
+  );
+  assert.match(
+    proof,
+    /(?:rerun|proof)[^\n]*(?:after each repair|repair checkpoint)/iu,
+  );
+
+  const impact = readRepoFile(
+    'codeinfo_markdown/research_blocker_impact_on_plan.md',
+  );
+  assert.match(impact, /supersed/iu);
+  assert.match(
+    impact,
+    /(?:earlier|previous)[^\n]*(?:interpretation|history)/iu,
+  );
+  assert.match(impact, /(?:retain|preserve)[^\n]*user restrictions/iu);
 });

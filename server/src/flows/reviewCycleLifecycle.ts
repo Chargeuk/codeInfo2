@@ -18,6 +18,22 @@ export type ReviewInvocationAttemptStatus =
   | 'stopped'
   | 'not_applicable';
 
+export type PrPreparation = {
+  review_cycle_id: string;
+  plan_path: string;
+  targets: Array<{
+    repo_root: string;
+    branch: string;
+    status: 'ready' | 'unavailable';
+    base_branch?: string;
+    base_commit?: string;
+    base_source?: 'pr' | 'intended_target';
+    integration?: 'behind' | 'up_to_date';
+    evidence?: string[];
+    reason?: string;
+  }>;
+};
+
 export type ActiveReviewCycle = {
   schema_version: typeof ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION;
   review_cycle_id: string;
@@ -28,6 +44,7 @@ export type ActiveReviewCycle = {
   created_at: string;
   completed_at?: string;
   incomplete_reason?: string;
+  pr_preparation?: PrPreparation;
 };
 
 export type ReviewPlanReadiness = {
@@ -157,7 +174,8 @@ export const readActiveFinalReviewCycleStatus = async (
   if (
     active?.schema_version !== ACTIVE_REVIEW_CYCLE_SCHEMA_VERSION ||
     active.review_mode !== 'final' ||
-    (expectedReviewCycleId && active.review_cycle_id !== expectedReviewCycleId) ||
+    (expectedReviewCycleId &&
+      active.review_cycle_id !== expectedReviewCycleId) ||
     !['in_progress', 'completed', 'incomplete'].includes(String(active.status))
   ) {
     return null;
@@ -183,8 +201,10 @@ const timestampId = (value: Date) =>
     .replace(/\.\d{3}Z$/u, 'Z');
 
 const safePathSegment = (value: string) =>
-  value.trim().replace(/[^A-Za-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '') ||
-  'review-attempt';
+  value
+    .trim()
+    .replace(/[^A-Za-z0-9._-]+/gu, '-')
+    .replace(/^-+|-+$/gu, '') || 'review-attempt';
 
 const attemptPathSegment = (invocationId: string) =>
   crypto.createHash('sha256').update(invocationId).digest('hex');
@@ -206,7 +226,9 @@ export async function recordReviewInvocationAttempt(
   deps: Partial<ReviewCycleLifecycleDeps> = {},
 ): Promise<string | null> {
   const resolvedDeps = { ...defaultDeps, ...deps };
-  const repoRoot = await resolveReviewRepositoryRoot(params.workingRepositoryPath);
+  const repoRoot = await resolveReviewRepositoryRoot(
+    params.workingRepositoryPath,
+  );
   const reviewCycleId =
     typeof params.reviewCycleId === 'string' &&
     reviewCycleIdPattern.test(params.reviewCycleId)
@@ -350,10 +372,15 @@ export async function initializeReviewCycle(
     typeof priorDisposition?.review_cycle_id === 'string' &&
     priorDisposition.review_cycle_id.trim()
       ? priorDisposition.review_cycle_id.trim()
-      : typeof active?.review_cycle_id === 'string' && active.review_cycle_id.trim()
+      : typeof active?.review_cycle_id === 'string' &&
+          active.review_cycle_id.trim()
         ? active.review_cycle_id.trim()
         : null;
-  if (priorDisposition && priorCycleId && reviewCycleIdPattern.test(priorCycleId)) {
+  if (
+    priorDisposition &&
+    priorCycleId &&
+    reviewCycleIdPattern.test(priorCycleId)
+  ) {
     await atomicWriteJson(
       path.join(
         flowStateRoot,
@@ -405,7 +432,9 @@ export async function finalizeActiveReviewCycle(
   deps: Partial<ReviewCycleLifecycleDeps> = {},
 ): Promise<ActiveReviewCycle | null> {
   const resolvedDeps = { ...defaultDeps, ...deps };
-  const repoRoot = await resolveReviewRepositoryRoot(params.workingRepositoryPath);
+  const repoRoot = await resolveReviewRepositoryRoot(
+    params.workingRepositoryPath,
+  );
   const activePath = path.join(
     repoRoot,
     'codeInfoStatus',
@@ -449,7 +478,9 @@ export async function finalizeActiveReviewCycleIfPending(
   deps: Partial<ReviewCycleLifecycleDeps> = {},
 ): Promise<ActiveReviewCycle | null> {
   const resolvedDeps = { ...defaultDeps, ...deps };
-  const repoRoot = await resolveReviewRepositoryRoot(params.workingRepositoryPath);
+  const repoRoot = await resolveReviewRepositoryRoot(
+    params.workingRepositoryPath,
+  );
   const activePath = path.join(
     repoRoot,
     'codeInfoStatus',

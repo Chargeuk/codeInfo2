@@ -584,11 +584,7 @@ class ProductionReviewChat extends ChatInterface {
     }
 
     // Ownership wording can change; the proof phase must still update fixture state.
-    if (
-      message.includes(
-        "# Goal\n\nRun the selected task's automated proof",
-      )
-    ) {
+    if (message.includes("# Goal\n\nRun the selected task's automated proof")) {
       const planPath = path.join(
         this.probe.repo,
         'planning',
@@ -855,6 +851,83 @@ const reviewRepoEntry = (
   },
   counts: { files: 1, chunks: 1, embedded: 1 },
   lastError: null,
+});
+
+test('PR batch singleton passes required preparation to the native snapshot step', async () => {
+  const fixture = await createFixture(1);
+  const flowDirectory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'pr-binding-flows-'),
+  );
+  const previousFlowsDirectory = getScopedEnvValue('FLOWS_DIR');
+  const previousPreferredAgentHome = getScopedEnvValue('CODEINFO_AGENT_HOME');
+  const previousAgentHome = getScopedEnvValue('CODEINFO_CODEX_AGENT_HOME');
+  const previousCodeInfoRoot = getScopedEnvValue('CODEINFO_ROOT');
+  try {
+    const cycle = JSON.parse(
+      await fs.readFile(
+        path.join(repositoryRoot, 'flows', 'pr_review_cycle.json'),
+        'utf8',
+      ),
+    ) as {
+      steps: Array<{ steps?: Array<{ groups?: unknown[] }> }>;
+    };
+    const group = cycle.steps.find((step) => step.steps)?.steps?.[0]
+      ?.groups?.[0];
+    assert.ok(group);
+    await fs.writeFile(
+      path.join(flowDirectory, 'pr_binding_test.json'),
+      JSON.stringify({
+        description: 'Exercise production PR batch input binding',
+        steps: [{ type: 'subflowWave', groups: [group] }],
+      }),
+    );
+    await fs.writeFile(
+      path.join(flowDirectory, 'review_batch.json'),
+      JSON.stringify({
+        description: 'Snapshot the bound PR batch',
+        steps: [
+          { type: 'prepareReviewTargets', outputKey: 'review_batch_targets' },
+        ],
+      }),
+    );
+    enterTestEnvOverrides({
+      FLOWS_DIR: flowDirectory,
+      CODEINFO_ROOT: repositoryRoot,
+      CODEINFO_AGENT_HOME: path.join(repositoryRoot, 'codeinfo_agents'),
+      CODEINFO_CODEX_AGENT_HOME: path.join(repositoryRoot, 'codex_agents'),
+    });
+    installDeterministicCodexAvailabilityBootstrap();
+    const result = await startFlowRun({
+      flowName: 'pr_binding_test',
+      source: 'REST',
+      working_folder: fixture.root,
+      chatFactory: () => new ProductionReviewChat({} as ProductionReviewProbe),
+      listIngestedRepositories: async () => ({
+        repos: [reviewRepoEntry(fixture.root)],
+        lockedModelId: null,
+      }),
+    });
+    assert.equal(await waitForTerminalFlowStatus(result.conversationId), 'ok');
+    const reviewDir = path.join(fixture.root, 'codeInfoTmp', 'reviews');
+    const snapshots = (await fs.readdir(reviewDir)).filter((name) =>
+      name.endsWith('-review-targets.json'),
+    );
+    assert.equal(snapshots.length, 1);
+    const snapshot = JSON.parse(
+      await fs.readFile(path.join(reviewDir, snapshots[0]!), 'utf8'),
+    ) as ReviewTargetSnapshot;
+    assert.equal(snapshot.targets[0]?.pr_preparation?.status, 'unavailable');
+    assert.equal(snapshot.targets[0]?.comparison_base_commit, undefined);
+  } finally {
+    enterTestEnvOverrides({
+      FLOWS_DIR: previousFlowsDirectory,
+      CODEINFO_ROOT: previousCodeInfoRoot,
+      CODEINFO_AGENT_HOME: previousPreferredAgentHome,
+      CODEINFO_CODEX_AGENT_HOME: previousAgentHome,
+    });
+    await removeWritableTree(flowDirectory);
+    await removeWritableTree(fixture.root);
+  }
 });
 
 test('production two-phase path reviews a direct-fix commit on a new HEAD before one-shot settlement and outer re-entry', async () => {

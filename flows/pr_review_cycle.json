@@ -8,6 +8,22 @@
       "outputKey": "review_cycle"
     },
     {
+      "type": "llm",
+      "label": "Integrate Each Verified PR Target",
+      "agentType": "planning_agent",
+      "identifier": "pr_target_integrator",
+      "continueOnFailure": true,
+      "markdownFile": "integrate_pr_target.md"
+    },
+    {
+      "type": "llm",
+      "label": "Checkpoint Integrated Targets Before Review",
+      "agentType": "planning_agent_lite",
+      "identifier": "planner_lite",
+      "continueOnFailure": true,
+      "markdownFile": "checkpoint_push.md"
+    },
+    {
       "type": "startLoop",
       "label": "Review PR Candidates And Repair Valid Findings",
       "steps": [
@@ -22,6 +38,7 @@
               "flowName": "review_batch",
               "bindings": {
                 "inputValues": {
+                  "pr_preparation_required": true,
                   "copilot_reviews_enabled": false,
                   "review_groups": [
                     {
@@ -63,7 +80,7 @@
           "label": "Repeat Only For Useful Review Of A Changed Candidate",
           "agentType": "loop_control_agent",
           "identifier": "pr_cycle_controller",
-          "question": "Read the current batch target snapshot, all applicable gates, disposition, repeated/normal/stronger repair evidence, outcome and PR reply assessment, then current Git HEAD for each target. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no when any verified new committed fix-bearing HEAD still needs its own pinned remote review and safe publication/observation is available, or the reply assessment positively identifies newly arrived actual findings not yet processed by the existing gates, requiring one fresh same-head batch while reusing the launch. Never reopen previously rejected, disposed or exhausted findings without material new evidence. Answer yes when no such useful action remains, including unchanged unavailable coverage or survivors exhausted after their existing repair opportunities; preserve those honestly for settlement, never interpret them as clean. Do not repeat an unchanged candidate's launch, quota/refusal/failure or exhausted repair. Missing launch or reply evidence alone must not create an endless retry; carry it as unavailable coverage for settlement. A changed candidate invalidates old clean coverage; independently useful changed targets must still be processed.",
+          "question": "Read the current batch target snapshot, applicable gates and dispositions, repair evidence, outcome and PR reply assessment, then current Git HEAD for each target. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no for a verified new committed fix-bearing HEAD needing pinned remote review when safe publication and observation are available. Also answer no for a newly arrived potential-issue source comment requiring disposition, including one ultimately rejected or duplicate, when it has not yet had its one same-head gates-only pass. Reuse the existing launch in that pass: no request, push or description refresh. An existing authoritative applicable disposition permits the reply owner to answer a late duplicate directly. Never repeat the same comment's gates-only pass, reopen disposed or exhausted findings without material new evidence, or repeat an unchanged candidate's launch. Failed or ambiguous posting, missing evidence, and unchanged unavailable coverage do not justify repeating; preserve uncertainty for settlement rather than claiming clean coverage. A changed candidate invalidates old clean coverage; independently useful changed targets must still be processed.",
           "breakOn": "yes",
           "breakOnFailure": true
         }

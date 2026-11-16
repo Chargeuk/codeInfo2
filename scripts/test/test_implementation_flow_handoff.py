@@ -39,7 +39,7 @@ class ImplementationFlowHandoffTests(unittest.TestCase):
                 gates = []
                 for steps in step_lists(flow["steps"]):
                     for index, step in enumerate(steps):
-                        if step.get("label") == "Exit story flow successfully while durable blocker remains":
+                        if step.get("label") == "Leave task execution for review while durable blocker remains":
                             gates.append(step)
                             prior = steps[:index]
                             impact = next(
@@ -86,8 +86,23 @@ class ImplementationFlowHandoffTests(unittest.TestCase):
                                 ):
                                     self.assertIn(clause, question)
                             self.assertEqual(step["breakOn"], "yes")
-                            self.assertIs(step["exitFlow"], True)
+                            self.assertNotIn("exitFlow", step)
                 self.assertEqual(len(gates), 1)
+                story = next(step for step in flow["steps"] if step.get("label") == "Story Execution And Review Loop")
+                outer = story["steps"]
+                labels = [step.get("label") for step in outer]
+                exit_index = labels.index("Exit story flow successfully while durable blocker remains")
+                self.assertEqual(labels[exit_index + 1], "Exit Story Loop When Plan And Review Are Complete")
+                review_label = "Run PR Review Cycle" if name == "pr_current_plan" else "Run Two-Phase Review Cycle"
+                self.assertLess(labels.index(review_label), labels.index("Refresh Plan Handoff After Review Settlement"))
+                self.assertLess(labels.index("Repair Story State After Review Settlement"), labels.index("Checkpoint Push Before Story Completion Check"))
+                self.assertLess(labels.index("Checkpoint Push Before Story Completion Check"), exit_index)
+                late = outer[exit_index]
+                self.assertIs(late["exitFlow"], True)
+                self.assertEqual({k: v for k, v in late.items() if k not in ("label", "exitFlow")},
+                                 {k: v for k, v in gates[0].items() if k != "label"})
+                if name == "implement_next_plan_github_review":
+                    self.assertLess(labels.index("Run GitHub Review Only After Internal Story Completion"), exit_index)
 
     def make_repaired_repo(self, *, prerequisite_blocked=False, handoff="stale"):
         tmp = tempfile.TemporaryDirectory()

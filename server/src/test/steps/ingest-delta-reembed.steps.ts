@@ -111,9 +111,7 @@ Before(async () => {
     unsubscribeRuntimeEntries?.();
     resetStore();
     capturedRuntimeEntries = [];
-    unsubscribeRuntimeEntries = subscribe((entry) => {
-        capturedRuntimeEntries.push(entry);
-    });
+    unsubscribeRuntimeEntries = null;
     setScopedTestEnvValue("CODEINFO_LMSTUDIO_BASE_URL", 'ws://localhost:1234');
     const app = express();
     app.use(cors());
@@ -224,6 +222,11 @@ When('I POST ingest start for the delta repo with model {string}', async (model:
 });
 When('I POST ingest reembed for the delta repo', async () => {
     assert(tempDir, 'temp dir missing');
+    unsubscribeRuntimeEntries?.();
+    capturedRuntimeEntries = [];
+    unsubscribeRuntimeEntries = subscribe((entry) => {
+        capturedRuntimeEntries.push(entry);
+    });
     const res = await fetch(`${baseUrl}/ingest/reembed/${encodeURIComponent(tempDir)}`, { method: 'POST' });
     const body = (await res.json()) as {
         runId?: string;

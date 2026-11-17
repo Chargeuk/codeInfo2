@@ -39,6 +39,8 @@ COPY package*.json ./
 COPY package-lock.json ./
 COPY common/package*.json ./common/
 COPY server/package*.json ./server/
+# Avoid downloading CUDA binaries for the CPU-based image.
+ENV ONNXRUNTIME_NODE_INSTALL_CUDA=skip
 RUN --mount=type=cache,target=/root/.npm \
     set -eu; \
     if [ -n "${CODEINFO_NPM_REGISTRY:-}" ]; then \

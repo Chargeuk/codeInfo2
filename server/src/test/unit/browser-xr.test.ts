@@ -216,6 +216,85 @@ test('server Chromium registers initialization on its persistent context and see
   assert.deepEqual(events, ['launch', 'init', 'initial-tab']);
 });
 
+test('server Chromium selects the renderer while retaining XR initialization', async () => {
+  const module = await import(new URL('start-chromium.mjs', browserRoot).href);
+  const gpuFlags = ['--enable-gpu', '--use-gl=angle', '--use-angle=gl-egl'];
+  for (const [env, expectedPath, gpu] of [
+    [{}, '/usr/bin/chromium', false],
+    [{ CODEINFO_BROWSER_RENDERER: 'cpu' }, '/usr/bin/chromium', false],
+    [{ CODEINFO_BROWSER_RENDERER: 'nvidia_wsl' }, '/bundled/chromium', true],
+    [
+      {
+        CODEINFO_BROWSER_RENDERER: 'nvidia_wsl',
+        CHROME_BIN: '/custom/chromium',
+      },
+      '/custom/chromium',
+      true,
+    ],
+  ] as const) {
+    const events: string[] = [];
+    await module.startChromium(
+      {
+        executablePath: () => '/bundled/chromium',
+        launchPersistentContext: async (
+          profile: string,
+          options: {
+            executablePath: string;
+            headless: boolean;
+            args: string[];
+          },
+        ) => {
+          assert.equal(profile, '/tmp/chrome-profile');
+          assert.equal(options.executablePath, expectedPath);
+          assert.equal(options.headless, true);
+          assert.ok(options.args.includes('--remote-debugging-port=9222'));
+          assert.ok(
+            options.args.includes('--remote-debugging-address=0.0.0.0'),
+          );
+          assert.ok(options.args.includes('--enable-unsafe-swiftshader'));
+          for (const flag of gpuFlags) {
+            assert.equal(options.args.includes(flag), gpu);
+          }
+          events.push('launch');
+          return {
+            addInitScript: async ({ content }: { content: string }) => {
+              assert.match(content, /forceInstall: true/u);
+              events.push('init');
+            },
+            pages: () => [
+              {
+                evaluate: async () => {
+                  events.push('initial-tab');
+                },
+              },
+            ],
+          };
+        },
+      },
+      env,
+    );
+    assert.deepEqual(events, ['launch', 'init', 'initial-tab']);
+  }
+});
+
+test('GPU MCP configuration selects full Chromium and permits software fallback', () => {
+  const config = JSON.parse(
+    fs.readFileSync(new URL('mcp.gpu.config.json', browserRoot), 'utf8'),
+  );
+  assert.equal(config.browser.launchOptions.channel, 'chromium');
+  assert.deepEqual(config.browser.launchOptions.args, [
+    '--enable-gpu',
+    '--use-gl=angle',
+    '--use-angle=gl-egl',
+    '--enable-unsafe-swiftshader',
+  ]);
+  const docker = fs.readFileSync(new URL('Dockerfile', browserRoot), 'utf8');
+  assert.match(
+    docker,
+    /apt-get install -y --no-install-recommends libegl1 libegl-mesa0 libgles2/u,
+  );
+});
+
 test('server Chromium closes its owned browser if initialization fails', async () => {
   const module = await import(new URL('start-chromium.mjs', browserRoot).href);
   let closed = false;
@@ -264,6 +343,11 @@ test('both compose variants build the pinned independent MCP image with isolated
     'utf8',
   );
   assert.match(entrypoint, /node \/app\/browser\/start-chromium.mjs/u);
+  assert.match(entrypoint, /CODEINFO_BROWSER_RENDERER:-cpu.*nvidia_wsl/u);
+  assert.match(
+    entrypoint,
+    /CHROME_BIN="\$\{CHROME_BIN:-\/usr\/bin\/chromium\}"/u,
+  );
   const serverDocker = fs.readFileSync(
     new URL('../../../../server/Dockerfile', import.meta.url),
     'utf8',

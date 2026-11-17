@@ -86,7 +86,10 @@ for (const catalog of catalogs) {
     assert.equal(metadata.requestedProviderId, 'codex');
     assert.deepEqual(metadata.warnings, []);
     assert.equal(config.model, lite.model);
-    assert.equal(config.model_reasoning_effort, lite.model_reasoning_effort);
+    assert.equal(
+      config.model_reasoning_effort,
+      catalog === 'codeinfo_agents' ? 'medium' : 'high',
+    );
     assert.equal(config.web_search, 'live');
 
     // Inspect only the new agent's own declaration; inheritance is caller-owned.

@@ -27,6 +27,10 @@ teardown() {
 }
 
 @test "local stack helper restart uses the checked-in compose wrapper sequence with the docker fixture" {
+  local fixture_repo="${CODEINFO2_HELPER_TMPDIR}/repo"
+  mkdir -p "${fixture_repo}"
+  ln -s "${CODEINFO2_REPO_ROOT}/scripts" "${fixture_repo}/scripts"
+
   run env \
     CODEINFO_DOCKER_BIN="${CODEINFO2_DOCKER_FIXTURE_BIN}" \
     CODEINFO_TEST_DOCKER_COMPOSE_CONFIG_JSON="${CODEINFO2_COMPOSE_FIXTURE_DIR}/host-network-local-valid.json" \
@@ -36,7 +40,7 @@ teardown() {
     CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
     bash "${CODEINFO2_REPO_ROOT}/scripts/local-stack-helper-restart.sh" \
     --delay-seconds 0 \
-    --repo-root "${CODEINFO2_REPO_ROOT}" \
+    --repo-root "${fixture_repo}" \
     --log-path "${CODEINFO2_HELPER_TMPDIR}/helper.log"
 
   assert_success

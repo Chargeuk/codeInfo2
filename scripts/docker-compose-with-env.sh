@@ -144,6 +144,7 @@ resolve_docker_socket() {
 
 parse_compose_args() {
   COMPOSE_FILES=()
+  COMPOSE_FILE_EXPLICIT=0
   COMPOSE_OPTIONS=()
   COMPOSE_SUBCOMMAND=""
   COMPOSE_SUBCOMMAND_ARGS=()
@@ -158,6 +159,7 @@ parse_compose_args() {
           fi
           if [ "$1" = "-f" ] || [ "$1" = "--file" ]; then
             COMPOSE_FILES+=("$2")
+            COMPOSE_FILE_EXPLICIT=1
           fi
           COMPOSE_OPTIONS+=("$1" "$2")
           shift 2
@@ -167,6 +169,7 @@ parse_compose_args() {
           case "$1" in
             --file=*)
               COMPOSE_FILES+=("${1#*=}")
+              COMPOSE_FILE_EXPLICIT=1
               ;;
           esac
           COMPOSE_OPTIONS+=("$1")
@@ -405,6 +408,76 @@ child.once("exit", (code) => { clearTimeout(timer); process.exitCode = !timedOut
   COMPOSE_FILES+=("${wrapper_root}/docker-compose.optional-share.yml")
   COMPOSE_FINAL_ARGS=("${COMPOSE_OPTIONS[@]}" "${COMPOSE_SUBCOMMAND}")
   # Bash 3.2 treats expansion of an empty array as unbound under set -u.
+  if [ "${#COMPOSE_SUBCOMMAND_ARGS[@]}" -gt 0 ]; then
+    COMPOSE_FINAL_ARGS+=("${COMPOSE_SUBCOMMAND_ARGS[@]}")
+  fi
+}
+
+add_optional_nvidia_wsl() {
+  # Only startup of the checked-in main/local stacks selects a renderer.
+  [ "${COMPOSE_SUBCOMMAND}" = "up" ] || return 0
+  case "$(basename "${COMPOSE_FILES[0]}")" in
+    docker-compose.yml | docker-compose.local.yml) ;;
+    *) return 0 ;;
+  esac
+  case "$(compose_profile_for_files)" in
+    main | local) ;;
+    *) return 0 ;;
+  esac
+  local repo_root renderer image probe_name
+  repo_root="$(repo_root_for_compose_wrapper)"
+  if ! renderer="$(node -e '
+const fs = require("node:fs");
+const { parseEnv } = require("node:util");
+try {
+  const values = parseEnv(fs.readFileSync(process.argv[1], "utf8"));
+  process.stdout.write((values.CODEINFO_BROWSER_RENDERER || "").trim());
+} catch (error) {
+  if (error.code !== "ENOENT") { console.error("Warning: cannot read browser renderer selection; using CPU."); process.exitCode = 1; }
+}
+' "${repo_root}/.env.local")"; then
+    return 0
+  fi
+  case "${renderer}" in
+    "" | cpu) return 0 ;;
+    nvidia_wsl) ;;
+    *) printf '%s\n' 'Warning: unknown browser renderer selection; using CPU.' >&2; return 0 ;;
+  esac
+
+  image=codeinfo2-server
+  if [ "$(compose_profile_for_files)" = "local" ]; then image=codeinfo2-server-local; fi
+  probe_name="codeinfo2-gpu-probe-$$-${RANDOM}"
+  # The daemon validates the GPU request and bind mounts. Never pull an image;
+  # the ordinary build-first workflow supplies the server image.
+  if ! node -e '
+const { spawnSync } = require("node:child_process");
+const [docker, name, image] = process.argv.slice(1);
+const args = ["run", "--rm", "--name", name, "--pull", "never", "--user", `${process.env.CODEINFO_DOCKER_UID}:${process.env.CODEINFO_DOCKER_GID}`, "--gpus", "all", "--network", "none", "--entrypoint", "node",
+  "--mount", "type=bind,src=/usr/lib/wsl,dst=/usr/lib/wsl,readonly",
+  "--mount", "type=bind,src=/tmp/.X11-unix,dst=/tmp/.X11-unix,readonly",
+  "--mount", "type=bind,src=/mnt/wslg,dst=/mnt/wslg,readonly", image, "-e",
+  `const fs = require("node:fs");
+const { spawnSync } = require("node:child_process");
+for (const p of ["/dev/dxg", "/usr/lib/wsl/lib/libd3d12.so", "/usr/lib/wsl/lib/libd3d12core.so", "/usr/lib/wsl/lib/libdxcore.so", "/usr/lib/wsl/drivers", "/tmp/.X11-unix/X0", "/mnt/wslg"]) fs.accessSync(p, fs.constants.R_OK);
+if (!fs.statSync("/dev/dxg").isCharacterDevice() || !fs.statSync("/tmp/.X11-unix/X0").isSocket() || !fs.statSync("/usr/lib/wsl/drivers").isDirectory()) process.exit(1);
+for (const p of ["/usr/lib/wsl/lib/libd3d12.so", "/usr/lib/wsl/lib/libd3d12core.so", "/usr/lib/wsl/lib/libdxcore.so"]) if (!fs.statSync(p).isFile()) process.exit(1);
+const gpu = spawnSync("nvidia-smi", ["--query-gpu=name", "--format=csv,noheader"], { encoding: "utf8", maxBuffer: 65536, stdio: ["ignore", "pipe", "ignore"] });
+if (gpu.status !== 0 || !gpu.stdout?.split(/\\r?\\n/).some((line) => line.trim())) process.exit(1);`];
+const result = spawnSync(docker, args, { timeout: 15000, stdio: "ignore" });
+if (result.status !== 0) {
+  spawnSync(docker, ["rm", "-f", name], { timeout: 5000, stdio: "ignore" });
+  console.error(result.error?.code === "ETIMEDOUT" ? "Warning: NVIDIA WSL probe timed out; using CPU." : "Warning: NVIDIA WSL GPU, graphics resources, or built server image unavailable; using CPU.");
+  process.exitCode = 1;
+}
+' "${DOCKER_BIN}" "${probe_name}" "${image}"; then
+    return 0
+  fi
+  if [ "${COMPOSE_FILE_EXPLICIT}" -eq 0 ]; then
+    COMPOSE_OPTIONS+=(-f "${COMPOSE_FILES[0]}")
+  fi
+  COMPOSE_OPTIONS+=(-f "${repo_root}/docker-compose.nvidia-wsl.yml")
+  COMPOSE_FILES+=("${repo_root}/docker-compose.nvidia-wsl.yml")
+  COMPOSE_FINAL_ARGS=("${COMPOSE_OPTIONS[@]}" "${COMPOSE_SUBCOMMAND}")
   if [ "${#COMPOSE_SUBCOMMAND_ARGS[@]}" -gt 0 ]; then
     COMPOSE_FINAL_ARGS+=("${COMPOSE_SUBCOMMAND_ARGS[@]}")
   fi
@@ -886,6 +959,7 @@ else
 fi
 
 add_optional_local_share_if_available
+add_optional_nvidia_wsl
 run_compose_preflight_if_needed
 
 exec "${DOCKER_BIN}" compose "${COMPOSE_FINAL_ARGS[@]}"

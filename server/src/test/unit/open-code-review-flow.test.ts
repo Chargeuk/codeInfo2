@@ -161,9 +161,9 @@ test('source heavy and maximum review agents share the review boundary while ret
     'codeinfo_agents/review_agent_max/commands/code_review_findings.json',
   );
 
-  assert.match(heavyConfig, /model = "gpt-6\.1-sol"/u);
+  assert.match(heavyConfig, /model = "gpt-6\.2-sol"/u);
   assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
-  assert.match(maxConfig, /model = "gpt-6\.1-sol"/u);
+  assert.match(maxConfig, /model = "gpt-6\.2-sol"/u);
   assert.match(maxConfig, /model_reasoning_effort = "xhigh"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);
@@ -217,7 +217,11 @@ test('active agents preserve their configured model and effort tiers', () => {
       ].includes(agent);
       assert.match(
         config,
-        terra ? /^model = "gpt-6\.1-terra"$/mu : /^model = "gpt-6\.1-sol"$/mu,
+        terra
+          ? /^model = "gpt-6\.1-terra"$/mu
+          : root === 'codeinfo_agents'
+            ? /^model = "gpt-6\.2-sol"$/mu
+            : /^model = "gpt-6\.1-sol"$/mu,
       );
       assert.match(
         config,
@@ -226,7 +230,7 @@ test('active agents preserve their configured model and effort tiers', () => {
       if (agent === 'review_agent_heavy' || agent === 'review_agent_max') {
         assert.match(
           readRepoFile(`${root}/${agent}/description.md`),
-          /GPT-6\.1 Sol/u,
+          root === 'codeinfo_agents' ? /GPT-6\.2 Sol/u : /GPT-6\.1 Sol/u,
         );
       }
     }

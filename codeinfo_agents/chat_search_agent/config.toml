@@ -1,6 +1,6 @@
 codeinfo_provider = "codex"
 model = "gpt-6-luna"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
 web_search_mode = "live"

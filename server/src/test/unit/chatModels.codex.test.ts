@@ -635,6 +635,8 @@ test('codex model list empty CSV falls back with warning', async () => {
       'gpt-6.1-terra',
       'gpt-6-luna',
       'gpt-6-astra',
+      'gpt-6.2-astra',
+      'gpt-6.2-sol',
     ]);
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>
@@ -667,6 +669,8 @@ test('codex model list whitespace-only CSV falls back with warning', async () =>
       'gpt-6.1-terra',
       'gpt-6-luna',
       'gpt-6-astra',
+      'gpt-6.2-astra',
+      'gpt-6.2-sol',
     ]);
     assert.ok(
       res.body.codexWarnings.some((warning: string) =>

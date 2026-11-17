@@ -138,6 +138,8 @@ test('empty Codex_model_list still falls back to the parser-owned model defaults
     'gpt-6.1-terra',
     'gpt-6-luna',
     'gpt-6-astra',
+    'gpt-6.2-astra',
+    'gpt-6.2-sol',
   ]);
   assert.ok(
     warnings.some((warning) => warning.includes('Codex_model_list is empty')),

@@ -1,1 +1,1 @@
-Heavy review agent using GPT-6.1 Sol with high reasoning effort to inspect the current task or diff for bugs, regressions, missing proof, and plan mismatch without drifting into planning or implementation.
+Heavy review agent using GPT-6.2 Sol with high reasoning effort to inspect the current task or diff for bugs, regressions, missing proof, and plan mismatch without drifting into planning or implementation.

@@ -6,7 +6,87 @@ setup() {
   codeinfo2_shell_harness_setup
   export CODEINFO2_TASK9_TMPDIR
   CODEINFO2_TASK9_TMPDIR="$(codeinfo2_make_temp_dir)"
+  export CODEINFO_COMPOSE_REPO_ROOT_OVERRIDE="${CODEINFO2_TASK9_TMPDIR}"
   export CODEINFO_TEST_DOCKER_FIXTURE_LOG="${CODEINFO2_TASK9_TMPDIR}/docker.log"
+}
+
+@test "browser renderer defaults to CPU without probing and does not execute dotenv content" {
+  printf '%s\n' 'OTHER_SECRET=$(touch should-not-exist)' 'CODEINFO_BROWSER_RENDERER=""' > "${CODEINFO2_TASK9_TMPDIR}/.env.local"
+  codeinfo2_run_compose_wrapper docker-compose.yml host-network-local-valid.json CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1
+  assert_success
+  refute_output --partial 'OTHER_SECRET'
+  [ ! -e should-not-exist ]
+  run grep -F -- '--gpus all' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_failure
+}
+
+@test "absent and explicit CPU selectors do not request a GPU" {
+  for selector in absent cpu; do
+    if [ "${selector}" = cpu ]; then
+      printf '%s\n' 'CODEINFO_BROWSER_RENDERER=cpu' > "${CODEINFO2_TASK9_TMPDIR}/.env.local"
+    fi
+    : > "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    codeinfo2_run_compose_wrapper docker-compose.yml host-network-local-valid.json CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1
+    assert_success
+    run grep -F -- '--gpus all' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_failure
+  done
+}
+
+@test "unknown renderer warns and uses CPU" {
+  printf '%s\n' 'CODEINFO_BROWSER_RENDERER=unknown' > "${CODEINFO2_TASK9_TMPDIR}/.env.local"
+  codeinfo2_run_compose_wrapper docker-compose.yml host-network-local-valid.json CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1
+  assert_success
+  assert_output --partial 'unknown browser renderer selection'
+  run grep -F -- '--gpus all' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_failure
+}
+
+@test "NVIDIA WSL selection adds the override after a daemon probe for both stacks" {
+  printf '%s\n' 'CODEINFO_BROWSER_RENDERER="nvidia_wsl" # selected' > "${CODEINFO2_TASK9_TMPDIR}/.env.local"
+  for profile in main local; do
+    : > "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    if [ "${profile}" = main ]; then
+      compose_file=docker-compose.yml
+      fixture=host-network-local-valid.json
+    else
+      compose_file=docker-compose.local.yml
+      fixture=host-network-local-valid.json
+    fi
+    codeinfo2_run_compose_wrapper "${compose_file}" "${fixture}" CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 CODEINFO_TEST_DOCKER_RUN_STDOUT='private-gpu-output'
+    assert_success
+    refute_output --partial 'private-gpu-output'
+    run grep -F -- '--gpus all --network none' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_success
+    for required in nvidia-smi --query-gpu=name /dev/dxg /usr/lib/wsl/lib/libd3d12.so /usr/lib/wsl/lib/libd3d12core.so /usr/lib/wsl/lib/libdxcore.so /usr/lib/wsl/drivers /tmp/.X11-unix/X0; do
+      run grep -F -- "${required}" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+      assert_success
+    done
+    run grep -F -- "-f ${CODEINFO2_TASK9_TMPDIR}/docker-compose.nvidia-wsl.yml up -d" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_success
+  done
+}
+
+@test "failed GPU probe cleans up and continues without override" {
+  printf '%s\n' 'CODEINFO_BROWSER_RENDERER=nvidia_wsl' > "${CODEINFO2_TASK9_TMPDIR}/.env.local"
+  codeinfo2_run_compose_wrapper docker-compose.yml host-network-local-valid.json CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 CODEINFO_TEST_DOCKER_RUN_EXIT_CODE=1
+  assert_success
+  assert_output --partial 'using CPU'
+  run grep -F -- 'rm -f codeinfo2-gpu-probe-' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_success
+  run grep -F -- 'docker-compose.nvidia-wsl.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_failure
+}
+
+@test "GPU override retains the implicit default compose file" {
+  printf '%s\n' 'CODEINFO_BROWSER_RENDERER=nvidia_wsl' > "${CODEINFO2_TASK9_TMPDIR}/.env.local"
+  run env CODEINFO_DOCKER_BIN="${CODEINFO2_DOCKER_FIXTURE_BIN}" \
+    CODEINFO_TEST_DOCKER_COMPOSE_CONFIG_JSON="${CODEINFO2_COMPOSE_FIXTURE_DIR}/host-network-local-valid.json" \
+    CODEINFO_TEST_DISABLE_REAL_PORT_CHECKS=1 CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 \
+    bash "${CODEINFO2_REPO_ROOT}/scripts/docker-compose-with-env.sh" up -d
+  assert_success
+  run grep -F -- "-f docker-compose.yml -f ${CODEINFO2_TASK9_TMPDIR}/docker-compose.nvidia-wsl.yml up -d" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_success
 }
 
 teardown() {

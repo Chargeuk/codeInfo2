@@ -1,0 +1,56 @@
+services:
+  server:
+    gpus: all
+    environment:
+      CODEINFO_BROWSER_RENDERER: nvidia_wsl
+      DISPLAY: ':0'
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib:/usr/lib/wsl/drivers
+      GALLIUM_DRIVER: d3d12
+      MESA_D3D12_DEFAULT_ADAPTER_NAME: NVIDIA
+    volumes:
+      - type: bind
+        source: /usr/lib/wsl
+        target: /usr/lib/wsl
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /tmp/.X11-unix
+        target: /tmp/.X11-unix
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/wslg
+        target: /mnt/wslg
+        read_only: true
+        bind:
+          create_host_path: false
+  playwright-mcp:
+    gpus: all
+    environment:
+      CODEINFO_BROWSER_RENDERER: nvidia_wsl
+      PLAYWRIGHT_MCP_CONFIG: /app/browser/mcp.gpu.config.json
+      DISPLAY: ':0'
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib:/usr/lib/wsl/drivers
+      GALLIUM_DRIVER: d3d12
+      MESA_D3D12_DEFAULT_ADAPTER_NAME: NVIDIA
+    volumes:
+      - type: bind
+        source: /usr/lib/wsl
+        target: /usr/lib/wsl
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /tmp/.X11-unix
+        target: /tmp/.X11-unix
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/wslg
+        target: /mnt/wslg
+        read_only: true
+        bind:
+          create_host_path: false

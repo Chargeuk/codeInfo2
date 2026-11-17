@@ -1,7 +1,9 @@
 #!/usr/bin/env sh
 set -e
 
-CHROME_BIN="${CHROME_BIN:-/usr/bin/chromium}"
+if [ "${CODEINFO_BROWSER_RENDERER:-cpu}" != "nvidia_wsl" ]; then
+  CHROME_BIN="${CHROME_BIN:-/usr/bin/chromium}"
+fi
 CHROME_REMOTE_DEBUG_PORT="${CHROME_REMOTE_DEBUG_PORT:-9222}"
 CHROME_REMOTE_DEBUG_ADDRESS="${CHROME_REMOTE_DEBUG_ADDRESS:-0.0.0.0}"
 CHROME_USER_DATA_DIR="${CHROME_USER_DATA_DIR:-/tmp/chrome-profile}"
@@ -116,15 +118,15 @@ run_copilot_seed_import() {
   printf 'story.0000056.task04.copilot_seed_import %s\n' "$seed_result_json"
 }
 
-if [ -x "$CHROME_BIN" ]; then
-  CHROME_BIN="$CHROME_BIN" \
+if [ "${CODEINFO_BROWSER_RENDERER:-cpu}" = "nvidia_wsl" ] && [ -z "${CHROME_BIN:-}" ] || [ -x "${CHROME_BIN:-}" ]; then
+  CHROME_BIN="${CHROME_BIN:-}" \
     CHROME_REMOTE_DEBUG_PORT="$CHROME_REMOTE_DEBUG_PORT" \
     CHROME_REMOTE_DEBUG_ADDRESS="$CHROME_REMOTE_DEBUG_ADDRESS" \
     CHROME_USER_DATA_DIR="$CHROME_USER_DATA_DIR" \
     CHROME_HEADLESS="$CHROME_HEADLESS" \
     node /app/browser/start-chromium.mjs >/tmp/chrome-devtools.log 2>&1 &
 else
-  echo "Chrome binary not found at $CHROME_BIN" >&2
+  echo "Chrome binary not found at ${CHROME_BIN:-}" >&2
 fi
 
 corp_certs_mount_source="${CODEINFO_CORP_CERTS_DIR:-./certs/empty-corp-ca}"

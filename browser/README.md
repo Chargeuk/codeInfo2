@@ -1,5 +1,30 @@
 # Browser VR testing
 
+## Browser rendering modes
+
+Browser rendering uses `cpu` by default. Set the host-only
+`CODEINFO_BROWSER_RENDERER=nvidia_wsl` in the repository-root `.env.local` to
+opt in to NVIDIA WSL acceleration. The selector is read from that file; do not
+put it in `server/.env.local`. Unknown values warn and use CPU rendering. If
+NVIDIA WSL GPU routing is unavailable, startup continues with CPU rendering.
+The setting applies to both the server's remote-debugging Chromium and the
+separately containerized Playwright MCP browser. Acceleration is supported only
+for NVIDIA WSL, using the host's already-configured NVIDIA/WSLg setup without
+modifying host drivers.
+
+## Rendering proof status
+
+- On 2026-11-17, the server CDP browser and pinned Playwright MCP browser both
+  passed WebGL 1 and WebGL 2 rendering and pixel readback in CPU mode, with no
+  GL errors. Both reported Chromium SwiftShader software rendering.
+- The wrapper's failed-GPU-probe fallback check passed and the isolated CPU
+  browser proofs confirmed that both browser routes start without GPU requests
+  or WSL graphics mounts.
+- On 2026-11-17, both GPU routes passed with the NVIDIA WSL graphics mounts and
+  GPU request: the server CDP browser (Chromium 141) and pinned Playwright MCP
+  browser (Chromium 155) reported an NVIDIA GeForce RTX 5090 D3D12 renderer for
+  WebGL 1 and 2, correct pixel readback, and no GL errors.
+
 CodeInfo2 includes offline WebXR emulation for browser tests. The browser startup path makes its initialization script available before page scripts; the pinned IWER 2.7.0 runtime is installed only after a test opts in. Ordinary sessions retain Chromium's native XR API and stay in 2D.
 
 ## Availability and lifecycle

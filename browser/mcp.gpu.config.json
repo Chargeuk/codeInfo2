@@ -1,0 +1,13 @@
+{
+  "browser": {
+    "launchOptions": {
+      "channel": "chromium",
+      "args": [
+        "--enable-gpu",
+        "--use-gl=angle",
+        "--use-angle=gl-egl",
+        "--enable-unsafe-swiftshader"
+      ]
+    }
+  }
+}

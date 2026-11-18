@@ -5,13 +5,14 @@ import { createXRInitScript } from './xr-init.mjs';
 // This owns the server Chromium only. The isolated Playwright MCP service uses
 // its own --init-script and remains an independent browser.
 export async function startChromium(browserType, env) {
-  const gpu = env.CODEINFO_BROWSER_RENDERER === 'nvidia_wsl';
+  const wsl = env.CODEINFO_BROWSER_RENDERER === 'nvidia_wsl';
+  const gpu = wsl || env.CODEINFO_BROWSER_RENDERER === 'nvidia_ubuntu';
   const context = await browserType.launchPersistentContext(
     env.CHROME_USER_DATA_DIR || '/tmp/chrome-profile',
     {
       executablePath:
         env.CHROME_BIN ||
-        (gpu ? browserType.executablePath() : '/usr/bin/chromium'),
+        (wsl ? browserType.executablePath() : '/usr/bin/chromium'),
       headless: (env.CHROME_HEADLESS || 'true') === 'true',
       viewport: null,
       chromiumSandbox: false,

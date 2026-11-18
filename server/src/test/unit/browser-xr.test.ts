@@ -223,6 +223,15 @@ test('server Chromium selects the renderer while retaining XR initialization', a
     [{}, '/usr/bin/chromium', false],
     [{ CODEINFO_BROWSER_RENDERER: 'cpu' }, '/usr/bin/chromium', false],
     [{ CODEINFO_BROWSER_RENDERER: 'nvidia_wsl' }, '/bundled/chromium', true],
+    [{ CODEINFO_BROWSER_RENDERER: 'nvidia_ubuntu' }, '/usr/bin/chromium', true],
+    [
+      {
+        CODEINFO_BROWSER_RENDERER: 'nvidia_ubuntu',
+        CHROME_BIN: '/custom/chromium',
+      },
+      '/custom/chromium',
+      true,
+    ],
     [
       {
         CODEINFO_BROWSER_RENDERER: 'nvidia_wsl',

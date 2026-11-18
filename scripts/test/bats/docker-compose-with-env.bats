@@ -78,6 +78,52 @@ setup() {
   assert_failure
 }
 
+@test "NVIDIA Ubuntu selection probes the CDI device and adds the override for both stacks" {
+  printf '%s\n' 'CODEINFO_BROWSER_RENDERER=nvidia_ubuntu' > "${CODEINFO2_TASK9_TMPDIR}/.env.local"
+  for profile in main local; do
+    : > "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    if [ "${profile}" = main ]; then
+      compose_file=docker-compose.yml
+      image=codeinfo2-server
+    else
+      compose_file=docker-compose.local.yml
+      image=codeinfo2-server-local
+    fi
+    codeinfo2_run_compose_wrapper "${compose_file}" host-network-local-valid.json CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1
+    assert_success
+    for required in '--pull never' '--device nvidia.com/gpu=all --network none' "${image} --input-type=module" 'UNMASKED_RENDERER_WEBGL' "-f ${CODEINFO2_TASK9_TMPDIR}/docker-compose.nvidia-ubuntu.yml up -d"; do
+      run grep -F -- "${required}" "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+      assert_success
+    done
+  done
+}
+
+@test "NVIDIA Ubuntu override attaches CDI to both browsers and selects GPU configuration" {
+  local override="${CODEINFO2_REPO_ROOT}/docker-compose.nvidia-ubuntu.yml"
+  run grep -cFx '      - nvidia.com/gpu=all' "${override}"
+  assert_success
+  assert_output '2'
+  run grep -cFx '      CODEINFO_BROWSER_RENDERER: nvidia_ubuntu' "${override}"
+  assert_success
+  assert_output '2'
+  run grep -Fx '      PLAYWRIGHT_MCP_CONFIG: /app/browser/mcp.gpu.config.json' "${override}"
+  assert_success
+}
+
+@test "failed NVIDIA Ubuntu probe cleans up and continues on CPU for both stacks" {
+  printf '%s\n' 'CODEINFO_BROWSER_RENDERER=nvidia_ubuntu' > "${CODEINFO2_TASK9_TMPDIR}/.env.local"
+  for compose_file in docker-compose.yml docker-compose.local.yml; do
+    : > "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    codeinfo2_run_compose_wrapper "${compose_file}" host-network-local-valid.json CODEINFO_HOST_NETWORK_SUPPORTED_OVERRIDE=1 CODEINFO_TEST_DOCKER_RUN_EXIT_CODE=1
+    assert_success
+    assert_output --partial 'using CPU'
+    run grep -F -- 'rm -f codeinfo2-gpu-probe-' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_success
+    run grep -F -- 'docker-compose.nvidia-ubuntu.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_failure
+  done
+}
+
 @test "GPU override retains the implicit default compose file" {
   printf '%s\n' 'CODEINFO_BROWSER_RENDERER=nvidia_wsl' > "${CODEINFO2_TASK9_TMPDIR}/.env.local"
   run env CODEINFO_DOCKER_BIN="${CODEINFO2_DOCKER_FIXTURE_BIN}" \

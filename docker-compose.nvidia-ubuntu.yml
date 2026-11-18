@@ -1,0 +1,12 @@
+services:
+  server:
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      CODEINFO_BROWSER_RENDERER: nvidia_ubuntu
+  playwright-mcp:
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      CODEINFO_BROWSER_RENDERER: nvidia_ubuntu
+      PLAYWRIGHT_MCP_CONFIG: /app/browser/mcp.gpu.config.json

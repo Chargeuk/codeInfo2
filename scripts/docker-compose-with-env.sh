@@ -413,7 +413,7 @@ child.once("exit", (code) => { clearTimeout(timer); process.exitCode = !timedOut
   fi
 }
 
-add_optional_nvidia_wsl() {
+add_optional_nvidia_renderer() {
   # Only startup of the checked-in main/local stacks selects a renderer.
   [ "${COMPOSE_SUBCOMMAND}" = "up" ] || return 0
   case "$(basename "${COMPOSE_FILES[0]}")" in
@@ -440,16 +440,43 @@ try {
   fi
   case "${renderer}" in
     "" | cpu) return 0 ;;
-    nvidia_wsl) ;;
+    nvidia_wsl | nvidia_ubuntu) ;;
     *) printf '%s\n' 'Warning: unknown browser renderer selection; using CPU.' >&2; return 0 ;;
   esac
 
   image=codeinfo2-server
   if [ "$(compose_profile_for_files)" = "local" ]; then image=codeinfo2-server-local; fi
   probe_name="codeinfo2-gpu-probe-$$-${RANDOM}"
-  # The daemon validates the GPU request and bind mounts. Never pull an image;
-  # the ordinary build-first workflow supplies the server image.
-  if ! node -e '
+  if [ "${renderer}" = "nvidia_ubuntu" ]; then
+    if ! node -e '
+const { spawnSync } = require("node:child_process");
+const [docker, name, image] = process.argv.slice(1);
+const args = ["run", "--rm", "--name", name, "--pull", "never", "--user", `${process.env.CODEINFO_DOCKER_UID}:${process.env.CODEINFO_DOCKER_GID}`, "--device", "nvidia.com/gpu=all", "--network", "none", "--entrypoint", "node", image, "--input-type=module", "-e", `
+import { chromium } from "/opt/playwright/node_modules/playwright/index.mjs";
+const browser = await chromium.launch({ executablePath: "/usr/bin/chromium", headless: true, chromiumSandbox: false, args: ["--enable-unsafe-swiftshader", "--enable-gpu", "--use-gl=angle", "--use-angle=gl-egl"] });
+try {
+  const page = await browser.newPage();
+  const renderer = await page.evaluate(() => {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+    return ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+  });
+  if (!renderer || !/nvidia/i.test(renderer) || /swiftshader/i.test(renderer)) process.exitCode = 1;
+} finally { await browser.close(); }
+`];
+const result = spawnSync(docker, args, { timeout: 30000, stdio: "ignore" });
+if (result.status !== 0) {
+  spawnSync(docker, ["rm", "-f", name], { timeout: 5000, stdio: "ignore" });
+  console.error(result.error?.code === "ETIMEDOUT" ? "Warning: NVIDIA Ubuntu probe timed out; using CPU." : "Warning: NVIDIA Ubuntu GPU, graphics resources, or built server image unavailable; using CPU.");
+  process.exitCode = 1;
+}
+' "${DOCKER_BIN}" "${probe_name}" "${image}"; then
+      return 0
+    fi
+  else
+    # The daemon validates the GPU request and bind mounts. Never pull an image;
+    # the ordinary build-first workflow supplies the server image.
+    if ! node -e '
 const { spawnSync } = require("node:child_process");
 const [docker, name, image] = process.argv.slice(1);
 const args = ["run", "--rm", "--name", name, "--pull", "never", "--user", `${process.env.CODEINFO_DOCKER_UID}:${process.env.CODEINFO_DOCKER_GID}`, "--gpus", "all", "--network", "none", "--entrypoint", "node",
@@ -470,13 +497,15 @@ if (result.status !== 0) {
   process.exitCode = 1;
 }
 ' "${DOCKER_BIN}" "${probe_name}" "${image}"; then
-    return 0
+      return 0
+    fi
   fi
   if [ "${COMPOSE_FILE_EXPLICIT}" -eq 0 ]; then
     COMPOSE_OPTIONS+=(-f "${COMPOSE_FILES[0]}")
   fi
-  COMPOSE_OPTIONS+=(-f "${repo_root}/docker-compose.nvidia-wsl.yml")
-  COMPOSE_FILES+=("${repo_root}/docker-compose.nvidia-wsl.yml")
+  local override="${repo_root}/docker-compose.${renderer//_/-}.yml"
+  COMPOSE_OPTIONS+=(-f "${override}")
+  COMPOSE_FILES+=("${override}")
   COMPOSE_FINAL_ARGS=("${COMPOSE_OPTIONS[@]}" "${COMPOSE_SUBCOMMAND}")
   if [ "${#COMPOSE_SUBCOMMAND_ARGS[@]}" -gt 0 ]; then
     COMPOSE_FINAL_ARGS+=("${COMPOSE_SUBCOMMAND_ARGS[@]}")
@@ -959,7 +988,7 @@ else
 fi
 
 add_optional_local_share_if_available
-add_optional_nvidia_wsl
+add_optional_nvidia_renderer
 run_compose_preflight_if_needed
 
 exec "${DOCKER_BIN}" compose "${COMPOSE_FINAL_ARGS[@]}"

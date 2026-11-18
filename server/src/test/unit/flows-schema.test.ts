@@ -502,7 +502,7 @@ describe('flow schema (v1)', () => {
       'flows/review_batch.json',
       'flows/local_review_batch.json',
       'flows/local_review_current_plan.json',
-      'flows/local_review_implementation.json',
+      'flows/local_whole_story_proof.json',
       'flows/review_disposition_current_artifacts.json',
       'flows/review_plan.json',
       'flows/review_task_up_path.json',

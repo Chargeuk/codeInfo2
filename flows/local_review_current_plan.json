@@ -1,34 +1,6 @@
 {
-  "description": "Execute genuine remaining current-plan work, run whole-story proof and two bounded local review phases, and retain best-effort settlement evidence.",
+  "description": "Run whole-story proof and two bounded local review phases, and retain best-effort settlement evidence.",
   "steps": [
-    {
-      "type": "startLoop",
-      "label": "Execute Only Genuine Remaining Original Work",
-      "maxIterations": 1,
-      "steps": [
-        {
-          "type": "break",
-          "label": "Skip Task Execution Without Verified Original Work",
-          "agentType": "loop_control_agent",
-          "identifier": "local_original_task_controller",
-          "question": "Read the current-plan handoff, run plan_status.py --include-tasks and use bounded story and relevant task sections, original identities and current source/proof evidence. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no only when positively verified original implementation remains or a proven original implementation repair is required, including task-specific proof only where it is a genuine prerequisite to that remaining work. Answer yes for no such work, the proof-only final task alone, or missing, ambiguous or unsafe evidence. Never treat empty helper output or an unchecked-count alone as proof of completion; retain unknown work for honest closeout. Whole-story proof owns the final proof-only task.",
-          "breakOn": "yes",
-          "breakOnFailure": true
-        },
-        {
-          "type": "subflowWave",
-          "label": "Execute Remaining Current Plan Tasks",
-          "failureMode": "best_effort",
-          "groups": [
-            {
-              "kind": "singleton",
-              "id": "local_implementation",
-              "flowName": "local_review_implementation"
-            }
-          ]
-        }
-      ]
-    },
     {
       "type": "subflowWave",
       "label": "Run Initial Whole Story Proof",
@@ -118,7 +90,7 @@
           "label": "Finish Phase On Zero Accepted Or No Useful Progress",
           "agentType": "loop_control_agent",
           "identifier": "local_standard_batch_controller",
-          "question": "Read-only: identify this actual Standard Local Review invocation and its current round using the verified running local_review_current_plan conversation and its flags.flow.loopStack and flags.flow.subflowWaveProgress from GET /conversations, then the actual local_review_batch child ID, flags.flowChild.waveInvocationId and terminal outcome from GET /flows/runs/{childId}; use that child’s flags.flow.values.review_batch_targets to bind its exact snapshot, then bind that child to its assigned immutable batch and active cycle. Cross-check the phase from batch-launch.md and job.md instance IDs beginning local_standard_target_reviews:; resolve its exact snapshot, gates, disposition, task and outcome and inspect fresh Git in every target. Do not infer current identity from a latest/current pointer, timestamps or an older round; if current launch failed before a batch existed, or attribution is missing or ambiguous, do not reuse previous batch evidence. Preserve missing/partial coverage as incomplete. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no when current-round verified repair produced a new committed target HEAD requiring review, including when independent survivors remain stalled or coverage is partial. Otherwise answer yes when current-round gates positively establish zero accepted survivors, or no verified changed candidate has a safe useful review; unresolved, failed or unattributed work remains incomplete, never clean. Never retry an unchanged candidate; only review rounds count toward the limit.",
+          "question": "Read-only: identify this Standard Local Review invocation and current round from the running local_review_current_plan conversation. GET /conversations returns items and nextCursor: inspect the parent's flags.flow.loopStack and flags.flow.subflowWaveProgress.jobs, including the local_standard_batch:local_review_batch instanceId and its conversationId; match the child conversation by conversationId, flowName and flags.flowChild executionId, instanceId and waveInvocationId. Read the child's flags.flow.values.review_batch_targets from GET /conversations, and its terminal, status and terminalOutcome from GET /flows/runs/{conversationId}; that endpoint does not return flags. Bind the exact current wave and child to its immutable batch and active cycle, cross-checking batch-launch.md and job.md instance IDs beginning local_standard_target_reviews:. If either API lookup is unavailable, use independently attributable exact current-batch launch, snapshot, gates, disposition, completed-fix records, outcome and fresh target Git evidence when sufficient; never substitute an older batch or guess identity. Preserve missing or partial coverage as incomplete. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no when all accepted current-round fixes are verified and produced a new committed target HEAD requiring review. Otherwise answer yes when zero accepted survivors are established or actual failure prevents further repair; preserve verified fixes and incomplete work, including partial coverage. Unresolved, failed or unattributed work remains incomplete, never clean; never retry an unchanged candidate. Only review rounds count toward the limit.",
           "breakOn": "yes",
           "breakOnFailure": true
         }
@@ -134,10 +106,9 @@
           "label": "Skip Proof Only For Positively Unchanged Phase",
           "agentType": "loop_control_agent",
           "identifier": "local_proof_controller",
-          "question": "Read the active cycle, actual phase wave/child outcomes from GET /conversations (flags.flow and flags.flowChild, including waveInvocationId and child snapshot values) and GET /flows/runs/{childId} and every immutable batch launch and reviewer attempt attributable to Standard Local Review via the actual invocation and job.md instance IDs beginning local_standard_target_reviews:; aggregate all rounds including earlier rounds, cross-target fixes, resumed work, failed or absent launches and partial outcomes. Match exact phase and round; never use an older current-batch pointer as the latest launch. Compare all target snapshots, repair/outcome evidence and fresh owned Git provenance including HEAD, staged and unstaged diffs and relevant untracked source or tests. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when complete attributable evidence positively proves no source or test changed in any round. Answer no for any change or unknown evidence. A clean final batch cannot erase an earlier fix; do not infer source changes from plan-only edits.",
+          "question": "Read-only: separate review coverage from source/test changes for Standard Local Review. Attribute the phase and all rounds, including earlier fixes, cross-target repairs, resumed work and failed or absent launches, using the active cycle, matching parent and child conversations from GET /conversations (items, flags.flow and flags.flowChild), terminal status from GET /flows/runs/{conversationId}, and exact immutable batch and job evidence with instance IDs beginning local_standard_target_reviews:. Compare the proof candidate before the phase to fresh owned Git provenance in every target: committed source/test changes, staged and unstaged source/test diffs and relevant untracked source/tests. Plan-only changes do not invalidate proof. A failed launch or partial review coverage alone does not establish a code/test change or invalidate verified unchanged proof; preserve coverage as incomplete. Any verified source/test change during this phase requires proof even if a later round is clean or the fix was reverted; compare round history as well as the final candidate. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no when any verified source/test change occurred during the phase and the current candidate can safely receive proof, even if the final tree matches the earlier candidate. Answer yes when the candidate is positively unchanged and existing proof applies, or when the candidate is genuinely unknown and proof must remain pending; leave unknown and incomplete coverage for the existing closeout to reconcile and continue safe independent work. Never claim unknown is unchanged or proved.",
           "breakOn": "yes",
-          "continueOnFailure": true,
-          "continueOnInvalidResponse": true
+          "breakOnFailure": true
         },
         {
           "type": "subflowWave",
@@ -213,7 +184,7 @@
           "label": "Finish Phase On Zero Accepted Or No Useful Progress",
           "agentType": "loop_control_agent",
           "identifier": "local_deep_batch_controller",
-          "question": "Read-only: identify this actual Deep Local Review invocation and its current round using the verified running local_review_current_plan conversation and its flags.flow.loopStack and flags.flow.subflowWaveProgress from GET /conversations, then the actual local_review_batch child ID, flags.flowChild.waveInvocationId and terminal outcome from GET /flows/runs/{childId}; use that child’s flags.flow.values.review_batch_targets to bind its exact snapshot, then bind that child to its assigned immutable batch and active cycle. Cross-check the phase from batch-launch.md and job.md instance IDs beginning local_deep_target_reviews:; resolve its exact snapshot, gates, disposition, task and outcome and inspect fresh Git in every target. Do not infer current identity from a latest/current pointer, timestamps or an older round; if current launch failed before a batch existed, or attribution is missing or ambiguous, do not reuse previous batch evidence. Preserve missing/partial coverage as incomplete. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no when current-round verified repair produced a new committed target HEAD requiring review, including when independent survivors remain stalled or coverage is partial. Otherwise answer yes when current-round gates positively establish zero accepted survivors, or no verified changed candidate has a safe useful review; unresolved, failed or unattributed work remains incomplete, never clean. Never retry an unchanged candidate; only review rounds count toward the limit.",
+          "question": "Read-only: identify this Deep Local Review invocation and current round from the running local_review_current_plan conversation. GET /conversations returns items and nextCursor: inspect the parent's flags.flow.loopStack and flags.flow.subflowWaveProgress.jobs, including the local_deep_batch:local_review_batch instanceId and its conversationId; match the child conversation by conversationId, flowName and flags.flowChild executionId, instanceId and waveInvocationId. Read the child's flags.flow.values.review_batch_targets from GET /conversations, and its terminal, status and terminalOutcome from GET /flows/runs/{conversationId}; that endpoint does not return flags. Bind the exact current wave and child to its immutable batch and active cycle, cross-checking batch-launch.md and job.md instance IDs beginning local_deep_target_reviews:. If either API lookup is unavailable, use independently attributable exact current-batch launch, snapshot, gates, disposition, completed-fix records, outcome and fresh target Git evidence when sufficient; never substitute an older batch or guess identity. Preserve missing or partial coverage as incomplete. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no when all accepted current-round fixes are verified and produced a new committed target HEAD requiring review. Otherwise answer yes when zero accepted survivors are established or actual failure prevents further repair; preserve verified fixes and incomplete work, including partial coverage. Unresolved, failed or unattributed work remains incomplete, never clean; never retry an unchanged candidate. Only review rounds count toward the limit.",
           "breakOn": "yes",
           "breakOnFailure": true
         }
@@ -229,10 +200,9 @@
           "label": "Skip Proof Only For Positively Unchanged Phase",
           "agentType": "loop_control_agent",
           "identifier": "local_proof_controller",
-          "question": "Read the active cycle, actual phase wave/child outcomes from GET /conversations (flags.flow and flags.flowChild, including waveInvocationId and child snapshot values) and GET /flows/runs/{childId} and every immutable batch launch and reviewer attempt attributable to Deep Local Review via the actual invocation and job.md instance IDs beginning local_deep_target_reviews:; aggregate all rounds including earlier rounds, cross-target fixes, resumed work, failed or absent launches and partial outcomes. Match exact phase and round; never use an older current-batch pointer as the latest launch. Compare all target snapshots, repair/outcome evidence and fresh owned Git provenance including HEAD, staged and unstaged diffs and relevant untracked source or tests. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when complete attributable evidence positively proves no source or test changed in any round. Answer no for any change or unknown evidence. A clean final batch cannot erase an earlier fix; do not infer source changes from plan-only edits.",
+          "question": "Read-only: separate review coverage from source/test changes for Deep Local Review. Attribute the phase and all rounds, including earlier fixes, cross-target repairs, resumed work and failed or absent launches, using the active cycle, matching parent and child conversations from GET /conversations (items, flags.flow and flags.flowChild), terminal status from GET /flows/runs/{conversationId}, and exact immutable batch and job evidence with instance IDs beginning local_deep_target_reviews:. Compare the proof candidate before the phase to fresh owned Git provenance in every target: committed source/test changes, staged and unstaged source/test diffs and relevant untracked source/tests. Plan-only changes do not invalidate proof. A failed launch or partial review coverage alone does not establish a code/test change or invalidate verified unchanged proof; preserve coverage as incomplete. Any verified source/test change during this phase requires proof even if a later round is clean or the fix was reverted; compare round history as well as the final candidate. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no when any verified source/test change occurred during the phase and the current candidate can safely receive proof, even if the final tree matches the earlier candidate. Answer yes when the candidate is positively unchanged and existing proof applies, or when the candidate is genuinely unknown and proof must remain pending; leave unknown and incomplete coverage for the existing closeout to reconcile and continue safe independent work. Never claim unknown is unchanged or proved.",
           "breakOn": "yes",
-          "continueOnFailure": true,
-          "continueOnInvalidResponse": true
+          "breakOnFailure": true
         },
         {
           "type": "subflowWave",
@@ -258,23 +228,8 @@
         {
           "role": "user",
           "content": [
-            "Read and apply $CODEINFO_ROOT/codeinfo_markdown/local_review_closeout.md. Reconcile both local phases and every immutable batch and launch, including an earlier fix followed by a clean final round, phase caps, failed launches, partial coverage, uncommitted owned changes and all proof outcomes. Keep one canonical task per accepted batch, preserve actual task history and human-pending proof restrictions; never create deferred duplicate tasks or claim missing evidence is clean. Preserve current parent-consumed local results. Establish each actual phase and round from the running local flow wave/child outcomes and immutable batch job instances, not the latest-batch pointer; if a launch or association cannot be established retain unknown coverage and never adopt an earlier batch for it.",
+            "Read and apply $CODEINFO_ROOT/codeinfo_markdown/local_review_closeout.md. Independently reconcile source/test candidate uncertainty and pending proof as well as review coverage for both local phases and every immutable batch and launch, including an earlier fix followed by a clean final round, phase caps, failed launches, partial coverage, uncommitted owned changes and all proof outcomes. Report original open work, batch and proof outcomes, preserving actual completed-fix history and human-pending proof restrictions; do not create tasks for unresolved findings, run another repair, or claim missing evidence is clean. Preserve current parent-consumed local results. Establish each actual phase and round from the running local flow wave/child outcomes and immutable batch job instances, not the latest-batch pointer; if a launch or association cannot be established retain unknown coverage and never adopt an earlier batch for it.",
             "Settle the existing active final review cycle using the current cycle ID and scripts/record_review_cycle_outcome.py: record completed only when the local pass is fully settled with trustworthy coverage, repairs and applicable proof; otherwise record incomplete with a precise reason. If settlement is unavailable, report it honestly. Do not initialize another cycle, launch review or proof, commit or push."
-          ]
-        }
-      ]
-    },
-    {
-      "type": "llm",
-      "label": "Checkpoint Local Closeout Changes Locally",
-      "agentType": "planning_agent_lite",
-      "identifier": "local_candidate_checkpoint",
-      "continueOnFailure": true,
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Read and apply $CODEINFO_ROOT/codeinfo_markdown/checkpoint_push.md as a local-only checkpoint. The native local caller explicitly authorizes its scoped commit procedure, but overrides every instruction to push: do not push. Process verified eligible story-owned source, tests and plan changes in each verified target repository only; honor selected story restrictions and repository commit conventions. Refresh branch, HEAD, index and inventory; await actual active owners, and do not stage or commit paths with active or unknown writers, unrelated changes, secrets, conflicts, wrong branch or unsafe merge/index state. Preserve unrelated staged and unstaged changes and other owners’ work. No edits, checks, test execution, branch switch, reset, clean or empty commit. Commit only safely attributable eligible changes with the existing native scoped authority; continue safe independent repositories. Report exact commits, dirty/unavailable targets and honest limitations for the following review and final settlement."
           ]
         }
       ]

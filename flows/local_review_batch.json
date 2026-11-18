@@ -1,5 +1,5 @@
 {
-  "description": "Run configured local review jobs through the existing gates, plan each accepted batch and repair it in one persistent coding conversation.",
+  "description": "Run configured local review jobs through the existing gates, then repair accepted findings in one persistent coding conversation and record verified fixes.",
   "steps": [
     {
       "type": "prepareReviewTargets",
@@ -188,7 +188,7 @@
     },
     {
       "type": "startLoop",
-      "label": "Plan And Repair Accepted Local Findings",
+      "label": "Repair Accepted Local Findings",
       "maxIterations": 1,
       "steps": [
         {
@@ -202,14 +202,6 @@
           "continueOnInvalidResponse": true
         },
         {
-          "type": "llm",
-          "label": "Plan All Accepted Findings In This Batch",
-          "agentType": "planning_agent",
-          "identifier": "local_batch_planner",
-          "continueOnFailure": true,
-          "markdownFile": "local_review_plan_batch.md"
-        },
-        {
           "type": "reset",
           "label": "Start Persistent Batch Repair Conversation",
           "agentType": "coding_agent_heavy",
@@ -217,11 +209,11 @@
         },
         {
           "type": "startLoop",
-          "label": "Repair Open Findings Until Done Or No Progress",
+          "label": "Repair Remaining Accepted Findings",
           "steps": [
             {
               "type": "llm",
-              "label": "Repair Accepted Batch Findings",
+              "label": "Plan And Repair Accepted Batch Findings",
               "agentType": "coding_agent_heavy",
               "identifier": "local_batch_fixer",
               "continueOnFailure": true,
@@ -229,31 +221,22 @@
                 {
                   "role": "user",
                   "content": [
-                    "Read and apply $CODEINFO_ROOT/codeinfo_markdown/local_review_repair_batch.md. Fix all supported open findings in the existing canonical batch task, continuing this same coding conversation across attempts. Update each finding and real evidence in place, preserve blockers, and continue independently repairable siblings. Delegate only focused tests directly warranted by the repair to automated_testing_agent when permitted by the selected story, affected task and repository instructions; await its terminal evidence. Honor human-only exclusions, source and ownership boundaries, and the caller's Git authority. Never run whole-story proof here.",
-                    "The native local caller explicitly authorizes the existing direct-review repair commit-only protocol in $CODEINFO_ROOT/codeinfo_markdown/implement_review_batch_direct_fixes.md for this worker’s own verified eligible fixes, separately per affected repository. Delegate applicable focused proof to automated_testing_agent within the actual task and story exclusions; preserve real results. Verify branch, ownership, other active or unknown writers and index, and never include unrelated or another owner’s work. No push. If a safe commit is genuinely unavailable, retain uncommitted evidence and report incomplete committed-HEAD review coverage; never claim the dirty repair was reviewed."
+                    "Read and apply $CODEINFO_ROOT/codeinfo_markdown/local_review_repair_batch.md. Continue planning and repairing remaining accepted findings in this same coding conversation. Delegate only directly relevant focused proof to automated_testing_agent when authorized by the affected task, story and repository instructions; await its terminal evidence.",
+                    "The native local caller authorizes separate commits per affected repository for this worker's own verified eligible fixes only. Verify the expected branch, ownership, other active or unknown writers and index; exclude unrelated or another owner's work. Do not push. If a safe commit is unavailable, retain uncommitted evidence and report incomplete committed-HEAD review coverage; do not claim the dirty repair was reviewed."
                   ]
                 }
               ]
             },
             {
               "type": "break",
-              "label": "Stop Batch Repair On Completion Or Genuine No Progress",
+              "label": "Stop When Accepted Findings Are Verified Or Operationally Incomplete",
               "agentType": "coding_agent_heavy",
               "identifier": "local_batch_fixer",
-              "question": "Using fresh current batch disposition, its canonical plan task, repair evidence and current Git state, return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only if all accepted findings are positively resolved, or the last attempt made no genuine progress and no safe independent accepted finding can usefully proceed. Preserve unresolved blockers and evidence, and do not treat failed or missing proof as completion. Answer no only when a specific safe next repair can make progress; never retry blindly. Honor the selected story's exclusions and ownership boundaries.",
+              "question": "Using the immutable batch disposition, existing batch repair evidence and current Git state, return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when every accepted finding is fixed and verified, or genuine operational failure prevents progress on every remaining finding and no safe independent accepted finding can proceed. Record any unresolved findings and operational failures as incomplete in the existing batch outcome, retaining verified fixes. Answer no while any remaining accepted finding can safely proceed, including complex findings; plan and repair it in this same conversation. Never treat missing or failed proof as verified, impose a retry cap, create a blocker or route work to escalation, separate research or a deferred task. Honor the selected story's exclusions and ownership boundaries.",
               "breakOn": "yes",
               "breakOnFailure": true
             }
           ]
-        },
-        {
-          "type": "break",
-          "label": "Exit Batch Repair Path",
-          "agentType": "loop_control_agent",
-          "identifier": "local_batch_controller",
-          "question": "Return exact JSON only: {\"answer\":\"yes\"}.",
-          "breakOn": "yes",
-          "breakOnFailure": true
         }
       ]
     },
@@ -267,7 +250,7 @@
         {
           "role": "user",
           "content": [
-            "Read and apply $CODEINFO_ROOT/codeinfo_markdown/local_review_record_batch.md. The caller owns publication; preserve its actual Git boundary. A verified source or test repair is fix-bearing even when it remains uncommitted: record changed paths and current owned Git provenance, not a fabricated commit. Preserve the existing canonical task and unresolved checkboxes; do not defer its accepted findings into a second task. Record incomplete coverage distinctly from zero accepted findings."
+            "Read and apply $CODEINFO_ROOT/codeinfo_markdown/local_review_record_batch.md. Record coverage even when zero findings are accepted. A verified source or test repair is fix-bearing even when uncommitted; record its owned Git provenance without fabricating a commit. The caller owns publication; do not push."
           ]
         }
       ]

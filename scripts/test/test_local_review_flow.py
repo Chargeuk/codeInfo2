@@ -126,43 +126,75 @@ class LocalReviewFlowTests(unittest.TestCase):
         self.assertIn("only that verified subset", instructions)
         self.assertIn("If zero fixes are verified, create no plan task", instructions)
 
-    def test_proof_uses_existing_validation_roles(self):
-        proof = flow("local_whole_story_proof")["steps"]
-        automated = labeled(proof, "Reset automated proof worker")
-        manual = labeled(proof, "Reset manual proof worker")
-        self.assertEqual(automated["agentType"], "automated_testing_agent")
-        self.assertEqual(manual["agentType"], "manual_testing_agent")
-        outcome = labeled(proof, "Report whole-story proof outcome")
-        self.assertEqual(outcome["identifier"], automated["identifier"])
-
-    def test_proof_routes_candidate_repairs_without_start_handoff(self):
+    def test_proof_single_task_loop_and_conversation_ownership(self):
         proof = flow("local_whole_story_proof")["steps"]
         self.assertEqual([step["type"] for step in proof], [
-            "reset", "reset", "reset", "startLoop", "llm",
+            "reset", "llm", "reset", "startLoop", "llm",
         ])
-        self.assertNotIn("Whole-story proof start #", json.dumps(proof))
-        candidate = labeled(proof, "Whole-story candidate proof")
-        automated, acceptance, manual, finish = candidate["steps"]
-        self.assertEqual(automated["steps"][0]["label"], "Execute applicable whole-story automated proof")
-        self.assertEqual(acceptance["type"], "startLoop")
-        self.assertEqual(acceptance["maxIterations"], 1)
-        gate, worker = acceptance["steps"]
-        self.assertEqual(gate["type"], "break")
-        self.assertEqual(gate["identifier"], "whole_story_proof_controller")
-        self.assertEqual(gate["breakOn"], "no")
-        self.assertTrue(gate["breakOnFailure"])
-        self.assertIn("once per proof invocation", gate["question"])
-        self.assertEqual(worker["type"], "llm")
-        self.assertEqual(worker["label"], "Run whole-story acceptance proof or invalidated scenarios")
-        self.assertEqual(worker["agentType"], "manual_testing_agent")
-        self.assertEqual(worker["identifier"], "whole_story_manual_tester")
-        self.assertEqual(proof[proof.index(candidate) + 1]["label"], "Report whole-story proof outcome")
-        self.assertIn("fixer results", manual["steps"][2]["question"])
-        self.assertIn("affected manual scenarios to retest", manual["steps"][2]["question"])
-        self.assertEqual(manual["steps"][3]["label"], "Retest affected acceptance scenarios")
-        self.assertIn("automated check or manual scenario", finish["question"])
-        self.assertIn("including after a manual repair", finish["question"])
-        self.assertIn("owned working-tree changes", finish["question"])
+        prepare_reset, prepare, manual_reset, loop, outcome = proof
+        self.assertEqual(prepare["identifier"], prepare_reset["identifier"])
+        self.assertEqual(prepare["agentType"], "research_agent")
+        for phrase in ("all existing tasks are complete", "fresh final validation task once",
+                       "any task is open", "keep the existing plan"):
+            self.assertIn(phrase, json.dumps(prepare))
+        self.assertEqual(manual_reset["agentType"], "manual_testing_agent")
+        self.assertNotIn("maxIterations", loop)
+        top, reset, work, reconcile, halt, manual_if = loop["steps"]
+        self.assertEqual([step["type"] for step in loop["steps"]],
+                         ["break", "reset", "llm", "llm", "break", "if"])
+        self.assertEqual(reset["agentType"], "research_agent")
+        self.assertEqual(reset["identifier"], work["identifier"])
+        self.assertEqual(work["identifier"], reconcile["identifier"])
+        self.assertEqual(outcome["identifier"], work["identifier"])
+        self.assertIn("originally bound task", json.dumps(reconcile))
+        self.assertIn("Do not select or start the next task", json.dumps(reconcile))
+        work_text = json.dumps(work)
+        for phrase in ("select_current_task.py", "at most one task", "subtasks first",
+                       "targeted retests", "required full suite", "no safe progress",
+                       "hung subprocesses", "owned by this work"):
+            self.assertIn(phrase, work_text)
+        for name in ("coding_agent_heavy", "automated_testing_agent", "manual_testing_agent"):
+            self.assertNotIn(name, work_text)
+        self.assertEqual(halt["breakOn"], "yes")
+        self.assertTrue(halt["haltFlow"])
+        self.assertIn("task remains incomplete", halt["question"])
+        self.assertIn("no-safe-progress", halt["question"])
+        self.assertNotIn("breakOnFailure", halt)
+        self.assertNotIn("continueOnInvalidResponse", halt)
+
+    def test_proof_completion_and_manual_transition(self):
+        loop = labeled(flow("local_whole_story_proof")["steps"], "Whole-story task loop")
+        top, _, _, _, _, manual_if = loop["steps"]
+        self.assertEqual(top["breakOn"], "yes")
+        self.assertEqual(top["agentType"], "loop_control_agent")
+        self.assertEqual(top["question"], manual_if["condition"])
+        for decision in (top, manual_if):
+            text = decision.get("question", decision.get("condition"))
+            for phrase in ("plan_status.py", "story_complete", "exactly true", "exactly false",
+                           "failed command", "fail this decision as unresolved"):
+                self.assertIn(phrase, text)
+            self.assertNotIn("decisionScript", decision)
+            self.assertNotIn("breakOnFailure", decision)
+            self.assertNotIn("continueOnFailure", decision)
+        self.assertNotIn("else", manual_if)
+        manual, = manual_if["then"]
+        self.assertEqual(manual["agentType"], "manual_testing_agent")
+        text = json.dumps(manual)
+        for phrase in ("final task guidance", "same final task as __in_progress__",
+                       "uncheck every Testing checkbox", "preserving notes",
+                       "regression-test subtasks", "do not edit code",
+                       "clean manual pass leave tasks complete",
+                       "authorized exclusions and human-only scenarios separately",
+                       "unavailable or inconclusive observations accurately",
+                       "report the precise limitation and remaining obligations honestly",
+                       "do not count missing proof as a pass"):
+            self.assertIn(phrase, text)
+        self.assertNotIn('"startLoop"', json.dumps(loop["steps"]))
+        for step in (flow("local_whole_story_proof")["steps"][1], top,
+                     *loop["steps"][2:5], manual_if, manual,
+                     flow("local_whole_story_proof")["steps"][-1]):
+            self.assertIn("$CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md",
+                          json.dumps(step))
 
     def test_round_and_proof_decisions_use_attributable_evidence(self):
         steps = flow("local_review_current_plan")["steps"]

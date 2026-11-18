@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { execFile as execFileCb } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { execFile as execFileCb, execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
@@ -5830,6 +5830,175 @@ test('shared decision seam follows valid script-driven continue branch through h
         ...getAgentConversationIds(conversationId, ['planning_agent:main']),
         ...getLoopContinueAgentConversationIds(conversationId),
       );
+    },
+    { registerTmpDirAsRepo: true },
+  );
+});
+
+test('whole-story proof routes a reopened final task through the shared flow', async () => {
+  const events: string[] = [];
+  let planFile = '';
+  let fixtureRoot = '';
+  let workCount = 0;
+  let manualCount = 0;
+  const task = (status: string, testing: string, repair = false) =>
+    [
+      '### Task 2. Final validation task',
+      '',
+      `- Task Status: \`${status}\``,
+      '',
+      '#### Subtasks',
+      '',
+      '1. [x] Validate story',
+      ...(repair
+        ? [`2. [${status === '__done__' ? 'x' : ' '}] Repair manual finding and add regression`]
+        : []),
+      '',
+      '#### Testing',
+      '',
+      `1. [${testing}] Automated proof`,
+      `2. [${testing}] Runtime readiness`,
+      '',
+      '#### Implementation Notes',
+      '',
+      '- Existing evidence retained.',
+      '',
+    ].join('\n');
+  const firstTask = [
+    '### Task 1. Implement story',
+    '',
+    '- Task Status: `__done__`',
+    '',
+    '#### Subtasks',
+    '',
+    '1. [x] Implement',
+    '',
+    '#### Testing',
+    '',
+    '1. [x] Proof',
+    '',
+  ].join('\n');
+  const writeTask = (status: string, testing: string, repair = false) =>
+    writeFileSync(planFile, firstTask + task(status, testing, repair));
+  const status = () =>
+    JSON.parse(
+      execFileSync('python3', [path.join(repoRoot, 'scripts/plan_status.py')], {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+      }),
+    ) as { story_complete: boolean; selected_task: { number: number } };
+
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Prepare this proof invocation')) {
+        events.push('bootstrap');
+        assert.equal(status().story_complete, true);
+        assert.equal(status().selected_task.number, 1);
+        writeTask('__in_progress__', ' ');
+      } else if (message.includes('READ ONLY loop control')) {
+        const complete = status().story_complete;
+        events.push(`completion:${complete}`);
+        return JSON.stringify({ answer: complete ? 'yes' : 'no' });
+      } else if (message.includes('Own orchestration for at most one task')) {
+        events.push('work');
+        assert.equal(status().selected_task.number, 2);
+        workCount += 1;
+      } else if (message.includes('Reconcile the originally bound task')) {
+        events.push('reconcile');
+        assert.equal(status().selected_task.number, 2);
+        writeTask('__done__', 'x', workCount === 2);
+      } else if (message.includes('assess the just-bound task')) {
+        events.push('halt:no');
+        assert.equal(status().story_complete, true);
+        return JSON.stringify({ answer: 'no' });
+      } else if (message.includes('Use the final task guidance')) {
+        manualCount += 1;
+        events.push(`manual:${manualCount}`);
+        assert.equal(status().selected_task.number, 2);
+        if (manualCount === 1) {
+          writeTask('__in_progress__', ' ', true);
+          const reopened = readFileSync(planFile, 'utf8');
+          assert.match(reopened, /Task Status: `__in_progress__`/);
+          assert.equal(
+            (reopened.match(/\[ \] (?:Automated proof|Runtime readiness)/g) ?? []).length,
+            2,
+          );
+          assert.match(reopened, /\[ \] Repair manual finding/);
+          assert.equal(status().story_complete, false);
+          assert.match(reopened, /Existing evidence retained/);
+        }
+      } else if (message.includes('Report the actual whole-story outcome')) {
+        events.push('report');
+      } else {
+        throw new Error(`Unexpected flow prompt: ${message}`);
+      }
+      return 'Simulated agent action complete.';
+    },
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      fixtureRoot = tmpDir;
+      planFile = path.join(tmpDir, 'planning/0000123-story.md');
+      await fs.mkdir(path.dirname(planFile), { recursive: true });
+      await fs.mkdir(path.join(tmpDir, 'codeInfoStatus/flow-state'), {
+        recursive: true,
+      });
+      writeFileSync(planFile, firstTask);
+      await fs.writeFile(
+        path.join(tmpDir, 'codeInfoStatus/flow-state/current-plan.json'),
+        JSON.stringify({
+          plan_path: 'planning/0000123-story.md',
+          additional_repositories: [],
+        }),
+      );
+      await fs.copyFile(
+        path.join(repoRoot, 'flows/local_whole_story_proof.json'),
+        path.join(tmpDir, 'local_whole_story_proof.json'),
+      );
+      const conversationId = `whole-story-proof-${path.basename(tmpDir)}`;
+      try {
+        await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+        await supertest(baseUrl)
+          .post('/flows/local_whole_story_proof/run')
+          .send({ conversationId, working_folder: tmpDir })
+          .expect(202);
+        await waitForTestCondition(
+          async () => {
+            const response = await supertest(baseUrl)
+              .get(`/flows/runs/${conversationId}`)
+              .expect(200);
+            return response.body.terminal === true;
+          },
+          {
+            timeoutMs: 10000,
+            description: 'whole-story proof flow to become terminal',
+          },
+        );
+        const finalStatus = await supertest(baseUrl)
+          .get(`/flows/runs/${conversationId}`)
+          .expect(200);
+        assert.equal(finalStatus.body.status, 'ok');
+        assert.deepEqual(events, [
+          'bootstrap', 'completion:false', 'work', 'reconcile', 'halt:no',
+          'completion:true', 'manual:1', 'completion:false', 'work',
+          'reconcile', 'halt:no', 'completion:true', 'manual:2',
+          'completion:true', 'report',
+        ]);
+        assert.equal(status().story_complete, true);
+        assert.equal(status().selected_task.number, 2);
+        assert.match(
+          readFileSync(planFile, 'utf8'),
+          /\[x\] Repair manual finding and add regression/,
+        );
+      } finally {
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, [
+            'research_agent:whole_story_researcher',
+            'manual_testing_agent:whole_story_manual_tester',
+            'loop_control_agent:whole_story_proof_controller',
+          ]),
+          ...getLoopContinueAgentConversationIds(conversationId),
+        );
+      }
     },
     { registerTmpDirAsRepo: true },
   );

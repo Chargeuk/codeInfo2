@@ -23,10 +23,50 @@ class LocalReviewFlowTests(unittest.TestCase):
         self.assertEqual(local["groups"][0]["id"], "codeinfo2_implement_current_plan")
         self.assertEqual(local["groups"][0]["flowName"], "local_review_current_plan")
         remote = next(s for s in parent["steps"] if s.get("label", "").startswith("23b-pr."))
-        self.assertEqual(remote["groups"][0]["flowName"], "pr_current_plan")
+        self.assertEqual(remote["groups"][0]["flowName"], "pr_review_current_plan")
         self.assertFalse((ROOT / "flows" / "local_review_implementation.json").exists())
         for path in (ROOT / "flows").glob("*.json"):
             self.assertNotIn('"local_review_implementation"', path.read_text(), str(path))
+
+    def test_pr_review_uses_shared_batch_and_phase_wide_proof(self):
+        steps = flow("pr_review_current_plan")["steps"]
+        old = flow("pr_review_cycle")["steps"]
+        self.assertEqual(steps[:3], old[:3])
+        self.assertEqual([step["type"] for step in steps], [
+            "initializeReviewCycle", "llm", "llm", "startLoop", "startLoop", "llm",
+        ])
+        review, proof, closeout = steps[3:]
+        self.assertEqual(review["maxIterations"], 20)
+        wave, reset, reply, decision = review["steps"]
+        group = wave["groups"][0]
+        self.assertEqual(group["flowName"], "local_review_batch")
+        self.assertEqual(group["bindings"], old[3]["steps"][0]["groups"][0]["bindings"])
+        values = group["bindings"]["inputValues"]
+        self.assertIs(values["copilot_reviews_enabled"], False)
+        self.assertEqual(values["review_groups"][0]["flowNames"], ["pr_agent_review"])
+        self.assertEqual([reset, reply], old[3]["steps"][1:3])
+        self.assertTrue(decision["question"].endswith(old[3]["steps"][3]["question"]))
+        for evidence in ("pr_review_batch:local_review_batch", "pr_target_reviews:",
+                         "exact current-batch", "exact pushed HEAD", "source or test Git commit"):
+            self.assertIn(evidence, decision["question"])
+        self.assertEqual(proof["maxIterations"], 1)
+        gate, run = proof["steps"]
+        self.assertTrue(gate["continueOnFailure"])
+        self.assertTrue(gate["continueOnInvalidResponse"])
+        self.assertEqual(run["groups"][0]["flowName"], "local_whole_story_proof")
+        for evidence in ("last applicable whole-story proof", "integration", "all rounds",
+                         "staged and unstaged", "later reverted", "Plan-only", "genuinely unknown"):
+            self.assertIn(evidence, gate["question"])
+        text = json.dumps(closeout)
+        for evidence in ("local_review_closeout.md", "record_review_cycle_outcome.py",
+                         "exact pushed PR-reviewed heads", "completed-fix tasks", "unreviewed"):
+            self.assertIn(evidence, text)
+        for forbidden in ("select_current_task.md", "implement_next_task_subtasks.md",
+                          "deep_implementation_blocker_repair.md", "research_blocker_solution_and_prove_it.md",
+                          "settle_agent_native_review_pass.md", "apply_agent_native_review_settlement.md",
+                          "audit_agent_native_review_settlement.md"):
+            self.assertNotIn(forbidden, json.dumps(steps))
+        self.assertEqual(flow("pr_current_plan")["steps"][0]["label"], "Story Execution And Review Loop")
 
     def test_two_phases_proof_and_checkpoint_boundaries(self):
         steps = flow("local_review_current_plan")["steps"]

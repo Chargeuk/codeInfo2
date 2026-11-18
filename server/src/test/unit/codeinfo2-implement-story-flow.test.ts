@@ -126,7 +126,7 @@ test('generic story flow parses and retains its recovery and native review graph
     [
       ['best_effort', 'document_completed_branch_story'],
       ['best_effort', 'local_review_current_plan'],
-      ['best_effort', 'pr_current_plan'],
+      ['best_effort', 'pr_review_current_plan'],
     ],
   );
 });
@@ -205,7 +205,7 @@ test('local and PR review children are direct best-effort stages', () => {
   assert.equal(remote.type, 'subflowWave');
   assert.equal(remote.failureMode, 'best_effort');
   assert.equal(remote.groups?.[0]?.id, 'codeinfo2_pr_current_plan');
-  assert.equal(remote.groups?.[0]?.flowName, 'pr_current_plan');
+  assert.equal(remote.groups?.[0]?.flowName, 'pr_review_current_plan');
 });
 
 test('proposal self-assessment stages reference their intended prompt', () => {

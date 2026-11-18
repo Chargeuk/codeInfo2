@@ -642,7 +642,7 @@
         {
           "kind": "singleton",
           "id": "codeinfo2_pr_current_plan",
-          "flowName": "pr_current_plan"
+          "flowName": "pr_review_current_plan"
         }
       ]
     },

@@ -125,7 +125,7 @@ test('generic story flow parses and retains its recovery and native review graph
       .map((step) => [step.failureMode, step.groups?.[0]?.flowName]),
     [
       ['best_effort', 'document_completed_branch_story'],
-      ['best_effort', 'implement_current_plan'],
+      ['best_effort', 'local_review_current_plan'],
       ['best_effort', 'pr_current_plan'],
     ],
   );
@@ -197,7 +197,9 @@ test('completion and halt decisions preserve failure handling flags', () => {
 test('local and PR review children are direct best-effort stages', () => {
   const local = flow.steps[19];
   assert.equal(local.type, 'subflowWave');
-  assert.equal(local.groups?.[0]?.flowName, 'implement_current_plan');
+  assert.equal(local.failureMode, 'best_effort');
+  assert.equal(local.groups?.[0]?.id, 'codeinfo2_implement_current_plan');
+  assert.equal(local.groups?.[0]?.flowName, 'local_review_current_plan');
 
   const remote = flow.steps[21];
   assert.equal(remote.type, 'subflowWave');

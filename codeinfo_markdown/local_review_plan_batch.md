@@ -1,0 +1,11 @@
+# Plan actionable findings from one review batch
+
+Read and follow `$CODEINFO_ROOT/codeinfo_markdown/shared/review-artifact-handoff.md`, `$CODEINFO_ROOT/codeinfo_markdown/shared/review-findings-plan-record.md`, `$CODEINFO_ROOT/codeinfo_markdown/shared/review-created-task-timestamp.md`, and `$CODEINFO_ROOT/codeinfo_markdown/shared/story_behavior_lock.md`.
+
+Use the scheduler-assigned immutable batch and real `plan_path`; read its `batch-launch.md` and verified disposition. Do not select a different plan or infer acceptance from original review output. Only disposition survivors that passed every applicable scope, authorization, and materiality gate are eligible. Preserve rejected, removed, uncertain, or unavailable items as excluded; missing evidence never promotes a finding. Continue with every independently supported eligible sibling.
+
+Before any source repair, create or update exactly one canonical open review task for this immutable batch ID in the assigned plan. Match by exact batch ID and update the existing task in place; preserve its task number, original `Created`, and stable finding identities. Immediately before creating a new task, run `node "$CODEINFO_ROOT/scripts/format-display-timestamp.mjs"` and place its exact output in the repository's `Created` position immediately above `Overview`. Follow the plan's existing review-task format and preserve approved scope and any remedy exclusions.
+
+Give each accepted gate survivor exactly one unchecked checkbox with its stable finding ID, concise evidence-grounded issue, and minimal fix intent. Add enough provenance to trace the disposition and source review. Do not duplicate a finding or split one finding across checkboxes. Record excluded/rejected items only as exclusions where useful to prevent resurrection; do not task them. If no survivor remains, create no task. If eligible work exists in multiple repositories, keep each task's owner repository explicit and follow existing cross-repository proof rules.
+
+Preserve the existing task's identity, status, and checkboxes when updating it; do not mark repair or proof complete. Reopen the bounded plan task and disposition before returning, and state the exact task identity or why no task was needed. Do not edit source, run proof, or create another handoff.

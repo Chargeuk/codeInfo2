@@ -1,0 +1,7 @@
+# Repair one review batch
+
+Use the immutable batch launch and verified disposition as the work list, with the existing repair/batch evidence as the record. Follow all existing scope, authorization, materiality gates, exclusions, repository ownership, and proof rules. Do not revive rejected, removed, uncertain, or unsupported findings, create tasks or handoffs for unfinished work, or broaden the approved remedy.
+
+As the same heavy coder, plan the smallest in-scope fix in this conversation, implement it, and record changed files, candidate evidence, and the result against the existing repair/batch evidence. Preserve actual Git ownership and the caller's commit boundary; do not commit or alter another owner's work. Keep each finding unresolved unless its fix is verified; state the remaining issue and any actual blocker. Continue through all accepted survivors unless an actual failure prevents further work.
+
+Ask the automated tester to run only authorized checks affected by the changes; the coder does not execute or claim those checks. Continue with affected fixes and tester retests until all accepted items are verified fixed or an actual failure prevents remaining work. Do not execute whole-story proof here. Preserve exact commands, results, commits when available, and proof limitations in the existing evidence. Unfinished items remain open only in the existing batch outcome; do not create deferred tasks.

@@ -220,6 +220,75 @@ class PlanSectionsTests(unittest.TestCase):
         self.assertEqual(len(output["task_index"]), 2)
         self.assertNotIn("task_summaries", output)
 
+    def test_review_evidence_keeps_marked_owner_after_review_fix(self) -> None:
+        for review_status in ("__to_do__", "__done__"):
+            with self.subTest(review_status=review_status):
+                repo = self.make_repo()
+                plan = repo / "planning" / "0000123-bounded-plan.md"
+                text = plan.read_text().replace(
+                    "## Code Review Findings",
+                    textwrap.dedent("""\
+                    ### Task 3. Whole-story validation
+                    - Task Status: `__done__`
+                    #### Subtasks
+                    Final-task repair scope: this task owns whole-story validation.
+                    1. [x] Run lint.
+                    #### Testing
+                    Final-task repair scope: the whole approved story is in scope.
+                    1. [x] Run full suite.
+                    #### Implementation Notes
+                    - Durable validation evidence.
+
+                    ## Code Review Findings"""),
+                ).replace("### Task 2. Review-created repair", "### Task 4. Review-created repair")
+                text = text.replace("- Task Status: `__to_do__`", f"- Task Status: `{review_status}`")
+                plan.write_text(text)
+                output = plan_sections.build_plan_sections(profile="review-evidence", repo_root=repo)
+                self.assertEqual([task["number"] for task in output["tasks"]], [3])
+                self.assertIn("Durable validation evidence", json.dumps(output["tasks"]))
+                self.assertNotIn("Run review proof", json.dumps(output["tasks"]))
+                self.assertEqual([task["number"] for task in output["task_index"]], [1, 3, 4])
+
+    def test_review_evidence_uses_latest_marked_owner_before_batch_history(self) -> None:
+        repo = self.make_repo()
+        plan = repo / "planning" / "0000123-bounded-plan.md"
+        marker = "\n#### Subtasks\nFinal-task repair scope: validation.\n#### Testing\nFinal-task repair scope: proof.\n"
+        text = plan.read_text().replace("## Code Review Findings", marker + "\n## Code Review Findings")
+        text = text.replace("## Final Summary", marker + "\n## Final Summary")
+        text += textwrap.dedent("""\
+        ### Task 3. Record Review Fixes From Batch review-1
+        - Task Status: `__done__`
+        - Review Task Role: `completed_review_fixes`
+        #### Testing
+        1. [x] Batch proof.
+        """)
+        plan.write_text(text)
+        output = plan_sections.build_plan_sections(profile="review-evidence", repo_root=repo)
+        self.assertEqual([task["number"] for task in output["tasks"]], [2])
+        self.assertTrue(output["content_complete"])
+        self.assertIn("Run review proof", json.dumps(output["tasks"]))
+        self.assertNotIn("Batch proof", json.dumps(output["tasks"]))
+        self.assertEqual(len(output["task_index"]), 3)
+
+    def test_review_evidence_uses_later_legacy_final_revalidation(self) -> None:
+        repo = self.make_repo()
+        plan = repo / "planning" / "0000123-bounded-plan.md"
+        text = plan.read_text().replace(
+            "## Code Review Findings",
+            "#### Subtasks\nFinal-task repair scope: validation.\n"
+            "#### Testing\nFinal-task repair scope: proof.\n"
+            "### Task 73. Re-Validate Story 64 After Settlement\n"
+            "#### Overview\nThis is the single final testing task for the full story.\n"
+            "#### Testing\n1. [x] Final proof.\n"
+            "### Task 74. Record Review Fixes From Batch review-1\n"
+            "- Review Task Role: `completed_review_fixes`\n"
+            "## Code Review Findings",
+        )
+        plan.write_text(text)
+        output = plan_sections.build_plan_sections(profile="review-evidence", repo_root=repo)
+        self.assertEqual([task["number"] for task in output["tasks"]], [73])
+        self.assertIn("Final proof", json.dumps(output["tasks"]))
+
     def test_final_task_profile_omits_unused_review_selection_basis(self) -> None:
         repo = self.make_repo()
 

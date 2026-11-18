@@ -1,0 +1,9 @@
+# Close out local review work
+
+Account for existing batch reports, repair evidence, review tasks, the canonical plan, and permitted whole-story proof. Follow repository ownership and evidence recovery rules. Preserve finding identities, gate exclusions, candidate and commit evidence, and uncertainty; never infer success from missing evidence or revive rejected findings.
+
+Reconcile the work already recorded: verified fixes, open disposition survivors, affected checks, whole-story proof, and any unavailable or human-only coverage. Use existing records as the evidence source when reconciling omissions, including the verified completed-fix task backfill described below. Keep unfinished findings visible as open in their existing batch outcome, and keep proof limitations visible in the existing final validation task. Do not create deferred tasks, a new queue, blocker records, escalation, or follow-up work.
+
+For each positively verified fix-bearing batch, reconcile its completed-fix task. If the task is missing and the batch and verification evidence uniquely establish it, write the same completed task using the existing local recorder format and immutable batch ID, limited to the verified subset. Never duplicate a task, invent proof, or create a deferred task. If evidence or write permission is insufficient, report precisely what remains incomplete.
+
+If final proof changes source or tests after deep review, distinguish the retest evidence and candidate from the candidate the deep review covered. Review coverage for changed code remains incomplete. Continue the normal workflow without another review, checkpoint, repair, or proof loop. Honor the caller's commit boundary and stop after accounting for the existing reports and permitted proof. Return a concise status with the existing record and task references and remaining open items or limitations.

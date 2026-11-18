@@ -538,9 +538,9 @@ def build_plan_sections(
     selected_tasks: list[dict[str, Any]] = []
     review_selection_basis: str | None = None
     if config.get("select_final_task"):
-        if not tasks:
-            raise SystemExit("final task could not be resolved")
-        selected_tasks = [max(tasks, key=lambda task: task["number"])]
+        final_task = plan_status.select_final_task(tasks)
+        if final_task is not None:
+            selected_tasks = [final_task]
     elif all_tasks or review_created_tasks:
         selected_tasks = list(tasks)
         if review_created_tasks:
@@ -588,8 +588,10 @@ def build_plan_sections(
             for task in selected_tasks
             if requested_sections
         ],
-        "content_complete": True,
+        "content_complete": not config.get("select_final_task") or bool(selected_tasks),
     }
+    if config.get("select_final_task") and not selected_tasks:
+        output["final_task_limitation"] = "Final validation task could not be resolved unambiguously."
     if include_task_summaries:
         output["task_summaries"] = [
             plan_status.summarise_task(task) for task in tasks

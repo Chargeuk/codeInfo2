@@ -1,0 +1,11 @@
+# Whole-story proof after local review repairs
+
+Use the canonical story plan, repository rules, and existing proof records. The same designated validation task records actual results only; existing current proof child tester and fixer outcomes, together with the verified candidate, identify what needs repair and retesting. Do not create or renumber a task or add a separate proof record. Keep all evidence tied to the actual repository candidate, including relevant staged, unstaged, and untracked changes as well as `HEAD`.
+
+Complete the repairs already planned in that validation task and any newly found actionable story-scope failures through the heavy coder. The coder makes minimal authorized changes and records them in the same task, preserving actual Git ownership and the caller's commit boundary. The automated tester owns automated proof and affected automated reruns; the manual tester owns manual story proof and affected scenario retests. Do not claim proof or repairs that are not supported by evidence.
+
+The automated tester runs the approved full automated proof, then the manual tester runs the approved manual story proof. After changes, those testers rerun affected checks and scenarios as required. Follow repository wrappers, runtime and ownership rules, and human-only/authentication restrictions. Do not retry unchanged failures or repeat whole-story passes for individual findings.
+
+Record actual proof results, repairs, failures, candidate changes, and limitations in that same designated validation task. Mark it done only when all required planned repairs and proof are honestly complete. If proof is unavailable or an item cannot be completed, record the ordinary limitation and reason; never guess candidate attribution, claim a pass, create a `**BLOCKER**`, inherit an old audit's task ordering or escalation, or create another task. Use current proof child tester and fixer outcomes and the verified candidate to determine what needs repair or retesting; do not attribute proof to a guessed candidate.
+
+Preserve the existing proof record and caller's commit boundary. Stop after the assigned proof and its evidence are complete or the actual remaining limitation is recorded.

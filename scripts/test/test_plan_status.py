@@ -225,6 +225,116 @@ class PlanStatusTests(unittest.TestCase):
         )
         self.assertEqual(Path(plan_path).read_bytes(), original)
 
+    def test_marked_validation_owner_survives_later_review_fix(self) -> None:
+        for review_status in ("__to_do__", "__done__"):
+            with self.subTest(review_status=review_status):
+                plan_path = self.write_plan(f"""
+                    ### Task 1. Implement feature
+                    - Task Status: `__done__`
+                    ### Task 2. Whole-story validation
+                    - Task Status: `__in_progress__`
+                    #### Subtasks
+                    Final-task repair scope: this task owns whole-story validation.
+                    1. [x] Run lint.
+                    #### Testing
+                    Final-task repair scope: the whole approved story is in scope.
+                    1. [ ] Run full suite.
+                    #### Implementation Notes
+                    - Existing validation evidence.
+                    ### Task 3. Repair review finding
+                    - Task Status: `{review_status}`
+                    #### Addresses Findings
+                    - Finding 1.
+                    #### Testing
+                    1. [x] Targeted proof.
+                """)
+                status = plan_status.get_plan_status(plan=plan_path, include_tasks=True)
+                self.assertEqual(status["final_task"]["number"], 2)
+                self.assertEqual(status["final_task_status"], "__in_progress__")
+                self.assertEqual(status["final_task"]["testing_unchecked"], 1)
+                self.assertEqual([task["number"] for task in status["tasks"]], [1, 2, 3])
+
+    def test_latest_fully_marked_owner_precedes_later_batch_and_partial_marker(self) -> None:
+        task = textwrap.dedent("""\
+        ### Task {number}. Validation
+        - Task Status: `__done__`
+        #### Subtasks
+        Final-task repair scope: this task owns whole-story validation.
+        #### Testing
+        Final-task repair scope: the whole approved story is in scope.
+        """)
+        plan_path = self.write_plan(
+            task.format(number=1) + task.format(number=3) + textwrap.dedent("""\
+            ### Task 4. Record Review Fixes From Batch review-1
+            - Task Status: `__done__`
+            - Review Task Role: `completed_review_fixes`
+            ### Task 5. Partial note
+            - Task Status: `__to_do__`
+            #### Subtasks
+            Final-task repair scope: incomplete.
+            """)
+        )
+        status = plan_status.get_plan_status(plan=plan_path)
+        self.assertEqual(status["final_task"]["number"], 3)
+        self.assertEqual(status["final_task_status"], "__done__")
+
+    def test_later_legacy_final_revalidation_beats_marker_and_review_fix(self) -> None:
+        plan_path = self.write_plan("""
+            ### Task 68. Earlier validation
+            - Task Status: `__done__`
+            #### Subtasks
+            Final-task repair scope: validation.
+            #### Testing
+            Final-task repair scope: proof.
+            ### Task 73. Re-Validate Story 64 After Materiality And Stopped-Run Settlement
+            - Task Status: `__done__`
+            #### Overview
+            Perform focused final revalidation for the full Story 64 contract. This is the single final testing task.
+            #### Testing
+            1. [x] Run the directly affected tests.
+            ### Task 74. Record Review Fixes From Batch review-1
+            - Task Status: `__done__`
+            - Review Task Role: `completed_review_fixes`
+            #### Subtasks
+            Final-task repair scope: misleading marker.
+            #### Testing
+            Final-task repair scope: misleading marker.
+        """)
+        status = plan_status.get_plan_status(plan=plan_path)
+        self.assertEqual(status["final_task"]["number"], 73)
+
+    def test_final_revalidation_role_beats_older_marker(self) -> None:
+        plan_path = self.write_plan("""
+            ### Task 1. Old validation
+            #### Subtasks
+            Final-task repair scope: validation.
+            #### Testing
+            Final-task repair scope: proof.
+            ### Task 2. New validation
+            - Review Task Role: `final_revalidation`
+            ### Task 3. Record Review Fixes From Batch review-1
+        """)
+        self.assertEqual(plan_status.get_plan_status(plan=plan_path)["final_task"]["number"], 2)
+
+    def test_legacy_fallback_skips_definite_batch_history(self) -> None:
+        for title, role in (
+            ("Record Review Fixes From Batch review-1", ""),
+            ("Historical record", "- Review Task Role: `completed_review_fixes`"),
+        ):
+            with self.subTest(title=title):
+                plan_path = self.write_plan(f"""
+                    ### Task 1. Implementation
+                    - Task Status: `__done__`
+                    ### Task 2. Legacy final validation
+                    - Task Status: `__in_progress__`
+                    ### Task 3. {title}
+                    - Task Status: `__done__`
+                    {role}
+                """)
+                status = plan_status.get_plan_status(plan=plan_path)
+                self.assertEqual(status["final_task"]["number"], 2)
+                self.assertEqual(status["final_task_status"], "__in_progress__")
+
     def test_unknown_statuses_are_not_normalized_into_known_statuses(self) -> None:
         for raw_status in ("__blocked__", "__BLOCKED__", "__ToDo_Later__"):
             with self.subTest(status=raw_status):

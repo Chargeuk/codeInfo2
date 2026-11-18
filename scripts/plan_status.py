@@ -18,6 +18,11 @@ CHECKBOX_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s+\[([ xX])\]\s+")
 LIVE_BLOCKER_RE = re.compile(r"^- \*\*BLOCKER\*\*(?:\s|$)")
 STORY_NUMBER_RE = re.compile(r"^(\d+)-")
 CANONICAL_STORY_ID_RE = re.compile(r"^(\d{7})-")
+BATCH_FIX_TITLE_RE = re.compile(r"^Record Review Fixes From Batch\s+\S.*$", re.IGNORECASE)
+BATCH_FIX_ROLE_RE = re.compile(r"^- Review Task Role:\s*`?completed_review_fixes`?\s*$", re.IGNORECASE)
+FINAL_ROLE_RE = re.compile(r"^- Review Task Role:\s*`?final_revalidation`?\s*$", re.IGNORECASE)
+REVALIDATION_TITLE_RE = re.compile(r"^Re-Validate Story \d+ After\b", re.IGNORECASE)
+FINAL_TEST_TASK_RE = re.compile(r"\b(?:single\s+)?final\s+(?:testing|validation|revalidation)\s+task\b", re.IGNORECASE)
 
 
 def parse_args() -> argparse.Namespace:
@@ -111,6 +116,7 @@ def parse_plan(plan_path: Path) -> list[dict[str, Any]]:
     tasks: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
     current_section: str | None = None
+    current_heading: str | None = None
 
     for line_no, line in enumerate(lines, start=1):
         task_match = TASK_HEADING_RE.match(line)
@@ -131,13 +137,30 @@ def parse_plan(plan_path: Path) -> list[dict[str, Any]]:
                 "testing_checked": 0,
                 "testing_unchecked": 0,
                 "live_blockers": [],
+                "final_task_scope_sections": [],
+                "completed_review_fixes": bool(BATCH_FIX_TITLE_RE.fullmatch(task_match.group(2).strip())),
+                "final_revalidation_role": False,
+                "legacy_final_test_task": False,
             }
             current_section = None
+            current_heading = None
             tasks.append(current)
             continue
 
         if current is None:
             continue
+
+        if current_section is None and BATCH_FIX_ROLE_RE.match(line.strip()):
+            current["completed_review_fixes"] = True
+
+        if FINAL_ROLE_RE.match(line.strip()):
+            current["final_revalidation_role"] = True
+        if (
+            REVALIDATION_TITLE_RE.match(current["title"])
+            and current_heading == "overview"
+            and FINAL_TEST_TASK_RE.search(line)
+        ):
+            current["legacy_final_test_task"] = True
 
         status_match = TASK_STATUS_RE.match(line)
         if status_match:
@@ -152,8 +175,16 @@ def parse_plan(plan_path: Path) -> list[dict[str, Any]]:
 
         section_match = SECTION_HEADING_RE.match(line)
         if section_match:
+            current_heading = section_match.group(1).strip().lower()
             current_section = normalise_section_name(section_match.group(1))
             continue
+
+        if (
+            current_section in {"subtasks", "testing"}
+            and line.strip().startswith("Final-task repair scope:")
+        ):
+            if current_section not in current["final_task_scope_sections"]:
+                current["final_task_scope_sections"].append(current_section)
 
         checkbox_match = CHECKBOX_RE.match(line)
         if checkbox_match and current_section in {"subtasks", "testing"}:
@@ -211,6 +242,18 @@ def select_task(
     return max(candidates, key=lambda task: task["number"])
 
 
+def select_final_task(tasks: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Resolve the designated validation owner, retaining legacy unmarked plans."""
+    candidates = [task for task in tasks if not task["completed_review_fixes"]]
+    designated = [
+        task for task in candidates
+        if set(task["final_task_scope_sections"]) == {"subtasks", "testing"}
+        or task["final_revalidation_role"]
+        or task["legacy_final_test_task"]
+    ]
+    return max(designated or candidates, key=lambda task: task["number"], default=None)
+
+
 def summarise_task(task: dict[str, Any] | None) -> dict[str, Any] | None:
     if task is None:
         return None
@@ -256,7 +299,7 @@ def build_output(
         )
     ]
     earliest_todo = min(todo_tasks, key=lambda task: task["number"]) if todo_tasks else None
-    final_task = max(tasks, key=lambda task: task["number"]) if tasks else None
+    final_task = select_final_task(tasks)
     all_tasks_done = bool(tasks) and all(task["status"] == "__done__" for task in tasks)
     story_complete = (
         all_tasks_done

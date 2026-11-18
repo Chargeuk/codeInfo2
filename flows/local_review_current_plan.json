@@ -108,7 +108,8 @@
           "identifier": "local_proof_controller",
           "question": "Read-only: separate review coverage from source/test changes for Standard Local Review. Attribute the phase and all rounds, including earlier fixes, cross-target repairs, resumed work and failed or absent launches, using the active cycle, matching parent and child conversations from GET /conversations (items, flags.flow and flags.flowChild), terminal status from GET /flows/runs/{conversationId}, and exact immutable batch and job evidence with instance IDs beginning local_standard_target_reviews:. Compare the proof candidate before the phase to fresh owned Git provenance in every target: committed source/test changes, staged and unstaged source/test diffs and relevant untracked source/tests. Plan-only changes do not invalidate proof. A failed launch or partial review coverage alone does not establish a code/test change or invalidate verified unchanged proof; preserve coverage as incomplete. Any verified source/test change during this phase requires proof even if a later round is clean or the fix was reverted; compare round history as well as the final candidate. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no when any verified source/test change occurred during the phase and the current candidate can safely receive proof, even if the final tree matches the earlier candidate. Answer yes when the candidate is positively unchanged and existing proof applies, or when the candidate is genuinely unknown and proof must remain pending; leave unknown and incomplete coverage for the existing closeout to reconcile and continue safe independent work. Never claim unknown is unchanged or proved.",
           "breakOn": "yes",
-          "breakOnFailure": true
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true
         },
         {
           "type": "subflowWave",
@@ -202,7 +203,8 @@
           "identifier": "local_proof_controller",
           "question": "Read-only: separate review coverage from source/test changes for Deep Local Review. Attribute the phase and all rounds, including earlier fixes, cross-target repairs, resumed work and failed or absent launches, using the active cycle, matching parent and child conversations from GET /conversations (items, flags.flow and flags.flowChild), terminal status from GET /flows/runs/{conversationId}, and exact immutable batch and job evidence with instance IDs beginning local_deep_target_reviews:. Compare the proof candidate before the phase to fresh owned Git provenance in every target: committed source/test changes, staged and unstaged source/test diffs and relevant untracked source/tests. Plan-only changes do not invalidate proof. A failed launch or partial review coverage alone does not establish a code/test change or invalidate verified unchanged proof; preserve coverage as incomplete. Any verified source/test change during this phase requires proof even if a later round is clean or the fix was reverted; compare round history as well as the final candidate. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer no when any verified source/test change occurred during the phase and the current candidate can safely receive proof, even if the final tree matches the earlier candidate. Answer yes when the candidate is positively unchanged and existing proof applies, or when the candidate is genuinely unknown and proof must remain pending; leave unknown and incomplete coverage for the existing closeout to reconcile and continue safe independent work. Never claim unknown is unchanged or proved.",
           "breakOn": "yes",
-          "breakOnFailure": true
+          "continueOnFailure": true,
+          "continueOnInvalidResponse": true
         },
         {
           "type": "subflowWave",

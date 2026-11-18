@@ -58,9 +58,9 @@ class LocalReviewFlowTests(unittest.TestCase):
             self.assertEqual(proof["steps"][1]["groups"][0]["flowName"], "local_whole_story_proof")
             gate = proof["steps"][0]
             self.assertEqual(gate["breakOn"], "yes")
-            self.assertTrue(gate["breakOnFailure"])
-            self.assertNotIn("continueOnFailure", gate)
-            self.assertNotIn("continueOnInvalidResponse", gate)
+            self.assertNotIn("breakOnFailure", gate)
+            self.assertTrue(gate["continueOnFailure"])
+            self.assertTrue(gate["continueOnInvalidResponse"])
 
     def test_batch_repairs_disposition_without_a_planning_step(self):
         batch = flow("local_review_batch")["steps"]
@@ -94,6 +94,23 @@ class LocalReviewFlowTests(unittest.TestCase):
         self.assertEqual(manual["agentType"], "manual_testing_agent")
         outcome = labeled(proof, "Report whole-story proof outcome")
         self.assertEqual(outcome["identifier"], automated["identifier"])
+
+    def test_proof_routes_candidate_repairs_without_start_handoff(self):
+        proof = flow("local_whole_story_proof")["steps"]
+        self.assertEqual([step["type"] for step in proof], [
+            "reset", "reset", "reset", "startLoop", "llm",
+        ])
+        self.assertNotIn("Whole-story proof start #", json.dumps(proof))
+        candidate = labeled(proof, "Whole-story candidate proof")
+        automated, acceptance, manual, finish = candidate["steps"]
+        self.assertEqual(automated["steps"][0]["label"], "Execute applicable whole-story automated proof")
+        self.assertIn("once per proof invocation", acceptance["condition"])
+        self.assertIn("fixer results", manual["steps"][2]["question"])
+        self.assertIn("affected manual scenarios to retest", manual["steps"][2]["question"])
+        self.assertEqual(manual["steps"][3]["label"], "Retest affected acceptance scenarios")
+        self.assertIn("automated check or manual scenario", finish["question"])
+        self.assertIn("including after a manual repair", finish["question"])
+        self.assertIn("owned working-tree changes", finish["question"])
 
     def test_round_and_proof_decisions_use_attributable_evidence(self):
         steps = flow("local_review_current_plan")["steps"]

@@ -20,20 +20,6 @@
       "identifier": "whole_story_proof_fixer"
     },
     {
-      "type": "llm",
-      "label": "Establish the current whole-story proof boundary",
-      "agentType": "automated_testing_agent",
-      "identifier": "whole_story_automated_tester",
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Apply the proof-start operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Resolve the active plan and select or reuse its existing canonical final proof owner, not a stale current-task pointer. In that same task's Implementation Notes append one short fresh 'Whole-story proof start #N' boundary, where N is one greater than the greatest such boundary already recorded in that task. Record the plan and task identity and a concise description of the actual starting candidate, including relevant owned staged, unstaged and untracked changes, not just HEAD. Do not create a task, file, execution ID, or separate handoff. Preserve earlier boundaries and outcomes. Each new child invocation appends a new boundary, even for the same candidate; completed start steps are not repeated on resume. If interrupted start recovery cannot distinguish an already-written boundary from an earlier invocation using trustworthy resume evidence, do not guess or append another: report the boundary unavailable so dependent work does not adopt old evidence. If the owner or boundary cannot be established unambiguously, do not guess or write to an unrelated task; report the limitation and continue safe independent permitted work. Do not make this a new launch gate. Do not start a competing proof writer or overwrite another owner's work. No proof execution, commit or push."
-          ]
-        }
-      ]
-    },
-    {
       "type": "startLoop",
       "label": "Whole-story candidate proof",
       "steps": [
@@ -51,7 +37,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Apply the automated execution operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Resolve the current proof-start boundary and actual candidate afresh. On its first pass drive that same existing final validation task from open through its implementation subtasks and qualifying permitted proof: promote it to in progress when work is open, perform and record each required supported lint and formatting subtask, and run all permitted applicable full suites and final-task lifecycle checks. Identify any open planned code repair in the final task and route it to the existing repair loop even if checks pass; defer only checks dependent on that repair and run independent permitted checks. Mark items only on evidence, reopen materially stale checked proof and the task as needed, and record progress; on later passes run checks invalidated by material changes and independent permitted proof still due. Execute only; do not repair: route code or test failures to coding_agent_heavy and reverify affected checks. Keep the task in progress for the existing proof outcome after applicable manual proof and repair revalidation; do not close it in this execution step. If its identity or boundary is ambiguous, report the limitation without guessing; continue safe independent permitted work. Record terminal outcomes and failures in existing records against that boundary and candidate, and do not retry an unchanged failure."
+                    "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Resolve the canonical final validation task and verify the actual candidate, including owned staged, unstaged and untracked changes. On the first pass, mark the task in progress when work is open and advance its implementation subtasks and qualifying permitted proof: perform required supported lint and formatting, applicable full suites and final-task lifecycle checks. Route open authorized planned code repairs to the heavy coder even if checks pass; defer only dependent checks and run safe independent work. On later passes rerun checks invalidated by material changes and independent proof still due. Record actual results in the existing task, mark items only on evidence, and reopen materially stale proof as needed. Do not repair, close the task, or retry unchanged failures. Report ambiguous task identity or unavailable proof without guessing; continue safe independent work."
                   ]
                 }
               ]
@@ -61,7 +47,7 @@
               "label": "Leave automated loop when no actionable failure remains",
               "agentType": "loop_control_agent",
               "identifier": "whole_story_proof_controller",
-              "question": "Apply the read-only decision operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Using the current proof-start boundary, actual candidate including owned working-tree changes, and matching outcomes, answer no for an open authorized planned code repair in the final task or a safely actionable in-scope automated failure. Answer yes only when neither can usefully proceed, including genuine blockers and no-progress attempts. Independent manual proof remains eligible. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+              "question": "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use authoritative tester and fixer results from this actual proof subflow, the verified candidate including owned working-tree changes, and the canonical validation task. Answer no for an open authorized planned code repair or a safely actionable in-scope automated failure; otherwise answer yes, including genuine blockers or no-progress attempts. Independent manual proof remains eligible. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
               "breakOn": "yes",
               "breakOnFailure": true
             },
@@ -75,7 +61,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Apply the automated repair operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Implement any open authorized planned code repair in the final task, even without a failing check, or diagnose matching terminal failure evidence and make the smallest authorized repair. The automated tester executes checks. Record changes, invalidated proof or the precise blocker/no-progress result against the current boundary and candidate."
+                    "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Implement open authorized planned code repairs in the canonical validation task, even without a failing check, or diagnose actual terminal failure evidence and make the smallest authorized repair. Record actual changes and invalidated proof, or the precise blocker or no-progress result, in the existing task. The automated tester executes checks."
                   ]
                 }
               ]
@@ -85,7 +71,7 @@
               "label": "Stop automated repair without progress",
               "agentType": "loop_control_agent",
               "identifier": "whole_story_proof_controller",
-              "question": "Apply the read-only decision operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Using the current boundary, actual candidate including owned working-tree changes, and matching repair evidence, answer no if a material repair leaves safe affected or deferred automated checks executable, or further planned repair can usefully proceed; otherwise answer yes, including unavailable evidence or genuine blockers. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+              "question": "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use this proof subflow’s fixer results and verified candidate including owned working-tree changes. Answer no if a material repair leaves safe affected or deferred automated checks executable, or further planned repair can usefully proceed; otherwise answer yes, including genuine blockers or no-progress results. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
               "breakOn": "yes",
               "breakOnFailure": true
             }
@@ -93,10 +79,10 @@
         },
         {
           "type": "if",
-          "label": "Run applicable acceptance proof due for this boundary",
+          "label": "Run applicable acceptance proof due for this invocation",
           "agentType": "loop_control_agent",
           "identifier": "whole_story_proof_controller",
-          "condition": "Apply the read-only decision operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Resolve the current proof-start boundary, actual candidate including owned working-tree changes, scope and matching outcomes afresh. Return {\"answer\":\"yes\"} for the first applicable safe full-story manual pass under this boundary even when automated proof is blocked, absent or incomplete, provided the manual surfaces are independently executable. Also answer yes for safe scenarios invalidated by a later repair. When the boundary is unavailable, return yes for independently executable permitted manual proof, recording the boundary limitation without attributing evidence to an earlier boundary. Return {\"answer\":\"no\"} only when applicable surfaces are excluded, human-only, unavailable or genuinely blocked, or their evidence is current. Do not infer a pass from prior boundaries or checked notes. Return exact JSON only.",
+          "condition": "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use this actual proof subflow’s tester and fixer results, conversation, wave and terminal results as needed, and the verified candidate including owned working-tree changes. Answer yes for the first applicable safe full-story manual pass once per proof invocation, even if automated proof is blocked, absent or incomplete, or for safe scenarios invalidated by a later repair. Answer no only when applicable surfaces are excluded, human-only, unavailable or genuinely blocked, or their candidate-tied evidence is current. Do not infer a pass from prior proof or checked notes. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
           "then": [
             {
               "type": "llm",
@@ -108,7 +94,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Apply the full-story manual proof operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Perform one applicable full-story acceptance pass for the current proof-start boundary; after later repairs retest invalidated scenarios. Continue independently of blocked or absent automated proof where safe. Record actual candidate-tied outcomes and findings against the boundary when available; otherwise report the boundary limitation in existing records without guessing. Include partial, unavailable and human-only surfaces."
+                    "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Perform one applicable full-story acceptance pass per proof invocation; after later repairs retest invalidated scenarios. Continue independently of blocked or absent automated proof where safe. Record actual candidate-tied outcomes and findings in the canonical validation task, including partial, unavailable and human-only surfaces."
                   ]
                 }
               ]
@@ -124,7 +110,7 @@
               "label": "Leave manual repair when no actionable finding remains",
               "agentType": "loop_control_agent",
               "identifier": "whole_story_proof_controller",
-              "question": "Apply the read-only decision operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Using the actual candidate including owned working-tree changes and matching manual evidence, answer no for an actionable, authorized finding with a safe repair not already attempted without progress. If the boundary note is unavailable, independently confirmed candidate-tied findings remain actionable; do not treat missing run evidence as proof. Otherwise answer yes, including missing, partial, excluded, human-only or blocked proof. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+              "question": "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use this proof subflow’s manual tester results and verified candidate including owned working-tree changes. Answer no for an actionable authorized story-scope finding with a safe repair not already attempted without progress; otherwise answer yes, including missing, partial, excluded, human-only or blocked proof. Never treat missing evidence as a pass. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
               "breakOn": "yes",
               "breakOnFailure": true
             },
@@ -138,7 +124,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Apply the manual-finding repair operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Repair only actionable authorized story-scope findings tied to the current candidate and boundary when available. If the boundary note is unavailable, independently confirm the candidate-tied finding before repair; never treat missing run evidence as proof. Record actual changes, affected manual scenarios and invalidated automated checks, or precise blocker/no-progress evidence. Do not perform proof."
+                    "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Repair actionable authorized story-scope findings supported by this proof subflow’s manual results and tied to the verified candidate, including owned working-tree changes. Record actual changes, affected manual scenarios and invalidated automated checks, or precise blocker or no-progress evidence in the canonical validation task. Do not perform proof."
                   ]
                 }
               ]
@@ -148,7 +134,7 @@
               "label": "Stop manual repair without progress",
               "agentType": "loop_control_agent",
               "identifier": "whole_story_proof_controller",
-              "question": "Apply the read-only decision operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Using the current boundary, actual candidate including owned working-tree changes, and matching repair evidence, answer no only if a material repair has safe affected manual scenarios to retest. Otherwise answer yes, including unavailable evidence or genuine blockers. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+              "question": "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use this proof subflow’s fixer results and verified candidate including owned working-tree changes. Answer no when a material repair has safe affected manual scenarios to retest; otherwise answer yes, including genuine blockers or no-progress results. Do not require a special note or marker to route a candidate-tied repair to retest. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
               "breakOn": "yes",
               "breakOnFailure": true
             },
@@ -162,7 +148,7 @@
                 {
                   "role": "user",
                   "content": [
-                    "Apply the affected-scenario retest operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Reassess the current boundary, candidate and runtime, then retest the latest repair's affected scenarios and other invalidated acceptance surfaces. Record actual outcomes and remaining findings; do not repair or run automated suites."
+                    "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use this proof subflow’s fixer results and verify the current candidate and runtime; retest the latest repair’s affected scenarios and other invalidated acceptance surfaces. Record actual outcomes and remaining findings in the canonical validation task. Do not repair or run automated suites."
                   ]
                 }
               ]
@@ -174,7 +160,7 @@
           "label": "Finish when no changed candidate needs further proof",
           "agentType": "loop_control_agent",
           "identifier": "whole_story_proof_controller",
-          "question": "Apply the read-only decision operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Using the current boundary, actual candidate including owned working-tree changes, and matching evidence, answer no only when a material repair has invalidated a permitted, safe executable automated check or manual scenario that still needs proof. Answer yes when none remains or remaining work is excluded, human-only, unavailable, genuinely blocked or unchanged after a no-progress attempt. Never treat missing evidence as a pass or rerun unchanged failures. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+          "question": "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use authoritative tester and fixer results from this actual proof subflow, conversation, wave and terminal results as needed, and the verified candidate including owned working-tree changes. Answer no when a material repair invalidated a permitted safe executable automated check or manual scenario still needing proof, including after a manual repair. Answer yes when none remains or remaining work is excluded, human-only, unavailable, genuinely blocked or unchanged after a no-progress attempt. Do not require a special note or marker for retesting, treat missing evidence as a pass, or rerun unchanged failures. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
           "breakOn": "yes",
           "breakOnFailure": true
         }
@@ -190,7 +176,7 @@
         {
           "role": "user",
           "content": [
-            "Apply the proof outcome operation in $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Report the current boundary and actual candidate, completed proof, failures and repairs, excluded or human-only surfaces, blockers and unavailable or stale evidence. After applicable automated and manual proof and repair revalidation, normalize the same unambiguous final validation task from evidence: mark it done only when subtasks and permitted required checks are complete and no genuine blocker remains; respect documented exclusions and pending human-only proof. Otherwise keep it in progress and record remaining work or limitations honestly. Do not create blocker records or enforce a highest-numbered-task rule or escalation. Post-review proof reuses this task without creating a new task; accepted reviews remain owned by existing batch tasks. Preserve the outcome in existing records. Do not execute proof or claim missing evidence passed."
+            "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use authoritative tester and fixer results from this actual proof subflow, conversation, wave and terminal results as needed, and the verified candidate including owned working-tree changes. Report completed proof, failures and repairs, excluded or human-only surfaces, blockers and unavailable or stale evidence in the canonical validation task. After applicable automated and manual proof and repair revalidation, mark that task done only when planned repairs, subtasks and permitted required checks are complete and no genuine blocker remains; respect documented exclusions and pending human-only proof. Otherwise keep it in progress and record remaining work or limitations honestly. Post-review proof reuses this task; accepted reviews remain owned by existing batch tasks. Do not create tasks or blocker records, execute proof, or claim missing evidence passed."
           ]
         }
       ]

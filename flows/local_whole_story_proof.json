@@ -78,12 +78,19 @@
           ]
         },
         {
-          "type": "if",
+          "type": "startLoop",
           "label": "Run applicable acceptance proof due for this invocation",
-          "agentType": "loop_control_agent",
-          "identifier": "whole_story_proof_controller",
-          "condition": "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use this actual proof subflow’s tester and fixer results, conversation, wave and terminal results as needed, and the verified candidate including owned working-tree changes. Answer yes for the first applicable safe full-story manual pass once per proof invocation, even if automated proof is blocked, absent or incomplete, or for safe scenarios invalidated by a later repair. Answer no only when applicable surfaces are excluded, human-only, unavailable or genuinely blocked, or their candidate-tied evidence is current. Do not infer a pass from prior proof or checked notes. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
-          "then": [
+          "maxIterations": 1,
+          "steps": [
+            {
+              "type": "break",
+              "label": "Skip acceptance proof when not applicable",
+              "agentType": "loop_control_agent",
+              "identifier": "whole_story_proof_controller",
+              "question": "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use this actual proof subflow’s tester and fixer results, conversation, wave and terminal results as needed, and the verified candidate including owned working-tree changes. Answer yes for the first applicable safe full-story manual pass once per proof invocation, even if automated proof is blocked, absent or incomplete, or for safe scenarios invalidated by a later repair. Answer no only when applicable surfaces are excluded, human-only, unavailable or genuinely blocked, or their candidate-tied evidence is current. Do not infer a pass from prior proof or checked notes. Return exactly {\"answer\":\"yes\"} or {\"answer\":\"no\"}.",
+              "breakOn": "no",
+              "breakOnFailure": true
+            },
             {
               "type": "llm",
               "label": "Run whole-story acceptance proof or invalidated scenarios",
@@ -176,7 +183,7 @@
         {
           "role": "user",
           "content": [
-            "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use authoritative tester and fixer results from this actual proof subflow, conversation, wave and terminal results as needed, and the verified candidate including owned working-tree changes. Report completed proof, failures and repairs, excluded or human-only surfaces, blockers and unavailable or stale evidence in the canonical validation task. After applicable automated and manual proof and repair revalidation, mark that task done only when planned repairs, subtasks and permitted required checks are complete and no genuine blocker remains; respect documented exclusions and pending human-only proof. Otherwise keep it in progress and record remaining work or limitations honestly. Post-review proof reuses this task; accepted reviews remain owned by existing batch tasks. Do not create tasks or blocker records, execute proof, or claim missing evidence passed."
+            "Follow $CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md. Use authoritative tester and fixer results from this actual proof subflow, conversation, wave and terminal results as needed, and the verified candidate including owned working-tree changes. Report completed proof, failures and repairs, excluded or human-only surfaces, blockers and unavailable or stale evidence in the canonical validation task. Keep required manual proof pending if it did not run. After applicable automated and manual proof and repair revalidation, mark that task done only when planned repairs, subtasks and permitted required checks are complete and no genuine blocker remains; respect documented exclusions and pending human-only proof. Otherwise keep it in progress and record remaining work or limitations honestly. Post-review proof reuses this task; accepted reviews remain owned by existing batch tasks. Do not create tasks or blocker records, execute proof, or claim missing evidence passed."
           ]
         }
       ]

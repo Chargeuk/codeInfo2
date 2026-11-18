@@ -10,6 +10,8 @@ The pre-loop research agent must use the repository's Python plan helpers to ver
 - If exactly one task remains and it is the designated final validation task, reuse it. During this preparation, clear its `Testing` checkboxes once while preserving prior testing evidence and completed implementation subtasks. Do not repeat this reset on resume after preparation.
 - If outstanding implementation work and a designated final validation task both remain, reuse the existing final task after the implementation work, retaining its work and history and applying the existing stale-proof rules. Do not duplicate it. If the final task is already active and existing task numbering/order allows it, requeue it behind the earlier implementation work during preparation without changing any task numbers. If numbering/order makes that placement ambiguous, leave the order unchanged and report the ordering as unresolved; do not change the task selector or per-task loop.
 
+When creating or reusing the final validation task, include or retain `Manual Testing Guidance` based on the story’s acceptance criteria and repository instructions. Where the UI supports responsive layouts, include checks that menus stay aligned, visible, and usable while resizing across the supported viewport sizes. Record any human-only or excluded scenarios separately.
+
 The research agent coordinates one authorized plan writer. It prepares this invocation and delegates plan documentation/task changes to that writer; no other worker edits the plan concurrently. The research agent does not implement code or execute tests. Preserve repository proof restrictions and the caller's plan-writer and commit boundaries.
 
 ## Per-task research and automated proof loop

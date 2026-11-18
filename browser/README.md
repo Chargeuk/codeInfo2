@@ -2,15 +2,25 @@
 
 ## Browser rendering modes
 
-Browser rendering uses `cpu` by default. Set the host-only
-`CODEINFO_BROWSER_RENDERER=nvidia_wsl` in the repository-root `.env.local` to
-opt in to NVIDIA WSL acceleration. The selector is read from that file; do not
-put it in `server/.env.local`. Unknown values warn and use CPU rendering. If
-NVIDIA WSL GPU routing is unavailable, startup continues with CPU rendering.
-The setting applies to both the server's remote-debugging Chromium and the
-separately containerized Playwright MCP browser. Acceleration is supported only
-for NVIDIA WSL, using the host's already-configured NVIDIA/WSLg setup without
-modifying host drivers.
+Browser rendering uses `cpu` by default. The host-only
+`CODEINFO_BROWSER_RENDERER` setting in the repository-root `.env.local` opts in
+to NVIDIA acceleration; do not put it in `server/.env.local`. The setting
+applies to both the server's remote-debugging Chromium and the separately
+containerized Playwright MCP browser. Unknown values warn and use CPU rendering.
+
+On NVIDIA WSL, set `CODEINFO_BROWSER_RENDERER=nvidia_wsl` to use the host's
+already-configured NVIDIA/WSLg setup without modifying host drivers. On native
+Ubuntu, set `CODEINFO_BROWSER_RENDERER=nvidia_ubuntu`. Docker must expose the
+GPU through CDI with `nvidia.com/gpu=all` for this mode. The browser images must
+be built first; startup probes NVIDIA rendering and falls back to CPU if the
+GPU is unavailable.
+
+Verified candidate scope: the wrapper brought up both services with CDI
+selected in an isolated Compose fixture on ARM64 DGX Spark. The actual
+candidate server launcher and actual MCP `browser_evaluate` browser each
+reported ANGLE NVIDIA GB10 OpenGL ES 3.2 for WebGL 1 and 2, with correct pixel
+readbacks and zero GL errors. This proof covers the isolated browser routes;
+the full application stack and native x86 hardware were not tested.
 
 ## Rendering proof status
 

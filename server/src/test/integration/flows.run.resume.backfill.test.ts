@@ -1240,6 +1240,15 @@ test('persisted waits resume the originally selected conditional branch without 
         'Original branch resumed',
         'After conditional',
       ]);
+      const branchTurn = (memoryTurns.get(conversationId) ?? []).find(
+        (turn) =>
+          turn.role === 'user' &&
+          turn.content.includes('Original branch resumed'),
+      );
+      assert.deepEqual(branchTurn?.command?.stepProgress, [
+        { position: 1, total: 2 },
+        { position: 2, total: 2 },
+      ]);
     });
   } finally {
     const flow = memoryConversations.get(conversationId)?.flags?.flow as

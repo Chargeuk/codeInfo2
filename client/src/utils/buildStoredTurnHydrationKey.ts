@@ -25,6 +25,7 @@ function buildTurnSignature(turn: StoredTurn): string {
     command?.name ?? '',
     command?.stepIndex ?? '',
     command?.totalSteps ?? '',
+    JSON.stringify(command?.stepProgress ?? []),
     command?.label ?? '',
   ].join('~');
 }

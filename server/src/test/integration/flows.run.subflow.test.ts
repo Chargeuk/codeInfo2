@@ -594,10 +594,21 @@ for (const mode of ['subflow', 'subflowWave'] as const) {
           0,
         0,
       );
-      assert.ok(
-        (memoryTurns.get(grandchild._id) ?? []).some(
-          (turn) => turn.role === 'assistant',
-        ),
+      const grandchildTurn = (memoryTurns.get(grandchild._id) ?? []).find(
+        (turn) => turn.role === 'assistant',
+      );
+      assert.ok(grandchildTurn);
+      assert.deepEqual(grandchildTurn.command?.stepProgress, [
+        { position: 1, total: 2 },
+        { position: 1, total: 1 },
+        { position: 1, total: 1 },
+      ]);
+      assert.deepEqual(
+        persistedLookupState(grandchild._id)?.stepProgressPrefix,
+        [
+          { position: 1, total: 2 },
+          { position: 1, total: 1 },
+        ],
       );
       const resumed = await launch({
         conversationId: parent.conversationId,

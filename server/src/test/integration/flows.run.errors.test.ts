@@ -2938,6 +2938,7 @@ test('dedicated reingest steps publish live and persisted flow metadata without 
       name: 'flow',
       stepIndex: 1,
       totalSteps: 1,
+      stepProgress: [{ position: 1, total: 1 }],
       loopDepth: 0,
       label: 'Refresh repo',
     });

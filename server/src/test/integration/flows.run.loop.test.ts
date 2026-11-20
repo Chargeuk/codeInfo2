@@ -1117,6 +1117,15 @@ test('flow loops until break answer matches breakOn', async () => {
 
       assert.equal(outerBreakTurns.length, 2);
       assert.equal(innerBreakTurns.length, 2);
+      assert.ok(innerBreakTurns[0].command?.stepProgress?.length);
+      assert.deepEqual(
+        innerBreakTurns[0].command?.stepProgress,
+        innerBreakTurns[1].command?.stepProgress,
+      );
+      assert.deepEqual(
+        outerBreakTurns[0].command?.stepProgress,
+        outerBreakTurns[1].command?.stepProgress,
+      );
       assert.equal(breakAnswers.length, 4);
       assert.equal(outerBreakCount, 2);
       const agentConversationId = getAgentConversationId(
@@ -5851,7 +5860,9 @@ test('whole-story proof routes a reopened final task through the shared flow', a
       '',
       '1. [x] Validate story',
       ...(repair
-        ? [`2. [${status === '__done__' ? 'x' : ' '}] Repair manual finding and add regression`]
+        ? [
+            `2. [${status === '__done__' ? 'x' : ' '}] Repair manual finding and add regression`,
+          ]
         : []),
       '',
       '#### Testing',
@@ -5920,7 +5931,10 @@ test('whole-story proof routes a reopened final task through the shared flow', a
           const reopened = readFileSync(planFile, 'utf8');
           assert.match(reopened, /Task Status: `__in_progress__`/);
           assert.equal(
-            (reopened.match(/\[ \] (?:Automated proof|Runtime readiness)/g) ?? []).length,
+            (
+              reopened.match(/\[ \] (?:Automated proof|Runtime readiness)/g) ??
+              []
+            ).length,
             2,
           );
           assert.match(reopened, /\[ \] Repair manual finding/);
@@ -5977,10 +5991,21 @@ test('whole-story proof routes a reopened final task through the shared flow', a
           .expect(200);
         assert.equal(finalStatus.body.status, 'ok');
         assert.deepEqual(events, [
-          'bootstrap', 'completion:false', 'work', 'reconcile', 'halt:no',
-          'completion:true', 'manual:1', 'completion:false', 'work',
-          'reconcile', 'halt:no', 'completion:true', 'manual:2',
-          'completion:true', 'report',
+          'bootstrap',
+          'completion:false',
+          'work',
+          'reconcile',
+          'halt:no',
+          'completion:true',
+          'manual:1',
+          'completion:false',
+          'work',
+          'reconcile',
+          'halt:no',
+          'completion:true',
+          'manual:2',
+          'completion:true',
+          'report',
         ]);
         assert.equal(status().story_complete, true);
         assert.equal(status().selected_task.number, 2);

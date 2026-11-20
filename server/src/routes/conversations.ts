@@ -256,6 +256,16 @@ const appendTurnSchema = z
         name: z.string().min(1),
         stepIndex: z.number().int().min(1),
         totalSteps: z.number().int().min(1),
+        stepProgress: z
+          .array(
+            z
+              .object({
+                position: z.number().int().min(1),
+                total: z.number().int().min(1),
+              })
+              .strict(),
+          )
+          .optional(),
         loopDepth: z.number().int().min(0).optional(),
         agentType: z.string().min(1).optional(),
         identifier: z.string().min(1).optional(),

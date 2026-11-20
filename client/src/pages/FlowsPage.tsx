@@ -115,7 +115,14 @@ const buildFlowStepHeaderLine = (command: ChatMessage['command']) => {
     typeof command.label === 'string' && command.label.trim().length > 0
       ? command.label.trim()
       : 'Flow step';
-  return `${label} · ${command.stepIndex} of ${command.totalSteps}`;
+  const progress = command.stepProgress;
+  const position = progress?.length
+    ? progress.map((step) => step.position).join('.')
+    : command.stepIndex;
+  const total = progress?.length
+    ? progress.map((step) => step.total).join('.')
+    : command.totalSteps;
+  return `${label} · ${position} of ${total}`;
 };
 
 const buildFlowLabel = (flow: FlowSummary) => {

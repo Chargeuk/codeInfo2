@@ -71,8 +71,14 @@ test('generic story flow parses and retains its recovery and native review graph
     flow.steps[3].markdownFile,
     'codeinfo2_implement_story/overview.md',
   );
-  assert.match(labeling.label, /^4-label\./u);
-  assert.match(flow.steps[5].label, /^4a\./u);
+  assert.equal(
+    labeling.label,
+    'Best-effort label the selected Jira ticket with the AI name',
+  );
+  assert.equal(
+    flow.steps[5].label,
+    'Reconcile canonical story requirements and scope exclusions',
+  );
   assert.equal(labeling.type, 'llm');
   assert.equal(labeling.agentType, 'research_agent');
   assert.equal(labeling.identifier, 'codeinfo2_research_agent');
@@ -223,9 +229,11 @@ test('proposal self-assessment stages reference their intended prompt', () => {
 // These assertions cover instruction text, not future agent execution.
 test('all base integrations preserve wanted human edits alongside existing boundaries', () => {
   const merges = all.filter((step) =>
-    /^(?:1|18c|20a)\. Merge/u.test(step.label),
+    textOf(step).includes(
+      '$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/merge_base.md',
+    ),
   );
-  assert.equal(merges.length, 3);
+  assert.deepEqual(merges, [flow.steps[0], flow.steps[11], flow.steps[14]]);
   for (const merge of merges) {
     const instructions = textOf(merge);
     assert.match(

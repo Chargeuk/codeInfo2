@@ -51,6 +51,7 @@ import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
 import SharedTranscript from '../components/chat/SharedTranscript';
 import SharedTranscriptSurface from '../components/chat/SharedTranscriptSurface';
+import { formatStepProgress } from '../components/chat/chatTranscriptFormatting';
 import useSharedTranscriptState from '../components/chat/useSharedTranscriptState';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import WorkspaceDesktopShell from '../components/workspace/WorkspaceDesktopShell';
@@ -102,27 +103,15 @@ const buildFlowMetaLine = (command: ChatMessage['command']) => {
 };
 
 const buildFlowStepHeaderLine = (command: ChatMessage['command']) => {
-  if (
-    !command ||
-    command.name !== 'flow' ||
-    !Number.isFinite(command.stepIndex) ||
-    !Number.isFinite(command.totalSteps)
-  ) {
-    return null;
-  }
+  if (!command || command.name !== 'flow') return null;
+  const progress = formatStepProgress(command);
+  if (!progress) return null;
 
   const label =
     typeof command.label === 'string' && command.label.trim().length > 0
       ? command.label.trim()
       : 'Flow step';
-  const progress = command.stepProgress;
-  const position = progress?.length
-    ? progress.map((step) => step.position).join('.')
-    : command.stepIndex;
-  const total = progress?.length
-    ? progress.map((step) => step.total).join('.')
-    : command.totalSteps;
-  return `${label} · ${position} of ${total}`;
+  return `${label} · ${progress}`;
 };
 
 const buildFlowLabel = (flow: FlowSummary) => {

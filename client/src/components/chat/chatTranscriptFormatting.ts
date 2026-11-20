@@ -84,7 +84,7 @@ export const collectOmittedMetadataFields = (
   return omittedFields;
 };
 
-export const buildStepLine = (command: ChatMessage['command']) => {
+export const formatStepProgress = (command: ChatMessage['command']) => {
   if (!command) return null;
   if (
     !Number.isFinite(command.stepIndex) ||
@@ -92,7 +92,19 @@ export const buildStepLine = (command: ChatMessage['command']) => {
   ) {
     return null;
   }
-  return `Step ${command.stepIndex} of ${command.totalSteps}`;
+  const progress = command.name === 'flow' ? command.stepProgress : undefined;
+  const position = progress?.length
+    ? progress.map((step) => step.position).join('.')
+    : command.stepIndex;
+  const total = progress?.length
+    ? progress.map((step) => step.total).join('.')
+    : command.totalSteps;
+  return `${position} of ${total}`;
+};
+
+export const buildStepLine = (command: ChatMessage['command']) => {
+  const progress = formatStepProgress(command);
+  return progress ? `Step ${progress}` : null;
 };
 
 export type BubbleMetadataSummaryLine = {

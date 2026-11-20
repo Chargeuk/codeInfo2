@@ -287,7 +287,7 @@ describe('Flows page basics', () => {
     ).toHaveTextContent('Plan · 11.4.19.1 of 24.7.30.5');
     await openBubbleInfoPopover(bubble!);
     expect(await screen.findByTestId('bubble-info-step')).toHaveTextContent(
-      'Step: Step 1 of 3',
+      'Step: Step 11.4.19.1 of 24.7.30.5',
     );
     const transcript = screen.getByTestId('flows-transcript');
     expect(transcript).toBeInTheDocument();

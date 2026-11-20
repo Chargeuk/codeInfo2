@@ -1,5 +1,6 @@
 import {
   buildBubbleMetadataSummary,
+  buildStepLine,
   formatBubbleTimestamp,
 } from './chatTranscriptFormatting';
 
@@ -58,5 +59,26 @@ describe('transcript Info timestamps', () => {
       { label: 'Timing', value: 'Time: 2.5s' },
       { label: 'Provider', value: 'codex' },
     ]);
+  });
+});
+
+describe('transcript step progress', () => {
+  it('uses hierarchical flow progress and falls back for legacy flows and agent commands', () => {
+    const command = {
+      name: 'flow',
+      stepIndex: 2,
+      totalSteps: 6,
+      stepProgress: [
+        { position: 11, total: 24 },
+        { position: 4, total: 7 },
+      ],
+    };
+    expect(buildStepLine(command)).toBe('Step 11.4 of 24.7');
+    expect(buildStepLine({ ...command, stepProgress: undefined })).toBe(
+      'Step 2 of 6',
+    );
+    expect(buildStepLine({ ...command, name: 'improve_plan' })).toBe(
+      'Step 2 of 6',
+    );
   });
 });

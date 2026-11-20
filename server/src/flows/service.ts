@@ -1704,6 +1704,24 @@ const parseFlowResumeState = (
       ? { workingFolder: flow.workingFolder.trim() }
       : {}),
     ...(sourceId ? { sourceId } : {}),
+    ...(Array.isArray(flow.stepProgressPrefix) &&
+    flow.stepProgressPrefix.every(
+      (pair: unknown) =>
+        isRecord(pair) &&
+        Number.isInteger(pair.position) &&
+        Number.isInteger(pair.total) &&
+        (pair.position as number) >= 1 &&
+        (pair.total as number) >= (pair.position as number),
+    )
+      ? {
+          stepProgressPrefix: flow.stepProgressPrefix.map(
+            (pair: { position: number; total: number }) => ({
+              position: pair.position,
+              total: pair.total,
+            }),
+          ),
+        }
+      : {}),
     ...(normalizeOptionalString(flow.flowDefinitionRoot)
       ? { flowDefinitionRoot: normalizeOptionalString(flow.flowDefinitionRoot) }
       : {}),
@@ -2985,6 +3003,7 @@ const buildFlowCommandMetadata = (params: {
   stepIndex: number;
   totalSteps: number;
   loopDepth: number;
+  stepProgress: import('../mongo/turn.js').FlowStepProgress;
 }): FlowTurnCommandMetadata => {
   const rawLabel = params.step.label?.trim();
   const label = rawLabel && rawLabel.length > 0 ? rawLabel : params.step.type;
@@ -2992,6 +3011,7 @@ const buildFlowCommandMetadata = (params: {
     name: 'flow',
     stepIndex: params.stepIndex,
     totalSteps: params.totalSteps,
+    stepProgress: params.stepProgress,
     loopDepth: params.loopDepth,
     label,
     ...('agentType' in params.step && 'identifier' in params.step
@@ -4368,6 +4388,7 @@ const buildFlowResumeState = (params: {
   workingFolder?: string;
   sourceId?: string;
   flowDefinitionRoot?: string;
+  stepProgressPrefix?: import('../mongo/turn.js').FlowStepProgress;
   retryOwnershipPending?: FreshRunRetryOwnershipPending | null;
   retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion | null;
   input?: FlowJsonObject;
@@ -4489,6 +4510,9 @@ const buildFlowResumeState = (params: {
     ...(params.flowDefinitionRoot
       ? { flowDefinitionRoot: params.flowDefinitionRoot }
       : {}),
+    ...(params.stepProgressPrefix
+      ? { stepProgressPrefix: params.stepProgressPrefix }
+      : {}),
     ...(params.input ? { input: params.input } : {}),
     ...(params.inputHash ? { inputHash: params.inputHash } : {}),
     ...(params.values ? { values: params.values } : {}),
@@ -4545,6 +4569,7 @@ const persistFlowResumeState = async (params: {
   workingFolder?: string;
   sourceId?: string;
   flowDefinitionRoot?: string;
+  stepProgressPrefix?: import('../mongo/turn.js').FlowStepProgress;
   retryOwnershipPending?: FreshRunRetryOwnershipPending | null;
   retryOwnershipCompletion?: FreshRunRetryOwnershipCompletion | null;
   input?: FlowJsonObject;
@@ -4569,6 +4594,7 @@ const persistFlowResumeState = async (params: {
     workingFolder: params.workingFolder,
     sourceId: params.sourceId,
     flowDefinitionRoot: params.flowDefinitionRoot,
+    stepProgressPrefix: params.stepProgressPrefix,
     retryOwnershipPending: params.retryOwnershipPending,
     retryOwnershipCompletion: params.retryOwnershipCompletion,
     input: params.input,
@@ -6219,6 +6245,7 @@ async function runFlowUnlocked(params: {
   source: 'REST' | 'MCP';
   chatFactory?: FlowChatFactory;
   resumeState?: FlowResumeState | null;
+  stepProgressPrefix?: import('../mongo/turn.js').FlowStepProgress;
   resumeStepPath?: number[];
   customTitle?: string;
   runToken: string;
@@ -6475,6 +6502,7 @@ async function runFlowUnlocked(params: {
       workingFolder: params.repositoryContext.workingRepositoryPath,
       sourceId: params.repositoryContext.flowSourceId,
       flowDefinitionRoot: params.repositoryContext.flowDefinitionRoot,
+      stepProgressPrefix: params.stepProgressPrefix,
       input: params.input,
       inputHash: params.inputHash,
       values: flowValues,
@@ -9900,6 +9928,7 @@ async function runFlowUnlocked(params: {
           const started = await startFlowRun({
             flowName: job.flowName,
             nativeChild: true,
+            stepProgressPrefix: command.stepProgress,
             parentConversationId: params.conversationId,
             flowPath: params.flowPath,
             codexReviewModelId: params.codexReviewModelId,
@@ -11788,6 +11817,22 @@ async function runFlowUnlocked(params: {
       }
 
       const nextPath = [...stepPath, index];
+      const stepProgress = [...(params.stepProgressPrefix ?? [])];
+      let progressSteps = params.flow.steps;
+      let progressPath = nextPath;
+      while (progressPath.length > 0) {
+        const [progressIndex, ...rest] = progressPath;
+        const progressStep = progressSteps[progressIndex];
+        stepProgress.push({
+          position: progressIndex + 1,
+          total: progressSteps.length,
+        });
+        if (rest.length === 0) break;
+        const nested = getNestedResumeSteps(progressStep, rest);
+        if (!nested) break;
+        progressSteps = nested.steps;
+        progressPath = nested.resumeStepPath;
+      }
       appendFlowRuntimeDiagnostic('flows.test.step_dispatch', {
         conversationId: params.conversationId,
         executionId: params.executionId,
@@ -11823,6 +11868,7 @@ async function runFlowUnlocked(params: {
                       step,
                       stepIndex: index + 1,
                       totalSteps: steps.length,
+                      stepProgress,
                       loopDepth: loopStack.length,
                     }),
                     nextPath,
@@ -11847,6 +11893,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -11981,6 +12028,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -12082,6 +12130,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -12162,6 +12211,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -12304,6 +12354,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -12403,6 +12454,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         const agentKey = getAgentKey(step.agentType, step.identifier);
@@ -12451,6 +12503,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         const result = await runInitializeReviewCycleStep(step, command);
@@ -12478,6 +12531,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -12518,6 +12572,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -12552,6 +12607,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -12586,6 +12642,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -12620,6 +12677,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -12721,6 +12779,7 @@ async function runFlowUnlocked(params: {
           step,
           stepIndex: index + 1,
           totalSteps: steps.length,
+          stepProgress,
           loopDepth: loopStack.length,
         });
         append({
@@ -13538,6 +13597,8 @@ export async function startFlowRun(
       workingFolder: effectiveWorkingFolder ?? resumeState?.workingFolder,
       sourceId,
       flowDefinitionRoot,
+      stepProgressPrefix:
+        resumeState?.stepProgressPrefix ?? params.stepProgressPrefix,
       input: effectiveFlowInput,
       inputHash: effectiveFlowInputHash,
       values: resumeState?.values as FlowJsonObject | undefined,
@@ -13698,6 +13759,8 @@ export async function startFlowRun(
         source: params.source,
         chatFactory: params.chatFactory,
         resumeState,
+        stepProgressPrefix:
+          resumeState?.stepProgressPrefix ?? params.stepProgressPrefix,
         resumeStepPath: effectiveResumeStepPath,
         customTitle: params.customTitle,
         runToken,

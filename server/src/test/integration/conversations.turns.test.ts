@@ -9,6 +9,7 @@ import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { getMemoryTurns, memoryConversations, memoryTurns, } from '../../chat/memoryPersistence.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { TurnSummary } from '../../mongo/repo.js';
+import { TurnModel } from '../../mongo/turn.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 import { withConversationMetaNotFoundFixture } from '../support/conversationMetaNotFoundFixture.js';
@@ -475,6 +476,34 @@ test('inflight snapshot returns command metadata when present', async () => {
     finally {
         cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
     }
+});
+test('flow progress survives the turn persistence schema', () => {
+    const command = {
+        name: 'flow',
+        stepIndex: 2,
+        totalSteps: 3,
+        loopDepth: 1,
+        label: 'nested',
+        agentType: 'coding_agent',
+        identifier: 'worker',
+        stepProgress: [
+            { position: 1, total: 2 },
+            { position: 2, total: 3 },
+        ],
+    };
+    const turn = new TurnModel({
+        conversationId: 'flow-progress',
+        role: 'user',
+        content: 'hello',
+        model: 'model',
+        provider: 'codex',
+        toolCalls: null,
+        status: 'ok',
+        source: 'REST',
+        command,
+    });
+    assert.equal(turn.validateSync(), undefined);
+    assert.deepEqual(turn.toObject().command, command);
 });
 test('persisted turns preserve absolute command metadata for startStep-offset runs', async () => {
     const turns: TurnSummary[] = [

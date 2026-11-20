@@ -42,3 +42,15 @@ it('changes the hydration key when only persisted inflight identity is added or 
     buildStoredTurnHydrationKey('c1', [{ ...user, runtime: { replay: {} } }]),
   ).toBe(buildStoredTurnHydrationKey('c1', [user]));
 });
+
+it('changes the hydration key when flow progress changes', () => {
+  const command = { name: 'flow', stepIndex: 1, totalSteps: 2 };
+  const legacy = { ...turn, command };
+  const hierarchical = {
+    ...turn,
+    command: { ...command, stepProgress: [{ position: 1, total: 2 }] },
+  };
+  expect(buildStoredTurnHydrationKey('c1', [hierarchical])).not.toBe(
+    buildStoredTurnHydrationKey('c1', [legacy]),
+  );
+});

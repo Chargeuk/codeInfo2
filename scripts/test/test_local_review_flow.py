@@ -18,11 +18,17 @@ def labeled(steps, label):
 class LocalReviewFlowTests(unittest.TestCase):
     def test_parent_receipt_and_removed_implementation_flow(self):
         parent = flow("codeinfo2_implement_story")
-        local = next(s for s in parent["steps"] if s.get("label", "").startswith("23a."))
+        local = next(
+            s for s in parent["steps"]
+            if any(g.get("flowName") == "local_review_current_plan" for g in s.get("groups", []))
+        )
         self.assertEqual(local["failureMode"], "best_effort")
         self.assertEqual(local["groups"][0]["id"], "codeinfo2_implement_current_plan")
         self.assertEqual(local["groups"][0]["flowName"], "local_review_current_plan")
-        remote = next(s for s in parent["steps"] if s.get("label", "").startswith("23b-pr."))
+        remote = next(
+            s for s in parent["steps"]
+            if any(g.get("flowName") == "pr_review_current_plan" for g in s.get("groups", []))
+        )
         self.assertEqual(remote["groups"][0]["flowName"], "pr_review_current_plan")
         self.assertFalse((ROOT / "flows" / "local_review_implementation.json").exists())
         for path in (ROOT / "flows").glob("*.json"):

@@ -3,7 +3,7 @@
   "steps": [
     {
       "type": "llm",
-      "label": "1. Merge the discovered base into the selected story branch",
+      "label": "Merge the discovered base into the selected story branch",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -23,7 +23,7 @@
     },
     {
       "type": "llm",
-      "label": "2. Commit valid merge/story changes and try push",
+      "label": "Commit valid merge/story changes and try push",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "markdownFile": "codeinfo2_implement_story/publish.md",
@@ -31,7 +31,7 @@
     },
     {
       "type": "llm",
-      "label": "3. Best-effort reingest of the working repository",
+      "label": "Best-effort reingest of the working repository",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "markdownFile": "codeinfo2_implement_story/reingest.md",
@@ -39,7 +39,7 @@
     },
     {
       "type": "llm",
-      "label": "4. Validate the selected story and branch and report its overview",
+      "label": "Validate the selected story and branch and report its overview",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "markdownFile": "codeinfo2_implement_story/overview.md",
@@ -47,7 +47,7 @@
     },
     {
       "type": "llm",
-      "label": "4-label. Best-effort label the selected Jira ticket with the AI name",
+      "label": "Best-effort label the selected Jira ticket with the AI name",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -68,7 +68,7 @@
     },
     {
       "type": "llm",
-      "label": "4a. Reconcile canonical story requirements and scope exclusions",
+      "label": "Reconcile canonical story requirements and scope exclusions",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -84,14 +84,14 @@
     },
     {
       "type": "if",
-      "label": "4b. Run research and implementation only when still needed",
+      "label": "Run research and implementation only when still needed",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "condition": "READ ONLY. Does research and implementation still need to run for the selected story?\n\nFrom the verified target repository root, run `python3 \"$CODEINFO_ROOT/scripts/plan_status.py\"`. Use its completion status, unchecked work and blockers alongside the current accepted requirements, plan, source, applicable recorded evidence and known ownership. Do not decide solely from `story_complete`; empty or unsupported helper results are inconclusive.\n\nRespect explicit testing restrictions. Later reviews, reserved formal proof and human testing may remain pending.\n\nReturn `{\"answer\":\"no\"}` only when all accepted implementation, required documentation and authorized local proof due before review are positively complete, and ownership is settled. Otherwise, including unresolved uncertainty, return `{\"answer\":\"yes\"}`.\n\nA `no` result is the fresh positive implementation-completion decision for downstream stages. Retain its supporting evidence in this conversation and report that implementation was already complete and skipped; never claim the implementation loop ran.\n\nDo not edit files, delegate, execute tests or other validation, or create state. The read-only status helper call above is permitted. Return only the JSON answer.",
       "then": [
         {
           "type": "llm",
-          "label": "5. Research verified implementation and reuse",
+          "label": "Research verified implementation and reuse",
           "agentType": "research_agent",
           "identifier": "codeinfo2_research_agent",
           "messages": [
@@ -108,7 +108,7 @@
         },
         {
           "type": "llm",
-          "label": "6. Assess and present the reconciled remaining plan without saving",
+          "label": "Assess and present the reconciled remaining plan without saving",
           "agentType": "research_agent",
           "identifier": "codeinfo2_research_agent",
           "messages": [
@@ -126,7 +126,7 @@
         },
         {
           "type": "llm",
-          "label": "6a. Critically assess and revise the unsaved proposal without side effects",
+          "label": "Critically assess and revise the unsaved proposal without side effects",
           "agentType": "research_agent",
           "identifier": "codeinfo2_research_agent",
           "messages": [
@@ -151,7 +151,7 @@
         },
         {
           "type": "llm",
-          "label": "7. Reconcile the canonical plan and immutable per-item Jira mappings",
+          "label": "Reconcile the canonical plan and immutable per-item Jira mappings",
           "agentType": "research_agent",
           "identifier": "codeinfo2_research_agent",
           "messages": [
@@ -170,7 +170,7 @@
         },
         {
           "type": "llm",
-          "label": "8. Obtain a fresh read-only review, adjudicate feedback and reconcile Jira subtasks",
+          "label": "Obtain a fresh read-only review, adjudicate feedback and reconcile Jira subtasks",
           "agentType": "research_agent",
           "identifier": "codeinfo2_research_agent",
           "messages": [
@@ -189,7 +189,7 @@
         },
         {
           "type": "llm",
-          "label": "9. Commit the reviewed plan and try push",
+          "label": "Commit the reviewed plan and try push",
           "agentType": "research_agent",
           "identifier": "codeinfo2_research_agent",
           "markdownFile": "codeinfo2_implement_story/publish.md",
@@ -197,7 +197,7 @@
         },
         {
           "type": "llm",
-          "label": "10. Best-effort reingest after plan review",
+          "label": "Best-effort reingest after plan review",
           "agentType": "research_agent",
           "identifier": "codeinfo2_research_agent",
           "markdownFile": "codeinfo2_implement_story/reingest.md",
@@ -205,11 +205,11 @@
         },
         {
           "type": "startLoop",
-          "label": "11. Implementation-first recovery loop",
+          "label": "Implementation-first recovery loop",
           "steps": [
             {
               "type": "llm",
-              "label": "11. Orchestrate the full story through coding/proof workers with per-item Jira lifecycle updates",
+              "label": "Orchestrate the full story through coding/proof workers with per-item Jira lifecycle updates",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "messages": [
@@ -229,7 +229,7 @@
             },
             {
               "type": "break",
-              "label": "16. Exit only this loop on positive fresh implementation completion",
+              "label": "Exit only this loop on positive fresh implementation completion",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "question": "READ ONLY. Apply the applicable rules in $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md. Assess the current implementation return, accepted requirements/exclusions, current source/callers/diff, complete original inventory and matching current terminal worker results. Return EXACTLY {\"answer\":\"yes\"} only when that fresh evidence positively establishes ALL implementation, required documentation/repairs and authorized local work/proof DUE at this boundary complete. Required independent PLAN review/adjudication and saved corrections for the current saved plan revision must be established, not pending/unavailable; later code/local/PR review is not an early prerequisite. A simple numbered plan’s full accepted inventory, bounded existing item/checkbox/notes evidence, actual source and matching terminal worker results can establish completion without structured-task-helper output; unsupported, unavailable, zero or empty structured output alone establishes neither incomplete work, a readiness failure nor completion and requires no formal local statuses or Testing sections. Preserve already structured layouts. Awaited terminal return, a failure, empty helper lists, checkbox/status counts, no edits or stale results alone never establish completion. Target/ownership/writer state must be safe and known; active/unknown owners or uncertain source require exactly {\"answer\":\"no\"}. Human-owned external testing, later reserved formal proof and separate audit/publication/reporting/local/PR reviews are NOT early prerequisites and are never fabricated as passed. Missing or failed tracking, remote, credentials or publication alone does not make local completion false. Any incomplete, unknown, failed or invalid completion evidence requires exactly {\"answer\":\"no\"}. Return only the JSON answer. No writes, tests, checks, delegation, Jira, new parsers/helpers, synthesized statuses, control files or other side effects in this payload.",
@@ -240,7 +240,7 @@
             },
             {
               "type": "llm",
-              "label": "15. Assess the incomplete attempt and record recovery evidence",
+              "label": "Assess the incomplete attempt and record recovery evidence",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "messages": [
@@ -257,7 +257,7 @@
             },
             {
               "type": "llm",
-              "label": "15a. Comment on this incomplete attempt using the selected-parent protocol",
+              "label": "Comment on this incomplete attempt using the selected-parent protocol",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "messages": [
@@ -274,7 +274,7 @@
             },
             {
               "type": "break",
-              "label": "18. Halt the flow only for a proven required external-only action",
+              "label": "Halt the flow only for a proven required external-only action",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "question": "READ ONLY. Apply the applicable rules in $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md. Assess the current incomplete-attempt evidence and actual canonical-plan record and dedicated Jira-comment attempt outcomes. Return EXACTLY {\"answer\":\"yes\"} ONLY when fresh applicable evidence establishes completion requires an EXACT external action wholly outside BOTH available tools and authority, after safe authorized alternatives for that dependency were assessed and remaining independent permitted work was attempted/settled. Confirm the canonical-plan record and dedicated comment were attempted when feasible under their safe protocols, reporting confirmed/failed/unavailable/uncertain outcomes honestly. Neither a successful save nor a successful comment is a prerequisite on that proven external-only basis; do not invent either result. Worker return/failure, difficulty, time/iteration count, repeated no progress, unknown evidence alone, any missing or failed tracking, remote, credentials or publication alone, an unrelated outage or human-reserved testing is NOT such a blocker. Active/unknown owners require settling/awaiting and safe investigation, not duplicate work or automatic blocked status. Otherwise return EXACTLY {\"answer\":\"no\"}, including when the evidence is missing, failed, invalid or uncertain. Return only the JSON answer. No writes, Jira, tests, delegation, state updates or other side effects in this payload.",
@@ -286,7 +286,7 @@
             },
             {
               "type": "llm",
-              "label": "17. Research recovery using the original research rules",
+              "label": "Research recovery using the original research rules",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "messages": [
@@ -302,7 +302,7 @@
             },
             {
               "type": "llm",
-              "label": "17a. Propose recovery using the original proposal rules",
+              "label": "Propose recovery using the original proposal rules",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "messages": [
@@ -318,7 +318,7 @@
             },
             {
               "type": "llm",
-              "label": "17b. Critically assess recovery using the original proposal self-assessment instructions",
+              "label": "Critically assess recovery using the original proposal self-assessment instructions",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "messages": [
@@ -343,7 +343,7 @@
             },
             {
               "type": "llm",
-              "label": "17c. Save the full recovery plan and reconcile immutable Jira tasks before review",
+              "label": "Save the full recovery plan and reconcile immutable Jira tasks before review",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "messages": [
@@ -360,7 +360,7 @@
             },
             {
               "type": "llm",
-              "label": "17d. Independently review recovery, adjudicate and save justified corrections",
+              "label": "Independently review recovery, adjudicate and save justified corrections",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "messages": [
@@ -378,7 +378,7 @@
             },
             {
               "type": "llm",
-              "label": "13/14. Publish valid recovery work and best-effort reingest",
+              "label": "Publish valid recovery work and best-effort reingest",
               "agentType": "research_agent",
               "identifier": "codeinfo2_research_agent",
               "messages": [
@@ -399,7 +399,7 @@
     },
     {
       "type": "llm",
-      "label": "11a. Reconcile the implemented plan with the required format",
+      "label": "Reconcile the implemented plan with the required format",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -421,7 +421,7 @@
     },
     {
       "type": "llm",
-      "label": "13. Publish valid completed implementation after the post-implementation plan conversion",
+      "label": "Publish valid completed implementation after the post-implementation plan conversion",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -437,7 +437,7 @@
     },
     {
       "type": "llm",
-      "label": "14. Best-effort reingest of completed implementation",
+      "label": "Best-effort reingest of completed implementation",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "markdownFile": "codeinfo2_implement_story/reingest.md",
@@ -445,7 +445,7 @@
     },
     {
       "type": "llm",
-      "label": "18a. Report positively completed implementation and remaining downstream work",
+      "label": "Report positively completed implementation and remaining downstream work",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -461,7 +461,7 @@
     },
     {
       "type": "llm",
-      "label": "18c. Merge the discovered base immediately before the task-format decision",
+      "label": "Merge the discovered base immediately before the task-format decision",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -481,14 +481,14 @@
     },
     {
       "type": "if",
-      "label": "19. Check selected plan task format before the native retrospective",
+      "label": "Check selected plan task format before the native retrospective",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "condition": "The task-format decision concerns task representation only; it does not waive required retrospective, implementation, local/PR review or repair work. First read the freshly selected accepted contract/AC and explicit user restrictions. Use existing bounded plan_status.py metadata and plan_sections.py --task-number <original-number> --section Testing retrieval (or existing task_sections source capability), without changing handoffs, to inspect each applicable task Testing section and its exact task/story/activity scope. Missing/empty sections or wording such as no tests exist is NOT an explicit testing exclusion. Where an accepted restriction applies, legitimate clear NON-CHECKBOX Testing prose explicitly expressing the complete relevant restriction is valid without testing_total > 0 or synthetic checkboxes; do not demand excluded tests. In the explicit-restriction route, use permitted read-only source/document bookkeeping to establish the ordinary structure: nonempty uniquely numbered positive tasks, titles, supported exact statuses and nonempty implementation subtasks, with each task having either its normal required testing checklist where permitted or explicit scoped accepted exclusion prose. Reconcile contradictory active testing defaults through the existing documentation owner without fake passes or erasing actual historical proof. Only in that explicit-restriction route, if the source-backed structure is usable return EXACTLY {\"answer\":\"no\"}; if normalization is required return EXACTLY {\"answer\":\"yes\"}. Do not infer exclusion or completeness from counts alone. If the selected restriction forbids format/static/contract/syntax or other validation commands, do NOT execute the command below or delegate checks; use only those permitted source/helper reads and describe the result as source-based bookkeeping, never a format-test pass. If there is no applicable explicit testing exclusion and the contract permits the normal executable format procedure, retain its unchanged predicate: run exactly the command below from the verified root and return its stdout only. On command failure/empty output return exactly {\"answer\":\"yes\"}, never an invented pass. Retain existing target/scope/ownership, active-child and no-competing-writer safeguards for actual operations; this format decision adds no dispatch gate. No tests, child/runtime execution, writes or new parser/helper/schema here.\n\n```bash\npython3 -B - <<'PY'\nimport os, sys\nusable = False\ntry:\n    sys.path.insert(0, os.path.join(os.environ[\"CODEINFO_ROOT\"], \"scripts\"))\n    from plan_status import parse_plan, resolve_plan_path\n    plan_path, _ = resolve_plan_path(None, \"codeInfoStatus/flow-state/current-plan.json\")\n    tasks = parse_plan(plan_path)\n    numbers = [task[\"number\"] for task in tasks]\n    usable = bool(tasks) and len(numbers) == len(set(numbers)) and all(\n        task[\"number\"] > 0\n        and task[\"title\"].strip()\n        and task[\"status\"] in {\"__to_do__\", \"__in_progress__\", \"__done__\"}\n        and task[\"subtasks_total\"] > 0\n        and task[\"testing_total\"] > 0\n        for task in tasks\n    )\nexcept (Exception, SystemExit) as exc:\n    print(f\"stage19 plan-format check failed: {type(exc).__name__}: {exc}\", file=sys.stderr)\nprint('{\"answer\":\"no\"}' if usable else '{\"answer\":\"yes\"}')\nPY\n```",
       "then": [
         {
           "type": "subflowWave",
-          "label": "19a. Native missing retrospective on the verified target",
+          "label": "Native missing retrospective on the verified target",
           "failureMode": "best_effort",
           "groups": [
             {
@@ -502,7 +502,7 @@
       "else": [
         {
           "type": "llm",
-          "label": "19b. Report retained usable task format",
+          "label": "Report retained usable task format",
           "agentType": "research_agent",
           "identifier": "codeinfo2_research_agent",
           "continueOnFailure": true,
@@ -519,7 +519,7 @@
     },
     {
       "type": "llm",
-      "label": "20. Assess and reconcile the canonical retrospective against the original contract",
+      "label": "Assess and reconcile the canonical retrospective against the original contract",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -538,7 +538,7 @@
     },
     {
       "type": "llm",
-      "label": "20a. Merge the discovered base immediately after the retrospective audit and before retrospective publication",
+      "label": "Merge the discovered base immediately after the retrospective audit and before retrospective publication",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -558,7 +558,7 @@
     },
     {
       "type": "llm",
-      "label": "21. Commit valid retrospective/fix/merge work and try push",
+      "label": "Commit valid retrospective/fix/merge work and try push",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "markdownFile": "codeinfo2_implement_story/publish.md",
@@ -566,7 +566,7 @@
     },
     {
       "type": "llm",
-      "label": "22. Best-effort reingest of the current working repository",
+      "label": "Best-effort reingest of the current working repository",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "markdownFile": "codeinfo2_implement_story/reingest.md",
@@ -574,7 +574,7 @@
     },
     {
       "type": "llm",
-      "label": "22a. Read-only final prerequisite handoff",
+      "label": "Read-only final prerequisite handoff",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "continueOnFailure": true,
@@ -589,7 +589,7 @@
     },
     {
       "type": "llm",
-      "label": "23-pre. Reconcile Jira lifecycle for imminent final work",
+      "label": "Reconcile Jira lifecycle for imminent final work",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "continueOnFailure": true,
@@ -605,7 +605,7 @@
     },
     {
       "type": "subflowWave",
-      "label": "23a. Native remaining implementation/proof on the verified target",
+      "label": "Native remaining implementation/proof on the verified target",
       "failureMode": "best_effort",
       "groups": [
         {
@@ -617,7 +617,7 @@
     },
     {
       "type": "llm",
-      "label": "23b. Reconcile final child and finish safe remaining work",
+      "label": "Reconcile final child and finish safe remaining work",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -636,7 +636,7 @@
     },
     {
       "type": "subflowWave",
-      "label": "23b-pr. Native PR review, repair and proof on the verified target",
+      "label": "Native PR review, repair and proof on the verified target",
       "failureMode": "best_effort",
       "groups": [
         {
@@ -648,7 +648,7 @@
     },
     {
       "type": "llm",
-      "label": "23c. Publish valid child and recovery work before final reporting",
+      "label": "Publish valid child and recovery work before final reporting",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [
@@ -664,7 +664,7 @@
     },
     {
       "type": "llm",
-      "label": "24. Report actual final local, remote, Jira and native proof outcomes",
+      "label": "Report actual final local, remote, Jira and native proof outcomes",
       "agentType": "research_agent",
       "identifier": "codeinfo2_research_agent",
       "messages": [

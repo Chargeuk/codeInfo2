@@ -239,6 +239,12 @@ describe('Flows page basics', () => {
                 name: 'flow',
                 stepIndex: 1,
                 totalSteps: 3,
+                stepProgress: [
+                  { position: 11, total: 24 },
+                  { position: 4, total: 7 },
+                  { position: 19, total: 30 },
+                  { position: 1, total: 5 },
+                ],
                 label: 'Plan',
                 agentType: 'planning_agent',
                 identifier: 'main',
@@ -278,10 +284,10 @@ describe('Flows page basics', () => {
     expect(bubble).toBeDefined();
     expect(
       within(bubble!).getByTestId('bubble-flow-step-header'),
-    ).toHaveTextContent('Plan · 1 of 3');
+    ).toHaveTextContent('Plan · 11.4.19.1 of 24.7.30.5');
     await openBubbleInfoPopover(bubble!);
     expect(await screen.findByTestId('bubble-info-step')).toHaveTextContent(
-      'Step: Step 1 of 3',
+      'Step: Step 11.4.19.1 of 24.7.30.5',
     );
     const transcript = screen.getByTestId('flows-transcript');
     expect(transcript).toBeInTheDocument();
@@ -726,6 +732,9 @@ describe('Flows page basics', () => {
       item.textContent?.includes('Flow content Two'),
     ) as HTMLElement | undefined;
     expect(bubble).toBeDefined();
+    expect(
+      within(bubble!).getByTestId('bubble-flow-step-header'),
+    ).toHaveTextContent('Step Two · 1 of 2');
     await openBubbleInfoPopover(bubble!);
     expect(await screen.findByTestId('bubble-flow-meta')).toHaveTextContent(
       'Step Two · coding_agent/coder',

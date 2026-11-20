@@ -72,6 +72,7 @@ export type ChatMessage = {
     name: string;
     stepIndex: number;
     totalSteps: number;
+    stepProgress?: Array<{ position: number; total: number }>;
     loopDepth?: number;
     label?: string;
     agentType?: string;
@@ -150,6 +151,7 @@ const normalizeCommand = (
         name?: string;
         stepIndex?: number;
         totalSteps?: number;
+        stepProgress?: Array<{ position: number; total: number }>;
         loopDepth?: number;
         label?: string;
         agentType?: string;
@@ -173,6 +175,9 @@ const normalizeCommand = (
     stepIndex: command.stepIndex,
     totalSteps: command.totalSteps,
   };
+  if (Array.isArray(command.stepProgress)) {
+    normalized.stepProgress = command.stepProgress;
+  }
   if (isFiniteNumber(command.loopDepth) && command.loopDepth >= 0) {
     normalized.loopDepth = command.loopDepth;
   }

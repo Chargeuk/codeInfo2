@@ -41,7 +41,7 @@ function TestCommandTurn() {
         turn.command.label ?? ''
       }|${turn.command.agentType ?? ''}|${turn.command.identifier ?? ''}|${
         turn.command.loopDepth ?? ''
-      }`
+      }|${JSON.stringify(turn.command.stepProgress)}`
     : 'none';
 
   return createElement('div', null, label);
@@ -62,6 +62,10 @@ test('preserves command metadata in StoredTurn', async () => {
           name: 'flow',
           stepIndex: 2,
           totalSteps: 12,
+          stepProgress: [
+            { position: 11, total: 24 },
+            { position: 4, total: 7 },
+          ],
           loopDepth: 1,
           label: 'Draft outline',
           agentType: 'planning_agent',
@@ -75,7 +79,9 @@ test('preserves command metadata in StoredTurn', async () => {
   render(createElement(TestCommandTurn));
 
   expect(
-    await screen.findByText('flow|2/12|Draft outline|planning_agent|main|1'),
+    await screen.findByText(
+      'flow|2/12|Draft outline|planning_agent|main|1|[{"position":11,"total":24},{"position":4,"total":7}]',
+    ),
   ).toBeInTheDocument();
 });
 

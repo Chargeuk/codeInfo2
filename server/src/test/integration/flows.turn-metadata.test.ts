@@ -346,6 +346,7 @@ test('flow turns include command metadata in snapshots and history', async () =>
     name: 'flow',
     stepIndex: 1,
     totalSteps: 1,
+    stepProgress: [{ position: 1, total: 1 }],
     loopDepth: 0,
     agentType: 'coding_agent',
     identifier: 'flow-meta',

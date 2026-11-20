@@ -124,6 +124,7 @@ export type FlowResumeState = {
   workingFolder?: string;
   sourceId?: string;
   flowDefinitionRoot?: string;
+  stepProgressPrefix?: import('../mongo/turn.js').FlowStepProgress;
   input?: FlowJsonObject;
   inputHash?: string;
   values?: Record<string, FlowJsonValue>;

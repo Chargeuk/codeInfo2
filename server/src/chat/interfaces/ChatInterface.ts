@@ -55,8 +55,28 @@ const parseCommandMetadata = (
     if (loopDepth === undefined || !Number.isFinite(loopDepth))
       return undefined;
     if (!agentType.length || !identifier.length) return undefined;
+    const stepProgress =
+      Array.isArray(value.stepProgress) &&
+      value.stepProgress.every((item: unknown) => {
+        if (!item || typeof item !== 'object') return false;
+        const pair = item as Record<string, unknown>;
+        return (
+          Number.isInteger(pair.position) &&
+          Number.isInteger(pair.total) &&
+          (pair.position as number) >= 1 &&
+          (pair.total as number) >= (pair.position as number)
+        );
+      })
+        ? value.stepProgress.map(
+            (item: { position: number; total: number }) => ({
+              position: item.position,
+              total: item.total,
+            }),
+          )
+        : undefined;
     return {
       name: 'flow',
+      ...(stepProgress ? { stepProgress } : {}),
       stepIndex,
       totalSteps,
       loopDepth,

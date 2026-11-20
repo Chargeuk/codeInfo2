@@ -472,6 +472,10 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
             name: 'flow',
             stepIndex: 2,
             totalSteps: 4,
+            stepProgress: [
+              { position: 11, total: 24 },
+              { position: 4, total: 7 },
+            ],
             loopDepth: 1,
             label: 'Draft outline',
             agentType: 'planning_agent',
@@ -498,6 +502,10 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
         name: 'flow',
         stepIndex: 2,
         totalSteps: 4,
+        stepProgress: [
+          { position: 11, total: 24 },
+          { position: 4, total: 7 },
+        ],
         loopDepth: 1,
         label: 'Draft outline',
         agentType: 'planning_agent',

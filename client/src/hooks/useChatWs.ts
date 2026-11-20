@@ -168,6 +168,7 @@ type TurnCommandMetadata = {
   name: string;
   stepIndex: number;
   totalSteps: number;
+  stepProgress?: Array<{ position: number; total: number }>;
   loopDepth?: number;
   label?: string;
   agentType?: string;

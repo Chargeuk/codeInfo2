@@ -74,6 +74,19 @@
           ]
         },
         {
+          "type": "llm",
+          "label": "Commit and attempt to push",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite",
+          "continueOnFailure": true,
+          "markdownFile": "commit_attempt_push.md"
+        },
+        {
+          "type": "reingest",
+          "label": "Re-embed the working repository",
+          "target": "working"
+        },
+        {
           "type": "break",
           "label": "Halt incomplete when no safe progress remains",
           "agentType": "loop_control_agent",
@@ -104,6 +117,19 @@
               ]
             }
           ]
+        },
+        {
+          "type": "llm",
+          "label": "Commit and attempt to push",
+          "agentType": "planning_agent_lite",
+          "identifier": "planner_lite",
+          "continueOnFailure": true,
+          "markdownFile": "commit_attempt_push.md"
+        },
+        {
+          "type": "reingest",
+          "label": "Re-embed the working repository",
+          "target": "working"
         }
       ]
     },

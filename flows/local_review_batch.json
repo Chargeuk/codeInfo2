@@ -1,5 +1,5 @@
 {
-  "description": "Run configured local review jobs through the existing gates, then repair accepted findings in one persistent coding conversation and record verified fixes.",
+  "description": "Snapshot one candidate, join configured review gates and opt-in automated proof, then repair and record the combined batch.",
   "steps": [
     {
       "type": "prepareReviewTargets",
@@ -17,222 +17,85 @@
     },
     {
       "type": "subflowWave",
-      "label": "Run Configured Review Batch",
+      "label": "Run Review And Automated Candidate Proof",
       "failureMode": "best_effort",
-      "groupsFrom": "effective_review_groups",
-      "reviewWorkspace": {
-        "snapshotFrom": "review_batch_targets"
-      }
-    },
-    {
-      "type": "reset",
-      "label": "Reset Review Batch Verifier",
-      "agentType": "review_agent_heavy",
-      "identifier": "batch_verifier"
-    },
-    {
-      "type": "llm",
-      "label": "Verify And Recover Review Batch Jobs",
-      "agentType": "review_agent_heavy",
-      "identifier": "batch_verifier",
-      "continueOnFailure": true,
-      "markdownFile": "verify_review_batch_jobs.md"
-    },
-    {
-      "type": "reset",
-      "label": "Reset Review Batch Reconciler",
-      "agentType": "planning_agent",
-      "identifier": "batch_reconciler"
-    },
-    {
-      "type": "llm",
-      "label": "Reconcile Review Batch",
-      "agentType": "planning_agent",
-      "identifier": "batch_reconciler",
-      "continueOnFailure": true,
-      "markdownFile": "reconcile_review_batch.md"
-    },
-    {
-      "type": "llm",
-      "label": "Audit Review Batch Reconciliation",
-      "agentType": "review_agent_heavy",
-      "identifier": "batch_verifier",
-      "continueOnFailure": true,
-      "markdownFile": "audit_review_batch_reconciliation.md"
-    },
-    {
-      "type": "startLoop",
-      "label": "Optional Review Filtering",
-      "maxIterations": 1,
-      "steps": [
+      "groups": [
         {
-          "type": "break",
-          "label": "Skip Filtering When Reconciliation Has No Supported Findings",
-          "agentType": "loop_control_agent",
-          "identifier": "review_batch_filtering_controller",
-          "question": "Read the current immutable batch reconciliation and reconciliation audit from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when current trustworthy evidence positively confirms that reconciliation contains no supported finding or actionable candidate and no partial, unavailable, conflicting, or uncertain coverage could still contain one. Answer no when any finding or candidate remains or the evidence is uncertain. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Do not use conversational memory, exact schemas, provider counts, or missing files as proof of an empty batch.",
-          "breakOn": "yes",
-          "continueOnFailure": true,
-          "continueOnInvalidResponse": true
+          "kind": "singleton",
+          "id": "review_filter",
+          "flowName": "review_filter_branch",
+          "bindings": {
+            "input": {
+              "review_batch_targets": "review_batch_targets",
+              "effective_review_groups": "effective_review_groups"
+            }
+          }
         },
         {
-          "type": "reset",
-          "label": "Reset Review Batch Scope Filter",
-          "agentType": "planning_agent",
-          "identifier": "batch_scope_filter"
-        },
-        {
-          "type": "llm",
-          "label": "Filter Review Findings To Story Scope",
-          "agentType": "planning_agent",
-          "identifier": "batch_scope_filter",
-          "continueOnFailure": true,
-          "markdownFile": "filter_review_batch_findings_to_story_scope.md"
-        },
-        {
-          "type": "break",
-          "label": "Stop Filtering When No In-Scope Findings Remain",
-          "agentType": "loop_control_agent",
-          "identifier": "review_batch_filtering_controller",
-          "question": "Read the current immutable batch reconciliation, reconciliation audit, and negative story-scope filtering artifact from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy negative gate positively confirms that no actionable in-scope survivor remains. Answer no when any survivor remains or the gate is missing, partial, unavailable, conflicting, or uncertain. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Preserve removed findings as evidence and never interpret uncertainty as permission to skip later processing.",
-          "breakOn": "yes",
-          "continueOnFailure": true,
-          "continueOnInvalidResponse": true
-        },
-        {
-          "type": "reset",
-          "label": "Reset Review Batch Scope Authorizer",
-          "agentType": "planning_agent",
-          "identifier": "batch_scope_authorizer"
-        },
-        {
-          "type": "llm",
-          "label": "Positively Authorize Review Findings For Story",
-          "agentType": "planning_agent",
-          "identifier": "batch_scope_authorizer",
-          "continueOnFailure": true,
-          "markdownFile": "authorize_review_batch_findings_for_story.md"
-        },
-        {
-          "type": "break",
-          "label": "Stop Filtering When No Authorized Findings Remain",
-          "agentType": "loop_control_agent",
-          "identifier": "review_batch_filtering_controller",
-          "question": "Read the current immutable batch reconciliation, negative story-scope artifact, and positive-authorization artifact from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy authorization gate positively confirms that no survivor is authorized for this story. Answer no when any authorized survivor remains or the gate is missing, partial, unavailable, conflicting, or uncertain. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Preserve all earlier removals and never promote or skip work because evidence is absent.",
-          "breakOn": "yes",
-          "continueOnFailure": true,
-          "continueOnInvalidResponse": true
-        },
-        {
-          "type": "reset",
-          "label": "Reset Review Batch Materiality Filter",
-          "agentType": "planning_agent",
-          "identifier": "batch_materiality_filter"
-        },
-        {
-          "type": "llm",
-          "label": "Filter Review Findings By Materiality And Realistic Impact",
-          "agentType": "planning_agent",
-          "identifier": "batch_materiality_filter",
-          "continueOnFailure": true,
-          "markdownFile": "filter_review_batch_findings_by_materiality.md"
-        },
-        {
-          "type": "break",
-          "label": "Stop Filtering When No Material Findings Remain",
-          "agentType": "loop_control_agent",
-          "identifier": "review_batch_filtering_controller",
-          "question": "Read the current immutable batch reconciliation and every filtering artifact that was applicable through materiality from disk. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when the completed trustworthy materiality gate positively confirms that no material actionable survivor remains. Answer no when any material survivor remains or the applicable evidence is missing, partial, unavailable, conflicting, or uncertain. Missing, malformed, incomplete, contradictory, or unexpectedly formatted files are evidence limitations: salvage every understandable fact, never fail or stop because of them, and answer no when positive confirmation remains impossible. Preserve all removals and never treat uncertainty as a clean exit.",
-          "breakOn": "yes",
-          "continueOnFailure": true,
-          "continueOnInvalidResponse": true
-        },
-        {
-          "type": "break",
-          "label": "Exit Optional Review Filtering After One Pass",
-          "agentType": "loop_control_agent",
-          "identifier": "review_batch_filtering_controller",
-          "question": "The optional filtering path has completed its single allowed pass. Return exact JSON only: {\"answer\":\"yes\"}.",
-          "breakOn": "yes",
-          "breakOnFailure": true
+          "kind": "singleton",
+          "id": "automated_validation",
+          "flowName": "review_automated_branch",
+          "bindings": {
+            "input": {
+              "review_batch_targets": "review_batch_targets",
+              "parallel_automated_validation": "parallel_automated_validation"
+            }
+          }
         }
       ]
     },
     {
-      "type": "reset",
-      "label": "Reset Review Batch Filtering Auditor",
-      "agentType": "review_agent_max",
-      "identifier": "batch_scope_auditor"
-    },
-    {
-      "type": "llm",
-      "label": "Audit Review Batch Filtering Gates",
-      "agentType": "review_agent_max",
-      "identifier": "batch_scope_auditor",
-      "continueOnFailure": true,
-      "markdownFile": "audit_review_batch_scope_filter.md"
-    },
-    {
-      "type": "reset",
-      "label": "Reset Review Batch Dispositioner",
-      "agentType": "planning_agent",
-      "identifier": "batch_dispositioner"
-    },
-    {
-      "type": "llm",
-      "label": "Disposition Review Batch",
-      "agentType": "planning_agent",
-      "identifier": "batch_dispositioner",
-      "continueOnFailure": true,
-      "markdownFile": "disposition_review_batch.md"
-    },
-    {
       "type": "startLoop",
-      "label": "Repair Accepted Local Findings",
+      "label": "Repair Current Batch Findings And Automated Failures",
       "maxIterations": 1,
       "steps": [
         {
           "type": "break",
-          "label": "Skip Repair When No Findings Are Accepted",
+          "label": "Skip Repair When Neither Branch Has Actionable Work",
           "agentType": "loop_control_agent",
           "identifier": "local_batch_controller",
-          "question": "Read the current immutable batch reconciliation, all applicable gates, audit and disposition. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when trustworthy current disposition positively establishes zero accepted actionable survivors, even if review coverage is partial. Otherwise answer no; do not turn uncertainty into a clean finding or resurrect a removed finding.",
+          "question": "Read the assigned exact batch disposition and matching automated result and child outcomes. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when trustworthy evidence establishes zero accepted actionable review survivors and zero actionable attributable automated failures, including a deliberately disabled automated branch. Otherwise answer no; preserve partial or unavailable coverage and never treat uncertainty as a pass or resurrect removed findings.",
           "breakOn": "yes",
           "continueOnFailure": true,
           "continueOnInvalidResponse": true
         },
         {
           "type": "reset",
-          "label": "Start Persistent Batch Repair Conversation",
-          "agentType": "coding_agent_heavy",
-          "identifier": "local_batch_fixer"
+          "label": "Reset Combined Repair Researcher",
+          "agentType": "research_agent",
+          "identifier": "parallel_batch_repair"
         },
         {
           "type": "startLoop",
-          "label": "Repair Remaining Accepted Findings",
+          "label": "Repair Actionable Batch Evidence",
           "steps": [
             {
               "type": "llm",
-              "label": "Plan And Repair Accepted Batch Findings",
-              "agentType": "coding_agent_heavy",
-              "identifier": "local_batch_fixer",
+              "label": "Research And Coordinate Batch Repairs",
+              "agentType": "research_agent",
+              "identifier": "parallel_batch_repair",
               "continueOnFailure": true,
-              "messages": [
-                {
-                  "role": "user",
-                  "content": [
-                    "Read and apply $CODEINFO_ROOT/codeinfo_markdown/local_review_repair_batch.md. Continue planning and repairing remaining accepted findings in this same coding conversation. Delegate only directly relevant focused proof to automated_testing_agent when authorized by the affected task, story and repository instructions; await its terminal evidence.",
-                    "The native local caller authorizes separate commits per affected repository for this worker's own verified eligible fixes only. Verify the expected branch, ownership, other active or unknown writers and index; exclude unrelated or another owner's work. Do not push. If a safe commit is unavailable, retain uncommitted evidence and report incomplete committed-HEAD review coverage; do not claim the dirty repair was reviewed."
-                  ]
-                }
-              ]
+              "markdownFile": "review_parallel_repair.md"
+            },
+            {
+              "type": "llm",
+              "label": "Commit And Attempt To Push",
+              "agentType": "planning_agent_lite",
+              "identifier": "commit_attempt_push",
+              "continueOnFailure": true,
+              "markdownFile": "commit_attempt_push.md"
+            },
+            {
+              "type": "reingest",
+              "label": "Reingest Plan Scope After Repair Iteration",
+              "target": "plan_scope"
             },
             {
               "type": "break",
-              "label": "Stop When Accepted Findings Are Verified Or Operationally Incomplete",
-              "agentType": "coding_agent_heavy",
-              "identifier": "local_batch_fixer",
-              "question": "Using the immutable batch disposition, existing batch repair evidence and current Git state, return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes only when every accepted finding is fixed and verified, or genuine operational failure prevents progress on every remaining finding and no safe independent accepted finding can proceed. Record any unresolved findings and operational failures as incomplete in the existing batch outcome, retaining verified fixes. Answer no while any remaining accepted finding can safely proceed, including complex findings; plan and repair it in this same conversation. Never treat missing or failed proof as verified, impose a retry cap, create a blocker or route work to escalation, separate research or a deferred task. Honor the selected story's exclusions and ownership boundaries.",
+              "label": "Stop When Batch Repair Is Settled Or Cannot Progress",
+              "agentType": "research_agent",
+              "identifier": "parallel_batch_repair",
+              "question": "Read the exact current batch disposition, automated evidence, repair evidence, publication and reingest results. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. Answer yes when every authorized actionable review finding and attributable automated failure is verified fixed, already resolved, excluded, or cannot safely make further progress; record incomplete evidence and genuine blockers. Answer no only while a distinct safe repair can make progress. Never claim missing or failed proof passed, resurrect gated findings, retry unchanged failures, or create deferred tasks.",
               "breakOn": "yes",
               "breakOnFailure": true
             }
@@ -242,18 +105,11 @@
     },
     {
       "type": "llm",
-      "label": "Record Local Batch Outcome",
+      "label": "Record Combined Batch Outcome",
       "agentType": "planning_agent",
       "identifier": "local_batch_planner",
       "continueOnFailure": true,
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Read and apply $CODEINFO_ROOT/codeinfo_markdown/local_review_record_batch.md. Record coverage even when zero findings are accepted. A verified source or test repair is fix-bearing even when uncommitted; record its owned Git provenance without fabricating a commit. The caller owns publication; do not push."
-          ]
-        }
-      ]
+      "markdownFile": "review_parallel_record.md"
     }
   ]
 }

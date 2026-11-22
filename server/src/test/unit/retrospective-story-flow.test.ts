@@ -28,10 +28,10 @@ test('retrospective story flow reingests around distinct planning and tasking pa
       : null,
     'retrospective_story/00-archive-existing-story.md',
   );
-  assert.equal(steps[2]?.type, 'llm');
+  assert.equal(steps[3]?.type, 'llm');
   assert.equal(
-    steps[3]?.type === 'llm' && 'markdownFile' in steps[3]
-      ? steps[3].markdownFile
+    steps[4]?.type === 'llm' && 'markdownFile' in steps[4]
+      ? steps[4].markdownFile
       : null,
     'retrospective_story/01-publish-branch.md',
   );
@@ -44,9 +44,9 @@ test('retrospective story flow reingests around distinct planning and tasking pa
       step.type === 'reingest' && 'target' in step ? step.target : null,
     ]),
     [
-      [1, 'working'],
-      [9, 'plan_scope'],
-      [17, 'plan_scope'],
+      [2, 'working'],
+      [11, 'plan_scope'],
+      [19, 'plan_scope'],
     ],
   );
 
@@ -61,12 +61,14 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     prompts.map(({ agent }) => agent),
     [
       'planning_agent_lite',
-      'planning_agent',
-      'planning_agent_lite',
       'planning_agent_lite',
       'planning_agent',
       'planning_agent_lite',
+      'planning_agent_lite',
       'planning_agent',
+      'planning_agent_lite',
+      'planning_agent',
+      'planning_agent_lite',
       'planning_agent_lite',
       'tasking_agent',
       'tasking_agent',
@@ -79,7 +81,10 @@ test('retrospective story flow reingests around distinct planning and tasking pa
   );
   assert.ok(
     prompts
-      .filter(({ agent }) => agent === 'planning_agent_lite')
+      .filter(
+        ({ agent, file }) =>
+          agent === 'planning_agent_lite' && file !== 'commit_attempt_push.md',
+      )
       .every(({ identifier }) => identifier === 'retrospective_planner_lite'),
   );
   assert.equal(steps.filter((step) => step.type === 'break').length, 0);
@@ -102,8 +107,8 @@ test('retrospective story flow reingests around distinct planning and tasking pa
   );
   for (const { file } of prompts) {
     assert.ok(file);
-    // This repair belongs to the retrospective flow. Its steps must not pick
-    // up ordinary planning/tasking prompts or run shared workflow controls.
+    // The shared publication step is the only non-retrospective prompt.
+    if (file === 'commit_attempt_push.md') continue;
     assert.match(file, /^retrospective_story\//u);
     assert.ok(fs.existsSync(path.join(repoRoot, 'codeinfo_markdown', file)));
     const prompt = read(`codeinfo_markdown/${file}`);
@@ -112,7 +117,17 @@ test('retrospective story flow reingests around distinct planning and tasking pa
   }
   assert.equal(steps.at(-2)?.type, 'llm');
   assert.equal(steps.at(-1)?.type, 'reingest');
-  assert.equal(new Set(prompts.map(({ file }) => file)).size, prompts.length);
+  assert.equal(
+    prompts.filter(({ file }) => file === 'commit_attempt_push.md').length,
+    3,
+  );
+  const retrospectivePrompts = prompts.filter(
+    ({ file }) => file !== 'commit_attempt_push.md',
+  );
+  assert.equal(
+    new Set(retrospectivePrompts.map(({ file }) => file)).size,
+    retrospectivePrompts.length,
+  );
 });
 
 test('lite tasker is available in both supported agent catalogs', () => {
@@ -323,6 +338,7 @@ test('retrospective steps recover inputs without a previous agent conversation',
 
   for (const step of flow.steps.filter((item) => item.type === 'llm')) {
     assert.ok(step.markdownFile);
+    if (step.markdownFile === 'commit_attempt_push.md') continue;
     assert.ok(
       read(`codeinfo_markdown/${step.markdownFile}`).includes(
         'retrospective_story/shared.md',
@@ -535,6 +551,7 @@ test('every writing and checking pass applies branch documentation evidence rule
   for (const step of flow.steps.filter((item) => item.type === 'llm')) {
     assert.ok(step.markdownFile);
     const prompt = read(`codeinfo_markdown/${step.markdownFile}`);
+    if (step.markdownFile === 'commit_attempt_push.md') continue;
     if (step.markdownFile.endsWith('00-archive-existing-story.md')) {
       assert.ok(prompt.includes('Relevant branch-authored documentation'));
       // Archival moves original bytes and records a receipt; it does not write

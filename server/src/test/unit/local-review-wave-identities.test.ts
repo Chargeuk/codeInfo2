@@ -54,3 +54,37 @@ test('local review phases expand distinct target job identities', () => {
     ['local_deep_target_reviews:repo-a:review_artifacts_main'],
   );
 });
+
+test('shared local batch expands review and automated jobs with the same snapshot', () => {
+  const file = path.resolve(process.cwd(), '../flows/local_review_batch.json');
+  const flow = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+    steps: FlowSubflowWaveStep[];
+  };
+  const step = flow.steps.find((candidate) => candidate.type === 'subflowWave');
+  assert.ok(step);
+  const snapshot = {
+    review_wave_id: 'wave-1',
+    plan_host_root: '/repo-a',
+    targets: [{ target_id: 'repo-a', repo_root: '/repo-a', head: 'abc123' }],
+  };
+  const reviewGroups = [{ kind: 'singleton', id: 'review' }];
+
+  for (const enabled of [true, false]) {
+    const jobs = expandSubflowWaveJobs({
+      step,
+      input: {
+        review_batch_targets: snapshot,
+        effective_review_groups: reviewGroups,
+        parallel_automated_validation: enabled,
+      },
+    });
+    assert.deepEqual(
+      jobs.map((job) => job.flowName),
+      ['review_filter_branch', 'review_automated_branch'],
+    );
+    assert.deepEqual(jobs[0]?.input?.review_batch_targets, snapshot);
+    assert.deepEqual(jobs[1]?.input?.review_batch_targets, snapshot);
+    assert.deepEqual(jobs[0]?.input?.effective_review_groups, reviewGroups);
+    assert.equal(jobs[1]?.input?.parallel_automated_validation, enabled);
+  }
+});

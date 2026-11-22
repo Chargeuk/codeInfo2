@@ -228,6 +228,19 @@
               "continueOnFailure": true
             },
             {
+              "type": "llm",
+              "label": "Commit and attempt to push",
+              "agentType": "planning_agent_lite",
+              "identifier": "commit_attempt_push",
+              "markdownFile": "commit_attempt_push.md",
+              "continueOnFailure": true
+            },
+            {
+              "type": "reingest",
+              "label": "Re-embed the working repository after the commit and push attempt",
+              "target": "working"
+            },
+            {
               "type": "break",
               "label": "Exit only this loop on positive fresh implementation completion",
               "agentType": "research_agent",
@@ -480,6 +493,19 @@
       "continueOnFailure": true
     },
     {
+      "type": "llm",
+      "label": "Commit and attempt to push",
+      "agentType": "planning_agent_lite",
+      "identifier": "commit_attempt_push",
+      "markdownFile": "commit_attempt_push.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "reingest",
+      "label": "Re-embed the working repository after the commit and push attempt",
+      "target": "working"
+    },
+    {
       "type": "if",
       "label": "Check selected plan task format before the native retrospective",
       "agentType": "research_agent",
@@ -648,19 +674,16 @@
     },
     {
       "type": "llm",
-      "label": "Publish valid child and recovery work before final reporting",
-      "agentType": "research_agent",
-      "identifier": "codeinfo2_research_agent",
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/publish.md and $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md. Retain existing main-only publication, target/writer ownership, full merge-index and commit/push boundaries. Reconcile actual current source, authorized completed work and the actual native implementation/local review and native PR review outcomes before publication; source changes do not imply human acceptance. After PR review, reconcile actual codeinfo2_implement_current_plan AND codeinfo2_pr_current_plan child records and IDs using the common status lookup rule in $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md. Inspect each child’s authoritative terminal and terminalOutcome; a missing or unavailable result is a limitation, never a pass. Freshly re-read the selected plan/handoff, branch, Git state, repository scope and applicable proof after PR review, including any new fix/revalidation tasks and their results. Earlier final-work reconciliation alone is not final authority. Active children/workers or unknown ownership must not race publication. Preserve the existing local-readiness and publication bounds; add no repair orchestration or gate. Stop after reporting actual local commit/push outcomes, retained work and limitations.",
-            "Reconcile both required child implementation/review/repair flows through their actual authoritative identities and terminal outcomes. Human-only testing does not skip a whole child or waive review/adjudication and authorized repairs. Report unavailable or blocked child outcomes honestly; never fabricate receipts, passes or completion. Keep explicitly excluded testing external/human-pending, not failed/missing agent proof or a reason for a test-repair loop. Preserve exact restrictions in each applicable task Testing section and forward their complete meaning and scope clearly with actual story identity in ordinary follow-up assignments. Publish only valid owned work under existing main-only authority; no child-result or publication success establishes human acceptance."
-          ]
-        }
-      ],
+      "label": "Commit and attempt to push",
+      "agentType": "planning_agent_lite",
+      "identifier": "commit_attempt_push",
+      "markdownFile": "commit_attempt_push.md",
       "continueOnFailure": true
+    },
+    {
+      "type": "reingest",
+      "label": "Re-embed the working repository after the commit and push attempt",
+      "target": "working"
     },
     {
       "type": "llm",

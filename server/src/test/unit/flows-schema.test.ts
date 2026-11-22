@@ -501,6 +501,8 @@ describe('flow schema (v1)', () => {
       'flows/review_artifacts_main.json',
       'flows/review_batch.json',
       'flows/local_review_batch.json',
+      'flows/review_filter_branch.json',
+      'flows/review_automated_branch.json',
       'flows/local_review_current_plan.json',
       'flows/pr_review_current_plan.json',
       'flows/pr_current_plan.json',

@@ -45,7 +45,13 @@ import {
   writeGitHubReviewScratch,
 } from '../../flows/githubReview.js';
 import {
+  __resetMarkdownFileResolverDepsForTests,
+  __setMarkdownFileResolverDepsForTests,
+} from '../../flows/markdownFileResolver.js';
+import {
   __resetFlowWaitResumeDepsForTests,
+  __resetFlowServiceDepsForTests,
+  __setFlowServiceDepsForTests,
   startFlowRun,
 } from '../../flows/service.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
@@ -5918,6 +5924,8 @@ test('whole-story proof routes a reopened final task through the shared flow', a
         events.push('reconcile');
         assert.equal(status().selected_task.number, 2);
         writeTask('__done__', 'x', workCount === 2);
+      } else if (message.includes('Attempt a normal non-force push')) {
+        events.push('publish');
       } else if (message.includes('assess the just-bound task')) {
         events.push('halt:no');
         assert.equal(status().story_complete, true);
@@ -5967,7 +5975,39 @@ test('whole-story proof routes a reopened final task through the shared flow', a
         path.join(repoRoot, 'flows/local_whole_story_proof.json'),
         path.join(tmpDir, 'local_whole_story_proof.json'),
       );
+      await fs.mkdir(path.join(tmpDir, 'codeinfo_markdown'), {
+        recursive: true,
+      });
+      await fs.copyFile(
+        path.join(repoRoot, 'codeinfo_markdown/commit_attempt_push.md'),
+        path.join(tmpDir, 'codeinfo_markdown/commit_attempt_push.md'),
+      );
       const conversationId = `whole-story-proof-${path.basename(tmpDir)}`;
+      __setMarkdownFileResolverDepsForTests({
+        listIngestedRepositories: () => listHarnessRepo(tmpDir),
+      });
+      __setFlowServiceDepsForTests({
+        runReingestRepository: async ({ sourceId }) => {
+          assert.equal(sourceId, tmpDir);
+          events.push('reingest');
+          return {
+            ok: true,
+            value: {
+              status: 'completed',
+              operation: 'reembed',
+              runId: 'whole-story-reingest',
+              sourceId: sourceId ?? tmpDir,
+              resolvedRepositoryId: path.basename(tmpDir),
+              completionMode: 'reingested',
+              durationMs: 1,
+              files: 1,
+              chunks: 1,
+              embedded: 1,
+              errorCode: null,
+            },
+          };
+        },
+      });
       try {
         await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
@@ -5989,24 +6029,49 @@ test('whole-story proof routes a reopened final task through the shared flow', a
         const finalStatus = await supertest(baseUrl)
           .get(`/flows/runs/${conversationId}`)
           .expect(200);
-        assert.equal(finalStatus.body.status, 'ok');
-        assert.deepEqual(events, [
-          'bootstrap',
-          'completion:false',
-          'work',
-          'reconcile',
-          'halt:no',
-          'completion:true',
-          'manual:1',
-          'completion:false',
-          'work',
-          'reconcile',
-          'halt:no',
-          'completion:true',
-          'manual:2',
-          'completion:true',
-          'report',
-        ]);
+        assert.equal(
+          finalStatus.body.status,
+          'ok',
+          `Flow failed: ${JSON.stringify(finalStatus.body)}; events: ${JSON.stringify(events)}`,
+        );
+        assert.deepEqual(
+          events,
+          [
+            'bootstrap',
+            'completion:false',
+            'work',
+            'reconcile',
+            'publish',
+            'reingest',
+            'halt:no',
+            'completion:true',
+            'manual:1',
+            'publish',
+            'reingest',
+            'completion:false',
+            'work',
+            'reconcile',
+            'publish',
+            'reingest',
+            'halt:no',
+            'completion:true',
+            'manual:2',
+            'publish',
+            'reingest',
+            'completion:true',
+            'report',
+          ],
+          JSON.stringify({
+            publicationTurns: (memoryTurns.get(conversationId) ?? [])
+              .filter(
+                (turn) =>
+                  turn.command &&
+                  'agentType' in turn.command &&
+                  turn.command.agentType === 'planning_agent_lite',
+              )
+              .map(({ role, status, content }) => ({ role, status, content })),
+          }),
+        );
         assert.equal(status().story_complete, true);
         assert.equal(status().selected_task.number, 2);
         assert.match(
@@ -6014,9 +6079,12 @@ test('whole-story proof routes a reopened final task through the shared flow', a
           /\[x\] Repair manual finding and add regression/,
         );
       } finally {
+        __resetMarkdownFileResolverDepsForTests();
+        __resetFlowServiceDepsForTests();
         await cleanupConversationRuntime(
           conversationId,
           ...getAgentConversationIds(conversationId, [
+            'planning_agent_lite:planner_lite',
             'research_agent:whole_story_researcher',
             'manual_testing_agent:whole_story_manual_tester',
             'loop_control_agent:whole_story_proof_controller',
@@ -6025,7 +6093,18 @@ test('whole-story proof routes a reopened final task through the shared flow', a
         );
       }
     },
-    { registerTmpDirAsRepo: true },
+    {
+      registerTmpDirAsRepo: true,
+      listIngestedRepositoriesFn: async () => ({
+        repos: [
+          {
+            ...buildHarnessRepoEntry(fixtureRoot),
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        lockedModelId: null,
+      }),
+    },
   );
 });
 

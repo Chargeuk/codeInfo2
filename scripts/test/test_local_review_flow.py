@@ -34,39 +34,31 @@ class LocalReviewFlowTests(unittest.TestCase):
         for path in (ROOT / "flows").glob("*.json"):
             self.assertNotIn('"local_review_implementation"', path.read_text(), str(path))
 
-    def test_pr_review_uses_shared_batch_and_phase_wide_proof(self):
+    def test_pr_review_uses_shared_batch_without_standalone_proof(self):
         steps = flow("pr_review_current_plan")["steps"]
         old = flow("pr_review_cycle")["steps"]
         self.assertEqual(steps[:3], old[:3])
         self.assertEqual([step["type"] for step in steps], [
-            "initializeReviewCycle", "llm", "llm", "startLoop", "startLoop", "llm",
+            "initializeReviewCycle", "llm", "llm", "startLoop", "llm",
         ])
-        review, proof, closeout = steps[3:]
+        review, closeout = steps[3:]
         self.assertEqual(review["maxIterations"], 20)
         wave, reset, reply, decision = review["steps"]
         group = wave["groups"][0]
         self.assertEqual(group["flowName"], "local_review_batch")
-        self.assertEqual(group["bindings"], old[3]["steps"][0]["groups"][0]["bindings"])
         values = group["bindings"]["inputValues"]
+        self.assertIs(values["parallel_automated_validation"], True)
         self.assertIs(values["copilot_reviews_enabled"], False)
         self.assertEqual(values["review_groups"][0]["flowNames"], ["pr_agent_review"])
         self.assertEqual([reset, reply], old[3]["steps"][1:3])
-        self.assertTrue(decision["question"].endswith(old[3]["steps"][3]["question"]))
         for evidence in ("pr_review_batch:local_review_batch", "pr_target_reviews:",
                          "exact current-batch", "exact pushed HEAD", "source or test Git commit"):
             self.assertIn(evidence, decision["question"])
-        self.assertEqual(proof["maxIterations"], 1)
-        gate, run = proof["steps"]
-        self.assertTrue(gate["continueOnFailure"])
-        self.assertTrue(gate["continueOnInvalidResponse"])
-        self.assertEqual(run["groups"][0]["flowName"], "local_whole_story_proof")
-        for evidence in ("last applicable whole-story proof", "integration", "all rounds",
-                         "staged and unstaged", "later reverted", "Plan-only", "genuinely unknown"):
-            self.assertIn(evidence, gate["question"])
         text = json.dumps(closeout)
         for evidence in ("local_review_closeout.md", "record_review_cycle_outcome.py",
                          "exact pushed PR-reviewed heads", "completed-fix tasks", "unreviewed"):
             self.assertIn(evidence, text)
+        self.assertNotIn("local_whole_story_proof", json.dumps(steps))
         for forbidden in ("select_current_task.md", "implement_next_task_subtasks.md",
                           "deep_implementation_blocker_repair.md", "research_blocker_solution_and_prove_it.md",
                           "settle_agent_native_review_pass.md", "apply_agent_native_review_settlement.md",
@@ -74,63 +66,72 @@ class LocalReviewFlowTests(unittest.TestCase):
             self.assertNotIn(forbidden, json.dumps(steps))
         self.assertEqual(flow("pr_current_plan")["steps"][0]["label"], "Story Execution And Review Loop")
 
-    def test_two_phases_proof_and_checkpoint_boundaries(self):
+    def test_local_phases_and_initial_publication(self):
         steps = flow("local_review_current_plan")["steps"]
-        labels = [s["label"] for s in steps]
-        self.assertEqual(labels, [
-            "Run Initial Whole Story Proof",
-            "Checkpoint Initial Proof Candidate Locally",
-            "Initialize Local Review Pass",
-            "Standard Local Review",
-            "Whole Story Proof After Standard Local Review",
-            "Checkpoint Post-Standard Proof Candidate Locally",
-            "Deep Local Review",
-            "Whole Story Proof After Deep Local Review",
-            "Close Out Local Review",
+        self.assertEqual([step["type"] for step in steps], [
+            "subflowWave", "llm", "reingest", "initializeReviewCycle",
+            "startLoop", "llm", "startLoop", "llm",
         ])
         self.assertEqual(steps[0]["groups"][0]["flowName"], "local_whole_story_proof")
-        for label in ("Checkpoint Initial Proof Candidate Locally", "Checkpoint Post-Standard Proof Candidate Locally"):
-            checkpoint = labeled(steps, label)
-            self.assertEqual(checkpoint["identifier"], "local_candidate_checkpoint")
-            self.assertIn("do not push", json.dumps(checkpoint).lower())
+        self.assertEqual(steps[1]["markdownFile"], "commit_attempt_push.md")
+        self.assertEqual(steps[2]["target"], "working")
         phases = [s for s in steps if s.get("maxIterations") == 20]
         self.assertEqual(len(phases), 2)
         for phase in phases:
-            self.assertEqual(phase["steps"][0]["groups"][0]["flowName"], "local_review_batch")
+            group = phase["steps"][0]["groups"][0]
+            self.assertEqual(group["flowName"], "local_review_batch")
+            self.assertIs(group["bindings"]["inputValues"]["parallel_automated_validation"], True)
             self.assertEqual(phase["steps"][1]["type"], "break")
             self.assertTrue(phase["steps"][1]["breakOnFailure"])
-            proof = labeled(steps, "Whole Story Proof After " + phase["label"])
-            self.assertEqual(proof["maxIterations"], 1)
-            self.assertEqual(proof["steps"][1]["groups"][0]["flowName"], "local_whole_story_proof")
-            gate = proof["steps"][0]
-            self.assertEqual(gate["breakOn"], "yes")
-            self.assertNotIn("breakOnFailure", gate)
-            self.assertTrue(gate["continueOnFailure"])
-            self.assertTrue(gate["continueOnInvalidResponse"])
+        self.assertEqual(json.dumps(steps).count('"flowName": "local_whole_story_proof"'), 1)
 
-    def test_batch_repairs_disposition_without_a_planning_step(self):
+    def test_batch_parallel_branches_and_combined_repair(self):
         batch = flow("local_review_batch")["steps"]
-        repair = labeled(batch, "Repair Accepted Local Findings")
+        self.assertEqual([step["type"] for step in batch], [
+            "prepareReviewTargets", "prepareCopilotReviewGroups", "subflowWave", "startLoop", "llm",
+        ])
+        snapshot, groups, wave, repair, outcome = batch
+        self.assertEqual(wave["failureMode"], "best_effort")
+        branches = {group["flowName"]: group for group in wave["groups"]}
+        self.assertEqual(set(branches), {"review_filter_branch", "review_automated_branch"})
+        for branch in branches.values():
+            self.assertEqual(branch["kind"], "singleton")
+            self.assertEqual(branch["bindings"]["input"]["review_batch_targets"], snapshot["outputKey"])
+        self.assertEqual(branches["review_filter_branch"]["bindings"]["input"]["effective_review_groups"],
+                         groups["outputKey"])
+        review = flow("review_filter_branch")["steps"]
+        shared = flow("review_batch")["steps"]
+        index = next(i for i, step in enumerate(shared) if step.get("label") == "Optional Review Repair")
+        self.assertEqual(review, shared[2:index])
+        self.assertEqual(review[0]["reviewWorkspace"]["snapshotFrom"], snapshot["outputKey"])
+        automated, = flow("review_automated_branch")["steps"]
+        self.assertEqual(automated["agentType"], "automated_testing_agent")
+        self.assertTrue(automated["continueOnFailure"])
+        automated_text = (ROOT / "codeinfo_markdown" / automated["markdownFile"]).read_text()
+        for phrase in ("parallel_automated_validation", "exactly boolean `true`", "pinned", "failure"):
+            self.assertIn(phrase, automated_text)
         self.assertEqual(repair["maxIterations"], 1)
         gate, reset, loop = repair["steps"]
         self.assertEqual(gate["type"], "break")
         self.assertEqual(gate["breakOn"], "yes")
-        self.assertEqual(reset["type"], "reset")
-        self.assertEqual(reset["agentType"], "coding_agent_heavy")
-        self.assertEqual(loop["type"], "startLoop")
-        self.assertNotIn("maxIterations", loop)
-        fixer, stop = loop["steps"]
-        self.assertEqual([fixer["type"], stop["type"]], ["llm", "break"])
-        self.assertEqual(fixer["identifier"], reset["identifier"])
+        for phrase in ("accepted actionable review survivors", "actionable attributable automated failures",
+                       "partial or unavailable coverage"):
+            self.assertIn(phrase, gate["question"])
+        self.assertEqual(reset["agentType"], "research_agent")
+        coordinator, publish, reingest, stop = loop["steps"]
+        self.assertEqual([s["type"] for s in loop["steps"]], ["llm", "llm", "reingest", "break"])
+        self.assertEqual(coordinator["identifier"], reset["identifier"])
         self.assertEqual(stop["identifier"], reset["identifier"])
-        self.assertNotIn('"type": "reset"', json.dumps(loop))
-        self.assertNotIn("local_review_plan_batch.md", json.dumps(batch))
-        outcome, = batch[batch.index(repair) + 1:]
-        self.assertEqual(outcome["label"], "Record Local Batch Outcome")
-        self.assertIn("local_review_record_batch.md", json.dumps(outcome))
-        instructions = (ROOT / "codeinfo_markdown" / "local_review_record_batch.md").read_text()
-        self.assertIn("only that verified subset", instructions)
-        self.assertIn("If zero fixes are verified, create no plan task", instructions)
+        repair_text = (ROOT / "codeinfo_markdown" / coordinator["markdownFile"]).read_text()
+        for phrase in ("automated", "coding_agent", "automated_testing_agent", "focused"):
+            self.assertIn(phrase, repair_text)
+        self.assertIn("commit_attempt_push.md", json.dumps(publish))
+        self.assertTrue(publish["continueOnFailure"])
+        self.assertEqual(reingest["target"], "plan_scope")
+        self.assertTrue(stop["breakOnFailure"])
+        outcome_text = (ROOT / "codeinfo_markdown" / outcome["markdownFile"]).read_text()
+        self.assertIn("exactly one completed fix task", outcome_text)
+        self.assertIn("No task for a batch without a fix", outcome_text)
 
     def test_proof_single_task_loop_and_conversation_ownership(self):
         proof = flow("local_whole_story_proof")["steps"]
@@ -145,9 +146,9 @@ class LocalReviewFlowTests(unittest.TestCase):
             self.assertIn(phrase, json.dumps(prepare))
         self.assertEqual(manual_reset["agentType"], "manual_testing_agent")
         self.assertNotIn("maxIterations", loop)
-        top, reset, work, reconcile, halt, manual_if = loop["steps"]
+        top, reset, work, reconcile, publish, reingest, halt, manual_if, publish_after_manual, reingest_after_manual = loop["steps"]
         self.assertEqual([step["type"] for step in loop["steps"]],
-                         ["break", "reset", "llm", "llm", "break", "if"])
+                         ["break", "reset", "llm", "llm", "llm", "reingest", "break", "if", "llm", "reingest"])
         self.assertEqual(reset["agentType"], "research_agent")
         self.assertEqual(reset["identifier"], work["identifier"])
         self.assertEqual(work["identifier"], reconcile["identifier"])
@@ -161,6 +162,11 @@ class LocalReviewFlowTests(unittest.TestCase):
             self.assertIn(phrase, work_text)
         for name in ("coding_agent_heavy", "automated_testing_agent", "manual_testing_agent"):
             self.assertNotIn(name, work_text)
+        for step in (publish, publish_after_manual):
+            self.assertEqual(step["markdownFile"], "commit_attempt_push.md")
+            self.assertTrue(step["continueOnFailure"])
+        for step in (reingest, reingest_after_manual):
+            self.assertEqual(step["target"], "working")
         self.assertEqual(halt["breakOn"], "yes")
         self.assertTrue(halt["haltFlow"])
         self.assertIn("task remains incomplete", halt["question"])
@@ -170,7 +176,7 @@ class LocalReviewFlowTests(unittest.TestCase):
 
     def test_proof_completion_and_manual_transition(self):
         loop = labeled(flow("local_whole_story_proof")["steps"], "Whole-story task loop")
-        top, _, _, _, _, manual_if = loop["steps"]
+        top, _, _, _, _, _, _, manual_if, _, _ = loop["steps"]
         self.assertEqual(top["breakOn"], "yes")
         self.assertEqual(top["agentType"], "loop_control_agent")
         self.assertEqual(top["question"], manual_if["condition"])
@@ -197,12 +203,12 @@ class LocalReviewFlowTests(unittest.TestCase):
             self.assertIn(phrase, text)
         self.assertNotIn('"startLoop"', json.dumps(loop["steps"]))
         for step in (flow("local_whole_story_proof")["steps"][1], top,
-                     *loop["steps"][2:5], manual_if, manual,
+                     *loop["steps"][2:4], loop["steps"][6], manual_if, manual,
                      flow("local_whole_story_proof")["steps"][-1]):
             self.assertIn("$CODEINFO_ROOT/codeinfo_markdown/local_review_whole_story_proof.md",
                           json.dumps(step))
 
-    def test_round_and_proof_decisions_use_attributable_evidence(self):
+    def test_round_decisions_use_attributable_evidence(self):
         steps = flow("local_review_current_plan")["steps"]
         for phase, prefix in (("Standard", "local_standard"), ("Deep", "local_deep")):
             with self.subTest(phase=phase):
@@ -213,20 +219,11 @@ class LocalReviewFlowTests(unittest.TestCase):
                     "subflowWaveProgress.jobs", prefix + "_batch", "flags.flowChild",
                     "flags.flow.values.review_batch_targets", "terminalOutcome",
                     "does not return flags", "exact current-batch", "new committed target HEAD",
-                    "all accepted current-round fixes are verified", "zero accepted survivors",
+                    "actual successful applicable automated validation", "never retry an unchanged failure",
                 ):
                     self.assertIn(evidence, round_question)
-                proof = labeled(steps, "Whole Story Proof After " + phase + " Local Review")
-                question = proof["steps"][0]["question"]
-                for evidence in (
-                    "separate review coverage", "earlier fixes", "resumed work",
-                    "staged and unstaged", "untracked source/tests", "failed launch",
-                    "positively unchanged", "genuinely unknown", "proof must remain pending",
-                    "fix was reverted", "round history",
-                ):
-                    self.assertIn(evidence, question)
 
-    def test_reviewer_groups_and_shared_batch_prefix(self):
+    def test_reviewer_groups(self):
         steps = flow("local_review_current_plan")["steps"]
         standard = labeled(steps, "Standard Local Review")["steps"][0]
         values = standard["groups"][0]["bindings"]["inputValues"]
@@ -237,10 +234,6 @@ class LocalReviewFlowTests(unittest.TestCase):
         values = deep["groups"][0]["bindings"]["inputValues"]
         self.assertEqual(values["review_groups"][0]["flowNames"], ["review_artifacts_main"])
         self.assertIs(values["copilot_reviews_enabled"], False)
-        shared = flow("review_batch")["steps"]
-        local = flow("local_review_batch")["steps"]
-        index = next(i for i, s in enumerate(shared) if s.get("label") == "Optional Review Repair")
-        self.assertEqual(local[:index], shared[:index])
 
 
 if __name__ == "__main__":

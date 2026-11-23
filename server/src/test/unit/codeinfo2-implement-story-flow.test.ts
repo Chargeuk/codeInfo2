@@ -190,27 +190,33 @@ test('retrospective publishes before each existing reingest boundary', () => {
   );
   const retrospective = JSON.parse(retrospectiveRaw) as { steps: Step[] };
   const steps = retrospective.steps;
-  assert.equal(
-    steps[0].markdownFile,
-    'retrospective_story/00-archive-existing-story.md',
-  );
-  assertPublication(steps, 1, 'working');
-  assert.equal(
-    steps[3].markdownFile,
-    'retrospective_story/01-create-layout.md',
-  );
-  assert.equal(
-    steps[9].markdownFile,
-    'retrospective_story/06-manual-guidance.md',
-  );
-  assertPublication(steps, 10, 'plan_scope');
-  assert.equal(
-    steps[12].markdownFile,
-    'retrospective_story/tasking/01-inventory.md',
-  );
-  assert.equal(steps[17].markdownFile, 'retrospective_story/10-audit.md');
-  assertPublication(steps, 18, 'plan_scope');
-  assert.equal(steps.length, 20);
+  const indexOfPrompt = (markdownFile: string) => {
+    const index = steps.findIndex((step) => step.markdownFile === markdownFile);
+    assert.notEqual(index, -1, markdownFile);
+    return index;
+  };
+  const archive = indexOfPrompt('retrospective_story/00-archive-existing-story.md');
+  const layout = indexOfPrompt('retrospective_story/01-create-layout.md');
+  const identity = indexOfPrompt('retrospective_story/01-publish-branch.md');
+  const guidance = indexOfPrompt('retrospective_story/06-manual-guidance.md');
+  const inventory = indexOfPrompt('retrospective_story/tasking/01-inventory.md');
+  const audit = indexOfPrompt('retrospective_story/10-audit.md');
+  assert.equal(archive, 0);
+  assertPublication(steps, archive + 1, 'working');
+  assert.equal(layout, archive + 3);
+  assert.equal(identity, layout + 1);
+  const earlyPublication = steps[identity + 1];
+  assert.equal(earlyPublication?.type, 'llm');
+  assert.equal(earlyPublication?.agentType, 'planning_agent_lite');
+  assert.equal(earlyPublication?.identifier, 'commit_attempt_push');
+  assert.equal(earlyPublication?.markdownFile, 'commit_attempt_push.md');
+  assert.equal(earlyPublication?.continueOnFailure, true);
+  assert.ok(guidance > identity + 1);
+  assertPublication(steps, guidance + 1, 'plan_scope');
+  assert.equal(inventory, guidance + 3);
+  assert.ok(audit > inventory);
+  assertPublication(steps, audit + 1, 'plan_scope');
+  assert.equal(steps.length, audit + 3);
 });
 
 test('prompt references resolve inside the harness and avoid project-specific assumptions', () => {
@@ -387,13 +393,10 @@ test('human edit policy applies to readers and publication without authorship-on
     /Before assessing drift or provenance[^\n]+Human edits and provenance/u,
   );
   const publish = read('codeinfo2_implement_story/publish.md');
-  assert.match(
-    publish,
-    /Unknown file authorship alone does not make otherwise eligible in-scope work pending or unowned/u,
-  );
-  assert.match(
-    publish,
-    /include presumed wanted human edits in the verified repository scope/u,
-  );
-  assert.match(publish, /genuinely active or unresolved dispatched workers/u);
+  assert.match(publish, /commit_attempt_push\.md/u);
+  const publication = read('commit_attempt_push.md');
+  assert.match(publication, /Unknown file authorship is not a reason to block staging or committing/u);
+  assert.match(publication, /stage all tracked changes and all untracked files Git does not ignore/u);
+  assert.match(publication, /every distinct additional repository/u);
+  assert.match(publication, /Do not add eligibility checks or gates/u);
 });

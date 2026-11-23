@@ -35,6 +35,14 @@ test('retrospective story flow reingests around distinct planning and tasking pa
       : null,
     'retrospective_story/01-publish-branch.md',
   );
+  assert.equal(steps[4]?.type === 'llm' && steps[4].continueOnFailure, true);
+  assert.equal(
+    steps[5]?.type === 'llm' && 'markdownFile' in steps[5]
+      ? steps[5].markdownFile
+      : null,
+    'commit_attempt_push.md',
+  );
+  assert.equal(steps[5]?.type === 'llm' && steps[5].continueOnFailure, true);
   const reingestSteps = steps
     .map((step, index) => ({ step, index }))
     .filter(({ step }) => step.type === 'reingest');
@@ -45,8 +53,8 @@ test('retrospective story flow reingests around distinct planning and tasking pa
     ]),
     [
       [2, 'working'],
-      [11, 'plan_scope'],
-      [19, 'plan_scope'],
+      [12, 'plan_scope'],
+      [20, 'plan_scope'],
     ],
   );
 
@@ -63,6 +71,7 @@ test('retrospective story flow reingests around distinct planning and tasking pa
       'planning_agent_lite',
       'planning_agent_lite',
       'planning_agent',
+      'planning_agent_lite',
       'planning_agent_lite',
       'planning_agent_lite',
       'planning_agent',
@@ -119,7 +128,7 @@ test('retrospective story flow reingests around distinct planning and tasking pa
   assert.equal(steps.at(-1)?.type, 'reingest');
   assert.equal(
     prompts.filter(({ file }) => file === 'commit_attempt_push.md').length,
-    3,
+    4,
   );
   const retrospectivePrompts = prompts.filter(
     ({ file }) => file !== 'commit_attempt_push.md',
@@ -177,21 +186,18 @@ test('retrospective prompts preserve an open full-validation task and best-effor
     publish,
     /After the story-only commit, publish using the bounded collision protocol/u,
   );
-  for (const publication of [earlyPublish, publish]) {
-    assert.ok(
-      publication.includes(
-        'git ls-remote --heads <configured-remote> refs/heads/<branch>',
-      ),
-    );
-    assert.match(publication, /exact full ref SHA (?:equals|to equal) local/u);
-  }
+  assert.ok(
+    publish.includes('git ls-remote --heads <configured-remote> refs/heads/<branch>'),
+  );
+  assert.match(publish, /exact full ref SHA to equal local/u);
   assert.match(publish, /Commit\/push failure remains nonfatal/u);
   assert.ok(layout.includes('select_retrospective_story_number.py'));
   assert.ok(earlyPublish.includes('--owned-plan'));
-  assert.ok(earlyPublish.includes('git push -u <configured-remote> HEAD'));
+  assert.match(earlyPublish, /do not stage, commit, or push here/u);
+  assert.match(earlyPublish, /identity checks do not gate that publication/u);
   assert.ok(
     earlyPublish.includes(
-      'report the exact limitation and continue with safe local work',
+      'report the limitation and continue',
     ),
   );
 });

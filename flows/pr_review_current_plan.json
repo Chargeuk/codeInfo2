@@ -21,7 +21,7 @@
       "agentType": "planning_agent_lite",
       "identifier": "planner_lite",
       "continueOnFailure": true,
-      "markdownFile": "checkpoint_push.md"
+      "markdownFile": "commit_attempt_push.md"
     },
     {
       "type": "startLoop",

@@ -37,7 +37,8 @@ class LocalReviewFlowTests(unittest.TestCase):
     def test_pr_review_uses_shared_batch_without_standalone_proof(self):
         steps = flow("pr_review_current_plan")["steps"]
         old = flow("pr_review_cycle")["steps"]
-        self.assertEqual(steps[:3], old[:3])
+        self.assertEqual(steps[:2], old[:2])
+        self.assertEqual(steps[2], {**old[2], "markdownFile": "commit_attempt_push.md"})
         self.assertEqual([step["type"] for step in steps], [
             "initializeReviewCycle", "llm", "llm", "startLoop", "llm",
         ])
@@ -75,6 +76,9 @@ class LocalReviewFlowTests(unittest.TestCase):
         self.assertEqual(steps[0]["groups"][0]["flowName"], "local_whole_story_proof")
         self.assertEqual(steps[1]["markdownFile"], "commit_attempt_push.md")
         self.assertEqual(steps[2]["target"], "working")
+        checkpoint = json.dumps(steps[5])
+        self.assertIn("commit_attempt_push.md", checkpoint)
+        self.assertNotIn("do not push", checkpoint.lower())
         phases = [s for s in steps if s.get("maxIterations") == 20]
         self.assertEqual(len(phases), 2)
         for phase in phases:
@@ -128,10 +132,19 @@ class LocalReviewFlowTests(unittest.TestCase):
         self.assertEqual(publish["markdownFile"], "review_batch_commit_attempt_push.md")
         self.assertTrue(publish["continueOnFailure"])
         publication_text = (ROOT / "codeinfo_markdown" / publish["markdownFile"]).read_text()
-        for phrase in ("commit_attempt_push.md", "current iteration repair evidence",
-                       "secondary assigned targets", "each distinct repository",
-                       "continue attempting the other repositories"):
+        for phrase in ("commit_attempt_push.md", "current repository",
+                       "every distinct additional repository", "active story scope",
+                       "continue to the following reingest"):
             self.assertIn(phrase, publication_text)
+        shared_publication = (ROOT / "codeinfo_markdown" / "commit_attempt_push.md").read_text()
+        for phrase in ("additional_repositories", "deduplicating repositories",
+                       "all tracked changes", "all untracked files Git does not ignore",
+                       "tracked files remain tracked", "git add -A",
+                       "normal non-force push of each current branch",
+                       "nothing new to commit or staging or commit failed",
+                       "Do not add eligibility checks or gates",
+                       "Continue with the remaining repositories"):
+            self.assertIn(phrase, shared_publication)
         self.assertIn("actually changed in the current iteration", repair_text)
         self.assertEqual(reingest["target"], "plan_scope")
         self.assertTrue(stop["breakOnFailure"])

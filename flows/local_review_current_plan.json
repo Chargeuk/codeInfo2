@@ -97,7 +97,7 @@
     },
     {
       "type": "llm",
-      "label": "Checkpoint Post-Standard Proof Candidate Locally",
+      "label": "Checkpoint Post-Standard Proof Candidate",
       "agentType": "planning_agent_lite",
       "identifier": "local_candidate_checkpoint",
       "continueOnFailure": true,
@@ -105,7 +105,7 @@
         {
           "role": "user",
           "content": [
-            "Read and apply $CODEINFO_ROOT/codeinfo_markdown/checkpoint_push.md as a local-only checkpoint. The native local caller explicitly authorizes its scoped commit procedure, but overrides every instruction to push: do not push. Process verified eligible story-owned source, tests and plan changes in each verified target repository only; honor selected story restrictions and repository commit conventions. Refresh branch, HEAD, index and inventory; await actual active owners, and do not stage or commit paths with active or unknown writers, unrelated changes, secrets, conflicts, wrong branch or unsafe merge/index state. Preserve unrelated staged and unstaged changes and other owners’ work. No edits, checks, test execution, branch switch, reset, clean or empty commit. Commit only safely attributable eligible changes with the existing native scoped authority; continue safe independent repositories. Report exact commits, dirty/unavailable targets and honest limitations for the following review and final settlement."
+            "Read and apply $CODEINFO_ROOT/codeinfo_markdown/commit_attempt_push.md. Report the outcomes for the following review and final settlement."
           ]
         }
       ]

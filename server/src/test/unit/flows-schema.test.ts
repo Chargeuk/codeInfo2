@@ -501,6 +501,8 @@ describe('flow schema (v1)', () => {
       'flows/review_artifacts_main.json',
       'flows/review_batch.json',
       'flows/local_review_batch.json',
+      'flows/review_filter_branch.json',
+      'flows/review_automated_branch.json',
       'flows/local_review_current_plan.json',
       'flows/pr_review_current_plan.json',
       'flows/pr_current_plan.json',
@@ -839,7 +841,7 @@ describe('flow schema (v1)', () => {
     );
   });
 
-  test('PR review polling exits on controller failure while preserving continuation and uncapped polling', async () => {
+  test('PR review polling shares reviewer identity and caps iterations while preserving continuation', async () => {
     const raw = await fs.readFile(
       path.join(repoRoot, 'flows/pr_agent_review.json'),
       'utf8',
@@ -851,7 +853,16 @@ describe('flow schema (v1)', () => {
         step.label ===
         'Stop Polling Only For Accounted Terminal Or Unavailable Coverage',
     );
-    assert.equal(loop?.maxIterations, undefined);
+    const observer = loop?.steps?.find((step) => step.type === 'llm');
+    const collector = parsed.steps?.find(
+      (step) => step.markdownFile === 'collect_pr_agent_review.md',
+    );
+    assert.equal(loop?.maxIterations, 12);
+    for (const step of [observer, controller, collector]) {
+      assert.equal(step?.agentType, 'planning_agent');
+      assert.equal(step?.identifier, 'pr_reviewer');
+    }
+    assert.equal(controller?.question, 'Using your latest reviewer-status observation for the pinned candidate, answer {"answer":"no"} if at least one requested reviewer is observably pending or running and can still be observed. Otherwise answer {"answer":"yes"}. Do not treat an unavailable, failed or incomplete review as a successful review.');
     assert.equal(controller?.type, 'break');
     assert.equal(controller?.breakOn, 'yes');
     assert.equal(controller?.breakOnFailure, true);

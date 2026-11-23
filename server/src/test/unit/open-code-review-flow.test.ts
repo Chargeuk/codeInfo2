@@ -141,7 +141,7 @@ test('main proof catalog supplies Sol-high and Sol-xhigh review-only Codex agent
   assert.match(manualTestingIgnore, /^\*\*\/auth\.json$/mu);
 });
 
-test('source heavy and maximum review agents share the review boundary while retaining Sol/high and Sol/xhigh thinking tiers', () => {
+test('source heavy and maximum review agents share the review boundary while retaining Sol/medium and Sol/high thinking tiers', () => {
   const heavyConfig = readRepoFile(
     'codeinfo_agents/review_agent_heavy/config.toml',
   );
@@ -162,9 +162,9 @@ test('source heavy and maximum review agents share the review boundary while ret
   );
 
   assert.match(heavyConfig, /model = "gpt-6\.2-sol"/u);
-  assert.match(heavyConfig, /model_reasoning_effort = "high"/u);
+  assert.match(heavyConfig, /model_reasoning_effort = "medium"/u);
   assert.match(maxConfig, /model = "gpt-6\.2-sol"/u);
-  assert.match(maxConfig, /model_reasoning_effort = "xhigh"/u);
+  assert.match(maxConfig, /model_reasoning_effort = "high"/u);
   assert.match(maxConfig, /sandbox_mode = "danger-full-access"/u);
   assert.equal(maxSystemPrompt, heavySystemPrompt);
   assert.equal(maxCommand, heavyCommand);
@@ -184,8 +184,8 @@ test('active agents preserve their configured model and effort tiers', () => {
         ['research_agent', 'high'],
         ['research_agent_med', 'high'],
         ['review_agent', 'high'],
-        ['review_agent_heavy', 'high'],
-        ['review_agent_max', 'xhigh'],
+        ['review_agent_heavy', 'medium'],
+        ['review_agent_max', 'high'],
         ['tasking_agent', 'high'],
       ],
     },

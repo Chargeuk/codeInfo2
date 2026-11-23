@@ -228,6 +228,19 @@
               "continueOnFailure": true
             },
             {
+              "type": "llm",
+              "label": "Commit and attempt to push",
+              "agentType": "planning_agent_lite",
+              "identifier": "commit_attempt_push",
+              "markdownFile": "commit_attempt_push.md",
+              "continueOnFailure": true
+            },
+            {
+              "type": "reingest",
+              "label": "Re-embed the working repository after the commit and push attempt",
+              "target": "working"
+            },
+            {
               "type": "break",
               "label": "Exit only this loop on positive fresh implementation completion",
               "agentType": "research_agent",
@@ -386,7 +399,7 @@
                   "role": "user",
                   "content": [
                     "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md and apply it.",
-                    "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/publish.md and $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/reingest.md; the same persistent main alone publishes valid owned work under the actual selected Jira/branch, writer/merge/index and explicit-ref bounds, then attempts independent best-effort ingestion. Compare actual local/remote content before commit/push; retain existing matching commits/refs and do not create empty or duplicate commits or fabricate ingestion/publication success. Preserve unknown/active-writer no-race safeguards and per-operation retry budgets; settle owners first and report uncertain outcomes. Publication/ingestion failures do not prevent other safe independent work or turn incomplete work into completion. Workers remain NO COMMIT/NO PUSH and no Jira writes are added here.",
+                    "Read and apply $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/publish.md, then $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/reingest.md for independent best-effort ingestion. Report actual outcomes without fabricating success. Publication or ingestion failures do not prevent other independent work or turn incomplete work into completion. Workers remain NO COMMIT/NO PUSH and no Jira writes are added here.",
                     "A checkpoint does not approve an unreviewed plan. Preserve exact independent-review/save readiness from current source and actual terminal outcomes; if still pending, report the exact unresolved review/save evidence without approving implementation of that revision. No arbitrary iteration/no-progress rule proves completion or an external-only blocker. Stop after returning actual publication/ingestion outcomes and pending obligations. Retain required local/PR reviews and human testing external/pending."
                   ]
                 }
@@ -429,7 +442,7 @@
           "role": "user",
           "content": [
             "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md. Continue the same persistent codeinfo2_research_agent; retain actual worker conversation IDs, serialized writers, safe target/ownership/no-race checks and original immutable inventory/history. Forward the complete meaning and scope of the latest selected execution restriction clearly with actual story identity in every applicable ordinary assignment, with NO COMMIT/NO PUSH for workers. Main alone owns authorized Jira writes and publication in their dedicated stages. Preserve non-checkbox scoped restrictions in every applicable task Testing. Do not authorize selected-scope exclusions, including any prohibited testing, test authoring/repair or validation-only work, and fabricate no passes; retain normal testing behavior where the accepted contract permits it. Await actual terminal worker results without intermediate monitoring or duplicate dispatch; continue safe independent actions after unrelated failures.",
-            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/publish.md and retain the existing same-main-only publication, actual Jira/branch/explicit-ref, ownership/full-index and bounded operation rules for the completed implementation and reconciled plan. Require actual positive implementation completion and current source/worker/normalization evidence, never a loop cap or aggregate return. Stop after reporting actual publication outcomes and limitations. Publish only valid owned work, retaining already committed/pushed matching content without empty/duplicate commits. Unsafe/unknown writers mean no competing commit; investigate/settle safely and report honest pending publication. Nonfatal remote limitations remain separate from local implementation completion. No code/Markdown repairs, tests, Jira or broadened publication authority here."
+            "Read and apply $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/publish.md for the completed implementation and reconciled plan. Report actual publication outcomes and limitations; remote limitations remain separate from local implementation completion. No code/Markdown repairs, tests or Jira writes here."
           ]
         }
       ],
@@ -478,6 +491,19 @@
         }
       ],
       "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "Commit and attempt to push",
+      "agentType": "planning_agent_lite",
+      "identifier": "commit_attempt_push",
+      "markdownFile": "commit_attempt_push.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "reingest",
+      "label": "Re-embed the working repository after the commit and push attempt",
+      "target": "working"
     },
     {
       "type": "if",
@@ -648,19 +674,16 @@
     },
     {
       "type": "llm",
-      "label": "Publish valid child and recovery work before final reporting",
-      "agentType": "research_agent",
-      "identifier": "codeinfo2_research_agent",
-      "messages": [
-        {
-          "role": "user",
-          "content": [
-            "Read $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/publish.md and $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md. Retain existing main-only publication, target/writer ownership, full merge-index and commit/push boundaries. Reconcile actual current source, authorized completed work and the actual native implementation/local review and native PR review outcomes before publication; source changes do not imply human acceptance. After PR review, reconcile actual codeinfo2_implement_current_plan AND codeinfo2_pr_current_plan child records and IDs using the common status lookup rule in $CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/shared.md. Inspect each child’s authoritative terminal and terminalOutcome; a missing or unavailable result is a limitation, never a pass. Freshly re-read the selected plan/handoff, branch, Git state, repository scope and applicable proof after PR review, including any new fix/revalidation tasks and their results. Earlier final-work reconciliation alone is not final authority. Active children/workers or unknown ownership must not race publication. Preserve the existing local-readiness and publication bounds; add no repair orchestration or gate. Stop after reporting actual local commit/push outcomes, retained work and limitations.",
-            "Reconcile both required child implementation/review/repair flows through their actual authoritative identities and terminal outcomes. Human-only testing does not skip a whole child or waive review/adjudication and authorized repairs. Report unavailable or blocked child outcomes honestly; never fabricate receipts, passes or completion. Keep explicitly excluded testing external/human-pending, not failed/missing agent proof or a reason for a test-repair loop. Preserve exact restrictions in each applicable task Testing section and forward their complete meaning and scope clearly with actual story identity in ordinary follow-up assignments. Publish only valid owned work under existing main-only authority; no child-result or publication success establishes human acceptance."
-          ]
-        }
-      ],
+      "label": "Commit and attempt to push",
+      "agentType": "planning_agent_lite",
+      "identifier": "commit_attempt_push",
+      "markdownFile": "commit_attempt_push.md",
       "continueOnFailure": true
+    },
+    {
+      "type": "reingest",
+      "label": "Re-embed the working repository after the commit and push attempt",
+      "target": "working"
     },
     {
       "type": "llm",

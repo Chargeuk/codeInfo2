@@ -21,6 +21,7 @@ type Step = {
   breakOnFailure?: boolean;
   breakOn?: string;
   haltFlow?: boolean;
+  target?: string;
   question?: string;
   condition?: string;
   messages?: Array<{ content: string[] }>;
@@ -57,12 +58,15 @@ test('generic story flow parses and retains its recovery and native review graph
       ...Array(6).fill('llm'),
       'if',
       ...Array(5).fill('llm'),
+      'llm',
+      'reingest',
       'if',
       ...Array(6).fill('llm'),
       'subflowWave',
       'llm',
       'subflowWave',
       'llm',
+      'reingest',
       'llm',
     ],
   );
@@ -100,12 +104,14 @@ test('generic story flow parses and retains its recovery and native review graph
   );
   const loop = gate.then?.[7] as Step;
   const loopExitPrompt = 'codeinfo2_implement_story/loop_exit.md';
-  assert.ok(!textOf(loop.steps?.[2] as Step).includes(loopExitPrompt));
+  assert.ok(!textOf(loop.steps?.[4] as Step).includes(loopExitPrompt));
   assert.ok(textOf(flow.steps[10]).includes(loopExitPrompt));
   assert.deepEqual(
     loop.steps?.map((step) => step.type),
     [
       'llm',
+      'llm',
+      'reingest',
       'break',
       'llm',
       'llm',
@@ -118,8 +124,8 @@ test('generic story flow parses and retains its recovery and native review graph
       'llm',
     ],
   );
-  assert.equal(all.length, 45);
-  const decision = flow.steps[12];
+  assert.equal(all.length, 50);
+  const decision = flow.steps[14];
   assert.equal(
     decision.then?.[0]?.groups?.[0]?.flowName,
     'document_completed_branch_story',
@@ -135,6 +141,82 @@ test('generic story flow parses and retains its recovery and native review graph
       ['best_effort', 'pr_review_current_plan'],
     ],
   );
+});
+
+const assertPublication = (steps: Step[], index: number, target: string) => {
+  assert.equal(steps[index]?.type, 'llm');
+  assert.equal(steps[index]?.agentType, 'planning_agent_lite');
+  assert.equal(steps[index]?.identifier, 'commit_attempt_push');
+  assert.equal(steps[index]?.markdownFile, 'commit_attempt_push.md');
+  assert.equal(steps[index]?.continueOnFailure, true);
+  assert.equal(steps[index + 1]?.type, 'reingest');
+  assert.equal(steps[index + 1]?.target, target);
+};
+
+test('publication precedes the format decision, recovery break, and final report', () => {
+  assert.equal(flow.steps.length, 27);
+  assertPublication(flow.steps, 12, 'working');
+  assert.equal(
+    flow.steps[11].label,
+    'Merge the discovered base immediately before the task-format decision',
+  );
+  assert.equal(
+    flow.steps[14].label,
+    'Check selected plan task format before the native retrospective',
+  );
+  assertPublication(flow.steps, 24, 'working');
+  assert.equal(flow.steps[23].groups?.[0]?.flowName, 'pr_review_current_plan');
+  assert.equal(
+    flow.steps[26].label,
+    'Report actual final local, remote, Jira and native proof outcomes',
+  );
+
+  const recovery = flow.steps[6].then?.[7].steps ?? [];
+  assert.match(recovery[0].label, /Orchestrate the full story/u);
+  assertPublication(recovery, 1, 'working');
+  assert.equal(recovery[3].type, 'break');
+});
+
+test('retrospective publishes before each existing reingest boundary', () => {
+  const retrospectiveRaw = fs.readFileSync(
+    path.join(repoRoot, 'flows/document_completed_branch_story.json'),
+    'utf8',
+  );
+  assert.equal(
+    parseFlowFile(retrospectiveRaw, {
+      flowName: 'document_completed_branch_story',
+    }).ok,
+    true,
+  );
+  const retrospective = JSON.parse(retrospectiveRaw) as { steps: Step[] };
+  const steps = retrospective.steps;
+  const indexOfPrompt = (markdownFile: string) => {
+    const index = steps.findIndex((step) => step.markdownFile === markdownFile);
+    assert.notEqual(index, -1, markdownFile);
+    return index;
+  };
+  const archive = indexOfPrompt('retrospective_story/00-archive-existing-story.md');
+  const layout = indexOfPrompt('retrospective_story/01-create-layout.md');
+  const identity = indexOfPrompt('retrospective_story/01-publish-branch.md');
+  const guidance = indexOfPrompt('retrospective_story/06-manual-guidance.md');
+  const inventory = indexOfPrompt('retrospective_story/tasking/01-inventory.md');
+  const audit = indexOfPrompt('retrospective_story/10-audit.md');
+  assert.equal(archive, 0);
+  assertPublication(steps, archive + 1, 'working');
+  assert.equal(layout, archive + 3);
+  assert.equal(identity, layout + 1);
+  const earlyPublication = steps[identity + 1];
+  assert.equal(earlyPublication?.type, 'llm');
+  assert.equal(earlyPublication?.agentType, 'planning_agent_lite');
+  assert.equal(earlyPublication?.identifier, 'commit_attempt_push');
+  assert.equal(earlyPublication?.markdownFile, 'commit_attempt_push.md');
+  assert.equal(earlyPublication?.continueOnFailure, true);
+  assert.ok(guidance > identity + 1);
+  assertPublication(steps, guidance + 1, 'plan_scope');
+  assert.equal(inventory, guidance + 3);
+  assert.ok(audit > inventory);
+  assertPublication(steps, audit + 1, 'plan_scope');
+  assert.equal(steps.length, audit + 3);
 });
 
 test('prompt references resolve inside the harness and avoid project-specific assumptions', () => {
@@ -166,9 +248,17 @@ test('prompt references resolve inside the harness and avoid project-specific as
     }
   };
   for (const step of all) {
-    if (step.markdownFile) add(step.markdownFile);
+    if (step.markdownFile === 'commit_attempt_push.md') {
+      assert.ok(
+        fs.existsSync(
+          path.join(repoRoot, 'codeinfo_markdown', step.markdownFile),
+        ),
+      );
+    } else if (step.markdownFile) add(step.markdownFile);
     collectReferences(textOf(step));
-    if (step.identifier) assert.match(step.identifier, /^codeinfo2_/u);
+    if (step.identifier && step.markdownFile !== 'commit_attempt_push.md') {
+      assert.match(step.identifier, /^codeinfo2_/u);
+    }
   }
   while (pending.length > 0) {
     const prompt = pending.pop() as string;
@@ -186,8 +276,8 @@ test('prompt references resolve inside the harness and avoid project-specific as
 
 test('completion and halt decisions preserve failure handling flags', () => {
   const loop = flow.steps[6].then?.[7].steps ?? [];
-  const completion = loop[1];
-  const halt = loop[4];
+  const completion = loop[3];
+  const halt = loop[6];
   for (const decision of [completion, halt]) {
     assert.equal(decision.breakOn, 'yes');
     assert.equal(decision.continueOnFailure, true);
@@ -201,13 +291,13 @@ test('completion and halt decisions preserve failure handling flags', () => {
 });
 
 test('local and PR review children are direct best-effort stages', () => {
-  const local = flow.steps[19];
+  const local = flow.steps[21];
   assert.equal(local.type, 'subflowWave');
   assert.equal(local.failureMode, 'best_effort');
   assert.equal(local.groups?.[0]?.id, 'codeinfo2_implement_current_plan');
   assert.equal(local.groups?.[0]?.flowName, 'local_review_current_plan');
 
-  const remote = flow.steps[21];
+  const remote = flow.steps[23];
   assert.equal(remote.type, 'subflowWave');
   assert.equal(remote.failureMode, 'best_effort');
   assert.equal(remote.groups?.[0]?.id, 'codeinfo2_pr_current_plan');
@@ -217,7 +307,7 @@ test('local and PR review children are direct best-effort stages', () => {
 test('proposal self-assessment stages reference their intended prompt', () => {
   for (const stage of [
     flow.steps[6].then?.[2] as Step,
-    flow.steps[6].then?.[7].steps?.[7] as Step,
+    flow.steps[6].then?.[7].steps?.[9] as Step,
   ]) {
     assert.match(
       textOf(stage),
@@ -233,7 +323,7 @@ test('all base integrations preserve wanted human edits alongside existing bound
       '$CODEINFO_ROOT/codeinfo_markdown/codeinfo2_implement_story/merge_base.md',
     ),
   );
-  assert.deepEqual(merges, [flow.steps[0], flow.steps[11], flow.steps[14]]);
+  assert.deepEqual(merges, [flow.steps[0], flow.steps[11], flow.steps[16]]);
   for (const merge of merges) {
     const instructions = textOf(merge);
     assert.match(
@@ -303,13 +393,10 @@ test('human edit policy applies to readers and publication without authorship-on
     /Before assessing drift or provenance[^\n]+Human edits and provenance/u,
   );
   const publish = read('codeinfo2_implement_story/publish.md');
-  assert.match(
-    publish,
-    /Unknown file authorship alone does not make otherwise eligible in-scope work pending or unowned/u,
-  );
-  assert.match(
-    publish,
-    /include presumed wanted human edits in the verified repository scope/u,
-  );
-  assert.match(publish, /genuinely active or unresolved dispatched workers/u);
+  assert.match(publish, /commit_attempt_push\.md/u);
+  const publication = read('commit_attempt_push.md');
+  assert.match(publication, /Unknown file authorship is not a reason to block staging or committing/u);
+  assert.match(publication, /stage all tracked changes and all untracked files Git does not ignore/u);
+  assert.match(publication, /every distinct additional repository/u);
+  assert.match(publication, /Do not add eligibility checks or gates/u);
 });

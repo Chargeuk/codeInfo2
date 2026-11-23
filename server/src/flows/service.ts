@@ -7064,27 +7064,63 @@ async function runFlowUnlocked(params: {
   };
 
   const assignedReviewInput = (): FlowJsonObject | undefined => {
+    const root = { ...(params.input ?? {}), ...flowValues };
+    const parallelBatchFlow = [
+      'local_review_batch',
+      'review_filter_branch',
+      'review_automated_branch',
+    ].includes(params.flowName);
+    const snapshot = root.review_batch_targets;
+    const input: FlowJsonObject = { ...params.input };
+    if (parallelBatchFlow) {
+      input.review_parallel_context = {
+        snapshot: snapshot ?? null,
+        working_repository_path:
+          params.repositoryContext.workingRepositoryPath ?? null,
+        conversation_id: params.conversationId,
+        parallel_automated_validation:
+          params.input?.parallel_automated_validation ?? null,
+        wave_progress: subflowWaveProgress
+          ? JSON.parse(JSON.stringify(subflowWaveProgress))
+          : null,
+      };
+      if (
+        snapshot &&
+        typeof snapshot === 'object' &&
+        !Array.isArray(snapshot)
+      ) {
+        try {
+          input.review_batch = resolveReviewBatchContext(
+            snapshot as ReviewTargetSnapshot,
+          );
+        } catch {
+          input.review_batch = {
+            status: 'unavailable',
+            reason: 'The assigned snapshot could not establish its batch.',
+          };
+        }
+      }
+    }
     const wave = findFlowStepAtPath(
       params.flow.steps,
       subflowWaveProgress?.stepPath ?? [],
     );
-    if (wave?.type !== 'subflowWave' || !wave.reviewWorkspace)
-      return params.input;
-    const snapshot = resolveFlowValue(
-      { ...(params.input ?? {}), ...flowValues },
+    if (wave?.type !== 'subflowWave' || !wave.reviewWorkspace) return input;
+    const waveSnapshot = resolveFlowValue(
+      root,
       wave.reviewWorkspace.snapshotFrom,
     );
     try {
       return {
-        ...params.input,
+        ...input,
         review_batch: resolveReviewBatchContext(
-          snapshot as ReviewTargetSnapshot,
+          waveSnapshot as ReviewTargetSnapshot,
         ),
       };
     } catch {
       // Keep failed recovery bounded; never ask an agent to discover a replacement batch.
       return {
-        ...params.input,
+        ...input,
         review_batch: {
           status: 'unavailable',
           reason:
@@ -10536,7 +10572,13 @@ async function runFlowUnlocked(params: {
     command: TurnCommandMetadata,
     nextPath: number[],
   ) => {
-    const root = { ...(params.input ?? {}), ...flowValues };
+    const root = {
+      ...(params.flowName === 'local_review_batch'
+        ? { parallel_automated_validation: false }
+        : {}),
+      ...(params.input ?? {}),
+      ...flowValues,
+    };
     let jobs = expandSubflowWaveJobs({ step, input: root });
     let reviewAttemptIdentity:
       | { reviewCycleId?: string; reviewBatchId?: string }
@@ -11541,7 +11583,7 @@ async function runFlowUnlocked(params: {
         errorCode: 'INVALID_REQUEST',
         command,
       });
-      return 'failed';
+      return 'ok';
     }
 
     if (!result.ok) {
@@ -11556,7 +11598,7 @@ async function runFlowUnlocked(params: {
         errorCode: 'INVALID_REQUEST',
         command,
       });
-      return 'failed';
+      return 'ok';
     }
 
     const flowServiceDeps = getEffectiveFlowServiceDeps();
@@ -11587,11 +11629,6 @@ async function runFlowUnlocked(params: {
       },
     });
 
-    const pendingCancel = consumePendingConversationCancel({
-      conversationId: params.conversationId,
-      runToken: params.runToken,
-    });
-    const continuedToNextStep = !pendingCancel;
     append({
       level: 'info',
       message: 'DEV-0000045:T10:flow_reingest_step_recorded',
@@ -11612,11 +11649,10 @@ async function runFlowUnlocked(params: {
         repositories:
           result.value.kind === 'batch' ? result.value.repositories : null,
         callId,
-        continuedToNextStep,
       },
     });
 
-    return pendingCancel ? 'stopped' : 'ok';
+    return 'ok';
   };
 
   const runStartLoopStep = async (
@@ -12844,6 +12880,7 @@ async function runFlowUnlocked(params: {
           },
         );
         await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
         appendFlowRuntimeDiagnostic(
           'flows.test.reingest_step_resume_state_persist_complete',
           {

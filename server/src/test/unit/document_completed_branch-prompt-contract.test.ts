@@ -372,8 +372,8 @@ test('retrospective superseded review controls require verified ownership and by
   ]);
 });
 
-test('early and final retrospective publication bound both collision checks to three attempts and preserve published branches', () => {
-  for (const name of ['01-publish-branch.md', '11-commit-and-push.md']) {
+test('retrospective identity reconciliation and final publication preserve branch collision safeguards', () => {
+  for (const name of ['11-commit-and-push.md']) {
     requires(name, [
       [
         'three-attempt upper bound',
@@ -419,11 +419,9 @@ test('early and final retrospective publication bound both collision checks to t
       'competitor branches remain',
       /Do not overwrite or delete competing branches/u,
     ],
-    ['safe normal push', /git push -u <configured-remote> HEAD/u],
-    [
-      'bounded post-push race recovery',
-      /After push, recheck live same-namespace numbers[^.]+reconcile within the three-attempt limit/u,
-    ],
+    ['bounded identity reconciliation', /at most three identity reconciliation attempts/u],
+    ['shared publication is independent', /identity checks do not gate that publication/u],
+    ['no publication in identity step', /do not stage, commit, or push here/u],
     [
       'rerun reuses corrected identity',
       /A rerun must reuse a valid corrected identity/u,

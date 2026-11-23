@@ -9,6 +9,14 @@
       "markdownFile": "retrospective_story/00-archive-existing-story.md"
     },
     {
+      "type": "llm",
+      "label": "Commit and attempt to push",
+      "agentType": "planning_agent_lite",
+      "identifier": "commit_attempt_push",
+      "markdownFile": "commit_attempt_push.md",
+      "continueOnFailure": true
+    },
+    {
       "type": "reingest",
       "label": "Re-embed the working repository before branch research",
       "target": "working"
@@ -22,10 +30,19 @@
     },
     {
       "type": "llm",
-      "label": "Publish the selected story branch",
+      "label": "Reconcile the selected story branch identity",
       "agentType": "planning_agent_lite",
       "identifier": "retrospective_planner_lite",
-      "markdownFile": "retrospective_story/01-publish-branch.md"
+      "markdownFile": "retrospective_story/01-publish-branch.md",
+      "continueOnFailure": true
+    },
+    {
+      "type": "llm",
+      "label": "Commit and attempt to push the selected story branch",
+      "agentType": "planning_agent_lite",
+      "identifier": "commit_attempt_push",
+      "markdownFile": "commit_attempt_push.md",
+      "continueOnFailure": true
     },
     {
       "type": "llm",
@@ -61,6 +78,14 @@
       "agentType": "planning_agent_lite",
       "identifier": "retrospective_planner_lite",
       "markdownFile": "retrospective_story/06-manual-guidance.md"
+    },
+    {
+      "type": "llm",
+      "label": "Commit and attempt to push",
+      "agentType": "planning_agent_lite",
+      "identifier": "commit_attempt_push",
+      "markdownFile": "commit_attempt_push.md",
+      "continueOnFailure": true
     },
     {
       "type": "reingest",
@@ -111,10 +136,11 @@
     },
     {
       "type": "llm",
-      "label": "Commit the story and attempt a push",
+      "label": "Commit and attempt to push",
       "agentType": "planning_agent_lite",
-      "identifier": "retrospective_planner_lite",
-      "markdownFile": "retrospective_story/11-commit-and-push.md"
+      "identifier": "commit_attempt_push",
+      "markdownFile": "commit_attempt_push.md",
+      "continueOnFailure": true
     },
     {
       "type": "reingest",

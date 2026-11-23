@@ -1,0 +1,13 @@
+{
+  "description": "Optionally run automated proof against the same pinned batch candidate.",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Run Opt-In Automated Candidate Proof",
+      "agentType": "automated_testing_agent",
+      "identifier": "parallel_batch_tester",
+      "continueOnFailure": true,
+      "markdownFile": "review_parallel_automated.md"
+    }
+  ]
+}

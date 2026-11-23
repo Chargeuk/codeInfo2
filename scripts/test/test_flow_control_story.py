@@ -228,9 +228,9 @@ class PRReviewPollingContractTests(unittest.TestCase):
             for name, text in {"question": question, "prompt": prompt}.items()
         }
 
-    def test_polling_retains_native_wait_without_a_general_iteration_cap(self):
+    def test_polling_retains_native_wait_with_iteration_cap(self):
         poll_loop, _ = self.read_contracts()
-        self.assertNotIn("maxIterations", poll_loop)
+        self.assertEqual(poll_loop["maxIterations"], 12)
         self.assertEqual(
             [step["type"] for step in poll_loop["steps"]],
             ["llm", "break", "wait"],
@@ -239,7 +239,7 @@ class PRReviewPollingContractTests(unittest.TestCase):
 
     def test_polling_accounts_for_unavailable_routes_and_active_siblings(self):
         _, contracts = self.read_contracts()
-        for name, contract in contracts.items():
+        for name, contract in (("prompt", contracts["prompt"]),):
             with self.subTest(contract=name):
                 self.assertRegex(contract, r"(?s)(?:one|single|a failed).{0,100}(?:route|query|access).{0,120}unavailable|unavailable.{0,120}(?:one|single|failed)")
                 self.assertRegex(contract, r"(?:pending|running).{0,100}(?:observ|active)|(?:observ|active).{0,100}(?:pending|running)")
@@ -247,17 +247,16 @@ class PRReviewPollingContractTests(unittest.TestCase):
                 self.assertRegex(contract, r"(?:never|do not).{0,50}(?:retry|duplicate).{0,50}(?:request|launch)")
                 self.assertRegex(contract, r"unavailable.{0,120}(?:clean|success|terminal)")
 
-    def test_controller_accounts_for_mixed_reviewer_outcomes(self):
+    def test_controller_uses_latest_observation_and_does_not_claim_success(self):
         _, contracts = self.read_contracts()
-        question = contracts["question"]
-        for outcome in ("success", "refusal", "quota", "failure"):
-            self.assertIn(outcome, question)
-        self.assertRegex(question, r"(?:success|refusal).{0,100}quota.{0,100}failure")
-        self.assertRegex(question, r"preceding observation.{0,100}pending")
+        self.assertEqual(
+            contracts["question"],
+            'using your latest reviewer-status observation for the pinned candidate, answer {"answer":"no"} if at least one requested reviewer is observably pending or running and can still be observed. otherwise answer {"answer":"yes"}. do not treat an unavailable, failed or incomplete review as a successful review.',
+        )
 
     def test_ambiguous_delivery_is_bounded_only_for_observable_routes(self):
         _, contracts = self.read_contracts()
-        for name, contract in contracts.items():
+        for name, contract in (("prompt", contracts["prompt"]),):
             with self.subTest(contract=name):
                 self.assertIn("ambiguous-delivery", contract)
                 self.assertRegex(contract, r"(?:one|single).{0,100}(?:reconciliation|readback)")

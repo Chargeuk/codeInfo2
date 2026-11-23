@@ -45,7 +45,13 @@ import {
   writeGitHubReviewScratch,
 } from '../../flows/githubReview.js';
 import {
+  __resetMarkdownFileResolverDepsForTests,
+  __setMarkdownFileResolverDepsForTests,
+} from '../../flows/markdownFileResolver.js';
+import {
   __resetFlowWaitResumeDepsForTests,
+  __resetFlowServiceDepsForTests,
+  __setFlowServiceDepsForTests,
   startFlowRun,
 } from '../../flows/service.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
@@ -1140,6 +1146,90 @@ test('flow loops until break answer matches breakOn', async () => {
       onStopUnwindCheckpoint: (params) => {
         pushStopUnwindCheckpoint(stopUnwindCheckpoints, params);
       },
+    },
+  );
+});
+
+test('PR reviewer polling reaches collection at the cap with pending coverage incomplete', async () => {
+  let observations = 0;
+  let decisions = 0;
+  const collectionPrompts: string[] = [];
+  await withFlowServer(
+    (message) => {
+      if (message.includes('PENDING_REVIEWER_OBSERVATION')) {
+        observations += 1;
+        return 'Reviewer is pending for the pinned candidate.';
+      }
+      if (message.includes('Using your latest reviewer-status observation')) {
+        decisions += 1;
+        return JSON.stringify({ answer: 'no' });
+      }
+      if (message.includes('# Collect pinned PR review evidence')) {
+        collectionPrompts.push(message);
+        return 'Reviewer coverage: incomplete (still pending).';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const flow = JSON.parse(
+        await fs.readFile(path.join(repoRoot, 'flows/pr_agent_review.json'), 'utf8'),
+      );
+      const loop = flow.steps.find((step: { type: string }) => step.type === 'startLoop');
+      const observation = loop.steps.find((step: { type: string }) => step.type === 'llm');
+      const collection = flow.steps.find(
+        (step: { markdownFile?: string }) => step.markdownFile === 'collect_pr_agent_review.md',
+      );
+      const collectionPrompt = await fs.readFile(
+        path.join(repoRoot, 'codeinfo_markdown/collect_pr_agent_review.md'),
+        'utf8',
+      );
+      delete observation.markdownFile;
+      observation.messages = [{ role: 'user', content: ['PENDING_REVIEWER_OBSERVATION'] }];
+      delete collection.markdownFile;
+      collection.messages = [{ role: 'user', content: [collectionPrompt] }];
+      // Preserve the checked-in loop and decision, but avoid real five-minute waits.
+      loop.steps = loop.steps.filter((step: { type: string }) => step.type !== 'wait');
+      flow.steps = [loop, collection];
+      await fs.writeFile(path.join(tmpDir, 'pr-poll-cap.json'), JSON.stringify(flow));
+
+      const conversationId = 'pr-poll-cap-conv';
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+      try {
+        await supertest(baseUrl)
+          .post('/flows/pr-poll-cap/run')
+          .send({ conversationId })
+          .expect(202);
+        await waitForTestCondition(
+          async () => {
+            const response = await supertest(baseUrl)
+              .get(`/flows/runs/${conversationId}`)
+              .expect(200);
+            return response.body.terminal === true;
+          },
+          {
+            timeoutMs: 35000,
+            description: 'PR reviewer polling flow to become terminal',
+          },
+        );
+        const status = await supertest(baseUrl)
+          .get(`/flows/runs/${conversationId}`)
+          .expect(200);
+        assert.equal(status.body.status, 'ok', JSON.stringify(status.body));
+        assert.equal(observations, 12);
+        assert.equal(decisions, 12);
+        assert.equal(collectionPrompts.length, 1);
+        assert.ok(collectionPrompts[0].includes(
+          'If polling ends while a requested reviewer is still pending or running, record that reviewer’s coverage as incomplete; do not claim the review passed.',
+        ));
+        const turns = memoryTurns.get(conversationId) ?? [];
+        assert.ok(turns.some((turn) => turn.role === 'assistant' &&
+          turn.content.includes('Reviewer coverage: incomplete (still pending).')));
+      } finally {
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:pr_reviewer']),
+        );
+      }
     },
   );
 });
@@ -5918,6 +6008,8 @@ test('whole-story proof routes a reopened final task through the shared flow', a
         events.push('reconcile');
         assert.equal(status().selected_task.number, 2);
         writeTask('__done__', 'x', workCount === 2);
+      } else if (message.includes('Attempt a normal non-force push')) {
+        events.push('publish');
       } else if (message.includes('assess the just-bound task')) {
         events.push('halt:no');
         assert.equal(status().story_complete, true);
@@ -5967,7 +6059,39 @@ test('whole-story proof routes a reopened final task through the shared flow', a
         path.join(repoRoot, 'flows/local_whole_story_proof.json'),
         path.join(tmpDir, 'local_whole_story_proof.json'),
       );
+      await fs.mkdir(path.join(tmpDir, 'codeinfo_markdown'), {
+        recursive: true,
+      });
+      await fs.copyFile(
+        path.join(repoRoot, 'codeinfo_markdown/commit_attempt_push.md'),
+        path.join(tmpDir, 'codeinfo_markdown/commit_attempt_push.md'),
+      );
       const conversationId = `whole-story-proof-${path.basename(tmpDir)}`;
+      __setMarkdownFileResolverDepsForTests({
+        listIngestedRepositories: () => listHarnessRepo(tmpDir),
+      });
+      __setFlowServiceDepsForTests({
+        runReingestRepository: async ({ sourceId }) => {
+          assert.equal(sourceId, tmpDir);
+          events.push('reingest');
+          return {
+            ok: true,
+            value: {
+              status: 'completed',
+              operation: 'reembed',
+              runId: 'whole-story-reingest',
+              sourceId: sourceId ?? tmpDir,
+              resolvedRepositoryId: path.basename(tmpDir),
+              completionMode: 'reingested',
+              durationMs: 1,
+              files: 1,
+              chunks: 1,
+              embedded: 1,
+              errorCode: null,
+            },
+          };
+        },
+      });
       try {
         await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
         await supertest(baseUrl)
@@ -5989,24 +6113,49 @@ test('whole-story proof routes a reopened final task through the shared flow', a
         const finalStatus = await supertest(baseUrl)
           .get(`/flows/runs/${conversationId}`)
           .expect(200);
-        assert.equal(finalStatus.body.status, 'ok');
-        assert.deepEqual(events, [
-          'bootstrap',
-          'completion:false',
-          'work',
-          'reconcile',
-          'halt:no',
-          'completion:true',
-          'manual:1',
-          'completion:false',
-          'work',
-          'reconcile',
-          'halt:no',
-          'completion:true',
-          'manual:2',
-          'completion:true',
-          'report',
-        ]);
+        assert.equal(
+          finalStatus.body.status,
+          'ok',
+          `Flow failed: ${JSON.stringify(finalStatus.body)}; events: ${JSON.stringify(events)}`,
+        );
+        assert.deepEqual(
+          events,
+          [
+            'bootstrap',
+            'completion:false',
+            'work',
+            'reconcile',
+            'publish',
+            'reingest',
+            'halt:no',
+            'completion:true',
+            'manual:1',
+            'publish',
+            'reingest',
+            'completion:false',
+            'work',
+            'reconcile',
+            'publish',
+            'reingest',
+            'halt:no',
+            'completion:true',
+            'manual:2',
+            'publish',
+            'reingest',
+            'completion:true',
+            'report',
+          ],
+          JSON.stringify({
+            publicationTurns: (memoryTurns.get(conversationId) ?? [])
+              .filter(
+                (turn) =>
+                  turn.command &&
+                  'agentType' in turn.command &&
+                  turn.command.agentType === 'planning_agent_lite',
+              )
+              .map(({ role, status, content }) => ({ role, status, content })),
+          }),
+        );
         assert.equal(status().story_complete, true);
         assert.equal(status().selected_task.number, 2);
         assert.match(
@@ -6014,9 +6163,12 @@ test('whole-story proof routes a reopened final task through the shared flow', a
           /\[x\] Repair manual finding and add regression/,
         );
       } finally {
+        __resetMarkdownFileResolverDepsForTests();
+        __resetFlowServiceDepsForTests();
         await cleanupConversationRuntime(
           conversationId,
           ...getAgentConversationIds(conversationId, [
+            'planning_agent_lite:planner_lite',
             'research_agent:whole_story_researcher',
             'manual_testing_agent:whole_story_manual_tester',
             'loop_control_agent:whole_story_proof_controller',
@@ -6025,7 +6177,18 @@ test('whole-story proof routes a reopened final task through the shared flow', a
         );
       }
     },
-    { registerTmpDirAsRepo: true },
+    {
+      registerTmpDirAsRepo: true,
+      listIngestedRepositoriesFn: async () => ({
+        repos: [
+          {
+            ...buildHarnessRepoEntry(fixtureRoot),
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        lockedModelId: null,
+      }),
+    },
   );
 });
 

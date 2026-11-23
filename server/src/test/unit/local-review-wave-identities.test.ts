@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { expandSubflowWaveJobs } from '../../flows/subflowWave.js';
 import type { FlowSubflowWaveStep } from '../../flows/flowSchema.js';
+import { expandSubflowWaveJobs } from '../../flows/subflowWave.js';
 
 // These are the actual matrix identities written as Instance in each job.md.
 test('local review phases expand distinct target job identities', () => {
